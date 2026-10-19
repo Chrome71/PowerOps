@@ -2,7 +2,7 @@
 
 **One line:** a free, open-source, cross-platform toolkit that brings software-engineering discipline (analysis, diffing, testing, repeatable deployment) to Microsoft Power Platform. It works alongside `pac`; it does not replace it.
 
-Last updated 2026-10-19. The research behind it is in [research/landscape-2026-10.md](research/landscape-2026-10.md).
+Last updated 2026-10-19.
 
 ## 1. Why now
 
@@ -21,7 +21,7 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
 
 ## 3. The four pillars, mapped to real gaps
 
-| Pillar | First capabilities | Gap it fills (evidence in research §3) |
+| Pillar | First capabilities | Gap it fills |
 |---|---|---|
 | **Solution analysis** | `powerops analyze`: custom rules over unpacked solutions (naming, hard-coded URLs, missing connection references, unmanaged leaks, dependency and layer risk), SARIF output, a baseline file | Solution Checker can't take custom rules or overrides when enforced. The only OSS alternative is a 1★ PowerShell module. |
 | **ALM** | `powerops diff`: component-level semantic diff of two solution versions, rendered as Markdown for PRs. `powerops settings`: generate, validate and diff deployment settings per environment. | Unpack noise, `.pa.yaml` merges done by hand, and more than 9 open issues on connection references and environment variables |
@@ -69,7 +69,7 @@ Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform
 - **Microsoft churn.** Anything built on a preview API can break.
   - Mitigation: depend on GA surfaces (`pac solution`, the Web API, the SARIF format), and isolate everything else behind adapters.
 - **Test tenants are getting harder to get.** The Developer Plan can't be used to create environments after 2026-11-15.
-  - Mitigation: offline-first design and committed fixture solutions. We need to find out what contributors can use instead (see research topics).
+  - Mitigation: offline-first design and committed fixture solutions. We need to find out what contributors can use instead (see §8).
 - **Competitors.**
   - ALM4Dataverse is a framework with one maintainer and daily commits. TALXIS/tools-cli is an agent-driven CLI.
   - Mitigation: differentiate on offline analysis, diff and drift, plus composability. Revisit this before Phase 3.

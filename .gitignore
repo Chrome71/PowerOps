@@ -483,3 +483,6 @@ $RECYCLE.BIN/
 
 # Claude Code
 .claude/settings.local.json
+
+# Private research notes (kept locally, not published)
+docs/research/
