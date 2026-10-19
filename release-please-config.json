@@ -11,7 +11,8 @@
           "type": "generic",
           "path": "Directory.Build.props"
         }
-      ]
+      ],
+      "initial-version": "0.1.0"
     }
   }
 }
