@@ -1,6 +1,6 @@
-# PowerOps build plan: v0.2 to v0.5
+# PowerOps build plan: v0.2 to v0.7
 
-This plan turns [FOUNDATION.md](FOUNDATION.md) Phases 1–2 into ordered, testable milestones. Last updated 2026-10-19.
+This plan turns [FOUNDATION.md](FOUNDATION.md) Phases 1–2 (including the planning skills, Phase 1b) into ordered, testable milestones. Last updated 2026-10-19.
 
 ## Where PowerOps fits
 
@@ -54,9 +54,9 @@ action.yml                  composite GitHub Action at the repo root
 **Dependencies:**
 - the .NET base class library (zip, XML, JSON)
 - System.CommandLine
-- YamlDotNet, from milestone M3 only
+- YamlDotNet, from milestone M4 only
 
-SARIF is written by hand with System.Text.Json; the Sarif SDK is used only in tests to validate the output. PowerOps doesn't use `pac` or the Dataverse SDK until M5.
+SARIF is written by hand with System.Text.Json; the Sarif SDK is used only in tests to validate the output. The `powerops` CLI doesn't call `pac` or the Dataverse SDK until M6. (The M3 skills ask the agent to run read-only `pac` commands; the CLI itself stays offline.)
 
 ## First rule set
 
@@ -76,7 +76,7 @@ Errors are reserved for things that break deployment. Everything else is a warni
 | PO010 | The solution uses a default or auto-generated publisher (`new`, `cr###`) | warning | M1 |
 | PO011 | A flow was exported turned off | warning | M1 |
 | PO012 | A Dataverse "row updated" trigger has no filter columns | warning | M2 |
-| PO013 | A component listed in `rootcomponents.yml` has no source files (pac drops it silently) | error | M3 |
+| PO013 | A component listed in `rootcomponents.yml` has no source files (pac drops it silently) | error | M4 |
 
 Plugin-step and web-resource JavaScript rules are left out, because Solution Checker already covers them.
 
@@ -89,9 +89,10 @@ Each milestone ends in a release that someone can use. "Done when" is checked by
 | **M0. Test foundation** | none | <ul><li>Move to xunit.v3 on Microsoft.Testing.Platform</li><li>Golden-file helper (`POWEROPS_UPDATE_GOLDEN=1` rewrites the expected files)</li><li>Add `PowerOps.Core` and the core test project</li><li>Fixtures plus `NOTICE.md`</li><li>Fix FOUNDATION.md: Solution Checker does allow rule exclusions, and Git integration went GA on 2025-04-22</li></ul> | CI is green on all three operating systems, and fixtures load in a test |
 | **M1. `analyze` on XML and zip** | v0.2.0 | <ul><li>Readers for the zip and XML layouts</li><li>Flow parser</li><li>Rules PO001–PO011</li><li>Text and JSON output</li><li>Exit codes</li></ul> | <ul><li>Each rule has a passing and a failing test</li><li>The CoE fixtures report the expected real hits: env-var default URL (ALM Accelerator for Makers), prefix mismatch, and the declared dependency on Core Components (AuditLogs)</li><li>Golden output matches</li></ul> |
 | **M2. CI integration** | v0.3.0 | <ul><li>SARIF output (validated against the 2.1.0 schema)</li><li>`baseline` and `--baseline`</li><li>Markdown output</li><li>PO012</li><li>`action.yml` (job summary and annotations, optional SARIF upload)</li><li>Rule docs pages</li><li>README quick start: one `run:` line, or `uses: Chrome71/PowerOps@v1`</li></ul> | <ul><li>A test repo shows the findings in GitHub code scanning and in the job summary</li><li>A fork pull request still gets the summary even though the SARIF upload fails</li></ul> |
-| **M3. YAML layout** | v0.4.0 | <ul><li>YamlReader that produces the same model</li><li>PO013</li><li>Basic `.pa.yaml` reading (hard-coded URLs in Power Fx)</li></ul> | The YAML fixture produces the same findings as the same solution in the XML layout |
-| **M4. `diff`** | v0.5.0 | <ul><li>Component-level semantic diff of two solution versions</li><li>Ignores noise (timestamps, ordering, volatile IDs)</li><li>Risk labels: a managed upgrade deletes removed components; flow on/off changed; connection reference or env var added or removed</li><li>Markdown output for pull-request comments</li></ul> | <ul><li>Diffing the managed/unmanaged sample pair and two versions of a live export shows only meaningful changes</li><li>The output fits in a pull-request comment</li></ul> |
-| **M5. `settings`** | v0.6.0 | <ul><li>`settings generate` and `settings validate` offline: compare a `deploymentsettings.json` with the solution's connection references and env vars</li><li>Then the first live feature: bind connection references and turn flows on after import, behind an explicit `--apply` flag</li></ul> | <ul><li>Validate catches missing and extra entries in fixtures</li><li>A live import round-trip in the test environment leaves the flows on</li></ul> |
+| **M3. Planning skills** | v0.4.0 | <ul><li>`powerops-plan`, `powerops-review-plan` and `powerops-implement` skills in `SKILL.md` format, with plain-text fallbacks</li><li>Plan files under `docs/plans/<name>/` with a status header</li><li>`powerops skills install` and `powerops plan status` (exits non-zero when implementation starts without a sign-off)</li><li>Design: [PLANNING-SKILLS.md](PLANNING-SKILLS.md)</li></ul> | <ul><li>In Claude Code and Codex, a one-line idea becomes a signed-off plan through question rounds, with a review on the top model in a fresh session</li><li>Asking to implement without a plan produces a drafted plan with route options, not code</li><li>`powerops plan status` fails in CI on an unsigned plan</li></ul> |
+| **M4. YAML layout** | v0.5.0 | <ul><li>YamlReader that produces the same model</li><li>PO013</li><li>Basic `.pa.yaml` reading (hard-coded URLs in Power Fx)</li></ul> | The YAML fixture produces the same findings as the same solution in the XML layout |
+| **M5. `diff`** | v0.6.0 | <ul><li>Component-level semantic diff of two solution versions</li><li>Ignores noise (timestamps, ordering, volatile IDs)</li><li>Risk labels: a managed upgrade deletes removed components; flow on/off changed; connection reference or env var added or removed</li><li>Markdown output for pull-request comments</li></ul> | <ul><li>Diffing the managed/unmanaged sample pair and two versions of a live export shows only meaningful changes</li><li>The output fits in a pull-request comment</li></ul> |
+| **M6. `settings`** | v0.7.0 | <ul><li>`settings generate` and `settings validate` offline: compare a `deploymentsettings.json` with the solution's connection references and env vars</li><li>Then the first live feature: bind connection references and turn flows on after import, behind an explicit `--apply` flag</li></ul> | <ul><li>Validate catches missing and extra entries in fixtures</li><li>A live import round-trip in the test environment leaves the flows on</li></ul> |
 
 ## Testing
 
@@ -140,7 +141,7 @@ This starts once M1 passes locally.
 5. **Break it on purpose:**
    1. In the browser, hard-code a URL in the flow and add an unused connection reference.
    2. Re-export.
-   3. Confirm the new findings appear (and, from M4, that `powerops diff` shows exactly those changes).
+   3. Confirm the new findings appear (and, from M5, that `powerops diff` shows exactly those changes).
 6. **Keep the result:**
    1. Scrub the export (fake publisher name, no tenant URLs).
    2. Commit it as a new fixture so the live case becomes a permanent offline test.
@@ -168,8 +169,8 @@ This starts once M1 passes locally.
 
 ## Decisions (2026-10-19)
 
-1. **Release order:** `analyze` (v0.2), then CI/SARIF (v0.3), the YAML layout (v0.4), `diff` (v0.5) and `settings` (v0.6). FOUNDATION lists `analyze` and `diff` together in Phase 1. This order puts `diff` after the YAML layout so it can also cover the formats no other tool reads.
+1. **Release order:** `analyze` (v0.2), then CI/SARIF (v0.3), the planning skills (v0.4), the YAML layout (v0.5), `diff` (v0.6) and `settings` (v0.7). FOUNDATION lists `analyze` and `diff` together in Phase 1. This order puts `diff` after the YAML layout so it can also cover the formats no other tool reads.
 2. **Test stack:** xunit.v3 with Microsoft.Testing.Platform, and plain golden files instead of a snapshot library.
-3. **Live environment:** the maintainer's existing personal environment.
-   - If it is an unmanaged developer environment, it is suspended on 2026-12-15.
-   - In that case, export the seed solution before that date and move to a managed developer environment or a trial.
+3. **Live environment:** a dedicated developer environment in a tenant where the maintainer has admin rights, used only for PowerOps testing (a sandbox needs spare tenant database capacity).
+   - Developer environments that aren't managed are suspended from 2026-12-15. The seed solution is already exported and committed as the `powerops-seed` fixture, so offline tests don't depend on the environment.
+4. **Planning skills come before the YAML layout.** They ship to PowerOps users as M3 (v0.4). Every later milestone is planned with them, which dogfoods them early.

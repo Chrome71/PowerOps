@@ -17,7 +17,7 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
 | A CLI and library that runs headless in CI on Linux, macOS and Windows | Another desktop GUI (XrmToolBox and Power Platform ToolBox already cover that) |
 | Offline-first: most commands read an exported or unpacked solution, with no tenant needed | A replacement for `pac`, which it calls for pack, import and check |
 | Machine-readable output (JSON, SARIF, Markdown for PR comments) | A low-code maker tool |
-| Agent-friendly: stable output, a dry-run plan mode, read-only by default, with an MCP server added later | Built around an "AI skill". Microsoft already ships skill packs with more than 1k stars. |
+| Agent-friendly: stable output, a dry-run plan mode, read-only by default, planning skills that gate implementation on a signed-off plan ([design](PLANNING-SKILLS.md)), and an MCP server later | A replacement for Microsoft's build skills ([power-platform-skills](https://github.com/microsoft/power-platform-skills)). Our skills cover planning, review and sign-off, and work alongside them. |
 
 ## 3. The four pillars, mapped to real gaps
 
@@ -61,10 +61,11 @@ Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform
 |---|---|---|
 | **0. Foundation** | Repo scaffolding, CI (build, test, lint), release pipeline, docs skeleton, fixture solutions | `dotnet tool install` of a v0.1.0 that prints `--version`, published from CI |
 | **1. Offline analysis and diff** | `analyze` (about 10 rules, SARIF, baseline), `diff` (Markdown output), GitHub Action that comments on PRs | Running it on a real exported solution finds real issues, and the PR comment is readable |
+| **1b. Planning skills** | `plan`, `review-plan` and `implement` skills for Claude Code, Codex and other agents; `powerops skills install`; `powerops plan status` | A vague idea becomes a reviewed, signed-off plan, and CI fails if implementation starts without one |
 | **2. Settings and connections** | `settings generate/validate/diff`, and turning flows on after import | Replaces a hand-written `deploymentsettings.json` workflow end to end |
 | **3. Environment-aware** | `drift`, `deploy --plan`, pre-deploy layer and impact check, ephemeral environment per PR | A Dev→Test promotion runs from GitHub Actions with a plan reviewed in the PR |
 | **4. Testing** | Flow test harness, Playwright starter, a Copilot Studio eval gate | A failing flow assertion blocks a merge |
-| **5. Agents** | MCP server over the same core, AGENTS.md, a skill | An agent can run analyze, diff and plan, but never writes without an explicit flag |
+| **5. Agents** | MCP server over the same core | An agent can run analyze, diff and plan, but never writes without an explicit flag |
 
 ## 6. Risks
 
@@ -81,6 +82,8 @@ Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform
 - **Licence contamination.**
   - XrmToolBox and Power Platform ToolBox are GPL-3, and FakeXrmEasy v2 is RPL or commercial.
   - Mitigation: don't copy their code, and don't take them as dependencies.
+- **Agent harness churn.** Skill formats, question tools and model selection differ between agents and change often.
+  - Mitigation: one `SKILL.md` per skill with plain-text fallbacks; the gate lives in plan files and `powerops plan status`, not in any one agent.
 - **Scope creep across four pillars.**
   - Mitigation: phases are strictly ordered, and Phase 1 alone must be useful.
 
@@ -92,6 +95,7 @@ Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform
 | 2026-10-19 | Stack: **C# on .NET 10 (LTS)**, shipped as the `PowerOps` dotnet tool with the command `powerops` | It has the only mature official Dataverse SDK and runs on the same runtime as `pac` |
 | 2026-10-19 | CI: **GitHub Actions first**. An Azure DevOps task comes only if people ask for it. | One wrapper to maintain until there is demand for a second |
 | 2026-10-19 | Releases: Conventional Commits, **release-please**, NuGet trusted publishing (OIDC) with build provenance, starting at 0.1.0 | No long-lived publish keys, and changelogs are generated from commit history |
+| 2026-10-19 | **Planning skills** ship to PowerOps users, built after M2: question rounds until the user stops, review in a fresh context on the provider's top model, and no implementation without a signed-off plan (the agent drafts one if the user skips planning). See [PLANNING-SKILLS.md](PLANNING-SKILLS.md). | Agents build well from clear plans; most Power Platform mistakes are made before building starts |
 
 ## 8. Research topics still open
 
