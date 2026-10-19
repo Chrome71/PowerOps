@@ -315,6 +315,20 @@ public class XmlUnpackReaderTests
         Assert.Contains("Workflows/Flow-AA.json", ex.Message);
     }
 
+    [Fact]
+    public void Deeply_nested_xml_throws_InvalidDataException_naming_the_file()
+    {
+        var nested = string.Concat(Enumerable.Repeat("<a>", 1000)) + string.Concat(Enumerable.Repeat("</a>", 1000));
+        using var t = new TempFolder()
+            .Write("Other/Solution.xml", SolutionXml.Manifest())
+            .Write("Other/Customizations.xml", $"<ImportExportXml>{nested}</ImportExportXml>");
+
+        var ex = Assert.Throws<InvalidDataException>(() => Read(t));
+
+        Assert.StartsWith("Other/Customizations.xml: ", ex.Message);
+        Assert.Contains("nested", ex.Message);
+    }
+
     private static string Fixture(string name) => Path.Combine(Golden.RepoRoot, "tests", "fixtures", name);
 
     [Fact]

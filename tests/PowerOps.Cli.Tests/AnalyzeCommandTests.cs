@@ -115,6 +115,42 @@ public class AnalyzeCommandTests : IDisposable
     }
 
     [Fact]
+    public void Malformed_flow_json_exits_three_and_names_the_flow_file()
+    {
+        Directory.CreateDirectory(Path.Combine(_temp, "Other"));
+        File.WriteAllText(Path.Combine(_temp, "Other", "Solution.xml"), """
+            <ImportExportXml><SolutionManifest>
+              <UniqueName>Demo</UniqueName><Version>1.0.0.0</Version><Managed>0</Managed>
+              <Publisher><UniqueName>demopub</UniqueName><CustomizationPrefix>demo</CustomizationPrefix></Publisher>
+            </SolutionManifest></ImportExportXml>
+            """);
+        Directory.CreateDirectory(Path.Combine(_temp, "Workflows"));
+        File.WriteAllText(Path.Combine(_temp, "Workflows", "Broken.json.data.xml"), """
+            <Workflow WorkflowId="{AA-11}" Name="Broken">
+              <JsonFileName>/Workflows/Broken.json</JsonFileName><Category>5</Category>
+            </Workflow>
+            """);
+        File.WriteAllText(Path.Combine(_temp, "Workflows", "Broken.json"), """{"properties": {""");
+
+        var (code, _, err) = Run("analyze", _temp);
+
+        Assert.Equal(3, code);
+        Assert.Contains("Workflows/Broken.json", err);
+    }
+
+    [Fact]
+    public void Same_solution_with_and_without_trailing_slash_counts_once()
+    {
+        var solution = Path.Combine(Fixtures, "coe-auditlogs");
+
+        var (code, output, _) = Run("analyze", solution, solution + Path.DirectorySeparatorChar, "--format", "json", "--fail-on", "none");
+
+        Assert.Equal(0, code);
+        using var doc = JsonDocument.Parse(output);
+        Assert.Equal(1, doc.RootElement.GetProperty("summary").GetProperty("solutions").GetInt32());
+    }
+
+    [Fact]
     public void Json_output_parses_and_has_nine_solutions()
     {
         var (code, output, _) = Run("analyze", Fixtures, "--format", "json", "--fail-on", "none");

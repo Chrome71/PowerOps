@@ -82,7 +82,7 @@ internal static partial class SolutionParser
         var canvasApps = paths.Values
             .Where(p => CanvasMetaPath().IsMatch(p))
             .Select(files.ReadText)
-            .Concat((customizations?.Element("CanvasApps")?.Elements("CanvasApp") ?? []).Select(e => e.ToString()))
+            .Concat((customizations?.Element("CanvasApps")?.Elements("CanvasApp") ?? []).Select(e => e.ToString(SaveOptions.DisableFormatting)))
             .ToList();
 
         return new Solution(
@@ -194,12 +194,29 @@ internal static partial class SolutionParser
         Opt((string?)e.Attribute("displayName")),
         Opt((string?)e.Attribute("solution")));
 
+    private const int MaxXmlDepth = 200;
+
     private static XElement LoadXml(SolutionFiles files, string path)
     {
         try
         {
             // DTDs are prohibited: solutions are untrusted input.
-            using var reader = XmlReader.Create(new StringReader(files.ReadText(path)), new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit });
+            var text = files.ReadText(path);
+            var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit };
+
+            // XDocument.Load is quadratic in nesting depth, so reject deep input with a cheap forward-only pass first.
+            using (var scan = XmlReader.Create(new StringReader(text), settings))
+            {
+                while (scan.Read())
+                {
+                    if (scan.Depth > MaxXmlDepth)
+                    {
+                        throw new XmlException($"XML is nested deeper than {MaxXmlDepth} levels.");
+                    }
+                }
+            }
+
+            using var reader = XmlReader.Create(new StringReader(text), settings);
             return XDocument.Load(reader).Root!;
         }
         catch (XmlException e)
