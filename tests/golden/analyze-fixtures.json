@@ -1,0 +1,310 @@
+{
+  "solutions": [
+    {
+      "path": "tests/fixtures/alm-makers",
+      "uniqueName": "ALMAcceleratorforMakers",
+      "version": "0.0.0.0",
+      "managed": false,
+      "publisher": {
+        "uniqueName": "catteam",
+        "prefix": "cat"
+      },
+      "requires": [
+        "EnvironmentVariables (1.0.2.77)"
+      ],
+      "findings": [
+        {
+          "ruleId": "PO009",
+          "severity": "warning",
+          "message": "Component 'new_sharedcommondataserviceforapps_06411' does not use the publisher prefix 'cat'.",
+          "file": "Other/Customizations.xml",
+          "component": "new_sharedcommondataserviceforapps_06411"
+        },
+        {
+          "ruleId": "PO009",
+          "severity": "warning",
+          "message": "Component 'new_sharedpowerappsforappmakers_87b9a' does not use the publisher prefix 'cat'.",
+          "file": "Other/Customizations.xml",
+          "component": "new_sharedpowerappsforappmakers_87b9a"
+        },
+        {
+          "ruleId": "PO011",
+          "severity": "warning",
+          "message": "Flow 'WorkflowCompleteNotification' is turned off.",
+          "file": "Workflows/WorkflowCompleteNotification-518F39D7-F4E5-EA11-A817-000D3A56B702.json",
+          "component": "WorkflowCompleteNotification"
+        },
+        {
+          "ruleId": "PO007",
+          "severity": "warning",
+          "message": "Environment variable 'cat_DependentEnvironmentUrl' has a default value that looks like a URL.",
+          "file": "environmentvariabledefinitions/cat_DependentEnvironmentUrl/environmentvariabledefinition.xml",
+          "component": "cat_DependentEnvironmentUrl"
+        },
+        {
+          "ruleId": "PO008",
+          "severity": "warning",
+          "message": "Environment variable 'cat_DependentEnvironmentUrl' ships a current value in the solution.",
+          "file": "environmentvariabledefinitions/cat_DependentEnvironmentUrl/environmentvariablevalues.json",
+          "component": "cat_DependentEnvironmentUrl"
+        },
+        {
+          "ruleId": "PO007",
+          "severity": "warning",
+          "message": "Environment variable 'cat_DependentEnvironmentUserId' has a default value that looks like an email address.",
+          "file": "environmentvariabledefinitions/cat_DependentEnvironmentUserId/environmentvariabledefinition.xml",
+          "component": "cat_DependentEnvironmentUserId"
+        },
+        {
+          "ruleId": "PO008",
+          "severity": "warning",
+          "message": "Environment variable 'cat_DependentEnvironmentUserId' ships a current value in the solution.",
+          "file": "environmentvariabledefinitions/cat_DependentEnvironmentUserId/environmentvariablevalues.json",
+          "component": "cat_DependentEnvironmentUserId"
+        },
+        {
+          "ruleId": "PO008",
+          "severity": "warning",
+          "message": "Environment variable 'cat_DepndentEnvironmentSecretName' ships a current value in the solution.",
+          "file": "environmentvariabledefinitions/cat_DepndentEnvironmentSecretName/environmentvariablevalues.json",
+          "component": "cat_DepndentEnvironmentSecretName"
+        },
+        {
+          "ruleId": "PO008",
+          "severity": "warning",
+          "message": "Environment variable 'cat_GitHubOrgPlanExist' ships a current value in the solution.",
+          "file": "environmentvariabledefinitions/cat_GitHubOrgPlanExist/environmentvariablevalues.json",
+          "component": "cat_GitHubOrgPlanExist"
+        },
+        {
+          "ruleId": "PO008",
+          "severity": "warning",
+          "message": "Environment variable 'cat_OrgLanguage' ships a current value in the solution.",
+          "file": "environmentvariabledefinitions/cat_OrgLanguage/environmentvariablevalues.json",
+          "component": "cat_OrgLanguage"
+        },
+        {
+          "ruleId": "PO008",
+          "severity": "warning",
+          "message": "Environment variable 'cat_OrgName' ships a current value in the solution.",
+          "file": "environmentvariabledefinitions/cat_OrgName/environmentvariablevalues.json",
+          "component": "cat_OrgName"
+        },
+        {
+          "ruleId": "PO008",
+          "severity": "warning",
+          "message": "Environment variable 'cat_TemplateRepoName' ships a current value in the solution.",
+          "file": "environmentvariabledefinitions/cat_TemplateRepoName/environmentvariablevalues.json",
+          "component": "cat_TemplateRepoName"
+        },
+        {
+          "ruleId": "PO007",
+          "severity": "warning",
+          "message": "Environment variable 'cat_WebhookUrl' has a default value that looks like a URL.",
+          "file": "environmentvariabledefinitions/cat_WebhookUrl/environmentvariabledefinition.xml",
+          "component": "cat_WebhookUrl"
+        },
+        {
+          "ruleId": "PO008",
+          "severity": "warning",
+          "message": "Environment variable 'cat_WebhookUrl' ships a current value in the solution.",
+          "file": "environmentvariabledefinitions/cat_WebhookUrl/environmentvariablevalues.json",
+          "component": "cat_WebhookUrl"
+        },
+        {
+          "ruleId": "PO007",
+          "severity": "warning",
+          "message": "Environment variable 'cat_clientId' has a default value that looks like a GUID.",
+          "file": "environmentvariabledefinitions/cat_clientId/environmentvariabledefinition.xml",
+          "component": "cat_clientId"
+        },
+        {
+          "ruleId": "PO008",
+          "severity": "warning",
+          "message": "Environment variable 'cat_clientId' ships a current value in the solution.",
+          "file": "environmentvariabledefinitions/cat_clientId/environmentvariablevalues.json",
+          "component": "cat_clientId"
+        }
+      ]
+    },
+    {
+      "path": "tests/fixtures/alm-sample",
+      "uniqueName": "ALMAcceleratorSampleSolution",
+      "version": "0.0.0.0",
+      "managed": false,
+      "publisher": {
+        "uniqueName": "catteam",
+        "prefix": "cat"
+      },
+      "requires": [
+        "AppModuleWebResources (2.5)"
+      ],
+      "findings": [
+        {
+          "ruleId": "PO011",
+          "severity": "warning",
+          "message": "Flow 'Email Quote' is turned off.",
+          "file": "Workflows/EmailQuote-A4C44986-14D6-EC11-A7B5-000D3A1C0439.json",
+          "component": "Email Quote"
+        },
+        {
+          "ruleId": "PO011",
+          "severity": "warning",
+          "message": "Flow 'Like Quote' is turned off.",
+          "file": "Workflows/LikeQuote-90D90640-11BC-EC11-983F-0022483403A3.json",
+          "component": "Like Quote"
+        },
+        {
+          "ruleId": "PO011",
+          "severity": "warning",
+          "message": "Flow 'SÆmple Ø ærlig forsøk' is turned off.",
+          "file": "Workflows/Smplerligforsk-37443C82-D03D-ED11-9DB0-0022482E56BE.json",
+          "component": "SÆmple Ø ærlig forsøk"
+        }
+      ]
+    },
+    {
+      "path": "tests/fixtures/coe-auditlogs",
+      "uniqueName": "CenterofExcellenceAuditLogs",
+      "version": "3.27.2",
+      "managed": false,
+      "publisher": {
+        "uniqueName": "powerplatformadmin",
+        "prefix": "admin"
+      },
+      "requires": [
+        "CenterofExcellenceCoreComponents (4.4.1)"
+      ],
+      "findings": [
+        {
+          "ruleId": "PO005",
+          "severity": "warning",
+          "message": "Connection reference 'admin_sharedadmin5foffice2036520management20api5f7fc9343cf45734fe_8f08c' is not used by any flow or app.",
+          "file": "Other/Customizations.xml",
+          "component": "admin_sharedadmin5foffice2036520management20api5f7fc9343cf45734fe_8f08c"
+        },
+        {
+          "ruleId": "PO005",
+          "severity": "warning",
+          "message": "Connection reference 'admin_sharedcommondataserviceforapps_8f10b' is not used by any flow or app.",
+          "file": "Other/Customizations.xml",
+          "component": "admin_sharedcommondataserviceforapps_8f10b"
+        },
+        {
+          "ruleId": "PO005",
+          "severity": "warning",
+          "message": "Connection reference 'new_CoEAuditLogsO365Outlook' is not used by any flow or app.",
+          "file": "Other/Customizations.xml",
+          "component": "new_CoEAuditLogsO365Outlook"
+        },
+        {
+          "ruleId": "PO009",
+          "severity": "warning",
+          "message": "Component 'new_CoEAuditLogsDataverse' does not use the publisher prefix 'admin'.",
+          "file": "Other/Customizations.xml",
+          "component": "new_CoEAuditLogsDataverse"
+        },
+        {
+          "ruleId": "PO009",
+          "severity": "warning",
+          "message": "Component 'new_CoEAuditLogsO365Outlook' does not use the publisher prefix 'admin'.",
+          "file": "Other/Customizations.xml",
+          "component": "new_CoEAuditLogsO365Outlook"
+        },
+        {
+          "ruleId": "PO011",
+          "severity": "warning",
+          "message": "Flow 'Deprecated | Admin | Sync Audit Logs' is turned off.",
+          "file": "Workflows/DeprecatedAdminSyncAuditLogs-FA91974D-6E68-EA11-A811-000D3A31CF04.json",
+          "component": "Deprecated | Admin | Sync Audit Logs"
+        },
+        {
+          "ruleId": "PO011",
+          "severity": "warning",
+          "message": "Flow 'Deprecated | [Child] Admin | Sync Logs' is turned off.",
+          "file": "Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json",
+          "component": "Deprecated | [Child] Admin | Sync Logs"
+        }
+      ]
+    },
+    {
+      "path": "tests/fixtures/zips/ColumnLevelSecuritySampleSolution.zip",
+      "uniqueName": "ColumnLevelSecuritySampleSolution",
+      "version": "1.0.0.0",
+      "managed": false,
+      "publisher": {
+        "uniqueName": "ColumnLevelSecuritySamplePublisher",
+        "prefix": "sample"
+      },
+      "requires": [
+        "msft_ColumnLevelSecurityData (1.2.0.28)"
+      ],
+      "findings": []
+    },
+    {
+      "path": "tests/fixtures/zips/ColumnLevelSecuritySampleSolution_managed.zip",
+      "uniqueName": "ColumnLevelSecuritySampleSolution",
+      "version": "1.0.0.0",
+      "managed": true,
+      "publisher": {
+        "uniqueName": "ColumnLevelSecuritySamplePublisher",
+        "prefix": "sample"
+      },
+      "requires": [
+        "msft_ColumnLevelSecurityData (1.2.0.28)"
+      ],
+      "findings": []
+    },
+    {
+      "path": "tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip",
+      "uniqueName": "Contoso_sample",
+      "version": "1.0.0.1",
+      "managed": true,
+      "publisher": {
+        "uniqueName": "DefaultPublisherorg8a403877",
+        "prefix": "new"
+      },
+      "requires": [],
+      "findings": [
+        {
+          "ruleId": "PO005",
+          "severity": "warning",
+          "message": "Connection reference 'new_D365connection' is not used by any flow or app.",
+          "file": "customizations.xml",
+          "component": "new_D365connection"
+        },
+        {
+          "ruleId": "PO008",
+          "severity": "warning",
+          "message": "Environment variable 'new_ContosoURL' ships a current value in the solution.",
+          "file": "environmentvariabledefinitions/new_ContosoURL/environmentvariablevalues.json",
+          "component": "new_ContosoURL"
+        },
+        {
+          "ruleId": "PO010",
+          "severity": "warning",
+          "message": "Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher.",
+          "file": "solution.xml",
+          "component": "DefaultPublisherorg8a403877"
+        }
+      ]
+    },
+    {
+      "path": "tests/fixtures/zips/polymorphiclookupexamplesolution.zip",
+      "uniqueName": "polymorphiclookupexamplesolution",
+      "version": "1.0.0.0",
+      "managed": true,
+      "publisher": {
+        "uniqueName": "examplepublisher",
+        "prefix": "sample"
+      },
+      "requires": [],
+      "findings": []
+    }
+  ],
+  "summary": {
+    "solutions": 7,
+    "errors": 0,
+    "warnings": 29
+  }
+}

@@ -6,7 +6,7 @@ Last updated 2026-10-19.
 
 ## 1. Why now
 
-Over the last 18 months Microsoft has stepped back from several pieces of pro-developer ALM tooling. Power Apps Test Engine is deprecated, the CoE Starter Kit is archived, ALM Accelerator is deprecated, and `pac canvas pack/unpack` is deprecated. Meanwhile the platform has moved to Git integration, a YAML solution format, Pipelines, and an API-first admin plane.
+Over the last 18 months Microsoft has stepped back from several pieces of pro-developer ALM tooling. Power Apps Test Engine is deprecated, the CoE Starter Kit is archived, ALM Accelerator is deprecated, and `pac canvas pack/unpack` is deprecated. Meanwhile the platform has moved to Git integration (GA since [2025-04-22](https://www.microsoft.com/power-platform/blog/power-apps/git-integration-is-generally-available/)), a YAML solution format, Pipelines, and an API-first admin plane.
 
 What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrapper over `pac` (Actions, Build Tools). The space in between has no maintained, cross-platform, CI-native owner. That space covers knowing what a change does before you deploy it, testing it, and proving environments match.
 
@@ -23,7 +23,7 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
 
 | Pillar | First capabilities | Gap it fills |
 |---|---|---|
-| **Solution analysis** | `powerops analyze`: custom rules over unpacked solutions (naming, hard-coded URLs, missing connection references, unmanaged leaks, dependency and layer risk), SARIF output, a baseline file | Solution Checker can't take custom rules or overrides when enforced. The only OSS alternative is a 1★ PowerShell module. |
+| **Solution analysis** | `powerops analyze`: custom rules over unpacked solutions (naming, hard-coded URLs, missing connection references, unmanaged leaks, dependency and layer risk), SARIF output, a baseline file | Solution Checker runs as an online service and can't take custom rules or per-component suppressions. When it is enforced in Managed Environments you can exclude rules, but not add your own. The only OSS alternative is a 1★ PowerShell module. |
 | **ALM** | `powerops diff`: component-level semantic diff of two solution versions, rendered as Markdown for PRs. `powerops settings`: generate, validate and diff deployment settings per environment. | Unpack noise, `.pa.yaml` merges done by hand, and more than 9 open issues on connection references and environment variables |
 | **Testing** | Flow test harness (mock connector outputs, assert on run results). A Playwright starter that wraps Microsoft's samples. | Test Engine is deprecated, and no flow test framework exists anywhere |
 | **Deployment automation** | `powerops deploy --plan`: a dependency-ordered multi-solution deploy that binds connection references and turns flows back on. `powerops drift`: compares Dev, Test and Prod. A composite GitHub Action. | Pipelines deploy one solution at a time, upgrade-only. Flows arrive switched off after a service-principal import. Nothing detects drift since the CoE kit was archived. |
@@ -52,6 +52,8 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
   - OpenSSF Scorecard, a CycloneDX SBOM, and build attestations.
 
 ## 5. Roadmap
+
+The ordered milestones for Phases 1–2 are in [BUILD-PLAN.md](BUILD-PLAN.md).
 
 Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform tenant**, which keeps contribution easy.
 

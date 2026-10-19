@@ -27,10 +27,10 @@ public class ProgramTests
     }
 
     [Fact]
-    public void Unknown_command_exits_non_zero()
+    public void Unknown_command_exits_two()
     {
         var exitCode = Program.Run(["nope"], new StringWriter(), new StringWriter());
 
-        Assert.NotEqual(0, exitCode);
+        Assert.Equal(2, exitCode);
     }
 }
