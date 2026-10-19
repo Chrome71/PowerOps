@@ -19,6 +19,8 @@ public class SolutionDiscoveryTests
                 "alm-makers",
                 "alm-sample",
                 "coe-auditlogs",
+                "powerops-seed/v1",
+                "powerops-seed/v2",
                 "zips/ColumnLevelSecuritySampleSolution.zip",
                 "zips/ColumnLevelSecuritySampleSolution_managed.zip",
                 "zips/Contoso_sample_1_0_0_1_managed.zip",
