@@ -1,0 +1,925 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "PowerOps",
+          "informationUri": "https://github.com/Chrome71/PowerOps",
+          "version": "1.2.3",
+          "rules": [
+            {
+              "id": "PO001",
+              "name": "UndefinedConnectionReference",
+              "shortDescription": {
+                "text": "Flow uses a connection reference that is not defined"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO001.md",
+              "defaultConfiguration": {
+                "level": "error"
+              }
+            },
+            {
+              "id": "PO002",
+              "name": "RequiredEnvironmentVariableWithoutValue",
+              "shortDescription": {
+                "text": "Required environment variable has no default or current value"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO002.md",
+              "defaultConfiguration": {
+                "level": "error"
+              }
+            },
+            {
+              "id": "PO003",
+              "name": "DependencyWithoutOwningSolution",
+              "shortDescription": {
+                "text": "Missing dependency has no owning solution"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO003.md",
+              "defaultConfiguration": {
+                "level": "error"
+              }
+            },
+            {
+              "id": "PO004",
+              "name": "UndefinedChildFlow",
+              "shortDescription": {
+                "text": "Flow calls a child flow that is not defined"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO004.md",
+              "defaultConfiguration": {
+                "level": "error"
+              }
+            },
+            {
+              "id": "PO005",
+              "name": "UnusedConnectionReference",
+              "shortDescription": {
+                "text": "Connection reference is not used by any flow or app"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO005.md",
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO006",
+              "name": "HardCodedEnvironmentUrl",
+              "shortDescription": {
+                "text": "Flow contains a hard-coded environment or SharePoint site URL"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO006.md",
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO007",
+              "name": "EnvironmentSpecificDefaultValue",
+              "shortDescription": {
+                "text": "Environment variable default value looks environment-specific"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO007.md",
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO008",
+              "name": "ShippedCurrentValue",
+              "shortDescription": {
+                "text": "Environment variable ships a current value"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO008.md",
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO009",
+              "name": "ForeignPrefix",
+              "shortDescription": {
+                "text": "Component name does not use the publisher prefix"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md",
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO010",
+              "name": "DefaultPublisher",
+              "shortDescription": {
+                "text": "Solution uses a default or generated publisher prefix"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO010.md",
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO011",
+              "name": "FlowOff",
+              "shortDescription": {
+                "text": "Cloud flow is turned off"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md",
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO012",
+              "name": "RowUpdatedTriggerWithoutFilterColumns",
+              "shortDescription": {
+                "text": "Dataverse row-updated trigger has no filter columns"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO012.md",
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "PO007",
+          "ruleIndex": 6,
+          "level": "warning",
+          "message": {
+            "text": "Environment variable 'cat_DependentEnvironmentUrl' has a default value that looks like a URL."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/environmentvariabledefinitions/cat_DependentEnvironmentUrl/environmentvariabledefinition.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "af924f0fa35912d9942d82169db84955953dc0222174e86baf7634922a12cdbc"
+          }
+        },
+        {
+          "ruleId": "PO007",
+          "ruleIndex": 6,
+          "level": "warning",
+          "message": {
+            "text": "Environment variable 'cat_DependentEnvironmentUserId' has a default value that looks like an email address."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/environmentvariabledefinitions/cat_DependentEnvironmentUserId/environmentvariabledefinition.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "b381466a8492dbcadfd798b54031209af8a94b53dd7c0c7202439dc1e6468a8e"
+          }
+        },
+        {
+          "ruleId": "PO007",
+          "ruleIndex": 6,
+          "level": "warning",
+          "message": {
+            "text": "Environment variable 'cat_WebhookUrl' has a default value that looks like a URL."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/environmentvariabledefinitions/cat_WebhookUrl/environmentvariabledefinition.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "c4b464b186bd8a245e8f9de2ba1020d6db8b34aa57663b269fd3d388f5222952"
+          }
+        },
+        {
+          "ruleId": "PO007",
+          "ruleIndex": 6,
+          "level": "warning",
+          "message": {
+            "text": "Environment variable 'cat_clientId' has a default value that looks like a GUID."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/environmentvariabledefinitions/cat_clientId/environmentvariabledefinition.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "4f2e6590ca20e65ceec7f99779755abd447200b0c0580ef29da7321a118c1a10"
+          }
+        },
+        {
+          "ruleId": "PO008",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "Environment variable 'cat_DependentEnvironmentUrl' ships a current value in the solution."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/environmentvariabledefinitions/cat_DependentEnvironmentUrl/environmentvariablevalues.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "bfc79ec9cf00dcfda6c4779589edbef383dee4250927cee20f62b504360c8b26"
+          }
+        },
+        {
+          "ruleId": "PO008",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "Environment variable 'cat_DependentEnvironmentUserId' ships a current value in the solution."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/environmentvariabledefinitions/cat_DependentEnvironmentUserId/environmentvariablevalues.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "d9dda4220ffda650f866f85819160247fae0db14e0aad0ee6300bf596fe850db"
+          }
+        },
+        {
+          "ruleId": "PO008",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "Environment variable 'cat_DepndentEnvironmentSecretName' ships a current value in the solution."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/environmentvariabledefinitions/cat_DepndentEnvironmentSecretName/environmentvariablevalues.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "e53cfe31045f9452ee71240a1f4d786da24a87ad5fad5ed4d3b5b5a4320aac30"
+          }
+        },
+        {
+          "ruleId": "PO008",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "Environment variable 'cat_GitHubOrgPlanExist' ships a current value in the solution."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/environmentvariabledefinitions/cat_GitHubOrgPlanExist/environmentvariablevalues.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "c6b123fc3b45507abae1c25d4b0f18c688a931296501ba18e83ec40b009e2a8d"
+          }
+        },
+        {
+          "ruleId": "PO008",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "Environment variable 'cat_OrgLanguage' ships a current value in the solution."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/environmentvariabledefinitions/cat_OrgLanguage/environmentvariablevalues.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "5fadb11ba1a381ebe831e678da5008748f3eb8ed10300807c3456e9e41c3b5cf"
+          }
+        },
+        {
+          "ruleId": "PO008",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "Environment variable 'cat_OrgName' ships a current value in the solution."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/environmentvariabledefinitions/cat_OrgName/environmentvariablevalues.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "30d2350acc6e0545f58c3ca7388e736aa9181dee5583521aebc187f18d9f58b4"
+          }
+        },
+        {
+          "ruleId": "PO008",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "Environment variable 'cat_TemplateRepoName' ships a current value in the solution."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/environmentvariabledefinitions/cat_TemplateRepoName/environmentvariablevalues.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "86ee0a79ef0203e3512af413f02994d9c4650d3818728aa4d666d03431cf2fe4"
+          }
+        },
+        {
+          "ruleId": "PO008",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "Environment variable 'cat_WebhookUrl' ships a current value in the solution."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/environmentvariabledefinitions/cat_WebhookUrl/environmentvariablevalues.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "d372ed9d408293123ab1e232c117a83a628b851a99864f323d0a1e7eb8ee035e"
+          }
+        },
+        {
+          "ruleId": "PO008",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "Environment variable 'cat_clientId' ships a current value in the solution."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/environmentvariabledefinitions/cat_clientId/environmentvariablevalues.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "b1f6c0112f18fdca126baf0dd473edd3dc1b48e8737349b10e14522c86c1a13c"
+          }
+        },
+        {
+          "ruleId": "PO009",
+          "ruleIndex": 8,
+          "level": "warning",
+          "message": {
+            "text": "Component 'new_sharedcommondataserviceforapps_06411' does not use the publisher prefix 'cat'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/Other/Customizations.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "eb922dbdcaf3230a0c80ee4a9a94bd55943a5344c8a3ac7418f3565fdb3cbf28"
+          }
+        },
+        {
+          "ruleId": "PO009",
+          "ruleIndex": 8,
+          "level": "warning",
+          "message": {
+            "text": "Component 'new_sharedpowerappsforappmakers_87b9a' does not use the publisher prefix 'cat'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/Other/Customizations.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "aace68582eb368a5420cbf6952f21e15ae3a74fa076d74e862e9f0f742e2f042"
+          }
+        },
+        {
+          "ruleId": "PO011",
+          "ruleIndex": 10,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'WorkflowCompleteNotification' is turned off."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/Workflows/WorkflowCompleteNotification-518F39D7-F4E5-EA11-A817-000D3A56B702.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "a591d04ce90d852d2ae7b9c19b3cb701b7035d8987cc393bcd0163a50bee5c5c"
+          }
+        },
+        {
+          "ruleId": "PO012",
+          "ruleIndex": 11,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'DeleteProjectCleanUp' runs on every update of 'cat_project'; set filter columns."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/Workflows/DeleteProjectCleanUp-6F3FF001-D7EC-EA11-A817-000D3A1ABE26.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "c23774947910dd08431864ce7bde6d63650302002645533a07a6c46dca1ad5ac"
+          }
+        },
+        {
+          "ruleId": "PO012",
+          "ruleIndex": 11,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'BuildRequestCancellation' runs on every update of 'cat_project'; set filter columns."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/Workflows/BuildRequestCancellation-05878F85-5A13-EB11-A813-000D3AA3E77C.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "fb06ce734bdf97c3422ea2dcef5c735c76c0e22256b3cbc9ced24901e534ef8c"
+          }
+        },
+        {
+          "ruleId": "PO011",
+          "ruleIndex": 10,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Email Quote' is turned off."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-sample/Workflows/EmailQuote-A4C44986-14D6-EC11-A7B5-000D3A1C0439.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "023fe37f392a2e6a9ef808423d36f45f0adb930fd4ff8f1de00e54e2ad646a28"
+          }
+        },
+        {
+          "ruleId": "PO011",
+          "ruleIndex": 10,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Like Quote' is turned off."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-sample/Workflows/LikeQuote-90D90640-11BC-EC11-983F-0022483403A3.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "bd7d34fa4aac9031f611b2015ccaf2d9cc2a7951c5bc924999dfb8a0f211329b"
+          }
+        },
+        {
+          "ruleId": "PO011",
+          "ruleIndex": 10,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'SÆmple Ø ærlig forsøk' is turned off."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-sample/Workflows/Smplerligforsk-37443C82-D03D-ED11-9DB0-0022482E56BE.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "e4a53f8cf61a7f356bfbe4b56613c7674d881bb052fe664b09f9d92226ffab17"
+          }
+        },
+        {
+          "ruleId": "PO005",
+          "ruleIndex": 4,
+          "level": "warning",
+          "message": {
+            "text": "Connection reference 'admin_sharedadmin5foffice2036520management20api5f7fc9343cf45734fe_8f08c' is not used by any flow or app."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/coe-auditlogs/Other/Customizations.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "27233247e43f1f34e087f326861091112aacb1e32514ddb2fc6443be404eb96c"
+          }
+        },
+        {
+          "ruleId": "PO005",
+          "ruleIndex": 4,
+          "level": "warning",
+          "message": {
+            "text": "Connection reference 'admin_sharedcommondataserviceforapps_8f10b' is not used by any flow or app."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/coe-auditlogs/Other/Customizations.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "327a226dadf9808457b777c843841ea5622a20280459a33c741238d01bc5db59"
+          }
+        },
+        {
+          "ruleId": "PO005",
+          "ruleIndex": 4,
+          "level": "warning",
+          "message": {
+            "text": "Connection reference 'new_CoEAuditLogsO365Outlook' is not used by any flow or app."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/coe-auditlogs/Other/Customizations.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "3747e66fe948ce7ebb029b24dd0cb3289c03117062aeb2cfbdc7cb504e51a3df"
+          }
+        },
+        {
+          "ruleId": "PO009",
+          "ruleIndex": 8,
+          "level": "warning",
+          "message": {
+            "text": "Component 'new_CoEAuditLogsDataverse' does not use the publisher prefix 'admin'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/coe-auditlogs/Other/Customizations.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "953646251feb7a11d03447008dbf7ecf67aa17d7cf361b9c54f8ba00f5abf5df"
+          }
+        },
+        {
+          "ruleId": "PO009",
+          "ruleIndex": 8,
+          "level": "warning",
+          "message": {
+            "text": "Component 'new_CoEAuditLogsO365Outlook' does not use the publisher prefix 'admin'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/coe-auditlogs/Other/Customizations.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "d90fb53e44e62c93f927fc141930ac13d7a958aa79158730d25bd8fc9caffe97"
+          }
+        },
+        {
+          "ruleId": "PO011",
+          "ruleIndex": 10,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Deprecated | Admin | Sync Audit Logs' is turned off."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/coe-auditlogs/Workflows/DeprecatedAdminSyncAuditLogs-FA91974D-6E68-EA11-A811-000D3A31CF04.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "967872179913b9b3be3ab724117caee77cc79ff61c531aa648cac81299dbfc53"
+          }
+        },
+        {
+          "ruleId": "PO011",
+          "ruleIndex": 10,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Deprecated | [Child] Admin | Sync Logs' is turned off."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/coe-auditlogs/Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "8d4990e37cfcc084366da0c1ec0b587e57710e9d377b34112ba82ab2d73b47a2"
+          }
+        },
+        {
+          "ruleId": "PO005",
+          "ruleIndex": 4,
+          "level": "warning",
+          "message": {
+            "text": "Connection reference 'pops_SpareDataverse' is not used by any flow or app."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/powerops-seed/v2/Other/Customizations.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "22bb516f29c4513862bee3a749e3a480d6f4ced757c0c206ed358182f61efe4b"
+          }
+        },
+        {
+          "ruleId": "PO006",
+          "ruleIndex": 5,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Stamp work item status' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/powerops-seed/v2/Workflows/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "d7a7f1d022d3412d56570af46c45495c2c08355e8a93f6cfbb3c172a383d04c2"
+          }
+        },
+        {
+          "ruleId": "PO005",
+          "ruleIndex": 4,
+          "level": "warning",
+          "message": {
+            "text": "Connection reference 'new_D365connection' is not used by any flow or app."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "customizations.xml"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "ba35710c6e3e16fc0f253a32d99a08214ab4f3c95123ee9224efb736f6cacd72"
+          }
+        },
+        {
+          "ruleId": "PO008",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "Environment variable 'new_ContosoURL' ships a current value in the solution."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "environmentvariabledefinitions/new_ContosoURL/environmentvariablevalues.json"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "d121ae8fdf725bbbec89f907822d2e636197ec585b16a43da9e92c4e4d8153c7"
+          }
+        },
+        {
+          "ruleId": "PO010",
+          "ruleIndex": 9,
+          "level": "warning",
+          "message": {
+            "text": "Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "solution.xml"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "bd3799be22ef41586e4f3ede68f9eb2e1acfa5581f1a93f3f5d893deb622857a"
+          }
+        }
+      ]
+    }
+  ]
+}

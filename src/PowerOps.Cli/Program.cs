@@ -19,6 +19,7 @@ public static class Program
             "(analysis, diffing, testing, repeatable deployment) to Microsoft Power Platform.");
 
         root.Subcommands.Add(AnalyzeCommand.Create(output, error));
+        root.Subcommands.Add(BaselineCommand.Create(error));
 
         var parse = root.Parse(args);
         if (parse.Errors.Count > 0)

@@ -216,4 +216,30 @@ public class WarningRuleTests
 
         Assert.Empty(Run(new PO011FlowOff(), s));
     }
+
+    [Theory]
+    [InlineData(3, null)]
+    [InlineData("4", "")]
+    [InlineData(7, "  ")]
+    public void PO012_fires_for_update_trigger_without_filter_columns(object message, string? filter)
+    {
+        var s = B.Empty() with { Workflows = [B.Flow(name: "Upd", triggers: B.RowTrigger(message, filter))] };
+
+        var f = Assert.Single(Run(new PO012RowUpdatedTriggerWithoutFilterColumns(), s));
+
+        Assert.Equal("When_a_row", f.Component);
+        Assert.Equal("Flow 'Upd' runs on every update of 'demo_item'; set filter columns.", f.Message);
+    }
+
+    [Theory]
+    [InlineData(1, null)]
+    [InlineData(2, null)]
+    [InlineData(5, null)]
+    [InlineData(3, "demo_status")]
+    public void PO012_quiet_for_create_delete_or_filtered_triggers(object message, string? filter)
+    {
+        var s = B.Empty() with { Workflows = [B.Flow(triggers: B.RowTrigger(message, filter))] };
+
+        Assert.Empty(Run(new PO012RowUpdatedTriggerWithoutFilterColumns(), s));
+    }
 }

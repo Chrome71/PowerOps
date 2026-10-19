@@ -27,6 +27,20 @@ public class ReportTests
         return w.ToString();
     }
 
+    private static string Sarif(AnalysisResult r)
+    {
+        var w = new StringWriter();
+        SarifReport.Write(r, w, "1.2.3");
+        return w.ToString();
+    }
+
+    private static string Markdown(AnalysisResult r)
+    {
+        var w = new StringWriter();
+        MarkdownReport.Write(r, w);
+        return w.ToString();
+    }
+
     private static AnalysisResult One(IReadOnlyList<Finding> findings, params MissingDependency[] deps) =>
         new([new SolutionResult("a/b", B.Empty() with { MissingDependencies = deps }, findings)]);
 
@@ -38,6 +52,33 @@ public class ReportTests
 
     [Fact]
     public void Json_report_matches_golden() => Golden.Verify(Json(Fixtures()), "analyze-fixtures.json");
+
+    [Fact]
+    public void Sarif_report_matches_golden() => Golden.Verify(Sarif(Fixtures()), "analyze-fixtures.sarif");
+
+    [Fact]
+    public void Markdown_report_matches_golden() => Golden.Verify(Markdown(Fixtures()), "analyze-fixtures.md");
+
+    [Fact]
+    public void Markdown_without_findings_says_so()
+    {
+        Assert.Equal(
+            "## PowerOps analyze\n\n**1 solution, 0 errors, 0 warnings**\n\n### a/b: Demo 1.0.0.0\n\nNo findings.\n",
+            Markdown(One([])));
+    }
+
+    [Fact]
+    public void Markdown_escapes_solution_text_and_links_the_rule()
+    {
+        var hostile = new Finding("PO001", Severity.Error, "a|b *c* _d_ [e](f) <g> `h` \\i\n# x\r", "f|1", null);
+
+        var md = Markdown(One([hostile]));
+
+        Assert.Contains(
+            "| error | [PO001](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO001.md) | f\\|1 | a\\|b \\*c\\* \\_d\\_ \\[e\\](f) \\<g\\> \\`h\\` \\\\i # x  |\n",
+            md);
+        Assert.DoesNotContain("\r", md);
+    }
 
     [Fact]
     public void Text_without_findings_says_so_and_uses_singular_counts()

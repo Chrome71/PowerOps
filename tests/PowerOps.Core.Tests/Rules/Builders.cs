@@ -17,7 +17,8 @@ internal static class B
         int category = 5,
         string[]? refs = null,
         string[]? children = null,
-        string[]? literals = null)
+        string[]? literals = null,
+        object? triggers = null)
     {
         var actions = new Dictionary<string, object>();
         var i = 0;
@@ -34,8 +35,23 @@ internal static class B
         var connectionReferences = (refs ?? []).ToDictionary(
             r => "shared_" + r,
             r => (object)new { connection = new { connectionReferenceLogicalName = r }, api = new { name = "shared_x" } });
-        var json = JsonSerializer.Serialize(new { properties = new { connectionReferences, definition = new { actions } } });
+        var json = JsonSerializer.Serialize(new { properties = new { connectionReferences, definition = new { actions, triggers = triggers ?? new { } } } });
         return new Workflow(id, name, category, state, $"Workflows/{name}-{id}.json", json);
+    }
+
+    /// <summary>A Dataverse "When a row is added, modified or deleted" trigger set.</summary>
+    public static object RowTrigger(object message, string? filteringAttributes = null)
+    {
+        var parameters = new Dictionary<string, object> { ["subscriptionRequest/message"] = message, ["subscriptionRequest/entityname"] = "demo_item" };
+        if (filteringAttributes is not null)
+        {
+            parameters["subscriptionRequest/filteringattributes"] = filteringAttributes;
+        }
+
+        return new Dictionary<string, object>
+        {
+            ["When_a_row"] = new { type = "OpenApiConnectionWebhook", inputs = new { host = new { operationId = "SubscribeWebhookTrigger" }, parameters } },
+        };
     }
 
     public static ConnectionReference Ref(string name, string connector = "/providers/x") => new(name, connector, "Other/Customizations.xml");

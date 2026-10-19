@@ -125,6 +125,27 @@ public class AnalyzeCommandTests : IDisposable
     }
 
     [Fact]
+    public void Markdown_output_has_heading_and_summary()
+    {
+        var (code, output, _) = Run("analyze", Fixtures, "--format", "markdown", "--fail-on", "none");
+
+        Assert.Equal(0, code);
+        Assert.StartsWith("## PowerOps analyze\n\n**9 solutions, ", output);
+    }
+
+    [Fact]
+    public void Sarif_output_parses_and_carries_the_tool_version()
+    {
+        var (code, output, _) = Run("analyze", Fixtures, "--format", "sarif", "--fail-on", "none");
+
+        Assert.Equal(0, code);
+        using var doc = JsonDocument.Parse(output);
+        var driver = doc.RootElement.GetProperty("runs")[0].GetProperty("tool").GetProperty("driver");
+        Assert.Equal("PowerOps", driver.GetProperty("name").GetString());
+        Assert.False(string.IsNullOrEmpty(driver.GetProperty("version").GetString()));
+    }
+
+    [Fact]
     public void Out_writes_file_and_leaves_stdout_empty()
     {
         var file = Path.Combine(_temp, "report.json");

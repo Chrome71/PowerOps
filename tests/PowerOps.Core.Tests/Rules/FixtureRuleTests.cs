@@ -45,6 +45,12 @@ public class FixtureRuleTests
     }
 
     [Fact]
+    public void Alm_makers_flags_two_update_triggers_without_filter_columns()
+    {
+        Assert.Equal(["When_Project_is_Deleted", "When_a_BuildRequest_in_Cancelled"], Components(Analyze("alm-makers"), "PO012"));
+    }
+
+    [Fact]
     public void Seed_v1_is_clean()
     {
         Assert.Empty(Analyze("powerops-seed/v1"));
@@ -64,5 +70,29 @@ public class FixtureRuleTests
     public void Contoso_zip_uses_default_publisher()
     {
         Assert.Single(Components(Analyze("zips/Contoso_sample_1_0_0_1_managed.zip"), "PO010"));
+    }
+
+    [Fact]
+    public void Seed_v2_zip_and_unpacked_findings_come_in_the_same_order()
+    {
+        var dir = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "powerops-seed", "v2");
+        var temp = Directory.CreateTempSubdirectory("powerops-test-").FullName;
+        try
+        {
+            var zipPath = Path.Combine(temp, "v2.zip");
+            SolutionZip.Create(dir, zipPath);
+
+            static List<(string, string?, string)> Key(IReadOnlyList<Finding> f) =>
+                f.Select(x => (x.RuleId, x.Component, x.Message)).ToList();
+
+            var fromZip = Key(Analyzer.Run(SolutionLoader.Load(zipPath)));
+
+            Assert.NotEmpty(fromZip);
+            Assert.Equal(Key(Analyze("powerops-seed/v2")), fromZip);
+        }
+        finally
+        {
+            Directory.Delete(temp, recursive: true);
+        }
     }
 }

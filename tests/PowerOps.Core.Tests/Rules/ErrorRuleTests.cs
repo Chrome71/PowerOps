@@ -130,7 +130,7 @@ public class ErrorRuleTests
     }
 
     [Fact]
-    public void Analyzer_sorts_findings_ordinally_by_file_then_rule()
+    public void Analyzer_sorts_findings_ordinally_by_rule_then_component_message_file()
     {
         var s = B.Empty() with
         {
@@ -138,7 +138,7 @@ public class ErrorRuleTests
             EnvironmentVariables = [B.Env("demo_a", required: true)],
         };
 
-        var ids = Analyzer.Run(s).Select(f => f.File + "|" + f.RuleId).ToList();
+        var ids = Analyzer.Run(s).Select(f => f.RuleId + "|" + f.Component + "|" + f.Message + "|" + f.File).ToList();
 
         Assert.Equal(ids.Order(StringComparer.Ordinal).ToList(), ids);
         Assert.Equal(3, ids.Count);

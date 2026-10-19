@@ -14,38 +14,10 @@
       ],
       "findings": [
         {
-          "ruleId": "PO009",
-          "severity": "warning",
-          "message": "Component 'new_sharedcommondataserviceforapps_06411' does not use the publisher prefix 'cat'.",
-          "file": "Other/Customizations.xml",
-          "component": "new_sharedcommondataserviceforapps_06411"
-        },
-        {
-          "ruleId": "PO009",
-          "severity": "warning",
-          "message": "Component 'new_sharedpowerappsforappmakers_87b9a' does not use the publisher prefix 'cat'.",
-          "file": "Other/Customizations.xml",
-          "component": "new_sharedpowerappsforappmakers_87b9a"
-        },
-        {
-          "ruleId": "PO011",
-          "severity": "warning",
-          "message": "Flow 'WorkflowCompleteNotification' is turned off.",
-          "file": "Workflows/WorkflowCompleteNotification-518F39D7-F4E5-EA11-A817-000D3A56B702.json",
-          "component": "WorkflowCompleteNotification"
-        },
-        {
           "ruleId": "PO007",
           "severity": "warning",
           "message": "Environment variable 'cat_DependentEnvironmentUrl' has a default value that looks like a URL.",
           "file": "environmentvariabledefinitions/cat_DependentEnvironmentUrl/environmentvariabledefinition.xml",
-          "component": "cat_DependentEnvironmentUrl"
-        },
-        {
-          "ruleId": "PO008",
-          "severity": "warning",
-          "message": "Environment variable 'cat_DependentEnvironmentUrl' ships a current value in the solution.",
-          "file": "environmentvariabledefinitions/cat_DependentEnvironmentUrl/environmentvariablevalues.json",
           "component": "cat_DependentEnvironmentUrl"
         },
         {
@@ -54,6 +26,27 @@
           "message": "Environment variable 'cat_DependentEnvironmentUserId' has a default value that looks like an email address.",
           "file": "environmentvariabledefinitions/cat_DependentEnvironmentUserId/environmentvariabledefinition.xml",
           "component": "cat_DependentEnvironmentUserId"
+        },
+        {
+          "ruleId": "PO007",
+          "severity": "warning",
+          "message": "Environment variable 'cat_WebhookUrl' has a default value that looks like a URL.",
+          "file": "environmentvariabledefinitions/cat_WebhookUrl/environmentvariabledefinition.xml",
+          "component": "cat_WebhookUrl"
+        },
+        {
+          "ruleId": "PO007",
+          "severity": "warning",
+          "message": "Environment variable 'cat_clientId' has a default value that looks like a GUID.",
+          "file": "environmentvariabledefinitions/cat_clientId/environmentvariabledefinition.xml",
+          "component": "cat_clientId"
+        },
+        {
+          "ruleId": "PO008",
+          "severity": "warning",
+          "message": "Environment variable 'cat_DependentEnvironmentUrl' ships a current value in the solution.",
+          "file": "environmentvariabledefinitions/cat_DependentEnvironmentUrl/environmentvariablevalues.json",
+          "component": "cat_DependentEnvironmentUrl"
         },
         {
           "ruleId": "PO008",
@@ -98,13 +91,6 @@
           "component": "cat_TemplateRepoName"
         },
         {
-          "ruleId": "PO007",
-          "severity": "warning",
-          "message": "Environment variable 'cat_WebhookUrl' has a default value that looks like a URL.",
-          "file": "environmentvariabledefinitions/cat_WebhookUrl/environmentvariabledefinition.xml",
-          "component": "cat_WebhookUrl"
-        },
-        {
           "ruleId": "PO008",
           "severity": "warning",
           "message": "Environment variable 'cat_WebhookUrl' ships a current value in the solution.",
@@ -112,18 +98,46 @@
           "component": "cat_WebhookUrl"
         },
         {
-          "ruleId": "PO007",
-          "severity": "warning",
-          "message": "Environment variable 'cat_clientId' has a default value that looks like a GUID.",
-          "file": "environmentvariabledefinitions/cat_clientId/environmentvariabledefinition.xml",
-          "component": "cat_clientId"
-        },
-        {
           "ruleId": "PO008",
           "severity": "warning",
           "message": "Environment variable 'cat_clientId' ships a current value in the solution.",
           "file": "environmentvariabledefinitions/cat_clientId/environmentvariablevalues.json",
           "component": "cat_clientId"
+        },
+        {
+          "ruleId": "PO009",
+          "severity": "warning",
+          "message": "Component 'new_sharedcommondataserviceforapps_06411' does not use the publisher prefix 'cat'.",
+          "file": "Other/Customizations.xml",
+          "component": "new_sharedcommondataserviceforapps_06411"
+        },
+        {
+          "ruleId": "PO009",
+          "severity": "warning",
+          "message": "Component 'new_sharedpowerappsforappmakers_87b9a' does not use the publisher prefix 'cat'.",
+          "file": "Other/Customizations.xml",
+          "component": "new_sharedpowerappsforappmakers_87b9a"
+        },
+        {
+          "ruleId": "PO011",
+          "severity": "warning",
+          "message": "Flow 'WorkflowCompleteNotification' is turned off.",
+          "file": "Workflows/WorkflowCompleteNotification-518F39D7-F4E5-EA11-A817-000D3A56B702.json",
+          "component": "WorkflowCompleteNotification"
+        },
+        {
+          "ruleId": "PO012",
+          "severity": "warning",
+          "message": "Flow 'DeleteProjectCleanUp' runs on every update of 'cat_project'; set filter columns.",
+          "file": "Workflows/DeleteProjectCleanUp-6F3FF001-D7EC-EA11-A817-000D3A1ABE26.json",
+          "component": "When_Project_is_Deleted"
+        },
+        {
+          "ruleId": "PO012",
+          "severity": "warning",
+          "message": "Flow 'BuildRequestCancellation' runs on every update of 'cat_project'; set filter columns.",
+          "file": "Workflows/BuildRequestCancellation-05878F85-5A13-EB11-A813-000D3AA3E77C.json",
+          "component": "When_a_BuildRequest_in_Cancelled"
         }
       ]
     },
@@ -344,6 +358,7 @@
   "summary": {
     "solutions": 9,
     "errors": 0,
-    "warnings": 31
+    "warnings": 33,
+    "baselined": 0
   }
 }

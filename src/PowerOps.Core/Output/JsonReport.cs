@@ -27,7 +27,7 @@ public static class JsonReport
                 new Pub(s.Solution.Publisher.UniqueName, s.Solution.Publisher.Prefix),
                 s.Requires,
                 s.Findings.Select(f => new Fin(f.RuleId, f.Severity, f.Message, f.File, f.Component)).ToList())).ToList(),
-            new Summary(result.Solutions.Count, result.Errors, result.Warnings));
+            new Summary(result.Solutions.Count, result.Errors, result.Warnings, result.Baselined));
         writer.Write(JsonSerializer.Serialize(doc, Options) + "\n");
     }
 
@@ -39,5 +39,5 @@ public static class JsonReport
 
     private sealed record Fin(string RuleId, Rules.Severity Severity, string Message, string File, string? Component);
 
-    private sealed record Summary(int Solutions, int Errors, int Warnings);
+    private sealed record Summary(int Solutions, int Errors, int Warnings, int Baselined);
 }
