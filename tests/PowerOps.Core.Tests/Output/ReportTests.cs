@@ -27,6 +27,13 @@ public class ReportTests
         return w.ToString();
     }
 
+    private static string Sarif(AnalysisResult r)
+    {
+        var w = new StringWriter();
+        SarifReport.Write(r, w, "1.2.3");
+        return w.ToString();
+    }
+
     private static AnalysisResult One(IReadOnlyList<Finding> findings, params MissingDependency[] deps) =>
         new([new SolutionResult("a/b", B.Empty() with { MissingDependencies = deps }, findings)]);
 
@@ -38,6 +45,9 @@ public class ReportTests
 
     [Fact]
     public void Json_report_matches_golden() => Golden.Verify(Json(Fixtures()), "analyze-fixtures.json");
+
+    [Fact]
+    public void Sarif_report_matches_golden() => Golden.Verify(Sarif(Fixtures()), "analyze-fixtures.sarif");
 
     [Fact]
     public void Text_without_findings_says_so_and_uses_singular_counts()

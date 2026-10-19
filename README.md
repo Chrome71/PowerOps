@@ -18,7 +18,7 @@ powerops analyze                      # find solutions under . (unpacked XML fol
 powerops analyze path/to/solution.zip path/to/unpacked --format json --out report.json
 ```
 
-`analyze` is offline and read-only. Options: `--format text|json` (default `text`), `--out <file>` (write the report to a file instead of stdout), `--fail-on error|warning|none` (default `error`). The YAML source layout is not supported yet.
+`analyze` is offline and read-only. Options: `--format text|json|sarif` (default `text`), `--out <file>` (write the report to a file instead of stdout), `--fail-on error|warning|none` (default `error`). The YAML source layout is not supported yet.
 
 Exit codes: `0` no findings at or above `--fail-on`, `1` findings at or above it, `2` usage error (bad option, missing path, no solutions found), `3` unreadable solution or internal error (set `POWEROPS_DEBUG=1` for a stack trace).
 

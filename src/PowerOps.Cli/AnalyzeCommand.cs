@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Reflection;
 using System.Text;
 
 using PowerOps.Core.Output;
@@ -19,7 +20,7 @@ public static class AnalyzeCommand
             DefaultValueFactory = _ => ["."],
         };
         var format = new Option<string>("--format") { Description = "Report format.", DefaultValueFactory = _ => "text" };
-        format.AcceptOnlyFromAmong("text", "json");
+        format.AcceptOnlyFromAmong("text", "json", "sarif");
         var outFile = new Option<string?>("--out") { Description = "Write the report to this file instead of stdout." };
         var failOn = new Option<string>("--fail-on") { Description = "Lowest severity that makes the exit code 1.", DefaultValueFactory = _ => "error" };
         failOn.AcceptOnlyFromAmong("error", "warning", "none");
@@ -32,6 +33,10 @@ public static class AnalyzeCommand
             parse.GetValue(paths)!, parse.GetValue(format)!, parse.GetValue(outFile), parse.GetValue(failOn)!, output, error));
         return command;
     }
+
+    // Same value `--version` prints.
+    private static string ToolVersion() =>
+        Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
 
     private static int Execute(string[] paths, string format, string? outFile, string failOn, TextWriter output, TextWriter error)
     {
@@ -57,6 +62,10 @@ public static class AnalyzeCommand
             if (format == "json")
             {
                 JsonReport.Write(result, report);
+            }
+            else if (format == "sarif")
+            {
+                SarifReport.Write(result, report, ToolVersion());
             }
             else
             {
