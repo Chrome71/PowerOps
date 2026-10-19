@@ -17,6 +17,7 @@ public static class Analyzer
         new PO009ForeignPrefix(),
         new PO010DefaultPublisher(),
         new PO011FlowOff(),
+        new PO012RowUpdatedTriggerWithoutFilterColumns(),
     }.OrderBy(r => r.Id, StringComparer.Ordinal).ToList();
 
     /// <summary>All findings, sorted by rule id, component, message, file (ordinal). File comes last because it differs between zip and unpacked layouts.</summary>

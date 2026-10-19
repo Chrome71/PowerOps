@@ -16,6 +16,8 @@ tests/fixtures/alm-makers: ALMAcceleratorforMakers 0.0.0.0 (publisher catteam, p
   warning PO009 Other/Customizations.xml: Component 'new_sharedcommondataserviceforapps_06411' does not use the publisher prefix 'cat'.
   warning PO009 Other/Customizations.xml: Component 'new_sharedpowerappsforappmakers_87b9a' does not use the publisher prefix 'cat'.
   warning PO011 Workflows/WorkflowCompleteNotification-518F39D7-F4E5-EA11-A817-000D3A56B702.json: Flow 'WorkflowCompleteNotification' is turned off.
+  warning PO012 Workflows/DeleteProjectCleanUp-6F3FF001-D7EC-EA11-A817-000D3A1ABE26.json: Flow 'DeleteProjectCleanUp' runs on every update of 'cat_project'; set filter columns.
+  warning PO012 Workflows/BuildRequestCancellation-05878F85-5A13-EB11-A813-000D3AA3E77C.json: Flow 'BuildRequestCancellation' runs on every update of 'cat_project'; set filter columns.
 tests/fixtures/alm-sample: ALMAcceleratorSampleSolution 0.0.0.0 (publisher catteam, prefix cat)
   requires AppModuleWebResources (2.5)
   warning PO011 Workflows/EmailQuote-A4C44986-14D6-EC11-A7B5-000D3A1C0439.json: Flow 'Email Quote' is turned off.
@@ -47,4 +49,4 @@ tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip: Contoso_sample 1.0.0.1 (
   warning PO010 solution.xml: Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher.
 tests/fixtures/zips/polymorphiclookupexamplesolution.zip: polymorphiclookupexamplesolution 1.0.0.0 (publisher examplepublisher, prefix sample)
   no findings
-9 solutions, 0 errors, 31 warnings
+9 solutions, 0 errors, 33 warnings

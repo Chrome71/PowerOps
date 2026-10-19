@@ -35,6 +35,7 @@ Exit codes: `0` no findings at or above `--fail-on`, `1` findings at or above it
 | PO009 | warning | Component name uses a prefix other than the publisher's |
 | PO010 | warning | Default or generated publisher |
 | PO011 | warning | Cloud flow is turned off |
+| PO012 | warning | Dataverse row-updated trigger has no filter columns |
 
 ## Build from source
 

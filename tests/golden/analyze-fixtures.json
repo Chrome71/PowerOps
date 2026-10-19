@@ -124,6 +124,20 @@
           "message": "Flow 'WorkflowCompleteNotification' is turned off.",
           "file": "Workflows/WorkflowCompleteNotification-518F39D7-F4E5-EA11-A817-000D3A56B702.json",
           "component": "WorkflowCompleteNotification"
+        },
+        {
+          "ruleId": "PO012",
+          "severity": "warning",
+          "message": "Flow 'DeleteProjectCleanUp' runs on every update of 'cat_project'; set filter columns.",
+          "file": "Workflows/DeleteProjectCleanUp-6F3FF001-D7EC-EA11-A817-000D3A1ABE26.json",
+          "component": "When_Project_is_Deleted"
+        },
+        {
+          "ruleId": "PO012",
+          "severity": "warning",
+          "message": "Flow 'BuildRequestCancellation' runs on every update of 'cat_project'; set filter columns.",
+          "file": "Workflows/BuildRequestCancellation-05878F85-5A13-EB11-A813-000D3AA3E77C.json",
+          "component": "When_a_BuildRequest_in_Cancelled"
         }
       ]
     },
@@ -344,6 +358,6 @@
   "summary": {
     "solutions": 9,
     "errors": 0,
-    "warnings": 31
+    "warnings": 33
   }
 }

@@ -47,6 +47,12 @@ public class FixtureRuleTests
     }
 
     [Fact]
+    public void Alm_makers_flags_two_update_triggers_without_filter_columns()
+    {
+        Assert.Equal(["When_Project_is_Deleted", "When_a_BuildRequest_in_Cancelled"], Components(Analyze("alm-makers"), "PO012"));
+    }
+
+    [Fact]
     public void Seed_v1_is_clean()
     {
         Assert.Empty(Analyze("powerops-seed/v1"));

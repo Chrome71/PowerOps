@@ -8,12 +8,16 @@ public sealed record FlowConnectionReference(string Key, string? LogicalName, st
 
 public sealed record StringLiteral(string JsonPath, string Value);
 
+/// <summary>A trigger of a cloud flow. <paramref name="Message"/> is the Dataverse subscription message (1 create, 2 delete, 3 update, ...), null when absent or not a number.</summary>
+public sealed record FlowTrigger(string Name, string? OperationId, int? Message, string? Entity, string? FilteringAttributes);
+
 /// <summary>The parts of a cloud flow's clientdata JSON that the analyzer rules need.</summary>
 public sealed partial record FlowDefinition(
     IReadOnlyList<FlowConnectionReference> ConnectionReferences,
     IReadOnlyList<string> EnvironmentVariables,
     IReadOnlyList<string> ChildFlowIds,
-    IReadOnlyList<StringLiteral> StringLiterals)
+    IReadOnlyList<StringLiteral> StringLiterals,
+    IReadOnlyList<FlowTrigger> Triggers)
 {
     private static readonly string[] SkippedParameters = ["$connections", "$authentication"];
     private static readonly string[] SkippedProperties = ["metadata", "$schema", "operationMetadataId"];
@@ -37,10 +41,11 @@ public sealed partial record FlowDefinition(
             var envVars = new List<string>();
             var children = new List<string>();
             var literals = new List<StringLiteral>();
+            var triggers = new List<FlowTrigger>();
 
             if (Get(doc.RootElement, "properties") is not { } props)
             {
-                return new FlowDefinition(connections, envVars, children, literals);
+                return new FlowDefinition(connections, envVars, children, literals, []);
             }
 
             if (Get(props, "connectionReferences") is { ValueKind: JsonValueKind.Object } refs)
@@ -78,10 +83,31 @@ public sealed partial record FlowDefinition(
                     }
                 }
 
+                if (Get(definition, "triggers") is { ValueKind: JsonValueKind.Object } triggerObjects)
+                {
+                    foreach (var t in triggerObjects.EnumerateObject())
+                    {
+                        var inputs = Get(t.Value, "inputs");
+                        var triggerParams = Get(inputs, "parameters");
+                        var message = Get(triggerParams, "subscriptionRequest/message");
+                        triggers.Add(new FlowTrigger(
+                            t.Name,
+                            Str(Get(Get(inputs, "host"), "operationId")),
+                            message switch
+                            {
+                                { ValueKind: JsonValueKind.Number } n when n.TryGetInt32(out var i) => i,
+                                { ValueKind: JsonValueKind.String } sv when int.TryParse(sv.GetString(), out var i) => i,
+                                _ => null,
+                            },
+                            Str(Get(triggerParams, "subscriptionRequest/entityname")),
+                            Str(Get(triggerParams, "subscriptionRequest/filteringattributes"))));
+                    }
+                }
+
                 Walk(definition, "$", false, children, literals);
             }
 
-            return new FlowDefinition(connections, envVars, children.Distinct().ToList(), literals);
+            return new FlowDefinition(connections, envVars, children.Distinct().ToList(), literals, triggers);
         }
         catch (JsonException ex)
         {
