@@ -69,6 +69,38 @@ public class WarningRuleTests
     }
 
     [Fact]
+    public void PO006_reports_each_sharepoint_site_and_teams_site()
+    {
+        var s = B.Empty() with
+        {
+            Workflows = [B.Flow(literals: ["https://contoso.sharepoint.com/sites/hr/list", "https://contoso.sharepoint.com/sites/finance/x", "https://contoso.sharepoint.com/teams/x"])],
+        };
+
+        var f = Run(new PO006HardCodedEnvironmentUrl(), s);
+
+        Assert.Equal(
+            ["https://contoso.sharepoint.com/sites/hr", "https://contoso.sharepoint.com/sites/finance", "https://contoso.sharepoint.com/teams/x"],
+            f.Select(x => x.Component));
+    }
+
+    [Fact]
+    public void PO006_ignores_globaldisco()
+    {
+        var s = B.Empty() with { Workflows = [B.Flow(literals: ["https://globaldisco.crm.dynamics.com/api/discovery"])] };
+
+        Assert.Empty(Run(new PO006HardCodedEnvironmentUrl(), s));
+    }
+
+    [Fact]
+    public void PO006_ignores_definition_parameters_which_PO007_owns()
+    {
+        var json = """{"properties":{"definition":{"parameters":{"Url (demo_Url)":{"defaultValue":"https://contoso.crm.dynamics.com/"}},"actions":{}}}}""";
+        var s = B.Empty() with { Workflows = [B.Flow() with { ClientData = json }] };
+
+        Assert.Empty(Run(new PO006HardCodedEnvironmentUrl(), s));
+    }
+
+    [Fact]
     public void PO006_quiet_for_other_urls()
     {
         var s = B.Empty() with { Workflows = [B.Flow(literals: ["https://example.com/a", "https://contoso.sharepoint.com/"])] };

@@ -76,6 +76,25 @@ public class ErrorRuleTests
     }
 
     [Fact]
+    public void PO003_reports_one_finding_per_required_component_naming_dependents()
+    {
+        var required = new DependencyNode("29", "admin_AdminMail", null, null, null);
+        var s = B.Empty() with
+        {
+            MissingDependencies =
+            [
+                new(required, new DependencyNode("29", null, "b", "Flow B", null)),
+                new(required, new DependencyNode("29", null, "a", "Flow A", null)),
+                new(required with { SchemaName = "ADMIN_adminmail" }, new DependencyNode("29", null, "a", "Flow A", null)),
+            ],
+        };
+
+        var f = Assert.Single(Run(new PO003DependencyWithoutOwningSolution(), s));
+
+        Assert.Equal("Missing dependency 'admin_AdminMail' (needed by 'Flow A', 'Flow B') has no owning solution; the import will fail.", f.Message);
+    }
+
+    [Fact]
     public void PO003_quiet_with_owning_solution()
     {
         var s = B.Empty() with { MissingDependencies = [B.Dep("29", null, "abc")] };

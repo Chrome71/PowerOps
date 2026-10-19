@@ -13,9 +13,30 @@ public sealed class PO003DependencyWithoutOwningSolution : IRule
     public IEnumerable<Finding> Evaluate(Solution solution) =>
         solution.MissingDependencies
             .Where(d => string.IsNullOrEmpty(d.Required.Solution))
-            .Select(d =>
+            .GroupBy(d => (d.Required.Type, Name: d.Required.SchemaName ?? d.Required.Id), d => d.Dependent, new KeyComparer())
+            .Select(g =>
             {
-                var name = d.Required.SchemaName ?? d.Required.Id;
-                return new Finding(Id, Severity, $"Required component '{name}' (type {d.Required.Type}) has no owning solution.", solution.ManifestFile, name);
+                var dependents = g
+                    .Select(d => d.DisplayName ?? d.SchemaName ?? d.Id)
+                    .Where(n => n is not null)
+                    .Distinct(StringComparer.Ordinal)
+                    .Order(StringComparer.Ordinal)
+                    .Select(n => $"'{n}'");
+                var name = g.Key.Name;
+                return new Finding(
+                    Id,
+                    Severity,
+                    $"Missing dependency '{name}' (needed by {string.Join(", ", dependents)}) has no owning solution; the import will fail.",
+                    solution.ManifestFile,
+                    name);
             });
+
+    private sealed class KeyComparer : IEqualityComparer<(string Type, string? Name)>
+    {
+        public bool Equals((string Type, string? Name) x, (string Type, string? Name) y) =>
+            string.Equals(x.Type, y.Type, StringComparison.OrdinalIgnoreCase) && string.Equals(x.Name, y.Name, StringComparison.OrdinalIgnoreCase);
+
+        public int GetHashCode((string Type, string? Name) k) =>
+            HashCode.Combine(k.Type.ToLowerInvariant(), k.Name?.ToLowerInvariant());
+    }
 }
