@@ -108,7 +108,7 @@ public static class AnalyzeCommand
                 error.WriteLine($"error: {ex.Message}");
                 return UsageError;
             }
-            catch (IOException ex)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 error.WriteLine($"error: cannot read baseline {baselineFile}: {ex.Message}");
                 return UsageError;

@@ -67,6 +67,16 @@ public class SarifReportTests
     }
 
     [Fact]
+    public void Solution_at_the_repo_root_has_no_leading_dot_slash()
+    {
+        var json = Sarif(".", new Finding("PO001", Severity.Error, "m", "Other/Customizations.xml", "c"));
+
+        using var doc = JsonDocument.Parse(json);
+        var loc = doc.RootElement.GetProperty("runs")[0].GetProperty("results")[0].GetProperty("locations")[0];
+        Assert.Equal("Other/Customizations.xml", loc.GetProperty("physicalLocation").GetProperty("artifactLocation").GetProperty("uri").GetString());
+    }
+
+    [Fact]
     public void Zip_solution_points_at_the_zip_and_names_the_inner_file()
     {
         var json = Sarif("x/S.ZIP", new Finding("PO001", Severity.Error, "m", "customizations.xml", null));

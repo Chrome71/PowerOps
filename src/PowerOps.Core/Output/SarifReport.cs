@@ -32,7 +32,7 @@ public static class SarifReport
             var zip = s.Path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
             foreach (var f in s.Findings)
             {
-                var uri = EscapePath(zip ? s.Path : s.Path + "/" + f.File);
+                var uri = EscapePath(zip ? s.Path : s.Path == "." ? f.File : s.Path + "/" + f.File);
                 var key = string.Join("|", s.Solution.UniqueName, f.RuleId, f.Component, f.Message);
                 results.Add(new Res(
                     f.RuleId,
