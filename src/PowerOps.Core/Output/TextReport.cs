@@ -28,7 +28,7 @@ public static class TextReport
             }
         }
 
-        writer.Write($"{Count(result.Solutions.Count, "solution")}, {Count(result.Errors, "error")}, {Count(result.Warnings, "warning")}\n");
+        writer.Write($"{Count(result.Solutions.Count, "solution")}, {Count(result.Errors, "error")}, {Count(result.Warnings, "warning")}{(result.Baselined > 0 ? $", {result.Baselined} baselined" : "")}\n");
     }
 
     // A hostile solution must not forge lines (or "::error::" workflow commands) in the report.

@@ -1,5 +1,3 @@
-using System.IO.Compression;
-
 using PowerOps.Core.Readers;
 using PowerOps.Core.Rules;
 using PowerOps.Tests.Shared;
@@ -82,20 +80,7 @@ public class FixtureRuleTests
         try
         {
             var zipPath = Path.Combine(temp, "v2.zip");
-            using (var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create))
-            {
-                foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
-                {
-                    var rel = Path.GetRelativePath(dir, file).Replace('\\', '/');
-                    var entry = rel switch
-                    {
-                        "Other/Solution.xml" => "solution.xml",
-                        "Other/Customizations.xml" => "customizations.xml",
-                        _ => rel,
-                    };
-                    zip.CreateEntryFromFile(file, entry);
-                }
-            }
+            SolutionZip.Create(dir, zipPath);
 
             static List<(string, string?, string)> Key(IReadOnlyList<Finding> f) =>
                 f.Select(x => (x.RuleId, x.Component, x.Message)).ToList();

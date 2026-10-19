@@ -358,6 +358,7 @@
   "summary": {
     "solutions": 9,
     "errors": 0,
-    "warnings": 33
+    "warnings": 33,
+    "baselined": 0
   }
 }

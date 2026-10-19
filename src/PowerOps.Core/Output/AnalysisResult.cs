@@ -19,6 +19,9 @@ public sealed record SolutionResult(string Path, Solution Solution, IReadOnlyLis
 
 public sealed record AnalysisResult(IReadOnlyList<SolutionResult> Solutions)
 {
+    /// <summary>Findings dropped because they are in the baseline.</summary>
+    public int Baselined { get; init; }
+
     public int Errors => Count(Severity.Error);
 
     public int Warnings => Count(Severity.Warning);
