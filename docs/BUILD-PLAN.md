@@ -33,7 +33,7 @@ The first release therefore answers one question offline, in seconds: **"will th
 
 - **Suppression without a config file.** `powerops baseline` writes the current findings to a file. Pass it back with `--baseline <file>` and only new findings count.
 - **Stable rule IDs** (`PO001`…), each with a docs page (`docs/rules/PO001.md`), which is also the SARIF `helpUri`.
-- **Read-only and offline.** It never changes the solution and makes no network calls.
+- **Read-only and offline.** It never changes the solution and makes no network calls. The one exception is `powerops plan facts` (M3), which reads through `pac` and prints names only.
 
 ## Architecture
 
@@ -44,7 +44,7 @@ src/PowerOps.Core/          library: no console, no network
   Flows/                    cloud-flow clientdata parser (connection refs, env-var parameters, state, child flows)
   Rules/                    IRule { Id, Severity, Title, Evaluate(Solution) → Finding* }, one file per rule
   Output/                   Text, Json, Sarif, Markdown writers
-src/PowerOps.Cli/           System.CommandLine commands: analyze, baseline (later: diff, settings)
+src/PowerOps.Cli/           System.CommandLine commands: analyze, baseline, plan, skills (later: diff, settings); PacRunner (M3)
 tests/PowerOps.Core.Tests/  unit + golden-file tests
 tests/PowerOps.Cli.Tests/   end-to-end tests on the packed tool
 tests/fixtures/             licensed sample solutions + NOTICE.md
@@ -54,9 +54,9 @@ action.yml                  composite GitHub Action at the repo root
 **Dependencies:**
 - the .NET base class library (zip, XML, JSON)
 - System.CommandLine
-- YamlDotNet, from milestone M4 only
+- YamlDotNet, from milestone M4 only. The plan header (M3) is plain `key: value` lines read by a small fixed reader, not parsed as YAML.
 
-SARIF is written by hand with System.Text.Json; the Sarif SDK is used only in tests to validate the output. The `powerops` CLI doesn't call `pac` or the Dataverse SDK until M3, and then only read-only: `powerops plan facts` runs `pac org who`, `env list` and `solution list` and prints names only. Writes through `pac` wait until M6.
+SARIF is written by hand with System.Text.Json; the Sarif SDK is used only in tests to validate the output. The `powerops` CLI doesn't call `pac` or the Dataverse SDK until M3, and then only read-only: `powerops plan facts` (in `PowerOps.Cli`, through `PacRunner`) runs `pac org who` and `pac solution list` and prints names only. Writes through `pac` wait until M6.
 
 ## First rule set
 
@@ -89,7 +89,7 @@ Each milestone ends in a release that someone can use. "Done when" is checked by
 | **M0. Test foundation** | none | <ul><li>Move to xunit.v3 on Microsoft.Testing.Platform</li><li>Golden-file helper (`POWEROPS_UPDATE_GOLDEN=1` rewrites the expected files)</li><li>Add `PowerOps.Core` and the core test project</li><li>Fixtures plus `NOTICE.md`</li><li>Fix FOUNDATION.md: Solution Checker does allow rule exclusions, and Git integration went GA on 2025-04-22</li></ul> | CI is green on all three operating systems, and fixtures load in a test |
 | **M1. `analyze` on XML and zip** | v0.2.0 | <ul><li>Readers for the zip and XML layouts</li><li>Flow parser</li><li>Rules PO001–PO011</li><li>Text and JSON output</li><li>Exit codes</li></ul> | <ul><li>Each rule has a passing and a failing test</li><li>The CoE fixtures report the expected real hits: env-var default URL (ALM Accelerator for Makers), prefix mismatch, and the declared dependency on Core Components (AuditLogs)</li><li>Golden output matches</li></ul> |
 | **M2. CI integration** | v0.3.0 | <ul><li>SARIF output (validated against the 2.1.0 schema)</li><li>`baseline` and `--baseline`</li><li>Markdown output</li><li>PO012</li><li>`action.yml` (job summary and annotations, optional SARIF upload)</li><li>Rule docs pages</li><li>README quick start: one `run:` line, or `uses: Chrome71/PowerOps@v1`</li></ul> | <ul><li>A test repo shows the findings in GitHub code scanning and in the job summary</li><li>A fork pull request still gets the summary even though the SARIF upload fails</li></ul> |
-| **M3. Planning skills** | v0.4.0 | <ul><li>`powerops-plan`, `powerops-review-plan` and `powerops-implement` skills in `SKILL.md` format, with plain-text fallbacks</li><li>Plan files under `docs/plans/<name>/` with a status header</li><li>`powerops skills install`, `powerops plan facts` (names-only environment facts through read-only `pac`) and `powerops plan status` (exits non-zero when implementation starts without a sign-off)</li><li>Design: [PLANNING-SKILLS.md](PLANNING-SKILLS.md)</li></ul> | <ul><li>In Claude Code and Codex, a one-line idea becomes a signed-off plan through question rounds, with a review on the top model in a fresh session</li><li>Asking to implement without a plan produces a drafted plan with route options, not code</li><li>`powerops plan status` fails in CI on an unsigned plan</li></ul> |
+| **M3. Planning skills** | v0.4.0 | <ul><li>`powerops-plan`, `powerops-review-plan` and `powerops-implement` skills in `SKILL.md` format, with plain-text fallbacks</li><li>Plan files under `docs/plans/<name>/` with a plain `key: value` header (five states, `review` field, body hash)</li><li>`powerops plan status` (validates every plan: header, enums, hash, review, tenant patterns; exit codes 0/1/2/3; `--json`) and `powerops plan sign-off <plan>` (writes the date and body hash)</li><li>`powerops plan facts`: names-only environment facts through read-only `pac org who` and `pac solution list`; failure is `{"available": false, ...}` with exit 0</li><li>`powerops skills install`</li><li>A weekly scheduled smoke test with a simulated user (not in per-build CI)</li><li>Supported agents: Claude Code and Codex. Gemini CLI and Copilot are provisional, untested</li><li>Design: [PLANNING-SKILLS.md](PLANNING-SKILLS.md)</li></ul> | <ul><li>Offline tests pass for: header parse and enum errors; hash match and mismatch; review skipped; missing `review.md`; a tenant-pattern hit; `plan facts` unavailable and timed out (recorded fake `pac` output); install idempotency; install refusing to overwrite differing files without `--force`</li><li>One manual run in Claude Code and one in Codex: a one-line idea becomes a signed-off plan through question rounds, and asking to implement without a plan (fast path) produces a drafted plan with route options, not code</li></ul> |
 | **M4. YAML layout** | v0.5.0 | <ul><li>YamlReader that produces the same model</li><li>PO013</li><li>Basic `.pa.yaml` reading (hard-coded URLs in Power Fx)</li></ul> | The YAML fixture produces the same findings as the same solution in the XML layout |
 | **M5. `diff`** | v0.6.0 | <ul><li>Component-level semantic diff of two solution versions</li><li>Ignores noise (timestamps, ordering, volatile IDs)</li><li>Risk labels: a managed upgrade deletes removed components; flow on/off changed; connection reference or env var added or removed</li><li>Markdown output for pull-request comments</li></ul> | <ul><li>Diffing the managed/unmanaged sample pair and two versions of a live export shows only meaningful changes</li><li>The output fits in a pull-request comment</li></ul> |
 | **M6. `settings`** | v0.7.0 | <ul><li>`settings generate` and `settings validate` offline: compare a `deploymentsettings.json` with the solution's connection references and env vars</li><li>Then the first live feature: bind connection references and turn flows on after import, behind an explicit `--apply` flag</li></ul> | <ul><li>Validate catches missing and extra entries in fixtures</li><li>A live import round-trip in the test environment leaves the flows on</li></ul> |
@@ -104,6 +104,7 @@ Each milestone ends in a release that someone can use. "Done when" is checked by
 | End-to-end | The packed tool installed into a temp folder and run against the fixtures, checking exit codes and output | CI on Linux |
 | `pac` interop | Offline `pac solution unpack` of a fixture zip, then `analyze` on the result | only when `pac` is found |
 | Live | Against a real environment | only when `POWEROPS_TEST_ENV` is set; skipped in CI |
+| Planning-skills smoke test (M3) | The skills driven by a simulated user; checks round size, option order, `decisions.md` logging and the stop behaviour | weekly scheduled job on the maintainer's model credentials (CI secrets), not per build; a manual run before each release is allowed |
 
 **Fixtures** come from MIT-licensed Microsoft repos:
 - coe-starter-kit: AuditLogs and ALMAcceleratorSampleSolution
@@ -166,6 +167,10 @@ This starts once M1 passes locally.
 11. `feat(output):` SARIF writer + schema test
 12. `feat(cli):` `baseline` and `--baseline`
 13. `feat(output):` Markdown output + `action.yml` + rule docs → **v0.3.0**
+14. `feat(plan):` `powerops plan status` and `plan sign-off` (header reader, body hash, exit codes, tenant-pattern scan)
+15. `feat(plan):` `powerops plan facts` (`PacRunner`, names only, failure JSON, timeout)
+16. `feat(skills):` `powerops skills install` (idempotent, refuses to overwrite differing files without `--force`)
+17. `feat(skills):` the three planning skills and the weekly smoke test → **v0.4.0**
 
 ## Decisions (2026-10-19)
 
@@ -174,3 +179,6 @@ This starts once M1 passes locally.
 3. **Live environment:** a dedicated developer environment in a tenant where the maintainer has admin rights, used only for PowerOps testing (a sandbox needs spare tenant database capacity).
    - Developer environments that aren't managed are suspended from 2026-12-15. The seed solution is already exported and committed as the `powerops-seed` fixture, so offline tests don't depend on the environment.
 4. **Planning skills come before the YAML layout.** They ship to PowerOps users as M3 (v0.4). Every later milestone is planned with them, which dogfoods them early.
+5. **Planning-skills smoke test runs weekly, not per build.** The simulated-user smoke test is a scheduled job on the maintainer's model credentials, stored as CI secrets. A manual run before each release is still allowed.
+6. **v0.4.0 supports Claude Code and Codex.** Gemini CLI and Copilot ship marked provisional, untested.
+7. **No warn-only sign-off.** A sign-off written by hand without `powerops plan sign-off` fails `plan status` with the hint "run `powerops plan sign-off`".
