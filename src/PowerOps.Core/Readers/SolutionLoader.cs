@@ -6,7 +6,7 @@ namespace PowerOps.Core.Readers;
 public static class SolutionLoader
 {
     public static Solution Load(string path) =>
-        Directory.Exists(path)
-            ? XmlUnpackReader.Read(path)
-            : throw new InvalidDataException($"{path}: not a solution folder.");
+        Directory.Exists(path) ? XmlUnpackReader.Read(path)
+        : path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ? ZipReader.Read(path)
+        : throw new InvalidDataException($"{path}: not a solution folder or zip.");
 }
