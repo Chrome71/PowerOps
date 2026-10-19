@@ -1,3 +1,5 @@
+using System.IO.Compression;
+
 using PowerOps.Core.Readers;
 using PowerOps.Tests.Shared;
 
@@ -55,5 +57,47 @@ public class SolutionDiscoveryTests
     {
         Assert.Equal(["whatever.zip"], SolutionDiscovery.Find("whatever.zip"));
         Assert.Empty(SolutionDiscovery.Find(Path.Combine(Path.GetTempPath(), "powerops-does-not-exist")));
+    }
+
+    [Fact]
+    public void Results_are_sorted_by_forward_slash_path()
+    {
+        // '/' sorts before '0', but '\\' (a Windows separator) sorts after it.
+        using var t = new TempFolder()
+            .Write("a0/Other/Solution.xml", SolutionXml.Manifest())
+            .Write("a/x/Other/Solution.xml", SolutionXml.Manifest());
+
+        var found = SolutionDiscovery.Find(t.Path).Select(p => Path.GetRelativePath(t.Path, p).Replace('\\', '/'));
+
+        Assert.Equal(["a/x", "a0"], found);
+    }
+
+    [Fact]
+    public void Symlink_loops_do_not_hang_or_throw()
+    {
+        using var t = new TempFolder().Write("ok/Other/Solution.xml", SolutionXml.Manifest());
+        Directory.CreateDirectory(Path.Combine(t.Path, "loop"));
+        if (!XmlUnpackReaderTests.TrySymlink(Path.Combine(t.Path, "loop", "back"), t.Path))
+        {
+            Assert.Skip("Symbolic links are not available here.");
+        }
+
+        Assert.Equal([Path.Combine(t.Path, "ok")], SolutionDiscovery.Find(t.Path));
+    }
+
+    [Fact]
+    public void Finds_upper_case_zip_and_skips_non_solution_and_corrupt_zips()
+    {
+        using var t = new TempFolder().Write("corrupt.zip", "this is not a zip");
+        CreateZip(Path.Combine(t.Path, "SOL.ZIP"), "solution.xml");
+        CreateZip(Path.Combine(t.Path, "other.zip"), "readme.txt");
+
+        Assert.Equal([Path.Combine(t.Path, "SOL.ZIP")], SolutionDiscovery.Find(t.Path));
+    }
+
+    private static void CreateZip(string path, string entry)
+    {
+        using var zip = ZipFile.Open(path, ZipArchiveMode.Create);
+        zip.CreateEntry(entry);
     }
 }

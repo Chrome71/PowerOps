@@ -222,6 +222,99 @@ public class XmlUnpackReaderTests
         Assert.Contains("environmentvariablevalues.json", ex.Message);
     }
 
+    [Fact]
+    public void Doctype_in_solution_xml_is_rejected()
+    {
+        using var t = new TempFolder().Write("Other/Solution.xml", ZipReaderTests.Xxe);
+
+        Assert.Throws<InvalidDataException>(() => Read(t));
+    }
+
+    [Fact]
+    public void File_over_the_size_cap_throws_InvalidDataException()
+    {
+        using var t = new TempFolder().Write("Other/Solution.xml", "<ImportExportXml>" + new string(' ', 51 * 1024 * 1024) + "</ImportExportXml>");
+
+        Assert.Throws<InvalidDataException>(() => Read(t));
+    }
+
+    [Fact]
+    public void Solution_over_the_total_budget_throws_InvalidDataException()
+    {
+        using var t = new TempFolder()
+            .Write("Other/Solution.xml", SolutionXml.Manifest())
+            .Write("Other/Customizations.xml", SolutionXml.Customizations(new string(' ', 2000)));
+
+        var ex = Assert.Throws<InvalidDataException>(() => XmlUnpackReader.Read(t.Path, new ReadBudget(maxTotalBytes: 1500)));
+
+        Assert.Contains("Customizations.xml", ex.Message);
+    }
+
+    [Fact]
+    public void Symlinked_files_are_not_read()
+    {
+        using var outside = new TempFolder().Write("def.xml", "<environmentvariabledefinition schemaname=\"evil_A\" />");
+        using var t = new TempFolder().Write("Other/Solution.xml", SolutionXml.Manifest());
+        Directory.CreateDirectory(Path.Combine(t.Path, "environmentvariabledefinitions", "evil_A"));
+        if (!TrySymlink(Path.Combine(t.Path, "environmentvariabledefinitions", "evil_A", "environmentvariabledefinition.xml"), Path.Combine(outside.Path, "def.xml")))
+        {
+            Assert.Skip("Symbolic links are not available here.");
+        }
+
+        Assert.Empty(Read(t).EnvironmentVariables);
+    }
+
+    internal static bool TrySymlink(string link, string target)
+    {
+        try
+        {
+            if (Directory.Exists(target))
+            {
+                Directory.CreateSymbolicLink(link, target);
+            }
+            else
+            {
+                File.CreateSymbolicLink(link, target);
+            }
+
+            return true;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    [Fact]
+    public void Workflow_json_name_is_matched_with_backslashes_and_case_and_reports_the_actual_file()
+    {
+        using var t = new TempFolder()
+            .Write("Other/Solution.xml", SolutionXml.Manifest())
+            .Write("Workflows/Flow-AA.json.data.xml", """
+                <Workflow WorkflowId="{AA-11}" Name="F"><JsonFileName>\workflows\flow-aa.json</JsonFileName><Category>5</Category></Workflow>
+                """)
+            .Write("Workflows/Flow-AA.json", "{}");
+
+        var w = Assert.Single(Read(t).Workflows);
+
+        Assert.Equal("Workflows/Flow-AA.json", w.File);
+        Assert.Equal("{}", w.ClientData);
+    }
+
+    [Fact]
+    public void Cloud_flow_with_missing_json_file_throws_InvalidDataException_naming_it()
+    {
+        using var t = new TempFolder()
+            .Write("Other/Solution.xml", SolutionXml.Manifest())
+            .Write("Workflows/Flow-AA.json.data.xml", """
+                <Workflow WorkflowId="{AA-11}" Name="F"><JsonFileName>/Workflows/Flow-AA.json</JsonFileName><Category>5</Category></Workflow>
+                """);
+
+        var ex = Assert.Throws<InvalidDataException>(() => Read(t));
+
+        Assert.Contains("Workflows/Flow-AA.json", ex.Message);
+    }
+
     private static string Fixture(string name) => Path.Combine(Golden.RepoRoot, "tests", "fixtures", name);
 
     [Fact]

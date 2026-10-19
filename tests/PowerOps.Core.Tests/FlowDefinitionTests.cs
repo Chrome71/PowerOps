@@ -9,6 +9,18 @@ public class FlowDefinitionTests
         "{\"properties\":{\"connectionReferences\":" + connectionReferences + ",\"definition\":" + definition + "}}";
 
     [Fact]
+    public void Deeply_nested_definition_parses_up_to_256_levels()
+    {
+        var nested = string.Concat(Enumerable.Repeat("{\"a\":", 100)) + "1" + new string('}', 100);
+
+        var flow = FlowDefinition.Parse(Flow("{}", nested));
+
+        Assert.Empty(flow.StringLiterals);
+        Assert.Throws<InvalidDataException>(() => FlowDefinition.Parse(
+            Flow("{}", string.Concat(Enumerable.Repeat("{\"a\":", 300)) + "1" + new string('}', 300))));
+    }
+
+    [Fact]
     public void Embedded_connection_has_null_logical_name()
     {
         var flow = FlowDefinition.Parse(Flow(

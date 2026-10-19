@@ -166,6 +166,45 @@ public class ZipReaderTests
     }
 
     [Fact]
+    public void Entry_referenced_by_many_workflows_is_read_once()
+    {
+        var workflows = string.Concat(Enumerable.Range(0, 1000).Select(i =>
+            $"<Workflow WorkflowId=\"w{i}\" Name=\"F{i}\"><JsonFileName>/Workflows/big.json</JsonFileName><Category>5</Category><StateCode>1</StateCode></Workflow>"));
+        using var t = Zip(out var zip,
+            ("solution.xml", SolutionXml.Manifest()),
+            ("customizations.xml", SolutionXml.Customizations($"<Workflows>{workflows}</Workflows>")),
+            ("Workflows/big.json", "{\"pad\":\"" + new string('x', 100_000) + "\"}"));
+
+        // Re-reading big.json per Workflow would cost 100 MB; one read plus the XML fits in 1 MB.
+        var s = ZipReader.Read(zip, new ReadBudget(maxTotalBytes: 1024 * 1024));
+
+        Assert.Equal(1000, s.Workflows.Count);
+        Assert.All(s.Workflows, w => Assert.NotNull(w.ClientData));
+    }
+
+    [Fact]
+    public void Solution_over_the_total_budget_throws_InvalidDataException()
+    {
+        using var t = Zip(out var zip,
+            ("solution.xml", SolutionXml.Manifest()),
+            ("customizations.xml", SolutionXml.Customizations(new string(' ', 2000))));
+
+        var ex = Assert.Throws<InvalidDataException>(() => ZipReader.Read(zip, new ReadBudget(maxTotalBytes: 1500)));
+
+        Assert.Contains("customizations.xml", ex.Message);
+    }
+
+    [Fact]
+    public void Doctype_in_solution_xml_is_rejected()
+    {
+        using var t = Zip(out var zip, ("solution.xml", Xxe));
+
+        Assert.Throws<InvalidDataException>(() => ZipReader.Read(zip));
+    }
+
+    internal const string Xxe = "<?xml version=\"1.0\"?><!DOCTYPE x [<!ENTITY e SYSTEM \"file:///etc/passwd\">]><ImportExportXml><SolutionManifest><UniqueName>&e;</UniqueName></SolutionManifest></ImportExportXml>";
+
+    [Fact]
     public void Loader_and_discovery_handle_zips()
     {
         using var t = Zip(out var zip, ("solution.xml", SolutionXml.Manifest()));

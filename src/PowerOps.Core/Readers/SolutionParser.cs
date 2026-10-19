@@ -18,14 +18,36 @@ internal sealed record SolutionFiles(
 /// <summary>Parses the files of an unpacked or exported solution; folder and zip differ only in <see cref="SolutionFiles"/>.</summary>
 internal static partial class SolutionParser
 {
-    public static string ReadAllText(Stream stream)
+    /// <summary>Reads a stream as text, enforcing the per-file cap on the bytes actually read (declared sizes can lie) and the per-solution budget.</summary>
+    public static string ReadCapped(Stream source, string name, ReadBudget budget)
     {
-        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        using var stream = source;
+        using var buffer = new MemoryStream();
+        var chunk = new byte[81920];
+        int n;
+        while ((n = stream.Read(chunk, 0, chunk.Length)) > 0)
+        {
+            if (buffer.Length + n > budget.MaxFileBytes)
+            {
+                throw new InvalidDataException($"{name}: larger than {budget.MaxFileBytes / (1024 * 1024)} MB.");
+            }
+
+            budget.Consume(n, name);
+            buffer.Write(chunk, 0, n);
+        }
+
+        buffer.Position = 0;
+        using var reader = new StreamReader(buffer, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
         return reader.ReadToEnd();
     }
 
     public static Solution Parse(SolutionFiles files)
     {
+        // Many references can point at one entry (zip-bomb amplification), so each file is read once.
+        var cache = new Dictionary<string, string>(StringComparer.Ordinal);
+        var read = files.ReadText;
+        files = files with { ReadText = p => cache.TryGetValue(p, out var text) ? text : cache[p] = read(p) };
+
         var paths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var p in files.Paths.OrderBy(p => p, StringComparer.Ordinal))
         {
@@ -95,14 +117,20 @@ internal static partial class SolutionParser
 
     private static Workflow ReadWorkflow(SolutionFiles files, Dictionary<string, string> paths, XElement e, string definedIn)
     {
-        var jsonName = Opt(Text(e, "JsonFileName")?.TrimStart('/'));
+        var jsonName = Opt(Text(e, "JsonFileName")?.Replace('\\', '/').TrimStart('/'));
         var jsonPath = jsonName is not null && paths.TryGetValue(jsonName, out var actual) ? actual : null;
+        var category = int.TryParse(Text(e, "Category"), out var c) ? c : 0;
+        if (category == 5 && jsonName is not null && jsonPath is null)
+        {
+            throw new InvalidDataException($"{definedIn}: cloud flow '{(string?)e.Attribute("Name")}' declares {jsonName}, which is missing.");
+        }
+
         return new Workflow(
             NormalizeId((string?)e.Attribute("WorkflowId")) ?? "",
             (string?)e.Attribute("Name") ?? "",
-            int.TryParse(Text(e, "Category"), out var category) ? category : 0,
+            category,
             int.TryParse(Text(e, "StateCode"), out var state) ? state : null,
-            jsonName ?? definedIn,
+            jsonPath ?? jsonName ?? definedIn,
             jsonPath is null ? null : files.ReadText(jsonPath));
     }
 

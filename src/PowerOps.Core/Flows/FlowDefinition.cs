@@ -26,7 +26,8 @@ public sealed partial record FlowDefinition(
     {
         try
         {
-            using var doc = JsonDocument.Parse(clientDataJson.TrimStart('﻿'));
+            // Parse takes raw strings, so a BOM that a stream reader would have removed can still be present.
+            using var doc = JsonDocument.Parse(clientDataJson.TrimStart('\uFEFF'), new JsonDocumentOptions { MaxDepth = 256 });
             if (doc.RootElement.ValueKind != JsonValueKind.Object)
             {
                 throw new InvalidDataException("Flow definition JSON is not an object.");

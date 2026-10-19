@@ -7,6 +7,14 @@ public static class SolutionDiscovery
 {
     private static readonly HashSet<string> Skipped = new(StringComparer.OrdinalIgnoreCase) { "bin", "obj", ".git", "node_modules" };
 
+    // Symlinks are not followed (loops, escapes); unreadable folders are skipped; `X.ZIP` matches too.
+    private static readonly EnumerationOptions Options = new()
+    {
+        IgnoreInaccessible = true,
+        AttributesToSkip = FileAttributes.ReparsePoint,
+        MatchCasing = MatchCasing.CaseInsensitive,
+    };
+
     public static IReadOnlyList<string> Find(string path)
     {
         var found = new List<string>();
@@ -27,7 +35,8 @@ public static class SolutionDiscovery
             found.Add(path);
         }
 
-        found.Sort(StringComparer.Ordinal);
+        // Sorted by the forward-slash form so output is identical on Windows.
+        found.Sort((a, b) => string.CompareOrdinal(a.Replace('\\', '/'), b.Replace('\\', '/')));
         return found;
     }
 
@@ -39,12 +48,12 @@ public static class SolutionDiscovery
             return;
         }
 
-        foreach (var sub in Directory.EnumerateDirectories(dir).Where(d => !Skipped.Contains(Path.GetFileName(d))))
+        foreach (var sub in Directory.EnumerateDirectories(dir, "*", Options).Where(d => !Skipped.Contains(Path.GetFileName(d))))
         {
             Walk(sub, found);
         }
 
-        found.AddRange(Directory.EnumerateFiles(dir, "*.zip").Where(HasRootSolutionXml));
+        found.AddRange(Directory.EnumerateFiles(dir, "*.zip", Options).Where(HasRootSolutionXml));
     }
 
     private static bool HasRootSolutionXml(string zipPath)
@@ -54,7 +63,7 @@ public static class SolutionDiscovery
             using var zip = ZipFile.OpenRead(zipPath);
             return zip.Entries.Any(e => e.FullName.Equals("solution.xml", StringComparison.OrdinalIgnoreCase));
         }
-        catch (InvalidDataException)
+        catch (Exception e) when (e is InvalidDataException or IOException or UnauthorizedAccessException)
         {
             return false;
         }
