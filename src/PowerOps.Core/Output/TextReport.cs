@@ -10,16 +10,16 @@ public static class TextReport
         foreach (var s in result.Solutions)
         {
             var sol = s.Solution;
-            writer.Write($"{s.Path}: {sol.UniqueName} {sol.Version} (publisher {sol.Publisher.UniqueName}, prefix {sol.Publisher.Prefix})\n");
+            writer.Write($"{Clean(s.Path)}: {Clean(sol.UniqueName)} {Clean(sol.Version)} (publisher {Clean(sol.Publisher.UniqueName)}, prefix {Clean(sol.Publisher.Prefix)})\n");
             foreach (var required in s.Requires)
             {
-                writer.Write($"  requires {required}\n");
+                writer.Write($"  requires {Clean(required)}\n");
             }
 
             foreach (var f in s.Findings)
             {
                 var severity = f.Severity == Severity.Error ? "error" : "warning";
-                writer.Write($"  {severity} {f.RuleId} {f.File}: {f.Message}\n");
+                writer.Write($"  {severity} {f.RuleId} {Clean(f.File)}: {Clean(f.Message)}\n");
             }
 
             if (s.Findings.Count == 0)
@@ -30,6 +30,9 @@ public static class TextReport
 
         writer.Write($"{Count(result.Solutions.Count, "solution")}, {Count(result.Errors, "error")}, {Count(result.Warnings, "warning")}\n");
     }
+
+    // A hostile solution must not forge lines (or "::error::" workflow commands) in the report.
+    private static string Clean(string? text) => string.Concat((text ?? "").Select(c => char.IsControl(c) ? ' ' : c));
 
     private static string Count(int n, string noun) => $"{n} {noun}{(n == 1 ? "" : "s")}";
 }

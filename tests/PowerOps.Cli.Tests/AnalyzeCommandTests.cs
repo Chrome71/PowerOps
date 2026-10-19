@@ -51,6 +51,30 @@ public class AnalyzeCommandTests : IDisposable
     }
 
     [Fact]
+    public void Error_finding_exits_one_by_default_and_zero_with_fail_on_none()
+    {
+        // PO002: a required environment variable with no default and no value.
+        Directory.CreateDirectory(Path.Combine(_temp, "Other"));
+        File.WriteAllText(Path.Combine(_temp, "Other", "Solution.xml"), """
+            <ImportExportXml><SolutionManifest>
+              <UniqueName>Demo</UniqueName><Version>1.0.0.0</Version><Managed>0</Managed>
+              <Publisher><UniqueName>demopub</UniqueName><CustomizationPrefix>demo</CustomizationPrefix></Publisher>
+            </SolutionManifest></ImportExportXml>
+            """);
+        var envDir = Path.Combine(_temp, "environmentvariabledefinitions", "demo_A");
+        Directory.CreateDirectory(envDir);
+        File.WriteAllText(
+            Path.Combine(envDir, "environmentvariabledefinition.xml"),
+            """<environmentvariabledefinition schemaname="demo_A"><isrequired>1</isrequired></environmentvariabledefinition>""");
+
+        var (code, output, _) = Run("analyze", _temp);
+
+        Assert.Equal(1, code);
+        Assert.Contains("error PO002", output);
+        Assert.Equal(0, Run("analyze", _temp, "--fail-on", "none").Code);
+    }
+
+    [Fact]
     public void Missing_path_exits_two()
     {
         var (code, _, err) = Run("analyze", Path.Combine(_temp, "nope"));

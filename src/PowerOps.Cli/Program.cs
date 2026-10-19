@@ -1,10 +1,15 @@
 using System.CommandLine;
+using System.Text;
 
 namespace PowerOps.Cli;
 
 public static class Program
 {
-    public static int Main(string[] args) => Run(args, Console.Out, Console.Error);
+    public static int Main(string[] args)
+    {
+        Console.OutputEncoding = new UTF8Encoding(false);
+        return Run(args, Console.Out, Console.Error);
+    }
 
     // Output and error writers are injectable so tests can capture them.
     public static int Run(string[] args, TextWriter output, TextWriter error)

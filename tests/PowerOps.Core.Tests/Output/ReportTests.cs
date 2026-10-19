@@ -48,6 +48,18 @@ public class ReportTests
     }
 
     [Fact]
+    public void Text_replaces_control_characters_so_names_cannot_forge_lines()
+    {
+        var hostile = new Finding("PO001", Severity.Error, "Flow 'a\n::error::x' bad.", "f\r\n1", "c");
+
+        var text = Text(One([hostile]));
+
+        Assert.DoesNotContain("\r", text);
+        Assert.All(text.Split('\n'), line => Assert.False(line.StartsWith("::", StringComparison.Ordinal)));
+        Assert.Contains("Flow 'a ::error::x' bad.", text);
+    }
+
+    [Fact]
     public void Text_lists_requires_sorted_and_distinct_and_pluralises()
     {
         var findings = new[]
