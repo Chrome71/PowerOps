@@ -1,0 +1,45 @@
+tests/fixtures/alm-makers: ALMAcceleratorforMakers 0.0.0.0 (publisher catteam, prefix cat)
+  requires EnvironmentVariables (1.0.2.77)
+  warning PO009 Other/Customizations.xml: Component 'new_sharedcommondataserviceforapps_06411' does not use the publisher prefix 'cat'.
+  warning PO009 Other/Customizations.xml: Component 'new_sharedpowerappsforappmakers_87b9a' does not use the publisher prefix 'cat'.
+  warning PO011 Workflows/WorkflowCompleteNotification-518F39D7-F4E5-EA11-A817-000D3A56B702.json: Flow 'WorkflowCompleteNotification' is turned off.
+  warning PO007 environmentvariabledefinitions/cat_DependentEnvironmentUrl/environmentvariabledefinition.xml: Environment variable 'cat_DependentEnvironmentUrl' has a default value that looks like a URL.
+  warning PO008 environmentvariabledefinitions/cat_DependentEnvironmentUrl/environmentvariablevalues.json: Environment variable 'cat_DependentEnvironmentUrl' ships a current value in the solution.
+  warning PO007 environmentvariabledefinitions/cat_DependentEnvironmentUserId/environmentvariabledefinition.xml: Environment variable 'cat_DependentEnvironmentUserId' has a default value that looks like a email address.
+  warning PO008 environmentvariabledefinitions/cat_DependentEnvironmentUserId/environmentvariablevalues.json: Environment variable 'cat_DependentEnvironmentUserId' ships a current value in the solution.
+  warning PO008 environmentvariabledefinitions/cat_DepndentEnvironmentSecretName/environmentvariablevalues.json: Environment variable 'cat_DepndentEnvironmentSecretName' ships a current value in the solution.
+  warning PO008 environmentvariabledefinitions/cat_GitHubOrgPlanExist/environmentvariablevalues.json: Environment variable 'cat_GitHubOrgPlanExist' ships a current value in the solution.
+  warning PO008 environmentvariabledefinitions/cat_OrgLanguage/environmentvariablevalues.json: Environment variable 'cat_OrgLanguage' ships a current value in the solution.
+  warning PO008 environmentvariabledefinitions/cat_OrgName/environmentvariablevalues.json: Environment variable 'cat_OrgName' ships a current value in the solution.
+  warning PO008 environmentvariabledefinitions/cat_TemplateRepoName/environmentvariablevalues.json: Environment variable 'cat_TemplateRepoName' ships a current value in the solution.
+  warning PO007 environmentvariabledefinitions/cat_WebhookUrl/environmentvariabledefinition.xml: Environment variable 'cat_WebhookUrl' has a default value that looks like a URL.
+  warning PO008 environmentvariabledefinitions/cat_WebhookUrl/environmentvariablevalues.json: Environment variable 'cat_WebhookUrl' ships a current value in the solution.
+  warning PO007 environmentvariabledefinitions/cat_clientId/environmentvariabledefinition.xml: Environment variable 'cat_clientId' has a default value that looks like a GUID.
+  warning PO008 environmentvariabledefinitions/cat_clientId/environmentvariablevalues.json: Environment variable 'cat_clientId' ships a current value in the solution.
+tests/fixtures/alm-sample: ALMAcceleratorSampleSolution 0.0.0.0 (publisher catteam, prefix cat)
+  requires AppModuleWebResources (2.5)
+  warning PO011 Workflows/EmailQuote-A4C44986-14D6-EC11-A7B5-000D3A1C0439.json: Flow 'Email Quote' is turned off.
+  warning PO011 Workflows/LikeQuote-90D90640-11BC-EC11-983F-0022483403A3.json: Flow 'Like Quote' is turned off.
+  warning PO011 Workflows/Smplerligforsk-37443C82-D03D-ED11-9DB0-0022482E56BE.json: Flow 'SÆmple Ø ærlig forsøk' is turned off.
+tests/fixtures/coe-auditlogs: CenterofExcellenceAuditLogs 3.27.2 (publisher powerplatformadmin, prefix admin)
+  requires CenterofExcellenceCoreComponents (4.4.1)
+  warning PO005 Other/Customizations.xml: Connection reference 'admin_sharedadmin5foffice2036520management20api5f7fc9343cf45734fe_8f08c' is not used by any flow or app.
+  warning PO005 Other/Customizations.xml: Connection reference 'admin_sharedcommondataserviceforapps_8f10b' is not used by any flow or app.
+  warning PO005 Other/Customizations.xml: Connection reference 'new_CoEAuditLogsO365Outlook' is not used by any flow or app.
+  warning PO009 Other/Customizations.xml: Component 'new_CoEAuditLogsDataverse' does not use the publisher prefix 'admin'.
+  warning PO009 Other/Customizations.xml: Component 'new_CoEAuditLogsO365Outlook' does not use the publisher prefix 'admin'.
+  warning PO011 Workflows/DeprecatedAdminSyncAuditLogs-FA91974D-6E68-EA11-A811-000D3A31CF04.json: Flow 'Deprecated | Admin | Sync Audit Logs' is turned off.
+  warning PO011 Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json: Flow 'Deprecated | [Child] Admin | Sync Logs' is turned off.
+tests/fixtures/zips/ColumnLevelSecuritySampleSolution.zip: ColumnLevelSecuritySampleSolution 1.0.0.0 (publisher ColumnLevelSecuritySamplePublisher, prefix sample)
+  requires msft_ColumnLevelSecurityData (1.2.0.28)
+  no findings
+tests/fixtures/zips/ColumnLevelSecuritySampleSolution_managed.zip: ColumnLevelSecuritySampleSolution 1.0.0.0 (publisher ColumnLevelSecuritySamplePublisher, prefix sample)
+  requires msft_ColumnLevelSecurityData (1.2.0.28)
+  no findings
+tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip: Contoso_sample 1.0.0.1 (publisher DefaultPublisherorg8a403877, prefix new)
+  warning PO005 customizations.xml: Connection reference 'new_D365connection' is not used by any flow or app.
+  warning PO008 environmentvariabledefinitions/new_ContosoURL/environmentvariablevalues.json: Environment variable 'new_ContosoURL' ships a current value in the solution.
+  warning PO010 solution.xml: Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher.
+tests/fixtures/zips/polymorphiclookupexamplesolution.zip: polymorphiclookupexamplesolution 1.0.0.0 (publisher examplepublisher, prefix sample)
+  no findings
+7 solutions, 0 errors, 29 warnings

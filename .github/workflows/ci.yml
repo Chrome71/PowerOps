@@ -37,3 +37,4 @@ jobs:
         run: |
           dotnet tool install --tool-path ./tool --add-source ./artifacts PowerOps --prerelease
           ./tool/powerops --version
+          ./tool/powerops analyze tests/fixtures --fail-on none
