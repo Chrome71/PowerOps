@@ -17,7 +17,7 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
 | A CLI and library that runs headless in CI on Linux, macOS and Windows | Another desktop GUI (XrmToolBox and Power Platform ToolBox already cover that) |
 | Offline-first: most commands read an exported or unpacked solution, with no tenant needed | A replacement for `pac`, which it calls for pack, import and check |
 | Machine-readable output (JSON, SARIF, Markdown for PR comments) | A low-code maker tool |
-| Agent-friendly: stable output, a dry-run plan mode, read-only by default, planning skills that gate implementation on a signed-off plan ([design](PLANNING-SKILLS.md)), and an MCP server later | A replacement for Microsoft's build skills ([power-platform-skills](https://github.com/microsoft/power-platform-skills)). Our skills cover planning, review and sign-off, and work alongside them. |
+| Agent-friendly: stable output, a dry-run plan mode, read-only by default, planning skills that gate implementation on a signed-off plan ([design](PLANNING-SKILLS.md)), and an MCP server later | A replacement for Microsoft's skills ([power-platform-skills](https://github.com/microsoft/power-platform-skills)). Those focus on building, and their one planner covers Power Pages ALM. Ours plan any Power Platform project, add an independent review and a CI check, work across agents, and work alongside Microsoft's. |
 
 ## 3. The four pillars, mapped to real gaps
 
@@ -61,7 +61,7 @@ Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform
 |---|---|---|
 | **0. Foundation** | Repo scaffolding, CI (build, test, lint), release pipeline, docs skeleton, fixture solutions | `dotnet tool install` of a v0.1.0 that prints `--version`, published from CI |
 | **1. Offline analysis and diff** | `analyze` (about 10 rules, SARIF, baseline), `diff` (Markdown output), GitHub Action that comments on PRs | Running it on a real exported solution finds real issues, and the PR comment is readable |
-| **1b. Planning skills** | `plan`, `review-plan` and `implement` skills for Claude Code, Codex and other agents; `powerops skills install`; `powerops plan status` | A vague idea becomes a reviewed, signed-off plan, and CI fails if implementation starts without one |
+| **1b. Planning skills** | `plan`, `review-plan` and `implement` skills for Claude Code, Codex and other agents; `powerops skills install`; `powerops plan facts` (names-only environment facts); `powerops plan status` | A vague idea becomes a reviewed, signed-off plan, and CI fails if implementation starts without one |
 | **2. Settings and connections** | `settings generate/validate/diff`, and turning flows on after import | Replaces a hand-written `deploymentsettings.json` workflow end to end |
 | **3. Environment-aware** | `drift`, `deploy --plan`, pre-deploy layer and impact check, ephemeral environment per PR | A Dev→Test promotion runs from GitHub Actions with a plan reviewed in the PR |
 | **4. Testing** | Flow test harness, Playwright starter, a Copilot Studio eval gate | A failing flow assertion blocks a merge |
@@ -107,6 +107,8 @@ To verify before or during the phase that depends on them:
   - Multi-solution repos need SolutionPackager.
   - A component listed in `rootcomponents.yml` without source files is silently left out. This is a candidate `analyze` rule.
   - Still to check by hand: how `unpack`, `clone` and `sync` behave with YAML.
+- [ ] **(Phase 1b)** Whether a read-only `pac` query (for example `pac env fetch` on the publisher table) can return publisher prefixes. `pac solution list` does not, so `powerops plan facts` needs another source or the plan asks for the prefix.
+- [ ] **(Phase 1b)** Whether Claude Code, Codex, Gemini CLI and Copilot all ignore `SKILL.md` front matter fields they don't know. Until verified, the shared skill files use only the spec's portable fields.
 - [ ] **(Phase 1)** Whether `microsoft/PowerApps-Tooling` can parse `.pa.yaml` well enough for a semantic diff.
 - [ ] **(Phase 1)** SARIF rule IDs and severities used by Solution Checker, so results line up with ours.
 - [ ] **(Phase 2)** Web API calls to bind connection references and turn flows on as a service principal.
