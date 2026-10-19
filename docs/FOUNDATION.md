@@ -68,11 +68,14 @@ Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform
 
 - **Microsoft churn.** Anything built on a preview API can break.
   - Mitigation: depend on GA surfaces (`pac solution`, the Web API, the SARIF format), and isolate everything else behind adapters.
-- **Test tenants are getting harder to get.** The Developer Plan can't be used to create environments after 2026-11-15.
-  - Mitigation: offline-first design and committed fixture solutions. We need to find out what contributors can use instead (see §8).
+- **Test tenants are getting harder to get.** [Unmanaged developer environments](https://learn.microsoft.com/power-platform/important-changes-coming), including those from the free Developer Plan, can't be created after 2026-11-15. Existing ones are suspended from 2026-12-15 and deleted from 2027-01-15. Only managed developer environments remain, and each user can create one.
+  - Mitigation: offline-first design and committed fixture solutions. Phase 3's ephemeral environments must be managed environments. We still need to find out what contributors can use (see §8).
 - **Competitors.**
-  - ALM4Dataverse is a framework with one maintainer and daily commits. TALXIS/tools-cli is an agent-driven CLI.
-  - Mitigation: differentiate on offline analysis, diff and drift, plus composability. Revisit this before Phase 3.
+  - ALM4Dataverse is an actively developed ALM framework.
+    - Since [v1.18](https://github.com/ALM4Dataverse/ALM4Dataverse/releases/tag/v1.18.0) (2026-10) it also deploys organization and Power Platform settings, which overlaps with Phase 2.
+    - It has no diff, SARIF or drift features.
+  - TALXIS/tools-cli is an agent-driven CLI.
+  - Mitigation: differentiate on offline analysis, diff and drift, plus composability. Revisit this before Phase 2.
 - **Licence contamination.**
   - XrmToolBox and Power Platform ToolBox are GPL-3, and FakeXrmEasy v2 is RPL or commercial.
   - Mitigation: don't copy their code, and don't take them as dependencies.
@@ -92,15 +95,23 @@ Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform
 
 To verify before or during the phase that depends on them:
 
-- [ ] **(Phase 1)** Exact YAML solution format support in `pac solution unpack/clone/sync`. The docs contradict themselves.
+- [ ] **(Phase 1)** YAML solution format support in `pac`. Partly answered by the [pac solution reference](https://learn.microsoft.com/power-platform/developer/cli/reference/solution):
+  - YAML needs pac 2.4.1 or later.
+  - `pack` auto-detects `solutions/*/solution.yml`.
+  - Multi-solution repos need SolutionPackager.
+  - A component listed in `rootcomponents.yml` without source files is silently left out. This is a candidate `analyze` rule.
+  - Still to check by hand: how `unpack`, `clone` and `sync` behave with YAML.
 - [ ] **(Phase 1)** Whether `microsoft/PowerApps-Tooling` can parse `.pa.yaml` well enough for a semantic diff.
 - [ ] **(Phase 1)** SARIF rule IDs and severities used by Solution Checker, so results line up with ours.
 - [ ] **(Phase 2)** Web API calls to bind connection references and turn flows on as a service principal.
-- [ ] **(Phase 3)** Power Platform API calls to create and delete environments (the ephemeral-environment pattern), plus cost and capacity limits.
-- [ ] **(Phase 3)** How Pipelines and Git integration interact with external CI, and whether we should trigger Pipelines rather than import directly.
-- [ ] **(Phase 3)** The licence of ALM4Dataverse and how far it overlaps with us.
+- [ ] **(Phase 3)** Power Platform API calls to create and delete environments (the ephemeral-environment pattern), plus cost and capacity limits. Starting point: environment provisioning and Reset Environment in the [programmability changelog](https://learn.microsoft.com/power-platform/admin/programmability-whats-new-changed). Ephemeral environments must be managed environments.
+- [ ] **(Phase 3)** How Pipelines and Git integration interact with external CI, and whether we should trigger Pipelines rather than import directly. Git integration gained [GitHub support and public APIs](https://learn.microsoft.com/power-platform/release-plan/2026wave1/power-platform-governance-administration/github-support-source-code-integration-power-platform) (public preview since 2026-08-31), which may let PowerOps trigger or inspect a Git sync.
+- [ ] **(Phase 2)** The licence of ALM4Dataverse (none stated as of 2026-10-19), and how far its settings deployment overlaps with ours.
 - [ ] **(Phase 4)** Flow run-history and static-results APIs, to find the best mocking approach.
-- [ ] **(Phase 4)** GA status of Copilot Studio evaluation.
-- [ ] **(All)** Contributor tenant options after the Developer Plan change on 2026-11-15.
+- [x] **(Phase 4)** GA status of Copilot Studio evaluation. [Answered](https://learn.microsoft.com/microsoft-copilot-studio/whats-new):
+  - Agent evaluations are GA (March 2026).
+  - Running them through the Power Platform API is in preview (April 2026).
+  - The `pac copilot-studio` evaluation commands are still preview.
+- [ ] **(All)** Contributor tenant options now that unmanaged developer environments are going away: no new ones from 2026-11-15, suspended from 2026-12-15, deleted from 2027-01-15. Only one managed developer environment per user remains.
 - [ ] **(Release)** NuGet trusted publishing setup, including the reported expiry of legacy API keys on 2026-11-01 (U).
 - [ ] **(Release)** Trademark check for the name "PowerOps". The GitHub repo name and the NuGet package ID were both free on 2026-10-19.
