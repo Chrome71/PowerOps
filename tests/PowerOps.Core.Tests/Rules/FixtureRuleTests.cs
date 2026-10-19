@@ -1,3 +1,5 @@
+using System.IO.Compression;
+
 using PowerOps.Core.Readers;
 using PowerOps.Core.Rules;
 using PowerOps.Tests.Shared;
@@ -64,5 +66,42 @@ public class FixtureRuleTests
     public void Contoso_zip_uses_default_publisher()
     {
         Assert.Single(Components(Analyze("zips/Contoso_sample_1_0_0_1_managed.zip"), "PO010"));
+    }
+
+    [Fact]
+    public void Seed_v2_zip_and_unpacked_findings_come_in_the_same_order()
+    {
+        var dir = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "powerops-seed", "v2");
+        var temp = Directory.CreateTempSubdirectory("powerops-test-").FullName;
+        try
+        {
+            var zipPath = Path.Combine(temp, "v2.zip");
+            using (var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create))
+            {
+                foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
+                {
+                    var rel = Path.GetRelativePath(dir, file).Replace('\\', '/');
+                    var entry = rel switch
+                    {
+                        "Other/Solution.xml" => "solution.xml",
+                        "Other/Customizations.xml" => "customizations.xml",
+                        _ => rel,
+                    };
+                    zip.CreateEntryFromFile(file, entry);
+                }
+            }
+
+            static List<(string, string?, string)> Key(IReadOnlyList<Finding> f) =>
+                f.Select(x => (x.RuleId, x.Component, x.Message)).ToList();
+
+            var fromZip = Key(Analyzer.Run(SolutionLoader.Load(zipPath)));
+
+            Assert.NotEmpty(fromZip);
+            Assert.Equal(Key(Analyze("powerops-seed/v2")), fromZip);
+        }
+        finally
+        {
+            Directory.Delete(temp, recursive: true);
+        }
     }
 }

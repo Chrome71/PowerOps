@@ -1,21 +1,21 @@
 tests/fixtures/alm-makers: ALMAcceleratorforMakers 0.0.0.0 (publisher catteam, prefix cat)
   requires EnvironmentVariables (1.0.2.77)
-  warning PO009 Other/Customizations.xml: Component 'new_sharedcommondataserviceforapps_06411' does not use the publisher prefix 'cat'.
-  warning PO009 Other/Customizations.xml: Component 'new_sharedpowerappsforappmakers_87b9a' does not use the publisher prefix 'cat'.
-  warning PO011 Workflows/WorkflowCompleteNotification-518F39D7-F4E5-EA11-A817-000D3A56B702.json: Flow 'WorkflowCompleteNotification' is turned off.
   warning PO007 environmentvariabledefinitions/cat_DependentEnvironmentUrl/environmentvariabledefinition.xml: Environment variable 'cat_DependentEnvironmentUrl' has a default value that looks like a URL.
-  warning PO008 environmentvariabledefinitions/cat_DependentEnvironmentUrl/environmentvariablevalues.json: Environment variable 'cat_DependentEnvironmentUrl' ships a current value in the solution.
   warning PO007 environmentvariabledefinitions/cat_DependentEnvironmentUserId/environmentvariabledefinition.xml: Environment variable 'cat_DependentEnvironmentUserId' has a default value that looks like an email address.
+  warning PO007 environmentvariabledefinitions/cat_WebhookUrl/environmentvariabledefinition.xml: Environment variable 'cat_WebhookUrl' has a default value that looks like a URL.
+  warning PO007 environmentvariabledefinitions/cat_clientId/environmentvariabledefinition.xml: Environment variable 'cat_clientId' has a default value that looks like a GUID.
+  warning PO008 environmentvariabledefinitions/cat_DependentEnvironmentUrl/environmentvariablevalues.json: Environment variable 'cat_DependentEnvironmentUrl' ships a current value in the solution.
   warning PO008 environmentvariabledefinitions/cat_DependentEnvironmentUserId/environmentvariablevalues.json: Environment variable 'cat_DependentEnvironmentUserId' ships a current value in the solution.
   warning PO008 environmentvariabledefinitions/cat_DepndentEnvironmentSecretName/environmentvariablevalues.json: Environment variable 'cat_DepndentEnvironmentSecretName' ships a current value in the solution.
   warning PO008 environmentvariabledefinitions/cat_GitHubOrgPlanExist/environmentvariablevalues.json: Environment variable 'cat_GitHubOrgPlanExist' ships a current value in the solution.
   warning PO008 environmentvariabledefinitions/cat_OrgLanguage/environmentvariablevalues.json: Environment variable 'cat_OrgLanguage' ships a current value in the solution.
   warning PO008 environmentvariabledefinitions/cat_OrgName/environmentvariablevalues.json: Environment variable 'cat_OrgName' ships a current value in the solution.
   warning PO008 environmentvariabledefinitions/cat_TemplateRepoName/environmentvariablevalues.json: Environment variable 'cat_TemplateRepoName' ships a current value in the solution.
-  warning PO007 environmentvariabledefinitions/cat_WebhookUrl/environmentvariabledefinition.xml: Environment variable 'cat_WebhookUrl' has a default value that looks like a URL.
   warning PO008 environmentvariabledefinitions/cat_WebhookUrl/environmentvariablevalues.json: Environment variable 'cat_WebhookUrl' ships a current value in the solution.
-  warning PO007 environmentvariabledefinitions/cat_clientId/environmentvariabledefinition.xml: Environment variable 'cat_clientId' has a default value that looks like a GUID.
   warning PO008 environmentvariabledefinitions/cat_clientId/environmentvariablevalues.json: Environment variable 'cat_clientId' ships a current value in the solution.
+  warning PO009 Other/Customizations.xml: Component 'new_sharedcommondataserviceforapps_06411' does not use the publisher prefix 'cat'.
+  warning PO009 Other/Customizations.xml: Component 'new_sharedpowerappsforappmakers_87b9a' does not use the publisher prefix 'cat'.
+  warning PO011 Workflows/WorkflowCompleteNotification-518F39D7-F4E5-EA11-A817-000D3A56B702.json: Flow 'WorkflowCompleteNotification' is turned off.
 tests/fixtures/alm-sample: ALMAcceleratorSampleSolution 0.0.0.0 (publisher catteam, prefix cat)
   requires AppModuleWebResources (2.5)
   warning PO011 Workflows/EmailQuote-A4C44986-14D6-EC11-A7B5-000D3A1C0439.json: Flow 'Email Quote' is turned off.

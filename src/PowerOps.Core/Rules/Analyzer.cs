@@ -19,12 +19,12 @@ public static class Analyzer
         new PO011FlowOff(),
     }.OrderBy(r => r.Id, StringComparer.Ordinal).ToList();
 
-    /// <summary>All findings, sorted by file, rule id, component, message (ordinal).</summary>
+    /// <summary>All findings, sorted by rule id, component, message, file (ordinal). File comes last because it differs between zip and unpacked layouts.</summary>
     public static IReadOnlyList<Finding> Run(Solution solution) =>
         Rules.SelectMany(r => r.Evaluate(solution))
-            .OrderBy(f => f.File, StringComparer.Ordinal)
-            .ThenBy(f => f.RuleId, StringComparer.Ordinal)
+            .OrderBy(f => f.RuleId, StringComparer.Ordinal)
             .ThenBy(f => f.Component, StringComparer.Ordinal)
             .ThenBy(f => f.Message, StringComparer.Ordinal)
+            .ThenBy(f => f.File, StringComparer.Ordinal)
             .ToList();
 }
