@@ -2,7 +2,7 @@
 
 **One line:** a free, open-source, cross-platform toolkit that brings software-engineering discipline (analysis, diffing, testing, repeatable deployment) to Microsoft Power Platform. It works alongside `pac`; it does not replace it.
 
-Draft of 2026-10-19. The research behind it is in [research/landscape-2026-10.md](research/landscape-2026-10.md).
+Last updated 2026-10-19. The research behind it is in [research/landscape-2026-10.md](research/landscape-2026-10.md).
 
 ## 1. Why now
 
@@ -28,9 +28,7 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
 | **Testing** | Flow test harness (mock connector outputs, assert on run results). A Playwright starter that wraps Microsoft's samples. | Test Engine is deprecated, and no flow test framework exists anywhere |
 | **Deployment automation** | `powerops deploy --plan`: a dependency-ordered multi-solution deploy that binds connection references and turns flows back on. `powerops drift`: compares Dev, Test and Prod. A composite GitHub Action. | Pipelines deploy one solution at a time, upgrade-only. Flows arrive switched off after a service-principal import. Nothing detects drift since the CoE kit was archived. |
 
-## 4. Proposed technical baseline
-
-These need your approval; see the open decisions in §7.
+## 4. Technical baseline
 
 - **Language:** C# on **.NET 10 (LTS)**, shipped as a `dotnet` global tool.
   - It has the only mature official Dataverse SDK (`Microsoft.PowerPlatform.Dataverse.Client`).
@@ -81,13 +79,14 @@ Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform
 - **Scope creep across four pillars.**
   - Mitigation: phases are strictly ordered, and Phase 1 alone must be useful.
 
-## 7. Open decisions (yours)
+## 7. Decisions
 
-1. **License:** Apache-2.0 (explicit patent grant; recommended) or MIT (simplest, and what Microsoft's tooling uses)?
-2. **Stack:** confirm .NET 10, or do you prefer TypeScript or Python?
-3. **Name check:** confirm "PowerOps" is free on GitHub, NuGet and npm, and has no trademark conflict.
-4. **Your tenant:** do you have a Power Platform environment for Phase 2+ testing, and what licence does it use?
-5. **CI target:** GitHub Actions only at first, or Azure DevOps from the start too?
+| Date | Decision | Why |
+|---|---|---|
+| 2026-10-19 | License: **Apache-2.0** | Permissive, with an explicit patent grant for users and contributors |
+| 2026-10-19 | Stack: **C# on .NET 10 (LTS)**, shipped as the `PowerOps` dotnet tool with the command `powerops` | It has the only mature official Dataverse SDK and runs on the same runtime as `pac` |
+| 2026-10-19 | CI: **GitHub Actions first**. An Azure DevOps task comes only if people ask for it. | One wrapper to maintain until there is demand for a second |
+| 2026-10-19 | Releases: Conventional Commits, **release-please**, NuGet trusted publishing (OIDC) with build provenance, starting at 0.1.0 | No long-lived publish keys, and changelogs are generated from commit history |
 
 ## 8. Research topics still open
 
@@ -104,3 +103,4 @@ To verify before or during the phase that depends on them:
 - [ ] **(Phase 4)** GA status of Copilot Studio evaluation.
 - [ ] **(All)** Contributor tenant options after the Developer Plan change on 2026-11-15.
 - [ ] **(Release)** NuGet trusted publishing setup, including the reported expiry of legacy API keys on 2026-11-01 (U).
+- [ ] **(Release)** Trademark check for the name "PowerOps". The GitHub repo name and the NuGet package ID were both free on 2026-10-19.
