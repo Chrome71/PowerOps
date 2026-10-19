@@ -10,6 +10,13 @@ public static class Analyzer
         new PO002RequiredEnvironmentVariableWithoutValue(),
         new PO003DependencyWithoutOwningSolution(),
         new PO004UndefinedChildFlow(),
+        new PO005UnusedConnectionReference(),
+        new PO006HardCodedEnvironmentUrl(),
+        new PO007EnvironmentSpecificDefaultValue(),
+        new PO008ShippedCurrentValue(),
+        new PO009ForeignPrefix(),
+        new PO010DefaultPublisher(),
+        new PO011FlowOff(),
     }.OrderBy(r => r.Id, StringComparer.Ordinal).ToList();
 
     /// <summary>All findings, sorted by file, rule id, component, message (ordinal).</summary>
