@@ -45,6 +45,22 @@ public class FixtureRuleTests
     }
 
     [Fact]
+    public void Seed_v1_is_clean()
+    {
+        Assert.Empty(Analyze("powerops-seed/v1"));
+    }
+
+    [Fact]
+    public void Seed_v2_flags_hard_coded_url_and_unused_connection_reference()
+    {
+        var f = Analyze("powerops-seed/v2");
+
+        Assert.Equal(["PO005", "PO006"], f.Select(x => x.RuleId).Order(StringComparer.Ordinal));
+        Assert.Equal(["pops_SpareDataverse"], Components(f, "PO005"));
+        Assert.Contains("https://contoso.sharepoint.com/sites/ops", f.Single(x => x.RuleId == "PO006").Message);
+    }
+
+    [Fact]
     public void Contoso_zip_uses_default_publisher()
     {
         Assert.Single(Components(Analyze("zips/Contoso_sample_1_0_0_1_managed.zip"), "PO010"));

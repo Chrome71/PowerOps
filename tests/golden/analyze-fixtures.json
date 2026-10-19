@@ -228,6 +228,45 @@
       ]
     },
     {
+      "path": "tests/fixtures/powerops-seed/v1",
+      "uniqueName": "PowerOpsSeed",
+      "version": "1.0.0.0",
+      "managed": false,
+      "publisher": {
+        "uniqueName": "powerops",
+        "prefix": "pops"
+      },
+      "requires": [],
+      "findings": []
+    },
+    {
+      "path": "tests/fixtures/powerops-seed/v2",
+      "uniqueName": "PowerOpsSeed",
+      "version": "1.0.0.0",
+      "managed": false,
+      "publisher": {
+        "uniqueName": "powerops",
+        "prefix": "pops"
+      },
+      "requires": [],
+      "findings": [
+        {
+          "ruleId": "PO005",
+          "severity": "warning",
+          "message": "Connection reference 'pops_SpareDataverse' is not used by any flow or app.",
+          "file": "Other/Customizations.xml",
+          "component": "pops_SpareDataverse"
+        },
+        {
+          "ruleId": "PO006",
+          "severity": "warning",
+          "message": "Flow 'Stamp work item status' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops'.",
+          "file": "Workflows/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json",
+          "component": "https://contoso.sharepoint.com/sites/ops"
+        }
+      ]
+    },
+    {
       "path": "tests/fixtures/zips/ColumnLevelSecuritySampleSolution.zip",
       "uniqueName": "ColumnLevelSecuritySampleSolution",
       "version": "1.0.0.0",
@@ -303,8 +342,8 @@
     }
   ],
   "summary": {
-    "solutions": 7,
+    "solutions": 9,
     "errors": 0,
-    "warnings": 29
+    "warnings": 31
   }
 }

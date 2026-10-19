@@ -30,6 +30,11 @@ tests/fixtures/coe-auditlogs: CenterofExcellenceAuditLogs 3.27.2 (publisher powe
   warning PO009 Other/Customizations.xml: Component 'new_CoEAuditLogsO365Outlook' does not use the publisher prefix 'admin'.
   warning PO011 Workflows/DeprecatedAdminSyncAuditLogs-FA91974D-6E68-EA11-A811-000D3A31CF04.json: Flow 'Deprecated | Admin | Sync Audit Logs' is turned off.
   warning PO011 Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json: Flow 'Deprecated | [Child] Admin | Sync Logs' is turned off.
+tests/fixtures/powerops-seed/v1: PowerOpsSeed 1.0.0.0 (publisher powerops, prefix pops)
+  no findings
+tests/fixtures/powerops-seed/v2: PowerOpsSeed 1.0.0.0 (publisher powerops, prefix pops)
+  warning PO005 Other/Customizations.xml: Connection reference 'pops_SpareDataverse' is not used by any flow or app.
+  warning PO006 Workflows/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json: Flow 'Stamp work item status' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops'.
 tests/fixtures/zips/ColumnLevelSecuritySampleSolution.zip: ColumnLevelSecuritySampleSolution 1.0.0.0 (publisher ColumnLevelSecuritySamplePublisher, prefix sample)
   requires msft_ColumnLevelSecurityData (1.2.0.28)
   no findings
@@ -42,4 +47,4 @@ tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip: Contoso_sample 1.0.0.1 (
   warning PO010 solution.xml: Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher.
 tests/fixtures/zips/polymorphiclookupexamplesolution.zip: polymorphiclookupexamplesolution 1.0.0.0 (publisher examplepublisher, prefix sample)
   no findings
-7 solutions, 0 errors, 29 warnings
+9 solutions, 0 errors, 31 warnings
