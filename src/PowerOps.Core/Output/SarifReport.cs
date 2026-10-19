@@ -10,7 +10,7 @@ namespace PowerOps.Core.Output;
 
 public static class SarifReport
 {
-    private const string Repo = "https://github.com/Chrome71/PowerOps";
+    internal const string Repo = "https://github.com/Chrome71/PowerOps";
 
     private static readonly JsonSerializerOptions Options = new()
     {
@@ -52,11 +52,13 @@ public static class SarifReport
                 r.Id,
                 r.GetType().Name[5..],
                 new Msg(r.Title),
-                $"{Repo}/blob/main/docs/rules/{r.Id}.md",
+                HelpUri(r.Id),
                 new Config(Level(r.Severity)))).ToList());
         var log = new Log("https://json.schemastore.org/sarif-2.1.0.json", "2.1.0", [new Run(new Tool(driver), results)]);
         writer.Write(JsonSerializer.Serialize(log, Options) + "\n");
     }
+
+    internal static string HelpUri(string ruleId) => $"{Repo}/blob/main/docs/rules/{ruleId}.md";
 
     private static string Level(Severity severity) => severity == Severity.Error ? "error" : "warning";
 

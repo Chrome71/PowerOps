@@ -125,6 +125,15 @@ public class AnalyzeCommandTests : IDisposable
     }
 
     [Fact]
+    public void Markdown_output_has_heading_and_summary()
+    {
+        var (code, output, _) = Run("analyze", Fixtures, "--format", "markdown", "--fail-on", "none");
+
+        Assert.Equal(0, code);
+        Assert.StartsWith("## PowerOps analyze\n\n**9 solutions, ", output);
+    }
+
+    [Fact]
     public void Sarif_output_parses_and_carries_the_tool_version()
     {
         var (code, output, _) = Run("analyze", Fixtures, "--format", "sarif", "--fail-on", "none");

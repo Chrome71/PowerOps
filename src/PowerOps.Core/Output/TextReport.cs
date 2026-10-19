@@ -28,8 +28,11 @@ public static class TextReport
             }
         }
 
-        writer.Write($"{Count(result.Solutions.Count, "solution")}, {Count(result.Errors, "error")}, {Count(result.Warnings, "warning")}{(result.Baselined > 0 ? $", {result.Baselined} baselined" : "")}\n");
+        writer.Write(Summary(result) + "\n");
     }
+
+    internal static string Summary(AnalysisResult result) =>
+        $"{Count(result.Solutions.Count, "solution")}, {Count(result.Errors, "error")}, {Count(result.Warnings, "warning")}{(result.Baselined > 0 ? $", {result.Baselined} baselined" : "")}";
 
     // A hostile solution must not forge lines (or "::error::" workflow commands) in the report.
     private static string Clean(string? text) => string.Concat((text ?? "").Select(c => char.IsControl(c) ? ' ' : c));

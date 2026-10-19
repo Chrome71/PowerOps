@@ -20,7 +20,7 @@ public static class AnalyzeCommand
             DefaultValueFactory = _ => ["."],
         };
         var format = new Option<string>("--format") { Description = "Report format.", DefaultValueFactory = _ => "text" };
-        format.AcceptOnlyFromAmong("text", "json", "sarif");
+        format.AcceptOnlyFromAmong("text", "json", "sarif", "markdown");
         var outFile = new Option<string?>("--out") { Description = "Write the report to this file instead of stdout." };
         var failOn = new Option<string>("--fail-on") { Description = "Lowest severity that makes the exit code 1.", DefaultValueFactory = _ => "error" };
         failOn.AcceptOnlyFromAmong("error", "warning", "none");
@@ -50,6 +50,10 @@ public static class AnalyzeCommand
             else if (format == "sarif")
             {
                 SarifReport.Write(result, report, ToolVersion());
+            }
+            else if (format == "markdown")
+            {
+                MarkdownReport.Write(result, report);
             }
             else
             {

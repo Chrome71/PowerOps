@@ -38,3 +38,13 @@ jobs:
           dotnet tool install --tool-path ./tool --add-source ./artifacts PowerOps --prerelease
           ./tool/powerops --version
           ./tool/powerops analyze tests/fixtures --fail-on none
+
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./
+        with:
+          path: tests/fixtures/powerops-seed/v2
+          upload-sarif: 'false'
+          fail-on: none

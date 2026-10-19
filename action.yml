@@ -1,0 +1,91 @@
+name: PowerOps analyze
+description: Analyze Power Platform solutions with PowerOps and report findings in the job summary, as annotations and in code scanning.
+author: Chrome71
+
+inputs:
+  path:
+    description: Solution folder or zip to analyze; folders are searched recursively.
+    default: .
+  fail-on:
+    description: Lowest severity that fails the job (error, warning or none).
+    default: error
+  baseline:
+    description: Baseline file made with `powerops baseline`; findings in it are ignored. Empty means no baseline.
+    default: ''
+  upload-sarif:
+    description: Upload the SARIF report to GitHub code scanning (needs security-events write permission).
+    default: 'true'
+  category:
+    description: Code scanning category for the SARIF upload.
+    default: powerops
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        global-json-file: ${{ github.action_path }}/global.json
+
+    - name: Build PowerOps
+      shell: bash
+      run: dotnet build "$GITHUB_ACTION_PATH/src/PowerOps.Cli" -c Release
+
+    # The report steps use --fail-on none so every report is written. They continue on error so that a crash
+    # (exit 2 or 3) is not hidden: the last step runs the analysis again with the real --fail-on and fails the job.
+    - name: Job summary
+      shell: bash
+      continue-on-error: true
+      env:
+        PO_PATH: ${{ inputs.path }}
+        PO_BASELINE: ${{ inputs.baseline }}
+      run: |
+        args=(analyze "$PO_PATH" --fail-on none)
+        if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
+        dotnet "$GITHUB_ACTION_PATH/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll" "${args[@]}" --format markdown >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Annotations
+      shell: bash
+      continue-on-error: true
+      env:
+        PO_PATH: ${{ inputs.path }}
+        PO_BASELINE: ${{ inputs.baseline }}
+      run: |
+        args=(analyze "$PO_PATH" --fail-on none)
+        if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
+        dotnet "$GITHUB_ACTION_PATH/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll" "${args[@]}" --format json |
+          jq -r '
+            def data: gsub("%"; "%25") | gsub("\r"; "%0D") | gsub("\n"; "%0A");
+            def prop: data | gsub(":"; "%3A") | gsub(","; "%2C");
+            .solutions[] | .path as $p | .findings[]
+            | (if ($p | endswith(".zip")) then $p else $p + "/" + .file end) as $file
+            | "::\(if .severity == "error" then "error" else "warning" end) file=\($file | prop),title=\(.ruleId | prop)::\(.message | data)"'
+
+    - name: Write SARIF
+      shell: bash
+      continue-on-error: true
+      env:
+        PO_PATH: ${{ inputs.path }}
+        PO_BASELINE: ${{ inputs.baseline }}
+      run: |
+        args=(analyze "$PO_PATH" --fail-on none)
+        if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
+        dotnet "$GITHUB_ACTION_PATH/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll" "${args[@]}" --format sarif --out "$RUNNER_TEMP/powerops.sarif"
+
+    - name: Upload SARIF
+      if: always() && inputs.upload-sarif == 'true'
+      continue-on-error: true
+      uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+      with:
+        sarif_file: ${{ runner.temp }}/powerops.sarif
+        category: ${{ inputs.category }}
+
+    - name: Apply fail-on
+      shell: bash
+      env:
+        PO_PATH: ${{ inputs.path }}
+        PO_BASELINE: ${{ inputs.baseline }}
+        PO_FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        args=(analyze "$PO_PATH" --fail-on "$PO_FAIL_ON")
+        if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
+        dotnet "$GITHUB_ACTION_PATH/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll" "${args[@]}"
