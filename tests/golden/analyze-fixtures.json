@@ -51,7 +51,7 @@
         {
           "ruleId": "PO007",
           "severity": "warning",
-          "message": "Environment variable 'cat_DependentEnvironmentUserId' has a default value that looks like a email address.",
+          "message": "Environment variable 'cat_DependentEnvironmentUserId' has a default value that looks like an email address.",
           "file": "environmentvariabledefinitions/cat_DependentEnvironmentUserId/environmentvariabledefinition.xml",
           "component": "cat_DependentEnvironmentUserId"
         },

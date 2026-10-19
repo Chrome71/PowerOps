@@ -27,13 +27,13 @@ public sealed partial class PO007EnvironmentSpecificDefaultValue : IRule
         {
             var value = v.DefaultValue?.Trim();
             var kind = string.IsNullOrEmpty(value) ? null
-                : Url().IsMatch(value) ? "URL"
-                : Guid().IsMatch(value) ? "GUID"
-                : Email().IsMatch(value) ? "email address"
+                : Url().IsMatch(value) ? "a URL"
+                : Guid().IsMatch(value) ? "a GUID"
+                : Email().IsMatch(value) ? "an email address"
                 : null;
             if (kind is not null)
             {
-                yield return new Finding(Id, Severity, $"Environment variable '{v.SchemaName}' has a default value that looks like a {kind}.", v.File, v.SchemaName);
+                yield return new Finding(Id, Severity, $"Environment variable '{v.SchemaName}' has a default value that looks like {kind}.", v.File, v.SchemaName);
             }
         }
     }

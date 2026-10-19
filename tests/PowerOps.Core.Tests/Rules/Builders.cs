@@ -38,7 +38,7 @@ internal static class B
         return new Workflow(id, name, category, state, $"Workflows/{name}-{id}.json", json);
     }
 
-    public static ConnectionReference Ref(string name) => new(name, "/providers/x", "Other/Customizations.xml");
+    public static ConnectionReference Ref(string name, string connector = "/providers/x") => new(name, connector, "Other/Customizations.xml");
 
     public static EnvironmentVariable Env(string name, bool required = false, string? def = null, string? cur = null) =>
         new(name, "100000000", required, def, cur, $"environmentvariabledefinitions/{name}/environmentvariabledefinition.xml",

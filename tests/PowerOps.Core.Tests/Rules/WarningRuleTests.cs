@@ -32,6 +32,30 @@ public class WarningRuleTests
     }
 
     [Fact]
+    public void PO005_quiet_when_canvas_app_lists_the_connector_api_id()
+    {
+        var s = B.Empty() with
+        {
+            ConnectionReferences = [B.Ref("demo_a", "/providers/Microsoft.PowerApps/apis/shared_office365")],
+            CanvasAppTexts = ["""{"id":"/providers/microsoft.powerapps/apis/shared_office365"}"""],
+        };
+
+        Assert.Empty(Run(new PO005UnusedConnectionReference(), s));
+    }
+
+    [Fact]
+    public void PO005_fires_when_canvas_app_uses_a_different_connector()
+    {
+        var s = B.Empty() with
+        {
+            ConnectionReferences = [B.Ref("demo_a", "/providers/Microsoft.PowerApps/apis/shared_office365")],
+            CanvasAppTexts = ["""{"id":"/providers/microsoft.powerapps/apis/shared_sharepointonline"}"""],
+        };
+
+        Assert.Equal("demo_a", Assert.Single(Run(new PO005UnusedConnectionReference(), s)).Component);
+    }
+
+    [Fact]
     public void PO006_fires_once_per_distinct_url_per_flow()
     {
         var s = B.Empty() with
@@ -61,6 +85,17 @@ public class WarningRuleTests
         var s = B.Empty() with { EnvironmentVariables = [B.Env("demo_a", def: value)] };
 
         Assert.Contains(kind, Assert.Single(Run(new PO007EnvironmentSpecificDefaultValue(), s)).Message);
+    }
+
+    [Theory]
+    [InlineData("https://githubdevops.crm.dynamics.com/", "a URL")]
+    [InlineData("11111111-2222-3333-4444-555555555555", "a GUID")]
+    [InlineData("someone@example.com", "an email address")]
+    public void PO007_message_uses_the_right_article(string value, string phrase)
+    {
+        var s = B.Empty() with { EnvironmentVariables = [B.Env("demo_a", def: value)] };
+
+        Assert.EndsWith($"looks like {phrase}.", Assert.Single(Run(new PO007EnvironmentSpecificDefaultValue(), s)).Message);
     }
 
     [Theory]

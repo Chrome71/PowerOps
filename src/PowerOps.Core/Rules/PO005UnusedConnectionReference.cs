@@ -19,9 +19,12 @@ public sealed class PO005UnusedConnectionReference : IRule
 
         foreach (var c in solution.ConnectionReferences)
         {
-            // shortcut: substring match on raw canvas app metadata, upgrade when canvas apps are parsed.
+            // shortcut: substring match on raw canvas app metadata, by logical name or by connector api id
+            // (apps list connectors, not connection references); prefers a missed warning to a false one. Upgrade when canvas apps are parsed.
+            var apiId = c.ConnectorId?[(c.ConnectorId.LastIndexOf('/') + 1)..];
             if (!used.Contains(c.LogicalName)
-                && !solution.CanvasAppTexts.Any(t => t.Contains(c.LogicalName, StringComparison.OrdinalIgnoreCase)))
+                && !solution.CanvasAppTexts.Any(t => t.Contains(c.LogicalName, StringComparison.OrdinalIgnoreCase)
+                    || (!string.IsNullOrEmpty(apiId) && t.Contains(apiId, StringComparison.OrdinalIgnoreCase))))
             {
                 yield return new Finding(Id, Severity, $"Connection reference '{c.LogicalName}' is not used by any flow or app.", c.File, c.LogicalName);
             }
