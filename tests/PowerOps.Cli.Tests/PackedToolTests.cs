@@ -35,7 +35,7 @@ public class PackedToolTests
             // The version comes from Directory.Build.props (release-please bumps it), so read it off the package name.
             var nupkg = Path.GetFileNameWithoutExtension(Directory.GetFiles(pkg, "PowerOps.*.nupkg").Single());
             var version = nupkg["PowerOps.".Length..];
-            var install = Run("dotnet", ["tool", "install", "--tool-path", tool, "--add-source", pkg, "PowerOps", "--version", version]);
+            var install = Run("dotnet", ["tool", "install", "--tool-path", tool, "--add-source", pkg, "--ignore-failed-sources", "PowerOps", "--version", version]);
             Assert.True(install.Code == 0, install.Out + install.Err);
 
             var exe = Path.Combine(tool, OperatingSystem.IsWindows() ? "powerops.exe" : "powerops");
@@ -49,7 +49,14 @@ public class PackedToolTests
         }
         finally
         {
-            Directory.Delete(temp, recursive: true);
+            try
+            {
+                Directory.Delete(temp, recursive: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Best effort: cleanup must not mask the real test failure.
+            }
         }
     }
 

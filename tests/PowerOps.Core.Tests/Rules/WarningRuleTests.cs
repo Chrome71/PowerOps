@@ -109,7 +109,7 @@ public class WarningRuleTests
     }
 
     [Theory]
-    [InlineData("https://githubdevops.crm.dynamics.com/", "URL")]
+    [InlineData("https://contoso.crm.dynamics.com/", "URL")]
     [InlineData("7d3f6f42-0a1b-4c2d-9e8f-123456789abc", "GUID")]
     [InlineData("a@contoso.com", "email address")]
     public void PO007_fires_for_environment_specific_default(string value, string kind)
@@ -120,7 +120,7 @@ public class WarningRuleTests
     }
 
     [Theory]
-    [InlineData("https://githubdevops.crm.dynamics.com/", "a URL")]
+    [InlineData("https://contoso.crm.dynamics.com/", "a URL")]
     [InlineData("11111111-2222-3333-4444-555555555555", "a GUID")]
     [InlineData("someone@example.com", "an email address")]
     public void PO007_message_uses_the_right_article(string value, string phrase)
