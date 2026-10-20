@@ -10,6 +10,8 @@ public sealed class PO004UndefinedChildFlow : IRule
 
     public string Title => "Flow calls a child flow that is not defined";
 
+    public string Fix => "Add the child flow to the solution, or add the solution that contains it as a dependency.";
+
     public IEnumerable<Finding> Evaluate(Solution solution)
     {
         var ids = solution.Workflows.Select(w => w.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);

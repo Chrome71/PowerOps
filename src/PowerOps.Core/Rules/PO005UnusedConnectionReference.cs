@@ -10,6 +10,8 @@ public sealed class PO005UnusedConnectionReference : IRule
 
     public string Title => "Connection reference is not used by any flow or app";
 
+    public string Fix => "Remove the connection reference from the solution, or use it in the flow or app that needs it.";
+
     public IEnumerable<Finding> Evaluate(Solution solution)
     {
         var used = RuleHelpers.CloudFlows(solution)

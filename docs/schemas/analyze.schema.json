@@ -36,13 +36,15 @@
             "description": "Findings that remain after the baseline is applied.",
             "items": {
               "type": "object",
-              "required": ["ruleId", "severity", "message", "file", "component"],
+              "required": ["ruleId", "severity", "message", "file", "component", "fix", "helpUri"],
               "properties": {
                 "ruleId": { "type": "string", "description": "Rule ID, for example PO001." },
                 "severity": { "enum": ["error", "warning"] },
                 "message": { "type": "string", "description": "What is wrong." },
                 "file": { "type": "string", "description": "File inside the solution that the finding points at." },
-                "component": { "type": ["string", "null"], "description": "Component name, or null when the finding is not about one component." }
+                "component": { "type": ["string", "null"], "description": "Component name, or null when the finding is not about one component." },
+                "fix": { "type": "string", "description": "One imperative sentence on how to fix it." },
+                "helpUri": { "type": "string", "format": "uri", "description": "Docs page of the rule." }
               }
             }
           }

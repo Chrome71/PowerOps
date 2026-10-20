@@ -1,0 +1,36 @@
+PO001 error  Flow uses a connection reference that is not defined
+  fix: Add the connection reference to the solution, or add the solution that owns it as a dependency.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO001.md
+PO002 error  Required environment variable has no default or current value
+  fix: Give the variable a default value, or supply the value at deployment time and keep it out of the solution.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO002.md
+PO003 error  Missing dependency has no owning solution
+  fix: Add the missing component to the solution, or import the solution that provides it first.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO003.md
+PO004 error  Flow calls a child flow that is not defined
+  fix: Add the child flow to the solution, or add the solution that contains it as a dependency.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO004.md
+PO005 warning Connection reference is not used by any flow or app
+  fix: Remove the connection reference from the solution, or use it in the flow or app that needs it.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO005.md
+PO006 warning Flow contains a hard-coded environment or SharePoint site URL
+  fix: Move the URL into an environment variable and reference it from the flow.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO006.md
+PO007 warning Environment variable default value looks environment-specific
+  fix: Leave the default empty and set the value per environment at deployment time, or use a default that is valid everywhere.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO007.md
+PO008 warning Environment variable ships a current value
+  fix: Remove the current value before export, and supply per-environment values with deployment settings.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO008.md
+PO009 warning Component name does not use the publisher prefix
+  fix: Create the component under the solution's publisher, or move it to a solution owned by the publisher that matches its prefix.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md
+PO010 warning Solution uses a default or generated publisher prefix
+  fix: Create a publisher with a meaningful prefix and build the solution under it.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO010.md
+PO011 warning Cloud flow is turned off
+  fix: Turn the flow on before export, or remove it from the solution if it is no longer needed.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md
+PO012 warning Dataverse row-updated trigger has no filter columns
+  fix: Set the trigger's filter columns to the columns whose change should start the flow.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO012.md

@@ -10,6 +10,8 @@ public sealed class PO003DependencyWithoutOwningSolution : IRule
 
     public string Title => "Missing dependency has no owning solution";
 
+    public string Fix => "Add the missing component to the solution, or import the solution that provides it first.";
+
     public IEnumerable<Finding> Evaluate(Solution solution) =>
         solution.MissingDependencies
             .Where(d => string.IsNullOrEmpty(d.Required.Solution))

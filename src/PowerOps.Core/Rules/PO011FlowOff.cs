@@ -10,6 +10,8 @@ public sealed class PO011FlowOff : IRule
 
     public string Title => "Cloud flow is turned off";
 
+    public string Fix => "Turn the flow on before export, or remove it from the solution if it is no longer needed.";
+
     public IEnumerable<Finding> Evaluate(Solution solution) =>
         solution.Workflows
             .Where(w => w.Category == 5 && w.StateCode == 0)

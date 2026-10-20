@@ -52,13 +52,12 @@ public static class SarifReport
                 r.Id,
                 r.GetType().Name[5..],
                 new Msg(r.Title),
-                HelpUri(r.Id),
+                Analyzer.HelpUri(r.Id),
+                new Msg(r.Fix),
                 new Config(Level(r.Severity)))).ToList());
         var log = new Log("https://json.schemastore.org/sarif-2.1.0.json", "2.1.0", [new Run(new Tool(driver), results)]);
         writer.Write(JsonSerializer.Serialize(log, Options) + "\n");
     }
-
-    internal static string HelpUri(string ruleId) => $"{Repo}/blob/main/docs/rules/{ruleId}.md";
 
     private static string Level(Severity severity) => severity == Severity.Error ? "error" : "warning";
 
@@ -73,7 +72,7 @@ public static class SarifReport
 
     private sealed record Driver(string Name, string InformationUri, string Version, IReadOnlyList<Rule> Rules);
 
-    private sealed record Rule(string Id, string Name, Msg ShortDescription, string HelpUri, Config DefaultConfiguration);
+    private sealed record Rule(string Id, string Name, Msg ShortDescription, string HelpUri, Msg Help, Config DefaultConfiguration);
 
     private sealed record Config(string Level);
 

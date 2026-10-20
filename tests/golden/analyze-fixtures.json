@@ -19,126 +19,162 @@
           "severity": "warning",
           "message": "Environment variable 'cat_DependentEnvironmentUrl' has a default value that looks like a URL.",
           "file": "environmentvariabledefinitions/cat_DependentEnvironmentUrl/environmentvariabledefinition.xml",
-          "component": "cat_DependentEnvironmentUrl"
+          "component": "cat_DependentEnvironmentUrl",
+          "fix": "Leave the default empty and set the value per environment at deployment time, or use a default that is valid everywhere.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO007.md"
         },
         {
           "ruleId": "PO007",
           "severity": "warning",
           "message": "Environment variable 'cat_DependentEnvironmentUserId' has a default value that looks like an email address.",
           "file": "environmentvariabledefinitions/cat_DependentEnvironmentUserId/environmentvariabledefinition.xml",
-          "component": "cat_DependentEnvironmentUserId"
+          "component": "cat_DependentEnvironmentUserId",
+          "fix": "Leave the default empty and set the value per environment at deployment time, or use a default that is valid everywhere.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO007.md"
         },
         {
           "ruleId": "PO007",
           "severity": "warning",
           "message": "Environment variable 'cat_WebhookUrl' has a default value that looks like a URL.",
           "file": "environmentvariabledefinitions/cat_WebhookUrl/environmentvariabledefinition.xml",
-          "component": "cat_WebhookUrl"
+          "component": "cat_WebhookUrl",
+          "fix": "Leave the default empty and set the value per environment at deployment time, or use a default that is valid everywhere.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO007.md"
         },
         {
           "ruleId": "PO007",
           "severity": "warning",
           "message": "Environment variable 'cat_clientId' has a default value that looks like a GUID.",
           "file": "environmentvariabledefinitions/cat_clientId/environmentvariabledefinition.xml",
-          "component": "cat_clientId"
+          "component": "cat_clientId",
+          "fix": "Leave the default empty and set the value per environment at deployment time, or use a default that is valid everywhere.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO007.md"
         },
         {
           "ruleId": "PO008",
           "severity": "warning",
           "message": "Environment variable 'cat_DependentEnvironmentUrl' ships a current value in the solution.",
           "file": "environmentvariabledefinitions/cat_DependentEnvironmentUrl/environmentvariablevalues.json",
-          "component": "cat_DependentEnvironmentUrl"
+          "component": "cat_DependentEnvironmentUrl",
+          "fix": "Remove the current value before export, and supply per-environment values with deployment settings.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO008.md"
         },
         {
           "ruleId": "PO008",
           "severity": "warning",
           "message": "Environment variable 'cat_DependentEnvironmentUserId' ships a current value in the solution.",
           "file": "environmentvariabledefinitions/cat_DependentEnvironmentUserId/environmentvariablevalues.json",
-          "component": "cat_DependentEnvironmentUserId"
+          "component": "cat_DependentEnvironmentUserId",
+          "fix": "Remove the current value before export, and supply per-environment values with deployment settings.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO008.md"
         },
         {
           "ruleId": "PO008",
           "severity": "warning",
           "message": "Environment variable 'cat_DepndentEnvironmentSecretName' ships a current value in the solution.",
           "file": "environmentvariabledefinitions/cat_DepndentEnvironmentSecretName/environmentvariablevalues.json",
-          "component": "cat_DepndentEnvironmentSecretName"
+          "component": "cat_DepndentEnvironmentSecretName",
+          "fix": "Remove the current value before export, and supply per-environment values with deployment settings.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO008.md"
         },
         {
           "ruleId": "PO008",
           "severity": "warning",
           "message": "Environment variable 'cat_GitHubOrgPlanExist' ships a current value in the solution.",
           "file": "environmentvariabledefinitions/cat_GitHubOrgPlanExist/environmentvariablevalues.json",
-          "component": "cat_GitHubOrgPlanExist"
+          "component": "cat_GitHubOrgPlanExist",
+          "fix": "Remove the current value before export, and supply per-environment values with deployment settings.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO008.md"
         },
         {
           "ruleId": "PO008",
           "severity": "warning",
           "message": "Environment variable 'cat_OrgLanguage' ships a current value in the solution.",
           "file": "environmentvariabledefinitions/cat_OrgLanguage/environmentvariablevalues.json",
-          "component": "cat_OrgLanguage"
+          "component": "cat_OrgLanguage",
+          "fix": "Remove the current value before export, and supply per-environment values with deployment settings.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO008.md"
         },
         {
           "ruleId": "PO008",
           "severity": "warning",
           "message": "Environment variable 'cat_OrgName' ships a current value in the solution.",
           "file": "environmentvariabledefinitions/cat_OrgName/environmentvariablevalues.json",
-          "component": "cat_OrgName"
+          "component": "cat_OrgName",
+          "fix": "Remove the current value before export, and supply per-environment values with deployment settings.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO008.md"
         },
         {
           "ruleId": "PO008",
           "severity": "warning",
           "message": "Environment variable 'cat_TemplateRepoName' ships a current value in the solution.",
           "file": "environmentvariabledefinitions/cat_TemplateRepoName/environmentvariablevalues.json",
-          "component": "cat_TemplateRepoName"
+          "component": "cat_TemplateRepoName",
+          "fix": "Remove the current value before export, and supply per-environment values with deployment settings.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO008.md"
         },
         {
           "ruleId": "PO008",
           "severity": "warning",
           "message": "Environment variable 'cat_WebhookUrl' ships a current value in the solution.",
           "file": "environmentvariabledefinitions/cat_WebhookUrl/environmentvariablevalues.json",
-          "component": "cat_WebhookUrl"
+          "component": "cat_WebhookUrl",
+          "fix": "Remove the current value before export, and supply per-environment values with deployment settings.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO008.md"
         },
         {
           "ruleId": "PO008",
           "severity": "warning",
           "message": "Environment variable 'cat_clientId' ships a current value in the solution.",
           "file": "environmentvariabledefinitions/cat_clientId/environmentvariablevalues.json",
-          "component": "cat_clientId"
+          "component": "cat_clientId",
+          "fix": "Remove the current value before export, and supply per-environment values with deployment settings.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO008.md"
         },
         {
           "ruleId": "PO009",
           "severity": "warning",
           "message": "Component 'new_sharedcommondataserviceforapps_06411' does not use the publisher prefix 'cat'.",
           "file": "Other/Customizations.xml",
-          "component": "new_sharedcommondataserviceforapps_06411"
+          "component": "new_sharedcommondataserviceforapps_06411",
+          "fix": "Create the component under the solution's publisher, or move it to a solution owned by the publisher that matches its prefix.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md"
         },
         {
           "ruleId": "PO009",
           "severity": "warning",
           "message": "Component 'new_sharedpowerappsforappmakers_87b9a' does not use the publisher prefix 'cat'.",
           "file": "Other/Customizations.xml",
-          "component": "new_sharedpowerappsforappmakers_87b9a"
+          "component": "new_sharedpowerappsforappmakers_87b9a",
+          "fix": "Create the component under the solution's publisher, or move it to a solution owned by the publisher that matches its prefix.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md"
         },
         {
           "ruleId": "PO011",
           "severity": "warning",
           "message": "Flow 'WorkflowCompleteNotification' is turned off.",
           "file": "Workflows/WorkflowCompleteNotification-518F39D7-F4E5-EA11-A817-000D3A56B702.json",
-          "component": "WorkflowCompleteNotification"
+          "component": "WorkflowCompleteNotification",
+          "fix": "Turn the flow on before export, or remove it from the solution if it is no longer needed.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md"
         },
         {
           "ruleId": "PO012",
           "severity": "warning",
           "message": "Flow 'DeleteProjectCleanUp' runs on every update of 'cat_project'; set filter columns.",
           "file": "Workflows/DeleteProjectCleanUp-6F3FF001-D7EC-EA11-A817-000D3A1ABE26.json",
-          "component": "When_Project_is_Deleted"
+          "component": "When_Project_is_Deleted",
+          "fix": "Set the trigger's filter columns to the columns whose change should start the flow.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO012.md"
         },
         {
           "ruleId": "PO012",
           "severity": "warning",
           "message": "Flow 'BuildRequestCancellation' runs on every update of 'cat_project'; set filter columns.",
           "file": "Workflows/BuildRequestCancellation-05878F85-5A13-EB11-A813-000D3AA3E77C.json",
-          "component": "When_a_BuildRequest_in_Cancelled"
+          "component": "When_a_BuildRequest_in_Cancelled",
+          "fix": "Set the trigger's filter columns to the columns whose change should start the flow.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO012.md"
         }
       ]
     },
@@ -160,21 +196,27 @@
           "severity": "warning",
           "message": "Flow 'Email Quote' is turned off.",
           "file": "Workflows/EmailQuote-A4C44986-14D6-EC11-A7B5-000D3A1C0439.json",
-          "component": "Email Quote"
+          "component": "Email Quote",
+          "fix": "Turn the flow on before export, or remove it from the solution if it is no longer needed.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md"
         },
         {
           "ruleId": "PO011",
           "severity": "warning",
           "message": "Flow 'Like Quote' is turned off.",
           "file": "Workflows/LikeQuote-90D90640-11BC-EC11-983F-0022483403A3.json",
-          "component": "Like Quote"
+          "component": "Like Quote",
+          "fix": "Turn the flow on before export, or remove it from the solution if it is no longer needed.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md"
         },
         {
           "ruleId": "PO011",
           "severity": "warning",
           "message": "Flow 'SÆmple Ø ærlig forsøk' is turned off.",
           "file": "Workflows/Smplerligforsk-37443C82-D03D-ED11-9DB0-0022482E56BE.json",
-          "component": "SÆmple Ø ærlig forsøk"
+          "component": "SÆmple Ø ærlig forsøk",
+          "fix": "Turn the flow on before export, or remove it from the solution if it is no longer needed.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md"
         }
       ]
     },
@@ -196,49 +238,63 @@
           "severity": "warning",
           "message": "Connection reference 'admin_sharedadmin5foffice2036520management20api5f7fc9343cf45734fe_8f08c' is not used by any flow or app.",
           "file": "Other/Customizations.xml",
-          "component": "admin_sharedadmin5foffice2036520management20api5f7fc9343cf45734fe_8f08c"
+          "component": "admin_sharedadmin5foffice2036520management20api5f7fc9343cf45734fe_8f08c",
+          "fix": "Remove the connection reference from the solution, or use it in the flow or app that needs it.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO005.md"
         },
         {
           "ruleId": "PO005",
           "severity": "warning",
           "message": "Connection reference 'admin_sharedcommondataserviceforapps_8f10b' is not used by any flow or app.",
           "file": "Other/Customizations.xml",
-          "component": "admin_sharedcommondataserviceforapps_8f10b"
+          "component": "admin_sharedcommondataserviceforapps_8f10b",
+          "fix": "Remove the connection reference from the solution, or use it in the flow or app that needs it.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO005.md"
         },
         {
           "ruleId": "PO005",
           "severity": "warning",
           "message": "Connection reference 'new_CoEAuditLogsO365Outlook' is not used by any flow or app.",
           "file": "Other/Customizations.xml",
-          "component": "new_CoEAuditLogsO365Outlook"
+          "component": "new_CoEAuditLogsO365Outlook",
+          "fix": "Remove the connection reference from the solution, or use it in the flow or app that needs it.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO005.md"
         },
         {
           "ruleId": "PO009",
           "severity": "warning",
           "message": "Component 'new_CoEAuditLogsDataverse' does not use the publisher prefix 'admin'.",
           "file": "Other/Customizations.xml",
-          "component": "new_CoEAuditLogsDataverse"
+          "component": "new_CoEAuditLogsDataverse",
+          "fix": "Create the component under the solution's publisher, or move it to a solution owned by the publisher that matches its prefix.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md"
         },
         {
           "ruleId": "PO009",
           "severity": "warning",
           "message": "Component 'new_CoEAuditLogsO365Outlook' does not use the publisher prefix 'admin'.",
           "file": "Other/Customizations.xml",
-          "component": "new_CoEAuditLogsO365Outlook"
+          "component": "new_CoEAuditLogsO365Outlook",
+          "fix": "Create the component under the solution's publisher, or move it to a solution owned by the publisher that matches its prefix.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md"
         },
         {
           "ruleId": "PO011",
           "severity": "warning",
           "message": "Flow 'Deprecated | Admin | Sync Audit Logs' is turned off.",
           "file": "Workflows/DeprecatedAdminSyncAuditLogs-FA91974D-6E68-EA11-A811-000D3A31CF04.json",
-          "component": "Deprecated | Admin | Sync Audit Logs"
+          "component": "Deprecated | Admin | Sync Audit Logs",
+          "fix": "Turn the flow on before export, or remove it from the solution if it is no longer needed.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md"
         },
         {
           "ruleId": "PO011",
           "severity": "warning",
           "message": "Flow 'Deprecated | [Child] Admin | Sync Logs' is turned off.",
           "file": "Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json",
-          "component": "Deprecated | [Child] Admin | Sync Logs"
+          "component": "Deprecated | [Child] Admin | Sync Logs",
+          "fix": "Turn the flow on before export, or remove it from the solution if it is no longer needed.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md"
         }
       ]
     },
@@ -270,14 +326,18 @@
           "severity": "warning",
           "message": "Connection reference 'pops_SpareDataverse' is not used by any flow or app.",
           "file": "Other/Customizations.xml",
-          "component": "pops_SpareDataverse"
+          "component": "pops_SpareDataverse",
+          "fix": "Remove the connection reference from the solution, or use it in the flow or app that needs it.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO005.md"
         },
         {
           "ruleId": "PO006",
           "severity": "warning",
           "message": "Flow 'Stamp work item status' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops'.",
           "file": "Workflows/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json",
-          "component": "https://contoso.sharepoint.com/sites/ops"
+          "component": "https://contoso.sharepoint.com/sites/ops",
+          "fix": "Move the URL into an environment variable and reference it from the flow.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO006.md"
         }
       ]
     },
@@ -325,21 +385,27 @@
           "severity": "warning",
           "message": "Connection reference 'new_D365connection' is not used by any flow or app.",
           "file": "customizations.xml",
-          "component": "new_D365connection"
+          "component": "new_D365connection",
+          "fix": "Remove the connection reference from the solution, or use it in the flow or app that needs it.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO005.md"
         },
         {
           "ruleId": "PO008",
           "severity": "warning",
           "message": "Environment variable 'new_ContosoURL' ships a current value in the solution.",
           "file": "environmentvariabledefinitions/new_ContosoURL/environmentvariablevalues.json",
-          "component": "new_ContosoURL"
+          "component": "new_ContosoURL",
+          "fix": "Remove the current value before export, and supply per-environment values with deployment settings.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO008.md"
         },
         {
           "ruleId": "PO010",
           "severity": "warning",
           "message": "Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher.",
           "file": "solution.xml",
-          "component": "DefaultPublisherorg8a403877"
+          "component": "DefaultPublisherorg8a403877",
+          "fix": "Create a publisher with a meaningful prefix and build the solution under it.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO010.md"
         }
       ]
     },

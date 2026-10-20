@@ -7,6 +7,7 @@ JSON Schemas (draft 2020-12) for the JSON that `powerops` prints. Every output h
 | [analyze.schema.json](analyze.schema.json) | `powerops analyze --format json` |
 | [plan-status.schema.json](plan-status.schema.json) | `powerops plan status --json` |
 | [plan-facts.schema.json](plan-facts.schema.json) | `powerops plan facts` (both the available and the unavailable shape) |
+| [rules.schema.json](rules.schema.json) | `powerops rules --json` |
 
 The baseline file (`powerops-baseline.json`) is a file format with its own `version`, not an output.
 

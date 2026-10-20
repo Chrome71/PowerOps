@@ -12,6 +12,8 @@ public sealed partial class PO010DefaultPublisher : IRule
 
     public string Title => "Solution uses a default or generated publisher prefix";
 
+    public string Fix => "Create a publisher with a meaningful prefix and build the solution under it.";
+
     [GeneratedRegex("^cr[0-9a-f]{3,4}$", RegexOptions.IgnoreCase)]
     private static partial Regex Generated();
 

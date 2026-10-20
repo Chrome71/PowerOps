@@ -10,6 +10,8 @@ public sealed class PO008ShippedCurrentValue : IRule
 
     public string Title => "Environment variable ships a current value";
 
+    public string Fix => "Remove the current value before export, and supply per-environment values with deployment settings.";
+
     public IEnumerable<Finding> Evaluate(Solution solution) =>
         solution.EnvironmentVariables
             .Where(v => !string.IsNullOrEmpty(v.CurrentValue))

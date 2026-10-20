@@ -10,6 +10,8 @@ public sealed class PO001UndefinedConnectionReference : IRule
 
     public string Title => "Flow uses a connection reference that is not defined";
 
+    public string Fix => "Add the connection reference to the solution, or add the solution that owns it as a dependency.";
+
     public IEnumerable<Finding> Evaluate(Solution solution)
     {
         var defined = solution.ConnectionReferences.Select(c => c.LogicalName).ToHashSet(StringComparer.OrdinalIgnoreCase);

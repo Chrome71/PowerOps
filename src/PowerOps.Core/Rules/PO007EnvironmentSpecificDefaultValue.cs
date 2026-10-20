@@ -12,6 +12,8 @@ public sealed partial class PO007EnvironmentSpecificDefaultValue : IRule
 
     public string Title => "Environment variable default value looks environment-specific";
 
+    public string Fix => "Leave the default empty and set the value per environment at deployment time, or use a default that is valid everywhere.";
+
     [GeneratedRegex(@"https?://[^\s/]+", RegexOptions.IgnoreCase)]
     private static partial Regex Url();
 

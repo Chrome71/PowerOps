@@ -15,6 +15,7 @@ public class OutputSchemaTests
         ("analyze-", "analyze.schema.json"),
         ("plan-status", "plan-status.schema.json"),
         ("plan-facts", "plan-facts.schema.json"),
+        ("rules", "rules.schema.json"),
     ];
 
     private static readonly string[] Goldens = Directory

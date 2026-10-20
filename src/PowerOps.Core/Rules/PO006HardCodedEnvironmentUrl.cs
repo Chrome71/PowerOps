@@ -12,6 +12,8 @@ public sealed partial class PO006HardCodedEnvironmentUrl : IRule
 
     public string Title => "Flow contains a hard-coded environment or SharePoint site URL";
 
+    public string Fix => "Move the URL into an environment variable and reference it from the flow.";
+
     // The SharePoint alternative keeps the site, so two sites on one tenant are two findings.
     [GeneratedRegex(@"https?://(?!globaldisco\.)[a-z0-9-]+\.crm\d*\.dynamics\.com|https?://[a-z0-9-]+\.sharepoint\.com/(?:sites|teams)/[^/""'\s?#]+", RegexOptions.IgnoreCase)]
     private static partial Regex EnvUrl();
