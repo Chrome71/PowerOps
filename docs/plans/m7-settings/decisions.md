@@ -9,3 +9,4 @@
 - decided in the build: names are matched case-insensitively and the first duplicate entry in the file wins
 - approved without question rounds: users, data, automation, environments, constraints (after-the-fact plan, depth quick)
 - approved (2026-10-20)
+- fresh review (Opus) 2026-10-20: R1 and R5 fixed in code and fixtures, plan body unchanged; R2, R3, R4 and R6 left open for the user at sign-off
