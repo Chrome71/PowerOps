@@ -101,7 +101,7 @@ public static class DiffReport
     private static string Label(Change c) => c.Name is null ? c.Key : $"{c.Name} ({c.Key})";
 
     private static string Escape(string? text) =>
-        MarkdownReport.Escape(text is { Length: > MaxCell } ? text[..MaxCell] + "…" : text);
+        MarkdownReport.Escape(text is null ? null : SolutionDiff.Truncate(text, MaxCell));
 
     private sealed record Doc(int SchemaVersion, Sol Old, Sol New, IReadOnlyList<Item> Changes, Counts Summary);
 

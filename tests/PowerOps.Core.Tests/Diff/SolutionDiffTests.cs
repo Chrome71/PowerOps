@@ -83,7 +83,7 @@ public class SolutionDiffTests
             [
                 "Removed rootComponent 1:demo_a (removed-component)",
                 "Added rootComponent 1:demo_b",
-                "Removed missingDependency 1:gone required by 29:x (removed-component)",
+                "Removed missingDependency 1:gone required by 29:x",
             ],
             Diff(a, b));
     }
@@ -211,7 +211,7 @@ public class SolutionDiffTests
         var b = B.Empty() with { EnvironmentVariables = [B.Env("demo_v", required: true, def: "b", cur: "c") with { Type = "100000002" }] };
 
         Assert.Equal(
-            ["Changed environmentVariable demo_v: type: 100000000 → 100000002; required: false → true; defaultValue: a → b; currentValue: (none) → c"],
+            ["Changed environmentVariable demo_v: type: 100000000 → 100000002; required: false → true; defaultValue: a → b; currentValue added"],
             Diff(a, b));
     }
 
@@ -219,7 +219,7 @@ public class SolutionDiffTests
         $"<CanvasApp><Name>{name}</Name><AppVersion>{version}</AppVersion><DisplayName>{display}</DisplayName></CanvasApp>";
 
     [Fact]
-    public void Canvas_apps_are_matched_by_name_and_the_publish_timestamp_is_ignored()
+    public void Canvas_apps_are_matched_by_name_and_a_new_AppVersion_is_reported_as_a_republish()
     {
         var a = B.Empty() with { CanvasAppTexts = [App("demo_a", "2026-01-01T00:00:00Z"), App("demo_b", "2026-01-01T00:00:00Z"), App("demo_c", "1")] };
         var b = B.Empty() with { CanvasAppTexts = [App("demo_c", "2"), App("demo_b", "2026-02-02T00:00:00Z", "Renamed"), App("demo_d", "1")] };
@@ -227,9 +227,58 @@ public class SolutionDiffTests
         Assert.Equal(
             [
                 "Removed canvasApp demo_a (removed-component)",
-                "Changed canvasApp demo_b: definition changed",
+                "Changed canvasApp demo_b: definition changed; republished (AppVersion 2026-01-01T00:00:00Z → 2026-02-02T00:00:00Z)",
+                "Changed canvasApp demo_c: republished (AppVersion 1 → 2)",
                 "Added canvasApp demo_d",
             ],
             Diff(a, b));
+    }
+
+    [Fact]
+    public void Reindented_canvas_app_metadata_is_not_a_change()
+    {
+        var a = B.Empty() with { CanvasAppTexts = ["<CanvasApp><Name>demo_a</Name><AppVersion>1</AppVersion><DisplayName>App</DisplayName></CanvasApp>"] };
+        var b = B.Empty() with { CanvasAppTexts = ["<CanvasApp>\n    <Name>demo_a</Name>\n  <AppVersion>1</AppVersion>\n\t<DisplayName>App</DisplayName>\n</CanvasApp>"] };
+
+        Assert.Empty(Diff(a, b));
+    }
+
+    [Fact]
+    public void Flow_definitions_with_duplicate_json_keys_fall_back_to_raw_text_instead_of_throwing()
+    {
+        var a = S(f => f.Add(B.Flow() with { ClientData = """{"a":1,"a":2}""" }));
+
+        Assert.Empty(Diff(a, S(f => f.Add(B.Flow() with { ClientData = """{"a":1,"a":2}""" }))));
+        Assert.Single(Diff(a, S(f => f.Add(B.Flow() with { ClientData = """{"a":1,"a":3}""" }))));
+    }
+
+    [Fact]
+    public void Solution_unique_name_is_compared()
+    {
+        Assert.Equal(["Changed solution uniqueName: Demo → Other"], Diff(B.Empty(), B.Empty() with { UniqueName = "Other" }));
+    }
+
+    [Fact]
+    public void Long_values_are_cut_without_splitting_a_surrogate_pair()
+    {
+        var value = new string('a', 99) + "\U0001F600tail";
+        var a = B.Empty() with { EnvironmentVariables = [B.Env("demo_v", def: "x")] };
+        var b = B.Empty() with { EnvironmentVariables = [B.Env("demo_v", def: value)] };
+
+        var detail = SolutionDiff.Compare(a, b).Changes.Single().Detail!;
+
+        Assert.Equal("defaultValue: x → " + new string('a', 99) + "…", detail);
+        Assert.Equal(new string('a', 100) + "…", SolutionDiff.Truncate(new string('a', 100) + "\U0001F600tail", 101));
+    }
+
+    [Fact]
+    public void Environment_variable_current_values_are_never_in_the_output()
+    {
+        var a = B.Empty() with { EnvironmentVariables = [B.Env("demo_v", cur: "https://secret-old.example")] };
+        var b = B.Empty() with { EnvironmentVariables = [B.Env("demo_v", cur: "https://secret-new.example")] };
+        var none = B.Empty() with { EnvironmentVariables = [B.Env("demo_v")] };
+
+        Assert.Equal(["Changed environmentVariable demo_v: currentValue changed"], Diff(a, b));
+        Assert.Equal(["Changed environmentVariable demo_v: currentValue removed"], Diff(a, none));
     }
 }

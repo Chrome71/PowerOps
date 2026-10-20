@@ -41,6 +41,7 @@ public static class SolutionDiff
     {
         var changes = new List<Change>();
 
+        changes.AddRange(Fields("solution", "uniqueName", old.UniqueName, @new.UniqueName));
         changes.AddRange(Fields("solution", "version", old.Version, @new.Version));
         changes.AddRange(Fields("solution", "managed", old.Managed ? "managed" : "unmanaged", @new.Managed ? "managed" : "unmanaged"));
         changes.AddRange(Fields("solution", "publisher", Pub(old.Publisher), Pub(@new.Publisher)));
@@ -49,7 +50,8 @@ public static class SolutionDiff
             r => $"{r.Type}:{r.SchemaName ?? r.Id}", _ => null, null, (_, _) => null));
 
         changes.AddRange(Keyed("missingDependency", old.MissingDependencies, @new.MissingDependencies,
-            d => $"{Node(d.Required)} required by {Node(d.Dependent)}", _ => null, null, (_, _) => null));
+            d => $"{Node(d.Required)} required by {Node(d.Dependent)}", _ => null, null, (_, _) => null,
+            removedDeletes: false)); // a missing dependency going away is an improvement, not a deletion
 
         changes.AddRange(Keyed("connectionReference", old.ConnectionReferences, @new.ConnectionReferences,
             c => c.LogicalName, _ => null, Risk.ConnectionReference,
@@ -57,11 +59,13 @@ public static class SolutionDiff
 
         changes.AddRange(Keyed("environmentVariable", old.EnvironmentVariables, @new.EnvironmentVariables,
             v => v.SchemaName, _ => null, Risk.EnvironmentVariable,
-            (a, b) => Differences(
-                ("type", a.Type, b.Type),
-                ("required", a.IsRequired.ToString().ToLowerInvariant(), b.IsRequired.ToString().ToLowerInvariant()),
-                ("defaultValue", a.DefaultValue, b.DefaultValue),
-                ("currentValue", a.CurrentValue, b.CurrentValue))));
+            (a, b) => Join(
+                Differences(
+                    ("type", a.Type, b.Type),
+                    ("required", a.IsRequired.ToString().ToLowerInvariant(), b.IsRequired.ToString().ToLowerInvariant()),
+                    ("defaultValue", a.DefaultValue, b.DefaultValue)),
+                // Current values are environment-specific and may be sensitive, so they are never printed.
+                a.CurrentValue == b.CurrentValue ? null : a.CurrentValue is null ? "currentValue added" : b.CurrentValue is null ? "currentValue removed" : "currentValue changed")));
 
         changes.AddRange(Keyed("workflow", old.Workflows, @new.Workflows,
             w => w.Id.Length > 0 ? w.Id : w.Name, w => w.Name, null,
@@ -70,10 +74,13 @@ public static class SolutionDiff
                 SameJson(a.ClientData, b.ClientData) ? null : "definition changed"),
             (a, b) => a.StateCode != b.StateCode && (a.Category == 5 || b.Category == 5) ? Risk.FlowState : null));
 
-        // Canvas apps have no model field for a name, so the name is read from the meta XML; the AppVersion timestamp is noise.
+        // Canvas apps have no model field for a name, so the name is read from the meta XML. An edit changes the .msapp and
+        // AppVersion but not necessarily anything else in the meta, so AppVersion is reported (as a republish), not ignored.
         changes.AddRange(Keyed("canvasApp", old.CanvasAppTexts.Select(CanvasApp), @new.CanvasAppTexts.Select(CanvasApp),
             a => a.Name, _ => null, null,
-            (a, b) => a.Text == b.Text ? null : "definition changed"));
+            (a, b) => Join(
+                a.Text == b.Text ? null : "definition changed",
+                a.Version == b.Version ? null : $"republished (AppVersion {Show(a.Version)}{Arrow}{Show(b.Version)})")));
 
         return new DiffResult(old, @new, changes);
     }
@@ -95,7 +102,18 @@ public static class SolutionDiff
     }
 
     private static string Show(string? value) =>
-        value is null ? "(none)" : value.Length > 100 ? value[..100] + "…" : value;
+        value is null ? "(none)" : Truncate(value, 100);
+
+    /// <summary>Cuts to <paramref name="max"/> chars plus "…" without splitting a surrogate pair.</summary>
+    internal static string Truncate(string value, int max)
+    {
+        if (value.Length <= max)
+        {
+            return value;
+        }
+
+        return value[..(char.IsHighSurrogate(value[max - 1]) ? max - 1 : max)] + "…";
+    }
 
     private static IEnumerable<Change> Keyed<T>(
         string component,
@@ -105,7 +123,8 @@ public static class SolutionDiff
         Func<T, string?> name,
         string? addRemoveRisk,
         Func<T, T, string?> compare,
-        Func<T, T, string?>? changeRisk = null)
+        Func<T, T, string?>? changeRisk = null,
+        bool removedDeletes = true)
     {
         // Identity is the key only. Duplicates keep the first; keys are matched case-insensitively.
         var a = before.GroupBy(key, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
@@ -118,7 +137,7 @@ public static class SolutionDiff
             var inNew = b.TryGetValue(k, out var y);
             if (!inNew)
             {
-                yield return new Change(ChangeKind.Removed, component, key(x!), name(x!), null, [Risk.RemovedComponent, .. addRemove]);
+                yield return new Change(ChangeKind.Removed, component, key(x!), name(x!), null, removedDeletes ? [Risk.RemovedComponent, .. addRemove] : addRemove);
             }
             else if (!inOld)
             {
@@ -150,25 +169,27 @@ public static class SolutionDiff
             // DeepEquals ignores property order and whitespace; array order still counts.
             return JsonNode.DeepEquals(JsonNode.Parse(a), JsonNode.Parse(b));
         }
-        catch (JsonException)
+        catch (Exception e) when (e is JsonException or ArgumentException)
         {
-            return false; // not JSON: the raw text differs
+            return false; // not JSON (or duplicate keys): the raw text differs
         }
     }
 
-    private static (string Name, string Text) CanvasApp(string text)
+    /// <summary>The app name, the AppVersion timestamp, and the meta XML without it (parsed, so insignificant whitespace does not count).</summary>
+    private static (string Name, string? Version, string Text) CanvasApp(string text)
     {
         try
         {
-            using var reader = XmlReader.Create(new StringReader(text), new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit });
+            using var reader = XmlReader.Create(new StringReader(text), new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, IgnoreWhitespace = true });
             var root = XDocument.Load(reader).Root!;
             var name = root.Element("Name")?.Value.Trim() ?? "";
+            var version = root.Element("AppVersion")?.Value.Trim();
             root.Element("AppVersion")?.Remove();
-            return (name.Length > 0 ? name : "(unnamed)", root.ToString(SaveOptions.DisableFormatting));
+            return (name.Length > 0 ? name : "(unnamed)", version, root.ToString(SaveOptions.DisableFormatting));
         }
         catch (XmlException)
         {
-            return ("(unnamed)", text);
+            return ("(unnamed)", null, text);
         }
     }
 }

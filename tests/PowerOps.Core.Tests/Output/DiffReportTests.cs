@@ -81,4 +81,14 @@ public class DiffReportTests
         DiffReport.WriteText(Many(1), w);
         Assert.Equal("Demo 1.0.0.0 → Demo 1.0.0.0\n  added connectionReference demo_ref00000 [risk: connection-reference]\n1 change (1 added, 0 removed, 0 changed)\n", w.ToString());
     }
+
+    [Fact]
+    public void Markdown_cells_are_cut_without_splitting_a_surrogate_pair()
+    {
+        var key = new string('a', 199) + "\U0001F600tail";
+
+        var text = Markdown(SolutionDiff.Compare(B.Empty(), B.Empty() with { ConnectionReferences = [B.Ref(key)] }));
+
+        Assert.Contains("| " + new string('a', 199) + "… |", text);
+    }
 }
