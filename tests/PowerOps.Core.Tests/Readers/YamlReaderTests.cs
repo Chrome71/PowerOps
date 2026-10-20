@@ -271,7 +271,7 @@ public class YamlReaderTests
         var v = Assert.Single(s.EnvironmentVariables);
         Assert.Equal("pops_DefaultStatus", v.SchemaName);
         Assert.Equal("New", v.DefaultValue);
-        Assert.Single(s.CanvasAppTexts);
+        Assert.StartsWith("<CanvasApp><Name>pops_workitems_2af60</Name>", Assert.Single(s.CanvasAppTexts));
         Assert.Contains("entities/pops_workitem", s.SourceFolders!);
         Assert.Contains("modernflows/4c8dd007-dfcb-f111-a05c-0022480697a8", s.SourceFolders!);
     }
