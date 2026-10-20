@@ -20,6 +20,10 @@ public static class Analyzer
         new PO012RowUpdatedTriggerWithoutFilterColumns(),
     }.OrderBy(r => r.Id, StringComparer.Ordinal).ToList();
 
+    public static string HelpUri(string ruleId) => $"{Output.SarifReport.Repo}/blob/main/docs/rules/{ruleId}.md";
+
+    public static IRule? Find(string ruleId) => Rules.FirstOrDefault(r => r.Id == ruleId);
+
     /// <summary>All findings, sorted by rule id, component, message, file (ordinal). File comes last because it differs between zip and unpacked layouts.</summary>
     public static IReadOnlyList<Finding> Run(Solution solution) =>
         Rules.SelectMany(r => r.Evaluate(solution))

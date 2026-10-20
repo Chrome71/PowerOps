@@ -38,6 +38,7 @@ public static class PlanStatusReport
     {
         var doc = new
         {
+            schemaVersion = Output.JsonOutput.SchemaVersion,
             plans = plans.Select(p => new
             {
                 path = p.Path,
@@ -45,6 +46,8 @@ public static class PlanStatusReport
                 review = p.Review,
                 signedOff = p.SignedOff,
                 environment = p.Environment,
+                depth = p.Depth,
+                supersedes = p.Supersedes,
                 openQuestions = p.OpenQuestions,
                 bodyHash = p.BodyHash,
                 violations = p.Violations,

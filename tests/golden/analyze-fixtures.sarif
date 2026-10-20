@@ -16,6 +16,9 @@
                 "text": "Flow uses a connection reference that is not defined"
               },
               "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO001.md",
+              "help": {
+                "text": "Add the connection reference to the solution, or add the solution that owns it as a dependency."
+              },
               "defaultConfiguration": {
                 "level": "error"
               }
@@ -27,6 +30,9 @@
                 "text": "Required environment variable has no default or current value"
               },
               "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO002.md",
+              "help": {
+                "text": "Give the variable a default value, or supply the value at deployment time and keep it out of the solution."
+              },
               "defaultConfiguration": {
                 "level": "error"
               }
@@ -38,6 +44,9 @@
                 "text": "Missing dependency has no owning solution"
               },
               "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO003.md",
+              "help": {
+                "text": "Add the missing component to the solution, or import the solution that provides it first."
+              },
               "defaultConfiguration": {
                 "level": "error"
               }
@@ -49,6 +58,9 @@
                 "text": "Flow calls a child flow that is not defined"
               },
               "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO004.md",
+              "help": {
+                "text": "Add the child flow to the solution, or add the solution that contains it as a dependency."
+              },
               "defaultConfiguration": {
                 "level": "error"
               }
@@ -60,6 +72,9 @@
                 "text": "Connection reference is not used by any flow or app"
               },
               "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO005.md",
+              "help": {
+                "text": "Remove the connection reference from the solution, or use it in the flow or app that needs it."
+              },
               "defaultConfiguration": {
                 "level": "warning"
               }
@@ -71,6 +86,9 @@
                 "text": "Flow contains a hard-coded environment or SharePoint site URL"
               },
               "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO006.md",
+              "help": {
+                "text": "Move the URL into an environment variable and reference it from the flow."
+              },
               "defaultConfiguration": {
                 "level": "warning"
               }
@@ -82,6 +100,9 @@
                 "text": "Environment variable default value looks environment-specific"
               },
               "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO007.md",
+              "help": {
+                "text": "Leave the default empty and set the value per environment at deployment time, or use a default that is valid everywhere."
+              },
               "defaultConfiguration": {
                 "level": "warning"
               }
@@ -93,6 +114,9 @@
                 "text": "Environment variable ships a current value"
               },
               "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO008.md",
+              "help": {
+                "text": "Remove the current value before export, and supply per-environment values with deployment settings."
+              },
               "defaultConfiguration": {
                 "level": "warning"
               }
@@ -104,6 +128,9 @@
                 "text": "Component name does not use the publisher prefix"
               },
               "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md",
+              "help": {
+                "text": "Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency."
+              },
               "defaultConfiguration": {
                 "level": "warning"
               }
@@ -115,6 +142,9 @@
                 "text": "Solution uses a default or generated publisher prefix"
               },
               "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO010.md",
+              "help": {
+                "text": "Create a publisher with a meaningful prefix and build the solution under it."
+              },
               "defaultConfiguration": {
                 "level": "warning"
               }
@@ -126,6 +156,9 @@
                 "text": "Cloud flow is turned off"
               },
               "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md",
+              "help": {
+                "text": "Turn the flow on before export, or remove it from the solution if it is no longer needed."
+              },
               "defaultConfiguration": {
                 "level": "warning"
               }
@@ -137,6 +170,9 @@
                 "text": "Dataverse row-updated trigger has no filter columns"
               },
               "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO012.md",
+              "help": {
+                "text": "Set the trigger's filter columns to the columns whose update should start the flow."
+              },
               "defaultConfiguration": {
                 "level": "warning"
               }

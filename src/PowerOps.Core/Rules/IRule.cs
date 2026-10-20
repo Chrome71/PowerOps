@@ -10,5 +10,8 @@ public interface IRule
 
     string Title { get; }
 
+    /// <summary>One imperative sentence on how to fix a finding: plain text, no Markdown, no URLs.</summary>
+    string Fix { get; }
+
     IEnumerable<Finding> Evaluate(Solution solution);
 }

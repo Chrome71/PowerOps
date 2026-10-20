@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
+using PowerOps.Tests.Shared;
+
 namespace PowerOps.Cli.Tests;
 
 public class PlanFactsTests
@@ -64,6 +66,13 @@ public class PlanFactsTests
         Assert.Equal(["org who", "solution list"], calls);
         Assert.EndsWith("\n", json);
     }
+
+    [Fact]
+    public void Success_json_matches_golden() => Golden.Verify(Run(Healthy).Json, "plan-facts.json");
+
+    [Fact]
+    public void Unavailable_json_matches_golden() =>
+        Golden.Verify(Run(_ => new PacResult(false, false, 0, "")).Json, "plan-facts-unavailable.json");
 
     [Fact]
     public void Pac_not_found_is_unavailable()

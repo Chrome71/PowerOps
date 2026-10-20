@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/rules.schema.json",
+  "title": "powerops rules --json",
+  "description": "The JSON written by 'powerops rules --json': every analysis rule, in rule ID order.",
+  "type": "object",
+  "required": ["schemaVersion", "rules"],
+  "properties": {
+    "schemaVersion": { "const": 1, "description": "Version of this output format." },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "title", "fix", "helpUri"],
+        "properties": {
+          "id": { "type": "string", "description": "Rule ID, for example PO001." },
+          "severity": { "enum": ["error", "warning"] },
+          "title": { "type": "string", "description": "What the rule checks." },
+          "fix": { "type": "string", "description": "One imperative sentence on how to fix a finding." },
+          "helpUri": { "type": "string", "format": "uri", "description": "Docs page of the rule." }
+        }
+      }
+    }
+  }
+}

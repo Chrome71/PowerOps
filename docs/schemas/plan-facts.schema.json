@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/plan-facts.schema.json",
+  "title": "powerops plan facts",
+  "description": "The JSON written by 'powerops plan facts': environment facts, or why they are not available.",
+  "oneOf": [
+    {
+      "title": "Facts available",
+      "type": "object",
+      "required": ["schemaVersion", "available", "environment", "solutions"],
+      "properties": {
+        "schemaVersion": { "const": 1, "description": "Version of this output format." },
+        "available": { "const": true },
+        "environment": { "type": "string", "description": "Friendly name of the target environment." },
+        "solutions": {
+          "type": "array",
+          "description": "Solutions in the environment (names and versions only).",
+          "items": {
+            "type": "object",
+            "required": ["uniqueName", "version", "managed"],
+            "properties": {
+              "uniqueName": { "type": "string" },
+              "version": { "type": "string" },
+              "managed": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "title": "Facts not available",
+      "type": "object",
+      "required": ["schemaVersion", "available", "reason", "fix"],
+      "properties": {
+        "schemaVersion": { "const": 1, "description": "Version of this output format." },
+        "available": { "const": false },
+        "reason": { "type": "string", "description": "Why the facts could not be read." },
+        "fix": { "type": "string", "description": "What the user can do about it." }
+      }
+    }
+  ]
+}

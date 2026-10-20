@@ -43,7 +43,7 @@ src/PowerOps.Core/          library: no console, no network
   Model/                    Solution, Component(type, id, schemaName, files), Publisher, Dependency
   Readers/                  ZipReader, XmlUnpackReader, YamlReader → one normalized Solution model
   Flows/                    cloud-flow clientdata parser (connection refs, env-var parameters, state, child flows)
-  Rules/                    IRule { Id, Severity, Title, Evaluate(Solution) → Finding* }, one file per rule
+  Rules/                    IRule { Id, Severity, Title, Fix, Evaluate(Solution) → Finding* }, one file per rule
   Output/                   Text, Json, Sarif, Markdown writers
 src/PowerOps.Cli/           System.CommandLine commands: analyze, baseline, plan, skills, rules (M4) (later: diff, settings); PacRunner (M3)
 tests/PowerOps.Core.Tests/  unit + golden-file tests

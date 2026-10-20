@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "available": false,
+  "reason": "pac was not found on PATH",
+  "fix": "Install pac (dotnet tool install --global Microsoft.PowerApps.CLI.Tool) and add the dotnet tools folder to PATH."
+}

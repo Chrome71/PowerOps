@@ -74,6 +74,8 @@ public class PlanCommandTests : IDisposable
             "status: draft\nstatus: draft\nreview: pending",
             "status: draft\nreview: pending\nsigned-off: yesterday",
             "status: draft\nreview: pending\nsigned-off-hash: xyz",
+            "status: draft\nreview: pending\ndepth: shallow",
+            "status: draft\nreview: pending\nsupersedes: docs/plans/old",
         ];
         foreach (var header in headers)
         {
@@ -142,6 +144,25 @@ public class PlanCommandTests : IDisposable
         Assert.Equal(1, doc.RootElement.GetProperty("summary").GetProperty("violations").GetInt32());
         Assert.Equal(1, doc.RootElement.GetProperty("summary").GetProperty("warnings").GetInt32());
         Assert.DoesNotContain("a@contoso", output);
+    }
+
+    [Fact]
+    public void Depth_and_supersedes_are_in_the_json_and_a_missing_superseded_plan_exits_one()
+    {
+        Plan("status: draft\nreview: pending\ndepth: quick\nsupersedes: old");
+
+        var (code, output, _) = Run("plan", "status", _temp, "--json");
+        Assert.Equal(1, code);
+        using (var doc = JsonDocument.Parse(output))
+        {
+            var plan = doc.RootElement.GetProperty("plans")[0];
+            Assert.Equal("quick", plan.GetProperty("depth").GetString());
+            Assert.Equal("old", plan.GetProperty("supersedes").GetString());
+            Assert.Contains("supersedes 'old' but", plan.GetProperty("violations")[0].GetString());
+        }
+
+        Plan("status: draft\nreview: pending", name: "old");
+        Assert.Equal(0, Run("plan", "status", _temp).Code);
     }
 
     [Fact]

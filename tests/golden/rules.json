@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "rules": [
+    {
+      "id": "PO001",
+      "severity": "error",
+      "title": "Flow uses a connection reference that is not defined",
+      "fix": "Add the connection reference to the solution, or add the solution that owns it as a dependency.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO001.md"
+    },
+    {
+      "id": "PO002",
+      "severity": "error",
+      "title": "Required environment variable has no default or current value",
+      "fix": "Give the variable a default value, or supply the value at deployment time and keep it out of the solution.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO002.md"
+    },
+    {
+      "id": "PO003",
+      "severity": "error",
+      "title": "Missing dependency has no owning solution",
+      "fix": "Add the missing component to the solution, or import the solution that provides it first.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO003.md"
+    },
+    {
+      "id": "PO004",
+      "severity": "error",
+      "title": "Flow calls a child flow that is not defined",
+      "fix": "Add the child flow to the solution, or add the solution that contains it as a dependency.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO004.md"
+    },
+    {
+      "id": "PO005",
+      "severity": "warning",
+      "title": "Connection reference is not used by any flow or app",
+      "fix": "Remove the connection reference from the solution, or use it in the flow or app that needs it.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO005.md"
+    },
+    {
+      "id": "PO006",
+      "severity": "warning",
+      "title": "Flow contains a hard-coded environment or SharePoint site URL",
+      "fix": "Move the URL into an environment variable and reference it from the flow.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO006.md"
+    },
+    {
+      "id": "PO007",
+      "severity": "warning",
+      "title": "Environment variable default value looks environment-specific",
+      "fix": "Leave the default empty and set the value per environment at deployment time, or use a default that is valid everywhere.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO007.md"
+    },
+    {
+      "id": "PO008",
+      "severity": "warning",
+      "title": "Environment variable ships a current value",
+      "fix": "Remove the current value before export, and supply per-environment values with deployment settings.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO008.md"
+    },
+    {
+      "id": "PO009",
+      "severity": "warning",
+      "title": "Component name does not use the publisher prefix",
+      "fix": "Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md"
+    },
+    {
+      "id": "PO010",
+      "severity": "warning",
+      "title": "Solution uses a default or generated publisher prefix",
+      "fix": "Create a publisher with a meaningful prefix and build the solution under it.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO010.md"
+    },
+    {
+      "id": "PO011",
+      "severity": "warning",
+      "title": "Cloud flow is turned off",
+      "fix": "Turn the flow on before export, or remove it from the solution if it is no longer needed.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md"
+    },
+    {
+      "id": "PO012",
+      "severity": "warning",
+      "title": "Dataverse row-updated trigger has no filter columns",
+      "fix": "Set the trigger's filter columns to the columns whose update should start the flow.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO012.md"
+    }
+  ]
+}

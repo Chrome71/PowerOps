@@ -67,6 +67,20 @@ public class SarifReportTests
     }
 
     [Fact]
+    public void Rule_descriptors_carry_the_fix_as_help_text()
+    {
+        using var doc = JsonDocument.Parse(Sarif("a"));
+
+        var rules = doc.RootElement.GetProperty("runs")[0].GetProperty("tool").GetProperty("driver").GetProperty("rules");
+        Assert.Equal(Analyzer.Rules.Count, rules.GetArrayLength());
+        for (var i = 0; i < Analyzer.Rules.Count; i++)
+        {
+            Assert.Equal(Analyzer.Rules[i].Fix, rules[i].GetProperty("help").GetProperty("text").GetString());
+            Assert.Equal(Analyzer.HelpUri(Analyzer.Rules[i].Id), rules[i].GetProperty("helpUri").GetString());
+        }
+    }
+
+    [Fact]
     public void Solution_at_the_repo_root_has_no_leading_dot_slash()
     {
         var json = Sarif(".", new Finding("PO001", Severity.Error, "m", "Other/Customizations.xml", "c"));

@@ -18,11 +18,11 @@ public static class MarkdownReport
                 continue;
             }
 
-            writer.Write("| Severity | Rule | File | Message |\n|---|---|---|---|\n");
+            writer.Write("| Severity | Rule | File | Message | Fix |\n|---|---|---|---|---|\n");
             foreach (var f in s.Findings)
             {
                 var severity = f.Severity == Severity.Error ? "error" : "warning";
-                writer.Write($"| {severity} | [{f.RuleId}]({SarifReport.HelpUri(f.RuleId)}) | {Escape(f.File)} | {Escape(f.Message)} |\n");
+                writer.Write($"| {severity} | [{f.RuleId}]({Analyzer.HelpUri(f.RuleId)}) | {Escape(f.File)} | {Escape(f.Message)} | {Escape(Analyzer.Find(f.RuleId)?.Fix)} |\n");
             }
         }
     }
