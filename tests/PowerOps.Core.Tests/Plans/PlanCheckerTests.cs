@@ -39,7 +39,7 @@ public class PlanCheckerTests : IDisposable
         _t.Write("docs/plans/b/plan.md", Plan()).Write("docs/plans/a/plan.md", Plan()).Write("docs/plans/c/notes.md", "x");
 
         Assert.Equal(
-            [Path.Combine(_t.Path, "docs/plans/a/plan.md"), Path.Combine(_t.Path, "docs/plans/b/plan.md")],
+            [Path.Combine(_t.Path, "docs", "plans", "a", "plan.md"), Path.Combine(_t.Path, "docs", "plans", "b", "plan.md")],
             PlanChecker.Discover(_t.Path));
         Assert.Single(PlanChecker.Discover(Path.Combine(_t.Path, "docs/plans/a")));
         Assert.Single(PlanChecker.Discover(Path.Combine(_t.Path, "docs/plans/a/plan.md")));
