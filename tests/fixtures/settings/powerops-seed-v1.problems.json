@@ -5,6 +5,10 @@
       "Value": "Open"
     },
     {
+      "SchemaName": "POPS_DEFAULTSTATUS",
+      "Value": "Closed"
+    },
+    {
       "SchemaName": "pops_NotInSolution",
       "Value": "x"
     }

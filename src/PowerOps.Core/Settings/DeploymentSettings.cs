@@ -34,7 +34,7 @@ public static class DeploymentSettings
             },
             WriteOptions) + "\n";
 
-    /// <summary>Compares a settings file with the solution. Unknown fields and arrays in the file are ignored; duplicate entries: the first wins. Problems are sorted by component type, name, kind.</summary>
+    /// <summary>Compares a settings file with the solution. Unknown fields and arrays in the file are ignored; a name listed more than once is a <c>duplicate</c> problem, and its first entry is the one checked. Problems are sorted by component type, name, kind.</summary>
     /// <exception cref="InvalidDataException">The text is not JSON or has the wrong shape; the message is the reason, without a path.</exception>
     public static IReadOnlyList<SettingsProblem> Validate(Solution solution, string settingsJson)
     {
@@ -55,9 +55,9 @@ public static class DeploymentSettings
                 throw new InvalidDataException("the root must be a JSON object");
             }
 
-            var env = Entries(doc.RootElement, "EnvironmentVariables", "SchemaName");
-            var refs = Entries(doc.RootElement, "ConnectionReferences", "LogicalName");
             var problems = new List<SettingsProblem>();
+            var env = Entries(doc.RootElement, "EnvironmentVariables", "SchemaName", EnvironmentVariable, problems);
+            var refs = Entries(doc.RootElement, "ConnectionReferences", "LogicalName", ConnectionReference, problems);
 
             foreach (var e in solution.EnvironmentVariables)
             {
@@ -108,10 +108,11 @@ public static class DeploymentSettings
     private static bool NoConnectionId(JsonElement entry) =>
         !entry.TryGetProperty("ConnectionId", out var v) || v.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(v.GetString());
 
-    /// <summary>The objects of the array <paramref name="array"/> by <paramref name="nameProperty"/> (case-insensitive, first wins); a missing array is empty. The elements are cloned, so they outlive the parsed document.</summary>
-    private static Dictionary<string, JsonElement> Entries(JsonElement root, string array, string nameProperty)
+    /// <summary>The objects of the array <paramref name="array"/> by <paramref name="nameProperty"/> (case-insensitive, first wins; one <c>duplicate</c> problem per repeated name goes to <paramref name="problems"/>); a missing array is empty. The elements are cloned, so they outlive the parsed document.</summary>
+    private static Dictionary<string, JsonElement> Entries(JsonElement root, string array, string nameProperty, string type, List<SettingsProblem> problems)
     {
         var result = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+        var duplicates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (!root.TryGetProperty(array, out var items))
         {
             return result;
@@ -135,7 +136,10 @@ public static class DeploymentSettings
                 throw new InvalidDataException($"{array}[{i}].{nameProperty} must be a string");
             }
 
-            result.TryAdd(name.GetString()!, item.Clone());
+            if (!result.TryAdd(name.GetString()!, item.Clone()) && duplicates.Add(name.GetString()!))
+            {
+                problems.Add(new("duplicate", type, result.Keys.First(k => Same(k, name.GetString()!)), "listed more than once in the settings file"));
+            }
             i++;
         }
 

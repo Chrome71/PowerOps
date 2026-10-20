@@ -77,16 +77,28 @@ public class DeploymentSettingsTests
     }
 
     [Fact]
-    public void Unknown_fields_and_arrays_and_duplicate_entries_are_tolerated()
+    public void Unknown_fields_and_arrays_are_tolerated()
     {
         var s = Sln([B.Env("a_Env")], [B.Ref("a_Ref")]);
         var json = """
             {"CopilotAgents":[],"Other":1,
-             "EnvironmentVariables":[{"SchemaName":"a_Env","Value":"v","DefaultValue":"x","IsRequired":true,"Extra":{"a":1}},{"SchemaName":"a_Env"}],
-             "ConnectionReferences":[{"LogicalName":"a_Ref","ConnectionId":"c","ConnectorId":"/p"},{"LogicalName":"a_Ref"}]}
+             "EnvironmentVariables":[{"SchemaName":"a_Env","Value":"v","DefaultValue":"x","IsRequired":true,"Extra":{"a":1}}],
+             "ConnectionReferences":[{"LogicalName":"a_Ref","ConnectionId":"c","ConnectorId":"/p"}]}
             """;
 
         Assert.Empty(Run(s, json));
+    }
+
+    [Fact]
+    public void Duplicate_entries_fire_once_per_name_whatever_the_case()
+    {
+        var s = Sln([B.Env("a_Env")], [B.Ref("a_Ref")]);
+        var json = """
+            {"EnvironmentVariables":[{"SchemaName":"a_Env","Value":"v"},{"SchemaName":"A_ENV"},{"SchemaName":"a_env","Value":"w"}],
+             "ConnectionReferences":[{"LogicalName":"a_Ref","ConnectionId":"c"},{"LogicalName":"a_Ref","ConnectionId":"c"}]}
+            """;
+
+        Assert.Equal(["duplicate connectionReference a_Ref", "duplicate environmentVariable a_Env"], Run(s, json));
     }
 
     [Fact]

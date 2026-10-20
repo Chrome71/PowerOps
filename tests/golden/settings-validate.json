@@ -16,6 +16,12 @@
       "message": "in the solution but not in the settings file"
     },
     {
+      "kind": "duplicate",
+      "componentType": "environmentVariable",
+      "name": "pops_DefaultStatus",
+      "message": "listed more than once in the settings file"
+    },
+    {
       "kind": "extra",
       "componentType": "environmentVariable",
       "name": "pops_NotInSolution",
