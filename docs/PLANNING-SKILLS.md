@@ -173,8 +173,8 @@ A route choice approves nothing, and a bare "approve" approves the draft only (A
 
   | Agent | How the review runs |
   |---|---|
-  | Claude Code | a Claude-specific copy of the skill generated at install, with `context: fork` and the tier alias for the top model |
-  | Codex | a custom agent in `.codex/agents/` with the model left unset, so the session model runs |
+  | Claude Code | a Claude-specific copy of the skill generated at install, with `context: fork`, `background: false` and the tier alias `opus` |
+  | Codex | the skill starts a subagent with no chat history (`spawn_agent` without forked turns), so the session model runs; verified in the v0.4.0 manual run |
   | Gemini CLI | a subagent in `.gemini/agents/` with the model left unset, so the session model runs |
   | Others, or an agent that cannot fork | the skill tells the user to open a new session and run `powerops-review-plan <name>` there |
 

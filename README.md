@@ -69,6 +69,27 @@ Exit codes: `0` no findings at or above `--fail-on`, `1` findings at or above it
 
 Each rule has a page with what it finds, how to fix it and how to suppress it: [docs/rules/](docs/rules/).
 
+## Planning
+
+PowerOps ships three agent skills that turn an idea into a reviewed, signed-off plan before any code or solution change is made:
+
+- `powerops-plan` asks short question rounds (at most three questions, recommended answer first), logs every answer in `decisions.md`, drafts `plan.md`, and signs it off with you. Asked to build without a plan, it drafts one and asks only the route.
+- `powerops-review-plan` reviews an approved plan in a fresh context against a Power Platform checklist and writes `review.md`. It never asks you questions.
+- `powerops-implement` builds only from a signed-off plan whose body still matches its sign-off.
+
+Run `powerops skills install` in your repo to add them. Supported: Claude Code and Codex. Gemini CLI and GitHub Copilot are provisional and untested. The skills are also in [skills/](skills/) for `npx skills add` (that CLI has telemetry on by default). Design: [docs/PLANNING-SKILLS.md](docs/PLANNING-SKILLS.md).
+
+Plans live in `docs/plans/<name>/plan.md`, with a header between `---` lines (`status`, `review`, `signed-off`, `signed-off-hash`, `environment`).
+
+```sh
+powerops plan status                  # check every docs/plans/*/plan.md under . (offline, read-only; add --json for machine output)
+powerops plan sign-off docs/plans/site-visits   # write status, date and body hash into the header
+powerops plan facts                   # environment and solution names as JSON; read-only, needs pac signed in, prints names only
+powerops skills install               # copy the planning skills into .claude/skills/ and/or .agents/skills/ (--agent claude|codex|gemini|copilot, --force to overwrite)
+```
+
+`plan status` checks the header, that a signed-off plan still matches its recorded hash, that the review is done (with `review.md`) or skipped, and that no file in the plan folder holds a URL, GUID or email (add `<!-- plan-status: allow -->` to a line to allow it). `plan sign-off` refuses unless `status` is `approved`, the review is done or skipped, and the scan is clean; it edits only the header. Exit codes: `0` clean, `1` violations or a refused sign-off, `2` usage error or malformed header, `3` internal error.
+
 ## Build from source
 
 Requires the .NET 10 SDK.

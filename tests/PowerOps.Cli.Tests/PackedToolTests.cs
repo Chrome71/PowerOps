@@ -46,6 +46,12 @@ public class PackedToolTests
             Assert.Equal(9, doc.RootElement.GetProperty("solutions").GetArrayLength());
 
             Assert.Equal(2, Run(exe, ["analyze", Path.Combine(temp, "missing")]).Code);
+
+            // The skills are embedded in the package.
+            var repo = Directory.CreateDirectory(Path.Combine(temp, "repo")).FullName;
+            var skills = Run(exe, ["skills", "install", repo]);
+            Assert.True(skills.Code == 0, skills.Out + skills.Err);
+            Assert.True(File.Exists(Path.Combine(repo, ".agents", "skills", "powerops-plan", "SKILL.md")));
         }
         finally
         {
