@@ -79,3 +79,5 @@ Answer: No preference; the recommended option applies: a 30-day premium trial st
 - review findings R1-R19 resolved in plan.md (2026-10-19); review now stale, plan body changed
 - second review (fresh context, Opus): R1-R11 resolved in plan.md (2026-10-19); no third review, by the user's choice
 - signed off by the user with powerops plan sign-off (2026-10-19)
+- licence line corrected after a read-only check of the account's licences (Power Apps Plan 2 Trial assigned); status back to approved for re-sign-off (2026-10-19)
+- signed off again by the user with powerops plan sign-off (2026-10-19)
