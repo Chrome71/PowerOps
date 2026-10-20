@@ -39,3 +39,5 @@ Answer: Accept it as a known gap, noted in the plan
 - approved (2026-10-20)
 - fresh review (Opus) 2026-10-20: R1 and R5 fixed in code and fixtures, plan body unchanged; R2, R3, R4 and R6 left open for the user at sign-off
 - the user answered R2, R3, R4 and R6 in the master planning session (relayed 2026-10-20): Q1 to Q4 above; R3 built as the `duplicate` kind; open question removed; review now stale
+- second fresh review (Opus) 2026-10-20: 0 High, 0 Medium, 2 Low; both Low fixed (plan text caught up with the build, NOTICE wording); review.md plan-hash updated to the final body
+

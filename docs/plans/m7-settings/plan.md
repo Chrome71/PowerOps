@@ -1,6 +1,6 @@
 ---
 status: approved
-review: pending
+review: done
 signed-off: null
 signed-off-hash: null
 environment: null
@@ -42,7 +42,7 @@ The solution model already holds what both commands need: connection references 
 Offline half (built):
 
 - `settings generate <solution> [--out <file>]` prints a settings file with exactly the Learn fields, `Value` and `ConnectionId` empty, `ConnectorId` from the solution, each array sorted by name (ordinal). Stdout by default; a file only with `--out`.
-- `settings validate <solution> --settings <file> [--format text|json]` reports four kinds of problem:
+- `settings validate <solution> --settings <file> [--format text|json]` reports five kinds of problem:
   - `missing`: an environment variable or connection reference in the solution but not in the file.
   - `extra`: an entry in the file whose name is not in the solution.
   - `duplicate`: a name listed more than once in the file (compared regardless of case). It is reported once per name, and the first entry is the one checked.
@@ -95,9 +95,9 @@ None created or changed. Tests use the committed `PowerOpsSeed` fixture (prefix 
 
 Steps 1 to 6 and 8 are done; 7 is open.
 
-1. `feat(core):` `DeploymentSettings.Generate` and `DeploymentSettings.Validate` in `src/PowerOps.Core/Settings/`, with `SettingsReport` (text and JSON) in `src/PowerOps.Core/Output/`. Core tests in `tests/PowerOps.Core.Tests/Settings/` fire and stay quiet for each problem kind, ignore unknown fields, and reject wrong shapes. Done in "feat(settings): add settings generate and validate".
+1. `feat(core):` `DeploymentSettings.Generate` and `DeploymentSettings.Validate` in `src/PowerOps.Core/Settings/`, with `SettingsReport` (text and JSON) in `src/PowerOps.Core/Output/`. Core tests in `tests/PowerOps.Core.Tests/Settings/` fire and stay quiet for each problem kind, ignore unknown fields, and reject wrong shapes. Done in "feat(settings): add settings generate and validate"; the `ConnectionId` check was corrected in "fix(settings): count a non-string ConnectionId as empty and use pac's real output as the valid fixture" (first review R1).
 2. `feat(settings):` the thin `settings` command with `generate` and `validate` in `src/PowerOps.Cli/SettingsCommand.cs`, registered in `Program.cs`, with the exit codes under Automation. Done, same commit.
-3. `test:` fixtures `tests/fixtures/settings/powerops-seed-v1.valid.json` (filled in, with `pac`'s extra fields) and `powerops-seed-v1.problems.json` (one missing connection reference, one extra environment variable, one extra connection reference), described in `NOTICE.md`; `analyze` does not pick them up, so the `analyze-fixtures.*` goldens are unchanged. Done, same commit.
+3. `test:` fixtures `tests/fixtures/settings/powerops-seed-v1.valid.json` and `powerops-seed-v1.problems.json` (one missing connection reference, one extra environment variable, one extra connection reference; Step 8 adds a duplicate), described in `NOTICE.md`; `analyze` does not pick them up, so the `analyze-fixtures.*` goldens are unchanged. Done, same commit. The valid file was hand-written at first; the fix commit named in Step 1 replaced it with `pac` 2.13.1's real `create-settings` output, values filled with fake ones (first review R5).
 4. `test:` CLI tests and goldens `settings-generate.json`, `settings-validate.txt` and `settings-validate.json`; the JSON schema, its row in `docs/schemas/README.md` and its `Map` entry in `OutputSchemaTests`. The generate golden is skipped by `OutputSchemaTests` because it is `pac`'s file format, not a powerops output. Done, same commit.
 5. `docs:` README usage block and a paragraph with the exit codes. Done, same commit.
 6. `test:` `generate --out` into a missing folder exits 3 and writes nothing; `generate` on the zipped seed matches the unpacked folder and the valid settings file validates clean against the zip. Done in "test(settings): cover generate --out into a missing folder and the zip layout".
