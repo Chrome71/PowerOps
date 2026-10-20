@@ -254,4 +254,165 @@ public class YamlReaderTests
         Assert.Contains("entities/pops_workitem", s.SourceFolders!);
         Assert.Contains("modernflows/4c8dd007-dfcb-f111-a05c-0022480697a8", s.SourceFolders!);
     }
+
+    private const string SrcDir = "canvasapps/app1/app1_DocumentUri/Src/";
+
+    private static TempFolder CanvasLayout(string appYml = "CanvasApp:\n  Name: app1\n  DisplayName: Contoso Tracker\n") =>
+        Layout(listed: "/canvasapps/app1").Write("canvasapps/app1/canvasapp.yml", appYml);
+
+    private static IReadOnlyList<CanvasFormula> Formulas(TempFolder t) => SolutionLoader.Load(SolutionYml(t)).CanvasFormulas;
+
+    [Fact]
+    public void Block_scalar_formula_is_read()
+    {
+        using var t = CanvasLayout().Write(SrcDir + "Screen1.pa.yaml", """
+            Screens:
+              Screen1:
+                Children:
+                  - Gallery1:
+                      Control: Gallery@2.15.0
+                      Properties:
+                        Items: |
+                          ='Work Items'
+            """);
+
+        var f = Assert.Single(Formulas(t));
+
+        Assert.Equal(new CanvasFormula("Contoso Tracker", "Gallery1", "Items", "='Work Items'", SrcDir + "Screen1.pa.yaml"), f);
+    }
+
+    [Fact]
+    public void Nested_control_property_gives_control_and_property()
+    {
+        using var t = CanvasLayout().Write(SrcDir + "Screen1.pa.yaml", """
+            Screens:
+              Screen1:
+                Properties:
+                  OnVisible: =Set(a, 1)
+                Children:
+                  - Gallery1:
+                      Properties:
+                        Items: =Table1
+                      Children:
+                        - Button1:
+                            Control: Button@2.2.0
+                            Properties:
+                              OnSelect: =Launch("https://contoso.sharepoint.com")
+            """);
+
+        Assert.Equal(
+            [("Screen1", "OnVisible"), ("Gallery1", "Items"), ("Button1", "OnSelect")],
+            Formulas(t).Select(f => (f.Control, f.Property)));
+    }
+
+    [Fact]
+    public void App_and_component_definitions_are_read()
+    {
+        using var t = CanvasLayout().Write(SrcDir + "App.pa.yaml", """
+            App:
+              Properties:
+                OnStart: =Set(a, 1)
+            ComponentDefinitions:
+              Header:
+                Properties:
+                  Text: =Left("x", 1)
+                Children:
+                  - Label1:
+                      Properties:
+                        Text: =Parent.Text
+            """);
+
+        Assert.Equal(
+            [("App", "OnStart"), ("Header", "Text"), ("Label1", "Text")],
+            Formulas(t).Select(f => (f.Control, f.Property)));
+    }
+
+    [Fact]
+    public void A_value_without_a_leading_equals_is_skipped()
+    {
+        using var t = CanvasLayout().Write(SrcDir + "Screen1.pa.yaml", """
+            Screens:
+              Screen1:
+                Properties:
+                  Fill: red
+                  Visible: =true
+            """);
+
+        Assert.Equal("Visible", Assert.Single(Formulas(t)).Property);
+    }
+
+    [Fact]
+    public void A_file_without_controls_gives_no_formulas()
+    {
+        using var t = CanvasLayout().Write(SrcDir + "_EditorState.pa.yaml", "EditorState:\n  ScreensOrder:\n    - Screen1\n");
+
+        Assert.Empty(Formulas(t));
+    }
+
+    [Fact]
+    public void App_name_falls_back_to_name_then_folder()
+    {
+        const string yml = "Screens:\n  S:\n    Properties:\n      Fill: =red\n";
+        using var named = CanvasLayout("CanvasApp:\n  Name: schema_name\n").Write(SrcDir + "S.pa.yaml", yml);
+        using var bare = CanvasLayout("CanvasApp:\n  Status: Ready\n").Write(SrcDir + "S.pa.yaml", yml);
+
+        Assert.Equal("schema_name", Assert.Single(Formulas(named)).App);
+        Assert.Equal("app1", Assert.Single(Formulas(bare)).App);
+    }
+
+    [Fact]
+    public void Formulas_are_ordered_by_file_path_then_document_order()
+    {
+        using var t = CanvasLayout()
+            .Write(SrcDir + "b.pa.yaml", "Screens:\n  B:\n    Properties:\n      Z: =1\n      A: =2\n")
+            .Write(SrcDir + "Components/a.pa.yaml", "Screens:\n  A:\n    Properties:\n      P: =3\n");
+
+        Assert.Equal(
+            [(SrcDir + "Components/a.pa.yaml", "P"), (SrcDir + "b.pa.yaml", "Z"), (SrcDir + "b.pa.yaml", "A")],
+            Formulas(t).Select(f => (f.File, f.Property)));
+    }
+
+    [Fact]
+    public void A_pa_yaml_outside_the_src_folder_is_ignored()
+    {
+        const string yml = "Screens:\n  S:\n    Properties:\n      Fill: =red\n";
+        using var t = CanvasLayout()
+            .Write("canvasapps/app1/app1_DocumentUri/Other/S.pa.yaml", yml)
+            .Write("canvasapps/app1/S.pa.yaml", yml);
+
+        Assert.Empty(Formulas(t));
+    }
+
+    [Fact]
+    public void A_pa_yaml_with_an_anchor_names_the_file()
+    {
+        using var t = CanvasLayout().Write(SrcDir + "S.pa.yaml", "Screens:\n  S:\n    Properties: &p\n      Fill: =red\n");
+
+        var ex = Assert.Throws<InvalidDataException>(() => Formulas(t));
+
+        Assert.StartsWith(SolutionYml(t), ex.Message);
+        Assert.Contains(SrcDir + "S.pa.yaml", ex.Message);
+    }
+
+    [Fact]
+    public void The_xml_layout_has_no_canvas_formulas()
+    {
+        var path = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "powerops-seed", "v2");
+
+        Assert.Empty(SolutionLoader.Load(path).CanvasFormulas);
+    }
+
+    [Fact]
+    public void The_fixture_has_the_launch_formula()
+    {
+        var path = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "powerops-seed-yaml", "v2", "solutions", "PowerOpsSeed", "solution.yml");
+
+        var s = SolutionLoader.Load(path);
+
+        var f = Assert.Single(s.CanvasFormulas, f => f.Property == "OnSelect" && f.Formula.StartsWith("=Launch", StringComparison.Ordinal));
+        Assert.Equal("Work Items", f.App);
+        Assert.Equal("Button1", f.Control);
+        Assert.Equal("=Launch(\"https://contoso.sharepoint.com/sites/ops\")", f.Formula);
+        Assert.StartsWith("canvasapps/pops_workitems_2af60/pops_workitems_2af60_DocumentUri/Src/", f.File);
+    }
 }

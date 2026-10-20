@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Xml;
 using System.Xml.Linq;
 
 using PowerOps.Core.Model;
@@ -64,6 +65,7 @@ public static partial class YamlReader
                 .ToList(),
             CanvasAppTexts: Matching(solutionFiles, CanvasAppPath()).Select(root.ReadText).ToList(),
             ManifestFile: manifestFile,
+            CanvasFormulas: Matching(solutionFiles, CanvasAppPath()).SelectMany(p => ReadCanvasFormulas(root, solutionFiles, p)).ToList(),
             SourceFolders: entries
                 .Where(root.Existing.Contains)
                 .Select(e => string.Join('/', e.Split('/').Take(2)))
@@ -102,6 +104,38 @@ public static partial class YamlReader
 
         return false;
     }
+
+    /// <summary>The formulas of the `.pa.yaml` files under `&lt;name&gt;_DocumentUri/Src/` next to <paramref name="canvasApp"/>; <paramref name="solutionFiles"/> is ordinal-sorted.</summary>
+    private static IEnumerable<CanvasFormula> ReadCanvasFormulas(YamlRoot root, List<string> solutionFiles, string canvasApp)
+    {
+        var folder = canvasApp[..canvasApp.LastIndexOf('/')];
+        var name = folder[(folder.LastIndexOf('/') + 1)..];
+        var app = root.LoadYaml(canvasApp).Element("CanvasApp");
+        var appName = (app is null ? null : SolutionParser.Text(app, "DisplayName") ?? SolutionParser.Text(app, "Name")) ?? name;
+
+        var src = $"{folder}/{name}_DocumentUri/Src/";
+        foreach (var file in solutionFiles.Where(p => p.StartsWith(src, StringComparison.OrdinalIgnoreCase) && p.EndsWith(".pa.yaml", StringComparison.OrdinalIgnoreCase)))
+        {
+            var top = root.LoadYaml(file);
+            var holders = new[] { top.Element("App") }
+                .Concat(top.Element("Screens")?.Elements() ?? [])
+                .Concat(top.Element("ComponentDefinitions")?.Elements() ?? []);
+            foreach (var holder in holders.OfType<XElement>().SelectMany(Controls))
+            {
+                foreach (var property in holder.Element("Properties")?.Elements() ?? [])
+                {
+                    if (!property.HasElements && property.Value.StartsWith('='))
+                    {
+                        yield return new CanvasFormula(appName, XmlConvert.DecodeName(holder.Name.LocalName), XmlConvert.DecodeName(property.Name.LocalName), property.Value.TrimEnd(), file);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>The element itself, then its nested controls (each `Children` item holds one control element), in document order.</summary>
+    private static IEnumerable<XElement> Controls(XElement control) =>
+        control.Elements("Children").SelectMany(c => c.Elements()).SelectMany(Controls).Prepend(control);
 
     private static EnvironmentVariable ReadEnvironmentVariable(YamlRoot root, string path)
     {
