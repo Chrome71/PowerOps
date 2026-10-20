@@ -81,3 +81,4 @@ Answer: No preference; the recommended option applies: a 30-day premium trial st
 - signed off by the user with powerops plan sign-off (2026-10-19)
 - licence line corrected after a read-only check of the account's licences (Power Apps Plan 2 Trial assigned); status back to approved for re-sign-off (2026-10-19)
 - signed off again by the user with powerops plan sign-off (2026-10-19)
+- third review (fresh context, Opus) replaced the stale one; R1-R5 accepted as build notes, plan body unchanged (2026-10-19)
