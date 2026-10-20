@@ -24,6 +24,15 @@ Scrubbed before committing:
 - Renamed the publisher display name to "PowerOps Fixtures".
 - `contoso.sharepoint.com` is a placeholder. The files contain no tenant URLs, environment IDs or user names; the remaining GUIDs are component IDs.
 
+`powerops-seed-yaml/` is the same `PowerOpsSeed` solution in the Dataverse Git integration YAML layout, made for this project under the same licence. The solution was bound to an Azure DevOps repo with a solution binding (folder `seed`), and v1 and v2 were committed from the test environment. The files are the working tree of each commit under `seed/PowerOpsSeed/`, without the Git history. Expected findings: none for `v1/`; PO005 and PO006, as in `powerops-seed/v2`, plus PO014 for `v2/`, where the canvas app gains a button whose `OnSelect` is `Launch("https://contoso.sharepoint.com/sites/ops")`. The current CLI does not read this layout yet.
+
+Scrubbed and trimmed before committing:
+
+- Removed from the canvas app folder: `*_BackgroundImageUri`, `*_AdditionalUris0_identity.json`, and from `*_DocumentUri/` the `Controls/*.json`, `References/*.json`, `Header.json`, `Properties.json`, `Resources/PublishInfo.json` and `AppCheckerResult.sarif`. Only `Src/*.pa.yaml` is kept. `canvasapp.yml` still references the removed files.
+- Removed the `Readme.md` that Git integration creates in the binding folder.
+- Renamed the publisher display name to "PowerOps Fixtures". The contact fields in `publisher.yml` were already empty.
+- `connectionreference.yml` holds no connection IDs. The files contain no tenant URLs, environment IDs or user names; the remaining GUIDs are component IDs, the same as in `powerops-seed/`.
+
 ## Licence
 
 MIT License. Copyright lines from each repo's `LICENSE`:
