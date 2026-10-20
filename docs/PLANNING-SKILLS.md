@@ -112,6 +112,8 @@ review: pending          # pending | done | skipped
 signed-off: null         # date, written by `powerops plan sign-off`
 signed-off-hash: null    # sha256 of the body below the header, written by the same command
 environment: null        # target environment name, confirmed by the user before it is written
+depth: standard          # quick | standard | deep, or null; how deep the questions go, set from the user's engagement
+supersedes: null         # folder name of the earlier plan this one builds on, or null
 ---
 ```
 
@@ -151,6 +153,11 @@ Question order: outcome and users, then data, then automation, then environments
 An approved draft may still have open questions. The review and the sign-off both see the count.
 
 Facts the environment can answer (the target environment, existing solutions) are read, not asked.
+
+### Depth and versions
+
+- **Depth.** `depth` says how far the rounds go. `quick`: one round of at most three questions, only what blocks the plan, with licensing and environments asked in it, then B is recommended. `standard`: the protocol above. `deep`: more rounds, plus edge cases, data volume and delegation, security roles and testability, and fuller Steps. A new plan starts at the depth of the plan it supersedes, else of the plan.md with the newest modification time that has one, else `standard`; the fast path sets `quick`. After each round the agent judges engagement from the answers: mostly one-word or option-number answers, "just pick" or a request to speed up move it one level down; long answers in the user's own words, follow-up questions or a request for more detail move it one level up. It changes at most once per round, writes the new value in the header, logs `depth: <old> -> <new> (<reason>)` in `decisions.md` and mentions it in one of the three change lines. A resumed plan keeps its `depth`.
+- **Versions.** When a `signed-off`, `implementing` or `done` plan needs a new version (new scope, a v2, changes after implementation), the agent leaves it as it is and creates `docs/plans/<name>-v2/` (or the next free `-vN`) from a copy of its body, with `status: draft`, `review: pending`, no sign-off, the same `environment` and `depth`, and `supersedes: <previous folder>`. It asks only about what changes. A small edit to a signed-off plan that is not yet implementing still goes back to `approved` and is re-signed.
 
 ## Fast path
 
@@ -226,7 +233,8 @@ When `available` is false, the skill says what `reason` and `fix` say (for examp
 
 **What `plan status` checks:**
 
-- the header parses, `status` and `review` are in their enums, and a date is a date;
+- the header parses, `status` and `review` are in their enums, `depth` is `quick`, `standard`, `deep` or empty, and a date is a date;
+- `supersedes`, when set, is a plain folder name and names another plan under the same `docs/plans/` that has a `plan.md` (in every status);
 - `signed-off`, `implementing` or `done` requires `signed-off` and `signed-off-hash`, and the hash matches the current body (otherwise: "changed since sign-off", or "run `powerops plan sign-off`" when the hash is missing);
 - `signed-off` and later requires `review: done` with `review.md` present, or `review: skipped`;
 - no file under the plan folder matches a URL, GUID or email pattern. A `<!-- plan-status: allow -->` comment on the line suppresses the match;
@@ -239,7 +247,7 @@ When `available` is false, the skill says what `reason` and `fix` say (for examp
 | 2 | Usage error, or a malformed plan header |
 | 3 | Internal error |
 
-`--json` prints each plan's status, review state, counted open questions (the list items under `## Open questions` and `## Questions for your admin`), body hash and violations. It warns, but does not fail, when `review.md`'s `plan-hash` differs from the current body (a stale review).
+`--json` prints each plan's status, review state, `environment`, `depth`, `supersedes`, counted open questions (the list items under `## Open questions` and `## Questions for your admin`), body hash and violations. It warns, but does not fail, when `review.md`'s `plan-hash` differs from the current body (a stale review).
 
 ## Agent support
 

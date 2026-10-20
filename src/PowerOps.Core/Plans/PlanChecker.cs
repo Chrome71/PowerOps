@@ -10,6 +10,8 @@ public sealed record PlanReport(
     string? Review,
     string? SignedOff,
     string? Environment,
+    string? Depth,
+    string? Supersedes,
     int OpenQuestions,
     string? BodyHash,
     bool Malformed,
@@ -79,6 +81,11 @@ public static partial class PlanChecker
             violations.AddRange(ReviewProblems(h.Review, reviewFile));
         }
 
+        if (doc.Header?.Supersedes is { } old)
+        {
+            violations.AddRange(SupersedesProblems(old, folder, baseDir));
+        }
+
         violations.AddRange(ScanTenantData(folder, baseDir));
 
         if (doc.BodyHash is not null && File.Exists(reviewFile))
@@ -100,11 +107,28 @@ public static partial class PlanChecker
             doc.Header?.Review,
             doc.Header?.SignedOff?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             doc.Header?.Environment,
+            doc.Header?.Depth,
+            doc.Header?.Supersedes,
             doc.OpenQuestions,
             doc.BodyHash,
             doc.Header is null,
             violations,
             warnings);
+    }
+
+    // The name is echoed (and put in a path) only when it is a plain word.
+    private static IEnumerable<string> SupersedesProblems(string name, string folder, string baseDir)
+    {
+        var previous = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(folder)!, name);
+        if (string.Equals(System.IO.Path.GetFullPath(previous), folder, OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+        {
+            yield return "supersedes names the plan itself";
+        }
+        else if (!File.Exists(System.IO.Path.Combine(previous, "plan.md")))
+        {
+            // The header parser only accepts plain folder names, so echoing it is safe.
+            yield return $"supersedes '{name}' but {Display(System.IO.Path.Combine(previous, "plan.md"), baseDir)} does not exist";
+        }
     }
 
     /// <summary>The review-state problems that block a sign-off (and fail the check once signed off).</summary>

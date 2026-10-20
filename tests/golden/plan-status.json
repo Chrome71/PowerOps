@@ -2,11 +2,26 @@
   "schemaVersion": 1,
   "plans": [
     {
+      "path": "docs/plans/clean-v2",
+      "status": "draft",
+      "review": "pending",
+      "signedOff": null,
+      "environment": null,
+      "depth": "deep",
+      "supersedes": "clean",
+      "openQuestions": 0,
+      "bodyHash": "c3964bb3b70a957ec9b233c7dd3653f6ba17701ab00facf88ae1393dc6155577",
+      "violations": [],
+      "warnings": []
+    },
+    {
       "path": "docs/plans/clean",
       "status": "draft",
       "review": "pending",
       "signedOff": null,
       "environment": null,
+      "depth": null,
+      "supersedes": null,
       "openQuestions": 1,
       "bodyHash": "21165810c73c3bcfb7f13fd03398c12df2cada3633a1258940beb93339487829",
       "violations": [],
@@ -18,6 +33,8 @@
       "review": "done",
       "signedOff": null,
       "environment": null,
+      "depth": null,
+      "supersedes": null,
       "openQuestions": 0,
       "bodyHash": "b5c76b528b1ed408c24dcb01a3919c0ad0533e560bff686b3306de8eb02d41ec",
       "violations": [
@@ -29,7 +46,7 @@
     }
   ],
   "summary": {
-    "plans": 2,
+    "plans": 3,
     "violations": 1,
     "warnings": 1
   }

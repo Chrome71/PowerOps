@@ -25,11 +25,11 @@ Never answer your own questions. After you ask, end your turn and wait.
 
 1. Check that `powerops` runs (for example `powerops --version`). If it is not found, tell the user to run `dotnet tool install --global PowerOps`, and stop.
 2. Pick a plan name in kebab-case from the idea (`site-visits`). The folder is `docs/plans/<name>/`.
-3. If the folder exists, read `plan.md` and `decisions.md`, then run `powerops plan status docs/plans/<name> --json`. If it exits 2, show the reason and fix the header with the user first. Then continue where the plan stopped:
+3. If the folder exists, read `plan.md` and `decisions.md`, then run `powerops plan status docs/plans/<name> --json`. If it exits 2, show the reason and fix the header with the user first. Keep the `depth` from the header (section 6). Then continue where the plan stopped:
    - `draft`: go to the what-next menu (section 6).
    - `approved`: go to the review and sign-off steps (sections 7 and 9).
    - `signed-off`, `implementing`, `done`: tell the user any change to the plan body voids the sign-off. Continue only if they want changes (section 10).
-4. If it does not exist, create the folder and go to section 3. Also check `docs/plans/` for a plan on the same idea first and resume that one.
+4. If it does not exist, first check `docs/plans/` for a plan on the same idea. A `draft` or `approved` one: resume it. A `signed-off`, `implementing` or `done` one: if the user wants a new version, follow "New version" in section 10. Otherwise create the folder and go to section 3.
 
 ## 3. Environment facts
 
@@ -57,6 +57,8 @@ review: pending
 signed-off: null
 signed-off-hash: null
 environment: null
+depth: standard
+supersedes: null
 ---
 
 # <Title>
@@ -79,7 +81,7 @@ environment: null
 - `Steps` is a numbered list of implementation steps: small, in order, each one checkable.
 - `Open questions` and `Questions for your admin` hold one top-level `- ` item per question. When there are none, leave the section empty. Do not write "None": the tool counts list items. Move an item out when it is answered.
 - Questions only someone else can answer (licensing, DLP) go under `Questions for your admin`, so the user can forward them.
-- Edit the header line by line, and only `status`, `review` and `environment`. Never write `signed-off` or `signed-off-hash` by hand. Only `powerops plan sign-off` does.
+- Edit the header line by line, and only `status`, `review`, `environment`, `depth` and `supersedes`. Never write `signed-off` or `signed-off-hash` by hand. Only `powerops plan sign-off` does.
 
 Create `decisions.md` in exactly this format:
 
@@ -121,6 +123,16 @@ Question order: outcome and users, then data, then automation, then environments
 
 Do not ask what the facts already answer. When nothing is left to ask, say so and recommend B. The user decides.
 
+**Depth.** `depth` in the header sets how far the rounds go:
+
+- `quick`: one round, at most three questions, only what blocks the plan, with licensing and environments asked in it. Keep sections short. Recommend B as soon as nothing blocks.
+- `standard`: the rounds as written above.
+- `deep`: more rounds are fine. Also ask about edge cases, data volume and delegation, security roles and testability. Write fuller Steps.
+
+A new plan starts at the `depth` of the plan it supersedes, else of the `docs/plans/*/plan.md` with the newest modification time that has one, else `standard`. The fast path (section 8) sets `quick`.
+
+After each round, judge engagement from the answers. Mostly one-word or option-number answers, "just pick", "whatever you think", or a request to speed up: go one level down. Long answers in their own words, follow-up questions, or a request for more detail: one level up. Change it at most once per round. Write the new value in the header, log `depth: <old> -> <new> (<reason in a few words>)` under `## Log` in `decisions.md`, and mention it in one of the three change lines.
+
 **A:** run another round. **B:** section 7. **C:** say where the files are (`docs/plans/<name>/`) and how to resume ("ask me to continue the `<name>` plan"). The status stays `draft`.
 
 ## 7. Approve (B)
@@ -142,7 +154,7 @@ An approved draft may still have open questions. The review and the sign-off bot
 
 Use this when the user asks to build without a signed-off plan, or `powerops-implement` hands over. Write no code and change no solution.
 
-1. Draft `plan.md` from the request, the repo and `powerops plan facts`. Put every guess under Assumptions. The status stays `draft`.
+1. Draft `plan.md` from the request, the repo and `powerops plan facts`. Put every guess under Assumptions. The status stays `draft`. Set `depth: quick`.
 2. Ask one question: the route. Use the numbered format of a round question (section 6): two or three options, each with its trade-off in a few words, recommended first, then "In your own words". Example: unmanaged in Dev, then managed to Test and Prod through pipelines.
 3. Ask the publisher prefix too, only if neither the facts nor the repo supply it. Ask nothing else. Leave `environment: null` and note the assumed target in Assumptions.
 4. Log the route in `decisions.md` as a normal question.
@@ -168,6 +180,16 @@ To resolve a finding, change the plan if needed and set its line in `review.md` 
 ## 10. After sign-off
 
 Any change to the plan body voids the sign-off. If the user wants changes, set `status` back to `draft` (more rounds) or `approved` (small edit), make the change, and sign off again with the tool. The review may then be stale: `plan status` warns about it. Offer a new review.
+
+**New version.** When the plan is `signed-off`, `implementing` or `done` and the user wants a new version (new scope, a v2, changes after implementation), do not edit it and do not start from scratch:
+
+1. Create `docs/plans/<name>-v2/` (or the next free `-vN`) and copy the previous `plan.md` body into it.
+2. Set the header (resetting `signed-off` and `signed-off-hash` to `null` is the one hand edit of them allowed): `status: draft`, `review: pending`, `signed-off: null`, `signed-off-hash: null`, the same `environment` and `depth`, and `supersedes: <previous folder name>`.
+3. Start `decisions.md` with a `## Log` line `supersedes <previous>`.
+4. Ask questions only about what changes. Keep everything else.
+5. Leave the old plan as it is.
+
+A small edit to a plan that is `signed-off` but not yet `implementing` follows the paragraph above.
 
 ## 11. Mockups
 

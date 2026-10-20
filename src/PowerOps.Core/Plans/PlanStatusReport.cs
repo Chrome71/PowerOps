@@ -46,6 +46,8 @@ public static class PlanStatusReport
                 review = p.Review,
                 signedOff = p.SignedOff,
                 environment = p.Environment,
+                depth = p.Depth,
+                supersedes = p.Supersedes,
                 openQuestions = p.OpenQuestions,
                 bodyHash = p.BodyHash,
                 violations = p.Violations,

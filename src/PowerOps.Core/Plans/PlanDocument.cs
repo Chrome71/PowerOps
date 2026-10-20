@@ -6,14 +6,15 @@ using System.Text.RegularExpressions;
 namespace PowerOps.Core.Plans;
 
 /// <summary>The parsed header of a plan.md. Values are already validated.</summary>
-public sealed record PlanHeader(string Status, string Review, DateOnly? SignedOff, string? SignedOffHash, string? Environment);
+public sealed record PlanHeader(string Status, string Review, DateOnly? SignedOff, string? SignedOffHash, string? Environment, string? Depth, string? Supersedes);
 
 /// <summary>A plan.md split into header and body. Not YAML: plain <c>key: value</c> lines between two <c>---</c> lines.</summary>
 public sealed partial class PlanDocument
 {
     private static readonly string[] Statuses = ["draft", "approved", "signed-off", "implementing", "done"];
     private static readonly string[] Reviews = ["pending", "done", "skipped"];
-    private static readonly string[] Keys = ["status", "review", "signed-off", "signed-off-hash", "environment"];
+    private static readonly string[] Keys = ["status", "review", "signed-off", "signed-off-hash", "environment", "depth", "supersedes"];
+    private static readonly string[] Depths = ["quick", "standard", "deep"];
 
     /// <summary>Null when the header is malformed.</summary>
     public PlanHeader? Header { get; private init; }
@@ -72,13 +73,17 @@ public sealed partial class PlanDocument
     [GeneratedRegex("^#{1,2} ")]
     private static partial Regex HeadingRegex();
 
+    // No dots, slashes or colons, so it can never leave docs/plans/ (C:foo is rooted on Windows), and no tenant data can be echoed.
+    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$")]
+    private static partial Regex PlanNameRegex();
+
     [GeneratedRegex("^[A-Za-z][A-Za-z0-9_-]{0,39}$")]
     private static partial Regex WordRegex();
 
     // Only plain words are echoed back, so a pasted URL or other tenant data never reaches a CI log.
-    private static bool Word(string s) => WordRegex().IsMatch(s);
+    internal static bool Word(string s) => WordRegex().IsMatch(s);
 
-    private static string Quoted(string s) => Word(s) ? $" '{s}'" : "";
+    internal static string Quoted(string s) => Word(s) ? $" '{s}'" : "";
 
     private static bool IsFence(string line) => line.TrimEnd() == "---";
 
@@ -189,6 +194,18 @@ public sealed partial class PlanDocument
             return (null, "signed-off-hash is not 64 lowercase hex characters");
         }
 
-        return (new PlanHeader(status, review, signedOff, hash, Get("environment")), null);
+        var depth = Get("depth");
+        if (depth is not null && !Depths.Contains(depth))
+        {
+            return (null, $"depth{Quoted(depth)} is not one of {string.Join(", ", Depths)}");
+        }
+
+        var supersedes = Get("supersedes");
+        if (supersedes is not null && !PlanNameRegex().IsMatch(supersedes))
+        {
+            return (null, "supersedes must be a plan folder name (letters, digits, '-' and '_'), not a path");
+        }
+
+        return (new PlanHeader(status, review, signedOff, hash, Get("environment"), depth, supersedes), null);
     }
 }

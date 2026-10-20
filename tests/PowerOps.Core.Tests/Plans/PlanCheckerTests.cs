@@ -254,6 +254,64 @@ public class PlanCheckerTests : IDisposable
     }
 
     [Fact]
+    public void Sign_off_keeps_the_depth_and_supersedes_lines()
+    {
+        _t.Write("docs/plans/old/plan.md", Plan());
+        Write("---\nstatus: approved\nreview: skipped\ndepth: deep # level\nsupersedes: old\n---\n# Plan\n");
+
+        var r = SignOff("2026-01-02");
+        var text = File.ReadAllText(PlanFile);
+
+        Assert.Equal(0, r.ExitCode);
+        Assert.Contains("\ndepth: deep # level\nsupersedes: old\n", text);
+        Assert.Empty(Check().Violations);
+    }
+
+    [Fact]
+    public void Supersedes_must_name_another_existing_plan_in_every_status()
+    {
+        Write("---\nstatus: draft\nreview: pending\nsupersedes: site-visits\n---\n# Plan\n");
+        Assert.Equal(["supersedes 'site-visits' but docs/plans/site-visits/plan.md does not exist"], Check().Violations);
+
+        _t.Write("docs/plans/site-visits/plan.md", Plan());
+        var ok = Check();
+        Assert.Empty(ok.Violations);
+        Assert.Equal("site-visits", ok.Supersedes);
+
+        Write("---\nstatus: draft\nreview: pending\nsupersedes: demo\n---\n# Plan\n");
+        Assert.Equal(["supersedes names the plan itself"], Check().Violations);
+
+        Write("---\nstatus: draft\nreview: pending\nsupersedes: 2026-site-visits\n---\n# Plan\n");
+        Assert.Equal(["supersedes '2026-site-visits' but docs/plans/2026-site-visits/plan.md does not exist"], Check().Violations);
+    }
+
+    [Theory]
+    [InlineData("contoso.crm.dynamics.com")]
+    [InlineData("admin@contoso.com")]
+    [InlineData("C:old")]
+    public void A_supersedes_that_is_not_a_plain_name_is_malformed_and_not_echoed(string value)
+    {
+        Write($"---\nstatus: draft\nreview: pending\nsupersedes: {value}\n---\n# Plan\n");
+        var report = Check();
+
+        Assert.True(report.Malformed);
+        Assert.Null(report.Supersedes);
+        Assert.DoesNotContain(value, string.Join("\n", report.Violations));
+    }
+
+    [Fact]
+    public void A_path_like_supersedes_is_a_malformed_header_and_depth_is_reported()
+    {
+        Write("---\nstatus: draft\nreview: pending\nsupersedes: ../other\n---\n# Plan\n");
+        var bad = Check();
+        Assert.True(bad.Malformed);
+        Assert.Contains("supersedes must be a plan folder name (letters, digits, '-' and '_'), not a path", bad.Violations[0]);
+
+        Write("---\nstatus: draft\nreview: pending\ndepth: quick\n---\n# Plan\n");
+        Assert.Equal("quick", Check().Depth);
+    }
+
+    [Fact]
     public void Sign_off_keeps_crlf_and_writes_no_bom()
     {
         var body = "# Plan\r\ntext\r\n";

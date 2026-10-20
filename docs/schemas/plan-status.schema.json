@@ -12,13 +12,15 @@
       "description": "One entry per plan.md found.",
       "items": {
         "type": "object",
-        "required": ["path", "status", "review", "signedOff", "environment", "openQuestions", "bodyHash", "violations", "warnings"],
+        "required": ["path", "status", "review", "signedOff", "environment", "depth", "supersedes", "openQuestions", "bodyHash", "violations", "warnings"],
         "properties": {
           "path": { "type": "string", "description": "Plan folder, relative to the working folder." },
-          "status": { "type": ["string", "null"], "description": "draft, approved or signed-off; null when the header is malformed." },
+          "status": { "type": ["string", "null"], "description": "draft, approved, signed-off, implementing or done; null when the header is malformed." },
           "review": { "type": ["string", "null"], "description": "pending, done or skipped; null when the header is malformed." },
           "signedOff": { "type": ["string", "null"], "description": "Sign-off date (yyyy-MM-dd), or null." },
           "environment": { "type": ["string", "null"], "description": "Target environment name from the header, or null." },
+          "depth": { "enum": ["quick", "standard", "deep", null], "description": "How deep the planning questions go, or null." },
+          "supersedes": { "type": ["string", "null"], "description": "Folder name of the earlier plan this one replaces, or null." },
           "openQuestions": { "type": "integer", "description": "Number of items under Open questions." },
           "bodyHash": { "type": ["string", "null"], "description": "SHA-256 hash of the plan body, or null when the header is malformed." },
           "violations": { "type": "array", "items": { "type": "string" }, "description": "Problems that make 'plan status' exit non-zero." },

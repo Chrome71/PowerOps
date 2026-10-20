@@ -15,8 +15,21 @@ public class PlanDocumentTests
         var doc = PlanDocument.Parse(text);
 
         Assert.Null(doc.Error);
-        Assert.Equal(new PlanHeader("signed-off", "pending", new DateOnly(2026, 10, 19), Hash, "Contoso Dev"), doc.Header);
+        Assert.Equal(new PlanHeader("signed-off", "pending", new DateOnly(2026, 10, 19), Hash, "Contoso Dev", null, null), doc.Header);
         Assert.NotNull(doc.BodyHash);
+    }
+
+    [Theory]
+    [InlineData("quick")]
+    [InlineData("standard")]
+    [InlineData("deep")]
+    public void Each_depth_is_valid_and_supersedes_names_a_plan(string depth)
+    {
+        var doc = PlanDocument.Parse($"---\nstatus: draft\nreview: pending\ndepth: {depth}\nsupersedes: site-visits\n---\n");
+
+        Assert.Null(doc.Error);
+        Assert.Equal(depth, doc.Header!.Depth);
+        Assert.Equal("site-visits", doc.Header.Supersedes);
     }
 
     [Fact]
@@ -24,7 +37,7 @@ public class PlanDocumentTests
     {
         var doc = PlanDocument.Parse("---\nstatus: draft\nreview: skipped\nsigned-off: null\nsigned-off-hash:\nenvironment: # none yet\n---\n");
 
-        Assert.Equal(new PlanHeader("draft", "skipped", null, null, null), doc.Header);
+        Assert.Equal(new PlanHeader("draft", "skipped", null, null, null, null, null), doc.Header);
     }
 
     [Theory]
@@ -38,6 +51,11 @@ public class PlanDocumentTests
     [InlineData("---\nreview: done\n---\n", "status is missing")]
     [InlineData("---\nstatus: draft\nreview: done\nsigned-off: 19/10/2026\n---\n", "not a date")]
     [InlineData("---\nstatus: draft\nreview: done\nsigned-off: 2026-13-40\n---\n", "not a date")]
+    [InlineData("---\nstatus: draft\nreview: pending\ndepth: shallow\n---\n", "depth 'shallow' is not one of quick, standard, deep")]
+    [InlineData("---\nstatus: draft\nreview: pending\nsupersedes: docs/plans/old\n---\n", "supersedes must be a plan folder name (letters, digits, '-' and '_'), not a path")]
+    [InlineData("---\nstatus: draft\nreview: pending\nsupersedes: ..\\old\n---\n", "supersedes must be a plan folder name (letters, digits, '-' and '_'), not a path")]
+    [InlineData("---\nstatus: draft\nreview: pending\nsupersedes: ..\n---\n", "supersedes must be a plan folder name (letters, digits, '-' and '_'), not a path")]
+    [InlineData("---\nstatus: draft\nreview: pending\nsupersedes: .\n---\n", "supersedes must be a plan folder name (letters, digits, '-' and '_'), not a path")]
     [InlineData("---\nstatus: draft\nreview: done\nsigned-off-hash: ABC\n---\n", "64 lowercase hex")]
     [InlineData("---\nstatus: draft\nreview done\n---\n", "has no ':'")]
     [InlineData("", "does not start with")]
@@ -54,6 +72,7 @@ public class PlanDocumentTests
     [InlineData("---\nstatus: draft\nreview: https://contoso.crm.dynamics.com/\n---\n", "review is not one of pending, done, skipped")]
     [InlineData("---\nstatus: draft\nreview: pending\norg.contoso.crm.dynamics.com: x\n---\n", "line 4 has an unknown key")]
     [InlineData("---\nstatus: draft\nreview: pending\nsigned-off: https://contoso.crm.dynamics.com/\n---\n", "signed-off is not a date")]
+    [InlineData("---\nstatus: draft\nreview: pending\ndepth: https://contoso.crm.dynamics.com/\n---\n", "depth is not one of quick, standard, deep")]
     public void Malformed_header_reasons_never_echo_values_or_keys_that_are_not_plain_words(string text, string reason)
     {
         var doc = PlanDocument.Parse(text);
