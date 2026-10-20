@@ -114,11 +114,11 @@ To verify before or during the phase that depends on them:
   - YAML needs pac 2.4.1 or later.
   - `pack` auto-detects `solutions/*/solution.yml`.
   - Multi-solution repos need SolutionPackager.
-  - A component listed in `rootcomponents.yml` without source files is silently left out. This is a candidate `analyze` rule.
-  - Still to check by hand: how `unpack`, `clone` and `sync` behave with YAML.
+  - A component listed in `rootcomponents.yml` without source files is silently left out. M5 turned this into rule PO013.
+  - Still unsettled: how `unpack`, `clone` and `sync` behave with YAML. On 2026-10-20 the pages conflict. [FAQs about source code integration](https://learn.microsoft.com/power-platform/alm/git-integration/faqs) says `unpack`, `clone` and `sync` don't currently support YAML. [Solution YAML source control format reference](https://learn.microsoft.com/power-platform/alm/solution-source-control-yaml-format) lists `pac solution clone` and `sync` as producing it and recommends `clone` for a complete YAML folder. The [pac solution reference](https://learn.microsoft.com/power-platform/developer/cli/reference/solution) says `unpack` writes the XML format by default. Check by hand with the current `pac` before relying on any of them.
 - [ ] **(Phase 1b)** Whether a read-only `pac` query (for example `pac env fetch` on the publisher table) can return publisher prefixes. `pac solution list` does not, so `powerops plan facts` needs another source or the plan asks for the prefix.
 - [ ] **(Phase 1b)** Whether Claude Code, Codex, Gemini CLI and Copilot all ignore `SKILL.md` front matter fields they don't know. Until verified, the shared skill files use only the spec's portable fields.
-- [ ] **(Phase 1)** Whether `microsoft/PowerApps-Tooling` can parse `.pa.yaml` well enough for a semantic diff.
+- [ ] **(Phase 1)** Whether `microsoft/PowerApps-Tooling` can parse `.pa.yaml` well enough for a semantic diff. M5 does not use it: it reads `.pa.yaml` formula strings with YamlDotNet, because the [`Microsoft.PowerPlatform.PowerApps.Persistence`](https://www.nuget.org/packages/Microsoft.PowerPlatform.PowerApps.Persistence) package is a preview (0.8.2735.117-preview, last updated 2024-06-28) whose namespace and class names are not yet stable. Whether it is good enough for a semantic diff stays open for the `diff` milestone (M6).
 - [ ] **(Phase 1)** SARIF rule IDs and severities used by Solution Checker, so results line up with ours.
 - [ ] **(Phase 2)** Web API calls to bind connection references and turn flows on as a service principal.
 - [ ] **(Phase 3)** Power Platform API calls to create and delete environments (the ephemeral-environment pattern), plus cost and capacity limits. Starting point: environment provisioning and Reset Environment in the [programmability changelog](https://learn.microsoft.com/power-platform/admin/programmability-whats-new-changed). Ephemeral environments must be managed environments.
