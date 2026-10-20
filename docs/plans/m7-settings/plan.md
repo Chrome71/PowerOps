@@ -1,6 +1,6 @@
 ---
 status: approved
-review: done
+review: pending
 signed-off: null
 signed-off-hash: null
 environment: null
@@ -45,8 +45,9 @@ Offline half (built):
 - `settings validate <solution> --settings <file> [--format text|json]` reports four kinds of problem:
   - `missing`: an environment variable or connection reference in the solution but not in the file.
   - `extra`: an entry in the file whose name is not in the solution.
+  - `duplicate`: a name listed more than once in the file (compared regardless of case). It is reported once per name, and the first entry is the one checked.
   - `emptyConnectionId`: a connection reference in both whose `ConnectionId` is missing, null or blank.
-  - `emptyValue`: an environment variable in both whose `Value` is missing, null or empty, when the solution gives it no default value and no current value.
+  - `emptyValue`: an environment variable in both whose `Value` is missing, null or empty, when the solution gives it no default value and no current value. This fires for optional variables too (user decision), because a flow reading such a variable gets no value.
 - Exit codes: `0` clean, `1` problems, `2` usage error (bad option, solution path or settings file not found), `3` unreadable solution, a settings file that is not valid JSON or has the wrong shape, or an internal error such as `--out` into a folder that does not exist.
 - `--format json` follows the M4 contract: `schemaVersion` first, `docs/schemas/settings-validate.schema.json`, a golden checked by `OutputSchemaTests`.
 
@@ -80,20 +81,19 @@ None created or changed. Tests use the committed `PowerOpsSeed` fixture (prefix 
 
 ## Assumptions
 
-- Dataverse schema and logical names are matched case-insensitively between the file and the solution. If the file lists a name twice, the first entry counts.
+- Dataverse schema and logical names are matched case-insensitively between the file and the solution (user decision).
 - A settings entry without its name field (`SchemaName` or `LogicalName`), or with a name that is not a string, makes the whole file invalid (exit 3).
 - A `ConnectionId` that is not a string counts as empty; a non-string `Value` counts as set.
-- The solution's `IsRequired` flag, not the file's, is used, and only to add "(required)" to the `emptyValue` message.
+- The solution's `IsRequired` flag, not the file's, is used, and only to add "(required)" to the `emptyValue` message (user decision).
+- Known gap (accepted by the user): no test runs on a managed export. The tests use the unmanaged seed folder and a zip made from it.
 
 ## Open questions
-
-- Should `emptyValue` also fire for an optional environment variable (not required) with no default and no current value? Today it does, because a flow reading it gets no value; the alternative is to report only required ones.
 
 ## Questions for your admin
 
 ## Steps
 
-Steps 1 to 6 are done; 7 is open.
+Steps 1 to 6 and 8 are done; 7 is open.
 
 1. `feat(core):` `DeploymentSettings.Generate` and `DeploymentSettings.Validate` in `src/PowerOps.Core/Settings/`, with `SettingsReport` (text and JSON) in `src/PowerOps.Core/Output/`. Core tests in `tests/PowerOps.Core.Tests/Settings/` fire and stay quiet for each problem kind, ignore unknown fields, and reject wrong shapes. Done in "feat(settings): add settings generate and validate".
 2. `feat(settings):` the thin `settings` command with `generate` and `validate` in `src/PowerOps.Cli/SettingsCommand.cs`, registered in `Program.cs`, with the exit codes under Automation. Done, same commit.
@@ -105,3 +105,4 @@ Steps 1 to 6 are done; 7 is open.
    1. The README conflicts with M6 (`diff`): both branches add a usage line and a paragraph at the same two places. Resolve by keeping both.
    2. The README "Status" line still says `analyze` is the only command. It was already out of date before M7; fix it in a separate `docs:` change.
    3. The BUILD-PLAN M7 row keeps both halves; mark the offline half done when this merges.
+8. `feat(settings):` the `duplicate` problem kind (review R3, user decision): a Core test that failed first, the schema's `kind` enum and description, a duplicate in different case in `powerops-seed-v1.problems.json`, updated `settings-validate.*` goldens and README sentence. Adding an enum value keeps `schemaVersion` 1. Done in "feat(settings): report a name listed more than once as a duplicate problem".
