@@ -1,6 +1,6 @@
-# PowerOps build plan: v0.2 to v0.7
+# PowerOps build plan: v0.2 to v0.8
 
-This plan turns [FOUNDATION.md](FOUNDATION.md) Phases 1–2 (including the planning skills, Phase 1b) into ordered, testable milestones. Last updated 2026-10-19.
+This plan turns [FOUNDATION.md](FOUNDATION.md) Phases 1–2 (including the planning skills, Phase 1b) into ordered, testable milestones. Last updated 2026-10-20.
 
 ## Where PowerOps fits
 
@@ -33,6 +33,7 @@ The first release therefore answers one question offline, in seconds: **"will th
 
 - **Suppression without a config file.** `powerops baseline` writes the current findings to a file. Pass it back with `--baseline <file>` and only new findings count.
 - **Stable rule IDs** (`PO001`…), each with a docs page (`docs/rules/PO001.md`), which is also the SARIF `helpUri`.
+- **Agents are the main users.** PowerOps runs inside the user's Claude Code or Codex, where agents call it. Every JSON output carries a `schemaVersion` and has a published schema; every finding says how to fix it; and agents can list the rules with `powerops rules --json` instead of reading docs (M4).
 - **Read-only and offline.** It never changes the solution and makes no network calls. The one exception is `powerops plan facts` (M3), which reads through `pac` and prints names only.
 
 ## Architecture
@@ -44,19 +45,20 @@ src/PowerOps.Core/          library: no console, no network
   Flows/                    cloud-flow clientdata parser (connection refs, env-var parameters, state, child flows)
   Rules/                    IRule { Id, Severity, Title, Evaluate(Solution) → Finding* }, one file per rule
   Output/                   Text, Json, Sarif, Markdown writers
-src/PowerOps.Cli/           System.CommandLine commands: analyze, baseline, plan, skills (later: diff, settings); PacRunner (M3)
+src/PowerOps.Cli/           System.CommandLine commands: analyze, baseline, plan, skills, rules (M4) (later: diff, settings); PacRunner (M3)
 tests/PowerOps.Core.Tests/  unit + golden-file tests
 tests/PowerOps.Cli.Tests/   end-to-end tests on the packed tool
 tests/fixtures/             licensed sample solutions + NOTICE.md
+docs/schemas/               JSON Schemas for every JSON output (M4)
 action.yml                  composite GitHub Action at the repo root
 ```
 
 **Dependencies:**
 - the .NET base class library (zip, XML, JSON)
 - System.CommandLine
-- YamlDotNet, from milestone M4 only. The plan header (M3) is plain `key: value` lines read by a small fixed reader, not parsed as YAML.
+- YamlDotNet, from milestone M5 only. The plan header (M3) is plain `key: value` lines read by a small fixed reader, not parsed as YAML.
 
-SARIF is written by hand with System.Text.Json; the Sarif SDK is used only in tests to validate the output. The `powerops` CLI doesn't call `pac` or the Dataverse SDK until M3, and then only read-only: `powerops plan facts` (in `PowerOps.Cli`, through `PacRunner`) runs `pac org who` and `pac solution list` and prints names only. Writes through `pac` wait until M6.
+SARIF is written by hand with System.Text.Json; the Sarif SDK is used only in tests to validate the output. The `powerops` CLI doesn't call `pac` or the Dataverse SDK until M3, and then only read-only: `powerops plan facts` (in `PowerOps.Cli`, through `PacRunner`) runs `pac org who` and `pac solution list` and prints names only. Writes through `pac` wait until M7.
 
 ## First rule set
 
@@ -76,7 +78,7 @@ Errors are reserved for things that break deployment. Everything else is a warni
 | PO010 | The solution uses a default or auto-generated publisher (`new`, `cr###`) | warning | M1 |
 | PO011 | A flow was exported turned off | warning | M1 |
 | PO012 | A Dataverse "row updated" trigger has no filter columns | warning | M2 |
-| PO013 | A component listed in `rootcomponents.yml` has no source files (pac drops it silently) | error | M4 |
+| PO013 | A component listed in `rootcomponents.yml` has no source files (pac drops it silently) | error | M5 |
 
 Plugin-step and web-resource JavaScript rules are left out, because Solution Checker already covers them.
 
@@ -90,9 +92,10 @@ Each milestone ends in a release that someone can use. "Done when" is checked by
 | **M1. `analyze` on XML and zip** | v0.2.0 | <ul><li>Readers for the zip and XML layouts</li><li>Flow parser</li><li>Rules PO001–PO011</li><li>Text and JSON output</li><li>Exit codes</li></ul> | <ul><li>Each rule has a passing and a failing test</li><li>The CoE fixtures report the expected real hits: env-var default URL (ALM Accelerator for Makers), prefix mismatch, and the declared dependency on Core Components (AuditLogs)</li><li>Golden output matches</li></ul> |
 | **M2. CI integration** | v0.3.0 | <ul><li>SARIF output (validated against the 2.1.0 schema)</li><li>`baseline` and `--baseline`</li><li>Markdown output</li><li>PO012</li><li>`action.yml` (job summary and annotations, optional SARIF upload)</li><li>Rule docs pages</li><li>README quick start: one `run:` line, or `uses: Chrome71/PowerOps@v1`</li></ul> | <ul><li>A test repo shows the findings in GitHub code scanning and in the job summary</li><li>A fork pull request still gets the summary, and a refused SARIF upload does not fail the job</li></ul> |
 | **M3. Planning skills** | v0.4.0 | <ul><li>`powerops-plan`, `powerops-review-plan` and `powerops-implement` skills in `SKILL.md` format, with plain-text fallbacks</li><li>Plan files under `docs/plans/<name>/` with a plain `key: value` header (five states, `review` field, body hash)</li><li>`powerops plan status` (validates every plan: header, enums, hash, review, tenant patterns; exit codes 0/1/2/3; `--json`) and `powerops plan sign-off <plan>` (writes the date and body hash)</li><li>`powerops plan facts`: names-only environment facts through read-only `pac org who` and `pac solution list`; failure is `{"available": false, ...}` with exit 0</li><li>`powerops skills install`</li><li>A weekly scheduled smoke test with a simulated user (not in per-build CI)</li><li>Supported agents: Claude Code and Codex. Gemini CLI and Copilot are provisional, untested</li><li>Design: [PLANNING-SKILLS.md](PLANNING-SKILLS.md)</li></ul> | <ul><li>Offline tests pass for: header parse and enum errors; hash match and mismatch; review skipped; missing `review.md`; a tenant-pattern hit; `plan facts` unavailable and timed out (recorded fake `pac` output); install idempotency; install refusing to overwrite differing files without `--force`</li><li>One manual run in Claude Code and one in Codex: a one-line idea becomes a signed-off plan through question rounds, and asking to implement without a plan (fast path) produces a drafted plan with route options, not code</li></ul> |
-| **M4. YAML layout** | v0.5.0 | <ul><li>YamlReader that produces the same model</li><li>PO013</li><li>Basic `.pa.yaml` reading (hard-coded URLs in Power Fx)</li></ul> | The YAML fixture produces the same findings as the same solution in the XML layout |
-| **M5. `diff`** | v0.6.0 | <ul><li>Component-level semantic diff of two solution versions</li><li>Ignores noise (timestamps, ordering, volatile IDs)</li><li>Risk labels: a managed upgrade deletes removed components; flow on/off changed; connection reference or env var added or removed</li><li>Markdown output for pull-request comments</li></ul> | <ul><li>Diffing the managed/unmanaged sample pair and two versions of a live export shows only meaningful changes</li><li>The output fits in a pull-request comment</li></ul> |
-| **M6. `settings`** | v0.7.0 | <ul><li>`settings generate` and `settings validate` offline: compare a `deploymentsettings.json` with the solution's connection references and env vars</li><li>Then the first live feature: bind connection references and turn flows on after import, behind an explicit `--apply` flag</li></ul> | <ul><li>Validate catches missing and extra entries in fixtures</li><li>A live import round-trip in the test environment leaves the flows on</li></ul> |
+| **M4. Agent base** | v0.5.0 | <ul><li>Versioned output contract: a `schemaVersion` integer at the root of every JSON output (`analyze`, `plan status`, `plan facts`, `rules`); a JSON Schema for each in `docs/schemas/`; additive changes keep the version, removals and renames bump it</li><li>Fix hints: each rule gets a one-line fix; every finding carries `fix` and `helpUri` in JSON, SARIF and Markdown</li><li>`powerops rules [--json]`: every rule's ID, severity, title, fix and `helpUri`</li><li>Plan continuity: optional plan header keys `depth: quick|standard|deep` (set by the plan skill from how engaged the user is, changed when the user changes, reused by later sessions) and `supersedes: <plan>` (a new version builds on the previous plan instead of starting over); `plan status` checks both; PLANNING-SKILLS.md and the skills updated</li><li>Recipes in AGENTS.md for adding a rule, a reader, a command and a fixture: the files to touch, the tests, the golden update and the docs</li><li>Dated sources: every rule doc gets a Sources line with links and a `verified:` date</li></ul> | <ul><li>Every JSON output in the golden tests validates against its schema</li><li>A test checks that every rule has a fix, a docs page and a dated Sources line, and that `rules --json` lists exactly the rules with docs pages</li><li>`plan status` tests: an unknown `depth`, and a `supersedes` that names a missing plan</li><li>One manual run in Codex adds a throwaway rule from the AGENTS.md recipe alone and passes build, test and format (not committed)</li></ul> |
+| **M5. YAML layout** | v0.6.0 | <ul><li>YamlReader that produces the same model</li><li>PO013</li><li>Basic `.pa.yaml` reading (hard-coded URLs in Power Fx)</li></ul> | The YAML fixture produces the same findings as the same solution in the XML layout |
+| **M6. `diff`** | v0.7.0 | <ul><li>Component-level semantic diff of two solution versions</li><li>Ignores noise (timestamps, ordering, volatile IDs)</li><li>Risk labels: a managed upgrade deletes removed components; flow on/off changed; connection reference or env var added or removed</li><li>Markdown output for pull-request comments</li><li>JSON output that follows the M4 contract (`schemaVersion` and a schema in `docs/schemas/`)</li></ul> | <ul><li>Diffing the managed/unmanaged sample pair and two versions of a live export shows only meaningful changes</li><li>The output fits in a pull-request comment</li></ul> |
+| **M7. `settings`** | v0.8.0 | <ul><li>`settings generate` and `settings validate` offline: compare a `deploymentsettings.json` with the solution's connection references and env vars</li><li>Then the first live feature: bind connection references and turn flows on after import, behind an explicit `--apply` flag</li></ul> | <ul><li>Validate catches missing and extra entries in fixtures</li><li>A live import round-trip in the test environment leaves the flows on</li></ul> |
 
 ## Testing
 
@@ -104,6 +107,7 @@ Each milestone ends in a release that someone can use. "Done when" is checked by
 | End-to-end | The packed tool installed into a temp folder and run against the fixtures, checking exit codes and output | CI on Linux |
 | `pac` interop | Offline `pac solution unpack` of a fixture zip, then `analyze` on the result | only when `pac` is found |
 | Live | Against a real environment | only when `POWEROPS_TEST_ENV` is set; skipped in CI |
+| Output contract (M4) | Every JSON output validated against its schema in `docs/schemas/` | every build |
 | Planning-skills smoke test (M3) | The skills driven by a simulated user; checks round size, option order, `decisions.md` logging and the stop behaviour | weekly scheduled job on the maintainer's model credentials (CI secrets), not per build; a manual run before each release is allowed |
 
 **Fixtures** come from MIT-licensed Microsoft repos:
@@ -142,7 +146,7 @@ This starts once M1 passes locally.
 5. **Break it on purpose:**
    1. In the browser, hard-code a URL in the flow and add an unused connection reference.
    2. Re-export.
-   3. Confirm the new findings appear (and, from M5, that `powerops diff` shows exactly those changes).
+   3. Confirm the new findings appear (and, from M6, that `powerops diff` shows exactly those changes).
 6. **Keep the result:**
    1. Scrub the export (fake publisher name, no tenant URLs).
    2. Commit it as a new fixture so the live case becomes a permanent offline test.
@@ -171,10 +175,14 @@ This starts once M1 passes locally.
 15. `feat(plan):` `powerops plan facts` (`PacRunner`, names only, failure JSON, timeout)
 16. `feat(skills):` `powerops skills install` (idempotent, refuses to overwrite differing files without `--force`)
 17. `feat(skills):` the three planning skills and the weekly smoke test → **v0.4.0**
+18. `feat(output):` `schemaVersion` in every JSON output, schemas in `docs/schemas/` and the schema test
+19. `feat(analyze):` a fix line per rule, `fix` and `helpUri` on every finding, and `powerops rules [--json]`
+20. `feat(plan):` `depth` and `supersedes` header keys in `plan status`, the skills and PLANNING-SKILLS.md
+21. `docs:` AGENTS.md recipes, and dated Sources lines in every rule doc with the test that checks them → **v0.5.0**
 
 ## Decisions (2026-10-19)
 
-1. **Release order:** `analyze` (v0.2), then CI/SARIF (v0.3), the planning skills (v0.4), the YAML layout (v0.5), `diff` (v0.6) and `settings` (v0.7). FOUNDATION lists `analyze` and `diff` together in Phase 1. This order puts `diff` after the YAML layout so it can also cover the formats no other tool reads.
+1. **Release order:** `analyze` (v0.2), then CI/SARIF (v0.3), the planning skills (v0.4), the agent base (v0.5), the YAML layout (v0.6), `diff` (v0.7) and `settings` (v0.8). FOUNDATION lists `analyze` and `diff` together in Phase 1. This order puts `diff` after the YAML layout so it can also cover the formats no other tool reads.
 2. **Test stack:** xunit.v3 with Microsoft.Testing.Platform, and plain golden files instead of a snapshot library.
 3. **Live environment:** a dedicated developer environment in a tenant where the maintainer has admin rights, used only for PowerOps testing (a sandbox needs spare tenant database capacity).
    - Developer environments that aren't managed are suspended from 2026-12-15. The seed solution is already exported and committed as the `powerops-seed` fixture, so offline tests don't depend on the environment.
@@ -182,3 +190,4 @@ This starts once M1 passes locally.
 5. **Planning-skills smoke test runs weekly, not per build.** The simulated-user smoke test is a scheduled job on the maintainer's model credentials, stored as CI secrets. A manual run before each release is still allowed.
 6. **v0.4.0 supports Claude Code and Codex.** Gemini CLI and Copilot ship marked provisional, untested.
 7. **No warn-only sign-off.** A sign-off written by hand without `powerops plan sign-off` fails `plan status` with the hint "run `powerops plan sign-off`".
+8. **The agent base comes before the YAML layout and `diff` (2026-10-20).** The main users are agents in the user's Claude Code or Codex. Versioning the JSON output and adding fix hints is cheapest before the first NuGet release and before `diff` adds a new output; later rules and commands are then built to the same contract and recipes. Each milestone also rechecks the rule docs' sources with `/verify-research`, because the platform changes fast.
