@@ -20,6 +20,7 @@ public static class Program
 
         root.Subcommands.Add(AnalyzeCommand.Create(output, error));
         root.Subcommands.Add(BaselineCommand.Create(error));
+        root.Subcommands.Add(DiffCommand.Create(output, error));
         root.Subcommands.Add(PlanCommand.Create(output, error));
         root.Subcommands.Add(SkillsCommand.Create(output, error));
         root.Subcommands.Add(RulesCommand.Create(output));

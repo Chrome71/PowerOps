@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/diff.schema.json",
+  "title": "powerops diff --format json",
+  "description": "The JSON written by 'powerops diff --format json': the changes between two versions of a solution, grouped by component kind in a fixed order and sorted by key.",
+  "type": "object",
+  "required": ["schemaVersion", "old", "new", "changes", "summary"],
+  "properties": {
+    "schemaVersion": { "const": 1, "description": "Version of this output format." },
+    "old": { "$ref": "#/$defs/solution" },
+    "new": { "$ref": "#/$defs/solution" },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "component", "key", "risks"],
+        "properties": {
+          "kind": { "enum": ["added", "removed", "changed"] },
+          "component": {
+            "enum": ["solution", "rootComponent", "missingDependency", "connectionReference", "environmentVariable", "workflow", "canvasApp"],
+            "description": "The kind of component or the part of the solution that differs."
+          },
+          "key": { "type": "string", "description": "What identifies the component: a logical name, schema name, flow id or app name. Never a file path." },
+          "name": { "type": "string", "description": "Display name, present when the key is an id (flows)." },
+          "detail": { "type": "string", "description": "For a changed item, 'field: old → new' parts joined with '; '." },
+          "risks": {
+            "type": "array",
+            "description": "Risk labels. removed-component: a managed upgrade deletes the component. flow-state: a cloud flow was turned on or off. connection-reference and environment-variable: one was added or removed.",
+            "items": { "enum": ["removed-component", "flow-state", "connection-reference", "environment-variable"] }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["added", "removed", "changed"],
+      "properties": {
+        "added": { "type": "integer", "minimum": 0 },
+        "removed": { "type": "integer", "minimum": 0 },
+        "changed": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "solution": {
+      "type": "object",
+      "required": ["uniqueName", "version"],
+      "properties": {
+        "uniqueName": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    }
+  }
+}
