@@ -129,6 +129,72 @@ public class ErrorRuleTests
         Assert.Empty(Run(new PO004UndefinedChildFlow(), s));
     }
 
+    private const string Manifest = "solutions/Demo/solution.yml";
+
+    private static Solution Yaml(string[] folders, params RootComponent[] roots) =>
+        B.Empty() with { RootComponents = roots, SourceFolders = folders, ManifestFile = Manifest };
+
+    [Fact]
+    public void PO013_fires_for_root_component_without_source_folder()
+    {
+        var s = Yaml(["entities/demo_other"], new RootComponent("1", "demo_item", null));
+
+        var f = Assert.Single(Run(new PO013RootComponentWithoutSourceFolder(), s));
+
+        Assert.Equal("Root component 'demo_item' (type 1) has no source folder 'entities/demo_item'.", f.Message);
+        Assert.Equal("demo_item", f.Component);
+        Assert.Equal("solutions/Demo/rootcomponents.yml", f.File);
+        Assert.Equal(Severity.Error, f.Severity);
+    }
+
+    [Fact]
+    public void PO013_fires_with_empty_source_folders()
+    {
+        var s = Yaml([], new RootComponent("300", "demo_app", null));
+
+        var f = Assert.Single(Run(new PO013RootComponentWithoutSourceFolder(), s));
+
+        Assert.Contains("'canvasapps/demo_app'", f.Message);
+    }
+
+    [Fact]
+    public void PO013_names_cloud_flow_by_normalized_id()
+    {
+        var s = Yaml([], new RootComponent("29", null, "{ABCD-1}"));
+
+        var f = Assert.Single(Run(new PO013RootComponentWithoutSourceFolder(), s));
+
+        Assert.Equal("abcd-1", f.Component);
+        Assert.Contains("'modernflows/abcd-1'", f.Message);
+    }
+
+    [Fact]
+    public void PO013_ignores_case_of_folder()
+    {
+        var s = Yaml(["entities/DEMO_Item", "modernflows/abcd-1", "environmentvariabledefinitions/Demo_Var"],
+            new RootComponent("1", "demo_item", null),
+            new RootComponent("29", null, "ABCD-1"),
+            new RootComponent("380", "demo_var", null));
+
+        Assert.Empty(Run(new PO013RootComponentWithoutSourceFolder(), s));
+    }
+
+    [Fact]
+    public void PO013_quiet_for_xml_layout()
+    {
+        var s = B.Empty() with { RootComponents = [new RootComponent("1", "demo_item", null)] };
+
+        Assert.Empty(Run(new PO013RootComponentWithoutSourceFolder(), s));
+    }
+
+    [Fact]
+    public void PO013_skips_unchecked_types_and_missing_names()
+    {
+        var s = Yaml([], new RootComponent("61", "demo_web", null), new RootComponent("29", null, null), new RootComponent("1", null, null));
+
+        Assert.Empty(Run(new PO013RootComponentWithoutSourceFolder(), s));
+    }
+
     [Fact]
     public void Analyzer_sorts_findings_ordinally_by_rule_then_component_message_file()
     {

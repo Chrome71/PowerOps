@@ -47,7 +47,7 @@ powerops baseline                     # accept today's findings: writes powerops
 powerops analyze --baseline powerops-baseline.json   # report only findings that are not in the baseline
 ```
 
-`analyze` is offline and read-only. Options: `--format text|json|sarif|markdown` (default `text`), `--out <file>` (write the report to a file instead of stdout), `--fail-on error|warning|none` (default `error`), `--baseline <file>` (drop findings listed in a baseline file before reporting and before the exit code; the summary counts them as `baselined`). The YAML source layout is not supported yet. Every finding carries a one-line `fix` and a `helpUri` to its docs page in JSON and Markdown output, and SARIF rules carry the fix as `help`. Every JSON output carries a `schemaVersion`; the schemas are in [docs/schemas/](docs/schemas/).
+`analyze` is offline and read-only. Options: `--format text|json|sarif|markdown` (default `text`), `--out <file>` (write the report to a file instead of stdout), `--fail-on error|warning|none` (default `error`), `--baseline <file>` (drop findings listed in a baseline file before reporting and before the exit code; the summary counts them as `baselined`). It reads unpacked XML folders (`Other/Solution.xml`), exported zips and the YAML layout that Dataverse Git integration commits: point it at the folder that holds `solutions/`, and each `solutions/<name>/solution.yml` is reported as its own solution, with its components picked by its `solutioncomponents.yml`. Canvas app `.pa.yaml` formulas are read only in the YAML layout (PO014). Every finding carries a one-line `fix` and a `helpUri` to its docs page in JSON and Markdown output, and SARIF rules carry the fix as `help`. Every JSON output carries a `schemaVersion`; the schemas are in [docs/schemas/](docs/schemas/).
 
 `baseline [path...] [--out <file>]` runs the same analysis and writes the findings it found to a JSON file (default `powerops-baseline.json`). A finding matches the baseline on solution unique name, rule id, component and message, not on file, so a baseline made from an exported zip also works for the unpacked folder. An unreadable or invalid baseline file is a usage error (exit `2`).
 
@@ -67,6 +67,8 @@ Exit codes: `0` no findings at or above `--fail-on`, `1` findings at or above it
 | PO010 | warning | Default or generated publisher |
 | PO011 | warning | Cloud flow is turned off |
 | PO012 | warning | Dataverse row-updated trigger has no filter columns |
+| PO013 | error | Root component in the YAML layout has no source folder |
+| PO014 | warning | Canvas app formula contains a hard-coded environment or SharePoint URL |
 
 Each rule has a page with what it finds, how to fix it and how to suppress it: [docs/rules/](docs/rules/).
 

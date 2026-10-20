@@ -19,6 +19,8 @@ public class SolutionDiscoveryTests
                 "alm-makers",
                 "alm-sample",
                 "coe-auditlogs",
+                "powerops-seed-yaml/v1/solutions/PowerOpsSeed/solution.yml",
+                "powerops-seed-yaml/v2/solutions/PowerOpsSeed/solution.yml",
                 "powerops-seed/v1",
                 "powerops-seed/v2",
                 "zips/ColumnLevelSecuritySampleSolution.zip",
@@ -27,6 +29,29 @@ public class SolutionDiscoveryTests
                 "zips/polymorphiclookupexamplesolution.zip",
             ],
             found);
+    }
+
+    [Fact]
+    public void Yaml_root_returns_each_solution_yml_without_descending()
+    {
+        using var t = new TempFolder()
+            .Write("repo/solutions/A/solution.yml", "x")
+            .Write("repo/solutions/B/SOLUTION.YML", "x")
+            .Write("repo/solutions/C/readme.md", "x")
+            .Write("repo/nested/solutions/D/solution.yml", "x");
+
+        var found = SolutionDiscovery.Find(t.Path).Select(p => Path.GetRelativePath(t.Path, p).Replace('\\', '/'));
+
+        Assert.Equal(["repo/solutions/A/solution.yml", "repo/solutions/B/SOLUTION.YML"], found);
+    }
+
+    [Fact]
+    public void Paths_below_a_yaml_root_find_nothing()
+    {
+        using var t = new TempFolder().Write("repo/solutions/A/solution.yml", "x");
+
+        Assert.Empty(SolutionDiscovery.Find(Path.Combine(t.Path, "repo", "solutions")));
+        Assert.Empty(SolutionDiscovery.Find(Path.Combine(t.Path, "repo", "solutions", "A")));
     }
 
     [Fact]

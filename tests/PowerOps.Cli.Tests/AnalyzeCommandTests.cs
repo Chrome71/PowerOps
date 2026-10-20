@@ -102,6 +102,15 @@ public class AnalyzeCommandTests : IDisposable
     }
 
     [Fact]
+    public void Folder_below_a_yaml_root_exits_two_and_says_where_to_point()
+    {
+        var (code, _, err) = Run("analyze", Path.Combine(Fixtures, "powerops-seed-yaml", "v2", "solutions"));
+
+        Assert.Equal(2, code);
+        Assert.Contains("To analyze a YAML layout, point at the folder that holds solutions/.", err);
+    }
+
+    [Fact]
     public void Malformed_solution_xml_exits_three()
     {
         Directory.CreateDirectory(Path.Combine(_temp, "Other"));
@@ -151,13 +160,13 @@ public class AnalyzeCommandTests : IDisposable
     }
 
     [Fact]
-    public void Json_output_parses_and_has_nine_solutions()
+    public void Json_output_parses_and_has_eleven_solutions()
     {
         var (code, output, _) = Run("analyze", Fixtures, "--format", "json", "--fail-on", "none");
 
         Assert.Equal(0, code);
         using var doc = JsonDocument.Parse(output);
-        Assert.Equal(9, doc.RootElement.GetProperty("summary").GetProperty("solutions").GetInt32());
+        Assert.Equal(11, doc.RootElement.GetProperty("summary").GetProperty("solutions").GetInt32());
     }
 
     [Fact]
@@ -166,7 +175,7 @@ public class AnalyzeCommandTests : IDisposable
         var (code, output, _) = Run("analyze", Fixtures, "--format", "markdown", "--fail-on", "none");
 
         Assert.Equal(0, code);
-        Assert.StartsWith("## PowerOps analyze\n\n**9 solutions, ", output);
+        Assert.StartsWith("## PowerOps analyze\n\n**11 solutions, ", output);
     }
 
     [Fact]
@@ -191,7 +200,7 @@ public class AnalyzeCommandTests : IDisposable
         Assert.Equal(0, code);
         Assert.Equal("", output);
         using var doc = JsonDocument.Parse(File.ReadAllText(file));
-        Assert.Equal(9, doc.RootElement.GetProperty("solutions").GetArrayLength());
+        Assert.Equal(11, doc.RootElement.GetProperty("solutions").GetArrayLength());
     }
 
     [Fact]
