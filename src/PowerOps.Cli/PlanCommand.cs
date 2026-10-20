@@ -14,6 +14,7 @@ public static class PlanCommand
         var command = new Command("plan", "Check and sign off planning documents in docs/plans/ (offline).");
         command.Subcommands.Add(Status(output, error));
         command.Subcommands.Add(SignOff(output, error));
+        command.Subcommands.Add(Facts(output, error));
         return command;
     }
 
@@ -61,6 +62,17 @@ public static class PlanCommand
             result.Out.ToList().ForEach(output.WriteLine);
             result.Err.ToList().ForEach(error.WriteLine);
             return result.ExitCode;
+        }));
+        return command;
+    }
+
+    private static Command Facts(TextWriter output, TextWriter error)
+    {
+        var command = new Command("facts", "Print the environment name and solution names from pac as JSON (read-only; needs pac signed in).");
+        command.SetAction(_ => Guard(error, () =>
+        {
+            output.Write(PlanFacts.Run(new PacRunner().Run));
+            return 0;
         }));
         return command;
     }
