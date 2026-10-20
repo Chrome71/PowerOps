@@ -1,4 +1,5 @@
 using PowerOps.Core.Model;
+using PowerOps.Core.Output;
 using PowerOps.Core.Readers;
 using PowerOps.Tests.Shared;
 
@@ -123,6 +124,99 @@ public class YamlReaderTests
 
         Assert.StartsWith(SolutionYml(t), ex.Message);
         Assert.Contains("deeper", ex.Message);
+    }
+
+    private static string Manifest(string name, string publisher) => $"""
+        ImportExportXml:
+          SolutionManifest:
+            UniqueName: {name}
+            Version: 1.0.0.0
+            Managed: 0
+            Publisher:
+              UniqueName: {publisher}
+        """;
+
+    // Two solutions of one YAML root: a shared connection reference, and a table only B lists.
+    private static TempFolder TwoSolutionRoot() => new TempFolder()
+        .Write("solutions/A/solution.yml", Manifest("A", "pubA"))
+        .Write("solutions/A/solutioncomponents.yml", "SolutionComponents:\n  Component:\n  - '@path': /publishers/pubA\n  - '@path': /connectionreferences/shared\n")
+        .Write("solutions/B/solution.yml", Manifest("B", "pubB"))
+        .Write("solutions/B/solutioncomponents.yml", "SolutionComponents:\n  Component:\n  - '@path': /publishers/pubB\n  - '@path': /connectionreferences/shared\n  - '@path': /entities/thing\n")
+        .Write("publishers/pubA/publisher.yml", "Publisher:\n  UniqueName: pubA\n  CustomizationPrefix: aa\n")
+        .Write("publishers/pubB/publisher.yml", "Publisher:\n  UniqueName: pubB\n  CustomizationPrefix: bb\n")
+        .Write("connectionreferences/shared/connectionreference.yml", "connectionreference:\n  '@connectionreferencelogicalname': shared\n  connectorid: /providers/Microsoft.PowerApps/apis/shared_x\n")
+        .Write("entities/thing/entity.yml", "Entity:\n  Name: thing\n");
+
+    private static string Yml(TempFolder t, string name) => Path.Combine(t.Path, "solutions", name, "solution.yml");
+
+    [Fact]
+    public void Solutions_of_one_root_keep_their_own_publisher_and_components()
+    {
+        using var t = TwoSolutionRoot();
+        var context = new LoadContext();
+
+        var a = SolutionLoader.Load(Yml(t, "A"), context);
+        var b = SolutionLoader.Load(Yml(t, "B"), context);
+
+        Assert.Equal("aa", a.Publisher.Prefix);
+        Assert.Equal("bb", b.Publisher.Prefix);
+        Assert.DoesNotContain("entities/thing", a.SourceFolders!);
+        Assert.Contains("entities/thing", b.SourceFolders!);
+        Assert.Single(a.ConnectionReferences);
+        Assert.Single(b.ConnectionReferences);
+    }
+
+    [Fact]
+    public void A_file_shared_by_solutions_of_one_root_counts_against_the_budget_once()
+    {
+        using var t = TwoSolutionRoot();
+        string[] read =
+        [
+            "solutions/A/solution.yml", "solutions/A/solutioncomponents.yml", "solutions/B/solution.yml", "solutions/B/solutioncomponents.yml",
+            "publishers/pubA/publisher.yml", "publishers/pubB/publisher.yml", "connectionreferences/shared/connectionreference.yml",
+        ];
+        var once = read.Sum(r => new FileInfo(Path.Combine(t.Path, Path.Combine(r.Split('/')))).Length);
+
+        var enough = new LoadContext(() => new ReadBudget(once));
+        SolutionLoader.Load(Yml(t, "A"), enough);
+        SolutionLoader.Load(Yml(t, "B"), enough);
+
+        var tooSmall = new LoadContext(() => new ReadBudget(once - 1));
+        SolutionLoader.Load(Yml(t, "A"), tooSmall);
+        Assert.Throws<InvalidDataException>(() => SolutionLoader.Load(Yml(t, "B"), tooSmall));
+    }
+
+    [Fact]
+    public void A_flow_definition_outside_the_listed_entries_is_not_read()
+    {
+        using var t = Layout(listed: "/modernflows/f1/workflow.yml")
+            .Write("modernflows/f1/workflow.yml", """
+                Workflow:
+                  '@Name': Demo flow
+                  JsonFileName: /modernflows/f1/flow.json
+                  Category: 5
+                """)
+            .Write("modernflows/f1/flow.json", """{"properties":{"definition":{}}}""");
+
+        var ex = Assert.Throws<InvalidDataException>(() => SolutionLoader.Load(SolutionYml(t)));
+
+        Assert.StartsWith(SolutionYml(t), ex.Message);
+        Assert.Contains("which is missing", ex.Message);
+    }
+
+    [Fact]
+    public void Run_reports_the_yaml_root_and_names_the_solution_yml_in_errors()
+    {
+        using var t = TwoSolutionRoot();
+
+        var result = AnalysisResult.Run([t.Path], t.Path);
+
+        Assert.Equal([".", "."], result.Solutions.Select(s => s.Path));
+        Assert.Equal(["A", "B"], result.Solutions.Select(s => s.Solution.UniqueName));
+
+        File.Delete(Path.Combine(t.Path, "publishers", "pubB", "publisher.yml"));
+        var ex = Assert.Throws<InvalidDataException>(() => AnalysisResult.Run([t.Path], t.Path));
+        Assert.StartsWith(Yml(t, "B"), ex.Message);
     }
 
     [Fact]

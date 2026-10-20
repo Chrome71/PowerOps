@@ -8,12 +8,16 @@ namespace PowerOps.Core.Readers;
 /// <summary>Reads one `solutions/&lt;name&gt;/solution.yml` of a Dataverse Git-integration YAML root.</summary>
 public static partial class YamlReader
 {
-    public static Solution Read(string solutionYml)
+    internal static bool IsSolutionYml(string path) =>
+        Path.GetFileName(path).Equals("solution.yml", StringComparison.OrdinalIgnoreCase) && File.Exists(path);
+
+    /// <summary>The folder that holds `solutions/` for a `solutions/&lt;name&gt;/solution.yml` path.</summary>
+    internal static string RootFolder(string solutionYml)
     {
-        var full = Path.GetFullPath(solutionYml);
-        var folder = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(full)))
-            ?? throw new InvalidDataException($"{solutionYml}: not in a solutions/<name> folder.");
-        return Read(solutionYml, new YamlRoot(folder));
+        var solutions = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetFullPath(solutionYml)));
+        return solutions is not null && Path.GetFileName(solutions).Equals("solutions", StringComparison.OrdinalIgnoreCase)
+            ? Path.GetDirectoryName(solutions) ?? solutions
+            : throw new InvalidDataException($"{solutionYml}: not in a solutions/<name> folder.");
     }
 
     internal static Solution Read(string solutionYml, YamlRoot root)
@@ -32,6 +36,7 @@ public static partial class YamlReader
             ?? throw new InvalidDataException($"{solutionYml}: {dir}/solutioncomponents.yml not found.");
         var entries = ReadEntries(root.LoadYaml(componentsFile));
         var solutionFiles = root.Paths.Values.Where(p => Under(entries, p)).Order(StringComparer.Ordinal).ToList();
+        var ownFiles = solutionFiles.ToDictionary(p => p, StringComparer.OrdinalIgnoreCase);
 
         var publisherName = SolutionParser.Text(manifest.Element("Publisher") ?? new XElement("Publisher"), "UniqueName") ?? "";
         var publisherFile = Find(root, $"publishers/{publisherName}/publisher.yml")
@@ -55,7 +60,7 @@ public static partial class YamlReader
                 .Select(p => ReadEnvironmentVariable(root, p))
                 .ToList(),
             Workflows: Matching(solutionFiles, WorkflowPath())
-                .Select(p => SolutionParser.ReadWorkflow(files, root.Paths, Required(root, p, "Workflow"), p))
+                .Select(p => SolutionParser.ReadWorkflow(files, ownFiles, Required(root, p, "Workflow"), p))
                 .ToList(),
             CanvasAppTexts: Matching(solutionFiles, CanvasAppPath()).Select(root.ReadText).ToList(),
             ManifestFile: manifestFile,

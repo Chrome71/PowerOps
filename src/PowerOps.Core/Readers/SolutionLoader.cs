@@ -6,12 +6,13 @@ namespace PowerOps.Core.Readers;
 public static class SolutionLoader
 {
     /// <exception cref="InvalidDataException">The solution is unreadable or malformed; the message starts with <paramref name="path"/>.</exception>
-    public static Solution Load(string path)
+    public static Solution Load(string path, LoadContext? context = null)
     {
         try
         {
+            context ??= new LoadContext();
             return Directory.Exists(path) ? XmlUnpackReader.Read(path)
-                : Path.GetFileName(path).Equals("solution.yml", StringComparison.OrdinalIgnoreCase) && File.Exists(path) ? YamlReader.Read(path)
+                : YamlReader.IsSolutionYml(path) ? YamlReader.Read(path, context.RootFor(YamlReader.RootFolder(path)))
                 : path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ? ZipReader.Read(path)
                 : throw new InvalidDataException($"{path}: not a solution folder or zip.");
         }

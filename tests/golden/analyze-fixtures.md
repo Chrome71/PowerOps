@@ -1,6 +1,6 @@
 ## PowerOps analyze
 
-**9 solutions, 0 errors, 33 warnings**
+**11 solutions, 0 errors, 35 warnings**
 
 ### tests/fixtures/alm-makers: ALMAcceleratorforMakers 0.0.0.0
 
@@ -44,6 +44,17 @@
 | warning | [PO009](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md) | Other/Customizations.xml | Component 'new\_CoEAuditLogsO365Outlook' does not use the publisher prefix 'admin'. | Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency. |
 | warning | [PO011](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md) | Workflows/DeprecatedAdminSyncAuditLogs-FA91974D-6E68-EA11-A811-000D3A31CF04.json | Flow 'Deprecated \| Admin \| Sync Audit Logs' is turned off. | Turn the flow on before export, or remove it from the solution if it is no longer needed. |
 | warning | [PO011](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md) | Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json | Flow 'Deprecated \| \[Child\] Admin \| Sync Logs' is turned off. | Turn the flow on before export, or remove it from the solution if it is no longer needed. |
+
+### tests/fixtures/powerops-seed-yaml/v1: PowerOpsSeed 1.0.0.0
+
+No findings.
+
+### tests/fixtures/powerops-seed-yaml/v2: PowerOpsSeed 1.0.0.0
+
+| Severity | Rule | File | Message | Fix |
+|---|---|---|---|---|
+| warning | [PO005](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO005.md) | connectionreferences/pops\_SpareDataverse/connectionreference.yml | Connection reference 'pops\_SpareDataverse' is not used by any flow or app. | Remove the connection reference from the solution, or use it in the flow or app that needs it. |
+| warning | [PO006](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO006.md) | modernflows/4c8dd007-dfcb-f111-a05c-0022480697a8/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json | Flow 'Stamp work item status' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops'. | Move the URL into an environment variable and reference it from the flow. |
 
 ### tests/fixtures/powerops-seed/v1: PowerOpsSeed 1.0.0.0
 

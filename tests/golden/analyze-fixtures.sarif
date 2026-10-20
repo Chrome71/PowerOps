@@ -836,6 +836,52 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
+                  "uri": "tests/fixtures/powerops-seed-yaml/v2/connectionreferences/pops_SpareDataverse/connectionreference.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "22bb516f29c4513862bee3a749e3a480d6f4ced757c0c206ed358182f61efe4b"
+          }
+        },
+        {
+          "ruleId": "PO006",
+          "ruleIndex": 5,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Stamp work item status' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/powerops-seed-yaml/v2/modernflows/4c8dd007-dfcb-f111-a05c-0022480697a8/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "d7a7f1d022d3412d56570af46c45495c2c08355e8a93f6cfbb3c172a383d04c2"
+          }
+        },
+        {
+          "ruleId": "PO005",
+          "ruleIndex": 4,
+          "level": "warning",
+          "message": {
+            "text": "Connection reference 'pops_SpareDataverse' is not used by any flow or app."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
                   "uri": "tests/fixtures/powerops-seed/v2/Other/Customizations.xml"
                 },
                 "region": {
