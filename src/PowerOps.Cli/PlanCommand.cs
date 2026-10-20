@@ -77,7 +77,7 @@ public static class PlanCommand
         return command;
     }
 
-    private static int Guard(TextWriter error, Func<int> run)
+    internal static int Guard(TextWriter error, Func<int> run)
     {
         try
         {
