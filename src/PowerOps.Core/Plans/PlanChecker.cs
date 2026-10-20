@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace PowerOps.Core.Plans;
@@ -97,7 +98,7 @@ public static partial class PlanChecker
             Display(folder, baseDir),
             doc.Header?.Status,
             doc.Header?.Review,
-            doc.Header?.SignedOff?.ToString("yyyy-MM-dd"),
+            doc.Header?.SignedOff?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             doc.Header?.Environment,
             doc.OpenQuestions,
             doc.BodyHash,

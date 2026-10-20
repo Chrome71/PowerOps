@@ -32,6 +32,12 @@ public static class PlanCommand
                 return UsageError;
             }
 
+            if (NotPlanFile(root))
+            {
+                error.WriteLine($"error: not a plan file: {root}");
+                return UsageError;
+            }
+
             var baseDir = Directory.GetCurrentDirectory();
             var plans = PlanChecker.Discover(root).Select(f => PlanChecker.Check(f, baseDir)).ToList();
             if (parse.GetValue(json))
@@ -58,6 +64,12 @@ public static class PlanCommand
         var command = new Command("sign-off", "Record status, date and body hash in the plan header. Refuses unless status is approved and the review is done or skipped.") { plan };
         command.SetAction(parse => Guard(error, () =>
         {
+            if (NotPlanFile(parse.GetValue(plan)!))
+            {
+                error.WriteLine($"error: not a plan file: {parse.GetValue(plan)}");
+                return UsageError;
+            }
+
             var result = PlanSignOff.Run(parse.GetValue(plan)!, Directory.GetCurrentDirectory(), DateOnly.FromDateTime(DateTime.Now));
             result.Out.ToList().ForEach(output.WriteLine);
             result.Err.ToList().ForEach(error.WriteLine);
@@ -76,6 +88,9 @@ public static class PlanCommand
         }));
         return command;
     }
+
+    // A file argument must be a plan.md, otherwise its folder would be scanned as a plan folder.
+    private static bool NotPlanFile(string path) => File.Exists(path) && Path.GetFileName(path) != "plan.md";
 
     internal static int Guard(TextWriter error, Func<int> run)
     {

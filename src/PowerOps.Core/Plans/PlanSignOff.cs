@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 
 namespace PowerOps.Core.Plans;
@@ -43,11 +44,12 @@ public static class PlanSignOff
         }
 
         var hash = doc.BodyHash!;
-        var eol = text.Contains("\r\n") ? "\r\n" : "\n";
+        var fence = doc.Lines[doc.Close];
+        var eol = fence[fence.TrimEnd('\r', '\n').Length..] is { Length: > 0 } ending ? ending : "\n";
         var set = new Dictionary<string, string>
         {
             ["status"] = "signed-off",
-            ["signed-off"] = today.ToString("yyyy-MM-dd"),
+            ["signed-off"] = today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             ["signed-off-hash"] = hash,
         };
 

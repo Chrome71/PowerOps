@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using PowerOps.Core.Plans;
 using PowerOps.Core.Tests.Readers;
 
@@ -18,7 +20,7 @@ public class PlanCheckerTests : IDisposable
 
     private PlanReport Check() => PlanChecker.Check(PlanFile, _t.Path);
 
-    private SignOffResult SignOff(string today = "2026-10-19") => PlanSignOff.Run(PlanFile, _t.Path, DateOnly.Parse(today));
+    private SignOffResult SignOff(string today = "2026-10-19") => PlanSignOff.Run(PlanFile, _t.Path, DateOnly.Parse(today, CultureInfo.InvariantCulture));
 
     [Fact]
     public void Draft_and_approved_plans_pass_and_a_repo_without_plans_has_none()
@@ -185,6 +187,41 @@ public class PlanCheckerTests : IDisposable
         Assert.Contains("error: remove tenant data before signing off", r.Err);
         Assert.DoesNotContain(r.Err, e => e.Contains("a@contoso"));
         Assert.Equal(text, File.ReadAllText(PlanFile));
+    }
+
+    [Fact]
+    public void Dates_are_written_and_read_with_the_invariant_culture()
+    {
+        var saved = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = new CultureInfo("th-TH");
+        try
+        {
+            Write(Plan("approved", "skipped"));
+
+            Assert.Equal(0, SignOff().ExitCode);
+
+            Assert.Contains("signed-off: 2026-10-19", File.ReadAllText(PlanFile));
+            Assert.Equal("2026-10-19", Check().SignedOff);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = saved;
+        }
+    }
+
+    [Fact]
+    public void Added_header_lines_use_the_closing_fence_line_ending_and_the_body_is_untouched()
+    {
+        var body = "# Plan\r\nsecond line\n";
+        Write($"---\nstatus: approved\nreview: skipped\n---\n{body}");
+
+        Assert.Equal(0, SignOff().ExitCode);
+
+        var text = File.ReadAllText(PlanFile);
+        var header = text[..(text.IndexOf("---\n", 4, StringComparison.Ordinal) + 4)];
+        Assert.DoesNotContain('\r', header);
+        Assert.Contains("signed-off-hash: ", header);
+        Assert.EndsWith(body, text);
     }
 
     [Fact]

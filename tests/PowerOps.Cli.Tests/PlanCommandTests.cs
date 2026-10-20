@@ -171,4 +171,37 @@ public class PlanCommandTests : IDisposable
         Assert.Equal(before, File.ReadAllText(Path.Combine(PlanDir(), "plan.md")));
         Assert.Equal(2, Run("plan", "sign-off", Path.Combine(_temp, "missing")).Code);
     }
+
+    [Theory]
+    [InlineData("status")]
+    [InlineData("sign-off")]
+    public void A_file_argument_must_be_named_plan_md(string verb)
+    {
+        var readme = Path.Combine(_temp, "README.md");
+        File.WriteAllText(readme, "# readme\n");
+
+        var (code, output, err) = Run("plan", verb, readme);
+
+        Assert.Equal(2, code);
+        Assert.Equal($"error: not a plan file: {readme}\n", err.Replace("\r\n", "\n"));
+        Assert.Equal("", output);
+    }
+
+    [Fact]
+    public void Sign_off_refuses_tenant_data_without_printing_it_or_touching_the_file()
+    {
+        Plan("status: approved\nreview: skipped", "# Plan\nsee https://contoso.example/x\nid 00000000-0000-0000-0000-000000000000\nmail a@contoso.example\n");
+        var plan = Path.Combine(PlanDir(), "plan.md");
+        var before = File.ReadAllBytes(plan);
+
+        var (code, output, err) = Run("plan", "sign-off", PlanDir());
+
+        Assert.Equal(1, code);
+        Assert.Equal(before, File.ReadAllBytes(plan));
+        foreach (var value in new[] { "contoso", "00000000-0000", "https" })
+        {
+            Assert.DoesNotContain(value, output);
+            Assert.DoesNotContain(value, err);
+        }
+    }
 }

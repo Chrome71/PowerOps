@@ -72,6 +72,14 @@ public sealed partial class PlanDocument
     [GeneratedRegex("^#{1,2} ")]
     private static partial Regex HeadingRegex();
 
+    [GeneratedRegex("^[A-Za-z][A-Za-z0-9_-]{0,39}$")]
+    private static partial Regex WordRegex();
+
+    // Only plain words are echoed back, so a pasted URL or other tenant data never reaches a CI log.
+    private static bool Word(string s) => WordRegex().IsMatch(s);
+
+    private static string Quoted(string s) => Word(s) ? $" '{s}'" : "";
+
     private static bool IsFence(string line) => line.TrimEnd() == "---";
 
     private static string Content(string line) => line.TrimEnd('\r', '\n');
@@ -131,7 +139,7 @@ public sealed partial class PlanDocument
 
             if (!Keys.Contains(key))
             {
-                return (null, $"unknown key '{key}'");
+                return (null, Word(key) ? $"unknown key '{key}'" : $"line {i + 1} has an unknown key");
             }
 
             if (!values.TryAdd(key, value))
@@ -150,7 +158,7 @@ public sealed partial class PlanDocument
 
         if (!Statuses.Contains(status))
         {
-            return (null, $"status '{status}' is not one of {string.Join(", ", Statuses)}");
+            return (null, $"status{Quoted(status)} is not one of {string.Join(", ", Statuses)}");
         }
 
         var review = Get("review");
@@ -161,7 +169,7 @@ public sealed partial class PlanDocument
 
         if (!Reviews.Contains(review))
         {
-            return (null, $"review '{review}' is not one of {string.Join(", ", Reviews)}");
+            return (null, $"review{Quoted(review)} is not one of {string.Join(", ", Reviews)}");
         }
 
         DateOnly? signedOff = null;
@@ -169,7 +177,7 @@ public sealed partial class PlanDocument
         {
             if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
             {
-                return (null, $"signed-off '{date}' is not a date (yyyy-MM-dd)");
+                return (null, $"signed-off{Quoted(date)} is not a date (yyyy-MM-dd)");
             }
 
             signedOff = parsed;

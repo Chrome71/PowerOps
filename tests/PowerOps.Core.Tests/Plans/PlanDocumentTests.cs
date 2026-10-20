@@ -49,6 +49,20 @@ public class PlanDocumentTests
         Assert.Contains(reason, doc.Error);
     }
 
+    [Theory]
+    [InlineData("---\nstatus: https://contoso.crm.dynamics.com/\nreview: pending\n---\n", "status is not one of draft, approved, signed-off, implementing, done")]
+    [InlineData("---\nstatus: draft\nreview: https://contoso.crm.dynamics.com/\n---\n", "review is not one of pending, done, skipped")]
+    [InlineData("---\nstatus: draft\nreview: pending\norg.contoso.crm.dynamics.com: x\n---\n", "line 4 has an unknown key")]
+    [InlineData("---\nstatus: draft\nreview: pending\nsigned-off: https://contoso.crm.dynamics.com/\n---\n", "signed-off is not a date")]
+    public void Malformed_header_reasons_never_echo_values_or_keys_that_are_not_plain_words(string text, string reason)
+    {
+        var doc = PlanDocument.Parse(text);
+
+        Assert.Contains(reason, doc.Error);
+        Assert.DoesNotContain("contoso", doc.Error);
+        Assert.DoesNotContain("https", doc.Error);
+    }
+
     [Fact]
     public void Body_hash_is_computed_even_when_a_value_is_invalid()
     {
