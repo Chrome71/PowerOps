@@ -1,8 +1,8 @@
 ---
-status: approved
+status: signed-off
 review: done
-signed-off: 2026-10-19
-signed-off-hash: 2219a9d06ab63660d9e2eeb44f1ee02847f4e0918a457486d1190208b95857c8
+signed-off: 2026-10-20
+signed-off-hash: db32eb80e407e0c718fd92dd6472ba4916b28a9ee4ec909b45ffa73ba27c87a8
 environment: PowerOps Test
 depth: quick
 supersedes: null
