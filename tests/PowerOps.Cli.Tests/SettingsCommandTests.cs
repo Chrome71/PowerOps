@@ -49,6 +49,36 @@ public class SettingsCommandTests
     }
 
     [Fact]
+    public void Generate_out_into_a_missing_folder_exits_3_and_writes_nothing()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+
+        var (code, output, err) = Run("settings", "generate", Seed, "--out", Path.Combine(folder, "settings.json"));
+
+        Assert.Equal(3, code);
+        Assert.Equal("", output);
+        Assert.StartsWith("error: ", err);
+        Assert.False(Directory.Exists(folder));
+    }
+
+    [Fact]
+    public void Settings_on_the_exported_zip_match_the_unpacked_folder()
+    {
+        var zip = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".zip");
+        try
+        {
+            SolutionZip.Create(Seed, zip);
+
+            Assert.Equal(Run("settings", "generate", Seed).Out, Run("settings", "generate", zip).Out);
+            Assert.Equal((0, "no problems\n", ""), Run("settings", "validate", zip, "--settings", Valid));
+        }
+        finally
+        {
+            File.Delete(zip);
+        }
+    }
+
+    [Fact]
     public void Generated_file_with_values_filled_in_validates_clean()
     {
         var node = JsonNode.Parse(Run("settings", "generate", Seed).Out)!;
