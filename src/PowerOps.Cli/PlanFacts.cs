@@ -1,6 +1,8 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
+using PowerOps.Core.Output;
+
 namespace PowerOps.Cli;
 
 // Environment facts for the planning skills: names only, from two read-only pac commands.
@@ -60,7 +62,7 @@ public static class PlanFacts
             }
         }
 
-        return Serialize(new { available = true, environment, solutions });
+        return Serialize(new { schemaVersion = JsonOutput.SchemaVersion, available = true, environment, solutions });
     }
 
     private const string SignInFix = "Sign in with pac auth create, then pick the environment with pac org select.";
@@ -74,7 +76,7 @@ public static class PlanFacts
                     ? Unavailable($"`{command}` failed (exit code {result.ExitCode})", SignInFix)
                     : null;
 
-    private static string Unavailable(string reason, string fix) => Serialize(new { available = false, reason, fix });
+    private static string Unavailable(string reason, string fix) => Serialize(new { schemaVersion = JsonOutput.SchemaVersion, available = false, reason, fix });
 
     private static string Serialize(object value) => JsonSerializer.Serialize(value, Options) + "\n";
 }

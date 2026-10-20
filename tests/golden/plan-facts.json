@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "available": true,
+  "environment": "Contoso Dev",
+  "solutions": [
+    {
+      "uniqueName": "Cr00000",
+      "version": "1.0.0.0",
+      "managed": false
+    },
+    {
+      "uniqueName": "ContosoSiteVisits",
+      "version": "1.2.0.0",
+      "managed": false
+    },
+    {
+      "uniqueName": "ContosoCore",
+      "version": "3.0.1.0",
+      "managed": true
+    }
+  ]
+}

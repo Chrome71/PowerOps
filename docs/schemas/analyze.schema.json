@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/analyze.schema.json",
+  "title": "powerops analyze --format json",
+  "description": "The JSON report written by 'powerops analyze --format json'.",
+  "type": "object",
+  "required": ["schemaVersion", "solutions", "summary"],
+  "properties": {
+    "schemaVersion": { "const": 1, "description": "Version of this output format." },
+    "solutions": {
+      "type": "array",
+      "description": "One entry per analyzed solution.",
+      "items": {
+        "type": "object",
+        "required": ["path", "uniqueName", "version", "managed", "publisher", "requires", "findings"],
+        "properties": {
+          "path": { "type": "string", "description": "Path of the solution, relative to the working folder." },
+          "uniqueName": { "type": "string", "description": "Solution unique name." },
+          "version": { "type": "string", "description": "Solution version." },
+          "managed": { "type": "boolean", "description": "True for a managed solution." },
+          "publisher": {
+            "type": "object",
+            "required": ["uniqueName", "prefix"],
+            "properties": {
+              "uniqueName": { "type": "string", "description": "Publisher unique name." },
+              "prefix": { "type": "string", "description": "Publisher customization prefix." }
+            }
+          },
+          "requires": {
+            "type": "array",
+            "description": "Dependencies the solution declares, as text.",
+            "items": { "type": "string" }
+          },
+          "findings": {
+            "type": "array",
+            "description": "Findings that remain after the baseline is applied.",
+            "items": {
+              "type": "object",
+              "required": ["ruleId", "severity", "message", "file", "component"],
+              "properties": {
+                "ruleId": { "type": "string", "description": "Rule ID, for example PO001." },
+                "severity": { "enum": ["error", "warning"] },
+                "message": { "type": "string", "description": "What is wrong." },
+                "file": { "type": "string", "description": "File inside the solution that the finding points at." },
+                "component": { "type": ["string", "null"], "description": "Component name, or null when the finding is not about one component." }
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["solutions", "errors", "warnings", "baselined"],
+      "properties": {
+        "solutions": { "type": "integer", "description": "Number of solutions analyzed." },
+        "errors": { "type": "integer", "description": "Number of error findings." },
+        "warnings": { "type": "integer", "description": "Number of warning findings." },
+        "baselined": { "type": "integer", "description": "Number of findings hidden by the baseline." }
+      }
+    }
+  }
+}

@@ -38,6 +38,7 @@ public static class PlanStatusReport
     {
         var doc = new
         {
+            schemaVersion = Output.JsonOutput.SchemaVersion,
             plans = plans.Select(p => new
             {
                 path = p.Path,

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "plans": [
+    {
+      "path": "docs/plans/clean",
+      "status": "draft",
+      "review": "pending",
+      "signedOff": null,
+      "environment": null,
+      "openQuestions": 1,
+      "bodyHash": "21165810c73c3bcfb7f13fd03398c12df2cada3633a1258940beb93339487829",
+      "violations": [],
+      "warnings": []
+    },
+    {
+      "path": "docs/plans/trouble",
+      "status": "approved",
+      "review": "done",
+      "signedOff": null,
+      "environment": null,
+      "openQuestions": 0,
+      "bodyHash": "b5c76b528b1ed408c24dcb01a3919c0ad0533e560bff686b3306de8eb02d41ec",
+      "violations": [
+        "docs/plans/trouble/plan.md:10: looks like a URL; remove it, or add <!-- plan-status: allow --> to the line"
+      ],
+      "warnings": [
+        "review.md was written for a different version of the plan (stale review)"
+      ]
+    }
+  ],
+  "summary": {
+    "plans": 2,
+    "violations": 1,
+    "warnings": 1
+  }
+}

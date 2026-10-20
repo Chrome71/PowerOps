@@ -19,6 +19,7 @@ public static class JsonReport
     public static void Write(AnalysisResult result, TextWriter writer)
     {
         var doc = new Doc(
+            JsonOutput.SchemaVersion,
             result.Solutions.Select(s => new Sol(
                 s.Path,
                 s.Solution.UniqueName,
@@ -31,7 +32,7 @@ public static class JsonReport
         writer.Write(JsonSerializer.Serialize(doc, Options) + "\n");
     }
 
-    private sealed record Doc(IReadOnlyList<Sol> Solutions, Summary Summary);
+    private sealed record Doc(int SchemaVersion, IReadOnlyList<Sol> Solutions, Summary Summary);
 
     private sealed record Sol(string Path, string UniqueName, string Version, bool Managed, Pub Publisher, IReadOnlyList<string> Requires, IReadOnlyList<Fin> Findings);
 

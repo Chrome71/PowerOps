@@ -4,4 +4,8 @@
     <ProjectReference Include="../../src/PowerOps.Cli/PowerOps.Cli.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="JsonSchema.Net" Version="9.4.1" />
+  </ItemGroup>
+
 </Project>

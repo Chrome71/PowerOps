@@ -46,7 +46,7 @@ powerops baseline                     # accept today's findings: writes powerops
 powerops analyze --baseline powerops-baseline.json   # report only findings that are not in the baseline
 ```
 
-`analyze` is offline and read-only. Options: `--format text|json|sarif|markdown` (default `text`), `--out <file>` (write the report to a file instead of stdout), `--fail-on error|warning|none` (default `error`), `--baseline <file>` (drop findings listed in a baseline file before reporting and before the exit code; the summary counts them as `baselined`). The YAML source layout is not supported yet.
+`analyze` is offline and read-only. Options: `--format text|json|sarif|markdown` (default `text`), `--out <file>` (write the report to a file instead of stdout), `--fail-on error|warning|none` (default `error`), `--baseline <file>` (drop findings listed in a baseline file before reporting and before the exit code; the summary counts them as `baselined`). The YAML source layout is not supported yet. Every JSON output carries a `schemaVersion`; the schemas are in [docs/schemas/](docs/schemas/).
 
 `baseline [path...] [--out <file>]` runs the same analysis and writes the findings it found to a JSON file (default `powerops-baseline.json`). A finding matches the baseline on solution unique name, rule id, component and message, not on file, so a baseline made from an exported zip also works for the unpacked folder. An unreadable or invalid baseline file is a usage error (exit `2`).
 

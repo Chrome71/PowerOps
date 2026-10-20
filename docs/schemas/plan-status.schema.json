@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/plan-status.schema.json",
+  "title": "powerops plan status --json",
+  "description": "The JSON written by 'powerops plan status --json'.",
+  "type": "object",
+  "required": ["schemaVersion", "plans", "summary"],
+  "properties": {
+    "schemaVersion": { "const": 1, "description": "Version of this output format." },
+    "plans": {
+      "type": "array",
+      "description": "One entry per plan.md found.",
+      "items": {
+        "type": "object",
+        "required": ["path", "status", "review", "signedOff", "environment", "openQuestions", "bodyHash", "violations", "warnings"],
+        "properties": {
+          "path": { "type": "string", "description": "Plan folder, relative to the working folder." },
+          "status": { "type": ["string", "null"], "description": "draft, approved or signed-off; null when the header is malformed." },
+          "review": { "type": ["string", "null"], "description": "pending, done or skipped; null when the header is malformed." },
+          "signedOff": { "type": ["string", "null"], "description": "Sign-off date (yyyy-MM-dd), or null." },
+          "environment": { "type": ["string", "null"], "description": "Target environment name from the header, or null." },
+          "openQuestions": { "type": "integer", "description": "Number of items under Open questions." },
+          "bodyHash": { "type": ["string", "null"], "description": "SHA-256 hash of the plan body, or null when the header is malformed." },
+          "violations": { "type": "array", "items": { "type": "string" }, "description": "Problems that make 'plan status' exit non-zero." },
+          "warnings": { "type": "array", "items": { "type": "string" }, "description": "Problems that do not change the exit code." }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["plans", "violations", "warnings"],
+      "properties": {
+        "plans": { "type": "integer", "description": "Number of plans checked." },
+        "violations": { "type": "integer", "description": "Total violations." },
+        "warnings": { "type": "integer", "description": "Total warnings." }
+      }
+    }
+  }
+}

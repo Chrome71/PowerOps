@@ -205,10 +205,10 @@ A route choice approves nothing, and a bare "approve" approves the draft only (A
 Output, on success:
 
 ```json
-{"available": true, "environment": "<name>", "solutions": [{"uniqueName": "<name>", "version": "<version>", "managed": false}]}
+{"schemaVersion": 1, "available": true, "environment": "<name>", "solutions": [{"uniqueName": "<name>", "version": "<version>", "managed": false}]}
 ```
 
-On any failure (`pac` not on PATH, not signed in, a command fails or times out) it prints `{"available": false, "reason": "...", "fix": "..."}` and still exits 0. Rules:
+On any failure (`pac` not on PATH, not signed in, a command fails or times out) it prints `{"schemaVersion": 1, "available": false, "reason": "...", "fix": "..."}` and still exits 0. The schema is [plan-facts.schema.json](schemas/plan-facts.schema.json). Rules:
 
 - each `pac` command has a 30 s timeout;
 - stdin is closed, and it never starts an interactive sign-in;
