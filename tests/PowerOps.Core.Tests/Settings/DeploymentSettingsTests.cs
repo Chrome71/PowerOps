@@ -46,6 +46,8 @@ public class DeploymentSettingsTests
     [InlineData("""{"LogicalName":"a_Ref","ConnectionId":null}""")]
     [InlineData("""{"LogicalName":"a_Ref","ConnectionId":""}""")]
     [InlineData("""{"LogicalName":"a_Ref","ConnectionId":"  "}""")]
+    [InlineData("""{"LogicalName":"a_Ref","ConnectionId":123}""")]
+    [InlineData("""{"LogicalName":"a_Ref","ConnectionId":{}}""")]
     public void Empty_connection_id_fires(string entry) =>
         Assert.Equal(["emptyConnectionId connectionReference a_Ref"], Run(Sln(refs: [B.Ref("a_Ref")]), $$"""{"ConnectionReferences":[{{entry}}]}"""));
 
@@ -61,6 +63,10 @@ public class DeploymentSettingsTests
     [InlineData(null, "c")]
     public void Empty_value_is_quiet_when_the_solution_has_a_default_or_current_value(string? def, string? cur) =>
         Assert.Empty(Run(Sln([B.Env("a_Env", def: def, cur: cur)]), """{"EnvironmentVariables":[{"SchemaName":"a_Env"}]}"""));
+
+    [Fact]
+    public void Non_string_value_counts_as_set() =>
+        Assert.Empty(Run(Sln([B.Env("a_Env")]), """{"EnvironmentVariables":[{"SchemaName":"a_Env","Value":5}]}"""));
 
     [Fact]
     public void Empty_value_message_says_required()

@@ -77,7 +77,7 @@ public static class DeploymentSettings
                 {
                     problems.Add(Missing(ConnectionReference, c.LogicalName));
                 }
-                else if (Blank(entry, "ConnectionId", trim: true))
+                else if (NoConnectionId(entry))
                 {
                     problems.Add(new("emptyConnectionId", ConnectionReference, c.LogicalName, "has no ConnectionId"));
                 }
@@ -100,9 +100,13 @@ public static class DeploymentSettings
 
     private static SettingsProblem Extra(string type, string name) => new("extra", type, name, "in the settings file but not in the solution");
 
-    private static bool Blank(JsonElement entry, string property, bool trim = false) =>
+    // A non-string Value (number, bool) still sets the variable; a ConnectionId must be a non-blank string.
+    private static bool Blank(JsonElement entry, string property) =>
         !entry.TryGetProperty(property, out var v) || v.ValueKind == JsonValueKind.Null
-        || (v.ValueKind == JsonValueKind.String && (trim ? string.IsNullOrWhiteSpace(v.GetString()) : v.GetString()!.Length == 0));
+        || (v.ValueKind == JsonValueKind.String && v.GetString()!.Length == 0);
+
+    private static bool NoConnectionId(JsonElement entry) =>
+        !entry.TryGetProperty("ConnectionId", out var v) || v.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(v.GetString());
 
     /// <summary>The objects of the array <paramref name="array"/> by <paramref name="nameProperty"/> (case-insensitive, first wins); a missing array is empty. The elements are cloned, so they outlive the parsed document.</summary>
     private static Dictionary<string, JsonElement> Entries(JsonElement root, string array, string nameProperty)
