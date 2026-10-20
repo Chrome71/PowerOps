@@ -1,0 +1,15 @@
+{
+  "EnvironmentVariables": [
+    {
+      "SchemaName": "pops_DefaultStatus",
+      "Value": ""
+    }
+  ],
+  "ConnectionReferences": [
+    {
+      "LogicalName": "pops_SeedDataverse",
+      "ConnectionId": "",
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+    }
+  ]
+}

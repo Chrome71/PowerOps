@@ -1,0 +1,20 @@
+{
+  "EnvironmentVariables": [
+    {
+      "SchemaName": "pops_DefaultStatus",
+      "Name": "Default Status",
+      "TypeId": "100000000",
+      "DefaultValue": "New",
+      "IsRequired": false,
+      "Value": "Open"
+    }
+  ],
+  "ConnectionReferences": [
+    {
+      "LogicalName": "pops_SeedDataverse",
+      "ConnectionId": "00000000000000000000000000000000",
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+    }
+  ],
+  "CopilotAgents": []
+}

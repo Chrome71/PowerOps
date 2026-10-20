@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/settings-validate.schema.json",
+  "title": "powerops settings validate --format json",
+  "description": "The JSON written by 'powerops settings validate --format json': the problems found when a deployment settings file is checked against a solution.",
+  "type": "object",
+  "required": ["schemaVersion", "solution", "settings", "problems"],
+  "properties": {
+    "schemaVersion": { "const": 1, "description": "Version of this output format." },
+    "solution": { "type": "string", "description": "Unique name of the checked solution." },
+    "settings": { "type": "string", "description": "The settings file path as given on the command line." },
+    "problems": {
+      "type": "array",
+      "description": "Sorted by component type, name, kind. Empty when the file is clean.",
+      "items": {
+        "type": "object",
+        "required": ["kind", "componentType", "name", "message"],
+        "properties": {
+          "kind": {
+            "enum": ["missing", "extra", "emptyConnectionId", "emptyValue"],
+            "description": "missing: in the solution, not in the file. extra: in the file, not in the solution. emptyConnectionId: connection reference without a ConnectionId. emptyValue: environment variable with no value in the file and no default or current value in the solution."
+          },
+          "componentType": { "enum": ["environmentVariable", "connectionReference"] },
+          "name": { "type": "string", "description": "Environment variable schema name or connection reference logical name." },
+          "message": { "type": "string", "description": "One-line description of the problem." }
+        }
+      }
+    }
+  }
+}

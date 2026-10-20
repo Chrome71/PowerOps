@@ -16,11 +16,13 @@ public class OutputSchemaTests
         ("plan-status", "plan-status.schema.json"),
         ("plan-facts", "plan-facts.schema.json"),
         ("rules", "rules.schema.json"),
+        ("settings-validate", "settings-validate.schema.json"),
     ];
 
     private static readonly string[] Goldens = Directory
         .GetFiles(Path.Combine(Golden.RepoRoot, "tests", "golden"), "*.json")
         .Select(f => Path.GetFileName(f))
+        .Where(f => !f.StartsWith("settings-generate", StringComparison.Ordinal)) // pac's settings file format, not a powerops output
         .OrderBy(f => f, StringComparer.Ordinal)
         .ToArray();
 

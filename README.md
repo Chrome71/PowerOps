@@ -43,6 +43,8 @@ Pull requests from forks cannot upload SARIF (their token has no `security-event
 powerops analyze                      # find solutions under . (unpacked XML folders and exported .zip files)
 powerops analyze path/to/solution.zip path/to/unpacked --format json --out report.json
 powerops rules                        # list every rule with its severity, title and fix (add --json for machine output)
+powerops settings generate path/to/solution --out deploymentsettings.json   # pac deployment settings with empty values to fill in
+powerops settings validate path/to/solution --settings deploymentsettings.json   # missing or extra entries, empty connection ids and values
 powerops baseline                     # accept today's findings: writes powerops-baseline.json
 powerops analyze --baseline powerops-baseline.json   # report only findings that are not in the baseline
 ```
@@ -52,6 +54,8 @@ powerops analyze --baseline powerops-baseline.json   # report only findings that
 `baseline [path...] [--out <file>]` runs the same analysis and writes the findings it found to a JSON file (default `powerops-baseline.json`). A finding matches the baseline on solution unique name, rule id, component and message, not on file, so a baseline made from an exported zip also works for the unpacked folder. An unreadable or invalid baseline file is a usage error (exit `2`).
 
 Exit codes: `0` no findings at or above `--fail-on`, `1` findings at or above it, `2` usage error (bad option, missing path, no solutions found), `3` unreadable solution or internal error (set `POWEROPS_DEBUG=1` for a stack trace).
+
+`settings generate <solution> [--out <file>]` prints a `deploymentsettings.json` with the solution's environment variables and connection references, sorted by name, with empty `Value` and `ConnectionId` to fill in (stdout, or a file with `--out`). `settings validate <solution> --settings <file> [--format text|json]` reports entries missing from the file, entries not in the solution, connection references without a `ConnectionId`, and environment variables with no value in the file and no default or current value in the solution. Fields the solution does not need (the extras `pac` writes) are ignored. Exit codes: `0` clean, `1` problems, `2` usage error, `3` unreadable solution or invalid settings file.
 
 | Rule | Severity | Finds |
 |---|---|---|

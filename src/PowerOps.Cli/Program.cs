@@ -23,6 +23,7 @@ public static class Program
         root.Subcommands.Add(PlanCommand.Create(output, error));
         root.Subcommands.Add(SkillsCommand.Create(output, error));
         root.Subcommands.Add(RulesCommand.Create(output));
+        root.Subcommands.Add(SettingsCommand.Create(output, error));
 
         var parse = root.Parse(args);
         if (parse.Errors.Count > 0)

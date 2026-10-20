@@ -17,6 +17,7 @@ Unmodified copies of public Microsoft sample data, used as test inputs. Both sou
 
 - `v1/`: the clean solution. `powerops analyze` reports no findings.
 - `v2/`: the same solution broken on purpose: the flow gains a Compose step with a hard-coded SharePoint URL (PO006), and an unused connection reference `pops_SpareDataverse` is added (PO005).
+- `../settings/`: hand-written deployment settings files (`deploymentsettings.json` format) for `v1/`. `powerops-seed-v1.valid.json` is filled in and clean; `powerops-seed-v1.problems.json` misses a connection reference and has an extra environment variable and an extra connection reference. Made for this project, fake values only.
 
 Scrubbed before committing:
 
