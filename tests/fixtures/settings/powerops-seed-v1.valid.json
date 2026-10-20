@@ -1,0 +1,31 @@
+{
+  "EnvironmentVariables": [
+    {
+      "SchemaName": "pops_DefaultStatus",
+      "Value": "Open",
+      "DefaultValue": "New",
+      "Name": {
+        "Default": "Default Status",
+        "ByLcid": {
+          "1033": "Default Status"
+        }
+      },
+      "TypeId": 100000000,
+      "Description": {
+        "Default": "Status label the seed flow writes on new work items",
+        "ByLcid": {
+          "1033": "Status label the seed flow writes on new work items"
+        }
+      },
+      "IsRequired": false
+    }
+  ],
+  "ConnectionReferences": [
+    {
+      "LogicalName": "pops_SeedDataverse",
+      "ConnectionId": "fake-connection-id",
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+    }
+  ],
+  "CopilotAgents": []
+}

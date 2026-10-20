@@ -1,0 +1,5 @@
+extra connectionReference pops_NotInSolutionEither: in the settings file but not in the solution
+missing connectionReference pops_SeedDataverse: in the solution but not in the settings file
+duplicate environmentVariable pops_DefaultStatus: listed more than once in the settings file
+extra environmentVariable pops_NotInSolution: in the settings file but not in the solution
+4 problems

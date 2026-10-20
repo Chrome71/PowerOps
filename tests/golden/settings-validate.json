@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "solution": "PowerOpsSeed",
+  "settings": "tests/fixtures/settings/powerops-seed-v1.problems.json",
+  "problems": [
+    {
+      "kind": "extra",
+      "componentType": "connectionReference",
+      "name": "pops_NotInSolutionEither",
+      "message": "in the settings file but not in the solution"
+    },
+    {
+      "kind": "missing",
+      "componentType": "connectionReference",
+      "name": "pops_SeedDataverse",
+      "message": "in the solution but not in the settings file"
+    },
+    {
+      "kind": "duplicate",
+      "componentType": "environmentVariable",
+      "name": "pops_DefaultStatus",
+      "message": "listed more than once in the settings file"
+    },
+    {
+      "kind": "extra",
+      "componentType": "environmentVariable",
+      "name": "pops_NotInSolution",
+      "message": "in the settings file but not in the solution"
+    }
+  ]
+}

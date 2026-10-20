@@ -1,0 +1,23 @@
+{
+  "EnvironmentVariables": [
+    {
+      "SchemaName": "pops_DefaultStatus",
+      "Value": "Open"
+    },
+    {
+      "SchemaName": "POPS_DEFAULTSTATUS",
+      "Value": "Closed"
+    },
+    {
+      "SchemaName": "pops_NotInSolution",
+      "Value": "x"
+    }
+  ],
+  "ConnectionReferences": [
+    {
+      "LogicalName": "pops_NotInSolutionEither",
+      "ConnectionId": "fake-connection-id",
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_example"
+    }
+  ]
+}
