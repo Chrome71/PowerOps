@@ -176,6 +176,20 @@
               "defaultConfiguration": {
                 "level": "warning"
               }
+            },
+            {
+              "id": "PO013",
+              "name": "RootComponentWithoutSourceFolder",
+              "shortDescription": {
+                "text": "Root component has no source folder in the YAML layout"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO013.md",
+              "help": {
+                "text": "Commit the component's folder and list it in solutioncomponents.yml, or remove the component from rootcomponents.yml."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              }
             }
           ]
         }

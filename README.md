@@ -67,6 +67,7 @@ Exit codes: `0` no findings at or above `--fail-on`, `1` findings at or above it
 | PO010 | warning | Default or generated publisher |
 | PO011 | warning | Cloud flow is turned off |
 | PO012 | warning | Dataverse row-updated trigger has no filter columns |
+| PO013 | error | Root component in the YAML layout has no source folder |
 
 Each rule has a page with what it finds, how to fix it and how to suppress it: [docs/rules/](docs/rules/).
 

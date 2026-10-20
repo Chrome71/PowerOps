@@ -84,6 +84,13 @@
       "title": "Dataverse row-updated trigger has no filter columns",
       "fix": "Set the trigger's filter columns to the columns whose update should start the flow.",
       "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO012.md"
+    },
+    {
+      "id": "PO013",
+      "severity": "error",
+      "title": "Root component has no source folder in the YAML layout",
+      "fix": "Commit the component's folder and list it in solutioncomponents.yml, or remove the component from rootcomponents.yml.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO013.md"
     }
   ]
 }
