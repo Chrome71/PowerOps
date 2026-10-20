@@ -76,6 +76,34 @@ public class DiffCommandTests : IDisposable
     }
 
     [Fact]
+    public void Yaml_layout_root_folders_are_diffed_with_the_canvas_app_named()
+    {
+        var yaml = Path.Combine(Fixtures, "powerops-seed-yaml");
+
+        var (code, output, err) = Run("diff", Path.Combine(yaml, "v1"), Path.Combine(yaml, "v2"));
+
+        Assert.Equal(1, code);
+        Assert.Equal("", err);
+        // Unlike powerops-seed, the YAML v2 canvas app was edited (a button added) and republished.
+        Assert.Equal(
+            [
+                "  added connectionReference pops_SpareDataverse [risk: connection-reference]",
+                "  changed workflow Stamp work item status (4c8dd007-dfcb-f111-a05c-0022480697a8): definition changed",
+                "  changed canvasApp pops_workitems_2af60: definition changed; republished (AppVersion 2026-10-19T17:09:47.0000000Z → 2026-10-20T04:41:27.0000000Z)",
+            ],
+            output.Split('\n').Where(l => l.StartsWith("  ", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void Folder_with_several_solutions_exits_two()
+    {
+        var (code, _, err) = Run("diff", Path.Combine(Fixtures, "powerops-seed-yaml"), V1);
+
+        Assert.Equal(2, code);
+        Assert.Contains("holds 2 solutions", err);
+    }
+
+    [Fact]
     public void Unreadable_input_exits_three_and_names_the_file()
     {
         var bad = Path.Combine(_temp, "bad.zip");

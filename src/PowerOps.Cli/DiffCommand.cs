@@ -24,18 +24,33 @@ public static class DiffCommand
 
     private static int Execute(string oldPath, string newPath, string format, string? outFile, TextWriter output, TextWriter error)
     {
-        foreach (var p in new[] { oldPath, newPath })
+        var paths = new[] { oldPath, newPath };
+        for (var i = 0; i < paths.Length; i++)
         {
+            var p = paths[i];
             if (!File.Exists(p) && !Directory.Exists(p))
             {
                 error.WriteLine($"error: path not found: {p}");
                 return 2;
             }
+
+            // A folder can be a YAML layout root: resolve it the way `analyze` does. With none found, the loader reports why.
+            var found = Directory.Exists(p) ? SolutionDiscovery.Find(p) : [];
+            if (found.Count > 1)
+            {
+                error.WriteLine($"error: {p} holds {found.Count} solutions; pass one of them: {string.Join(", ", found)}");
+                return 2;
+            }
+
+            if (found.Count == 1)
+            {
+                paths[i] = found[0];
+            }
         }
 
         try
         {
-            var result = SolutionDiff.Compare(SolutionLoader.Load(oldPath), SolutionLoader.Load(newPath));
+            var result = SolutionDiff.Compare(SolutionLoader.Load(paths[0]), SolutionLoader.Load(paths[1]));
             var report = new StringWriter();
             if (format == "json")
             {

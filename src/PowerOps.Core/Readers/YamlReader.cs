@@ -63,7 +63,8 @@ public static partial class YamlReader
             Workflows: Matching(solutionFiles, WorkflowPath())
                 .Select(p => SolutionParser.ReadWorkflow(files, ownFiles, Required(root, p, "Workflow"), p))
                 .ToList(),
-            CanvasAppTexts: Matching(solutionFiles, CanvasAppPath()).Select(root.ReadText).ToList(),
+            // The CanvasApp element as XML, the same form the XML layout gives (SolutionDiff reads the name and AppVersion from it).
+            CanvasAppTexts: Matching(solutionFiles, CanvasAppPath()).Select(p => Required(root, p, "CanvasApp").ToString(SaveOptions.DisableFormatting)).ToList(),
             ManifestFile: manifestFile,
             CanvasFormulas: Matching(solutionFiles, CanvasAppPath()).SelectMany(p => ReadCanvasFormulas(root, solutionFiles, p)).ToList(),
             // From the matched files, not the entries: a one-segment entry such as `/entities` still yields `entities/<name>`.
