@@ -18,6 +18,8 @@ public static class Analyzer
         new PO010DefaultPublisher(),
         new PO011FlowOff(),
         new PO012RowUpdatedTriggerWithoutFilterColumns(),
+        new PO013RootComponentWithoutSourceFolder(),
+        new PO014CanvasHardCodedUrl(),
     }.OrderBy(r => r.Id, StringComparer.Ordinal).ToList();
 
     public static string HelpUri(string ruleId) => $"{Output.SarifReport.Repo}/blob/main/docs/rules/{ruleId}.md";

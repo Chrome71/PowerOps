@@ -1,0 +1,11 @@
+RootComponents:
+  RootComponent:
+  - '@type': 1
+    '@schemaName': pops_workitem
+    '@behavior': 0
+  - '@type': 29
+    '@id': '{4c8dd007-dfcb-f111-a05c-0022480697a8}'
+    '@behavior': 0
+  - '@type': 300
+    '@schemaName': pops_workitems_2af60
+    '@behavior': 0

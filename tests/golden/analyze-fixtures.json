@@ -299,6 +299,58 @@
       ]
     },
     {
+      "path": "tests/fixtures/powerops-seed-yaml/v1",
+      "uniqueName": "PowerOpsSeed",
+      "version": "1.0.0.0",
+      "managed": false,
+      "publisher": {
+        "uniqueName": "powerops",
+        "prefix": "pops"
+      },
+      "requires": [],
+      "findings": []
+    },
+    {
+      "path": "tests/fixtures/powerops-seed-yaml/v2",
+      "uniqueName": "PowerOpsSeed",
+      "version": "1.0.0.0",
+      "managed": false,
+      "publisher": {
+        "uniqueName": "powerops",
+        "prefix": "pops"
+      },
+      "requires": [],
+      "findings": [
+        {
+          "ruleId": "PO005",
+          "severity": "warning",
+          "message": "Connection reference 'pops_SpareDataverse' is not used by any flow or app.",
+          "file": "connectionreferences/pops_SpareDataverse/connectionreference.yml",
+          "component": "pops_SpareDataverse",
+          "fix": "Remove the connection reference from the solution, or use it in the flow or app that needs it.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO005.md"
+        },
+        {
+          "ruleId": "PO006",
+          "severity": "warning",
+          "message": "Flow 'Stamp work item status' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops'.",
+          "file": "modernflows/4c8dd007-dfcb-f111-a05c-0022480697a8/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json",
+          "component": "https://contoso.sharepoint.com/sites/ops",
+          "fix": "Remove the URL where the platform can use the current environment, otherwise read it from an environment variable whose value is set per environment at deployment.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO006.md"
+        },
+        {
+          "ruleId": "PO014",
+          "severity": "warning",
+          "message": "Canvas app 'Work Items' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops' in Button1.OnSelect.",
+          "file": "canvasapps/pops_workitems_2af60/pops_workitems_2af60_DocumentUri/Src/Screen1.pa.yaml",
+          "component": "https://contoso.sharepoint.com/sites/ops",
+          "fix": "Remove the URL where the platform can use the current environment, otherwise read it from an environment variable whose value is set per environment at deployment.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO014.md"
+        }
+      ]
+    },
+    {
       "path": "tests/fixtures/powerops-seed/v1",
       "uniqueName": "PowerOpsSeed",
       "version": "1.0.0.0",
@@ -336,7 +388,7 @@
           "message": "Flow 'Stamp work item status' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops'.",
           "file": "Workflows/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json",
           "component": "https://contoso.sharepoint.com/sites/ops",
-          "fix": "Move the URL into an environment variable and reference it from the flow.",
+          "fix": "Remove the URL where the platform can use the current environment, otherwise read it from an environment variable whose value is set per environment at deployment.",
           "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO006.md"
         }
       ]
@@ -423,9 +475,9 @@
     }
   ],
   "summary": {
-    "solutions": 9,
+    "solutions": 11,
     "errors": 0,
-    "warnings": 33,
+    "warnings": 36,
     "baselined": 0
   }
 }

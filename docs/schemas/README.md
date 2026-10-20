@@ -5,6 +5,7 @@ JSON Schemas (draft 2020-12) for the JSON that `powerops` prints. Every output h
 | Schema | Emitted by |
 |---|---|
 | [analyze.schema.json](analyze.schema.json) | `powerops analyze --format json` |
+| [diff.schema.json](diff.schema.json) | `powerops diff --format json` |
 | [plan-status.schema.json](plan-status.schema.json) | `powerops plan status --json` |
 | [plan-facts.schema.json](plan-facts.schema.json) | `powerops plan facts` (both the available and the unavailable shape) |
 | [rules.schema.json](rules.schema.json) | `powerops rules --json` |

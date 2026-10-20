@@ -51,6 +51,20 @@ public class SarifReportTests
     }
 
     [Fact]
+    public void Yaml_findings_point_at_existing_files()
+    {
+        var w = new StringWriter();
+        SarifReport.Write(AnalysisResult.Run([Path.Combine(Golden.RepoRoot, "tests", "fixtures", "powerops-seed-yaml", "v2")], Golden.RepoRoot), w, "1.2.3");
+
+        using var doc = JsonDocument.Parse(w.ToString());
+        var uris = doc.RootElement.GetProperty("runs")[0].GetProperty("results").EnumerateArray()
+            .Select(r => r.GetProperty("locations")[0].GetProperty("physicalLocation").GetProperty("artifactLocation").GetProperty("uri").GetString()!)
+            .ToList();
+        Assert.NotEmpty(uris);
+        Assert.All(uris, u => Assert.True(File.Exists(Path.Combine(Golden.RepoRoot, Uri.UnescapeDataString(u))), u));
+    }
+
+    [Fact]
     public void Folder_solution_points_at_the_file_with_escaped_segments()
     {
         var json = Sarif("my sol/ö", new Finding("PO001", Severity.Error, "m \"q\"", "Other/a b.xml", "c"));

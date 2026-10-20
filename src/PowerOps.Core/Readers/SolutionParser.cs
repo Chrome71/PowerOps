@@ -92,19 +92,10 @@ internal static partial class SolutionParser
             Publisher: new Publisher(
                 publisher is null ? "" : Text(publisher, "UniqueName") ?? "",
                 publisher is null ? "" : Text(publisher, "CustomizationPrefix") ?? ""),
-            RootComponents: (manifest.Element("RootComponents")?.Elements("RootComponent") ?? [])
-                .Select(e => new RootComponent((string?)e.Attribute("type") ?? "", Opt((string?)e.Attribute("schemaName")), NormalizeId((string?)e.Attribute("id"))))
-                .ToList(),
-            MissingDependencies: (manifest.Element("MissingDependencies")?.Elements("MissingDependency") ?? [])
-                .Select(e => new MissingDependency(
-                    ReadNode(e.Element("Required") ?? new XElement("Required")),
-                    ReadNode(e.Element("Dependent") ?? new XElement("Dependent"))))
-                .ToList(),
+            RootComponents: ReadRootComponents(manifest.Element("RootComponents")),
+            MissingDependencies: ReadMissingDependencies(manifest.Element("MissingDependencies")),
             ConnectionReferences: (customizations?.Element("connectionreferences")?.Elements("connectionreference") ?? [])
-                .Select(e => new ConnectionReference(
-                    (string?)e.Attribute("connectionreferencelogicalname") ?? "",
-                    Text(e, "connectorid"),
-                    customizationsPath!))
+                .Select(e => ReadConnectionReference(e, customizationsPath!))
                 .ToList(),
             EnvironmentVariables: paths.Values
                 .Where(p => EnvVarDefinitionPath().IsMatch(p))
@@ -115,7 +106,24 @@ internal static partial class SolutionParser
             ManifestFile: manifestPath);
     }
 
-    private static Workflow ReadWorkflow(SolutionFiles files, Dictionary<string, string> paths, XElement e, string definedIn)
+    internal static List<RootComponent> ReadRootComponents(XElement? rootComponents) =>
+        (rootComponents?.Elements("RootComponent") ?? [])
+            .Select(e => new RootComponent((string?)e.Attribute("type") ?? "", Opt((string?)e.Attribute("schemaName")), NormalizeId((string?)e.Attribute("id"))))
+            .ToList();
+
+    internal static List<MissingDependency> ReadMissingDependencies(XElement? missingDependencies) =>
+        (missingDependencies?.Elements("MissingDependency") ?? [])
+            .Select(e => new MissingDependency(
+                ReadNode(e.Element("Required") ?? new XElement("Required")),
+                ReadNode(e.Element("Dependent") ?? new XElement("Dependent"))))
+            .ToList();
+
+    internal static ConnectionReference ReadConnectionReference(XElement e, string file) => new(
+        (string?)e.Attribute("connectionreferencelogicalname") ?? "",
+        Text(e, "connectorid"),
+        file);
+
+    internal static Workflow ReadWorkflow(SolutionFiles files, Dictionary<string, string> paths, XElement e, string definedIn)
     {
         var jsonName = Opt(Text(e, "JsonFileName")?.Replace('\\', '/').TrimStart('/'));
         var jsonPath = jsonName is not null && paths.TryGetValue(jsonName, out var actual) ? actual : null;
@@ -144,6 +152,11 @@ internal static partial class SolutionParser
             current = ReadCurrentValue(files.ReadText(valuesPath), valuesPath);
         }
 
+        return ReadEnvironmentVariable(def, current, path, valuesPath);
+    }
+
+    internal static EnvironmentVariable ReadEnvironmentVariable(XElement def, string? current, string path, string? valuesPath)
+    {
         return new EnvironmentVariable(
             (string?)def.Attribute("schemaname") ?? "",
             Text(def, "type"),
@@ -194,7 +207,7 @@ internal static partial class SolutionParser
         Opt((string?)e.Attribute("displayName")),
         Opt((string?)e.Attribute("solution")));
 
-    private const int MaxXmlDepth = 200;
+    internal const int MaxXmlDepth = 200;
 
     private static XElement LoadXml(SolutionFiles files, string path)
     {
@@ -225,11 +238,11 @@ internal static partial class SolutionParser
         }
     }
 
-    private static string? Text(XElement e, string child) => Opt(e.Element(child)?.Value.Trim());
+    internal static string? Text(XElement e, string child) => Opt(e.Element(child)?.Value.Trim());
 
-    private static string? Opt(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
+    internal static string? Opt(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
 
-    private static string? NormalizeId(string? id) => Opt(id?.Trim().Trim('{', '}').ToLowerInvariant());
+    internal static string? NormalizeId(string? id) => Opt(id?.Trim().Trim('{', '}').ToLowerInvariant());
 
     [GeneratedRegex(@"^CanvasApps/[^/]+\.meta\.xml$", RegexOptions.IgnoreCase)]
     private static partial Regex CanvasMetaPath();

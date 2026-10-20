@@ -120,7 +120,7 @@ public static class AnalyzeCommand
             var result = AnalysisResult.Run(paths, Directory.GetCurrentDirectory());
             if (result.Solutions.Count == 0)
             {
-                error.WriteLine($"error: no solutions found under {string.Join(", ", paths)} (the YAML layout is not supported yet)");
+                error.WriteLine($"error: no solutions found under {string.Join(", ", paths)}. To analyze a YAML layout, point at the folder that holds solutions/.");
                 return UsageError;
             }
 

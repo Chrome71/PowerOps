@@ -1,0 +1,18 @@
+environmentvariabledefinition:
+  '@schemaname': pops_DefaultStatus
+  defaultvalue: New
+  description:
+    '@default': Status label the seed flow writes on new work items
+    label:
+      '@description': Status label the seed flow writes on new work items
+      '@languagecode': 1033
+  displayname:
+    '@default': Default Status
+    label:
+      '@description': Default Status
+      '@languagecode': 1033
+  introducedversion: 1.0.0.0
+  iscustomizable: 1
+  isrequired: 0
+  secretstore: 0
+  type: 100000000

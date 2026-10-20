@@ -1,0 +1,41 @@
+savedquery:
+  IsCustomizable: 1
+  CanBeDeleted: 0
+  isquickfindquery: 0
+  isprivate: 0
+  isdefault: 1
+  savedqueryid: '{30f43a8c-43d1-4afe-b8e6-3efc5c6f34b7}'
+  layoutxml:
+    grid:
+      '@name': resultset
+      '@jump': pops_name
+      '@select': 1
+      '@icon': 1
+      '@preview': 1
+      row:
+        '@name': result
+        '@id': pops_workitemid
+        cell:
+        - '@name': pops_name
+          '@width': 300
+        - '@name': createdon
+          '@width': 125
+  querytype: 1
+  fetchxml:
+    fetch:
+      '@version': 1.0
+      '@mapping': logical
+      entity:
+        '@name': pops_workitem
+        attribute:
+        - '@name': pops_workitemid
+        - '@name': pops_name
+        - '@name': createdon
+        order:
+          '@attribute': pops_name
+          '@descending': false
+  IntroducedVersion: 1.0
+  LocalizedNames:
+    LocalizedName:
+      '@description': Work Item Advanced Find View
+      '@languagecode': 1033

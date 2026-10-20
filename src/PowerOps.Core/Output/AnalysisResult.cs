@@ -33,6 +33,7 @@ public sealed record AnalysisResult(IReadOnlyList<SolutionResult> Solutions)
     {
         var seen = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
         var results = new List<SolutionResult>();
+        var context = new LoadContext();
         foreach (var root in paths)
         {
             foreach (var found in SolutionDiscovery.Find(root))
@@ -42,8 +43,10 @@ public sealed record AnalysisResult(IReadOnlyList<SolutionResult> Solutions)
                     continue;
                 }
 
-                var solution = SolutionLoader.Load(found);
-                results.Add(new SolutionResult(DisplayPath(found, baseDir), solution, Analyze(solution, found)));
+                var solution = SolutionLoader.Load(found, context);
+                // A YAML solution is reported as its root: finding files are relative to it.
+                var shown = YamlReader.IsSolutionYml(found) ? YamlReader.RootFolder(found) : found;
+                results.Add(new SolutionResult(DisplayPath(shown, baseDir), solution, Analyze(solution, found)));
             }
         }
 

@@ -2,7 +2,7 @@ using System.IO.Compression;
 
 namespace PowerOps.Core.Readers;
 
-/// <summary>Finds solutions (unpacked XML folders and exported zips) under a path.</summary>
+/// <summary>Finds solutions (unpacked XML folders, YAML layout `solution.yml` files and exported zips) under a path.</summary>
 public static class SolutionDiscovery
 {
     private static readonly HashSet<string> Skipped = new(StringComparer.OrdinalIgnoreCase) { "bin", "obj", ".git", "node_modules" };
@@ -45,6 +45,17 @@ public static class SolutionDiscovery
         if (File.Exists(Path.Combine(dir, "Other", "Solution.xml")))
         {
             found.Add(dir);
+            return;
+        }
+
+        // A YAML root: solutions/<name>/solution.yml. Only roots at or below the given path are found.
+        var yamlSolutions = Directory.EnumerateDirectories(dir, "solutions", Options)
+            .SelectMany(s => Directory.EnumerateDirectories(s, "*", Options))
+            .SelectMany(s => Directory.EnumerateFiles(s, "solution.yml", Options))
+            .ToList();
+        if (yamlSolutions.Count > 0)
+        {
+            found.AddRange(yamlSolutions);
             return;
         }
 
