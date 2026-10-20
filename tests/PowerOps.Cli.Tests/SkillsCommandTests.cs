@@ -39,6 +39,23 @@ public partial class SkillsCommandTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_directory_in_place_of_a_skill_file_fails_before_writing_anything(bool force)
+    {
+        Directory.CreateDirectory(P(".claude", "skills", "powerops-plan", "SKILL.md"));
+        var args = force ? new[] { "skills", "install", _temp, "--force" } : ["skills", "install", _temp];
+
+        var (code, output, error) = Run(args);
+
+        Assert.Equal(1, code);
+        Assert.Equal("", output);
+        Assert.Contains("powerops-plan/SKILL.md is a directory", error);
+        Assert.Equal([P(".claude", "skills", "powerops-plan", "SKILL.md")], Directory.EnumerateFileSystemEntries(_temp, "*", SearchOption.AllDirectories).Where(e => e.EndsWith("SKILL.md", StringComparison.Ordinal)));
+        Assert.False(Directory.Exists(P(".agents")));
+    }
+
     [Fact]
     public void Rerun_reports_unchanged_and_touches_nothing()
     {

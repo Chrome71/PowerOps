@@ -34,15 +34,27 @@ public sealed class PacRunner(string executable = "pac", TimeSpan? timeout = nul
         using (process)
         {
             process.StandardInput.Close();
+            var clock = Stopwatch.StartNew();
             var stdout = process.StandardOutput.ReadToEndAsync();
-            _ = process.StandardError.ReadToEndAsync();
-            if (!process.WaitForExit(_timeout))
+            var stderr = process.StandardError.ReadToEndAsync();
+            // The timeout covers the exit and both stream reads: a child that inherits the pipes can keep them open after pac exits.
+            if (!process.WaitForExit(_timeout) || !Task.WaitAll([stdout, stderr], Remaining(clock)))
             {
-                process.Kill(entireProcessTree: true);
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch (InvalidOperationException)
+                {
+                    // The process exited between the wait and the kill.
+                }
+
                 return new PacResult(true, true, 0, "");
             }
 
-            return new PacResult(true, false, process.ExitCode, stdout.GetAwaiter().GetResult());
+            return new PacResult(true, false, process.ExitCode, stdout.Result);
         }
     }
+
+    private TimeSpan Remaining(Stopwatch clock) => _timeout > clock.Elapsed ? _timeout - clock.Elapsed : TimeSpan.Zero;
 }

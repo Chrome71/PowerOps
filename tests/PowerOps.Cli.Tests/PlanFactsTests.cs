@@ -86,6 +86,59 @@ public class PlanFactsTests
         Assert.Contains("pac was not found on PATH", PlanFacts.Run(_ => result));
     }
 
+    private static PacResult RunScript(string body, TimeSpan timeout, out TimeSpan elapsed)
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Needs a POSIX shell.");
+        var posix = !OperatingSystem.IsWindows(); // lets the platform analyzer see the guard
+        var dir = Directory.CreateTempSubdirectory("powerops-pac-").FullName;
+        try
+        {
+            var script = Path.Combine(dir, "pac.sh");
+            File.WriteAllText(script, "#!/bin/sh\n" + body + "\n");
+            if (posix)
+            {
+                File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var result = new PacRunner(script, timeout).Run([]);
+            elapsed = clock.Elapsed;
+            return result;
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void A_pac_that_prints_and_exits_is_started_and_not_timed_out()
+    {
+        var result = RunScript("echo \"Friendly Name: X\"", TimeSpan.FromSeconds(10), out _);
+
+        Assert.True(result.Started);
+        Assert.False(result.TimedOut);
+        Assert.Contains("Friendly Name: X", result.Stdout);
+    }
+
+    [Fact]
+    public void A_pac_that_outlives_the_timeout_is_timed_out()
+    {
+        var result = RunScript("sleep 5", TimeSpan.FromSeconds(1), out var elapsed);
+
+        Assert.True(result.TimedOut);
+        Assert.True(elapsed < TimeSpan.FromSeconds(3));
+    }
+
+    [Fact]
+    public void A_child_holding_the_pipe_after_pac_exits_still_times_out()
+    {
+        var result = RunScript("sleep 5 &\necho \"Friendly Name: X\"", TimeSpan.FromSeconds(1), out var elapsed);
+
+        Assert.True(result.TimedOut);
+        Assert.True(elapsed < TimeSpan.FromSeconds(3));
+    }
+
     [Fact]
     public void Timeout_names_the_command()
     {

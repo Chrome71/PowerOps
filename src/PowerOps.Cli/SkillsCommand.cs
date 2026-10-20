@@ -100,7 +100,8 @@ public static class SkillsCommand
             {
                 var content = isClaude ? ForClaude(rel, text) : text;
                 var file = Path.Combine(dir, rel);
-                var state = !File.Exists(file) ? "created"
+                var state = Directory.Exists(file) ? "directory"
+                    : !File.Exists(file) ? "created"
                     : File.ReadAllText(file).Replace("\r\n", "\n") == content ? "unchanged"
                     : force ? "updated" : "conflict";
                 plan.Add((file, content, state));
@@ -108,6 +109,13 @@ public static class SkillsCommand
         }
 
         var baseDir = Directory.GetCurrentDirectory();
+        var directories = plan.Where(p => p.State == "directory").ToList();
+        if (directories.Count > 0)
+        {
+            directories.ForEach(d => error.WriteLine($"error: {Display(d.File, baseDir)} is a directory"));
+            return 1;
+        }
+
         var conflicts = plan.Where(p => p.State == "conflict").ToList();
         if (conflicts.Count > 0)
         {
