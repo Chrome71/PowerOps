@@ -20,7 +20,8 @@ failures=0
 fail() { echo "FAIL [$scenario]: $*"; failures=$((failures + 1)); }
 
 # Build the CLI once and put a `powerops` wrapper on PATH for the agent.
-dotnet build "$repo_root/src/PowerOps.Cli" -c Release -o "$work/bin" --nologo -v quiet >/dev/null
+dotnet build "$repo_root/src/PowerOps.Cli" -c Release -o "$work/bin" --nologo -v quiet >"$work/build.log" 2>&1 ||
+  { cat "$work/build.log"; exit 1; }
 mkdir -p "$work/path"
 printf '#!/bin/sh\nexec dotnet "%s/bin/powerops.dll" "$@"\n' "$work" >"$work/path/powerops"
 chmod +x "$work/path/powerops"
@@ -33,11 +34,12 @@ agent_turn() {
     local resume=()
     [ -s "$sid_file" ] && resume=(--resume "$(cat "$sid_file")")
     out="$(cd "$dir" && claude -p "${resume[@]}" --output-format json --permission-mode acceptEdits \
-      --allowedTools "Bash(powerops *)" -- "$message")"
+      --allowedTools "Bash(powerops *)" -- "$message")" || return 1
     jq -r '.session_id' <<<"$out" >"$sid_file"
     jq -r '.result' <<<"$out"
   else
     local last="$work/codex-last.txt"
+    rm -f "$last"
     if [ -s "$sid_file" ]; then
       (cd "$dir" && codex exec resume -c model_reasoning_effort=medium -o "$last" "$(cat "$sid_file")" "$message" </dev/null >/dev/null)
     else
@@ -48,7 +50,7 @@ agent_turn() {
   fi
 }
 
-# The simulated user: a model call with no tools that answers the agent's last message.
+# The simulated user: a separate model call, run outside the test repo, that answers the agent's last message.
 user_turn() {
   local prompt
   prompt="You are role-playing a user talking to a coding agent that is planning a Microsoft Power Platform project with you.
@@ -63,7 +65,8 @@ $1"
     (cd "$work" && claude -p --output-format text -- "$prompt")
   else
     local last="$work/codex-user.txt"
-    codex exec --ephemeral --skip-git-repo-check -s read-only -c model_reasoning_effort=low -o "$last" "$prompt" </dev/null >/dev/null
+    rm -f "$last"
+    (cd "$work" && codex exec --ephemeral --skip-git-repo-check -s read-only -c model_reasoning_effort=low -o "$last" "$prompt" </dev/null >/dev/null)
     cat "$last"
   fi
 }
@@ -87,10 +90,10 @@ converse() {
   local message="$1" done_when="$2" turn
   menus=0
   for ((turn = 1; turn <= max_turns; turn++)); do
-    reply="$(agent_turn "$message")"
+    reply="$(agent_turn "$message")" || { fail "the agent call failed on turn $turn"; return 1; }
     printf '\n--- agent (turn %d) ---\n%s\n' "$turn" "$reply"
     if eval "$done_when"; then return 0; fi
-    message="$(user_turn "$reply")"
+    message="$(user_turn "$reply")" || { fail "the simulated user call failed on turn $turn"; return 1; }
     grep -qi 'another round' <<<"$reply" && menus=$((menus + 1))
     printf -- '--- user ---\n%s\n' "$message"
   done
@@ -140,7 +143,7 @@ fi
 scenario=stop
 new_repo
 goal="Answer the first round of questions. At the first what-next menu (A/B/C) reply with just: C"
-converse "Use the powerops-plan skill. My idea: $idea." '[ "$turn" -gt 1 ] && [[ "$message" =~ ^[[:space:]]*C ]]' || true
+converse "Use the powerops-plan skill. My idea: $idea." '[ "$turn" -gt 1 ] && [[ "$message" =~ ^[[:space:]]*C[[:space:][:punct:]]*$ ]]' || true
 if [ -n "$(plan_dir)" ]; then
   check_decisions
   [ "$(header status)" = draft ] || fail "status is '$(header status)' after stopping, expected draft"
@@ -151,15 +154,15 @@ fi
 # 3. Fast path: asking to build without a plan drafts one and asks the route; a route answer approves nothing. No code.
 scenario=fast-path
 new_repo
-reply="$(agent_turn "Use the powerops-implement skill. Build a cloud flow that emails the team lead when a site visit report is overdue.")"
+reply="$(agent_turn "Use the powerops-implement skill. Build a cloud flow that emails the team lead when a site visit report is overdue.")" || fail "the agent call failed"
 printf '\n--- agent ---\n%s\n' "$reply"
 if [ -n "$(plan_dir)" ]; then
   grep -qE '^[[:space:]]*1\. ' <<<"$reply" || fail "no numbered route options"
   first="$reply"
-  reply="$(agent_turn "1 1")"
+  reply="$(agent_turn "1 1")" || fail "the agent call failed"
   printf -- '--- user ---\n1 1\n--- agent ---\n%s\n' "$reply"
   # The A/B/C menu may come with the route question or right after the answer.
-  [ "$(menu_letters "$first$(printf '\n')$reply")" = ABC ] || fail "no lettered A/B/C menu"
+  [ "$(menu_letters "$first"$'\n'"$reply")" = ABC ] || fail "no lettered A/B/C menu"
   [ "$(header status)" = draft ] || fail "status is '$(header status)' after a route answer, expected draft"
   other="$(git -C "$dir" status --porcelain --untracked-files=all | grep -v ' docs/plans/' || true)"
   [ -z "$other" ] || fail "files changed outside docs/plans: $other"

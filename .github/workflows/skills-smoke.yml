@@ -27,12 +27,14 @@ jobs:
     env:
       AGENT: ${{ matrix.agent }}
       PACKAGE: ${{ matrix.package }}
-      ANTHROPIC_API_KEY: ${{ matrix.agent == 'claude' && secrets.ANTHROPIC_API_KEY || '' }}
-      OPENAI_API_KEY: ${{ matrix.agent == 'codex' && secrets.OPENAI_API_KEY || '' }}
     steps:
+      # The keys are given only to the steps that need them, never to checkout or npm install.
       - name: Check credentials
         id: creds
         shell: bash
+        env:
+          ANTHROPIC_API_KEY: ${{ matrix.agent == 'claude' && secrets.ANTHROPIC_API_KEY || '' }}
+          OPENAI_API_KEY: ${{ matrix.agent == 'codex' && secrets.OPENAI_API_KEY || '' }}
         run: |
           if [ "$AGENT" = claude ]; then key="$ANTHROPIC_API_KEY"; name=ANTHROPIC_API_KEY; else key="$OPENAI_API_KEY"; name=OPENAI_API_KEY; fi
           if [ -z "$key" ]; then
@@ -41,6 +43,8 @@ jobs:
           fi
       - if: steps.creds.outputs.skip != 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - if: steps.creds.outputs.skip != 'true'
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
@@ -48,10 +52,13 @@ jobs:
       - name: Install the agent CLI
         if: steps.creds.outputs.skip != 'true'
         shell: bash
-        run: |
-          npm install --global "$PACKAGE"
-          if [ "$AGENT" = codex ]; then printenv OPENAI_API_KEY | codex login --with-api-key; fi
+        run: npm install --global "$PACKAGE"
       - name: Run the smoke test
         if: steps.creds.outputs.skip != 'true'
         shell: bash
-        run: tests/smoke/skills-smoke.sh "$AGENT"
+        env:
+          ANTHROPIC_API_KEY: ${{ matrix.agent == 'claude' && secrets.ANTHROPIC_API_KEY || '' }}
+          OPENAI_API_KEY: ${{ matrix.agent == 'codex' && secrets.OPENAI_API_KEY || '' }}
+        run: |
+          if [ "$AGENT" = codex ]; then printenv OPENAI_API_KEY | codex login --with-api-key; fi
+          tests/smoke/skills-smoke.sh "$AGENT"

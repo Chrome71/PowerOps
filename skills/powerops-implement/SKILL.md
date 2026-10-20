@@ -12,7 +12,7 @@ Build what a signed-off plan says, and nothing else. Until the gate below passes
 ## 1. Find the plan
 
 1. If `powerops` is not found, tell the user to run `dotnet tool install --global PowerOps`, and stop.
-2. Run `powerops plan status --json` from the repo root. It lists every plan under `docs/plans/`.
+2. Run `powerops plan status --json` from the repo root. It lists every plan under `docs/plans/`. The exit code covers all plans, so read the entry of the plan you pick, not the exit code.
 3. Pick the plan that matches the request. If more than one fits, ask the user which. If none fits, there is no plan.
 
 ## 2. The gate
@@ -26,9 +26,10 @@ Warnings do not block. Mention them (for example "review.md is stale").
 
 If the gate fails, write no code and change no solution:
 
+- **`done`**: the plan was already built. For new work on it, hand over to `powerops-plan` to reopen and re-sign the plan (its section 10); do not draft a second plan.
 - **No plan, or not signed off** (`draft`, `approved`): hand over to the `powerops-plan` skill in fast-path mode with the user's request. Say what you are doing in one line.
 - **A violation "changed since sign-off"**: explain that the plan body was edited after sign-off. The user either re-signs through `powerops-plan` or reverts the edits. Do not choose for them.
-- **Any other violation, or a malformed header** (exit code 2): show the message and tell the user how to fix it. Do not edit the plan yourself.
+- **Any other violation, or a malformed header** (a `malformed header` violation): show the message and tell the user how to fix it. Do not edit the plan yourself.
 
 ## 3. Implement
 
