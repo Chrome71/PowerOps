@@ -167,6 +167,21 @@ public class WarningRuleTests
     }
 
     [Fact]
+    public void PO014_tells_apps_with_the_same_display_name_apart()
+    {
+        var s = B.Empty() with
+        {
+            CanvasFormulas =
+            [
+                Formula("Button1", "OnSelect", $"=Launch(\"{Site}\")", "canvasapps/a/a_DocumentUri/Src/App.pa.yaml"),
+                Formula("Button1", "OnSelect", $"=Launch(\"{Site}\")", "canvasapps/b/b_DocumentUri/Src/App.pa.yaml"),
+            ],
+        };
+
+        Assert.Equal(2, Run(new PO014CanvasHardCodedUrl(), s).Count);
+    }
+
+    [Fact]
     public void PO014_quiet_without_formulas()
     {
         Assert.Empty(Run(new PO014CanvasHardCodedUrl(), B.Empty()));

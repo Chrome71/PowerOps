@@ -13,6 +13,7 @@ internal sealed class YamlRoot
 
     private readonly ReadBudget _budget;
     private readonly Dictionary<string, string> _cache = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, XElement> _parsed = new(StringComparer.Ordinal);
 
     public YamlRoot(string folder, ReadBudget? budget = null)
     {
@@ -29,18 +30,6 @@ internal sealed class YamlRoot
         {
             Paths.TryAdd(p, p);
         }
-
-        // Every file and every folder above one, to ask "does this entry exist" without scanning.
-        foreach (var p in Paths.Values)
-        {
-            for (var end = p.Length; end > 0; end = p.LastIndexOf('/', end - 1))
-            {
-                if (!Existing.Add(p[..end]))
-                {
-                    break;
-                }
-            }
-        }
     }
 
     public string Folder { get; }
@@ -48,20 +37,24 @@ internal sealed class YamlRoot
     /// <summary>All files as relative forward-slash paths, keyed case-insensitively, in ordinal order.</summary>
     public Dictionary<string, string> Paths { get; } = new(StringComparer.OrdinalIgnoreCase);
 
-    public HashSet<string> Existing { get; } = new(StringComparer.OrdinalIgnoreCase);
-
     public string ReadText(string path) =>
         _cache.TryGetValue(path, out var text)
             ? text
             : _cache[path] = SolutionParser.ReadCapped(File.OpenRead(System.IO.Path.Combine(Folder, path)), path, _budget);
 
     /// <exception cref="InvalidDataException">The message starts with <paramref name="path"/>.</exception>
+    /// <remarks>Parsed once per path and shared by every solution of the root, so callers must not change it.</remarks>
     public XElement LoadYaml(string path)
     {
+        if (_parsed.TryGetValue(path, out var parsed))
+        {
+            return parsed;
+        }
+
         var text = ReadText(path);
         try
         {
-            return YamlXml.Convert(text);
+            return _parsed[path] = YamlXml.Convert(text);
         }
         catch (InvalidDataException e)
         {

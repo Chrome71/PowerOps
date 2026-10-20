@@ -66,10 +66,10 @@ public static partial class YamlReader
             CanvasAppTexts: Matching(solutionFiles, CanvasAppPath()).Select(root.ReadText).ToList(),
             ManifestFile: manifestFile,
             CanvasFormulas: Matching(solutionFiles, CanvasAppPath()).SelectMany(p => ReadCanvasFormulas(root, solutionFiles, p)).ToList(),
-            SourceFolders: entries
-                .Where(root.Existing.Contains)
-                .Select(e => string.Join('/', e.Split('/').Take(2)))
-                .Distinct(StringComparer.Ordinal)
+            // From the matched files, not the entries: a one-segment entry such as `/entities` still yields `entities/<name>`.
+            SourceFolders: solutionFiles
+                .Select(p => string.Join('/', p.Split('/').Take(2)))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Order(StringComparer.Ordinal)
                 .ToList());
     }

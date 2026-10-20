@@ -56,6 +56,27 @@ public class YamlReaderTests
     }
 
     [Fact]
+    public void One_segment_entry_gives_the_component_folders_below_it()
+    {
+        using var t = Layout(listed: "/entities").Write("entities/demo_thing/entity.yml", "Entity:\n");
+
+        Assert.Equal(["entities/demo_thing"], SolutionLoader.Load(SolutionYml(t)).SourceFolders);
+    }
+
+    [Fact]
+    public void Reserved_xml_name_is_an_error_starting_with_the_path()
+    {
+        using var t = Layout().Write("publishers/demopub/publisher.yml", """
+            Publisher:
+              '@xmlns': http://www.w3.org/2000/xmlns/
+              UniqueName: demopub
+            """);
+
+        var e = Assert.Throws<InvalidDataException>(() => SolutionLoader.Load(SolutionYml(t)));
+        Assert.StartsWith(SolutionYml(t), e.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Cloud_flow_definition_is_found_and_parsed()
     {
         using var t = Layout(listed: "/modernflows/f1")

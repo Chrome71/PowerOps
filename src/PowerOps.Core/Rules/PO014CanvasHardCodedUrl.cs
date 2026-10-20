@@ -16,6 +16,7 @@ public sealed class PO014CanvasHardCodedUrl : IRule
         solution.CanvasFormulas
             .Where(f => f.Formula.StartsWith('='))
             .SelectMany(f => RuleHelpers.EnvironmentUrl().Matches(f.Formula).Select(m => (Formula: f, Url: m.Value)))
-            .DistinctBy(x => (x.Formula.App, x.Url.ToUpperInvariant()))
+            // Keyed on the app's folder (canvasapps/<name>), because display names need not be unique.
+            .DistinctBy(x => (string.Join('/', x.Formula.File.Split('/').Take(2)), x.Url.ToUpperInvariant()))
             .Select(x => new Finding(Id, Severity, $"Canvas app '{x.Formula.App}' hard-codes the URL '{x.Url}' in {x.Formula.Control}.{x.Formula.Property}.", x.Formula.File, x.Url));
 }

@@ -26,7 +26,8 @@ internal static class YamlXml
                 Mapping(parser, root, 1);
             }
         }
-        catch (YamlException e)
+        // XAttribute and XElement throw for reserved names such as `'@xmlns'`.
+        catch (Exception e) when (e is YamlException or ArgumentException or XmlException)
         {
             throw new InvalidDataException(e.Message, e);
         }
