@@ -12,7 +12,8 @@ public sealed record Solution(
     IReadOnlyList<EnvironmentVariable> EnvironmentVariables,
     IReadOnlyList<Workflow> Workflows,
     IReadOnlyList<string> CanvasAppTexts,
-    string ManifestFile = "Other/Solution.xml");
+    string ManifestFile = "Other/Solution.xml",
+    IReadOnlyList<string>? SourceFolders = null);
 
 public sealed record Publisher(string UniqueName, string Prefix);
 

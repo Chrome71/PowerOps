@@ -1,0 +1,122 @@
+using System.Text.RegularExpressions;
+using System.Xml.Linq;
+
+using PowerOps.Core.Model;
+
+namespace PowerOps.Core.Readers;
+
+/// <summary>Reads one `solutions/&lt;name&gt;/solution.yml` of a Dataverse Git-integration YAML root.</summary>
+public static partial class YamlReader
+{
+    public static Solution Read(string solutionYml)
+    {
+        var full = Path.GetFullPath(solutionYml);
+        var folder = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(full)))
+            ?? throw new InvalidDataException($"{solutionYml}: not in a solutions/<name> folder.");
+        return Read(solutionYml, new YamlRoot(folder));
+    }
+
+    internal static Solution Read(string solutionYml, YamlRoot root)
+    {
+        var manifestFile = Path.GetRelativePath(root.Folder, Path.GetFullPath(solutionYml)).Replace('\\', '/');
+        if (!SolutionYmlPath().IsMatch(manifestFile))
+        {
+            throw new InvalidDataException($"{solutionYml}: not in a solutions/<name> folder.");
+        }
+
+        var dir = manifestFile[..manifestFile.LastIndexOf('/')];
+        var manifest = root.LoadYaml(manifestFile).Element("ImportExportXml")?.Element("SolutionManifest")
+            ?? throw new InvalidDataException($"{manifestFile}: missing SolutionManifest element.");
+
+        var componentsFile = Find(root, dir + "/solutioncomponents.yml")
+            ?? throw new InvalidDataException($"{solutionYml}: {dir}/solutioncomponents.yml not found.");
+        var entries = ReadEntries(root.LoadYaml(componentsFile));
+        var solutionFiles = root.Paths.Values.Where(p => Under(entries, p)).Order(StringComparer.Ordinal).ToList();
+
+        var publisherName = SolutionParser.Text(manifest.Element("Publisher") ?? new XElement("Publisher"), "UniqueName") ?? "";
+        var publisherFile = Find(root, $"publishers/{publisherName}/publisher.yml")
+            ?? throw new InvalidDataException($"{solutionYml}: publishers/{publisherName}/publisher.yml not found.");
+        var publisher = Required(root, publisherFile, "Publisher");
+
+        var files = new SolutionFiles(root.Paths.Values.ToList(), root.ReadText, manifestFile, "");
+        return new Solution(
+            UniqueName: SolutionParser.Text(manifest, "UniqueName") ?? "",
+            Version: SolutionParser.Text(manifest, "Version") ?? "",
+            Managed: SolutionParser.Text(manifest, "Managed") == "1",
+            Publisher: new Publisher(
+                SolutionParser.Text(publisher, "UniqueName") ?? "",
+                SolutionParser.Text(publisher, "CustomizationPrefix") ?? ""),
+            RootComponents: SolutionParser.ReadRootComponents(Optional(root, dir + "/rootcomponents.yml", "RootComponents")),
+            MissingDependencies: SolutionParser.ReadMissingDependencies(Optional(root, dir + "/missingdependencies.yml", "MissingDependencies")),
+            ConnectionReferences: Matching(solutionFiles, ConnectionReferencePath())
+                .Select(p => SolutionParser.ReadConnectionReference(Required(root, p, "connectionreference"), p))
+                .ToList(),
+            EnvironmentVariables: Matching(solutionFiles, EnvVarDefinitionPath())
+                .Select(p => ReadEnvironmentVariable(root, p))
+                .ToList(),
+            Workflows: Matching(solutionFiles, WorkflowPath())
+                .Select(p => SolutionParser.ReadWorkflow(files, root.Paths, Required(root, p, "Workflow"), p))
+                .ToList(),
+            CanvasAppTexts: Matching(solutionFiles, CanvasAppPath()).Select(root.ReadText).ToList(),
+            ManifestFile: manifestFile,
+            SourceFolders: entries
+                .Where(root.Existing.Contains)
+                .Select(e => string.Join('/', e.Split('/').Take(2)))
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+                .ToList());
+    }
+
+    private static string? Find(YamlRoot root, string path) => root.Paths.TryGetValue(path, out var actual) ? actual : null;
+
+    private static IEnumerable<string> Matching(List<string> files, Regex pattern) => files.Where(p => pattern.IsMatch(p));
+
+    private static XElement Required(YamlRoot root, string path, string key) =>
+        root.LoadYaml(path).Element(key) ?? throw new InvalidDataException($"{path}: missing {key} element.");
+
+    private static XElement? Optional(YamlRoot root, string path, string key) =>
+        Find(root, path) is { } actual ? root.LoadYaml(actual).Element(key) : null;
+
+    /// <summary>The `'@path'` entries, without leading slash; entries that could point outside the root are dropped.</summary>
+    private static HashSet<string> ReadEntries(XElement components) =>
+        (components.Element("SolutionComponents")?.Elements("Component") ?? [])
+            .Select(c => ((string?)c.Attribute("path") ?? "").Replace('\\', '/').Trim('/'))
+            .Where(e => e.Length > 0 && !Path.IsPathRooted(e) && !e.Split('/').Contains(".."))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>True when <paramref name="path"/> or one of its parent folders is a listed entry.</summary>
+    private static bool Under(HashSet<string> entries, string path)
+    {
+        for (var end = path.Length; end > 0; end = path.LastIndexOf('/', end - 1))
+        {
+            if (entries.Contains(path[..end]))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static EnvironmentVariable ReadEnvironmentVariable(YamlRoot root, string path)
+    {
+        var valuesPath = Find(root, path[..path.LastIndexOf('/')] + "/environmentvariablevalues/environmentvariablevalue.yml");
+        var current = valuesPath is null ? null : Required(root, valuesPath, "environmentvariablevalue").Element("value")?.Value;
+        return SolutionParser.ReadEnvironmentVariable(Required(root, path, "environmentvariabledefinition"), SolutionParser.Opt(current), path, valuesPath);
+    }
+
+    [GeneratedRegex(@"^solutions/[^/]+/solution\.yml$", RegexOptions.IgnoreCase)]
+    private static partial Regex SolutionYmlPath();
+
+    [GeneratedRegex(@"^modernflows/[^/]+/workflow\.yml$", RegexOptions.IgnoreCase)]
+    private static partial Regex WorkflowPath();
+
+    [GeneratedRegex(@"^connectionreferences/[^/]+/connectionreference\.yml$", RegexOptions.IgnoreCase)]
+    private static partial Regex ConnectionReferencePath();
+
+    [GeneratedRegex(@"^environmentvariabledefinitions/[^/]+/environmentvariabledefinition\.yml$", RegexOptions.IgnoreCase)]
+    private static partial Regex EnvVarDefinitionPath();
+
+    [GeneratedRegex(@"^canvasapps/[^/]+/canvasapp\.yml$", RegexOptions.IgnoreCase)]
+    private static partial Regex CanvasAppPath();
+}
