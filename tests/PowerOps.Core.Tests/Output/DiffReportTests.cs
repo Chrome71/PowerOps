@@ -91,4 +91,16 @@ public class DiffReportTests
 
         Assert.Contains("| " + new string('a', 199) + "… |", text);
     }
+
+    [Fact]
+    public void Markdown_cells_stay_within_the_cap_after_escaping()
+    {
+        var key = new string('_', 300);
+
+        var text = Markdown(SolutionDiff.Compare(B.Empty(), B.Empty() with { ConnectionReferences = [B.Ref(key)] }));
+
+        var cell = text.Split('\n').Single(l => l.StartsWith("| added", StringComparison.Ordinal)).Split(" | ")[2];
+        Assert.Equal(200 + 1, cell.Length); // 100 escaped underscores (200 chars) and the ellipsis
+        Assert.DoesNotContain("\\…", cell);
+    }
 }

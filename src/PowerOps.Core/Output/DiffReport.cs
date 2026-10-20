@@ -100,8 +100,25 @@ public static class DiffReport
 
     private static string Label(Change c) => c.Name is null ? c.Key : $"{c.Name} ({c.Key})";
 
-    private static string Escape(string? text) =>
-        MarkdownReport.Escape(text is null ? null : SolutionDiff.Truncate(text, MaxCell));
+    // Escapes first, then caps the escaped length; a surrogate pair or an escape sequence is never split.
+    private static string Escape(string? text)
+    {
+        var result = new StringBuilder();
+        for (var i = 0; i < (text?.Length ?? 0); i++)
+        {
+            var unit = char.IsHighSurrogate(text![i]) && i + 1 < text.Length ? text.Substring(i, 2) : text[i].ToString();
+            var escaped = MarkdownReport.Escape(unit);
+            if (result.Length + escaped.Length > MaxCell)
+            {
+                return result.Append('…').ToString();
+            }
+
+            result.Append(escaped);
+            i += unit.Length - 1;
+        }
+
+        return result.ToString();
+    }
 
     private sealed record Doc(int SchemaVersion, Sol Old, Sol New, IReadOnlyList<Item> Changes, Counts Summary);
 

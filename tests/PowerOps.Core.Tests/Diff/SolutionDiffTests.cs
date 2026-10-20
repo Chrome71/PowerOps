@@ -1,3 +1,5 @@
+using System.Xml.Linq;
+
 using PowerOps.Core.Diff;
 using PowerOps.Core.Model;
 using PowerOps.Core.Readers;
@@ -280,5 +282,37 @@ public class SolutionDiffTests
 
         Assert.Equal(["Changed environmentVariable demo_v: currentValue changed"], Diff(a, b));
         Assert.Equal(["Changed environmentVariable demo_v: currentValue removed"], Diff(a, none));
+    }
+
+    [Fact]
+    public void A_canvas_app_inside_customizations_xml_equals_the_same_app_in_a_meta_file()
+    {
+        // Real exports keep the app in customizations.xml, where xmlns:xsi is declared on the root; unpacking writes it to CanvasApps/*.meta.xml.
+        var dir = Directory.CreateTempSubdirectory("powerops-diff-").FullName;
+        var zip = dir + ".zip";
+        try
+        {
+            var src = Fx("powerops-seed", "v1");
+            foreach (var file in Directory.EnumerateFiles(src, "*", SearchOption.AllDirectories))
+            {
+                var target = Path.Combine(dir, Path.GetRelativePath(src, file));
+                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                File.Copy(file, target);
+            }
+
+            Directory.Delete(Path.Combine(dir, "CanvasApps"), recursive: true);
+            var meta = XDocument.Load(Directory.GetFiles(Path.Combine(src, "CanvasApps"), "*.meta.xml").Single()).Root!;
+            var custom = XDocument.Load(Path.Combine(src, "Other", "Customizations.xml"));
+            custom.Root!.Element("CanvasApps")!.Add(new XElement("CanvasApp", meta.Elements()));
+            custom.Save(Path.Combine(dir, "Other", "Customizations.xml"));
+            SolutionZip.Create(dir, zip);
+
+            Assert.Empty(DiffPaths(src, zip));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+            File.Delete(zip);
+        }
     }
 }

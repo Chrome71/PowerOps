@@ -185,6 +185,8 @@ public static class SolutionDiff
             var name = root.Element("Name")?.Value.Trim() ?? "";
             var version = root.Element("AppVersion")?.Value.Trim();
             root.Element("AppVersion")?.Remove();
+            // Where xmlns:xsi is declared differs between a meta file and customizations.xml; the prefixes are regenerated the same way on both sides.
+            root.DescendantsAndSelf().Attributes().Where(a => a.IsNamespaceDeclaration).Remove();
             return (name.Length > 0 ? name : "(unnamed)", version, root.ToString(SaveOptions.DisableFormatting));
         }
         catch (XmlException)
