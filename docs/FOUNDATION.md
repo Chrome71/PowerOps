@@ -2,7 +2,7 @@
 
 **One line:** a free, open-source, cross-platform toolkit that brings software-engineering discipline (analysis, diffing, testing, repeatable deployment) to Microsoft Power Platform. It works alongside `pac`; it does not replace it.
 
-Last updated 2026-10-19.
+Last updated 2026-10-20.
 
 ## 1. Why now
 
@@ -18,6 +18,13 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
 | Offline-first: most commands read an exported or unpacked solution, with no tenant needed | A replacement for `pac`, which it calls for pack, import and check |
 | Machine-readable output (JSON, SARIF, Markdown for PR comments) | A low-code maker tool |
 | Agent-friendly: stable output, a dry-run plan mode, read-only by default, planning skills that gate implementation on a signed-off plan ([design](PLANNING-SKILLS.md)), and an MCP server later | A replacement for Microsoft's skills ([power-platform-skills](https://github.com/microsoft/power-platform-skills)). Those focus on building, and their one planner covers Power Pages ALM. Ours plan any Power Platform project, add an independent review and a CI check, work across agents, and work alongside Microsoft's. |
+
+**Who uses it.** The main users are agents: PowerOps hooks into the user's own Claude Code or Codex, and the agents those tools run call it. So every feature has to be fast for an agent to read, check and repeat, and easy for the person behind the agent to follow. In practice:
+
+- **A stable contract.** Versioned JSON with published schemas, and findings that say how to fix themselves, so an agent can analyze, fix and recheck without reading prose.
+- **Talk at the user's pace.** The planning skills go as deep or stay as brief as the user's answers and engagement ask for, and remember that level for the next session.
+- **Low-friction versions.** Each version is planned, reviewed and signed off, and a new plan builds on the previous one instead of starting over, so iteration stays quick without lowering the bar.
+- **Repeatable recipes.** Adding a rule, reader, command or fixture follows written steps any agent can run, and claims about Microsoft's platform carry dated sources that are rechecked each milestone.
 
 ## 3. The four pillars, mapped to real gaps
 
@@ -62,6 +69,7 @@ Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform
 | **0. Foundation** | Repo scaffolding, CI (build, test, lint), release pipeline, docs skeleton, fixture solutions | `dotnet tool install` of a v0.1.0 that prints `--version`, published from CI |
 | **1. Offline analysis and diff** | `analyze` (about 10 rules, SARIF, baseline), `diff` (Markdown output), GitHub Action that comments on PRs | Running it on a real exported solution finds real issues, and the PR comment is readable |
 | **1b. Planning skills** | `plan`, `review-plan` and `implement` skills for Claude Code, Codex and other agents; `powerops skills install`; `powerops plan facts` (names-only environment facts); `powerops plan status` | A vague idea becomes a reviewed, signed-off plan, and CI fails if a plan was signed off by hand or edited after sign-off |
+| **1c. Agent base** | Versioned JSON output with schemas; fix hints on every finding; `powerops rules --json`; plan `depth` and `supersedes`; AGENTS.md recipes; dated sources in rule docs | An agent adds a rule from the recipe alone, and every JSON output validates against its schema |
 | **2. Settings and connections** | `settings generate/validate/diff`, and turning flows on after import | Replaces a hand-written `deploymentsettings.json` workflow end to end |
 | **3. Environment-aware** | `drift`, `deploy --plan`, pre-deploy layer and impact check, ephemeral environment per PR | A Dev→Test promotion runs from GitHub Actions with a plan reviewed in the PR |
 | **4. Testing** | Flow test harness, Playwright starter, a Copilot Studio eval gate | A failing flow assertion blocks a merge |
@@ -96,6 +104,7 @@ Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform
 | 2026-10-19 | CI: **GitHub Actions first**. An Azure DevOps task comes only if people ask for it. | One wrapper to maintain until there is demand for a second |
 | 2026-10-19 | Releases: Conventional Commits, **release-please**, NuGet trusted publishing (OIDC) with build provenance, starting at 0.1.0 | No long-lived publish keys, and changelogs are generated from commit history |
 | 2026-10-19 | **Planning skills** ship to PowerOps users, built after M2: question rounds until the user stops, review in a fresh context on the provider's top model, and no implementation without a signed-off plan (the agent drafts one if the user skips planning). See [PLANNING-SKILLS.md](PLANNING-SKILLS.md). | Agents build well from clear plans; most Power Platform mistakes are made before building starts |
+| 2026-10-20 | **Agents are the main users.** The agent base (Phase 1c, BUILD-PLAN M4) comes before the YAML layout and `diff` | PowerOps runs inside the user's Claude Code or Codex. A versioned contract, fix hints and recipes are cheapest to add before the first NuGet release and before more outputs exist |
 
 ## 8. Research topics still open
 
