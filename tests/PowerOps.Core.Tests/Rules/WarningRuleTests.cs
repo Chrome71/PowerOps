@@ -108,6 +108,76 @@ public class WarningRuleTests
         Assert.Empty(Run(new PO006HardCodedEnvironmentUrl(), s));
     }
 
+    private const string Site = "https://contoso.sharepoint.com/sites/ops";
+
+    private static CanvasFormula Formula(string control, string property, string value, string file = "canvasapps/a/a_DocumentUri/Src/App.pa.yaml", string app = "Work Items") =>
+        new(app, control, property, value, file);
+
+    [Fact]
+    public void PO014_fires_on_a_sharepoint_site_url_in_a_formula()
+    {
+        var s = B.Empty() with { CanvasFormulas = [Formula("Button1", "OnSelect", $"=Launch(\"{Site}\")")] };
+
+        var f = Assert.Single(Run(new PO014CanvasHardCodedUrl(), s));
+        Assert.Equal("PO014", f.RuleId);
+        Assert.Equal(Severity.Warning, f.Severity);
+        Assert.Equal("Canvas app 'Work Items' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops' in Button1.OnSelect.", f.Message);
+        Assert.Equal(Site, f.Component);
+        Assert.Equal("canvasapps/a/a_DocumentUri/Src/App.pa.yaml", f.File);
+    }
+
+    [Fact]
+    public void PO014_ignores_public_links_and_values_that_are_not_formulas()
+    {
+        var s = B.Empty() with
+        {
+            CanvasFormulas = [Formula("Button1", "OnSelect", "=Launch(\"https://learn.microsoft.com/power-apps\")"), Formula("Label1", "Text", Site)],
+        };
+
+        Assert.Empty(Run(new PO014CanvasHardCodedUrl(), s));
+    }
+
+    [Fact]
+    public void PO014_reports_a_url_once_per_app_naming_the_first_formula()
+    {
+        var s = B.Empty() with
+        {
+            CanvasFormulas =
+            [
+                Formula("Button1", "OnSelect", $"=Launch(\"{Site}\")", "a/Src/A.pa.yaml"),
+                Formula("Button2", "OnSelect", $"=Launch(\"{Site.ToUpperInvariant()}\")", "a/Src/A.pa.yaml"),
+                Formula("Button3", "OnSelect", $"=Launch(\"{Site}\")", "a/Src/B.pa.yaml"),
+            ],
+        };
+
+        var f = Assert.Single(Run(new PO014CanvasHardCodedUrl(), s));
+        Assert.EndsWith("in Button1.OnSelect.", f.Message);
+        Assert.Equal("a/Src/A.pa.yaml", f.File);
+    }
+
+    [Fact]
+    public void PO014_reports_each_distinct_url_in_an_app()
+    {
+        var s = B.Empty() with
+        {
+            CanvasFormulas = [Formula("Button1", "OnSelect", $"=Launch(\"{Site}\")"), Formula("Button2", "OnSelect", "=Launch(\"https://contoso.sharepoint.com/sites/hr\")")],
+        };
+
+        Assert.Equal(2, Run(new PO014CanvasHardCodedUrl(), s).Count);
+    }
+
+    [Fact]
+    public void PO014_quiet_without_formulas()
+    {
+        Assert.Empty(Run(new PO014CanvasHardCodedUrl(), B.Empty()));
+    }
+
+    [Fact]
+    public void PO006_and_PO014_share_one_fix_sentence()
+    {
+        Assert.Equal(new PO006HardCodedEnvironmentUrl().Fix, new PO014CanvasHardCodedUrl().Fix);
+    }
+
     [Theory]
     [InlineData("https://contoso.crm.dynamics.com/", "URL")]
     [InlineData("7d3f6f42-0a1b-4c2d-9e8f-123456789abc", "GUID")]

@@ -14,7 +14,7 @@ PO005 warning Connection reference is not used by any flow or app
   fix: Remove the connection reference from the solution, or use it in the flow or app that needs it.
   https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO005.md
 PO006 warning Flow contains a hard-coded environment or SharePoint site URL
-  fix: Move the URL into an environment variable and reference it from the flow.
+  fix: Remove the URL where the platform can use the current environment, otherwise read it from an environment variable whose value is set per environment at deployment.
   https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO006.md
 PO007 warning Environment variable default value looks environment-specific
   fix: Leave the default empty and set the value per environment at deployment time, or use a default that is valid everywhere.
@@ -37,3 +37,6 @@ PO012 warning Dataverse row-updated trigger has no filter columns
 PO013 error  Root component has no source folder in the YAML layout
   fix: Commit the component's folder and list it in solutioncomponents.yml, or remove the component from rootcomponents.yml.
   https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO013.md
+PO014 warning Canvas app formula contains a hard-coded environment or SharePoint site URL
+  fix: Remove the URL where the platform can use the current environment, otherwise read it from an environment variable whose value is set per environment at deployment.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO014.md

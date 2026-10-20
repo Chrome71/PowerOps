@@ -37,6 +37,7 @@ tests/fixtures/powerops-seed-yaml/v1: PowerOpsSeed 1.0.0.0 (publisher powerops, 
 tests/fixtures/powerops-seed-yaml/v2: PowerOpsSeed 1.0.0.0 (publisher powerops, prefix pops)
   warning PO005 connectionreferences/pops_SpareDataverse/connectionreference.yml: Connection reference 'pops_SpareDataverse' is not used by any flow or app.
   warning PO006 modernflows/4c8dd007-dfcb-f111-a05c-0022480697a8/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json: Flow 'Stamp work item status' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops'.
+  warning PO014 canvasapps/pops_workitems_2af60/pops_workitems_2af60_DocumentUri/Src/Screen1.pa.yaml: Canvas app 'Work Items' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops' in Button1.OnSelect.
 tests/fixtures/powerops-seed/v1: PowerOpsSeed 1.0.0.0 (publisher powerops, prefix pops)
   no findings
 tests/fixtures/powerops-seed/v2: PowerOpsSeed 1.0.0.0 (publisher powerops, prefix pops)
@@ -54,4 +55,4 @@ tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip: Contoso_sample 1.0.0.1 (
   warning PO010 solution.xml: Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher.
 tests/fixtures/zips/polymorphiclookupexamplesolution.zip: polymorphiclookupexamplesolution 1.0.0.0 (publisher examplepublisher, prefix sample)
   no findings
-11 solutions, 0 errors, 35 warnings
+11 solutions, 0 errors, 36 warnings

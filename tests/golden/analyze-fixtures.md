@@ -1,6 +1,6 @@
 ## PowerOps analyze
 
-**11 solutions, 0 errors, 35 warnings**
+**11 solutions, 0 errors, 36 warnings**
 
 ### tests/fixtures/alm-makers: ALMAcceleratorforMakers 0.0.0.0
 
@@ -54,7 +54,8 @@ No findings.
 | Severity | Rule | File | Message | Fix |
 |---|---|---|---|---|
 | warning | [PO005](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO005.md) | connectionreferences/pops\_SpareDataverse/connectionreference.yml | Connection reference 'pops\_SpareDataverse' is not used by any flow or app. | Remove the connection reference from the solution, or use it in the flow or app that needs it. |
-| warning | [PO006](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO006.md) | modernflows/4c8dd007-dfcb-f111-a05c-0022480697a8/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json | Flow 'Stamp work item status' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops'. | Move the URL into an environment variable and reference it from the flow. |
+| warning | [PO006](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO006.md) | modernflows/4c8dd007-dfcb-f111-a05c-0022480697a8/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json | Flow 'Stamp work item status' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops'. | Remove the URL where the platform can use the current environment, otherwise read it from an environment variable whose value is set per environment at deployment. |
+| warning | [PO014](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO014.md) | canvasapps/pops\_workitems\_2af60/pops\_workitems\_2af60\_DocumentUri/Src/Screen1.pa.yaml | Canvas app 'Work Items' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops' in Button1.OnSelect. | Remove the URL where the platform can use the current environment, otherwise read it from an environment variable whose value is set per environment at deployment. |
 
 ### tests/fixtures/powerops-seed/v1: PowerOpsSeed 1.0.0.0
 
@@ -65,7 +66,7 @@ No findings.
 | Severity | Rule | File | Message | Fix |
 |---|---|---|---|---|
 | warning | [PO005](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO005.md) | Other/Customizations.xml | Connection reference 'pops\_SpareDataverse' is not used by any flow or app. | Remove the connection reference from the solution, or use it in the flow or app that needs it. |
-| warning | [PO006](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO006.md) | Workflows/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json | Flow 'Stamp work item status' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops'. | Move the URL into an environment variable and reference it from the flow. |
+| warning | [PO006](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO006.md) | Workflows/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json | Flow 'Stamp work item status' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops'. | Remove the URL where the platform can use the current environment, otherwise read it from an environment variable whose value is set per environment at deployment. |
 
 ### tests/fixtures/zips/ColumnLevelSecuritySampleSolution.zip: ColumnLevelSecuritySampleSolution 1.0.0.0
 

@@ -87,7 +87,7 @@
               },
               "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO006.md",
               "help": {
-                "text": "Move the URL into an environment variable and reference it from the flow."
+                "text": "Remove the URL where the platform can use the current environment, otherwise read it from an environment variable whose value is set per environment at deployment."
               },
               "defaultConfiguration": {
                 "level": "warning"
@@ -189,6 +189,20 @@
               },
               "defaultConfiguration": {
                 "level": "error"
+              }
+            },
+            {
+              "id": "PO014",
+              "name": "CanvasHardCodedUrl",
+              "shortDescription": {
+                "text": "Canvas app formula contains a hard-coded environment or SharePoint site URL"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO014.md",
+              "help": {
+                "text": "Remove the URL where the platform can use the current environment, otherwise read it from an environment variable whose value is set per environment at deployment."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
               }
             }
           ]
@@ -883,6 +897,29 @@
           ],
           "partialFingerprints": {
             "poFinding/v1": "d7a7f1d022d3412d56570af46c45495c2c08355e8a93f6cfbb3c172a383d04c2"
+          }
+        },
+        {
+          "ruleId": "PO014",
+          "ruleIndex": 13,
+          "level": "warning",
+          "message": {
+            "text": "Canvas app 'Work Items' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops' in Button1.OnSelect."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/powerops-seed-yaml/v2/canvasapps/pops_workitems_2af60/pops_workitems_2af60_DocumentUri/Src/Screen1.pa.yaml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "7a9e7062f83794cf0807038230474de7359fc5d843f9120b48d9d11314923700"
           }
         },
         {
