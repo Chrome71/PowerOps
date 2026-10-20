@@ -95,4 +95,33 @@ public class FixtureRuleTests
             Directory.Delete(temp, recursive: true);
         }
     }
+    private static List<(string, string?, string)> Keys(IReadOnlyList<Finding> f) =>
+        f.Select(x => (x.RuleId, x.Component, x.Message)).ToList();
+
+    private static IReadOnlyList<Finding> AnalyzeYaml(string version) =>
+        Analyze(Path.Combine("powerops-seed-yaml", version, "solutions", "PowerOpsSeed", "solution.yml"));
+
+    [Fact]
+    public void Seed_yaml_v1_matches_the_xml_layout_with_no_findings()
+    {
+        Assert.Empty(Keys(Analyze(Path.Combine("powerops-seed", "v1"))));
+        Assert.Empty(Keys(AnalyzeYaml("v1")));
+    }
+
+    [Fact]
+    public void Seed_yaml_v2_matches_the_xml_layout_plus_the_canvas_formula()
+    {
+        const string url = "https://contoso.sharepoint.com/sites/ops";
+        var xml = Keys(Analyze(Path.Combine("powerops-seed", "v2")));
+
+        Assert.Equal(
+            [
+                ("PO005", "pops_SpareDataverse", "Connection reference 'pops_SpareDataverse' is not used by any flow or app."),
+                ("PO006", url, $"Flow 'Stamp work item status' hard-codes the URL '{url}'."),
+            ],
+            xml);
+        Assert.Equal(
+            [.. xml, ("PO014", url, $"Canvas app 'Work Items' hard-codes the URL '{url}' in Button1.OnSelect.")],
+            Keys(AnalyzeYaml("v2")));
+    }
 }
