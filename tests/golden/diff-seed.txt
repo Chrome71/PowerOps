@@ -1,0 +1,4 @@
+PowerOpsSeed 1.0.0.0 → PowerOpsSeed 1.0.0.0
+  added connectionReference pops_SpareDataverse [risk: connection-reference]
+  changed workflow Stamp work item status (4c8dd007-dfcb-f111-a05c-0022480697a8): definition changed
+2 changes (1 added, 0 removed, 1 changed)

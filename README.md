@@ -43,6 +43,7 @@ Pull requests from forks cannot upload SARIF (their token has no `security-event
 powerops analyze                      # find solutions under . (unpacked XML folders and exported .zip files)
 powerops analyze path/to/solution.zip path/to/unpacked --format json --out report.json
 powerops rules                        # list every rule with its severity, title and fix (add --json for machine output)
+powerops diff old.zip new.zip         # compare two versions component by component (zip or unpacked folder; --format text|json|markdown, --out <file>)
 powerops baseline                     # accept today's findings: writes powerops-baseline.json
 powerops analyze --baseline powerops-baseline.json   # report only findings that are not in the baseline
 ```
@@ -52,6 +53,8 @@ powerops analyze --baseline powerops-baseline.json   # report only findings that
 `baseline [path...] [--out <file>]` runs the same analysis and writes the findings it found to a JSON file (default `powerops-baseline.json`). A finding matches the baseline on solution unique name, rule id, component and message, not on file, so a baseline made from an exported zip also works for the unpacked folder. An unreadable or invalid baseline file is a usage error (exit `2`).
 
 Exit codes: `0` no findings at or above `--fail-on`, `1` findings at or above it, `2` usage error (bad option, missing path, no solutions found), `3` unreadable solution or internal error (set `POWEROPS_DEBUG=1` for a stack trace).
+
+`diff <old> <new>` is offline and read-only. It loads both solutions and compares the solution unique name, version, managed flag and publisher, root components, missing dependencies, connection references, environment variables, flows and canvas apps. File paths, ordering, flow JSON key order and whitespace, and XML whitespace in canvas app metadata are not differences, so a folder and its exported zip compare equal. Classic workflows and business rules are compared by name, category and state only (their XAML is not read), and components it does not read yet (tables, views, forms and so on) are not compared. Environment variable current values are reported as changed, added or removed but never printed. A canvas app whose `AppVersion` timestamp changed is reported as republished, since an edit changes the app package and the timestamp. Some changes carry a risk label: `removed-component` (a managed upgrade deletes components that are no longer in the new version, [per Microsoft Learn](https://learn.microsoft.com/en-us/power-platform/alm/solution-concepts-alm)), `flow-state` (a cloud flow was turned on or off), `connection-reference` and `environment-variable` (added or removed). Options: `--format text|json|markdown` (default `text`) and `--out <file>`. Markdown is cut at a whole row below 60,000 characters, with a note on how many changes were left out, so it fits in a pull request comment. JSON follows [docs/schemas/diff.schema.json](docs/schemas/diff.schema.json). Exit codes: `0` no differences, `1` differences found, `2` usage error (bad option, missing path), `3` unreadable solution or internal error (set `POWEROPS_DEBUG=1` for a stack trace).
 
 | Rule | Severity | Finds |
 |---|---|---|
