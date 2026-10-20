@@ -61,7 +61,7 @@
       "id": "PO009",
       "severity": "warning",
       "title": "Component name does not use the publisher prefix",
-      "fix": "Create the component under the solution's publisher, or move it to a solution owned by the publisher that matches its prefix.",
+      "fix": "Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency.",
       "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md"
     },
     {
@@ -82,7 +82,7 @@
       "id": "PO012",
       "severity": "warning",
       "title": "Dataverse row-updated trigger has no filter columns",
-      "fix": "Set the trigger's filter columns to the columns whose change should start the flow.",
+      "fix": "Set the trigger's filter columns to the columns whose update should start the flow.",
       "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO012.md"
     }
   ]

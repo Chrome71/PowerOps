@@ -23,7 +23,7 @@ PO008 warning Environment variable ships a current value
   fix: Remove the current value before export, and supply per-environment values with deployment settings.
   https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO008.md
 PO009 warning Component name does not use the publisher prefix
-  fix: Create the component under the solution's publisher, or move it to a solution owned by the publisher that matches its prefix.
+  fix: Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency.
   https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md
 PO010 warning Solution uses a default or generated publisher prefix
   fix: Create a publisher with a meaningful prefix and build the solution under it.
@@ -32,5 +32,5 @@ PO011 warning Cloud flow is turned off
   fix: Turn the flow on before export, or remove it from the solution if it is no longer needed.
   https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md
 PO012 warning Dataverse row-updated trigger has no filter columns
-  fix: Set the trigger's filter columns to the columns whose change should start the flow.
+  fix: Set the trigger's filter columns to the columns whose update should start the flow.
   https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO012.md

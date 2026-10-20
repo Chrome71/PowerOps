@@ -137,7 +137,7 @@
           "message": "Component 'new_sharedcommondataserviceforapps_06411' does not use the publisher prefix 'cat'.",
           "file": "Other/Customizations.xml",
           "component": "new_sharedcommondataserviceforapps_06411",
-          "fix": "Create the component under the solution's publisher, or move it to a solution owned by the publisher that matches its prefix.",
+          "fix": "Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency.",
           "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md"
         },
         {
@@ -146,7 +146,7 @@
           "message": "Component 'new_sharedpowerappsforappmakers_87b9a' does not use the publisher prefix 'cat'.",
           "file": "Other/Customizations.xml",
           "component": "new_sharedpowerappsforappmakers_87b9a",
-          "fix": "Create the component under the solution's publisher, or move it to a solution owned by the publisher that matches its prefix.",
+          "fix": "Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency.",
           "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md"
         },
         {
@@ -164,7 +164,7 @@
           "message": "Flow 'DeleteProjectCleanUp' runs on every update of 'cat_project'; set filter columns.",
           "file": "Workflows/DeleteProjectCleanUp-6F3FF001-D7EC-EA11-A817-000D3A1ABE26.json",
           "component": "When_Project_is_Deleted",
-          "fix": "Set the trigger's filter columns to the columns whose change should start the flow.",
+          "fix": "Set the trigger's filter columns to the columns whose update should start the flow.",
           "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO012.md"
         },
         {
@@ -173,7 +173,7 @@
           "message": "Flow 'BuildRequestCancellation' runs on every update of 'cat_project'; set filter columns.",
           "file": "Workflows/BuildRequestCancellation-05878F85-5A13-EB11-A813-000D3AA3E77C.json",
           "component": "When_a_BuildRequest_in_Cancelled",
-          "fix": "Set the trigger's filter columns to the columns whose change should start the flow.",
+          "fix": "Set the trigger's filter columns to the columns whose update should start the flow.",
           "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO012.md"
         }
       ]
@@ -266,7 +266,7 @@
           "message": "Component 'new_CoEAuditLogsDataverse' does not use the publisher prefix 'admin'.",
           "file": "Other/Customizations.xml",
           "component": "new_CoEAuditLogsDataverse",
-          "fix": "Create the component under the solution's publisher, or move it to a solution owned by the publisher that matches its prefix.",
+          "fix": "Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency.",
           "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md"
         },
         {
@@ -275,7 +275,7 @@
           "message": "Component 'new_CoEAuditLogsO365Outlook' does not use the publisher prefix 'admin'.",
           "file": "Other/Customizations.xml",
           "component": "new_CoEAuditLogsO365Outlook",
-          "fix": "Create the component under the solution's publisher, or move it to a solution owned by the publisher that matches its prefix.",
+          "fix": "Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency.",
           "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md"
         },
         {

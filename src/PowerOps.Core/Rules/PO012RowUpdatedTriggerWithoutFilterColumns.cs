@@ -13,7 +13,7 @@ public sealed class PO012RowUpdatedTriggerWithoutFilterColumns : IRule
 
     public string Title => "Dataverse row-updated trigger has no filter columns";
 
-    public string Fix => "Set the trigger's filter columns to the columns whose change should start the flow.";
+    public string Fix => "Set the trigger's filter columns to the columns whose update should start the flow.";
 
     public IEnumerable<Finding> Evaluate(Solution solution)
     {

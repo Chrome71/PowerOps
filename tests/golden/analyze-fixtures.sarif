@@ -129,7 +129,7 @@
               },
               "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md",
               "help": {
-                "text": "Create the component under the solution's publisher, or move it to a solution owned by the publisher that matches its prefix."
+                "text": "Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency."
               },
               "defaultConfiguration": {
                 "level": "warning"
@@ -171,7 +171,7 @@
               },
               "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO012.md",
               "help": {
-                "text": "Set the trigger's filter columns to the columns whose change should start the flow."
+                "text": "Set the trigger's filter columns to the columns whose update should start the flow."
               },
               "defaultConfiguration": {
                 "level": "warning"

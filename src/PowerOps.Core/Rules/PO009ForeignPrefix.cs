@@ -10,7 +10,7 @@ public sealed class PO009ForeignPrefix : IRule
 
     public string Title => "Component name does not use the publisher prefix";
 
-    public string Fix => "Create the component under the solution's publisher, or move it to a solution owned by the publisher that matches its prefix.";
+    public string Fix => "Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency.";
 
     // Checks only env vars, connection references and entity root components (type 1); other types are not always named by the publisher.
     public IEnumerable<Finding> Evaluate(Solution solution)
