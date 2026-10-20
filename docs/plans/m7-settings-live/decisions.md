@@ -40,6 +40,26 @@ Answer: Dry run writes nothing; `--apply` imports the seed exported with its flo
 3. In your own words
 Answer: Assume the developer environment's plan covers it for the test; list licence and DLP under Questions for your admin; report a DLP-suspended flow as its own state
 
+## Round 3
+
+### Q7. Review R2: the dry run and a later `--apply` both read the pac profile's current environment. How is `--apply` tied to the environment the user approved?
+1. `--apply` needs `--target <environment name>` equal to the name from `pac org who` (else exit 2), and powerops passes that environment's id to every later pac call; the id is read at run time, never printed or stored (recommended)
+2. `--apply` prints the environment name first, and the README tells agents to run it only after a yes; no new option
+3. In your own words
+Answer: `--apply` needs `--target <environment name>` equal to the name from `pac org who` (else exit 2), and powerops passes that environment's id to every later pac call; the id is read at run time, never printed or stored
+
+### Q8. Review R1 and R3: an import over an existing flow keeps its current state. How do the live runs start?
+1. The user deletes the seed before each clean import; one extra check re-imports over the installed seed and expects the state unchanged; the dry run reads existing flows and says new or existing (recommended)
+2. Use a second developer environment that never had the seed
+3. In your own words
+Answer: The user deletes the seed before each clean import; one extra check re-imports over the installed seed and expects the state unchanged; the dry run reads existing flows and says new or existing
+
+### Q9. Review R4: pac's error text can hold URLs, emails or names. What goes in the report when the import fails?
+1. The report holds pac's exit code and a fixed hint; pac's own output goes unchanged to powerops' stderr; live results in the PR are written by hand (recommended)
+2. pac's last lines in the report with URLs, GUIDs and emails masked
+3. In your own words
+Answer: The report holds pac's exit code and a fixed hint; pac's own output goes unchanged to powerops' stderr; live results in the PR are written by hand
+
 ## Log
 
 - plan started 2026-10-20 from the master session's brief; the offline half is `docs/plans/m7-settings/`
@@ -49,3 +69,5 @@ Answer: Assume the developer environment's plan covers it for the test; list lic
 - depth: quick (from `m7-settings`); two rounds were held because route, failure handling and the live done-when all blocked the plan
 - approved without: users
 - approved (2026-10-20)
+- fresh review (Sonnet) 2026-10-20: 2 High, 6 Medium, 3 Low; round 3 asked the user R2, R1/R3 and R4; plan revised for all eleven findings; review now stale
+- found while fixing R1: deleting an unmanaged solution leaves its components (Learn), so the live reset deletes the components too; the live zips are unmanaged because a managed export cannot be imported into the environment holding the unmanaged original
