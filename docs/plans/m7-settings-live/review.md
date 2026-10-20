@@ -1,12 +1,14 @@
-plan-hash: d5216cad508f539c97ded9a66348d52bd8e54e2da4efc61990becd91fa94c2cb
+plan-hash: 6b966fc580ee5e0ce4f9b2677939612b02eb42e2891802cb84b238b91bac2012
 model: claude-sonnet-5-5
 fresh-context: yes
 
-Scope: `plan.md` and `decisions.md` of `m7-settings-live`, the offline half `docs/plans/m7-settings/plan.md`, `AGENTS.md`, the M7 row and line 61 of `docs/BUILD-PLAN.md`, and the code the plan names (`SettingsCommand.cs`, `Program.cs`, `PlanCommand.cs`, `PacRunner.cs`, `PlanFacts.cs`, `tests/PowerOps.Cli.Tests/PlanFactsTests.cs` and `SettingsCommandTests.cs`, `Solution.cs`, `SolutionParser.cs`, `Settings/DeploymentSettings.cs`, `Output/SettingsReport.cs`, `OutputSchemaTests.cs`, `tests/Shared/SolutionZip.cs`, the seed fixture). `powerops plan status` reports `approved`, `openQuestions` 3 (the three admin questions; the `Open questions` section is empty), `review: pending`, no violations. `powerops plan facts` was NOT run and `pac` was never called: contacting the tenant is forbidden for this review, so there are no environment facts and the overlap check of item 1 was not done. Two Microsoft Learn pages were read in full (`pac solution`, `pac power-automate`) because R2 and R6 depend on them.
+The plan-hash was updated after the text fixes for R1 to R8 below (the same practice as the offline M7 review). They changed only plan.md's Automation (import arguments, forwarded `pac` output, the runner seam), live item 5, one Assumption and Steps 1, 3, 4 and 6; nothing else in the body changed. Reviewed hash: 06265042198946da8727761ac4231367f102a252b9c1f6641265096e4b3dc8e7.
 
-Checklist items that do not apply: 1 (no solution or publisher is created; the existing seed `pops` is reused), 2 (connection ids and variable values live in a settings file kept outside the repo; nothing is hard-coded), 7 (no app, no row counts; the flow list is one call per solution flow). Items 3 and 4 (licence, DLP) follow the user's Q6 choice and the admin questions; not raised again. Tenant data: no URL with a scheme, GUID, email or person's name in `plan.md` or `decisions.md` (the Learn paths are public, relative).
+Scope: `plan.md` and `decisions.md` of `m7-settings-live`, the offline half `docs/plans/m7-settings/plan.md`, `AGENTS.md`, the M7 row and line 61 of `docs/BUILD-PLAN.md`, and the code the plan names (`SettingsCommand.cs`, `PacRunner.cs`, `PlanFacts.cs`, `PlanCommand.cs`, `Program.cs`, `PowerOps.Cli.csproj`, `PlanFactsTests.cs`, `SettingsCommandTests.cs`, `OutputSchemaTests.cs`, `tests/Shared/SolutionZip.cs`, `Model/Solution.cs`, `SolutionParser.cs`, `Settings/DeploymentSettings.cs`, `Output/SettingsReport.cs`, `skills/powerops-implement/SKILL.md`, the seed fixture). `powerops plan status` reports `approved`, `openQuestions` 3 (the three admin questions; the `Open questions` section is empty), `review: pending`, no violations. `powerops plan facts` was NOT run and `pac` was never called: contacting the tenant is forbidden for this review, so there are no environment facts and the overlap check of item 1 was not done. One Microsoft Learn page was re-read (`pac power-automate`): it confirms `--workflow-id` and `--environment` on `list-cloud-flows`, `--json` only in the `--columns` text, and that `--environment` takes a Guid or an https URL.
 
-Earlier review (11 findings, all marked fixed or accepted) re-checked against the current plan. R1 (seed already installed) is resolved by Q8: the live run removes the seed and its components first and item 3 covers the re-import; one residue remains, see R5. R2 (nothing ties `--apply` to the approved environment) is resolved by `--target` plus the environment id on every later call; the agent rule exists only in the README, see R4. R3 (predictions for updates, flow cycling) is resolved: the dry run reads each flow and reports `exists` or `new`. R4 (pac text in the report) is resolved by Q9. R5 (one runner for 30 s reads and a 60-minute import) is resolved in design, but the 60-minute figure is justified by an option the plan does not pass, see R2. R6 (Preview command, `--workflow-id`, capture) is resolved except that the plan cites `--json` as documented, see R6 below. R7 (`managed`) is resolved; the import defaults the earlier finding asked to list in the README are still not in Step 6, see R2. R8 (dry run changes nothing) is resolved with `pac solution list` before and after. R9 (paths printed as typed), R10 (owner and role) and R11 (public Learn paths) are resolved or accepted correctly.
+Checklist items that do not apply: 1 (no solution or publisher is created; the existing seed `pops` is reused), 2 (connection ids and variable values live in a settings file kept outside the repo), 7 (no app; one `list-cloud-flows` call per solution flow, see R6), 5 and 6 (the tool imports whatever zip it is given; the user's choice, and `managed` is shown). Items 3 and 4 (licence, DLP) follow the user's Q6 choice and the admin questions, not raised again. Tenant data: no URL with a scheme, GUID, email or person's name in `plan.md` or `decisions.md`.
+
+Earlier review (12 findings, 0 High, 5 Medium, 7 Low, written for plan hash d5216cad), re-checked against the current plan. All twelve are really resolved in the plan text: the seam is named (Step 4; but see R1 for what it still lacks), the import is synchronous with 60 minutes as powerops' own limit and the pac defaults listed in Automation and Step 6, item 5 has two accepted outcomes and starts from item 4's state (but see R5), the agent rule is added to AGENTS.md and the `powerops-implement` skill in Step 6, dry runs after each removal compare `new` with the result, Sources and the Assumption say `--json` is only in the `--columns` text and the local help, `Stderr = ""` is a trailing default, usage errors come first and `--target` without `--apply` is exit 2, JSON mode writes the target line to stderr, the zero-flow case and "`new` also means not visible" are in, test zips come from `SolutionZip.Create`, and Step 7 covers BUILD-PLAN line 61 and the README. Nothing from that review is still open. The review file was stale for the current hash because the plan was edited after it; this review replaces it.
 
 ## Findings
 
@@ -16,76 +18,52 @@ No findings.
 
 ### Medium
 
-#### R1. CLI tests cannot inject a fake `pac` through `Program.Run`
+#### R1. The runner seam is not buildable as written: no `InternalsVisibleTo`, and the timeout argument breaks the existing runner type
 - Area: 9. Testability
-- Finding: Constraints say the command takes the `pac` runner as a function "the way `PlanFacts.Run` does", and Step 4 lists many CLI tests with a fake `pac`. But `PlanFacts.Run` gets its runner from `PlanCommand` (`new PacRunner().Run`, inline), and the only tests that fake `pac` call `PlanFacts.Run` directly. `Program.Run(args, out, err)` and `SettingsCommand.Create(output, error)` have no runner parameter, and AGENTS.md's "Add a command" recipe tests commands through `Program.Run`. As written, Step 4 cannot be built: a test that goes through the parser (`--apply` without `--target`, exit 2) has no way to supply a fake runner.
-- Suggested fix: Name the seam in Step 4: for example `SettingsCommand.Create(output, error, pac)` with `Program` passing the real runner and an optional `Program.Run` overload or an internal factory the tests use. Say which tests call the command directly and which go through `Program.Run`.
-- Resolution: fixed (Step 4 names the seam: `SettingsCommand.Create(output, error, pac)` and an internal `Program.Run` overload)
+- Finding: Step 4 adds an `internal` `Program.Run` overload "visible to the test project". `PowerOps.Cli.csproj` has no `InternalsVisibleTo` (only `PowerOps.Core` has one, for `PowerOps.Core.Tests`), and the plan does not add one. Separately, Step 3 says "the runner function takes a timeout" while `PlanFacts.Run` takes `Func<IReadOnlyList<string>, PacResult>`, `PlanCommand` passes `new PacRunner().Run` as a method group, and `PlanFactsTests` fakes are one-argument lambdas. If `PacRunner.Run` gains a second parameter, the method group no longer converts and the fakes no longer compile, so "`PlanFacts` and its tests keep passing unchanged" does not hold. The plan does not say which type `SettingsCommand.Create(output, error, pac)` takes.
+- Suggested fix: In Step 3 or 4, say that `PlanFacts.Run` keeps its one-argument type and `PlanCommand` adapts (for example `args => runner.Run(args, 30 s)`), that `SettingsCommand` takes a new delegate (`args, timeout`), and that Step 4 adds `<InternalsVisibleTo Include="PowerOps.Cli.Tests" />` to `PowerOps.Cli.csproj` (or makes the overload public).
+- Resolution: fixed (`PacRunner.Run` and `PlanFacts` keep their types; `apply` takes a `(args, timeout)` function built in `Program`; a public `Program.Run` overload, no `InternalsVisibleTo`)
 
-#### R2. The 60-minute import runs without the option that makes it wait, and the import defaults are unstated
-- Area: 9. Testability, 6. Managed or unmanaged
-- Finding: Automation step 4 gives the import a 60-minute timeout "matching `pac`'s own default wait", with "no other options". Learn lists that default (60 minutes) on `--max-async-wait-time`, which belongs to `--async`; without `--async` the import is a single synchronous call, and Learn does not say how long it may take. So the timeout may not match what `pac` does, and a long import may fail in a way the plan does not model. Learn also lists `--force-overwrite` (unmanaged customisations) and `--publish-changes`, whose absence changes what an unmanaged import over an existing solution does; the earlier review asked for these defaults to be named in the README, and Step 6 still lists nothing about them.
-- Suggested fix: Decide in the plan whether the import passes `--async` (and `--max-async-wait-time`) or stays synchronous, and say why; if no option is added, say the 60 minutes is powerops' own limit, not `pac`'s. Add the import defaults (no force-overwrite, changes not published, no upgrade) to the Step 6 README list. A live item should observe a real import through the chosen route.
-- Resolution: fixed (synchronous import, 60 minutes is powerops' own limit; the pac defaults listed in Automation and the Step 6 README list)
+#### R2. The report shows the import argument list, but the environment id must never be printed
+- Area: 9. Testability, agent safety
+- Finding: Data says the environment id "is held in memory and passed to `pac` as `--environment`, never printed or stored". Automation step 3 and the JSON contract say the report shows "the exact argument list of the import", and step 4 defines that list as `pac solution import --environment <id> ...`. Both cannot hold. A builder will either print the id (tenant data in agent logs and PR text, against the plan's own rule) or print something that is not exact. No test or golden is named that would catch it.
+- Suggested fix: Say the argument list is printed with a placeholder (`--environment <environment id>`) and that the zip and settings paths are printed as typed. Add a CLI test that runs with a fake `org who` holding a known id and asserts the id is absent from stdout, stderr (powerops' own lines) and the JSON report.
+- Resolution: fixed (the import arguments are printed with the `<environment id>` placeholder; a CLI test asserts the id appears nowhere)
 
-#### R3. Live done-when item 5 may not produce the failure it expects
+#### R3. A failed import's text is probably on `pac`'s stdout, but the plan keeps only stderr for it
 - Area: 9. Testability
-- Finding: Item 5 expects a fake `ConnectionId` to make the import fail with exit 3. Learn says nothing about how an unknown connection id is handled at import; it may import and leave the flow off (powerops then exits 1, not 3). Then the exit-3 path with `pac`'s text on stderr and none in the report is never seen live, and item 5 would count as a failed check of the plan rather than a result. Item 5 also does not say what state it starts from (item 4 leaves the seed installed with its flow off), and a successful import would overwrite that state.
-- Suggested fix: Write item 5 as an observation with two accepted outcomes (exit 3 with the report holding `pac`'s exit code and no text, or exit 1 with the flow `off`), say it starts from the seed installed after item 4, and state that the exit-3 path is covered offline by the fake `pac` when the live import does not fail. Or name another reliable way to make a real import fail.
-- Resolution: fixed (item 5 starts from item 4's state and accepts exit 3 or exit 1; offline tests cover exit 3 otherwise)
-
-#### R4. The agent rule for `--apply` lives only in the README
-- Area: 8. Security roles, agent safety
-- Finding: The plan's Users include agents, and the safety of `--apply` rests on "dry run, show the target line, `--apply --target <name>` only after a yes". Nothing enforces it: `--target` is the name printed by the dry run, so an agent can copy it with no yes. Step 6 puts the rule in the README only. The repo's agent files do not carry it: AGENTS.md has the read-only rule but not this one, and the installed skills say "never run `pac` yourself" without mentioning a `powerops` command that runs `pac solution import`. An agent working in this repo (or using the skills) reads those, not the README paragraph.
-- Suggested fix: Add a Step (or extend Step 6) that adds the rule to AGENTS.md under Rules ("never run `settings apply --apply` unless the user said yes to that environment this session") and to the skills that mention `pac`. Optionally record in `decisions.md` that no technical gate (a prompt, a token) is added, so the choice is explicit.
-- Resolution: fixed (Step 6 adds the rule to AGENTS.md and the powerops-implement skill; no gate beyond `--target`, per Q7)
-
-#### R5. The `new` prediction in the dry run is never checked live
-- Area: 9. Testability
-- Finding: Item 1 runs before the seed is removed, so every flow is `exists` there. The `new` prediction ("expected on if on at export") is the claim that matters for the "flows come back on" done-when, but the live items first see `new` only in the `--apply` report of items 2 and 4, after the import has happened. Nothing compares the prediction made before the import with the result after it.
-- Suggested fix: Add a dry run after the seed is removed and before items 2 and 4, and have the user note that the predicted state equals the reported state after the import.
-- Resolution: fixed (dry runs after each removal predict `new`; items 2 and 4 compare the prediction with the result)
+- Finding: Q9 and Automation step 4 say "`pac`'s own output goes unchanged to powerops' stderr", and Step 3 adds only `Stderr` to `PacResult`. `PacRunner` already captures stdout, and `pac` prints its progress and most error messages to stdout (the `PlanFactsTests` samples are stdout). A builder following Step 3 forwards the new `Stderr` and drops the text the user needs to see why the import failed. On a timeout `PacRunner` returns empty output for both, so the "may still be running" case has nothing to forward either; the plan does not say that is fine.
+- Suggested fix: State that both `Stdout` and `Stderr` of the failed import are written to powerops' stderr (stdout first, unchanged), that a timeout forwards nothing, and add the stdout case to the import-failure CLI test and to the Step 1 capture notes (which stream carries an error).
+- Resolution: fixed (stdout then stderr of a failed import go to powerops' stderr; a timeout forwards nothing; Step 1 records which stream carries errors)
 
 ### Low
 
-#### R6. The plan cites `--json` for `list-cloud-flows` as documented
+#### R4. A flow that was off at export makes every run exit 1
 - Area: 9. Testability
-- Finding: Sources say the Learn reference lists `--workflow-id`, `--environment` and `--json` for `pac power-automate list-cloud-flows`. The Learn page lists no `--json` parameter; it appears only in the `--columns` description ("Use --json for the complete response"). Assumptions cover the field names, not whether the flag exists, and Steps 2 to 6 depend on JSON output. Step 1 would find out, but the gate wording ("the plan goes back to Q4") is only attached to the fields.
-- Suggested fix: Say in Sources that `--json` appears in the `--columns` text only and that `pac` 2.13.1's local help is the evidence, and make the Assumption cover the flag too.
-- Resolution: fixed (Sources and the Assumption now say `--json` is only in the `--columns` text and the local help)
+- Finding: Exit 0 needs every flow `on` (the user's Q3). A solution that deliberately ships a flow off (a manual or retired flow) can therefore never pass in CI, although the dry run predicted `off` and the import did what it should. The report holds `expected` per flow, so a consumer can tell, but the README step does not say that exit 1 includes this case.
+- Suggested fix: Say in the README step that a flow off at export gives exit 1 with `expected: off`, and that pipelines should read `flows[].expected` if they accept that. No change to the Q3 rule.
+- Resolution: fixed (README step: a flow off at export always exits 1, by design)
 
-#### R7. Adding a field to the `PacResult` record changes every constructor call
+#### R5. Live item 5's "import succeeds, flow stays off" outcome tells nothing about the fake connection id
 - Area: 9. Testability
-- Finding: `PacResult` is a positional record used in `new PacResult(true, false, 0, "...")` throughout `PlanFactsTests`. Step 3 says "gains stderr" and that `PlanFacts` and its tests keep passing unchanged; that holds only if the new member is a trailing parameter with a default (`string Stderr = ""`) or a settable property.
-- Suggested fix: State the form in Step 3.
-- Resolution: fixed (trailing `string Stderr = ""` named in Step 3)
+- Finding: Item 5 starts from the seed installed by item 4 with the flow off. An import over an existing flow keeps its state (the plan's own premise), so the flow stays off with a real or a fake connection id, and exit 1 is then not evidence about how `pac` handles an unknown id. The item still records which outcome was seen, so it is not wrong, but only the exit-3 outcome is informative.
+- Suggested fix: Say in item 5 that exit 1 only means the import was accepted and proves nothing about the id; or start item 5 from a removed seed with the flow-on zip, where a fake id that is accepted shows as `off` after the import.
+- Resolution: fixed (item 5 says what its second outcome does and does not show)
 
-#### R8. Usage-error order and `--target` without `--apply` are not defined
+#### R6. The flow reads cost two `pac` calls per flow, sequentially
+- Area: 7. Data volume
+- Finding: Dry run and `--apply` call `list-cloud-flows` once per cloud flow, before and after the import, each a new `pac` process with a 30-second limit. A solution with dozens of flows takes minutes, and one slow call stops the run at step 3 or 5 (exit 3). Q4 chose per-id matching, so the shape is fine; the cost and the failure mode are not stated.
+- Suggested fix: Add one sentence to the README step (about 2N `pac` calls for N flows, and a timeout on one read is exit 3). Whether to batch is a later change.
+- Resolution: fixed (README step: two reads per flow, 30-second read limit)
+
+#### R7. Step 1 is a live user step that gates the whole build, and the fallback for a missing `Environment ID:` line is not stated
 - Area: 9. Testability
-- Finding: Automation puts the missing or wrong `--target` check in step 2, after validate. With validate problems and no `--target` on `--apply`, the exit is 1 or 2 depending on order, and no test names it. `--target` given without `--apply` (a dry run) is also unspecified: ignored, checked, or an error.
-- Suggested fix: Say that option usage errors (`--apply` without `--target`, a folder instead of a zip, a missing file) come first with exit 2, and that `--target` without `--apply` is either checked against `pac org who` or rejected; add one CLI test each.
-- Resolution: fixed (usage errors first with exit 2, `--target` without `--apply` is exit 2, tests added)
+- Finding: Steps 2 to 7 need the captured samples, so an agent cannot start the build until the user has run `pac` against the developer environment. The Assumptions say the plan goes back to Q4 if `--json` or the id field is missing, but not what happens if `pac org who` prints no `Environment ID:` line on the real output (the existing fake has one, the plan only guesses the real format). The `--environment` pinning of Q7 depends on it. The 2026-12-15 deadline makes a late discovery costly.
+- Suggested fix: Say Step 1 is the first thing to do and may need the user's yes before the build session starts; add `Environment ID:` to the list of things that send the plan back (with the `--json` flag and the state field).
+- Resolution: fixed (a missing `Environment ID:` line sends the plan back to Q7 before Step 2)
 
-#### R9. JSON mode has no "first line" and no output until the end
-- Area: 9. Testability, agent safety
-- Finding: Screens say that with `--apply` the first line is the target name, printed before the import starts. With `--format json` the report is one document written at the end (as `SettingsReport` does), so for the agents the Users section describes, nothing shows the target during a run of up to an hour, and a killed process leaves no output at all.
-- Suggested fix: Say what JSON mode does before the import (nothing, or the name on stderr) and keep the first-line rule for text mode only.
-- Resolution: fixed (text mode first line; JSON mode writes the target line to stderr before the import)
-
-#### R10. Edge cases of the flow list: zero flows, and a flow the user cannot see
-- Area: 8. Security roles, 9. Testability
-- Finding: A solution with no cloud flows has an empty `flows` list, so "every flow on" holds and the run exits 0; the plan does not say so or test it. Separately, a flow the importing user cannot see reads as absent, so the dry run predicts `new` (and "comes back on") for a flow that exists and is off; the plan and README mention `missing` after the import but not this false `new` before it.
-- Suggested fix: Add a zero-flow case to Step 4 and say in the README that `new` also means "not visible to this account".
-- Resolution: fixed (zero flows exits 0 with a test; `new` also means not visible, in Automation and the README step)
-
-#### R11. The test fixtures for `apply` are not named
-- Area: 9. Testability
-- Finding: `apply` takes a zip only, but the repo holds the seed as an unpacked folder (`tests/fixtures/powerops-seed/v1`) and no seed zip. Step 5's goldens need a flow-on and a flow-off export (the seed's `StateCode` is 1); `SolutionZip.Create` zips a folder, so the flow-off case needs an edited copy. The plan does not say how the tests get either, or that no new binary is committed.
-- Suggested fix: Add to Step 4 or 5 that tests build the zip from `powerops-seed/v1` in a temp folder with `SolutionZip.Create`, and the flow-off zip from a copy with `StateCode` changed to 0.
-- Resolution: fixed (test zips built with `SolutionZip.Create`, flow-off from a temp copy, none committed)
-
-#### R12. Other docs still say writes through `pac` do not exist
-- Area: 5. Route
-- Finding: `docs/BUILD-PLAN.md` line 61 says the CLI calls `pac` only read-only and "writes through `pac` wait until M7"; Step 7 updates only the M7 row. The README status line and the `plan facts` wording ("read-only") sit near the new paragraph.
-- Suggested fix: Extend Step 7 to update line 61 and any README sentence that says the CLI never writes through `pac`.
-- Resolution: fixed (Step 7 updates the BUILD-PLAN line and README wording)
+#### R8. Environment friendly names are not unique, so `--target` is a weak confirmation
+- Area: 8. Security roles, agent safety
+- Finding: `--target` is compared with the friendly name from `pac org who`. Two environments (a Dev and its copy, or Test and a restored Test) can share a name, and a profile switch between the dry run and `--apply` to a same-named environment passes the check. The id pinned for the run protects the run itself, not the user's approval. Q7 chose the name; the residual risk is not stated.
+- Suggested fix: Add one sentence to the README step: names are not unique, so check the pac profile before saying yes. No code change.
+- Resolution: fixed (README step: names are not unique; check `pac auth list` before saying yes)

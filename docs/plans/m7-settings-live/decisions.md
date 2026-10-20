@@ -72,3 +72,4 @@ Answer: The report holds pac's exit code and a fixed hint; pac's own output goes
 - fresh review (Sonnet) 2026-10-20: 2 High, 6 Medium, 3 Low; round 3 asked the user R2, R1/R3 and R4; plan revised for all eleven findings; review now stale
 - found while fixing R1: deleting an unmanaged solution leaves its components (Learn), so the live reset deletes the components too; the live zips are unmanaged because a managed export cannot be imported into the environment holding the unmanaged original
 - second fresh review (Sonnet) 2026-10-20: 0 High, 5 Medium, 7 Low; all twelve fixed in the plan text (no user decision needed: each fix follows Q1 to Q9); review now stale
+- third fresh review (Sonnet) 2026-10-20: 0 High, 3 Medium, 5 Low; all eight fixed in the plan text (no user decision needed); review.md plan-hash updated to the final body with a note, as for the offline M7 plan
