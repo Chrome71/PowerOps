@@ -71,6 +71,14 @@ Each rule has a page with what it finds, how to fix it and how to suppress it: [
 
 ## Planning
 
+PowerOps ships three agent skills that turn an idea into a reviewed, signed-off plan before any code or solution change is made:
+
+- `powerops-plan` asks short question rounds (at most three questions, recommended answer first), logs every answer in `decisions.md`, drafts `plan.md`, and signs it off with you. Asked to build without a plan, it drafts one and asks only the route.
+- `powerops-review-plan` reviews an approved plan in a fresh context against a Power Platform checklist and writes `review.md`. It never asks you questions.
+- `powerops-implement` builds only from a signed-off plan whose body still matches its sign-off.
+
+Run `powerops skills install` in your repo to add them. Supported: Claude Code and Codex. Gemini CLI and GitHub Copilot are provisional and untested. The skills are also in [skills/](skills/) for `npx skills add` (that CLI has telemetry on by default). Design: [docs/PLANNING-SKILLS.md](docs/PLANNING-SKILLS.md).
+
 Plans live in `docs/plans/<name>/plan.md`, with a header between `---` lines (`status`, `review`, `signed-off`, `signed-off-hash`, `environment`).
 
 ```sh
