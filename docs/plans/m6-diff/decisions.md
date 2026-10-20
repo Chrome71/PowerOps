@@ -48,8 +48,24 @@ Answer: Name, category and state only, and the README says so
 3. In your own words
 Answer: Cut at a whole row below 60,000 characters, with a note on how many changes were left out; cells capped at 200 characters
 
+## Round 4
+
+### Q8. Should M6 also compare tables, views and forms (labels and columns)?
+1. Later: a follow-up milestone; M6 stays as built (recommended)
+2. Add them to M6 now
+3. In your own words
+Answer: Later: a follow-up milestone; M6 stays as built
+
+### Q9. Should environment variable default values be hidden like current values?
+1. Keep showing default values; only current values stay hidden (recommended)
+2. Hide default values too
+3. In your own words
+Answer: Keep showing default values; only current values stay hidden
+
 ## Log
 
 - Plan written after the fact (2026-10-20): M6 was built autonomously from the BUILD-PLAN M6 row. Q1 to Q7 were decided by the implementing session during the build, not asked of the user; the user confirms them at sign-off.
 - approved for review (2026-10-20), on the master session's relayed request: plans after the fact for M6 and M7, a fresh review, then the user signs off
 - approved without: users, automation (no question asked about them; both are covered in the plan)
+- fresh review (Opus, 2026-10-20): R1, R4, R6 fixed in 196f815
+- Q8 and Q9 answered by the user, relayed by the master session (2026-10-20); review findings R2, R3, R5, R7 addressed in plan.md; the two follow-ups moved from Open questions to Follow-ups; review now stale, plan body changed

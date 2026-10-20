@@ -1,6 +1,6 @@
 ---
 status: approved
-review: done
+review: pending
 signed-off: null
 signed-off-hash: null
 environment: null
@@ -14,7 +14,7 @@ supersedes: null
 
 `powerops diff <old> <new>` compares two versions of a solution component by component, offline, and labels the changes that carry deployment risk. Each argument is an exported zip or an unpacked solution folder. Release v0.7.0.
 
-This plan is written after the fact: the build ran autonomously from the BUILD-PLAN M6 row, and the plan records what was built and the decisions made, for review and the user's sign-off.
+This plan is written after the fact: the build ran autonomously from the BUILD-PLAN M6 row, and the plan records what was built and the decisions made, for review and the user's sign-off. Q1 to Q7 in `decisions.md` were decided by the implementing session during the build, not asked of the user; the user confirms them at sign-off. Q8 and Q9 are the user's answers.
 
 Done when (BUILD-PLAN M6 row):
 
@@ -27,6 +27,12 @@ How the build meets it:
 - `powerops-seed/v1` against `v2` (the live export): the added connection reference `pops_SpareDataverse` (risk `connection-reference`) and the changed definition of the flow "Stamp work item status" (asserted in a test, with text, JSON and Markdown goldens).
 - A solution against itself, and an unpacked folder against a zip built from it: no changes, exit 0.
 - Markdown is cut below 60,000 characters (GitHub's comment limit is 65,536).
+
+The BUILD-PLAN deliverable "ignores noise (timestamps, ordering, volatile IDs)" maps to the build like this:
+
+- Timestamps: the model holds no export or modified timestamps, so none are compared. The one exception is on purpose: a canvas app's `AppVersion` is reported as "republished" (decision Q5), because an app edit is otherwise invisible. Studio version stamps in the canvas meta (for example `CreatedByClientVersion`) change on a republish too and add "definition changed" to the same change line.
+- Ordering: every component kind is compared as a keyed set, flow JSON ignores key order, and canvas meta ignores XML whitespace. Tested by the folder-against-zip tests and the JSON normalization tests.
+- Volatile IDs: file paths and file names (which differ between zip and folder layouts) and the place where XML namespaces are declared are not identity and never compared. Ids that identify a component (workflow ids, root component ids) are kept as keys and matched case-insensitively. Tested by the folder-against-zip tests, including a zip in real export layout with a canvas app.
 
 ## Users
 
@@ -49,6 +55,8 @@ Input only. Both solutions are loaded with the existing `SolutionLoader` into th
 | Canvas apps | `<Name>` from the meta XML | `AppVersion` (reported as republished), the rest of the meta as parsed XML |
 
 Noise that is not a change: file paths, ordering, flow JSON key order and whitespace, XML whitespace in canvas app metadata. Array order in flow JSON is a change.
+
+Keys match case-insensitively. A workflow without an id is keyed by its name. Known limit: when one solution holds two items with the same key, only the first is compared, and canvas apps whose meta has no `<Name>` (or does not parse) all share the key `(unnamed)`, so a change to the second one is not reported. Exports name every canvas app, so this is accepted.
 
 Not compared: components the model does not read (tables, views, forms and their labels), classic workflow and business rule XAML, and the `.msapp` package. This is why the managed/unmanaged pair shows only the managed flag, although its `customizations.xml` also differs in table and view labels.
 
@@ -87,20 +95,15 @@ None created or changed. The fixtures are the committed `ColumnLevelSecuritySamp
 
 - Offline first and read-only, as everywhere in PowerOps. No new dependencies.
 - Smallest complete change: only `--format` and `--out`.
-- Output must not leak tenant data into pull-request comments: environment variable current values are never printed, and input paths are left out of JSON.
-- Licensing and DLP do not apply to the offline tool.
+- Environment variable current values are never printed, and input paths are left out of JSON. Default values are printed, cut at 100 characters (user decision Q9): they ship in the solution anyway, and PO007 flags environment-specific defaults.
+- Licensing, DLP, security roles and managed or unmanaged do not apply to the offline tool.
 
 ## Assumptions
 
 - `AppVersion` in a canvas app's meta XML changes when the app is republished, and an edit to the app is only visible in the `.msapp` and that timestamp. Observed in exports; not documented by Microsoft.
-- The table and view label differences between the managed and unmanaged sample zips are export differences, not changes a user made, so not comparing them is acceptable for M6.
+- The table and view label differences between the managed and unmanaged sample zips are export differences, not changes a user made. Comparing tables, views and forms is a later milestone (user decision Q8).
 
 ## Open questions
-
-- Should M6 also compare tables, views and forms (labels and columns), or leave unmodeled components to a later milestone?
-- Should environment variable default values be hidden like current values, since the Markdown goes into pull-request comments?
-- After M5 merges, add the YAML layout to `diff`: one `SolutionDiff.Compare` call for each new `Solution` field that is a component (`CanvasFormulas`; `SourceFolders` is not one) plus a test diffing `powerops-seed-yaml/v1` against `v2`.
-- README conflict with M7: both branches add a usage line after `powerops rules` and a paragraph after the exit-codes line. Keep both when the second branch merges.
 
 ## Questions for your admin
 
@@ -108,4 +111,11 @@ None created or changed. The fixtures are the committed `ColumnLevelSecuritySamp
 
 1. `feat(diff):` compare two solutions component by component (commit aa8b4ee). `SolutionDiff.Compare` over the `Solution` model as under Data, with flow definitions compared as normalized JSON and the risk labels. Core tests for each risk label, JSON normalization, the managed/unmanaged pair, seed v1 against v2, a solution against itself and a folder against its zip.
 2. `feat(diff):` add the `diff` command with text, JSON and Markdown output (commit 413c5ff). `DiffReport` in `src/PowerOps.Core/Output/`, a thin `DiffCommand`, `docs/schemas/diff.schema.json` with its row in `docs/schemas/README.md` and its `OutputSchemaTests` entry, goldens `diff-seed.txt`, `.json` and `.md`, the README usage line and paragraph, CLI tests for exit codes 0 to 3, and a Markdown truncation test.
-3. `fix(diff):` review fixes (commit d55cecf). Canvas `AppVersion` reported as republished; canvas meta compared as parsed XML; duplicate JSON keys fall back to text comparison instead of exit 3; no `removed-component` on a removed missing dependency; solution unique name compared; truncation never splits a surrogate pair; environment variable current values never printed; README states what is not compared. Each fix has a test.
+3. `fix(diff):` review fixes (commit d55cecf). Canvas `AppVersion` reported as republished; canvas meta compared as parsed XML; duplicate JSON keys fall back to text comparison instead of exit 3; no `removed-component` on a removed missing dependency; solution unique name compared; truncation never splits a surrogate pair; environment variable current values never printed; README states what is not compared. Each code fix has a test.
+4. `fix(diff):` plan review fixes (commit 196f815). Canvas metadata is compared without regard to where XML namespaces are declared, so an exported zip (canvas app inside `customizations.xml`) and its unpacked folder compare equal, tested with a zip in real export layout; Markdown cells are escaped first, then capped at 200 characters, tested; the README lists the unique name.
+
+## Follow-ups
+
+- After M5 merges, add the YAML layout to `diff`: one `SolutionDiff.Compare` call for each new `Solution` field that is a component (`CanvasFormulas`; `SourceFolders` is not one) plus a test diffing `powerops-seed-yaml/v1` against `v2`.
+- README conflict with M7: both branches add a usage line after `powerops rules` and a paragraph after the exit-codes line. Keep both when the second branch merges.
+- A later milestone compares tables, views and forms (labels and columns), per Q8.
