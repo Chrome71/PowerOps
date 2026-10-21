@@ -24,7 +24,7 @@ public static class Program
         var reader = new Lazy<DriftLiveReader>(() => new DriftLiveReader(
             pac,
             (azArgs, timeout) => new PacRunner(DriftLiveReader.AzExecutable(OperatingSystem.IsWindows()), timeout).Run(azArgs),
-            DriftLiveReader.Web(new SocketsHttpHandler { AllowAutoRedirect = false })));
+            DriftLiveReader.Web(DriftLiveReader.Handler())));
         var root = new RootCommand(
             "A free, open-source, cross-platform toolkit that brings software-engineering discipline " +
             "(analysis, diffing, testing, repeatable deployment) to Microsoft Power Platform.");

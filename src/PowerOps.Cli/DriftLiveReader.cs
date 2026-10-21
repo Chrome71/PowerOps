@@ -121,6 +121,9 @@ internal sealed class DriftLiveReader(
         }
     }
 
+    /// <summary>The production handler: it never follows a redirect, so the token cannot travel to another host.</summary>
+    internal static SocketsHttpHandler Handler() => new() { AllowAutoRedirect = false };
+
     /// <summary>The web function over one <see cref="HttpClient"/> that uses <paramref name="handler"/>. The token travels only in each request's Authorization header.</summary>
     internal static Func<Uri, string, TimeSpan, WebResult> Web(HttpMessageHandler handler)
     {

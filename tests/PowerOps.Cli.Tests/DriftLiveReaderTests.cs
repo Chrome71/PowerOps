@@ -459,4 +459,7 @@ public class DriftLiveReaderTests
 
         Assert.Equal(new WebResult(0, "", true), r);
     }
+
+    [Fact]
+    public void The_production_handler_does_not_follow_redirects() => Assert.False(DriftLiveReader.Handler().AllowAutoRedirect);
 }
