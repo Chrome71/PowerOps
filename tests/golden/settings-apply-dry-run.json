@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "applied": false,
+  "environment": "Contoso Dev",
+  "managed": false,
+  "importArguments": [
+    "solution",
+    "import",
+    "--environment",
+    "<environment id>",
+    "--path",
+    "seed.zip",
+    "--settings-file",
+    "tests/fixtures/settings/powerops-seed-v1.valid.json"
+  ],
+  "steps": [
+    {
+      "name": "validate",
+      "status": "ok"
+    },
+    {
+      "name": "target",
+      "status": "ok"
+    },
+    {
+      "name": "plan",
+      "status": "ok"
+    },
+    {
+      "name": "import",
+      "status": "planned"
+    },
+    {
+      "name": "flows",
+      "status": "planned"
+    }
+  ],
+  "problems": [],
+  "pacExitCode": null,
+  "message": null,
+  "flows": [
+    {
+      "name": "Stamp work item status",
+      "exportState": "on",
+      "exists": false,
+      "stateBefore": null,
+      "expectedState": "on",
+      "stateAfter": null
+    }
+  ]
+}

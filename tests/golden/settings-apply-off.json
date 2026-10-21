@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "applied": true,
+  "environment": "Contoso Dev",
+  "managed": false,
+  "importArguments": [
+    "solution",
+    "import",
+    "--environment",
+    "<environment id>",
+    "--path",
+    "my seed.zip",
+    "--settings-file",
+    "s.json"
+  ],
+  "steps": [
+    {
+      "name": "validate",
+      "status": "ok"
+    },
+    {
+      "name": "target",
+      "status": "ok"
+    },
+    {
+      "name": "plan",
+      "status": "ok"
+    },
+    {
+      "name": "import",
+      "status": "ok"
+    },
+    {
+      "name": "flows",
+      "status": "failed"
+    }
+  ],
+  "problems": [],
+  "pacExitCode": null,
+  "message": null,
+  "flows": [
+    {
+      "name": "Notify on new item",
+      "exportState": "on",
+      "exists": false,
+      "stateBefore": null,
+      "expectedState": "on",
+      "stateAfter": "off"
+    },
+    {
+      "name": "Stamp work item status",
+      "exportState": "on",
+      "exists": true,
+      "stateBefore": "on",
+      "expectedState": "on",
+      "stateAfter": "suspended"
+    }
+  ]
+}

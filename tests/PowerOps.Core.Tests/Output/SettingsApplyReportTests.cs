@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using PowerOps.Core.Output;
 using PowerOps.Core.Settings;
+using PowerOps.Tests.Shared;
 
 namespace PowerOps.Core.Tests.Output;
 
@@ -91,5 +92,17 @@ public class SettingsApplyReportTests
         var flow = root.GetProperty("flows")[0];
         Assert.Equal(["name", "exportState", "exists", "stateBefore", "expectedState", "stateAfter"], flow.EnumerateObject().Select(p => p.Name));
         Assert.Equal("off", flow.GetProperty("stateAfter").GetString());
+    }
+
+    [Fact]
+    public void A_flow_off_and_one_suspended_match_golden()
+    {
+        var w = new StringWriter();
+        SettingsApplyReport.WriteJson(Applied(new("Notify on new item", "on", false, null, "on", "off"), new("Stamp work item status", "on", true, "on", "on", "suspended")) with
+        {
+            Steps = [new("validate", "ok"), new("target", "ok"), new("plan", "ok"), new("import", "ok"), new("flows", "failed")],
+        }, w);
+
+        Golden.Verify(w.ToString(), "settings-apply-off.json");
     }
 }

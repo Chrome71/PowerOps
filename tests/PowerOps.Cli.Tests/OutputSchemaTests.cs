@@ -17,6 +17,7 @@ public class OutputSchemaTests
         ("plan-status", "plan-status.schema.json"),
         ("plan-facts", "plan-facts.schema.json"),
         ("rules", "rules.schema.json"),
+        ("settings-apply", "settings-apply.schema.json"),
         ("settings-validate", "settings-validate.schema.json"),
     ];
 

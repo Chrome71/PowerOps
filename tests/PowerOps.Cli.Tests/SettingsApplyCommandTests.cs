@@ -301,6 +301,44 @@ public class SettingsApplyCommandTests : IDisposable
     // The text report quotes an argument that holds a space, as a checkout path may.
     private static string Quoted(string arg) => arg.Contains(' ') ? $"\"{arg}\"" : arg;
 
+    // Goldens hold stable paths: the temp zip becomes seed.zip and the settings file its repo-relative path.
+    private static string Stable(string output, string zip, string format)
+    {
+        foreach (var (path, stable) in new[] { (zip, "seed.zip"), (Valid, "tests/fixtures/settings/powerops-seed-v1.valid.json") })
+        {
+            output = format == "json" ? output.Replace(path.Replace("\\", "\\\\"), stable) : output.Replace(Quoted(path), stable);
+        }
+
+        return output;
+    }
+
+    [Theory]
+    [InlineData("text", "settings-apply-dry-run.txt")]
+    [InlineData("json", "settings-apply-dry-run.json")]
+    public void Dry_run_matches_golden(string format, string golden)
+    {
+        var zip = SeedZip();
+
+        Golden.Verify(Stable(Run(Pac(), "settings", "apply", zip, "--settings", Valid, "--format", format).Out, zip, format), golden);
+    }
+
+    [Fact]
+    public void Apply_matches_golden()
+    {
+        var zip = SeedZip();
+
+        Golden.Verify(Stable(Run(Pac(), "settings", "apply", zip, "--settings", Valid, "--apply", "--target", "Contoso Dev", "--format", "json").Out, zip, "json"), "settings-apply.json");
+    }
+
+    [Fact]
+    public void A_failed_import_matches_golden()
+    {
+        var zip = SeedZip();
+        var r = Run(Pac(import: () => new PacResult(true, false, 1, "", "")), "settings", "apply", zip, "--settings", Valid, "--apply", "--target", "Contoso Dev", "--format", "json");
+
+        Golden.Verify(Stable(r.Out, zip, "json"), "settings-apply-import-failed.json");
+    }
+
     [Theory]
     [InlineData("--apply")]
     [InlineData("--target", "Contoso Dev")]

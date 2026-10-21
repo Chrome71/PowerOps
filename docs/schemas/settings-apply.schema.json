@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/settings-apply.schema.json",
+  "title": "powerops settings apply --format json",
+  "description": "The JSON written by 'powerops settings apply --format json': the steps of a dry run or an import through pac, and the state of each of the solution's cloud flows. It never holds the environment id, connection ids, environment variable values or pac's output text.",
+  "type": "object",
+  "required": ["schemaVersion", "applied", "environment", "managed", "importArguments", "steps", "problems", "pacExitCode", "message", "flows"],
+  "properties": {
+    "schemaVersion": { "const": 1, "description": "Version of this output format." },
+    "applied": { "type": "boolean", "description": "True only with --apply." },
+    "environment": { "type": ["string", "null"], "description": "Friendly name of pac's current environment (the target), from pac org who; null when the target step did not finish." },
+    "managed": { "type": "boolean", "description": "Whether the zip is a managed solution." },
+    "importArguments": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "The pac arguments of the import, with the environment id replaced by the placeholder '<environment id>' and the paths as given on the command line."
+    },
+    "steps": {
+      "type": "array",
+      "description": "Always the five steps, in order: validate, target, plan, import, flows.",
+      "items": {
+        "type": "object",
+        "required": ["name", "status"],
+        "properties": {
+          "name": { "enum": ["validate", "target", "plan", "import", "flows"] },
+          "status": { "enum": ["ok", "failed", "skipped", "planned"], "description": "planned: not run because this was a dry run. skipped: not run because an earlier step failed." }
+        }
+      }
+    },
+    "problems": {
+      "type": "array",
+      "description": "The validate problems, in the shape of 'powerops settings validate --format json'. Empty when the settings file is clean.",
+      "items": {
+        "type": "object",
+        "required": ["kind", "componentType", "name", "message"],
+        "properties": {
+          "kind": { "enum": ["missing", "extra", "duplicate", "emptyConnectionId", "emptyValue"] },
+          "componentType": { "enum": ["environmentVariable", "connectionReference"] },
+          "name": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "pacExitCode": { "type": ["integer", "null"], "description": "pac's exit code when the import failed; pac's output then goes to powerops' stderr. Null otherwise." },
+    "message": { "type": ["string", "null"], "description": "Why the run stopped (a failed target, an unreadable flow state, a failed or timed-out import), or null." },
+    "flows": {
+      "type": "array",
+      "description": "The solution's cloud flows, sorted by name; empty until the plan step finishes.",
+      "items": {
+        "type": "object",
+        "required": ["name", "exportState", "exists", "stateBefore", "expectedState", "stateAfter"],
+        "properties": {
+          "name": { "type": "string", "description": "Flow name from the solution." },
+          "exportState": { "enum": ["on", "off", "suspended"], "description": "The flow's state in the zip." },
+          "exists": { "type": "boolean", "description": "Whether pac found the flow in the target before the import. False also when this account cannot see it." },
+          "stateBefore": { "enum": ["on", "off", "suspended", null], "description": "The flow's state in the target before the import; null when it does not exist there." },
+          "expectedState": { "enum": ["on", "off", "suspended"], "description": "An existing flow keeps its state; a new one comes back on only if it was on at export." },
+          "stateAfter": { "enum": ["on", "off", "suspended", "missing", null], "description": "The flow's state after the import; null in a dry run or when the import did not finish." }
+        }
+      }
+    }
+  }
+}

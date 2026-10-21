@@ -1,0 +1,10 @@
+environment: Contoso Dev
+managed: false
+command: pac solution import --environment "<environment id>" --path seed.zip --settings-file tests/fixtures/settings/powerops-seed-v1.valid.json
+validate: ok
+target: ok
+plan: ok
+import: planned
+flows: planned
+flow Stamp work item status: new, expected on
+dry run: nothing imported

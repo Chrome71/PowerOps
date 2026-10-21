@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "applied": true,
+  "environment": "Contoso Dev",
+  "managed": false,
+  "importArguments": [
+    "solution",
+    "import",
+    "--environment",
+    "<environment id>",
+    "--path",
+    "seed.zip",
+    "--settings-file",
+    "tests/fixtures/settings/powerops-seed-v1.valid.json"
+  ],
+  "steps": [
+    {
+      "name": "validate",
+      "status": "ok"
+    },
+    {
+      "name": "target",
+      "status": "ok"
+    },
+    {
+      "name": "plan",
+      "status": "ok"
+    },
+    {
+      "name": "import",
+      "status": "failed"
+    },
+    {
+      "name": "flows",
+      "status": "skipped"
+    }
+  ],
+  "problems": [],
+  "pacExitCode": 1,
+  "message": "The import failed (pac exit code 1); pac's output is on stderr. There is no rollback: fix the cause and run again.",
+  "flows": [
+    {
+      "name": "Stamp work item status",
+      "exportState": "on",
+      "exists": false,
+      "stateBefore": null,
+      "expectedState": "on",
+      "stateAfter": null
+    }
+  ]
+}
