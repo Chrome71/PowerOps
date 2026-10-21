@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace PowerOps.Core.Drift;
 
-/// <summary>The FetchXML of each <c>pac env fetch</c> read, copied from tests/fixtures/pac/drift/queries (a test compares them).</summary>
+/// <summary>The FetchXML of each Web API read, copied from tests/fixtures/pac/drift/queries (a test compares them).</summary>
 public static partial class DriftQueries
 {
     private const string SolutionText = """<fetch><entity name="solution"><attribute name="solutionid" /><attribute name="version" /><attribute name="ismanaged" /><filter><condition attribute="uniquename" operator="eq" value="PowerOpsSeed" /></filter></entity></fetch>""";

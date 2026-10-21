@@ -45,6 +45,8 @@ Scrubbed and trimmed before committing:
 
 Scrubbed before committing: the environment and organisation ids, the unique name, the org URL, the user's email and user id, the business unit id, the flow's `resourceId` and the error's correlation id became fake values (`00000000-0000-0000-0000-00000000000a` to `...0f`, `admin@contoso.com`, `https://contoso-dev.crm.dynamics.com/`), and the environment name became "Contoso Dev". The seed's own workflow id and the ids inside its flow definition are kept; they are component ids, the same as in `powerops-seed/`.
 
+`pac/drift/sample/` is hand-written for this project, not captured: it is shaped like the Dataverse Web API responses that Microsoft Learn documents for FetchXML queries (`{"@odata.context":...,"value":[...]}`, raw values, no property for a null column, `v.value` for the outer-linked column, the `morerecords` annotation, the `{"error":{"code","message"}}` body), with fake values only (the `contoso` hosts, ids `00000000-0000-0000-0000-0000000000xx`, the seed's flow id, and a made-up variable value with a space, a comma and a line break). `dev-read2.json` to `dev-read6.json` and `test-read2.json` to `test-read6.json` are reads 2 to 6 of `drift` for `PowerOpsSeed` (Test equal to Dev except `ismanaged` and the fake connection id); `not-installed-read2.json` is read 2 with no row; `morerecords.json` has the annotation true; `error-400.json` is an error body. The Step 1 captures of the plan `m8-drift` will join or replace them.
+
 ## Licence
 
 MIT License. Copyright lines from each repo's `LICENSE`:
