@@ -42,8 +42,11 @@ public class DriftCommandTests : IDisposable
                     calls.Add($"{solution}|{value}");
                     return live.TryGetValue(value, out var s) ? s : throw new DriftReadException("the read failed");
                 });
-        return new Outcome(code, o.ToString(), e.ToString(), calls);
+        return new Outcome(code, Lf(o), Lf(e), calls);
     }
+
+    // WriteLine uses the platform line ending; the expected strings use \n.
+    private static string Lf(StringWriter w) => w.ToString().ReplaceLineEndings("\n");
 
     private static string[] Args(params string[] envs) =>
         ["drift", "--solution", "PowerOpsSeed", .. envs.SelectMany(e => new[] { "--env", e })];
@@ -224,7 +227,7 @@ public class DriftCommandTests : IDisposable
 
         Assert.Equal(3, code);
         Assert.Equal("", o.ToString());
-        Assert.Equal("error: --env 2: pac was not found on PATH. Install pac (dotnet tool install --global Microsoft.PowerApps.CLI.Tool) and add the dotnet tools folder to PATH.\n", e.ToString());
+        Assert.Equal("error: --env 2: pac was not found on PATH. Install pac (dotnet tool install --global Microsoft.PowerApps.CLI.Tool) and add the dotnet tools folder to PATH.\n", Lf(e));
         Assert.Equal(["org who --environment contoso-test"], pacCalls);
     }
 
@@ -333,7 +336,7 @@ public class DriftCommandTests : IDisposable
     {
         var (o, e) = (new StringWriter(), new StringWriter());
         var code = Program.Run(args, o, e, (_, _) => throw new Xunit.Sdk.XunitException("the default pac must not be called"), fakes.Reader.Read);
-        return new Outcome(code, o.ToString(), e.ToString(), []);
+        return new Outcome(code, Lf(o), Lf(e), []);
     }
 
     private static LiveFakes FlowOffInTest() => new()
