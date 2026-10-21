@@ -38,3 +38,4 @@ Answer: Mark layers "not read": the snapshot and the output say so for that envi
 - round 2 held although depth is quick: the layer fallback blocked the plan
 - approved without: users, environments and ALM, constraints (BUILD-PLAN decision 9 and the Phase 3 research basis cover them)
 - approved (2026-10-21)
+- fresh review (Sonnet) 2026-10-21: 0 High, 7 Medium, 9 Low; all sixteen fixed in the plan text (no user decision needed: each fix follows Q1 to Q4 or the BUILD-PLAN); review now stale
