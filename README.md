@@ -2,13 +2,19 @@
 
 A free, open-source, cross-platform toolkit that brings software-engineering discipline (analysis, diffing, testing, repeatable deployment) to Microsoft Power Platform. It works alongside `pac`; it does not replace it.
 
-**Status:** early development, Phase 0. The only command so far is `powerops analyze`.
+**Status:** early development, not yet released. Built so far: `analyze`, `baseline`, `rules`, `diff`, `settings` (`generate`, `validate`, `apply`), `plan` and `skills`.
 
 ## Install
 
 ```sh
 dotnet tool install --global PowerOps
 powerops --version
+```
+
+Until the first release is on NuGet, install from a clone instead:
+
+```sh
+dotnet pack src/PowerOps.Cli -c Release -o artifacts && dotnet tool install --global --add-source artifacts PowerOps
 ```
 
 ## Quick start
@@ -35,7 +41,7 @@ steps:
       # baseline: powerops-baseline.json
 ```
 
-Pull requests from forks cannot upload SARIF (their token has no `security-events` permission); they still get the job summary and the annotations.
+Until `v1` is tagged, use `Chrome71/PowerOps@main` (the action builds PowerOps from source). Pull requests from forks cannot upload SARIF (their token has no `security-events` permission); they still get the job summary and the annotations.
 
 ## Usage
 
