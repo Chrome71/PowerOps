@@ -37,6 +37,15 @@ Answer: Mark layers "not read": the snapshot and the output say so for that envi
 3. In your own words
 Answer: Drift, as the BUILD-PLAN row says: a differing value exits 1; the README says such a solution always exits 1 and JSON users can filter `items` by kind; no new option
 
+## Round 4
+
+### Q6. Build review: Learn documents no output format for `pac env fetch`, so its text cannot be parsed against documented behaviour (go-back Assumption 1). How does `drift` read the solution's rows?
+1. The Dataverse Web API: FetchXML in `?fetchXml=` with `HttpClient`, documented JSON with raw values, errors and paging; a token from `az account get-access-token --resource <environment URL>` (Azure CLI, MIT) as a subprocess; `pac org who` still resolves `--env` to the name and URL; no new package (recommended)
+2. Keep `pac env fetch` and parse its text grid (undocumented format; values with line breaks, null columns and localized labels are at risk)
+3. Stop M8 and revise the BUILD-PLAN row
+4. In your own words
+Answer: pending the user's re-sign-off. The master session picked 1 under the user's rule to rely only on documented and openly licensed sources; an undocumented `pac` mode was not considered.
+
 ## Log
 
 - plan started 2026-10-21 from the master session's brief: the BUILD-PLAN Phase 3 section (M8 row, research basis, decisions 9 to 12, build-order tasks 22 to 24)
@@ -51,3 +60,6 @@ Answer: Drift, as the BUILD-PLAN row says: a differing value exits 1; the README
 - Q2 wording narrowed by the reviews: hashes hide values from a reader, not from guessing, so snapshot files belong in private folders and private CI artifacts; the README and schema do not call them safe
 - third fresh review (Sonnet) 2026-10-21: 0 High, 4 Medium, 9 Low; round 3 asked the user R6 (Q5, kept as the row says); the other twelve fixed in the plan text; review now stale
 - fourth fresh review (Sonnet) 2026-10-21: 0 High, 2 Medium, 8 Low; all ten fixed in the plan text (no user decision needed); review.md plan-hash updated to the final body with a note, as for the M7 plans
+- build 2026-10-21: steps 2 (without parsers), 3 and 4 (command with the live read behind a seam) committed before Step 1; the capture had not run
+- amendment 2026-10-21 (Q6): reads 2 to 7 move to the Dataverse Web API with an `az` token; `pac env fetch`'s text output rejected (no documented format); status back to approved for a fresh review and re-sign-off (section 10, small edit)
+- Q6 research by powerops-researcher (Sonnet) on Microsoft Learn and open sources only, 2026-10-21; link alias naming and the error body re-checked on Learn the same day
