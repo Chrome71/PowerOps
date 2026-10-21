@@ -65,7 +65,7 @@ public static class PlanFacts
         return Serialize(new { schemaVersion = JsonOutput.SchemaVersion, available = true, environment, solutions });
     }
 
-    private const string SignInFix = "Sign in with pac auth create, then pick the environment with pac org select.";
+    internal const string SignInFix = "Sign in with pac auth create, then pick the environment with pac org select.";
 
     private static string? Failure(PacResult result, string command) =>
         !result.Started

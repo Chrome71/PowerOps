@@ -12,7 +12,11 @@ public static class Program
     }
 
     // Output and error writers are injectable so tests can capture them.
-    public static int Run(string[] args, TextWriter output, TextWriter error)
+    public static int Run(string[] args, TextWriter output, TextWriter error) =>
+        Run(args, output, error, (pacArgs, timeout) => new PacRunner(timeout: timeout).Run(pacArgs));
+
+    // The pac runner is injectable so tests of `settings apply` never call a real pac.
+    public static int Run(string[] args, TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac)
     {
         var root = new RootCommand(
             "A free, open-source, cross-platform toolkit that brings software-engineering discipline " +
@@ -24,7 +28,7 @@ public static class Program
         root.Subcommands.Add(PlanCommand.Create(output, error));
         root.Subcommands.Add(SkillsCommand.Create(output, error));
         root.Subcommands.Add(RulesCommand.Create(output));
-        root.Subcommands.Add(SettingsCommand.Create(output, error));
+        root.Subcommands.Add(SettingsCommand.Create(output, error, pac));
 
         var parse = root.Parse(args);
         if (parse.Errors.Count > 0)
