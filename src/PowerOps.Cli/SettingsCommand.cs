@@ -268,7 +268,7 @@ public static class SettingsCommand
             {
                 if (ReadFlow(pac, id, flow) is not { } state)
                 {
-                    return Finish(InternalError, "failed", ReadFailure);
+                    return Finish(InternalError, "failed", "The import succeeded. " + ReadFailure);
                 }
 
                 after.Add(planned with { StateAfter = state });

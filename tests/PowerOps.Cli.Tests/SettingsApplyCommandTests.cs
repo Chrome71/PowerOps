@@ -386,4 +386,14 @@ public class SettingsApplyCommandTests : IDisposable
         Assert.False(Imported(r));
         Assert.Contains("plan: failed\nimport: skipped\n", r.Out);
     }
+
+    [Fact]
+    public void A_failed_read_after_the_import_exits_3_and_says_the_import_succeeded()
+    {
+        var r = Run(Pac(after: "list-cloud-flows-bad-id.txt"), "settings", "apply", SeedZip(), "--settings", Valid, "--apply", "--target", "Contoso Dev");
+
+        Assert.Equal(3, r.Code);
+        Assert.Contains("import: ok\nflows: failed\n", r.Out);
+        Assert.Contains("The import succeeded. Reading a cloud flow's state", r.Out);
+    }
 }
