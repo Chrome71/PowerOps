@@ -20,6 +20,11 @@ public static class Program
     // The pac runner is injectable so tests of `settings apply` never call a real pac; so is the live read of `drift`.
     public static int Run(string[] args, TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot>? driftLive = null)
     {
+        // The live reader (az runner, HttpClient) is built only when a run has a live --env.
+        var reader = new Lazy<DriftLiveReader>(() => new DriftLiveReader(
+            pac,
+            (azArgs, timeout) => new PacRunner(DriftLiveReader.AzExecutable(OperatingSystem.IsWindows()), timeout).Run(azArgs),
+            DriftLiveReader.Web(new SocketsHttpHandler { AllowAutoRedirect = false })));
         var root = new RootCommand(
             "A free, open-source, cross-platform toolkit that brings software-engineering discipline " +
             "(analysis, diffing, testing, repeatable deployment) to Microsoft Power Platform.");
@@ -31,7 +36,7 @@ public static class Program
         root.Subcommands.Add(SkillsCommand.Create(output, error));
         root.Subcommands.Add(RulesCommand.Create(output));
         root.Subcommands.Add(SettingsCommand.Create(output, error, pac));
-        root.Subcommands.Add(DriftCommand.Create(output, error, driftLive ?? DriftCommand.NotBuilt));
+        root.Subcommands.Add(DriftCommand.Create(output, error, driftLive ?? ((solution, env) => reader.Value.Read(solution, env))));
 
         var parse = root.Parse(args);
         if (parse.Errors.Count > 0)

@@ -312,7 +312,7 @@ public static class SettingsCommand
         : null;
 
     // The value after a "Label:" line of pac's text output, or null.
-    private static string? Field(string text, string label) =>
+    internal static string? Field(string text, string label) =>
         text.Split('\n').Select(l => l.Trim())
             .Where(l => l.StartsWith(label, StringComparison.Ordinal))
             .Select(l => l[label.Length..].Trim())

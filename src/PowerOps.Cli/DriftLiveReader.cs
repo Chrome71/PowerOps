@@ -1,0 +1,172 @@
+using System.Net.Http.Headers;
+using System.Text;
+
+using PowerOps.Core.Drift;
+
+namespace PowerOps.Cli;
+
+/// <summary>Reads one solution in one live environment: <c>pac org who</c> for the name and URL, <c>az</c> for a token, then the Web API for reads 2 to 6. Nothing here formats a <see cref="PacResult"/> or puts the token, the URL or the <c>--env</c> value in a message.</summary>
+internal sealed class DriftLiveReader(
+    Func<IReadOnlyList<string>, TimeSpan, PacResult> pac,
+    Func<IReadOnlyList<string>, TimeSpan, PacResult> az,
+    Func<Uri, string, TimeSpan, WebResult> web)
+{
+    private const long MaxBody = 16 * 1024 * 1024;
+    private const string SignInHint = "Sign in with az login, and check that the account can read that environment.";
+    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
+
+    internal static string AzExecutable(bool windows) => windows ? "az.cmd" : "az";
+
+    public Snapshot Read(string solution, string env)
+    {
+        var (name, url) = Who(env);
+        var token = Token(url);
+        var found = Read(url, token, "solution", "solutions", DriftQueries.Solution(solution), DriftParsers.Solution);
+        if (found is not { } sol)
+        {
+            return new Snapshot(name, solution, false, null, null, true, [], [], [], []);
+        }
+
+        var components = Read(url, token, "solutioncomponent", "solutioncomponents", DriftQueries.Components(sol.Id), DriftParsers.Components);
+        var flows = Read(url, token, "workflow", "workflows", DriftQueries.Flows(sol.Id), DriftParsers.Flows);
+        var variables = Read(url, token, "environmentvariabledefinition", "environmentvariabledefinitions", DriftQueries.Variables(sol.Id), DriftParsers.Variables);
+        var references = Read(url, token, "connectionreference", "connectionreferences", DriftQueries.References(sol.Id), DriftParsers.References);
+
+        // shortcut: layers are "not read" until the Step 1 capture shows the layer table's filter; then build the mode it shows.
+        return SnapshotFile.Sort(new Snapshot(name, solution, true, sol.Version, sol.Managed, !sol.Managed,
+            [.. components.Select(c => new SnapshotComponent(c.Type, c.Id, null))], variables, references, flows));
+    }
+
+    private (string Name, string Url) Who(string env)
+    {
+        var who = pac(["org", "who", "--environment", env], Timeout);
+        if (!who.Started)
+        {
+            throw new DriftReadException("pac was not found on PATH. Install pac (dotnet tool install --global Microsoft.PowerApps.CLI.Tool) and add the dotnet tools folder to PATH.");
+        }
+
+        if (who.TimedOut)
+        {
+            throw new DriftReadException("`pac org who` timed out after 30 s.");
+        }
+
+        if (who.ExitCode != 0)
+        {
+            throw new DriftReadException(
+                $"`pac org who` failed (exit code {who.ExitCode}). Sign in with pac auth create, and check that the account can read that environment.", who.Stdout + who.Stderr);
+        }
+
+        const string Unreadable = "`pac org who` printed no environment name, or an environment URL powerops does not accept.";
+        var name = SettingsCommand.Field(who.Stdout, "Friendly Name:") ?? throw new DriftReadException(Unreadable);
+        try
+        {
+            return (name, DriftParsers.EnvironmentUrl(SettingsCommand.Field(who.Stdout, "Org URL:")).GetLeftPart(UriPartial.Authority));
+        }
+        catch (InvalidDataException)
+        {
+            throw new DriftReadException(Unreadable);
+        }
+    }
+
+    // The token is taken out of az's stdout at once; on failure only stderr is forwarded, because stdout is the token on success.
+    private string Token(string url)
+    {
+        var result = az(["account", "get-access-token", "--resource", url, "--query", "accessToken", "-o", "tsv"], Timeout);
+        if (!result.Started)
+        {
+            throw new DriftReadException("az was not found on PATH. Install the Azure CLI and sign in with az login.");
+        }
+
+        if (result.TimedOut)
+        {
+            throw new DriftReadException("`az account get-access-token` timed out after 30 s.");
+        }
+
+        if (result.ExitCode != 0)
+        {
+            throw new DriftReadException($"`az account get-access-token` failed (exit code {result.ExitCode}). {SignInHint}", result.Stderr);
+        }
+
+        var token = result.Stdout.Trim();
+        return token.Length > 0 ? token : throw new DriftReadException("`az account get-access-token` printed no token.");
+    }
+
+    // One Web API read, parsed; every other outcome than a readable 200 is a failed read.
+    private T Read<T>(string url, string token, string table, string entitySet, string xml, Func<string, T> parser)
+    {
+        var r = web(new Uri($"{url}/api/data/v9.2/{entitySet}?fetchXml={Uri.EscapeDataString(xml)}"), token, Timeout);
+        var read = $"the Web API read of `{table}`";
+        if (r.TimedOut)
+        {
+            throw new DriftReadException($"{read} timed out after 30 s.");
+        }
+
+        if (r.Failure is not null)
+        {
+            throw new DriftReadException($"{read} failed ({r.Failure}).");
+        }
+
+        if (r.Status != 200)
+        {
+            throw new DriftReadException($"{read} failed (HTTP {r.Status}).{(r.Status is 401 or 403 ? " " + SignInHint : "")}", DriftParsers.ErrorMessage(r.Body));
+        }
+
+        try
+        {
+            return parser(r.Body);
+        }
+        catch (InvalidDataException ex)
+        {
+            throw new DriftReadException($"{read} returned output powerops cannot read: {ex.Message}");
+        }
+    }
+
+    /// <summary>The web function over one <see cref="HttpClient"/> that uses <paramref name="handler"/>. The token travels only in each request's Authorization header.</summary>
+    internal static Func<Uri, string, TimeSpan, WebResult> Web(HttpMessageHandler handler)
+    {
+        var client = new HttpClient(handler) { Timeout = System.Threading.Timeout.InfiniteTimeSpan };
+        return (url, token, timeout) =>
+        {
+            using var cts = new CancellationTokenSource(timeout);
+            try
+            {
+                return Fetch(client, url, token, cts.Token).GetAwaiter().GetResult();
+            }
+            catch (OperationCanceledException) when (cts.IsCancellationRequested)
+            {
+                return new WebResult(0, "", true);
+            }
+            catch (Exception)
+            {
+                // Whatever went wrong, the text stays fixed: an exception's own message can name the host.
+                return new WebResult(0, "", false, "transport error");
+            }
+        };
+    }
+
+    private static async Task<WebResult> Fetch(HttpClient client, Uri url, string token, CancellationToken cancel)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Accept.ParseAdd("application/json");
+        request.Headers.Add("OData-MaxVersion", "4.0");
+        request.Headers.Add("OData-Version", "4.0");
+        request.Headers.Add("Prefer", "odata.include-annotations=\"Microsoft.Dynamics.CRM.morerecords\"");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancel);
+        await using var stream = await response.Content.ReadAsStreamAsync(cancel);
+        using var body = new MemoryStream();
+        var buffer = new byte[81920];
+        int n;
+        while ((n = await stream.ReadAsync(buffer, cancel)) > 0)
+        {
+            if (body.Length + n > MaxBody)
+            {
+                return new WebResult((int)response.StatusCode, "", false, "unreadable response");
+            }
+
+            body.Write(buffer, 0, n);
+        }
+
+        return new WebResult((int)response.StatusCode, Encoding.UTF8.GetString(body.GetBuffer(), 0, (int)body.Length), false);
+    }
+}

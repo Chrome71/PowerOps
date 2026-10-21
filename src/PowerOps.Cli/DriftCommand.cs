@@ -11,10 +11,6 @@ public static class DriftCommand
     private const int UsageError = 2;
     private const int InternalError = 3;
 
-    // shortcut: the live reader waits for a pac capture and a plan amendment; until then only snapshot files work.
-    internal static Snapshot NotBuilt(string solution, string env) =>
-        throw new DriftReadException("reading a live environment is not built yet; pass snapshot files (.json) as --env.");
-
     /// <param name="live">Returns the snapshot of one live environment (<c>solution</c>, <c>--env</c> value), or throws <see cref="DriftReadException"/>.</param>
     public static Command Create(TextWriter output, TextWriter error, Func<string, string, Snapshot> live)
     {
@@ -110,6 +106,11 @@ public static class DriftCommand
             catch (DriftReadException ex)
             {
                 error.WriteLine($"error: --env {i + 1}: {ex.Message}");
+                if (!string.IsNullOrEmpty(ex.Forwarded))
+                {
+                    error.Write(ex.Forwarded);
+                }
+
                 return InternalError;
             }
         }

@@ -90,7 +90,8 @@ public static partial class SnapshotFile
         }
     }
 
-    private static Snapshot Sort(Snapshot s) => s with
+    /// <summary>The snapshot with every list sorted by its match key (ordinal).</summary>
+    public static Snapshot Sort(Snapshot s) => s with
     {
         Components = s.Components.OrderBy(c => c.Type).ThenBy(c => c.Id.ToString("D"), StringComparer.Ordinal).ToList(),
         Variables = s.Variables.OrderBy(c => c.SchemaName, StringComparer.Ordinal).ToList(),

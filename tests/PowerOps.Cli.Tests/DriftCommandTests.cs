@@ -211,13 +211,21 @@ public class DriftCommandTests : IDisposable
     }
 
     [Fact]
-    public void Without_a_live_reader_a_live_env_exits_3_with_the_not_built_message()
+    public void Without_an_injected_reader_a_live_env_goes_through_the_default_reader_and_pac()
     {
-        var r = Run(null, Args(DevFile, "contoso-test"));
+        var (o, e) = (new StringWriter(), new StringWriter());
+        var pacCalls = new List<string>();
 
-        Assert.Equal(3, r.Code);
-        Assert.Equal("", r.Out);
-        Assert.Equal("error: --env 2: reading a live environment is not built yet; pass snapshot files (.json) as --env.\n", r.Err);
+        var code = Program.Run(Args(DevFile, "contoso-test"), o, e, (a, _) =>
+        {
+            pacCalls.Add(string.Join(' ', a));
+            return new PacResult(false, false, 0, "");
+        });
+
+        Assert.Equal(3, code);
+        Assert.Equal("", o.ToString());
+        Assert.Equal("error: --env 2: pac was not found on PATH. Install pac (dotnet tool install --global Microsoft.PowerApps.CLI.Tool) and add the dotnet tools folder to PATH.\n", e.ToString());
+        Assert.Equal(["org who --environment contoso-test"], pacCalls);
     }
 
     [Fact]
@@ -314,5 +322,184 @@ public class DriftCommandTests : IDisposable
         Assert.Equal("", r.Out);
         Assert.StartsWith("## PowerOps drift", File.ReadAllText(file));
         Assert.False(File.ReadAllBytes(file).AsSpan().StartsWith("﻿"u8.ToArray()));
+    }
+
+    // ---- live runs through DriftLiveReader with fake pac, az and web (no network) ----
+
+    private const string DevEnv = "ENV-VALUE-DEV";
+    private const string TestEnv = "ENV-VALUE-TEST";
+
+    private static Outcome RunLive(LiveFakes fakes, params string[] args)
+    {
+        var (o, e) = (new StringWriter(), new StringWriter());
+        var code = Program.Run(args, o, e, (_, _) => throw new Xunit.Sdk.XunitException("the default pac must not be called"), fakes.Reader.Read);
+        return new Outcome(code, o.ToString(), e.ToString(), []);
+    }
+
+    private static LiveFakes FlowOffInTest() => new()
+    {
+        WebFn = url =>
+        {
+            var body = LiveFakes.Sample(url);
+            return LiveFakes.Ok(url.Host.Contains("test") && LiveFakes.EntitySet(url) == "workflows" ? body.Replace("\"statecode\":1", "\"statecode\":0") : body);
+        },
+    };
+
+    [Fact]
+    public void A_live_dev_and_a_live_test_from_the_samples_show_the_managed_difference_as_information_and_exit_0()
+    {
+        var fakes = new LiveFakes();
+
+        var r = RunLive(fakes, Args(DevEnv, TestEnv));
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal("", r.Err);
+        Assert.Contains("(info)", r.Out);
+        Assert.EndsWith("no drift\n", r.Out);
+        Assert.Equal([["org", "who", "--environment", DevEnv], ["org", "who", "--environment", TestEnv]], fakes.PacCalls);
+    }
+
+    [Fact]
+    public void A_url_env_reaches_pac_as_the_environment_and_is_printed_nowhere()
+    {
+        var fakes = new LiveFakes();
+
+        var r = RunLive(fakes, Args(DevEnv, Url));
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal(Url, fakes.PacCalls[1][^1]);
+        Assert.DoesNotContain("crm.dynamics.com", r.Out + r.Err);
+    }
+
+    [Fact]
+    public void A_flow_that_is_off_in_the_second_live_environment_exits_1()
+    {
+        var fakes = FlowOffInTest();
+
+        var r = RunLive(fakes, Args(DevEnv, TestEnv));
+
+        Assert.Equal(1, r.Code);
+        Assert.Contains("flow-state Notify on new work item: on -> off", r.Out);
+    }
+
+    [Fact]
+    public void A_live_run_saved_and_compared_offline_gives_the_same_text_and_exit_code()
+    {
+        var save = Path.Combine(_dir, "saved");
+        var fakes = FlowOffInTest();
+        var live = RunLive(fakes, [.. Args(DevEnv, TestEnv), "--save", save]);
+
+        var offline = Run(null, Args(Path.Combine(save, "PowerOpsSeed.Contoso Dev.json"), Path.Combine(save, "PowerOpsSeed.Contoso Test.json")));
+
+        Assert.Equal(1, live.Code);
+        Assert.Equal((live.Code, live.Out), (offline.Code, offline.Out));
+    }
+
+    // Each scenario breaks the second environment (the first one reads fine, so a save would have something to write).
+    private static readonly Dictionary<string, Action<LiveFakes>> Failures = new()
+    {
+        ["pac not found"] = f => OnTestPac(f, new PacResult(false, false, 0, "")),
+        ["pac timeout"] = f => OnTestPac(f, new PacResult(true, true, 0, "")),
+        ["pac exit 1"] = f => OnTestPac(f, new PacResult(true, false, 1, "pac says no\n", "pac stderr\n")),
+        ["pac bad url"] = f => OnTestPac(f, new PacResult(true, false, 0, "Friendly Name: X\nOrg URL: http://contoso-test.crm.dynamics.com/\n")),
+        ["az not found"] = f => f.AzFn = a => a[3].Contains("test") ? new PacResult(false, false, 0, "") : new PacResult(true, false, 0, LiveFakes.Token),
+        ["az timeout"] = f => f.AzFn = a => a[3].Contains("test") ? new PacResult(true, true, 0, "") : new PacResult(true, false, 0, LiveFakes.Token),
+        ["az exit 1 with the token on stdout"] = f => f.AzFn = a => a[3].Contains("test") ? new PacResult(true, false, 1, LiveFakes.Token, "ERROR: run az login\n") : new PacResult(true, false, 0, LiveFakes.Token),
+        ["az no token"] = f => f.AzFn = a => a[3].Contains("test") ? new PacResult(true, false, 0, "\n") : new PacResult(true, false, 0, LiveFakes.Token),
+        ["web timeout"] = f => OnTestWeb(f, new WebResult(0, "", true)),
+        ["web transport error"] = f => OnTestWeb(f, new WebResult(0, "", false, "transport error")),
+        ["web 400"] = f => OnTestWeb(f, new WebResult(400, LiveFakes.SampleFile("error-400.json"), false)),
+        ["web 401"] = f => OnTestWeb(f, new WebResult(401, "", false)),
+        ["web 403"] = f => OnTestWeb(f, new WebResult(403, """{"error":{"code":"1","message":"No access"}}""", false)),
+        ["web 302"] = f => OnTestWeb(f, new WebResult(302, "", false)),
+        ["web morerecords"] = f => OnTestWeb(f, LiveFakes.Ok(LiveFakes.SampleFile("morerecords.json"))),
+        ["web unreadable"] = f => OnTestWeb(f, LiveFakes.Ok("<html>sign in</html>")),
+    };
+
+    private static void OnTestPac(LiveFakes f, PacResult broken)
+    {
+        var good = f.PacFn;
+        f.PacFn = a => a[^1].Contains("TEST") ? broken : good(a);
+    }
+
+    private static void OnTestWeb(LiveFakes f, WebResult broken)
+    {
+        var good = f.WebFn;
+        f.WebFn = u => u.Host.Contains("test") ? broken : good(u);
+    }
+
+    public static IEnumerable<object[]> FailureNames() => Failures.Keys.Select(k => new object[] { k });
+
+    private static void AssertNoSecrets(string text)
+    {
+        Assert.DoesNotContain(LiveFakes.Token, text);
+        Assert.DoesNotContain(DevEnv, text);
+        Assert.DoesNotContain(TestEnv, text);
+        Assert.DoesNotContain("crm.dynamics.com", text);
+    }
+
+    [Theory]
+    [MemberData(nameof(FailureNames))]
+    public void A_failed_live_read_exits_3_with_no_report_no_files_and_no_secret_anywhere(string name)
+    {
+        var (save, report) = (Path.Combine(_dir, "saved"), Path.Combine(_dir, "report.txt"));
+        var fakes = new LiveFakes();
+        Failures[name](fakes);
+
+        var r = RunLive(fakes, [.. Args(DevEnv, TestEnv), "--save", save, "--out", report]);
+
+        Assert.Equal(3, r.Code);
+        Assert.Equal("", r.Out);
+        Assert.False(Directory.Exists(save));
+        Assert.False(File.Exists(report));
+        Assert.StartsWith("error: --env 2: ", r.Err);
+        AssertNoSecrets(r.Err);
+    }
+
+    [Fact]
+    public void Forwarded_text_goes_to_stderr_after_the_error_line()
+    {
+        var fakes = new LiveFakes();
+        Failures["pac exit 1"](fakes);
+
+        var r = RunLive(fakes, Args(DevEnv, TestEnv));
+
+        Assert.Equal("error: --env 2: `pac org who` failed (exit code 1). Sign in with pac auth create, and check that the account can read that environment.\npac says no\npac stderr\n", r.Err);
+        Assert.Equal("", r.Out);
+    }
+
+    [Fact]
+    public void A_web_error_message_is_forwarded_to_stderr_only()
+    {
+        var fakes = new LiveFakes();
+        Failures["web 400"](fakes);
+
+        var r = RunLive(fakes, Args(DevEnv, TestEnv));
+
+        Assert.Equal("error: --env 2: the Web API read of `solution` failed (HTTP 400).\nEntity 'nosuchtable' With Id = 00000000-0000-0000-0000-000000000000 Does Not Exist", r.Err);
+        Assert.Equal("", r.Out);
+    }
+
+    [Fact]
+    public void A_successful_run_leaves_no_token_env_value_or_url_in_stdout_the_report_stderr_or_saved_files()
+    {
+        foreach (var format in new[] { "text", "json", "markdown" })
+        {
+            var save = Path.Combine(_dir, "saved-" + format);
+            var report = Path.Combine(_dir, "report-" + format);
+            var fakes = new LiveFakes();
+
+            var shown = RunLive(fakes, [.. Args(DevEnv, TestEnv), "--save", save, "--format", format]);
+            var written = RunLive(fakes, [.. Args(DevEnv, TestEnv), "--format", format, "--out", report]);
+
+            Assert.Equal((0, 0), (shown.Code, written.Code));
+            AssertNoSecrets(shown.Out + shown.Err + written.Out + written.Err + File.ReadAllText(report));
+            foreach (var file in Directory.GetFiles(save))
+            {
+                AssertNoSecrets(File.ReadAllText(file));
+            }
+
+            Assert.Equal(2, Directory.GetFiles(save).Length);
+        }
     }
 }
