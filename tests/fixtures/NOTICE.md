@@ -25,7 +25,7 @@ Scrubbed before committing:
 - Renamed the publisher display name to "PowerOps Fixtures".
 - `contoso.sharepoint.com` is a placeholder. The files contain no tenant URLs, environment IDs or user names; the remaining GUIDs are component IDs.
 
-`powerops-seed-yaml/` is the same `PowerOpsSeed` solution in the Dataverse Git integration YAML layout, made for this project under the same licence. The solution was bound to an Azure DevOps repo with a solution binding (folder `seed`), and v1 and v2 were committed from the test environment. The files are the working tree of each commit under `seed/PowerOpsSeed/`, without the Git history. Expected findings: none for `v1/`; PO005 and PO006, as in `powerops-seed/v2`, plus PO014 for `v2/`, where the canvas app gains a button whose `OnSelect` is `Launch("https://contoso.sharepoint.com/sites/ops")`. The current CLI does not read this layout yet.
+`powerops-seed-yaml/` is the same `PowerOpsSeed` solution in the Dataverse Git integration YAML layout, made for this project under the same licence. The solution was bound to an Azure DevOps repo with a solution binding (folder `seed`), and v1 and v2 were committed from the test environment. The files are the working tree of each commit under `seed/PowerOpsSeed/`, without the Git history. Expected findings: none for `v1/`; PO005 and PO006, as in `powerops-seed/v2`, plus PO014 for `v2/`, where the canvas app gains a button whose `OnSelect` is `Launch("https://contoso.sharepoint.com/sites/ops")`.
 
 Scrubbed and trimmed before committing:
 
