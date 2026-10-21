@@ -131,6 +131,16 @@ public class PlanFactsTests
     }
 
     [Fact]
+    public void A_pac_that_fails_keeps_its_exit_code_and_both_streams()
+    {
+        var result = RunScript("echo out; echo err >&2; exit 4", TimeSpan.FromSeconds(10), out _);
+
+        Assert.Equal(4, result.ExitCode);
+        Assert.Contains("out", result.Stdout);
+        Assert.Equal("err", result.Stderr.Trim());
+    }
+
+    [Fact]
     public void A_pac_that_outlives_the_timeout_is_timed_out()
     {
         var result = RunScript("sleep 5", TimeSpan.FromSeconds(1), out var elapsed);

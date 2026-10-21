@@ -26,7 +26,7 @@ public class DeploymentSettingsTests
     [Fact]
     public void Missing_entries_fire_and_matching_ones_are_quiet()
     {
-        var s = Sln([B.Env("a_Env", def: "d")], [B.Ref("a_Ref")]);
+        var s = Sln([B.Env("a_Env")], [B.Ref("a_Ref")]);
 
         Assert.Equal(["missing connectionReference a_Ref", "missing environmentVariable a_Env"], Run(s, "{}"));
         Assert.Empty(Run(s, """{"EnvironmentVariables":[{"SchemaName":"a_Env","Value":"v"}],"ConnectionReferences":[{"LogicalName":"a_Ref","ConnectionId":"c"}]}"""));
@@ -63,6 +63,27 @@ public class DeploymentSettingsTests
     [InlineData(null, "c")]
     public void Empty_value_is_quiet_when_the_solution_has_a_default_or_current_value(string? def, string? cur) =>
         Assert.Empty(Run(Sln([B.Env("a_Env", def: def, cur: cur)]), """{"EnvironmentVariables":[{"SchemaName":"a_Env"}]}"""));
+
+    // pac 2.13.1 imports a file without the variable (it keeps its default or current value) but rejects "Value": "".
+    [Theory]
+    [InlineData("d", null)]
+    [InlineData(null, "c")]
+    public void A_variable_left_out_is_quiet_when_the_solution_has_a_default_or_current_value(string? def, string? cur) =>
+        Assert.Empty(Run(Sln([B.Env("a_Env", def: def, cur: cur)]), "{}"));
+
+    [Fact]
+    public void An_empty_string_value_fires_even_with_a_default_because_pac_rejects_it()
+    {
+        var p = DeploymentSettings.Validate(Sln([B.Env("a", def: "d"), B.Env("b", required: true)]), """{"EnvironmentVariables":[{"SchemaName":"a","Value":""},{"SchemaName":"b","Value":""}]}""");
+
+        Assert.Equal(["emptyValue", "emptyValue"], p.Select(x => x.Kind));
+        Assert.Equal(
+            [
+                "has an empty Value, which pac solution import rejects; set a value, or leave the entry out to keep its default or current value",
+                "has an empty Value, which pac solution import rejects; set a value (required)",
+            ],
+            p.Select(x => x.Message));
+    }
 
     [Fact]
     public void Non_string_value_counts_as_set() =>

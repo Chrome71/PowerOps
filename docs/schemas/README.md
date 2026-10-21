@@ -9,6 +9,7 @@ JSON Schemas (draft 2020-12) for the JSON that `powerops` prints. Every output h
 | [plan-status.schema.json](plan-status.schema.json) | `powerops plan status --json` |
 | [plan-facts.schema.json](plan-facts.schema.json) | `powerops plan facts` (both the available and the unavailable shape) |
 | [rules.schema.json](rules.schema.json) | `powerops rules --json` |
+| [settings-apply.schema.json](settings-apply.schema.json) | `powerops settings apply --format json` |
 | [settings-validate.schema.json](settings-validate.schema.json) | `powerops settings validate --format json` |
 
 The baseline file (`powerops-baseline.json`) is a file format with its own `version`, not an output. The settings file `powerops settings generate` writes is pac's deployment settings format, not an output, so it has no `schemaVersion`.

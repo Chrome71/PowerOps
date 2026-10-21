@@ -59,15 +59,26 @@ public static class DeploymentSettings
             var env = Entries(doc.RootElement, "EnvironmentVariables", "SchemaName", EnvironmentVariable, problems);
             var refs = Entries(doc.RootElement, "ConnectionReferences", "LogicalName", ConnectionReference, problems);
 
+            // Observed with pac 2.13.1: import keeps a variable's default or current value when the file leaves it out, and rejects "Value": "".
             foreach (var e in solution.EnvironmentVariables)
             {
+                var hasValue = !string.IsNullOrEmpty(e.DefaultValue) || !string.IsNullOrEmpty(e.CurrentValue);
+                var required = e.IsRequired ? " (required)" : "";
                 if (!env.TryGetValue(e.SchemaName, out var entry))
                 {
-                    problems.Add(Missing(EnvironmentVariable, e.SchemaName));
+                    if (!hasValue)
+                    {
+                        problems.Add(Missing(EnvironmentVariable, e.SchemaName));
+                    }
                 }
-                else if (Blank(entry, "Value") && string.IsNullOrEmpty(e.DefaultValue) && string.IsNullOrEmpty(e.CurrentValue))
+                else if (entry.TryGetProperty("Value", out var v) && v.ValueKind == JsonValueKind.String && v.GetString()!.Length == 0)
                 {
-                    problems.Add(new("emptyValue", EnvironmentVariable, e.SchemaName, "has no value and no default" + (e.IsRequired ? " (required)" : "")));
+                    problems.Add(new("emptyValue", EnvironmentVariable, e.SchemaName, "has an empty Value, which pac solution import rejects; set a value"
+                        + (hasValue ? ", or leave the entry out to keep its default or current value" : required)));
+                }
+                else if (Blank(entry, "Value") && !hasValue)
+                {
+                    problems.Add(new("emptyValue", EnvironmentVariable, e.SchemaName, "has no value and no default" + required));
                 }
             }
 

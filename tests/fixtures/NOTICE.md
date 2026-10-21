@@ -34,6 +34,16 @@ Scrubbed and trimmed before committing:
 - Renamed the publisher display name to "PowerOps Fixtures". The contact fields in `publisher.yml` were already empty.
 - `connectionreference.yml` holds no connection IDs. The files contain no tenant URLs, environment IDs or user names; the remaining GUIDs are component IDs, the same as in `powerops-seed/`.
 
+`pac/` holds `pac` 2.13.1 output captured for this project, under the same licence, by the maintainer in the test environment that holds `PowerOpsSeed` (2026-10-21). `stdout` was saved apart from `stderr`; every capture left `stderr` empty.
+
+- `org-who.txt`: `pac org who`. The environment id is on the `Environment ID:` line.
+- `list-cloud-flows-on.json`, `list-cloud-flows-off.json`: `pac power-automate list-cloud-flows --environment <id> --workflow-id <seed flow id> --json`, exit 0, with the seed flow on and then off (checked in the portal before and after). The output is `{"value":[...]}`; `workflowId` holds the id, and `stateCode` holds the state: `Published` when on, `Draft` when off.
+- `list-cloud-flows-missing.json`: the same command with an id that does not exist: `null`, exit 0.
+- `list-cloud-flows-bad-id.txt`: the same command with `--workflow-id not-a-guid`: exit 1, and `pac` prints its error on `stdout`, not `stderr`.
+- `list-cloud-flows-suspended.json` is hand-made, not observed: `list-cloud-flows-on.json` with `stateCode` and `statusCode` set to `Suspended`, the third value of the `WorkflowStateCode` enum on Microsoft Learn.
+
+Scrubbed before committing: the environment and organisation ids, the unique name, the org URL, the user's email and user id, the business unit id, the flow's `resourceId` and the error's correlation id became fake values (`00000000-0000-0000-0000-00000000000a` to `...0f`, `admin@contoso.com`, `https://contoso-dev.crm.dynamics.com/`), and the environment name became "Contoso Dev". The seed's own workflow id and the ids inside its flow definition are kept; they are component ids, the same as in `powerops-seed/`.
+
 ## Licence
 
 MIT License. Copyright lines from each repo's `LICENSE`:

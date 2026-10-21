@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace PowerOps.Cli;
 
-public sealed record PacResult(bool Started, bool TimedOut, int ExitCode, string Stdout);
+public sealed record PacResult(bool Started, bool TimedOut, int ExitCode, string Stdout, string Stderr = "");
 
 // Runs pac as a subprocess. Arguments go through ArgumentList, never a shell string.
 public sealed class PacRunner(string executable = "pac", TimeSpan? timeout = null)
@@ -52,7 +52,7 @@ public sealed class PacRunner(string executable = "pac", TimeSpan? timeout = nul
                 return new PacResult(true, true, 0, "");
             }
 
-            return new PacResult(true, false, process.ExitCode, stdout.Result);
+            return new PacResult(true, false, process.ExitCode, stdout.Result, stderr.Result);
         }
     }
 

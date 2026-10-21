@@ -109,7 +109,7 @@ public class SettingsCommandTests
     }
 
     [Fact]
-    public void Generated_file_as_is_has_empty_connection_ids()
+    public void Generated_file_as_is_has_empty_connection_ids_and_values()
     {
         var file = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".json");
         try
@@ -119,7 +119,11 @@ public class SettingsCommandTests
             var (code, output, _) = Run("settings", "validate", Seed, "--settings", file);
 
             Assert.Equal(1, code);
-            Assert.Equal("emptyConnectionId connectionReference pops_SeedDataverse: has no ConnectionId\n1 problem\n", output);
+            Assert.Equal(
+                "emptyConnectionId connectionReference pops_SeedDataverse: has no ConnectionId\n" +
+                "emptyValue environmentVariable pops_DefaultStatus: has an empty Value, which pac solution import rejects; set a value, or leave the entry out to keep its default or current value\n" +
+                "2 problems\n",
+                output);
         }
         finally
         {

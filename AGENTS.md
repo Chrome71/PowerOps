@@ -24,6 +24,7 @@ dotnet pack src/PowerOps.Cli -c Release -o artifacts
 
 - Offline first: commands work on exported or unpacked solutions, with no tenant, wherever possible.
 - Read-only by default. Anything that writes to a tenant or to files outside the output path needs an explicit flag.
+- Never run `powerops settings apply --apply` unless the user said yes to that environment in this session.
 - Machine-readable output: stable JSON or SARIF (Markdown for PR comments), and meaningful exit codes.
 - Call `pac` as a subprocess. Do not reimplement it. Pass arguments as a list, never through a shell string.
 - Make the smallest change that fully solves the task. No unrequested features, options or dependencies.
