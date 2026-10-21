@@ -159,6 +159,17 @@ public class SolutionDiffTests
     }
 
     [Fact]
+    public void Regenerated_operationMetadataIds_in_the_flow_definition_are_not_a_change()
+    {
+        const string Template = """{"properties":{"definition":{"actions":{"A":{"type":"Compose","inputs":"x","metadata":{"operationMetadataId":"{0}"}}},"triggers":{"T":{"type":"Request","metadata":{"operationMetadataId":"{1}"}}}}}}""";
+        var a = S(f => f.Add(B.Flow() with { ClientData = Template.Replace("{0}", "aaaaaaaa-0000-0000-0000-000000000001").Replace("{1}", "aaaaaaaa-0000-0000-0000-000000000002") }));
+        var b = S(f => f.Add(B.Flow() with { ClientData = Template.Replace("{0}", "bbbbbbbb-0000-0000-0000-000000000001").Replace("{1}", "bbbbbbbb-0000-0000-0000-000000000002") }));
+
+        Assert.Empty(Diff(a, b));
+        Assert.Single(Diff(a, S(f => f.Add(B.Flow() with { ClientData = Template.Replace("{0}", "a").Replace("{1}", "b").Replace("\"Compose\"", "\"Response\"") }))));
+    }
+
+    [Fact]
     public void A_changed_value_or_array_order_in_the_flow_definition_is_a_change()
     {
         var a = S(f => f.Add(B.Flow() with { ClientData = """{"a":[1,2]}""" }));

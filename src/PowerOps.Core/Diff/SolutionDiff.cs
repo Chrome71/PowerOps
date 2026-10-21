@@ -166,13 +166,38 @@ public static class SolutionDiff
 
         try
         {
-            // DeepEquals ignores property order and whitespace; array order still counts.
-            return JsonNode.DeepEquals(JsonNode.Parse(a), JsonNode.Parse(b));
+            // DeepEquals ignores property order and whitespace; array order still counts. operationMetadataId is a designer-generated
+            // GUID that can change on a re-save without a real edit, so it is dropped first (the analyzer's flow parser skips it too).
+            return JsonNode.DeepEquals(WithoutOperationMetadataIds(JsonNode.Parse(a)), WithoutOperationMetadataIds(JsonNode.Parse(b)));
         }
         catch (Exception e) when (e is JsonException or ArgumentException)
         {
             return false; // not JSON (or duplicate keys): the raw text differs
         }
+    }
+
+    private static JsonNode? WithoutOperationMetadataIds(JsonNode? node)
+    {
+        switch (node)
+        {
+            case JsonObject o:
+                o.Remove("operationMetadataId");
+                foreach (var child in o.Select(p => p.Value).ToList())
+                {
+                    WithoutOperationMetadataIds(child);
+                }
+
+                break;
+            case JsonArray arr:
+                foreach (var child in arr.ToList())
+                {
+                    WithoutOperationMetadataIds(child);
+                }
+
+                break;
+        }
+
+        return node;
     }
 
     /// <summary>The app name, the AppVersion timestamp, and the meta XML without it (parsed, so insignificant whitespace does not count).</summary>
