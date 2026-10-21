@@ -31,8 +31,8 @@ public sealed record SnapshotComponent(int Type, Guid Id, bool? UnmanagedLayer);
 /// <summary>An environment variable: its schema name and <see cref="Snapshot.Hash"/> of its current value.</summary>
 public sealed record SnapshotVariable(string SchemaName, string? ValueHash);
 
-/// <summary>A connection reference: its logical name, connector and whether a connection is set.</summary>
-public sealed record SnapshotReference(string LogicalName, string ConnectorId, bool Bound);
+/// <summary>A connection reference: its <c>connectionreferenceid</c> (a solution component id), logical name, connector and whether a connection is set.</summary>
+public sealed record SnapshotReference(Guid Id, string LogicalName, string ConnectorId, bool Bound);
 
 /// <summary>A cloud flow: its workflow id, name and state (<c>on</c>, <c>off</c> or <c>suspended</c>, as in <see cref="Settings.FlowState"/>).</summary>
 public sealed record SnapshotFlow(Guid Id, string Name, string State);

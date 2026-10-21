@@ -33,9 +33,6 @@ public static class DriftKind
 
 public static class DriftCompare
 {
-    // shortcut: placeholder until the Step 1 capture gives the number
-    public const int ConnectionReferenceType = -1;
-
     private const int WorkflowType = 29;
 
     /// <summary>Compares every snapshot after the first with the first, plus the checks of each single environment.</summary>
@@ -104,8 +101,10 @@ public static class DriftCompare
         }
 
         var flowIds = a.Flows.Concat(b.Flows).Select(f => f.Id).ToHashSet();
+        // Connection references are compared as references; Learn gives them no fixed componenttype, so they are left out by id.
+        var referenceIds = a.References.Concat(b.References).Select(r => r.Id).ToHashSet();
         IEnumerable<(int Type, Guid Id)> Keys(Snapshot s) => s.Components
-            .Where(c => !(c.Type == WorkflowType && flowIds.Contains(c.Id)) && c.Type is not (380 or 381 or ConnectionReferenceType))
+            .Where(c => !(c.Type == WorkflowType && flowIds.Contains(c.Id)) && !referenceIds.Contains(c.Id) && c.Type is not (380 or 381))
             .Select(c => (c.Type, c.Id));
         var (ka, kb) = (Keys(a).ToHashSet(), Keys(b).ToHashSet());
         foreach (var c in ka.Except(kb))

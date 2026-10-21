@@ -79,7 +79,7 @@ public static partial class SnapshotFile
                 Flag(root, "layersRead"),
                 Items(root, "components", c => new SnapshotComponent(Int(c, "type"), Id(c), OptionalFlag(c, "unmanagedLayer"))),
                 Items(root, "variables", c => new SnapshotVariable(Text(c, "schemaName", false)!, Hash(c))),
-                Items(root, "references", c => new SnapshotReference(Text(c, "logicalName", false)!, Text(c, "connectorId", false)!, Flag(c, "bound"))),
+                Items(root, "references", c => new SnapshotReference(Id(c), Text(c, "logicalName", false)!, Text(c, "connectorId", false)!, Flag(c, "bound"))),
                 Items(root, "flows", c => new SnapshotFlow(Id(c), Text(c, "name", false)!, State(c))));
 
             Unique(snapshot.Components.Select(c => $"{c.Type}/{c.Id}"), StringComparer.Ordinal, "components");

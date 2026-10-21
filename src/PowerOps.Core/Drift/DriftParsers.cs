@@ -48,9 +48,9 @@ public static partial class DriftParsers
     public static IReadOnlyList<SnapshotVariable> Variables(string json) =>
         Unique(Rows(json).Select(r => new SnapshotVariable(Text(r, "schemaname"), Snapshot.Hash(OptionalText(r, "v.value")))).ToList(), v => v.SchemaName, StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Read 6: the solution's connection references. Only whether <c>connectionid</c> is set is kept.</summary>
+    /// <summary>Read 6: the solution's connection references. The id is <c>connectionreferenceid</c>; only whether <c>connectionid</c> is set is kept.</summary>
     public static IReadOnlyList<SnapshotReference> References(string json) =>
-        Unique(Rows(json).Select(r => new SnapshotReference(Text(r, "connectionreferencelogicalname"), Text(r, "connectorid"), !string.IsNullOrEmpty(OptionalText(r, "connectionid")))).ToList(),
+        Unique(Rows(json).Select(r => new SnapshotReference(Id(r, "connectionreferenceid"), Text(r, "connectionreferencelogicalname"), Text(r, "connectorid"), !string.IsNullOrEmpty(OptionalText(r, "connectionid")))).ToList(),
             r => r.LogicalName, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The <c>error.message</c> of the documented error body <c>{"error":{"code","message"}}</c>, or null for anything else. Never throws.</summary>

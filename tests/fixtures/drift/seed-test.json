@@ -31,6 +31,7 @@
   ],
   "references": [
     {
+      "id": "00000000-0000-0000-0000-0000000000d3",
       "logicalName": "pops_sharedoffice365_6a2f1",
       "connectorId": "/providers/Microsoft.PowerApps/apis/shared_office365",
       "bound": true

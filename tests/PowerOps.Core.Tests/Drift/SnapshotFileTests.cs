@@ -12,7 +12,7 @@ public class SnapshotFileTests
         "Dev", "Seed", true, "1.0.0.0", false, true,
         [new(1, Guid.Parse(IdA), null), new(29, Guid.Parse(IdB), true)],
         [new("a_Var", Hash), new("b_Var", null)],
-        [new("a_ref", "/providers/x", true)],
+        [new(Guid.Parse(IdA), "a_ref", "/providers/x", true)],
         [new(Guid.Parse(IdB), "Flow", "on")]);
 
     private static void AssertEqual(Snapshot e, Snapshot a)
@@ -45,7 +45,7 @@ public class SnapshotFileTests
             "{\n  \"schemaVersion\": 1,\n  \"environment\": \"Dev\",\n  \"solution\": \"Seed\",\n  \"installed\": true,\n  \"version\": \"1.0.0.0\",\n  \"managed\": false,\n  \"layersRead\": true,\n" +
             "  \"components\": [\n    {\n      \"type\": 1,\n      \"id\": \"00000000-0000-0000-0000-000000000001\",\n      \"unmanagedLayer\": null\n    },\n    {\n      \"type\": 29,\n      \"id\": \"00000000-0000-0000-0000-000000000002\",\n      \"unmanagedLayer\": true\n    }\n  ],\n" +
             "  \"variables\": [\n    {\n      \"schemaName\": \"a_Var\",\n      \"valueHash\": \"" + Hash + "\"\n    },\n    {\n      \"schemaName\": \"b_Var\",\n      \"valueHash\": null\n    }\n  ],\n" +
-            "  \"references\": [\n    {\n      \"logicalName\": \"a_ref\",\n      \"connectorId\": \"/providers/x\",\n      \"bound\": true\n    }\n  ],\n" +
+            "  \"references\": [\n    {\n      \"id\": \"00000000-0000-0000-0000-000000000001\",\n      \"logicalName\": \"a_ref\",\n      \"connectorId\": \"/providers/x\",\n      \"bound\": true\n    }\n  ],\n" +
             "  \"flows\": [\n    {\n      \"id\": \"00000000-0000-0000-0000-000000000002\",\n      \"name\": \"Flow\",\n      \"state\": \"on\"\n    }\n  ]\n}\n",
             SnapshotFile.Write(Small()));
 
@@ -60,7 +60,7 @@ public class SnapshotFileTests
         {
             Components = [new(29, Guid.Parse(IdB), null), new(29, Guid.Parse(IdA), null), new(1, Guid.Parse(IdB), null)],
             Variables = [new("b", null), new("C", null), new("a", null)],
-            References = [new("z", "c", false), new("a", "c", false)],
+            References = [new(Guid.Parse(IdB), "z", "c", false), new(Guid.Parse(IdA), "a", "c", false)],
             Flows = [new(Guid.Parse(IdB), "x", "off"), new(Guid.Parse(IdA), "y", "suspended")],
         };
         var read = SnapshotFile.Read(SnapshotFile.Write(s));
@@ -127,6 +127,17 @@ public class SnapshotFileTests
     }
 
     [Theory]
+    [InlineData("")]
+    [InlineData("\"id\": null,")]
+    [InlineData("\"id\": \"not-a-guid\",")]
+    public void A_missing_or_invalid_reference_id_is_rejected(string id) =>
+        Rejected(Json(("\"references\": [\n    {\n      \"id\": \"" + IdA + "\",", "\"references\": [\n    {" + id)));
+
+    [Fact]
+    public void The_reference_id_survives_a_round_trip() =>
+        Assert.Equal(Guid.Parse(IdA), SnapshotFile.Read(SnapshotFile.Write(Small())).References.Single().Id);
+
+    [Theory]
     [InlineData("components")]
     [InlineData("variables")]
     [InlineData("references")]
@@ -144,7 +155,7 @@ public class SnapshotFileTests
         var s = Small();
         Rejected(SnapshotFile.Write(s with { Components = [.. s.Components, new(1, Guid.Parse(IdA), true)] }));
         Rejected(SnapshotFile.Write(s with { Variables = [new("a", null), new("A", null)] }));
-        Rejected(SnapshotFile.Write(s with { References = [new("a", "c", true), new("A", "c", true)] }));
+        Rejected(SnapshotFile.Write(s with { References = [new(Guid.Parse(IdA), "a", "c", true), new(Guid.Parse(IdB), "A", "c", true)] }));
         Rejected(SnapshotFile.Write(s with { Flows = [.. s.Flows, new(s.Flows[0].Id, "other", "off")] }));
     }
 

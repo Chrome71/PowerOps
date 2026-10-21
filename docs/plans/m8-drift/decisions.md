@@ -64,3 +64,4 @@ Answer: The Dataverse Web API: FetchXML in `?fetchXml=` with `HttpClient`, docum
 - amendment 2026-10-21 (Q6): reads 2 to 7 move to the Dataverse Web API with an `az` token; `pac env fetch`'s text output rejected (no documented format); status back to approved for a fresh review and re-sign-off (section 10, small edit)
 - Q6 research by powerops-researcher (Sonnet) on Microsoft Learn and open sources only, 2026-10-21; link alias naming and the error body re-checked on Learn the same day
 - re-signed off by the user 2026-10-21 (committed by the master session); Q6 answer recorded; build resumed (status implementing)
+- post-sign-off fix 2026-10-21 (master review, Medium): snapshots keep each connection reference's id (read 6 selects connectionreferenceid) and the comparison leaves reference components out by id; no componenttype number is assumed for connection references

@@ -20,7 +20,7 @@ public class DriftCompareTests
     [Fact]
     public void Equal_snapshots_give_no_items()
     {
-        var s = Snap(components: [new(1, G1, null)], variables: [new("v", "h")], references: [new("r", "c", true)], flows: [new(G2, "F", "on")]);
+        var s = Snap(components: [new(1, G1, null)], variables: [new("v", "h")], references: [new(G3, "r", "c", true)], flows: [new(G2, "F", "on")]);
 
         Assert.Empty(Run(s, s with { Environment = "Test" }));
     }
@@ -70,15 +70,27 @@ public class DriftCompareTests
     }
 
     [Fact]
-    public void A_missing_flow_gives_one_item_and_no_component_item_and_types_380_381_and_references_are_left_out()
+    public void A_missing_flow_gives_one_item_and_no_component_item_and_types_380_and_381_are_left_out()
     {
         var a = Snap(
-            components: [new(29, G1, null), new(380, G2, null), new(381, G3, null), new(DriftCompare.ConnectionReferenceType, G2, null)],
+            components: [new(29, G1, null), new(380, G2, null), new(381, G3, null)],
             flows: [new(G1, "Flow", "on")]);
 
         var item = One(a, Snap("Test"));
 
         Assert.Equal((DriftKind.FlowMissing, "Flow"), (item.Kind, item.Subject));
+    }
+
+    [Fact]
+    public void A_connection_reference_in_one_environment_gives_one_reference_item_whatever_its_component_type()
+    {
+        var item = One(
+            Snap(components: [new(10150, G3, null)], references: [new(G3, "r", "c", true)]),
+            Snap("Test"));
+
+        Assert.Equal((DriftKind.ReferenceMissing, "r"), (item.Kind, item.Subject));
+        item = One(Snap(), Snap("Test", components: [new(10150, G3, null)], references: [new(G3, "r", "c", true)]));
+        Assert.Equal((DriftKind.ReferenceMissing, "r"), (item.Kind, item.Subject));
     }
 
     [Fact]
@@ -107,12 +119,12 @@ public class DriftCompareTests
     [Fact]
     public void References_are_matched_ignoring_case_and_compared_by_connector()
     {
-        Assert.Empty(Run(Snap(references: [new("Demo_R", "c", true)]), Snap("Test", references: [new("demo_r", "c", true)])));
+        Assert.Empty(Run(Snap(references: [new(G3, "Demo_R", "c", true)]), Snap("Test", references: [new(G3, "demo_r", "c", true)])));
 
-        var missing = One(Snap(references: [new("r", "c", true)]), Snap("Test"));
+        var missing = One(Snap(references: [new(G3, "r", "c", true)]), Snap("Test"));
         Assert.Equal((DriftKind.ReferenceMissing, "r"), (missing.Kind, missing.Subject));
 
-        var item = One(Snap(references: [new("r", "c1", true)]), Snap("Test", references: [new("R", "c2", true)]));
+        var item = One(Snap(references: [new(G3, "r", "c1", true)]), Snap("Test", references: [new(G3, "R", "c2", true)]));
         Assert.Equal((DriftKind.ReferenceConnector, "c1", "c2"), (item.Kind, item.Expected, item.Actual));
     }
 
@@ -143,10 +155,10 @@ public class DriftCompareTests
     [Fact]
     public void Reference_unbound_fires_in_every_environment_including_the_first()
     {
-        var items = Run(Snap(references: [new("r", "c", false)]), Snap("Test", references: [new("r", "c", false)]));
+        var items = Run(Snap(references: [new(G3, "r", "c", false)]), Snap("Test", references: [new(G3, "r", "c", false)]));
 
         Assert.Equal([(1, DriftKind.ReferenceUnbound), (2, DriftKind.ReferenceUnbound)], items.Select(i => (i.Position, i.Kind)));
-        Assert.Empty(Run(Snap(references: [new("r", "c", true)])));
+        Assert.Empty(Run(Snap(references: [new(G3, "r", "c", true)])));
     }
 
     [Fact]
@@ -160,7 +172,7 @@ public class DriftCompareTests
     [Fact]
     public void Single_environment_checks_still_run_where_the_pair_found_solution_missing()
     {
-        var items = Run(Snap(installed: false), Snap("Test", references: [new("r", "c", false)]));
+        var items = Run(Snap(installed: false), Snap("Test", references: [new(G3, "r", "c", false)]));
 
         Assert.Equal([DriftKind.SolutionMissing, DriftKind.ReferenceUnbound], items.Select(i => i.Kind));
     }
@@ -186,7 +198,7 @@ public class DriftCompareTests
     public void Items_are_sorted_by_position_then_kind_order_then_subject()
     {
         var a = Snap(components: [new(1, G1, null)], flows: [new(G1, "F", "on")], variables: [new("b", null), new("a", null)]);
-        var b = Snap("Test", version: "2", references: [new("r", "c", false)]);
+        var b = Snap("Test", version: "2", references: [new(G3, "r", "c", false)]);
 
         var items = Run(a, b);
 

@@ -43,8 +43,9 @@
       "description": "Connection references, sorted by logical name.",
       "items": {
         "type": "object",
-        "required": ["logicalName", "connectorId", "bound"],
+        "required": ["id", "logicalName", "connectorId", "bound"],
         "properties": {
+          "id": { "type": "string", "format": "uuid", "description": "The connectionreferenceid, a solution component id." },
           "logicalName": { "type": "string" },
           "connectorId": { "type": "string" },
           "bound": { "type": "boolean", "description": "Whether a connection is set. The connection id itself is never stored." }

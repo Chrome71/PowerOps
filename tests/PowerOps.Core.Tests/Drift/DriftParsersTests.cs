@@ -95,7 +95,7 @@ public class DriftParsersTests
     [Fact]
     public void Read6_parses_a_bound_reference() =>
         Assert.Equal(
-            [new SnapshotReference("pops_sharedoffice365_6a2f1", "/providers/Microsoft.PowerApps/apis/shared_office365", true)],
+            [new SnapshotReference(Guid.Parse("00000000-0000-0000-0000-0000000000d3"), "pops_sharedoffice365_6a2f1", "/providers/Microsoft.PowerApps/apis/shared_office365", true)],
             DriftParsers.References(Sample("dev-read6.json")));
 
     [Theory]
@@ -106,8 +106,16 @@ public class DriftParsersTests
     {
         var tail = connection.EndsWith(':') ? connection + "\"\"" : connection;
 
-        Assert.False(DriftParsers.References(Rows($$"""{"connectionreferencelogicalname":"r","connectorid":"c"{{tail}}}""")).Single().Bound);
+        Assert.False(DriftParsers.References(Rows($$"""{"connectionreferenceid":"{{FlowId}}","connectionreferencelogicalname":"r","connectorid":"c"{{tail}}}""")).Single().Bound);
     }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("\"connectionreferenceid\":null,")]
+    [InlineData("\"connectionreferenceid\":\"not-a-guid\",")]
+    [InlineData("\"connectionreferenceid\":5,")]
+    public void A_missing_or_invalid_connectionreferenceid_is_rejected(string id) =>
+        Assert.Throws<InvalidDataException>(() => DriftParsers.References(Rows($$"""{{{id}}"connectionreferencelogicalname":"r","connectorid":"c"}""")));
 
     [Fact]
     public void Empty_value_arrays_give_empty_lists()
@@ -175,7 +183,8 @@ public class DriftParsersTests
         Assert.Throws<InvalidDataException>(() => DriftParsers.Flows(Rows(flow, flow.Replace("\"F\"", "\"G\""))));
         Assert.Throws<InvalidDataException>(() => DriftParsers.Variables(Rows("""{"schemaname":"Abc"}""", """{"schemaname":"aBC"}""")));
         Assert.Throws<InvalidDataException>(() => DriftParsers.References(Rows(
-            """{"connectionreferencelogicalname":"Abc","connectorid":"c"}""", """{"connectionreferencelogicalname":"aBC","connectorid":"c"}""")));
+            $$"""{"connectionreferenceid":"{{FlowId}}","connectionreferencelogicalname":"Abc","connectorid":"c"}""",
+            $$"""{"connectionreferenceid":"{{FlowId}}","connectionreferencelogicalname":"aBC","connectorid":"c"}""")));
     }
 
     [Fact]
