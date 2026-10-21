@@ -108,7 +108,7 @@ public static class DriftCommand
                 error.WriteLine($"error: --env {i + 1}: {ex.Message}");
                 if (!string.IsNullOrEmpty(ex.Forwarded))
                 {
-                    error.Write(ex.Forwarded);
+                    error.Write(ex.Forwarded.EndsWith('\n') ? ex.Forwarded : ex.Forwarded + "\n");
                 }
 
                 return InternalError;
