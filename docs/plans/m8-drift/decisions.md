@@ -50,3 +50,4 @@ Answer: Drift, as the BUILD-PLAN row says: a differing value exits 1; the README
 - second fresh review (Sonnet) 2026-10-21: 1 High, 4 Medium, 9 Low; all fourteen fixed in the plan text (no user decision needed); review now stale
 - Q2 wording narrowed by the reviews: hashes hide values from a reader, not from guessing, so snapshot files belong in private folders and private CI artifacts; the README and schema do not call them safe
 - third fresh review (Sonnet) 2026-10-21: 0 High, 4 Medium, 9 Low; round 3 asked the user R6 (Q5, kept as the row says); the other twelve fixed in the plan text; review now stale
+- fourth fresh review (Sonnet) 2026-10-21: 0 High, 2 Medium, 8 Low; all ten fixed in the plan text (no user decision needed); review.md plan-hash updated to the final body with a note, as for the M7 plans
