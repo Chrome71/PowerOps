@@ -223,6 +223,29 @@ public class DriftParsersTests
         Assert.DoesNotContain("contoso", e.Message);
     }
 
+    [Theory]
+    [InlineData("https://contoso.crm.dynamics.com")]
+    [InlineData("https://contoso.crm4.dynamics.com")]
+    [InlineData("https://contoso.api.crm9.dynamics.com")]
+    [InlineData("https://contoso.crm.microsoftdynamics.us")]
+    [InlineData("https://contoso.crm.appsplatform.us")]
+    [InlineData("https://contoso.crm.dynamics.cn")]
+    [InlineData("https://CONTOSO.CRM.Dynamics.COM")]
+    public void A_documented_dataverse_host_is_allowed(string url) => Assert.True(DriftParsers.IsDataverseHost(new Uri(url)));
+
+    [Theory]
+    [InlineData("https://localhost")]
+    [InlineData("https://contoso")]
+    [InlineData("https://dynamics.com")]
+    [InlineData("https://evildynamics.com")]
+    [InlineData("https://contoso.dynamics.com.evil.example")]
+    [InlineData("https://contoso.crm.microsoftdynamics.de")]
+    [InlineData("https://contoso.appsplatform.us")]
+    [InlineData("https://contoso.microsoftdynamics.us")]
+    [InlineData("https://10.0.0.1")]
+    [InlineData("https://[::1]")]
+    public void Any_other_host_is_refused(string url) => Assert.False(DriftParsers.IsDataverseHost(new Uri(url)));
+
     [Fact]
     public void A_null_environment_url_is_rejected() => Assert.Throws<InvalidDataException>(() => DriftParsers.EnvironmentUrl(null));
 

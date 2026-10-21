@@ -111,7 +111,7 @@ public static class DriftCommand
                     error.Write(ex.Forwarded.EndsWith('\n') ? ex.Forwarded : ex.Forwarded + "\n");
                 }
 
-                return InternalError;
+                return ex.ExitCode;
             }
         }
 

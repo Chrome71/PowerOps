@@ -60,7 +60,11 @@ internal sealed class DriftLiveReader(
         var name = SettingsCommand.Field(who.Stdout, "Friendly Name:") ?? throw new DriftReadException(Unreadable);
         try
         {
-            return (name, DriftParsers.EnvironmentUrl(SettingsCommand.Field(who.Stdout, "Org URL:")).GetLeftPart(UriPartial.Authority));
+            var uri = DriftParsers.EnvironmentUrl(SettingsCommand.Field(who.Stdout, "Org URL:"));
+            return DriftParsers.IsDataverseHost(uri)
+                ? (name, uri.GetLeftPart(UriPartial.Authority))
+                : throw new DriftReadException(
+                    "`pac org who` named an environment URL that is not on a documented Dataverse host (*.dynamics.com, *.crm.microsoftdynamics.us, *.crm.appsplatform.us, *.crm.dynamics.cn); no token was requested.", exitCode: 2);
         }
         catch (InvalidDataException)
         {

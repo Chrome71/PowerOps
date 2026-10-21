@@ -457,6 +457,22 @@ public class DriftCommandTests : IDisposable
     }
 
     [Fact]
+    public void An_environment_url_on_another_host_exits_2_before_any_token_or_web_call()
+    {
+        var fakes = new LiveFakes();
+        fakes.PacFn = _ => new PacResult(true, false, 0, "Friendly Name:  Evil\nOrg URL:  https://localhost/\n");
+
+        var r = RunLive(fakes, Args(DevEnv, TestEnv));
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal("", r.Out);
+        Assert.Equal("error: --env 1: `pac org who` named an environment URL that is not on a documented Dataverse host (*.dynamics.com, *.crm.microsoftdynamics.us, *.crm.appsplatform.us, *.crm.dynamics.cn); no token was requested.\n", r.Err);
+        Assert.Empty(fakes.AzCalls);
+        Assert.Empty(fakes.WebCalls);
+        Assert.DoesNotContain("localhost", r.Out + r.Err);
+    }
+
+    [Fact]
     public void Forwarded_text_goes_to_stderr_after_the_error_line_without_a_doubled_line_break()
     {
         var fakes = new LiveFakes();

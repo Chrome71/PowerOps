@@ -18,6 +18,13 @@ public static partial class DriftParsers
             ? uri
             : throw new InvalidDataException("the environment URL is not an https URL of a host name with no user info, port, path, query or fragment");
 
+    // Documented Dataverse host suffixes, from Learn "Datacenter regions" (new-datacenter-regions) and "Dynamics 365 US Government" (microsoft-dynamics-365-government), verified 2026-10-21.
+    private static readonly string[] DataverseSuffixes = [".dynamics.com", ".crm.microsoftdynamics.us", ".crm.appsplatform.us", ".crm.dynamics.cn"];
+
+    /// <summary>Whether the host ends with a documented Dataverse suffix on a label boundary with at least one label before it. The token is sent only to such hosts.</summary>
+    public static bool IsDataverseHost(Uri url) =>
+        DataverseSuffixes.Any(suffix => url.Host.Length > suffix.Length && url.Host.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
+
     /// <summary>Read 2: the solution's id, version and managed flag, or null when no row (not installed).</summary>
     public static (Guid Id, string Version, bool Managed)? Solution(string json)
     {
