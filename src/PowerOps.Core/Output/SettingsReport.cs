@@ -20,11 +20,15 @@ public static class SettingsReport
     {
         foreach (var p in problems)
         {
-            writer.Write($"{p.Kind} {p.ComponentType} {p.Name}: {p.Message}\n");
+            writer.Write(Line(p));
         }
 
-        writer.Write(problems.Count switch { 0 => "no problems\n", 1 => "1 problem\n", var n => $"{n} problems\n" });
+        writer.Write(Count(problems.Count) + "\n");
     }
+
+    internal static string Line(SettingsProblem p) => $"{p.Kind} {p.ComponentType} {p.Name}: {p.Message}\n";
+
+    internal static string Count(int n) => n switch { 0 => "no problems", 1 => "1 problem", _ => $"{n} problems" };
 
     /// <summary>Writes the problems as JSON (stable property order, "\n" line endings, trailing newline).</summary>
     public static void WriteJson(string solution, string settings, IReadOnlyList<SettingsProblem> problems, TextWriter writer) =>
