@@ -18,6 +18,7 @@ Unmodified copies of public Microsoft sample data, used as test inputs. Both sou
 - `v1/`: the clean solution. `powerops analyze` reports no findings.
 - `v2/`: the same solution broken on purpose: the flow gains a Compose step with a hard-coded SharePoint URL (PO006), and an unused connection reference `pops_SpareDataverse` is added (PO005).
 - `../settings/`: deployment settings files (`deploymentsettings.json` format) for `v1/`. `powerops-seed-v1.valid.json` is the output of `pac solution create-settings --solution-folder v1` (pac 2.13.1, offline) with `Value` and `ConnectionId` filled in with fake values, and is clean; `powerops-seed-v1.problems.json` is hand-written: it misses a connection reference, lists `pops_DefaultStatus` twice (in different case), and has an extra environment variable and an extra connection reference. Made for this project, fake values only.
+- `../drift/`: snapshot files for `powerops drift` (`seed-dev.json`, an unmanaged `Contoso Dev`, and `seed-test.json`, a managed `Contoso Test` with an unmanaged layer on the flow and a different environment variable value). Hand-written for this project, in the format `powerops drift --save` writes; fake values only (made-up ids and hashes, except the seed flow's id from `v1/`). The live captures will replace or join them.
 
 Scrubbed before committing:
 

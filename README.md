@@ -54,6 +54,7 @@ powerops settings generate path/to/solution --out deploymentsettings.json   # pa
 powerops settings validate path/to/solution --settings deploymentsettings.json   # missing or extra entries, empty connection ids and values
 powerops settings apply solution.zip --settings deploymentsettings.json   # dry run: the target, the pac command, each cloud flow new or existing
 powerops settings apply solution.zip --settings deploymentsettings.json --apply --target "Contoso Dev"   # import through pac, then check the flows are on
+powerops drift --solution MySolution --env <dev> --env <test>   # compare one solution across environments or saved snapshot files (--save <dir>, --format text|json|markdown, --out <file>)
 powerops baseline                     # accept today's findings: writes powerops-baseline.json
 powerops analyze --baseline powerops-baseline.json   # report only findings that are not in the baseline
 ```

@@ -38,23 +38,11 @@ public static partial class SnapshotFile
             sorted.Components, sorted.Variables, sorted.References, sorted.Flows), Options) + "\n";
     }
 
-    /// <exception cref="InvalidDataException">The file is over 1 MB or <see cref="Read"/> rejects it; the message starts with the path.</exception>
-    public static Snapshot Load(string path)
-    {
-        if (new FileInfo(path).Length > MaxBytes)
-        {
-            throw new InvalidDataException($"{path}: a snapshot file is at most {MaxBytes} bytes");
-        }
-
-        try
-        {
-            return Read(File.ReadAllText(path));
-        }
-        catch (InvalidDataException e)
-        {
-            throw new InvalidDataException($"{path}: {e.Message}", e);
-        }
-    }
+    /// <exception cref="InvalidDataException">The file is over 1 MB or <see cref="Read"/> rejects it; the message never names the path.</exception>
+    public static Snapshot Load(string path) =>
+        new FileInfo(path).Length > MaxBytes
+            ? throw new InvalidDataException($"a snapshot file is at most {MaxBytes} bytes")
+            : Read(File.ReadAllText(path));
 
     /// <exception cref="InvalidDataException">The text is not a snapshot file of this schema version.</exception>
     public static Snapshot Read(string json)

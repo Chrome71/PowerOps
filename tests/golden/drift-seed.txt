@@ -1,0 +1,6 @@
+1 Contoso Dev: 1.0.0.0, unmanaged
+2 Contoso Test: 1.0.0.0, managed
+2 Contoso Test: managed PowerOpsSeed: unmanaged -> managed (info)
+2 Contoso Test: unmanaged-layer Notify on new work item
+2 Contoso Test: variable-value pops_DefaultStatus
+2 drift items

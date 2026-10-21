@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/snapshot.schema.json",
+  "title": "powerops drift snapshot file",
+  "description": "A file written by 'powerops drift --save <dir>': what was read of one solution in one environment, for a later offline drift run. It holds the environment's friendly name and the SHA-256 of each environment variable's current value, never the value, an environment id or URL, a connection id or a user name. A hash hides a value from a reader, not from someone who guesses short or known values, so keep these files in private folders and private CI artifacts.",
+  "type": "object",
+  "required": ["schemaVersion", "environment", "solution", "installed", "version", "managed", "layersRead", "components", "variables", "references", "flows"],
+  "properties": {
+    "schemaVersion": { "const": 1, "description": "Version of the snapshot file format. It moves only when this format changes, not with the report outputs' schemaVersion." },
+    "environment": { "type": "string", "minLength": 1, "description": "The environment's friendly name." },
+    "solution": { "type": "string", "minLength": 1, "description": "The solution's unique name." },
+    "installed": { "type": "boolean" },
+    "version": { "type": ["string", "null"], "description": "Null when not installed." },
+    "managed": { "type": ["boolean", "null"], "description": "Null when not installed." },
+    "layersRead": { "type": "boolean", "description": "False only when the layer read was dropped for a managed solution; true when layers were read or no read was needed." },
+    "components": {
+      "type": "array",
+      "description": "Solution components, sorted by type, then id.",
+      "items": {
+        "type": "object",
+        "required": ["type", "id", "unmanagedLayer"],
+        "properties": {
+          "type": { "type": "integer", "description": "The componenttype number." },
+          "id": { "type": "string", "format": "uuid", "description": "The objectid." },
+          "unmanagedLayer": { "type": ["boolean", "null"], "description": "Null when layers were not read or the solution is unmanaged." }
+        }
+      }
+    },
+    "variables": {
+      "type": "array",
+      "description": "Environment variables, sorted by schema name.",
+      "items": {
+        "type": "object",
+        "required": ["schemaName", "valueHash"],
+        "properties": {
+          "schemaName": { "type": "string" },
+          "valueHash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the current value's UTF-8 bytes (\\r\\n turned into \\n), lowercase hex; null when there is no current value." }
+        }
+      }
+    },
+    "references": {
+      "type": "array",
+      "description": "Connection references, sorted by logical name.",
+      "items": {
+        "type": "object",
+        "required": ["logicalName", "connectorId", "bound"],
+        "properties": {
+          "logicalName": { "type": "string" },
+          "connectorId": { "type": "string" },
+          "bound": { "type": "boolean", "description": "Whether a connection is set. The connection id itself is never stored." }
+        }
+      }
+    },
+    "flows": {
+      "type": "array",
+      "description": "Cloud flows, sorted by id.",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "state"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "description": "The workflowid, the same across imports." },
+          "name": { "type": "string" },
+          "state": { "enum": ["on", "off", "suspended"] }
+        }
+      }
+    }
+  }
+}

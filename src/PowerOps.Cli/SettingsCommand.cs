@@ -330,7 +330,7 @@ public static class SettingsCommand
     }
 
     // Same mapping as AnalyzeCommand.Run: any failure is exit 3 (POWEROPS_DEBUG=1 for the stack trace).
-    private static int Guard(TextWriter error, Func<int> run)
+    internal static int Guard(TextWriter error, Func<int> run)
     {
         try
         {

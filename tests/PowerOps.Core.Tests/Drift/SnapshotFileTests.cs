@@ -203,7 +203,11 @@ public class SnapshotFileTests
             AssertEqual(Small(), SnapshotFile.Load(path));
 
             File.WriteAllText(path, new string(' ', 1_048_577));
-            Assert.Throws<InvalidDataException>(() => SnapshotFile.Load(path));
+            var e = Assert.Throws<InvalidDataException>(() => SnapshotFile.Load(path));
+            Assert.DoesNotContain(path, e.Message);
+            File.WriteAllText(path, "{}");
+            e = Assert.Throws<InvalidDataException>(() => SnapshotFile.Load(path));
+            Assert.DoesNotContain(path, e.Message);
         }
         finally
         {

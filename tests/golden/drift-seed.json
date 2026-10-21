@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "solution": "PowerOpsSeed",
+  "drift": true,
+  "environments": [
+    {
+      "position": 1,
+      "name": "Contoso Dev",
+      "source": "snapshot",
+      "installed": true,
+      "version": "1.0.0.0",
+      "managed": false,
+      "layersRead": true
+    },
+    {
+      "position": 2,
+      "name": "Contoso Test",
+      "source": "snapshot",
+      "installed": true,
+      "version": "1.0.0.0",
+      "managed": true,
+      "layersRead": true
+    }
+  ],
+  "items": [
+    {
+      "position": 2,
+      "environment": "Contoso Test",
+      "kind": "managed",
+      "subject": "PowerOpsSeed",
+      "drift": false,
+      "expected": "unmanaged",
+      "actual": "managed"
+    },
+    {
+      "position": 2,
+      "environment": "Contoso Test",
+      "kind": "unmanaged-layer",
+      "subject": "Notify on new work item",
+      "drift": true,
+      "expected": null,
+      "actual": null
+    },
+    {
+      "position": 2,
+      "environment": "Contoso Test",
+      "kind": "variable-value",
+      "subject": "pops_DefaultStatus",
+      "drift": true,
+      "expected": null,
+      "actual": null
+    }
+  ]
+}
