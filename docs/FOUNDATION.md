@@ -2,7 +2,7 @@
 
 **One line:** a free, open-source, cross-platform toolkit that brings software-engineering discipline (analysis, diffing, testing, repeatable deployment) to Microsoft Power Platform. It works alongside `pac`; it does not replace it.
 
-Last updated 2026-10-20.
+Last updated 2026-10-21.
 
 ## 1. Why now
 
@@ -60,7 +60,7 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
 
 ## 5. Roadmap
 
-The ordered milestones for Phases 1–2 are in [BUILD-PLAN.md](BUILD-PLAN.md).
+The ordered milestones for Phases 1–3 are in [BUILD-PLAN.md](BUILD-PLAN.md).
 
 Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform tenant**, which keeps contribution easy.
 
@@ -141,8 +141,8 @@ To verify before or during the phase that depends on them:
   - Not documented: how severity maps to SARIF `level`, where category and severity sit in the file, the file names in the zip, and an example. The ruleset GUID differs between two Learn pages.
   - Still open: needs one real checker result, which means uploading a solution to the checker service. Keep the mapping out of the code until then.
 - [ ] **(Phase 2)** Web API calls to bind connection references and turn flows on as a service principal.
-- [ ] **(Phase 3)** Power Platform API calls to create and delete environments (the ephemeral-environment pattern), plus cost and capacity limits. Starting point: environment provisioning and Reset Environment in the [programmability changelog](https://learn.microsoft.com/power-platform/admin/programmability-whats-new-changed). Ephemeral environments must be managed environments.
-- [ ] **(Phase 3)** How Pipelines and Git integration interact with external CI, and whether we should trigger Pipelines rather than import directly. Git integration gained [GitHub support and public APIs](https://learn.microsoft.com/power-platform/release-plan/2026wave1/power-platform-governance-administration/github-support-source-code-integration-power-platform) (public preview since 2026-08-31), which may let PowerOps trigger or inspect a Git sync.
+- [x] **(Phase 3)** Power Platform API calls to create and delete environments (the ephemeral-environment pattern), plus cost and capacity limits. Starting point: environment provisioning and Reset Environment in the [programmability changelog](https://learn.microsoft.com/power-platform/admin/programmability-whats-new-changed). Ephemeral environments must be managed environments. Answered 2026-10-21 in the [BUILD-PLAN Phase 3 research basis](BUILD-PLAN.md#phase-3-research-basis): `pac admin create|delete` wait by default, a sandbox needs at least 1 GB of database capacity, and managed environments need premium licences. So M11 is an opt-in recipe and not part of our CI. Still open: whether a service principal can sign in to an environment it just created.
+- [x] **(Phase 3)** How Pipelines and Git integration interact with external CI, and whether we should trigger Pipelines rather than import directly. Git integration gained [GitHub support and public APIs](https://learn.microsoft.com/power-platform/release-plan/2026wave1/power-platform-governance-administration/github-support-source-code-integration-power-platform) (public preview since 2026-08-31), which may let PowerOps trigger or inspect a Git sync. Answered 2026-10-21 ([research basis](BUILD-PLAN.md#phase-3-research-basis)): import directly through `pac`. Pipelines deploys one solution per run, with a fixed import mode, and can't carry a plan (BUILD-PLAN decision 13).
 - [x] **(Phase 2)** The licence of ALM4Dataverse, and how far its settings deployment overlaps with ours. Answered 2026-10-21:
   - [ALM4Dataverse/ALM4Dataverse](https://github.com/ALM4Dataverse/ALM4Dataverse) (owner rnwood, created 2026-01-02) still has no licence: the GitHub API returns `license: null` and there is no `LICENSE` file. All rights are reserved by default, so do not copy its code.
   - It is a PowerShell pipeline framework for Azure DevOps and GitHub Actions, and it is active (releases v1.18.0 to v1.19.1 on 2026-10-19 to 20).
