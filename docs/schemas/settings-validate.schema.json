@@ -18,7 +18,7 @@
         "properties": {
           "kind": {
             "enum": ["missing", "extra", "duplicate", "emptyConnectionId", "emptyValue"],
-            "description": "missing: in the solution, not in the file. extra: in the file, not in the solution. duplicate: the name is listed more than once in the file (the first entry is the one checked). emptyConnectionId: connection reference without a ConnectionId. emptyValue: environment variable with no value in the file and no default or current value in the solution."
+            "description": "missing: in the solution, not in the file (an environment variable only when the solution has no default or current value for it). extra: in the file, not in the solution. duplicate: the name is listed more than once in the file (the first entry is the one checked). emptyConnectionId: connection reference without a ConnectionId. emptyValue: environment variable whose Value is an empty string (pac solution import rejects it), or with no value in the file and no default or current value in the solution."
           },
           "componentType": { "enum": ["environmentVariable", "connectionReference"] },
           "name": { "type": "string", "description": "Environment variable schema name or connection reference logical name." },
