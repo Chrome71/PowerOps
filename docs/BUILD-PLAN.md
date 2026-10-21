@@ -98,6 +98,14 @@ Each milestone ends in a release that someone can use. "Done when" is checked by
 | **M6. `diff`** | v0.7.0 | <ul><li>Component-level semantic diff of two solution versions</li><li>Ignores noise (timestamps, ordering, volatile IDs)</li><li>Risk labels: a managed upgrade deletes removed components; flow on/off changed; connection reference or env var added or removed</li><li>Markdown output for pull-request comments</li><li>JSON output that follows the M4 contract (`schemaVersion` and a schema in `docs/schemas/`)</li></ul> | <ul><li>Diffing the managed/unmanaged sample pair and two versions of a live export shows only meaningful changes</li><li>The output fits in a pull-request comment</li></ul> |
 | **M7. `settings`** | v0.8.0 | <ul><li>`settings generate` and `settings validate` offline: compare a `deploymentsettings.json` with the solution's connection references and env vars</li><li>Then the first live feature, behind an explicit `--apply` flag: `settings apply` ([plan](plans/m7-settings-live/plan.md)) runs `pac solution import --settings-file`, which binds the connection references and restores each flow to its export state. It reports every cloud flow's state after the import and exits 1 when one is not on. `pac` has no command that turns a flow on, so powerops cannot do that itself</li></ul> | <ul><li>Validate catches missing and extra entries in fixtures</li><li>A live import round-trip in the test environment leaves the flows on (passed, PR 18, 2026-10-21)</li></ul> |
 
+### Verification record
+
+Evidence for "Done when" items that tests do not cover.
+
+- **M2** (checked 2026-10-21 with `gh`): in a public scratch repo on 2026-10-19, a push run of the action uploaded SARIF, and code scanning shows PO005 and PO006 alerts from the tool "PowerOps". A pull request from a fork owned by another account ran the action successfully. A run with a forced SARIF upload failure still succeeded.
+- **M4**: the manual Codex recipe run is recorded in PR 13.
+- **M7**: the live import check is recorded in PR 18.
+
 ## Testing
 
 | Layer | What | Runs |
