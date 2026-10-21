@@ -29,6 +29,14 @@ Answer: A managed/unmanaged difference is shown but is not drift (Dev unmanaged 
 4. In your own words
 Answer: Mark layers "not read": the snapshot and the output say so for that environment, no layer drift is reported from it and the exit code is unaffected; the README says so; the live "edit the flow in Test" item is recorded as not supported in the PR; no SDK
 
+## Round 3
+
+### Q5. Review R6: environment variable values often differ between Dev and Test on purpose. Should a differing value count as drift (exit 1)?
+1. Drift, as the BUILD-PLAN row says: a differing value exits 1; the README says such a solution always exits 1 and JSON users can filter `items` by kind; no new option (recommended)
+2. Information only: `variable-value` does not change the exit code; a missing variable is still drift
+3. In your own words
+Answer: Drift, as the BUILD-PLAN row says: a differing value exits 1; the README says such a solution always exits 1 and JSON users can filter `items` by kind; no new option
+
 ## Log
 
 - plan started 2026-10-21 from the master session's brief: the BUILD-PLAN Phase 3 section (M8 row, research basis, decisions 9 to 12, build-order tasks 22 to 24)
@@ -41,3 +49,4 @@ Answer: Mark layers "not read": the snapshot and the output say so for that envi
 - fresh review (Sonnet) 2026-10-21: 0 High, 7 Medium, 9 Low; all sixteen fixed in the plan text (no user decision needed: each fix follows Q1 to Q4 or the BUILD-PLAN); review now stale
 - second fresh review (Sonnet) 2026-10-21: 1 High, 4 Medium, 9 Low; all fourteen fixed in the plan text (no user decision needed); review now stale
 - Q2 wording narrowed by the reviews: hashes hide values from a reader, not from guessing, so snapshot files belong in private folders and private CI artifacts; the README and schema do not call them safe
+- third fresh review (Sonnet) 2026-10-21: 0 High, 4 Medium, 9 Low; round 3 asked the user R6 (Q5, kept as the row says); the other twelve fixed in the plan text; review now stale
