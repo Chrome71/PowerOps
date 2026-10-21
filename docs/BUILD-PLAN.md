@@ -103,6 +103,7 @@ Each milestone ends in a release that someone can use. "Done when" is checked by
 Evidence for "Done when" items that tests do not cover.
 
 - **M2** (checked 2026-10-21 with `gh`): in a public scratch repo on 2026-10-19, a push run of the action uploaded SARIF, and code scanning shows PO005 and PO006 alerts from the tool "PowerOps". A pull request from a fork owned by another account ran the action successfully. A run with a forced SARIF upload failure still succeeded.
+- **M3** (2026-10-21, on `714f7da`): `tests/smoke/skills-smoke.sh` passed all checks in both Codex and Claude Code: question rounds to a signed-off plan, stopping after one round, and the fast path (asking to build with no plan drafts one with route options and changes no other files). The weekly workflow still needs its API key secrets.
 - **M4**: the manual Codex recipe run is recorded in PR 13.
 - **M7**: the live import check is recorded in PR 18.
 
