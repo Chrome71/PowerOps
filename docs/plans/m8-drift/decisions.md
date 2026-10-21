@@ -44,7 +44,7 @@ Answer: Drift, as the BUILD-PLAN row says: a differing value exits 1; the README
 2. Keep `pac env fetch` and parse its text grid (undocumented format; values with line breaks, null columns and localized labels are at risk)
 3. Stop M8 and revise the BUILD-PLAN row
 4. In your own words
-Answer: pending the user's re-sign-off. The master session picked 1 under the user's rule to rely only on documented and openly licensed sources; an undocumented `pac` mode was not considered.
+Answer: The Dataverse Web API: FetchXML in `?fetchXml=` with `HttpClient`, documented JSON with raw values, errors and paging; a token from `az account get-access-token --resource <environment URL>` (Azure CLI, MIT) as a subprocess; `pac org who` still resolves `--env` to the name and URL; no new package. Picked by the master session under the user's rule to rely only on documented and openly licensed sources (an undocumented `pac` mode was not considered), and accepted by the user at the re-sign-off on 2026-10-21.
 
 ## Log
 
@@ -63,3 +63,4 @@ Answer: pending the user's re-sign-off. The master session picked 1 under the us
 - build 2026-10-21: steps 2 (without parsers), 3 and 4 (command with the live read behind a seam) committed before Step 1; the capture had not run
 - amendment 2026-10-21 (Q6): reads 2 to 7 move to the Dataverse Web API with an `az` token; `pac env fetch`'s text output rejected (no documented format); status back to approved for a fresh review and re-sign-off (section 10, small edit)
 - Q6 research by powerops-researcher (Sonnet) on Microsoft Learn and open sources only, 2026-10-21; link alias naming and the error body re-checked on Learn the same day
+- re-signed off by the user 2026-10-21 (committed by the master session); Q6 answer recorded; build resumed (status implementing)
