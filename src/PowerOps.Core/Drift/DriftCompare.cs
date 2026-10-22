@@ -103,8 +103,9 @@ public static class DriftCompare
         var flowIds = a.Flows.Concat(b.Flows).Select(f => f.Id).ToHashSet();
         // Connection references are compared as references; Learn gives them no fixed componenttype, so they are left out by id.
         var referenceIds = a.References.Concat(b.References).Select(r => r.Id).ToHashSet();
+        // Step 1 capture (2026-10-22): after an import, tables (1), canvas apps (300) and environment variables (380, 381) get new ids, so a Dev/Test comparison by id would always differ; they are left out (plan Assumption 2's fallback).
         IEnumerable<(int Type, Guid Id)> Keys(Snapshot s) => s.Components
-            .Where(c => !(c.Type == WorkflowType && flowIds.Contains(c.Id)) && !referenceIds.Contains(c.Id) && c.Type is not (380 or 381))
+            .Where(c => !(c.Type == WorkflowType && flowIds.Contains(c.Id)) && !referenceIds.Contains(c.Id) && c.Type is not (1 or 300 or 380 or 381))
             .Select(c => (c.Type, c.Id));
         var (ka, kb) = (Keys(a).ToHashSet(), Keys(b).ToHashSet());
         foreach (var c in ka.Except(kb))

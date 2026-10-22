@@ -5,7 +5,7 @@ using PowerOps.Core.Settings;
 
 namespace PowerOps.Core.Drift;
 
-/// <summary>Parses the Dataverse Web API's OData JSON (<c>{"value":[...]}</c>) of the drift reads 2 to 6. Properties not needed (<c>@odata.*</c>, primary keys, lookups) are ignored. Every rejection is an <see cref="InvalidDataException"/> whose message never quotes the input.</summary>
+/// <summary>Parses the Dataverse Web API's OData JSON (<c>{"value":[...]}</c>) of the drift reads 2 to 7. Properties not needed (<c>@odata.*</c>, primary keys, lookups) are ignored. Every rejection is an <see cref="InvalidDataException"/> whose message never quotes the input.</summary>
 public static partial class DriftParsers
 {
     [GeneratedRegex(@"\Ahttps://[A-Za-z0-9.-]+/?\z", RegexOptions.IgnoreCase)]
@@ -59,6 +59,13 @@ public static partial class DriftParsers
     public static IReadOnlyList<SnapshotReference> References(string json) =>
         Unique(Rows(json).Select(r => new SnapshotReference(Id(r, "connectionreferenceid"), Text(r, "connectionreferencelogicalname"), Text(r, "connectorid"), !string.IsNullOrEmpty(OptionalText(r, "connectionid")))).ToList(),
             r => r.LogicalName, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Read 7: whether the component has an unmanaged layer (a row whose <c>msdyn_solutionname</c> is "Active"). Every component has at least one layer, so no rows is unreadable. <c>msdyn_changes</c> and <c>msdyn_componentjson</c> hold component data and are never read.</summary>
+    public static bool Layers(string json)
+    {
+        var rows = Rows(json);
+        return rows.Count > 0 ? rows.Any(r => OptionalText(r, "msdyn_solutionname") == "Active") : throw Bad("no layer rows");
+    }
 
     /// <summary>The <c>error.message</c> of the documented error body <c>{"error":{"code","message"}}</c>, or null for anything else. Never throws.</summary>
     public static string? ErrorMessage(string body)

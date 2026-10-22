@@ -18,9 +18,19 @@
       "source": "live",
       "installed": true,
       "version": "1.0.0.0",
-      "managed": false,
+      "managed": true,
       "layersRead": true
     }
   ],
-  "items": []
+  "items": [
+    {
+      "position": 2,
+      "environment": "Contoso Test",
+      "kind": "managed",
+      "subject": "PowerOpsSeed",
+      "drift": false,
+      "expected": "unmanaged",
+      "actual": "managed"
+    }
+  ]
 }

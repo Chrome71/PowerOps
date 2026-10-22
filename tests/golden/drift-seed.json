@@ -6,7 +6,7 @@
     {
       "position": 1,
       "name": "Contoso Dev",
-      "source": "snapshot",
+      "source": "live",
       "installed": true,
       "version": "1.0.0.0",
       "managed": false,
@@ -15,7 +15,7 @@
     {
       "position": 2,
       "name": "Contoso Test",
-      "source": "snapshot",
+      "source": "live",
       "installed": true,
       "version": "1.0.0.0",
       "managed": true,
@@ -36,16 +36,7 @@
       "position": 2,
       "environment": "Contoso Test",
       "kind": "unmanaged-layer",
-      "subject": "Notify on new work item",
-      "drift": true,
-      "expected": null,
-      "actual": null
-    },
-    {
-      "position": 2,
-      "environment": "Contoso Test",
-      "kind": "variable-value",
-      "subject": "pops_DefaultStatus",
+      "subject": "Stamp work item status",
       "drift": true,
       "expected": null,
       "actual": null

@@ -1,0 +1,10 @@
+Connected as admin@contoso.com
+Connected to... Contoso Dev
+Organization Information
+  Org ID:                     00000000-0000-0000-0000-000000000001
+  Unique Name:                unqcontosodev
+  Friendly Name:              Contoso Dev
+  Org URL:                    https://contoso-dev.crm.dynamics.com/
+  User Email:                 admin@contoso.com
+  User ID:                    00000000-0000-0000-0000-000000000002
+  Environment ID:             00000000-0000-0000-0000-000000000003

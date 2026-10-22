@@ -1,0 +1,14 @@
+{
+  "value": [
+    {
+      "msdyn_name": "pops_DefaultStatus",
+      "msdyn_overwritetime": "1900-01-01T00:00:00Z",
+      "msdyn_componentlayerid": "00000000-0000-0000-0000-000000000012",
+      "msdyn_solutionname": "PowerOpsSeed",
+      "msdyn_solutioncomponentname": "EnvironmentVariableDefinition",
+      "msdyn_publishername": "Contoso publisher",
+      "msdyn_order": 1,
+      "msdyn_componentid": "00000000-0000-0000-0000-000000000016"
+    }
+  ]
+}

@@ -63,7 +63,7 @@ public class DriftCommandTests : IDisposable
     private static IEnumerable<(string Name, Func<Snapshot, Snapshot> Change, string Expected)> Changes()
     {
         yield return ("version", s => s with { Version = "2.0.0.0" }, "version PowerOpsSeed: 1.0.0.0 -> 2.0.0.0");
-        yield return ("extra component", s => s with { Components = [.. s.Components, new SnapshotComponent(1, new Guid("00000000-0000-0000-0000-0000000000e1"), null)] }, "component-extra 1 00000000-0000-0000-0000-0000000000e1");
+        yield return ("extra component", s => s with { Components = [.. s.Components, new SnapshotComponent(61, new Guid("00000000-0000-0000-0000-0000000000e1"), null)] }, "component-extra 61 00000000-0000-0000-0000-0000000000e1");
         yield return ("unmanaged layer", s => s with { Managed = true, Components = [.. s.Components.Select(c => c.Type == 29 ? c with { UnmanagedLayer = true } : c with { UnmanagedLayer = false })] }, "unmanaged-layer Notify on new work item");
         yield return ("variable value", s => s with { Variables = [new SnapshotVariable("pops_DefaultStatus", Snapshot.Hash("Other"))] }, "variable-value pops_DefaultStatus");
         yield return ("unbound reference", s => s with { References = [.. s.References.Select(r => r with { Bound = false })] }, "reference-unbound pops_sharedoffice365_6a2f1");
@@ -73,13 +73,12 @@ public class DriftCommandTests : IDisposable
     public static IEnumerable<object[]> ChangeNames() => Changes().Select(c => new object[] { c.Name });
 
     [Fact]
-    public void Equal_environments_exit_0_and_match_the_none_golden()
+    public void Equal_environments_exit_0()
     {
         var r = Run(Pair(Dev, Twin), [.. Args("a", "b"), "--format", "json"]);
 
         Assert.Equal(0, r.Code);
         Assert.Equal("", r.Err);
-        Golden.Verify(r.Out, "drift-none.json");
         Assert.Equal(["PowerOpsSeed|a", "PowerOpsSeed|b"], r.Calls);
         Assert.Equal(0, Run(Pair(Dev, Twin), Args("a", "b")).Code);
         Assert.EndsWith("no drift\n", Run(Pair(Dev, Twin), Args("a", "b")).Out);
@@ -98,15 +97,35 @@ public class DriftCommandTests : IDisposable
     }
 
     [Fact]
-    public void Seed_files_give_the_text_json_and_markdown_goldens()
+    public void The_captured_dev_and_the_edited_test_give_the_text_json_and_markdown_goldens()
     {
         foreach (var (format, golden) in new[] { ("text", "drift-seed.txt"), ("json", "drift-seed.json"), ("markdown", "drift-seed.md") })
         {
-            var r = Run(null, "drift", "--solution", "PowerOpsSeed", "--env", DevFile, "--env", TestFile, "--format", format);
+            var r = RunLive(Capture.Fakes("edited"), [.. Args(Capture.DevEnv, Capture.TestEnv), "--format", format]);
             Assert.Equal(1, r.Code);
             Assert.Equal("", r.Err);
             Golden.Verify(r.Out, golden);
         }
+    }
+
+    [Fact]
+    public void The_captured_dev_and_the_clean_test_are_no_drift_and_match_the_none_golden()
+    {
+        var r = RunLive(Capture.Fakes("clean"), [.. Args(Capture.DevEnv, Capture.TestEnv), "--format", "json"]);
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal("", r.Err);
+        Golden.Verify(r.Out, "drift-none.json");
+    }
+
+    [Fact]
+    public void Seed_files_compare_offline_with_drift()
+    {
+        var r = Run(null, "drift", "--solution", "PowerOpsSeed", "--env", DevFile, "--env", TestFile);
+
+        Assert.Equal(1, r.Code);
+        Assert.Equal("", r.Err);
+        Assert.Contains("unmanaged-layer Notify on new work item", r.Out);
     }
 
     public static IEnumerable<object[]> UsageErrors()
@@ -280,13 +299,14 @@ public class DriftCommandTests : IDisposable
     }
 
     [Fact]
-    public void Save_of_a_seed_snapshot_matches_the_snapshot_golden()
+    public void Save_of_the_captured_dev_matches_the_snapshot_golden()
     {
         var save = Path.Combine(_dir, "saved");
 
-        Run(new Dictionary<string, Snapshot> { ["a"] = Dev, ["b"] = Test }, [.. Args("a", "b"), "--save", save]);
+        var r = RunLive(Capture.Fakes("edited"), [.. Args(Capture.DevEnv, Capture.TestEnv), "--save", save]);
 
-        Golden.Verify(File.ReadAllText(Path.Combine(save, "PowerOpsSeed.Contoso Dev.json")), "snapshot-seed.json");
+        Assert.Equal(1, r.Code);
+        Golden.Verify(File.ReadAllText(Path.Combine(save, "PowerOpsSeed.Contoso Dev.json")).ReplaceLineEndings("\n"), "snapshot-seed.json");
     }
 
     [Fact]
@@ -417,6 +437,11 @@ public class DriftCommandTests : IDisposable
         ["web 302"] = f => OnTestWeb(f, new WebResult(302, "", false)),
         ["web morerecords"] = f => OnTestWeb(f, LiveFakes.Ok(LiveFakes.SampleFile("morerecords.json"))),
         ["web unreadable"] = f => OnTestWeb(f, LiveFakes.Ok("<html>sign in</html>")),
+        ["layer read fails"] = f =>
+        {
+            var good = f.WebFn;
+            f.WebFn = u => u.Host.Contains("test") && LiveFakes.EntitySet(u) == "msdyn_componentlayers" ? new WebResult(403, "", false) : good(u);
+        },
     };
 
     private static void OnTestPac(LiveFakes f, PacResult broken)
