@@ -20,7 +20,8 @@ code=0
 git fetch --no-tags --depth=1 origin "$parent" || code=$?
 if [ "$code" -ne 0 ]; then fail "fetch" "$code"; fi
 
-base="$RUNNER_TEMP/powerops-base"
+# A fresh folder each run: a self-hosted runner may keep $RUNNER_TEMP between runs.
+base="$(mktemp -d "$RUNNER_TEMP/powerops-base.XXXXXX")"
 git worktree add --detach "$base" "$parent" || code=$?
 if [ "$code" -ne 0 ]; then fail "worktree" "$code"; fi
 

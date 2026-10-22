@@ -178,7 +178,7 @@ public sealed class ActionScriptTests : IDisposable
         var run = RunDiff(clone, exit: 1);
 
         Assert.Equal(0, run.Code);
-        var baseTree = Path.Combine(run.Temp, "powerops-base");
+        var baseTree = Assert.Single(Directory.GetDirectories(run.Temp, "powerops-base.*"));
         Assert.Equal($"diff {baseTree}/sol sol --format markdown --out {run.Comment}", run.DotnetCalls.Single().Replace("powerops.dll ", ""));
         // The worktree holds the first parent (v1); the work tree holds the merge (v2).
         var seed = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "powerops-seed");
