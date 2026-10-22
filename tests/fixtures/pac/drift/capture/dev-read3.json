@@ -1,0 +1,34 @@
+{
+  "value": [
+    {
+      "componenttype": 1,
+      "objectid": "00000000-0000-0000-0000-000000000007",
+      "solutioncomponentid": "00000000-0000-0000-0000-000000000008"
+    },
+    {
+      "componenttype": 29,
+      "objectid": "4c8dd007-dfcb-f111-a05c-0022480697a8",
+      "solutioncomponentid": "00000000-0000-0000-0000-000000000009"
+    },
+    {
+      "componenttype": 300,
+      "objectid": "00000000-0000-0000-0000-00000000000a",
+      "solutioncomponentid": "00000000-0000-0000-0000-00000000000b"
+    },
+    {
+      "componenttype": 380,
+      "objectid": "00000000-0000-0000-0000-00000000000c",
+      "solutioncomponentid": "00000000-0000-0000-0000-00000000000d"
+    },
+    {
+      "componenttype": 10164,
+      "objectid": "00000000-0000-0000-0000-00000000000e",
+      "solutioncomponentid": "00000000-0000-0000-0000-00000000000f"
+    },
+    {
+      "componenttype": 10164,
+      "objectid": "00000000-0000-0000-0000-000000000010",
+      "solutioncomponentid": "00000000-0000-0000-0000-000000000011"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+Connected as admin@contoso.com
+Connected to... Contoso Test
+Organization Information
+  Org ID:                     00000000-0000-0000-0000-000000000004
+  Unique Name:                unqcontosotest
+  Friendly Name:              Contoso Test
+  Org URL:                    https://contoso-test.crm.dynamics.com/
+  User Email:                 admin@contoso.com
+  User ID:                    00000000-0000-0000-0000-000000000002
+  Environment ID:             00000000-0000-0000-0000-000000000005

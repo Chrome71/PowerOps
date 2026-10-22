@@ -1,0 +1,14 @@
+{
+  "value": [
+    {
+      "msdyn_name": "Stamp work item status",
+      "msdyn_overwritetime": "1900-01-01T00:00:00Z",
+      "msdyn_componentlayerid": "00000000-0000-0000-0000-000000000012",
+      "msdyn_solutionname": "PowerOpsSeed",
+      "msdyn_solutioncomponentname": "Workflow",
+      "msdyn_publishername": "Contoso publisher",
+      "msdyn_order": 1,
+      "msdyn_componentid": "4c8dd007-dfcb-f111-a05c-0022480697a8"
+    }
+  ]
+}

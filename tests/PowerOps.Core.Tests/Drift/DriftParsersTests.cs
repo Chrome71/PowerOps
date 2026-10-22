@@ -11,6 +11,10 @@ public class DriftParsersTests
     private static string Sample(string name) =>
         File.ReadAllText(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "pac", "drift", "sample", name));
 
+    private static readonly string CaptureDir = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "pac", "drift", "capture");
+
+    private static string Cap(string name) => File.ReadAllText(Path.Combine(CaptureDir, name));
+
     private static string Rows(params string[] rows) => $$"""{"@odata.context":"x","value":[{{string.Join(",", rows)}}]}""";
 
     [Theory]
@@ -146,6 +150,41 @@ public class DriftParsersTests
         Assert.Throws<InvalidDataException>(() => DriftParsers.Layers(Sample("morerecords.json")));
         Assert.Throws<InvalidDataException>(() => DriftParsers.Layers("""{"error":{}}"""));
     }
+
+    [Fact]
+    public void The_captured_reads_2_to_6_parse()
+    {
+        var (dev, test) = (DriftParsers.Solution(Cap("dev-read2.json")), DriftParsers.Solution(Cap("test-read2.json")));
+        Assert.Equal(("1.0.0.0", false), (dev!.Value.Version, dev.Value.Managed));
+        Assert.Equal(("1.0.0.0", true), (test!.Value.Version, test.Value.Managed));
+        Assert.Null(DriftParsers.Solution(Cap("dev-read2-missing.json")));
+
+        var (devComponents, testComponents) = (DriftParsers.Components(Cap("dev-read3.json")), DriftParsers.Components(Cap("test-read3.json")));
+        Assert.Equal([1, 29, 300, 380, 10164, 10164], devComponents.Select(c => c.Type).Order());
+        Assert.Equal([1, 29, 300, 380, 10164, 10164], testComponents.Select(c => c.Type).Order());
+        Assert.Equal([(29, Guid.Parse(FlowId))], devComponents.Intersect(testComponents));
+
+        Assert.Equal([new SnapshotFlow(Guid.Parse(FlowId), "Stamp work item status", "on")], DriftParsers.Flows(Cap("dev-read4.json")));
+        Assert.Equal(DriftParsers.Flows(Cap("dev-read4.json")), DriftParsers.Flows(Cap("test-read4.json")));
+        Assert.All(new[] { "dev", "test" }, env =>
+        {
+            Assert.Equal(new SnapshotVariable("pops_DefaultStatus", Snapshot.Hash("Open, then\nreview")), Assert.Single(DriftParsers.Variables(Cap($"{env}-read5.json"))));
+            var references = DriftParsers.References(Cap($"{env}-read6.json"));
+            Assert.Equal(["pops_SeedDataverse", "pops_SpareDataverse"], references.Select(r => r.LogicalName).Order());
+            Assert.All(references, r => Assert.True(r.Bound));
+        });
+    }
+
+    [Fact]
+    public void The_captured_error_body_has_its_code_and_a_placeholder_message() =>
+        Assert.Equal("<error message>", DriftParsers.ErrorMessage(Cap("dev-malformed.json")));
+
+    public static TheoryData<string> LayerFiles() => [.. Directory.GetFiles(CaptureDir, "test-*-read7-*.json").Select(f => Path.GetFileName(f)!)];
+
+    [Theory]
+    [MemberData(nameof(LayerFiles))]
+    public void A_captured_layer_read_has_an_unmanaged_layer_only_for_the_edited_flow(string name) =>
+        Assert.Equal(name == "test-edited-read7-29-1.json", DriftParsers.Layers(Cap(name)));
 
     [Fact]
     public void Empty_value_arrays_give_empty_lists()
