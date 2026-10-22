@@ -18,6 +18,20 @@ inputs:
   category:
     description: Code scanning category for the SARIF upload.
     default: powerops
+  comment:
+    description: On pull_request events, post one pull request comment and update it on later runs (needs pull-requests write permission). It holds the deploy plan when target is set, else the diff of the PR's base and head solution (path must name one solution).
+    default: 'false'
+  deploy-folder:
+    description: Folder of exported solution zips (each with an optional <zip name>.settings.json) to plan. Required when target is set. The plan file is written there.
+    default: ''
+  target:
+    description: Environment (id or URL) to plan the deployment against with `powerops deploy plan`. pac and az must be signed in by earlier steps. Empty means no plan. Not used on fork pull requests.
+    default: ''
+
+outputs:
+  plan-file:
+    description: Path of the plan file written by `deploy plan`. Empty when no plan ran or no file was written.
+    value: ${{ steps.plan.outputs.plan-file }}
 
 runs:
   using: composite
@@ -82,6 +96,36 @@ runs:
         sarif_file: ${{ runner.temp }}/powerops.sarif
         category: ${{ inputs.category }}
 
+    - name: Deploy plan
+      id: plan
+      if: inputs.target != '' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)
+      shell: bash
+      env:
+        PO_DLL: ${{ github.action_path }}/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll
+        PO_FOLDER: ${{ inputs.deploy-folder }}
+        PO_TARGET: ${{ inputs.target }}
+        PO_COMMENT: ${{ runner.temp }}/powerops-comment.md
+      run: bash "$GITHUB_ACTION_PATH/action/plan.sh"
+
+    - name: Diff
+      if: inputs.comment == 'true' && github.event_name == 'pull_request' && (inputs.target == '' || github.event.pull_request.head.repo.full_name != github.repository)
+      shell: bash
+      env:
+        PO_DLL: ${{ github.action_path }}/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll
+        PO_PATH: ${{ inputs.path }}
+        PO_COMMENT: ${{ runner.temp }}/powerops-comment.md
+      run: bash "$GITHUB_ACTION_PATH/action/diff.sh"
+
+    - name: Comment
+      if: inputs.comment == 'true' && github.event_name == 'pull_request'
+      shell: bash
+      env:
+        PO_COMMENT: ${{ runner.temp }}/powerops-comment.md
+        PO_FORK: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+        PO_PR: ${{ github.event.pull_request.number }}
+        GH_TOKEN: ${{ github.token }}
+      run: bash "$GITHUB_ACTION_PATH/action/comment.sh"
+
     - name: Apply fail-on
       shell: bash
       env:
@@ -92,3 +136,12 @@ runs:
         args=(analyze "$PO_PATH" --fail-on "$PO_FAIL_ON")
         if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
         dotnet "$GITHUB_ACTION_PATH/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll" "${args[@]}"
+
+    - name: Apply plan result
+      if: always() && steps.plan.outputs.exit-code != '' && steps.plan.outputs.exit-code != '0'
+      shell: bash
+      env:
+        PO_PLAN_EXIT: ${{ steps.plan.outputs.exit-code }}
+      run: |
+        echo "::error::powerops deploy plan exited with code $PO_PLAN_EXIT (1 means the plan is blocked; 2 or 3 means it could not run)"
+        exit 1
