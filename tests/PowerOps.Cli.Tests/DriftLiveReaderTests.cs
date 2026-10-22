@@ -51,9 +51,20 @@ internal sealed class LiveFakes
 
     public static string EntitySet(Uri url) => url.AbsolutePath[(url.AbsolutePath.LastIndexOf('/') + 1)..];
 
-    // The sample response for a request: dev or test by host, read 2 to 6 by entity set.
+    public static string LayerBody(bool active) =>
+        $$"""{"value":[{{(active ? """{"msdyn_solutionname":"Active","msdyn_order":2},""" : "")}}{"msdyn_solutionname":"PowerOpsSeed","msdyn_order":1}]}""";
+
+    // The component id in a layer request's FetchXML.
+    public static string LayerId(Uri url) => Uri.UnescapeDataString(url.Query).Split("msdyn_componentid\" operator=\"eq\" value=\"")[1][..36];
+
+    // The sample response for a request: dev or test by host, read 2 to 6 by entity set; a clean layer for read 7.
     public static string Sample(Uri url)
     {
+        if (EntitySet(url) == "msdyn_componentlayers")
+        {
+            return LayerBody(false);
+        }
+
         var read = EntitySet(url) switch
         {
             "solutions" => 2,
@@ -83,9 +94,9 @@ public class DriftLiveReaderTests
         ("connectionreference", "connectionreferences"),
     ];
 
-    private static DriftReadException Fails(LiveFakes f)
+    private static DriftReadException Fails(LiveFakes f, string env = Env)
     {
-        var e = Assert.Throws<DriftReadException>(() => f.Reader.Read(Solution, Env));
+        var e = Assert.Throws<DriftReadException>(() => f.Reader.Read(Solution, env));
         AssertNoSecrets(e.Message);
         AssertNoSecrets(e.Forwarded ?? "");
         return e;
@@ -113,14 +124,160 @@ public class DriftLiveReaderTests
         Assert.Equal("on", s.Flows.Single().State);
     }
 
-    [Fact]
-    public void A_managed_solution_has_layers_not_read_for_now()
-    {
-        var s = new LiveFakes().Reader.Read(Solution, "ENV-VALUE-TEST");
+    private const string TestEnv = "ENV-VALUE-TEST";
+    private const string FlowId = "4c8dd007-dfcb-f111-a05c-0022480697a8";
 
-        Assert.Equal(("Contoso Test", true, false), (s.Environment, s.Managed, s.LayersRead));
-        Assert.All(s.Components, c => Assert.Null(c.UnmanagedLayer));
+    private static string ComponentsBody(IEnumerable<(int Type, string Id)> rows) =>
+        $$"""{"value":[{{string.Join(",", rows.Select(r => $$"""{"componenttype":{{r.Type}},"objectid":"{{r.Id}}"}"""))}}]}""";
+
+    private static string Id(int n) => $"00000000-0000-0000-0000-{n:x12}";
+
+    // Reads of a managed solution whose components are given; layers come from the fake (active for the ids in the set).
+    private static LiveFakes ManagedWith(IEnumerable<(int Type, string Id)> rows, params string[] activeIds) => new()
+    {
+        WebFn = url => EntitySetIs(url, "solutioncomponents") ? LiveFakes.Ok(ComponentsBody(rows))
+            : EntitySetIs(url, "msdyn_componentlayers") ? LiveFakes.Ok(LiveFakes.LayerBody(activeIds.Contains(LiveFakes.LayerId(url))))
+            : LiveFakes.Ok(LiveFakes.Sample(url)),
+    };
+
+    private static bool EntitySetIs(Uri url, string set) => LiveFakes.EntitySet(url) == set;
+
+    private static List<Uri> LayerCalls(LiveFakes f) => [.. f.WebCalls.Select(c => c.Url).Where(u => EntitySetIs(u, "msdyn_componentlayers"))];
+
+    [Fact]
+    public void A_managed_solution_reads_the_layers_of_each_mapped_component()
+    {
+        var f = new LiveFakes();
+
+        var s = f.Reader.Read(Solution, TestEnv);
+
+        Assert.Equal(("Contoso Test", true, true), (s.Environment, s.Managed, s.LayersRead));
+        Assert.All(s.Components, c => Assert.False(c.UnmanagedLayer));
+        Assert.Equal(3, LayerCalls(f).Count);
     }
+
+    [Fact]
+    public void Each_layer_request_has_the_component_name_and_id_encoded_in_its_fetchxml()
+    {
+        var f = new LiveFakes();
+
+        f.Reader.Read(Solution, TestEnv);
+
+        var expected = new[] { (1, "Entity", Id(0xd1)), (29, "Workflow", FlowId), (380, "EnvironmentVariableDefinition", Id(0xd2)) }
+            .Select(c => $"https://contoso-test.crm.dynamics.com/api/data/v9.2/msdyn_componentlayers?fetchXml={Uri.EscapeDataString(DriftQueries.Layers(Guid.Parse(c.Item3), c.Item2))}");
+        Assert.Equal(expected.Order(), LayerCalls(f).Select(u => u.OriginalString).Order());
+        Assert.All(f.WebCalls, c => Assert.Equal(LiveFakes.Token, c.Token));
+    }
+
+    [Fact]
+    public void An_active_layer_sets_the_flag_and_other_components_stay_false()
+    {
+        var f = ManagedWith([(1, Id(1)), (29, FlowId), (300, Id(3))], FlowId);
+
+        var s = f.Reader.Read(Solution, TestEnv);
+
+        Assert.Equal([(1, false), (29, true), (300, false)], s.Components.Select(c => (c.Type, c.UnmanagedLayer!.Value)));
+    }
+
+    [Fact]
+    public void A_component_of_another_type_is_not_read_and_stays_null()
+    {
+        var f = ManagedWith([(1, Id(1)), (381, Id(2)), (10164, Id(3)), (2, Id(4))]);
+
+        var s = f.Reader.Read(Solution, TestEnv);
+
+        Assert.Equal([(1, false), (2, null), (381, null), (10164, null)], s.Components.Select(c => (c.Type, c.UnmanagedLayer)));
+        Assert.Single(LayerCalls(f));
+    }
+
+    [Fact]
+    public void A_connection_reference_is_read_by_its_own_name_whatever_its_type_number()
+    {
+        var refId = Id(0xd3);
+        var f = new LiveFakes
+        {
+            WebFn = url => EntitySetIs(url, "solutioncomponents") ? LiveFakes.Ok(ComponentsBody([(10164, refId), (1, Id(1))]))
+                : EntitySetIs(url, "connectionreferences") ? LiveFakes.Ok(LiveFakes.Sample(url))
+                : EntitySetIs(url, "msdyn_componentlayers") ? LiveFakes.Ok(LiveFakes.LayerBody(LiveFakes.LayerId(url) == refId))
+                : LiveFakes.Ok(LiveFakes.Sample(url)),
+        };
+
+        var s = f.Reader.Read(Solution, TestEnv);
+
+        Assert.Equal([(1, false), (10164, true)], s.Components.Select(c => (c.Type, c.UnmanagedLayer!.Value)));
+        Assert.Contains(DriftQueries.Layers(Guid.Parse(refId), "connectionreference"), LayerCalls(f).Select(u => Uri.UnescapeDataString(u.Query["?fetchXml=".Length..])));
+    }
+
+    [Fact]
+    public void At_most_fifty_layer_reads_are_made()
+    {
+        var f = ManagedWith(Enumerable.Range(1, 50).Select(n => (1, Id(n))), Id(7));
+
+        var s = f.Reader.Read(Solution, TestEnv);
+
+        Assert.True(s.LayersRead);
+        Assert.Equal(50, LayerCalls(f).Count);
+        Assert.Single(s.Components, c => c.UnmanagedLayer == true);
+    }
+
+    [Fact]
+    public void More_than_fifty_mapped_components_make_no_layer_read_and_layers_not_read()
+    {
+        var f = ManagedWith(Enumerable.Range(1, 51).Select(n => (1, Id(n))));
+
+        var s = f.Reader.Read(Solution, TestEnv);
+
+        Assert.False(s.LayersRead);
+        Assert.Equal(51, s.Components.Count);
+        Assert.All(s.Components, c => Assert.Null(c.UnmanagedLayer));
+        Assert.Empty(LayerCalls(f));
+    }
+
+    [Fact]
+    public void Only_mapped_components_count_towards_the_cap()
+    {
+        var f = ManagedWith(Enumerable.Range(1, 50).Select(n => (1, Id(n))).Concat(Enumerable.Range(100, 20).Select(n => (381, Id(n)))));
+
+        var s = f.Reader.Read(Solution, TestEnv);
+
+        Assert.True(s.LayersRead);
+        Assert.Equal(50, LayerCalls(f).Count);
+    }
+
+    [Fact]
+    public void An_unmanaged_solution_makes_no_layer_read()
+    {
+        var f = new LiveFakes();
+
+        var s = f.Reader.Read(Solution, Env);
+
+        Assert.True(s.LayersRead);
+        Assert.All(s.Components, c => Assert.Null(c.UnmanagedLayer));
+        Assert.Empty(LayerCalls(f));
+    }
+
+    [Fact]
+    public void A_layer_result_with_no_rows_is_output_powerops_cannot_read()
+    {
+        var f = new LiveFakes { WebFn = url => EntitySetIs(url, "msdyn_componentlayers") ? LiveFakes.Ok("""{"value":[]}""") : LiveFakes.Ok(LiveFakes.Sample(url)) };
+
+        var e = Fails(f, TestEnv);
+
+        Assert.StartsWith("the Web API read of `msdyn_componentlayer` returned output powerops cannot read: ", e.Message);
+        Assert.Contains("no layer rows", e.Message);
+        Assert.Null(e.Forwarded);
+    }
+
+    [Fact]
+    public void A_layer_read_that_times_out_or_fails_names_the_layer_table()
+    {
+        Assert.Equal("the Web API read of `msdyn_componentlayer` timed out after 30 s.", Fails(OnLayers(new WebResult(0, "", true)), TestEnv).Message);
+        Assert.Equal("the Web API read of `msdyn_componentlayer` failed (HTTP 403). Sign in with az login, and check that the account can read that environment.",
+            Fails(OnLayers(new WebResult(403, """{"error":{"code":"1","message":"No access"}}""", false)), TestEnv).Message);
+    }
+
+    private static LiveFakes OnLayers(WebResult broken) =>
+        new() { WebFn = url => EntitySetIs(url, "msdyn_componentlayers") ? broken : LiveFakes.Ok(LiveFakes.Sample(url)) };
 
     [Fact]
     public void The_lists_come_out_sorted()

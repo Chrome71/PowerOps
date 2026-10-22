@@ -24,6 +24,29 @@ public class DriftQueriesTests
         Assert.Equal(Stored("read6-references.xml").Replace("{solutionId}", id), DriftQueries.References(Id));
     }
 
+    [Fact]
+    public void Layer_query_equals_the_stored_one() =>
+        Assert.Equal(Stored("read7-layers.xml").Replace("{componentIds}", Id.ToString("D")).Replace("{componentName}", "CanvasApp"), DriftQueries.Layers(Id, "CanvasApp"));
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("a\"b")]
+    [InlineData("Entity\n")]
+    public void An_invalid_component_name_is_refused(string name) => Assert.Throws<ArgumentException>(() => DriftQueries.Layers(Id, name));
+
+    [Theory]
+    [InlineData(1, "Entity")]
+    [InlineData(29, "Workflow")]
+    [InlineData(300, "CanvasApp")]
+    [InlineData(380, "EnvironmentVariableDefinition")]
+    [InlineData(381, null)]
+    [InlineData(10164, null)]
+    [InlineData(0, null)]
+    public void The_layer_names_are_the_captured_ones(int type, string? name) => Assert.Equal(name, DriftQueries.LayerName(type));
+
+    [Fact]
+    public void Connection_references_use_their_own_layer_name() => Assert.Equal("connectionreference", DriftQueries.ReferenceLayerName);
+
     [Theory]
     [InlineData("PowerOpsSeed\n")]
     [InlineData("a b")]

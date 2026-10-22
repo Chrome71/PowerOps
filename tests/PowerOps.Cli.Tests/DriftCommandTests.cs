@@ -417,6 +417,11 @@ public class DriftCommandTests : IDisposable
         ["web 302"] = f => OnTestWeb(f, new WebResult(302, "", false)),
         ["web morerecords"] = f => OnTestWeb(f, LiveFakes.Ok(LiveFakes.SampleFile("morerecords.json"))),
         ["web unreadable"] = f => OnTestWeb(f, LiveFakes.Ok("<html>sign in</html>")),
+        ["layer read fails"] = f =>
+        {
+            var good = f.WebFn;
+            f.WebFn = u => u.Host.Contains("test") && LiveFakes.EntitySet(u) == "msdyn_componentlayers" ? new WebResult(403, "", false) : good(u);
+        },
     };
 
     private static void OnTestPac(LiveFakes f, PacResult broken)

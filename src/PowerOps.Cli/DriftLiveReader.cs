@@ -5,12 +5,13 @@ using PowerOps.Core.Drift;
 
 namespace PowerOps.Cli;
 
-/// <summary>Reads one solution in one live environment: <c>pac org who</c> for the name and URL, <c>az</c> for a token, then the Web API for reads 2 to 6. Nothing here formats a <see cref="PacResult"/> or puts the token, the URL or the <c>--env</c> value in a message.</summary>
+/// <summary>Reads one solution in one live environment: <c>pac org who</c> for the name and URL, <c>az</c> for a token, then the Web API for reads 2 to 7. Nothing here formats a <see cref="PacResult"/> or puts the token, the URL or the <c>--env</c> value in a message.</summary>
 internal sealed class DriftLiveReader(
     Func<IReadOnlyList<string>, TimeSpan, PacResult> pac,
     Func<IReadOnlyList<string>, TimeSpan, PacResult> az,
     Func<Uri, string, TimeSpan, WebResult> web)
 {
+    private const int MaxLayerReads = 50;
     private const long MaxBody = 16 * 1024 * 1024;
     private const string SignInHint = "Sign in with az login, and check that the account can read that environment.";
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
@@ -32,9 +33,16 @@ internal sealed class DriftLiveReader(
         var variables = Read(url, token, "environmentvariabledefinition", "environmentvariabledefinitions", DriftQueries.Variables(sol.Id), DriftParsers.Variables);
         var references = Read(url, token, "connectionreference", "connectionreferences", DriftQueries.References(sol.Id), DriftParsers.References);
 
-        // shortcut: layers are "not read" until the Step 1 capture shows the layer table's filter; then build the mode it shows.
-        return SnapshotFile.Sort(new Snapshot(name, solution, true, sol.Version, sol.Managed, !sol.Managed,
-            [.. components.Select(c => new SnapshotComponent(c.Type, c.Id, null))], variables, references, flows));
+        // The layer table takes one component per query, so a managed solution costs one read per mapped component.
+        var referenceIds = references.Select(r => r.Id).ToHashSet();
+        var named = components.Select(c => (c.Type, c.Id, Name: referenceIds.Contains(c.Id) ? DriftQueries.ReferenceLayerName : DriftQueries.LayerName(c.Type))).ToList();
+        var layersRead = !sol.Managed || named.Count(c => c.Name is not null) <= MaxLayerReads;
+        return SnapshotFile.Sort(new Snapshot(name, solution, true, sol.Version, sol.Managed, layersRead,
+            [.. named.Select(c => new SnapshotComponent(c.Type, c.Id,
+                sol.Managed && layersRead && c.Name is not null
+                    ? Read(url, token, "msdyn_componentlayer", "msdyn_componentlayers", DriftQueries.Layers(c.Id, c.Name), DriftParsers.Layers)
+                    : null))],
+            variables, references, flows));
     }
 
     private (string Name, string Url) Who(string env)

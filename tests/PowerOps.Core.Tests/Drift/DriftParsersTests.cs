@@ -117,6 +117,36 @@ public class DriftParsersTests
     public void A_missing_or_invalid_connectionreferenceid_is_rejected(string id) =>
         Assert.Throws<InvalidDataException>(() => DriftParsers.References(Rows($$"""{{{id}}"connectionreferencelogicalname":"r","connectorid":"c"}""")));
 
+    private static string Layer(string solution, int order) => $$"""{"msdyn_componentid":"{{FlowId}}","msdyn_solutionname":"{{solution}}","msdyn_order":{{order}}}""";
+
+    [Fact]
+    public void Read7_finds_the_active_layer()
+    {
+        Assert.True(DriftParsers.Layers(Rows(Layer("Active", 2), Layer("PowerOpsSeed", 1))));
+        Assert.False(DriftParsers.Layers(Rows(Layer("PowerOpsSeed", 1))));
+        Assert.False(DriftParsers.Layers(Rows(Layer("active", 2))));
+    }
+
+    [Fact]
+    public void Read7_with_no_rows_is_rejected() =>
+        Assert.Contains("no layer rows", Assert.Throws<InvalidDataException>(() => DriftParsers.Layers(Rows())).Message);
+
+    [Fact]
+    public void Read7_ignores_every_other_property_and_never_quotes_the_component_data()
+    {
+        var row = $$"""{"msdyn_solutionname":"Active","msdyn_changes":"{{Planted}}","msdyn_componentjson":{"x":"{{Planted}}"},"msdyn_name":"n","extra":[1]}""";
+
+        Assert.True(DriftParsers.Layers(Rows(row)));
+        Assert.DoesNotContain(Planted, Assert.Throws<InvalidDataException>(() => DriftParsers.Layers(Rows($$"""{"msdyn_solutionname":5,"msdyn_changes":"{{Planted}}"}"""))).Message);
+    }
+
+    [Fact]
+    public void Read7_rejects_more_records_and_other_shapes()
+    {
+        Assert.Throws<InvalidDataException>(() => DriftParsers.Layers(Sample("morerecords.json")));
+        Assert.Throws<InvalidDataException>(() => DriftParsers.Layers("""{"error":{}}"""));
+    }
+
     [Fact]
     public void Empty_value_arrays_give_empty_lists()
     {
