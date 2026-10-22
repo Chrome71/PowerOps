@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/deploy-plan.schema.json",
+  "title": "powerops deploy plan --format json",
+  "description": "The JSON written by 'powerops deploy plan --format json' and by --save (the plan file): what importing the solution zips of a folder into the target would do. It never holds an environment id or URL, a folder path, a connection id, or an environment variable value; only the target's friendly name, the tool version, file names, solution names, versions, flow names, component ids, hashes and the items. Keep the report in private places, because the names can still identify a tenant.",
+  "type": "object",
+  "required": ["schemaVersion", "tool", "target", "hash", "blocked", "inputs", "solutions", "items"],
+  "properties": {
+    "schemaVersion": { "const": 1, "description": "Version of this output format." },
+    "tool": { "type": "string", "description": "The version 'powerops --version' prints. Plan and apply must run the same version." },
+    "target": { "type": "string", "description": "The target environment's friendly name. Never its id or URL." },
+    "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 (lowercase hex) over the plan's inputs: the target id, every zip, settings file and target snapshot, and the dependency versions. It covers the inputs, not the findings." },
+    "blocked": { "type": "boolean", "description": "True when any item has severity 'block' (exit code 1)." },
+    "inputs": {
+      "type": "object",
+      "required": ["zips", "dependencies"],
+      "description": "What the hash covers, so a later run can say which input changed.",
+      "properties": {
+        "zips": {
+          "type": "array",
+          "description": "One per zip, in ordinal order of the zip's file name.",
+          "items": {
+            "type": "object",
+            "required": ["zip", "zipSha256", "settings", "settingsSha256", "snapshotSha256"],
+            "properties": {
+              "zip": { "type": "string", "description": "The zip's file name, without a folder." },
+              "zipSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the zip's bytes." },
+              "settings": { "type": ["string", "null"], "description": "The settings file's name, or null when the zip has none." },
+              "settingsSha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the settings file's bytes; null when there is none. Never its content." },
+              "snapshotSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the target's snapshot of this solution, as 'powerops drift --save' would write it." }
+            }
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "description": "The solutions the zips depend on that are not zips of the folder, as read from the target, in ordinal order of the lowercase name.",
+          "items": {
+            "type": "object",
+            "required": ["name", "version"],
+            "properties": {
+              "name": { "type": "string", "description": "The solution's unique name, lowercase." },
+              "version": { "type": ["string", "null"], "description": "The installed version; null when the solution is not installed in the target." }
+            }
+          }
+        }
+      }
+    },
+    "solutions": {
+      "type": "array",
+      "description": "In import order.",
+      "items": {
+        "type": "object",
+        "required": ["order", "solution", "zip", "settings", "version", "managed", "action", "installed", "dependsOn", "flows"],
+        "properties": {
+          "order": { "type": "integer", "minimum": 1, "description": "The position in the import order, from 1." },
+          "solution": { "type": "string", "description": "The solution's unique name." },
+          "zip": { "type": "string", "description": "The zip's file name." },
+          "settings": { "type": ["string", "null"], "description": "The settings file's name; null when the zip has none." },
+          "version": { "type": "string", "description": "The zip's version." },
+          "managed": { "type": "boolean", "description": "Whether the zip is managed." },
+          "action": { "enum": ["install", "upgrade", "skip"], "description": "install: not in the target. upgrade: the zip's version is higher. skip: the same or a lower version is installed, so nothing is imported." },
+          "installed": {
+            "type": ["object", "null"],
+            "description": "The solution as the target holds it; null when it is not installed.",
+            "required": ["version", "managed", "layersRead"],
+            "properties": {
+              "version": { "type": "string" },
+              "managed": { "type": "boolean" },
+              "layersRead": { "type": "boolean", "description": "False when the target's layers were not read." }
+            }
+          },
+          "dependsOn": { "type": "array", "items": { "type": "string" }, "description": "The solutions the zip depends on, sorted ignoring case." },
+          "flows": {
+            "type": "array",
+            "description": "The zip's cloud flows and their predicted state after the import; empty for a skip.",
+            "items": {
+              "type": "object",
+              "required": ["name", "exportState", "exists", "stateBefore", "expectedState"],
+              "properties": {
+                "name": { "type": "string" },
+                "exportState": { "type": "string", "description": "The flow's state in the zip." },
+                "exists": { "type": "boolean", "description": "Whether the flow is already in the target." },
+                "stateBefore": { "type": ["string", "null"], "description": "The flow's state in the target; null for a new flow." },
+                "expectedState": { "type": "string", "description": "The state the import is expected to leave." }
+              }
+            }
+          }
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "description": "Sorted by import order, then kind (in the order of the enum below), then subject.",
+      "items": {
+        "type": "object",
+        "required": ["solution", "kind", "severity", "subject", "message"],
+        "properties": {
+          "solution": { "type": "string", "description": "The unique name of the solution the item belongs to." },
+          "kind": {
+            "enum": ["cycle", "missing-dependency", "dependency-not-checked", "managed-conflict", "settings", "deletes", "unmanaged-layer", "layers-not-read", "components-not-checked"]
+          },
+          "severity": { "enum": ["block", "warning", "info"], "description": "Any 'block' item blocks the plan." },
+          "subject": { "type": "string", "description": "What the item is about: a solution, flow, variable or reference name, or a component. Never a setting's value or a connection id." },
+          "message": { "type": "string" }
+        }
+      }
+    }
+  }
+}

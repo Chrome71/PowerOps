@@ -112,6 +112,15 @@ public class DeployPlanTests
         Assert.True(r.Blocked);
     }
 
+    [Fact]
+    public void Two_zips_that_depend_on_each_other_give_one_cycle_item_each_and_no_missing_dependency()
+    {
+        var r = Plan([Zip(Sol("A", deps: Dep("B (1.0)"))), Zip(Sol("B", deps: Dep("A (1.0)")))]);
+
+        Assert.Equal(["A", "B"], Of(r, PlanKind.Cycle).Select(i => i.Solution));
+        Assert.Empty(Of(r, PlanKind.MissingDependency));
+    }
+
     // ---- dependencies ------------------------------------------------------------------------------------------
 
     [Fact]

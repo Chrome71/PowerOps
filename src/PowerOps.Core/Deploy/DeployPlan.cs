@@ -164,7 +164,9 @@ public static class DeployPlan
                 foreach (var dep in e.Deps.Names)
                 {
                     var installed = byName.TryGetValue(dep, out var other) ? other.Snap.Installed : read.GetValueOrDefault(dep) is not null;
-                    if (!installed && !earlier.Contains(dep))
+
+                    // A zip left over in a cycle is reported by its own `cycle` item.
+                    if (!installed && !earlier.Contains(dep) && !(other is not null && ordered.Left.Contains(other)))
                     {
                         Add(PlanKind.MissingDependency, dep, "The solution it depends on is not installed in the target and no earlier zip provides it.");
                     }

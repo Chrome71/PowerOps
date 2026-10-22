@@ -361,6 +361,70 @@ public class DriftLiveReaderTests
     public void An_error_text_with_status_200_is_output_powerops_cannot_read() =>
         Assert.StartsWith("the Web API read of `connectionreference` returned output", Fails(FailingAt(4, LiveFakes.Ok(LiveFakes.SampleFile("error-400.json")))).Message);
 
+    // ---- ReadTarget (deploy plan) ----
+
+    private const string TestEnv = "ENV-VALUE-TEST";
+
+    [Fact]
+    public void ReadTarget_runs_pac_and_az_once_reads_each_solution_fully_and_a_dependency_by_its_solution_row_only()
+    {
+        var f = new LiveFakes
+        {
+            WebFn = url => LiveFakes.EntitySet(url) == "solutions" && url.OriginalString.Contains("DepLib")
+                ? LiveFakes.Ok(LiveFakes.SampleFile("not-installed-read2.json"))
+                : LiveFakes.Ok(LiveFakes.Sample(url)),
+        };
+
+        var t = f.Reader.ReadTarget(TestEnv, [Solution, "OtherSolution"], ["DepLib", "Lib2"]);
+
+        Assert.Equal(["org", "who", "--environment", TestEnv], Assert.Single(f.PacCalls));
+        Assert.Single(f.AzCalls);
+        Assert.Equal(2 * 5 + 2, f.WebCalls.Count);
+        Assert.All(f.WebCalls, c => Assert.Equal(LiveFakes.Token, c.Token));
+        Assert.Equal(["solutions", "solutioncomponents", "workflows", "environmentvariabledefinitions", "connectionreferences"], f.WebCalls.Take(5).Select(c => LiveFakes.EntitySet(c.Url)));
+        Assert.Equal(["solutions", "solutions"], f.WebCalls.TakeLast(2).Select(c => LiveFakes.EntitySet(c.Url)));
+        Assert.Equal(("Contoso Test", Guid.Parse("00000000-0000-0000-0000-00000000000c")), (t.Name, t.Id));
+        Assert.Equal([Solution, "OtherSolution"], t.Solutions.Select(s => s.Solution));
+        Assert.All(t.Solutions, s => Assert.True(s.Installed));
+        Assert.Equal(new Dictionary<string, string?> { ["DepLib"] = null, ["Lib2"] = "1.0.0.0" }, t.Dependencies);
+    }
+
+    [Fact]
+    public void ReadTarget_with_no_dependency_reads_only_the_solutions()
+    {
+        var f = new LiveFakes();
+
+        var t = f.Reader.ReadTarget(TestEnv, [Solution], []);
+
+        Assert.Equal(5, f.WebCalls.Count);
+        Assert.Empty(t.Dependencies);
+    }
+
+    [Theory]
+    [InlineData("Connected\n  Friendly Name:              Contoso Test\n  Org URL:                    https://contoso-test.crm.dynamics.com/\n")]
+    [InlineData("  Friendly Name:              Contoso Test\n  Org URL:                    https://contoso-test.crm.dynamics.com/\n  Environment ID:             not-a-guid\n")]
+    [InlineData("  Friendly Name:              Contoso Test\n  Org URL:                    https://contoso-test.crm.dynamics.com/\n  Environment ID:\n")]
+    public void ReadTarget_without_a_readable_environment_id_exits_3_before_the_token(string stdout)
+    {
+        var f = new LiveFakes { PacFn = _ => new PacResult(true, false, 0, stdout) };
+
+        var e = Assert.Throws<DriftReadException>(() => f.Reader.ReadTarget(TestEnv, [Solution], []));
+
+        Assert.Equal("`pac org who` printed no environment id powerops can read.", e.Message);
+        Assert.Equal(3, e.ExitCode);
+        Assert.Null(e.Forwarded);
+        Assert.Empty(f.AzCalls);
+        Assert.Empty(f.WebCalls);
+    }
+
+    [Fact]
+    public void Read_for_drift_does_not_need_an_environment_id()
+    {
+        var f = new LiveFakes { PacFn = _ => new PacResult(true, false, 0, "  Friendly Name:  Contoso Dev\n  Org URL:  https://contoso-dev.crm.dynamics.com/\n") };
+
+        Assert.True(f.Reader.Read(Solution, Env).Installed);
+    }
+
     [Fact]
     public void The_az_executable_depends_on_the_platform()
     {

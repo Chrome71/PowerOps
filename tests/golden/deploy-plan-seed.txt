@@ -1,0 +1,7 @@
+Target: Contoso Test
+Plan hash: 0000000000000000000000000000000000000000000000000000000000000000
+1 PowerOpsSeed (PowerOpsSeed.zip): upgrade 1.0.0.0 -> 1.0.0.1, managed, settings PowerOpsSeed.settings.json
+  flow Stamp work item status: on -> on
+  warning deletes pops_sharedoffice365_6a2f1: The upgrade deletes this connection reference because the zip no longer has it.
+  warning unmanaged-layer Notify on new work item: An unmanaged layer stays on top of the imported change.
+plan ok
