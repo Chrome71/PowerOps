@@ -62,11 +62,33 @@ public class DriftCompareTests
     [Fact]
     public void Component_missing_and_extra_are_named_by_type_and_id_on_the_later_environment()
     {
-        var items = Run(Snap(components: [new(1, G1, null)]), Snap("Test", components: [new(2, G2, null)]));
+        var items = Run(Snap(components: [new(61, G1, null)]), Snap("Test", components: [new(62, G2, null)]));
 
-        Assert.Equal([(DriftKind.ComponentMissing, "1 " + G1.ToString("D")), (DriftKind.ComponentExtra, "2 " + G2.ToString("D"))], items.Select(i => (i.Kind, i.Subject)));
+        Assert.Equal([(DriftKind.ComponentMissing, "61 " + G1.ToString("D")), (DriftKind.ComponentExtra, "62 " + G2.ToString("D"))], items.Select(i => (i.Kind, i.Subject)));
         Assert.All(items, i => Assert.Equal(2, i.Position));
-        Assert.Empty(Run(Snap(components: [new(1, G1, null)]), Snap("Test", components: [new(1, G1, null)])));
+        Assert.Empty(Run(Snap(components: [new(61, G1, null)]), Snap("Test", components: [new(61, G1, null)])));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(300)]
+    [InlineData(380)]
+    [InlineData(381)]
+    public void Types_whose_ids_change_on_import_are_left_out_of_the_component_kinds(int type)
+    {
+        Assert.Empty(Run(Snap(components: [new(type, G1, null)]), Snap("Test", components: [new(type, G2, null)])));
+        Assert.Empty(Run(Snap(components: [new(type, G1, null)]), Snap("Test")));
+        Assert.Empty(Run(Snap(), Snap("Test", components: [new(type, G1, null)])));
+    }
+
+    [Fact]
+    public void Other_types_and_a_type_29_row_that_is_no_flow_are_still_compared_beside_the_left_out_ones()
+    {
+        var items = Run(
+            Snap(components: [new(1, G1, null), new(300, G1, null), new(29, G2, null), new(61, G3, null)]),
+            Snap("Test", components: [new(1, G2, null), new(300, G2, null), new(29, G3, null), new(61, G3, null)]));
+
+        Assert.Equal([(DriftKind.ComponentMissing, "29 " + G2.ToString("D")), (DriftKind.ComponentExtra, "29 " + G3.ToString("D"))], items.Select(i => (i.Kind, i.Subject)));
     }
 
     [Fact]
@@ -197,7 +219,7 @@ public class DriftCompareTests
     [Fact]
     public void Items_are_sorted_by_position_then_kind_order_then_subject()
     {
-        var a = Snap(components: [new(1, G1, null)], flows: [new(G1, "F", "on")], variables: [new("b", null), new("a", null)]);
+        var a = Snap(components: [new(61, G1, null)], flows: [new(G1, "F", "on")], variables: [new("b", null), new("a", null)]);
         var b = Snap("Test", version: "2", references: [new(G3, "r", "c", false)]);
 
         var items = Run(a, b);

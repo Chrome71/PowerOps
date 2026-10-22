@@ -63,7 +63,7 @@ public class DriftCommandTests : IDisposable
     private static IEnumerable<(string Name, Func<Snapshot, Snapshot> Change, string Expected)> Changes()
     {
         yield return ("version", s => s with { Version = "2.0.0.0" }, "version PowerOpsSeed: 1.0.0.0 -> 2.0.0.0");
-        yield return ("extra component", s => s with { Components = [.. s.Components, new SnapshotComponent(1, new Guid("00000000-0000-0000-0000-0000000000e1"), null)] }, "component-extra 1 00000000-0000-0000-0000-0000000000e1");
+        yield return ("extra component", s => s with { Components = [.. s.Components, new SnapshotComponent(61, new Guid("00000000-0000-0000-0000-0000000000e1"), null)] }, "component-extra 61 00000000-0000-0000-0000-0000000000e1");
         yield return ("unmanaged layer", s => s with { Managed = true, Components = [.. s.Components.Select(c => c.Type == 29 ? c with { UnmanagedLayer = true } : c with { UnmanagedLayer = false })] }, "unmanaged-layer Notify on new work item");
         yield return ("variable value", s => s with { Variables = [new SnapshotVariable("pops_DefaultStatus", Snapshot.Hash("Other"))] }, "variable-value pops_DefaultStatus");
         yield return ("unbound reference", s => s with { References = [.. s.References.Select(r => r with { Bound = false })] }, "reference-unbound pops_sharedoffice365_6a2f1");
