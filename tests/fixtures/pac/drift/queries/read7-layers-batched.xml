@@ -1,0 +1,1 @@
+<fetch><entity name="msdyn_componentlayer"><attribute name="msdyn_componentid" /><attribute name="msdyn_solutionname" /><attribute name="msdyn_order" /><filter><condition attribute="msdyn_componentid" operator="in">{componentIds}</condition><condition attribute="msdyn_solutioncomponentname" operator="eq" value="{componentName}" /></filter></entity></fetch>

@@ -1,0 +1,1 @@
+{"@odata.context":"https://contoso-dev.crm.dynamics.com/api/data/v9.2/$metadata#solutions(solutionid,version,ismanaged)","@Microsoft.Dynamics.CRM.morerecords":false,"value":[{"@odata.etag":"W/\"1000001\"","solutionid":"00000000-0000-0000-0000-0000000000a1","version":"1.0.0.0","ismanaged":false}]}

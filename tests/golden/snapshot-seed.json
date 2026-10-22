@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "environment": "Contoso Dev",
+  "solution": "PowerOpsSeed",
+  "installed": true,
+  "version": "1.0.0.0",
+  "managed": false,
+  "layersRead": true,
+  "components": [
+    {
+      "type": 1,
+      "id": "00000000-0000-0000-0000-000000000007",
+      "unmanagedLayer": null
+    },
+    {
+      "type": 29,
+      "id": "4c8dd007-dfcb-f111-a05c-0022480697a8",
+      "unmanagedLayer": null
+    },
+    {
+      "type": 300,
+      "id": "00000000-0000-0000-0000-00000000000a",
+      "unmanagedLayer": null
+    },
+    {
+      "type": 380,
+      "id": "00000000-0000-0000-0000-00000000000c",
+      "unmanagedLayer": null
+    },
+    {
+      "type": 10164,
+      "id": "00000000-0000-0000-0000-00000000000e",
+      "unmanagedLayer": null
+    },
+    {
+      "type": 10164,
+      "id": "00000000-0000-0000-0000-000000000010",
+      "unmanagedLayer": null
+    }
+  ],
+  "variables": [
+    {
+      "schemaName": "pops_DefaultStatus",
+      "valueHash": "90668c7d21460cc9467c4c7a30a11c9492e9917e981e59f76f55121b0ffa2580"
+    }
+  ],
+  "references": [
+    {
+      "id": "00000000-0000-0000-0000-000000000010",
+      "logicalName": "pops_SeedDataverse",
+      "connectorId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+      "bound": true
+    },
+    {
+      "id": "00000000-0000-0000-0000-00000000000e",
+      "logicalName": "pops_SpareDataverse",
+      "connectorId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+      "bound": true
+    }
+  ],
+  "flows": [
+    {
+      "id": "4c8dd007-dfcb-f111-a05c-0022480697a8",
+      "name": "Stamp work item status",
+      "state": "on"
+    }
+  ]
+}

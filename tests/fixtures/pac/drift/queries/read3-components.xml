@@ -1,0 +1,1 @@
+<fetch><entity name="solutioncomponent"><attribute name="componenttype" /><attribute name="objectid" /><attribute name="rootsolutioncomponentid" /><filter><condition attribute="solutionid" operator="eq" value="{solutionId}" /></filter></entity></fetch>

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/drift.schema.json",
+  "title": "powerops drift --format json",
+  "description": "The JSON written by 'powerops drift --format json': one solution compared across two or more environments, each compared with the first. It never holds an environment id or URL, a connection id, an environment variable value or hash, or pac's output text. Environment friendly names are included, so keep the report in private places.",
+  "type": "object",
+  "required": ["schemaVersion", "solution", "drift", "environments", "items"],
+  "properties": {
+    "schemaVersion": { "const": 1, "description": "Version of this output format." },
+    "solution": { "type": "string", "description": "The solution's unique name, as given with --solution." },
+    "drift": { "type": "boolean", "description": "True when any item is drift (exit code 1)." },
+    "environments": {
+      "type": "array",
+      "minItems": 2,
+      "description": "The --env values in order.",
+      "items": {
+        "type": "object",
+        "required": ["position", "name", "source", "installed", "version", "managed", "layersRead"],
+        "properties": {
+          "position": { "type": "integer", "minimum": 1, "description": "The --env's position; names environments, because friendly names are not unique." },
+          "name": { "type": "string", "description": "The environment's friendly name." },
+          "source": { "enum": ["live", "snapshot"], "description": "Read through pac now, or loaded from a snapshot file." },
+          "installed": { "type": "boolean" },
+          "version": { "type": ["string", "null"], "description": "Null when not installed." },
+          "managed": { "type": ["boolean", "null"], "description": "Null when not installed." },
+          "layersRead": { "type": "boolean", "description": "False only when the layer read was dropped for a managed solution." }
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "description": "Sorted by position, then kind (in the order of the enum below), then subject.",
+      "items": {
+        "type": "object",
+        "required": ["position", "environment", "kind", "subject", "drift", "expected", "actual"],
+        "properties": {
+          "position": { "type": "integer", "minimum": 1 },
+          "environment": { "type": "string", "description": "The environment's friendly name." },
+          "kind": {
+            "enum": ["solution-missing", "version", "managed", "component-missing", "component-extra", "unmanaged-layer", "layers-not-read", "variable-missing", "variable-value", "reference-missing", "reference-connector", "reference-unbound", "flow-missing", "flow-state"],
+            "description": "managed and layers-not-read are information; every other kind is drift."
+          },
+          "subject": { "type": "string", "description": "The name of a flow, variable or reference, '<componenttype> <id>' for another component, or the solution name." },
+          "drift": { "type": "boolean" },
+          "expected": { "type": ["string", "null"], "description": "The first environment's value for version, managed, reference-connector and flow-state; else null." },
+          "actual": { "type": ["string", "null"], "description": "This environment's value for those kinds; else null." }
+        }
+      }
+    }
+  }
+}

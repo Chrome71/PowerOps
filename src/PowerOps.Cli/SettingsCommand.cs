@@ -312,7 +312,7 @@ public static class SettingsCommand
         : null;
 
     // The value after a "Label:" line of pac's text output, or null.
-    private static string? Field(string text, string label) =>
+    internal static string? Field(string text, string label) =>
         text.Split('\n').Select(l => l.Trim())
             .Where(l => l.StartsWith(label, StringComparison.Ordinal))
             .Select(l => l[label.Length..].Trim())
@@ -330,7 +330,7 @@ public static class SettingsCommand
     }
 
     // Same mapping as AnalyzeCommand.Run: any failure is exit 3 (POWEROPS_DEBUG=1 for the stack trace).
-    private static int Guard(TextWriter error, Func<int> run)
+    internal static int Guard(TextWriter error, Func<int> run)
     {
         try
         {

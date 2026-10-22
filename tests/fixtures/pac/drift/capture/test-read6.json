@@ -1,0 +1,16 @@
+{
+  "value": [
+    {
+      "connectionid": "fake-connection-2",
+      "connectorid": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+      "connectionreferenceid": "00000000-0000-0000-0000-000000000018",
+      "connectionreferencelogicalname": "pops_SeedDataverse"
+    },
+    {
+      "connectionid": "fake-connection-2",
+      "connectorid": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+      "connectionreferenceid": "00000000-0000-0000-0000-00000000001a",
+      "connectionreferencelogicalname": "pops_SpareDataverse"
+    }
+  ]
+}
