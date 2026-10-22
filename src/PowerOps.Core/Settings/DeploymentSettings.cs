@@ -45,7 +45,7 @@ public static class DeploymentSettings
         }
         catch (JsonException e)
         {
-            throw new InvalidDataException("not valid JSON: " + e.Message, e);
+            throw new InvalidDataException($"not valid JSON (line {e.LineNumber}, position {e.BytePositionInLine})", e);
         }
 
         using (doc)

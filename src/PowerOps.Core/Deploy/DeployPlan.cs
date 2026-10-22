@@ -285,12 +285,16 @@ public static class DeployPlan
         }
 
         // The zip names tables and canvas apps by schema name and the target by id, so only the counts compare (a lower bound).
-        foreach (var (type, noun) in new[] { (TableType, "table(s)"), (CanvasAppType, "canvas app(s)") })
+        foreach (var (type, noun, effect) in new[]
+        {
+            (TableType, "table(s)", "a deleted table loses its data"),
+            (CanvasAppType, "canvas app(s)", "the managed upgrade removes canvas apps the zip no longer has"),
+        })
         {
             var gone = snap.Components.Count(c => c.Type == type) - solution.RootComponents.Count(c => c.Type == type.ToString(CultureInfo.InvariantCulture));
             if (gone > 0)
             {
-                add(PlanKind.Deletes, $"{gone} {noun}", $"The upgrade deletes at least {gone} of them; a deleted table loses its data.");
+                add(PlanKind.Deletes, $"{gone} {noun}", $"The upgrade deletes at least {gone} of them; {effect}.");
             }
         }
 

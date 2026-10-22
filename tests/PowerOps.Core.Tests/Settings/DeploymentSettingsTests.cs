@@ -142,4 +142,14 @@ public class DeploymentSettingsTests
     [InlineData("""{"ConnectionReferences":[{"ConnectionId":"c"}]}""")]
     public void Invalid_shapes_are_rejected(string json) =>
         Assert.Throws<InvalidDataException>(() => DeploymentSettings.Validate(Sln(), json));
+
+    [Fact]
+    public void Broken_JSON_error_gives_the_position_and_no_input_text()
+    {
+        var e = Assert.Throws<InvalidDataException>(() => DeploymentSettings.Validate(Sln(), """{"EnvironmentVariables":[{"Value": s3cr3t"""));
+
+        Assert.Contains("line", e.Message);
+        Assert.DoesNotContain("'s'", e.Message);
+        Assert.DoesNotContain("s3cr3t", e.Message);
+    }
 }

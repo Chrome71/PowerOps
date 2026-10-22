@@ -389,6 +389,23 @@ public class DriftLiveReaderTests
         Assert.Equal(new Dictionary<string, string?> { ["DepLib"] = null, ["Lib2"] = "1.0.0.0" }, t.Dependencies);
     }
 
+    [Theory]
+    [InlineData(500)]
+    [InlineData(401)]
+    public void ReadTarget_failure_leaks_neither_the_environment_nor_the_token(int status)
+    {
+        var f = new LiveFakes { WebFn = _ => new WebResult(status, """{"error":{"code":"1","message":"No access"}}""", false) };
+
+        var e = Assert.Throws<DriftReadException>(() => f.Reader.ReadTarget(TestEnv, [Solution], ["DepLib"]));
+
+        foreach (var text in new[] { e.Message, e.Forwarded ?? "" })
+        {
+            Assert.DoesNotContain(TestEnv, text);
+            Assert.DoesNotContain(LiveFakes.Token, text);
+            Assert.DoesNotContain("crm.dynamics.com", text);
+        }
+    }
+
     [Fact]
     public void ReadTarget_with_no_dependency_reads_only_the_solutions()
     {

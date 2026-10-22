@@ -35,7 +35,7 @@ public static partial class DeployCommand
         return new Command("deploy", "Plan a deployment of solution zips.") { plan };
     }
 
-    [GeneratedRegex("^[A-Za-z0-9._-]+$")]
+    [GeneratedRegex(@"\A[A-Za-z0-9._-]+\z")]
     private static partial Regex SafeName();
 
     private static string Clean(string? text) => TextReport.Clean(text);

@@ -98,7 +98,7 @@ runs:
 
     - name: Deploy plan
       id: plan
-      if: inputs.target != '' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)
+      if: inputs.target != '' && github.event_name != 'pull_request_target' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)
       shell: bash
       env:
         PO_DLL: ${{ github.action_path }}/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll

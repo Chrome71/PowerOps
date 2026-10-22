@@ -359,6 +359,8 @@ public class DeployPlanTests
 
         var canvas = Of(Plan(zip with { RootComponents = [new("1", "a", null), new("1", "b", null), new("1", "c", null), new("300", "x", null)] }, snap), PlanKind.Deletes);
         Assert.Equal(["1 canvas app(s)"], canvas.Select(i => i.Subject));
+        Assert.DoesNotContain("table", canvas[0].Message);
+        Assert.Contains("table", items[0].Message);
     }
 
     [Fact]
