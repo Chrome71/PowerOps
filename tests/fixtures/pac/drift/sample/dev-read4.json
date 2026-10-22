@@ -1,0 +1,1 @@
+{"@odata.context":"https://contoso-dev.crm.dynamics.com/api/data/v9.2/$metadata#workflows(workflowid,name,statecode)","@Microsoft.Dynamics.CRM.morerecords":false,"value":[{"@odata.etag":"W/\"1000005\"","workflowid":"4c8dd007-dfcb-f111-a05c-0022480697a8","name":"Notify on new work item","statecode":1}]}

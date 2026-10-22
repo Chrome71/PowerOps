@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "environment": "Contoso Dev",
+  "solution": "PowerOpsSeed",
+  "installed": true,
+  "version": "1.0.0.0",
+  "managed": false,
+  "layersRead": true,
+  "components": [
+    {
+      "type": 1,
+      "id": "00000000-0000-0000-0000-0000000000d1",
+      "unmanagedLayer": null
+    },
+    {
+      "type": 29,
+      "id": "4c8dd007-dfcb-f111-a05c-0022480697a8",
+      "unmanagedLayer": null
+    },
+    {
+      "type": 380,
+      "id": "00000000-0000-0000-0000-0000000000d2",
+      "unmanagedLayer": null
+    }
+  ],
+  "variables": [
+    {
+      "schemaName": "pops_DefaultStatus",
+      "valueHash": "ed077f3d8125d60dca1979c7133601bd187d47c73ed9975028f677e49e709942"
+    }
+  ],
+  "references": [
+    {
+      "id": "00000000-0000-0000-0000-0000000000d3",
+      "logicalName": "pops_sharedoffice365_6a2f1",
+      "connectorId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+      "bound": true
+    }
+  ],
+  "flows": [
+    {
+      "id": "4c8dd007-dfcb-f111-a05c-0022480697a8",
+      "name": "Notify on new work item",
+      "state": "on"
+    }
+  ]
+}

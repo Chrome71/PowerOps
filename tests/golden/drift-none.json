@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "solution": "PowerOpsSeed",
+  "drift": false,
+  "environments": [
+    {
+      "position": 1,
+      "name": "Contoso Dev",
+      "source": "live",
+      "installed": true,
+      "version": "1.0.0.0",
+      "managed": false,
+      "layersRead": true
+    },
+    {
+      "position": 2,
+      "name": "Contoso Test",
+      "source": "live",
+      "installed": true,
+      "version": "1.0.0.0",
+      "managed": false,
+      "layersRead": true
+    }
+  ],
+  "items": []
+}

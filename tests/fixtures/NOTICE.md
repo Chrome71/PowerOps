@@ -18,6 +18,7 @@ Unmodified copies of public Microsoft sample data, used as test inputs. Both sou
 - `v1/`: the clean solution. `powerops analyze` reports no findings.
 - `v2/`: the same solution broken on purpose: the flow gains a Compose step with a hard-coded SharePoint URL (PO006), and an unused connection reference `pops_SpareDataverse` is added (PO005).
 - `../settings/`: deployment settings files (`deploymentsettings.json` format) for `v1/`. `powerops-seed-v1.valid.json` is the output of `pac solution create-settings --solution-folder v1` (pac 2.13.1, offline) with `Value` and `ConnectionId` filled in with fake values, and is clean; `powerops-seed-v1.problems.json` is hand-written: it misses a connection reference, lists `pops_DefaultStatus` twice (in different case), and has an extra environment variable and an extra connection reference. Made for this project, fake values only.
+- `../drift/`: snapshot files for `powerops drift` (`seed-dev.json`, an unmanaged `Contoso Dev`, and `seed-test.json`, a managed `Contoso Test` with an unmanaged layer on the flow and a different environment variable value). Hand-written for this project, in the format `powerops drift --save` writes; fake values only (made-up ids and hashes, except the seed flow's id from `v1/`). The live captures will replace or join them.
 
 Scrubbed before committing:
 
@@ -43,6 +44,8 @@ Scrubbed and trimmed before committing:
 - `list-cloud-flows-suspended.json` is hand-made, not observed: `list-cloud-flows-on.json` with `stateCode` and `statusCode` set to `Suspended`, the third value of the `WorkflowStateCode` enum on Microsoft Learn.
 
 Scrubbed before committing: the environment and organisation ids, the unique name, the org URL, the user's email and user id, the business unit id, the flow's `resourceId` and the error's correlation id became fake values (`00000000-0000-0000-0000-00000000000a` to `...0f`, `admin@contoso.com`, `https://contoso-dev.crm.dynamics.com/`), and the environment name became "Contoso Dev". The seed's own workflow id and the ids inside its flow definition are kept; they are component ids, the same as in `powerops-seed/`.
+
+`pac/drift/sample/` is hand-written for this project, not captured: it is shaped like the Dataverse Web API responses that Microsoft Learn documents for FetchXML queries (`{"@odata.context":...,"value":[...]}`, raw values, no property for a null column, `v.value` for the outer-linked column, the `morerecords` annotation, the `{"error":{"code","message"}}` body), with fake values only (the `contoso` hosts, ids `00000000-0000-0000-0000-0000000000xx`, the seed's flow id, and a made-up variable value with a space, a comma and a line break). `dev-read2.json` to `dev-read6.json` and `test-read2.json` to `test-read6.json` are reads 2 to 6 of `drift` for `PowerOpsSeed` (Test equal to Dev except `ismanaged` and the fake connection id); `not-installed-read2.json` is read 2 with no row; `morerecords.json` has the annotation true; `error-400.json` is an error body. The Step 1 captures of the plan `m8-drift` will join or replace them.
 
 ## Licence
 

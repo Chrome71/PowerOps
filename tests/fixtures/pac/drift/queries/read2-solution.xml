@@ -1,0 +1,1 @@
+<fetch><entity name="solution"><attribute name="solutionid" /><attribute name="version" /><attribute name="ismanaged" /><filter><condition attribute="uniquename" operator="eq" value="PowerOpsSeed" /></filter></entity></fetch>

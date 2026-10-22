@@ -14,11 +14,13 @@ public class OutputSchemaTests
     [
         ("analyze-", "analyze.schema.json"),
         ("diff-", "diff.schema.json"),
+        ("drift-", "drift.schema.json"),
         ("plan-status", "plan-status.schema.json"),
         ("plan-facts", "plan-facts.schema.json"),
         ("rules", "rules.schema.json"),
         ("settings-apply", "settings-apply.schema.json"),
         ("settings-validate", "settings-validate.schema.json"),
+        ("snapshot-", "snapshot.schema.json"),
     ];
 
     private static readonly string[] Goldens = Directory
