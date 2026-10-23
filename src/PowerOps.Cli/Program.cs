@@ -40,7 +40,7 @@ public static class Program
         root.Subcommands.Add(SettingsCommand.Create(output, error, pac));
         root.Subcommands.Add(DriftCommand.Create(output, error, driftLive ?? ((solution, env) => reader.Value.Read(solution, env))));
 
-        root.Subcommands.Add(DeployCommand.Create(output, error, deployTarget ?? ((target, solutions, dependencies) => reader.Value.ReadTarget(target, solutions, dependencies))));
+        root.Subcommands.Add(DeployCommand.Create(output, error, pac, deployTarget ?? ((target, solutions, dependencies) => reader.Value.ReadTarget(target, solutions, dependencies))));
 
         var parse = root.Parse(args);
         if (parse.Errors.Count > 0)

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "tool": "<tool>",
+  "applied": true,
+  "target": "Contoso Test",
+  "hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "status": "failed",
+  "message": "The import failed (pac exit code 1); pac's output is on stderr. There is no rollback. Imported: A.",
+  "solutions": [
+    {
+      "order": 1,
+      "solution": "A",
+      "zip": "A.zip",
+      "action": "install",
+      "import": "ok",
+      "pacExitCode": null
+    },
+    {
+      "order": 2,
+      "solution": "B",
+      "zip": "B.zip",
+      "action": "install",
+      "import": "failed",
+      "pacExitCode": 1
+    },
+    {
+      "order": 3,
+      "solution": "C",
+      "zip": "C.zip",
+      "action": "install",
+      "import": "not-run",
+      "pacExitCode": null
+    }
+  ],
+  "flows": []
+}

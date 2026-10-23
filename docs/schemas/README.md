@@ -5,6 +5,7 @@ JSON Schemas (draft 2020-12) for the JSON that `powerops` prints. Every output h
 | Schema | Emitted by |
 |---|---|
 | [analyze.schema.json](analyze.schema.json) | `powerops analyze --format json` |
+| [deploy-apply.schema.json](deploy-apply.schema.json) | `powerops deploy apply --format json` |
 | [deploy-plan.schema.json](deploy-plan.schema.json) | `powerops deploy plan --format json` and `--save` (the plan file) |
 | [diff.schema.json](diff.schema.json) | `powerops diff --format json` |
 | [drift.schema.json](drift.schema.json) | `powerops drift --format json` |

@@ -13,9 +13,10 @@ public static class SettingsCommand
     private const int UsageError = 2;
     private const int InternalError = 3;
 
-    private const string EnvironmentPlaceholder = "<environment id>";
+    internal const string EnvironmentPlaceholder = "<environment id>";
+    internal const string ImportTimedOut = "The import timed out after 60 minutes. It may still be running in the environment: check the solution's import history there before running again.";
     private static readonly TimeSpan ReadTimeout = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan ImportTimeout = TimeSpan.FromMinutes(60);
+    internal static readonly TimeSpan ImportTimeout = TimeSpan.FromMinutes(60);
     private static readonly string[] StepNames = ["validate", "target", "plan", "import", "flows"];
 
     public static Command Create(TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac)
@@ -252,7 +253,7 @@ public static class SettingsCommand
 
             if (import.TimedOut)
             {
-                return Finish(InternalError, "failed", "The import timed out after 60 minutes. It may still be running in the environment: check the solution's import history there before running again.");
+                return Finish(InternalError, "failed", ImportTimedOut);
             }
 
             if (import.ExitCode != 0)
@@ -282,8 +283,8 @@ public static class SettingsCommand
 
     private const string ReadFailure = "Reading a cloud flow's state with `pac power-automate list-cloud-flows` failed, timed out or printed output powerops cannot read.";
 
-    private static string[] ImportArguments(string environmentId, string zip, string settingsFile) =>
-        ["solution", "import", "--environment", environmentId, "--path", zip, "--settings-file", settingsFile];
+    internal static string[] ImportArguments(string environmentId, string zip, string? settingsFile, bool stageAndUpgrade = false) =>
+        ["solution", "import", "--environment", environmentId, "--path", zip, .. settingsFile is null ? (string[])[] : ["--settings-file", settingsFile], .. stageAndUpgrade ? (string[])["--stage-and-upgrade"] : []];
 
     // The flow's state in the target, or null when pac fails or prints something unreadable.
     private static string? ReadFlow(Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, string environmentId, Workflow flow)

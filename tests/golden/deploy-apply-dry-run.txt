@@ -1,0 +1,6 @@
+would run: pac solution import --environment <environment id> --path PowerOpsSeed.zip --settings-file PowerOpsSeed.settings.json --stage-and-upgrade
+Target: Contoso Test
+Plan hash: 0000000000000000000000000000000000000000000000000000000000000000
+1 PowerOpsSeed (PowerOpsSeed.zip): upgrade, planned
+flow PowerOpsSeed/Stamp work item status: expected on, now not read
+dry run: would import 1 solution
