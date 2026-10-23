@@ -105,3 +105,147 @@ Between the re-plan and each import there is a short window in which someone can
 ## Plan and apply on the same OS
 
 Run both jobs on the same operating system, as the example does (`ubuntu-latest`). A friendly environment name with non-ASCII characters may be decoded differently on Windows than on Linux, which would change the plan hash.
+
+# Example: an ephemeral environment per pull request
+
+[ephemeral-pr.yml](ephemeral-pr.yml) gives each pull request its own short-lived Power Platform environment. [ephemeral-sweep.yml](ephemeral-sweep.yml) deletes what a run leaves behind. The scripts they call are [ephemeral-env.sh](powerops/ephemeral-env.sh) and [ephemeral-sweep.sh](powerops/ephemeral-sweep.sh). **This recipe was not run end to end.** Its scripts are tested offline with stub `pac` and `gh` programs and its workflows are checked as text, but no environment was ever created or deleted with it. See "Not verified" below. It is opt-in: PowerOps' own CI never creates environments.
+
+All values below are fake: `contoso` stands for your own.
+
+## The risk, before anything else
+
+The recipe signs in as an app that can create and delete environments. Once an Entra app is registered as a Power Platform management application, it acts like a Power Platform administrator in the **whole tenant**. Anyone who can run a workflow with that credential can create and delete any environment, production included.
+
+Recommended:
+
+- Run it in a tenant, or a region, that has no production environments.
+- Keep the approval gate: the job runs in the GitHub environment `ephemeral` with required reviewers and "Prevent self-review", so each run waits for an approval, and the federated credential is bound to that environment, not to `pull_request`.
+- Use an Entra app for nothing else, and a private repository.
+- Protect `.github/workflows/` and `docs/examples/powerops/` (or your copy of it) with CODEOWNERS or a repository ruleset. A `pull_request` run uses the workflow file from the PR.
+- Secrets in the job are configuration (tenant id, app id), never credentials.
+- A fork PR gets no token, so the job skips forks. It skips Dependabot runs too, which get no secrets.
+
+## How it runs
+
+On a pull request that changes `deploy/` (a folder of **managed** solution zips that your own build makes, for example `pac solution pack --packagetype Managed` from an unpack made with `--packagetype Both`), the job waits for an approval, then:
+
+1. installs `pac` and signs in with GitHub OIDC, with no environment;
+2. deletes this PR's environments from older runs that have finished (`ephemeral-sweep.sh` with `POWEROPS_SWEEP_PR`), so leftovers per PR stay bounded;
+3. creates the environment with `pac admin create` (Sandbox by default; the step stops for any type but Sandbox and Trial, so the recipe never creates a production environment);
+4. finds it with `ephemeral-env.sh find`, which masks its id and URL before writing them to the step outputs;
+5. turns Managed Environments on (`pac admin set-governance-config --protection-level Standard`);
+6. makes the app a System Administrator user of the new environment (`pac admin assign-user --application-user`);
+7. signs in to the new environment;
+8. runs the PowerOps action twice: `deploy plan`, then `deploy apply` with `apply: 'true'` (M9 and M10);
+9. in a last step that always runs, signs in again and deletes the environment with `ephemeral-env.sh delete`.
+
+The name of an environment is `<prefix>-<repository id>-pr<number>-<run id>-<attempt>`, with the numeric repository id from GitHub and the prefix from `EPHEMERAL_PREFIX` (`[a-z][a-z0-9-]{1,19}`). The scripts select only a display name that matches that whole pattern. Any other environment, even one an admin named with the prefix, is never touched. `delete` goes by id, and reads the list again just before it: it deletes only when exactly one environment has that id and exactly that name, and otherwise fails the job and deletes nothing.
+
+Pin the PowerOps action to one commit SHA, and use the same one in both calls.
+
+### Only for solutions without connection references
+
+A new environment has no connection, so no settings file can bind a connection reference. `deploy plan` blocks a plan with an unbound reference and `deploy apply` refuses a blocked plan, so the run fails at the first PowerOps step. The plan looks like this (the wording can differ by version):
+
+```
+1 ContosoFlows (ContosoFlows_managed.zip): install not installed -> 1.0.0.0, managed
+  Block settings contoso_sharepoint: connectionReference missing: in the solution but not in the settings file
+plan blocked: 1 blocking item
+```
+
+Apps, tables and flows with built-in actions only work. An environment variable with no default needs a `Value` in `deploy/<zip name>.settings.json`, built from repository variables at run time as [build-settings.sh](powerops/build-settings.sh) does (without the connection references); the workflow has a comment where that step goes. Binding connections in a new environment would be its own `powerops` task with a test and a live check; this recipe does not promise it.
+
+## Recommended setup
+
+1. Make the Entra app. An admin signed in as a user registers it as a Power Platform management application with `pac admin application register --application-id <app id>` (Learn: "Create a service principal application"). Ask your admin first; see the questions at the end.
+2. Create the GitHub environment `ephemeral` with required reviewers and "Prevent self-review".
+3. Add the two federated credentials below, the secrets and the variables.
+4. Copy the two workflows and the two scripts (and the settings script, if you need it). Change the paths if you move the scripts, and the `deploy/` folder if yours has another name.
+5. Make `deploy/` hold the managed zips for the PR. The recipe does not pack them.
+
+## The two federated credentials
+
+Both belong to the one app, and `azure/login` and `pac auth create --githubFederated` use the job's OIDC token, so each credential's subject must match what its workflow presents:
+
+| Workflow | Subject (name-based) | Subject (immutable, repositories created after 2026-07-15) |
+|---|---|---|
+| `ephemeral-pr.yml` | `repo:contoso-org/powerops-demo:environment:ephemeral` | `repo:contoso-org@123456/powerops-demo@789012:environment:ephemeral` |
+| `ephemeral-sweep.yml` (default branch) | `repo:contoso-org/powerops-demo:ref:refs/heads/main` | `repo:contoso-org@123456/powerops-demo@789012:ref:refs/heads/main` |
+
+Read the form your repository uses with `gh api repos/contoso-org/powerops-demo/actions/oidc/customization/sub`. The sweep has no GitHub environment and no approval, so protect the default branch: whoever can push to it can run code as the sweep's credential.
+
+## Variables and secrets
+
+| Name | Kind | Default | Used for |
+|---|---|---|---|
+| `AZURE_TENANT_ID` | secret (repository) | none; required | the tenant of the app |
+| `AZURE_CLIENT_ID` | secret (repository) | none; required | the app's id |
+| `EPHEMERAL_PREFIX` | variable | `powerops-pr` | the name prefix, `[a-z][a-z0-9-]{1,19}` |
+| `EPHEMERAL_TYPE` | variable | `Sandbox` | `Sandbox` or `Trial`; any other value stops the step |
+| `EPHEMERAL_REGION` | variable | `unitedstates` | `pac admin create --region` |
+| `EPHEMERAL_CURRENCY` | variable | `USD` | `pac admin create --currency` |
+| `EPHEMERAL_LANGUAGE` | variable | `1033` | `pac admin create --language` |
+| `POWEROPS_SWEEP_DELETE` | variable | not set: a dry run | the scheduled sweep deletes only when this is `true` |
+
+The sweep has no GitHub environment, so the two secrets must be repository secrets. A manual run of the sweep deletes when its input `delete` is on (default off), and the scheduled run only when the variable is `true`.
+
+The sweep needs `id-token: write`, `actions: read` and `contents: read` and nothing more; the workflow sets `GH_REPO` and `GH_TOKEN`. The PR job needs the same three.
+
+## The sweep
+
+A cancel (a new push, or a person) during `pac admin create` ends `pac` while the service goes on creating the environment. The delete step may find nothing yet, so the environment is deleted by the next sweep, or by the PR's next run (step 2), not by the cancelled run. No cancelled run was tried.
+
+The sweep reads one `pac admin list --json`, keeps the names that match this repository's pattern, and asks `gh run view` about each run id. It deletes an environment only when `gh` reports that run as completed (a finished run should already have deleted it), whatever the state of the PR. A run in progress keeps its environment; a `gh` failure keeps it and turns the sweep red, so GitHub notifies you. It prints counts and the names of the recipe's own environments, never the list. It is a dry run until `POWEROPS_SWEEP_DELETE` is `true`, or you start it by hand with `delete` on.
+
+GitHub disables a schedule after 60 days without activity in a public repository, and then leftovers build up with nothing red anywhere. Look at `pac admin list` for the prefix by hand now and then.
+
+A deleted environment is soft-deleted and can be recovered for 7 days (Learn: "How do I recover a recently deleted environment?").
+
+## Costs
+
+- **Database capacity** for every environment that exists at once: runs in progress and leftovers, not open PRs. A sandbox needs 1 GB of free database capacity (Learn: "Create and manage environments"). Learn says recovering a deleted environment may need free capacity, which suggests a deleted one does not hold it, but does not say so. Nothing limits how many runs happen at once across the repository; the concurrency group is per PR. Add a repository-wide group that queues if you need a ceiling.
+- **Premium licences** for every user who runs an app or flow in a managed environment (Learn: "Managed Environments licensing").
+- **An admin-level app**: the management-app registration is the risk described at the top.
+
+## DLP
+
+A new environment falls under the tenant's DLP policies. A policy can suspend a flow, and `deploy apply` then reports a flow that is not in its expected state. The recipe runs no tests in the environment.
+
+## What the recipe checks, and what it does not
+
+It checks that the managed zips import into an empty managed environment and that the cloud flows reach the state the plan expected (`deploy apply`). It does not run tests, does not check data, and does not deploy a solution with a connection reference. Every `pac` and `gh` call's output goes to a file and is printed only on failure with debug logging on, because it can name other environments: do not turn on debug logging in a public repository.
+
+## Not verified
+
+No environment was created or deleted for this recipe (decision of the master session, 2026-10-23; the maintainer's tenant has no capacity for a sandbox). Nothing below was run.
+
+| Step | What is assumed | Where it comes from | Status |
+|---|---|---|---|
+| Create | A service principal can create an environment once it is a management application | Learn: "Create a service principal application", `pac admin create` | not run |
+| `pac` flags | `--json`, `--async`, `--protection-level`, `--application-user`, `--githubFederated`, and the value forms `--region unitedstates`, `--currency USD`, `--language 1033` | Learn's current `pac admin` reference, which names no pac version | not checked against the pinned pac 2.14.1 |
+| `pac admin list --json` | A JSON-only stdout with the fields `DisplayName`, `EnvironmentId` and `EnvironmentUrl` | Observed with pac 2.13.1 on 2026-10-23 in a read of a tenant; Learn documents neither | not checked on the pinned version |
+| Sign-in without an environment | `pac auth create --githubFederated` with no environment serves the `pac admin` commands | Learn's `pac auth create` reference | not run |
+| Application user | `assign-user --application-user` works for the app that created the environment, and the role `System Administrator` exists | Learn's `pac admin assign-user` reference | not run |
+| Sign-in to the new environment | The app signs in to the environment it just created (`pac auth create --environment`), and `az account get-access-token` works for it | none; the open question of FOUNDATION section 8 | not run |
+| Import | An import works right after `create` returns, and `deploy plan` of an empty environment holds only installs | M9 and M10 against existing environments only | not run |
+| Cancel | A cancelled run's environment is deleted by the sweep or the PR's next run | GitHub's cancellation rules and the scripts' tests with stubs | not run; no cancelled run tried |
+| Delete | `pac admin delete --async` returns within GitHub's 5-minute window after a cancel | Learn: `delete` waits by default, `--async` does not | not run |
+| Capacity | A soft-deleted environment does not hold database capacity | Learn is silent | not verified |
+| The sweep | The schedule, the second federated credential, `gh run view` with the job's token and the deletes | the script's tests with stubs | not run |
+
+The offline tests (`tests/PowerOps.Cli.Tests/EphemeralScriptTests.cs` and `ExampleWorkflowTests.cs`) run the scripts against stub `pac` and `gh` programs and check the workflows' text. They show what the scripts select, mask and delete given the list the stubs print; they do not show that real `pac` prints that list.
+
+## A safe first use
+
+1. A throwaway private repository, a tenant or region with no production environments, a dedicated app, and a `ContosoTables`-like solution with no connection reference in `deploy/`.
+2. Run the sweep by hand with `delete` off. It must list nothing, or only what you expect.
+3. Open one PR, approve it, and watch the run. Check with `pac admin list` that the environment was created, deployed into and deleted.
+4. Cancel one run during the create step, then run the sweep with `delete` off, then on, and note what happened.
+5. Only then set `POWEROPS_SWEEP_DELETE` to `true` and use it for real.
+
+## Questions for your admin
+
+- May a GitHub app be registered as a Power Platform management application (it then acts like a Power Platform administrator), and in which tenant should it run?
+- Who may create environments in the tenant (the "Control environment creation" setting), how much capacity is free, and who pays for it?
+- Which DLP policies apply to a new environment?
+- Does the application user, as the owner of the imported flows, need a Process or per-flow licence?

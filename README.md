@@ -151,6 +151,8 @@ jobs:
 
 A complete Dev to Test promotion (a plan on the PR, then an apply in an environment with required reviewers) is in [docs/examples/](docs/examples/README.md); read its README for the setup and the risks.
 
+An opt-in recipe that gives each pull request its own short-lived environment, with a sweep for leftovers, is in the same folder. It was not run end to end: read [its section](docs/examples/README.md#example-an-ephemeral-environment-per-pull-request) first, which opens with the risk.
+
 Pin every action to a full commit SHA, as above. In a public repository, anyone who can push a branch can run code as the identity the plan job signs in with, so give the app registration of the plan job a read-only role in the target, not an administrator role.
 
 ## Usage

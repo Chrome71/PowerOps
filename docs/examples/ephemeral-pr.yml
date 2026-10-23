@@ -1,0 +1,177 @@
+# not run end to end; see docs/examples/README.md
+# Gives each pull request its own short-lived Power Platform environment: creates it, turns Managed Environments on, deploys
+# the managed solution zips in deploy/ into it with powerops deploy plan and deploy apply, and deletes it in a last step that
+# always runs. ephemeral-sweep.yml deletes what a cancelled or crashed run leaves behind.
+# Read docs/examples/README.md before using it: the credential it needs can create and delete any environment in the tenant.
+#
+# Only for solutions without connection references (a new environment has no connection to bind). A solution with one makes the
+# plan blocked, and the run fails at the first PowerOps step. Sign-in is GitHub OIDC; no credential is stored. Both scripts are
+# the ones in docs/examples/powerops/; copy them into your repository and change the paths if you move them.
+name: Ephemeral environment per PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - deploy/**   # the folder of managed solution zips; a push that changes nothing there creates no environment
+
+env:
+  # The pac version this example was tested with; pin the version you test. (This recipe itself was not run end to end.)
+  PAC_VERSION: 2.14.1
+
+jobs:
+  ephemeral:
+    # Not for a fork PR and not for Dependabot: both get no secrets and no OIDC token. The guard is on the job, so the delete step below
+    # never runs where nothing was created.
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    environment: ephemeral   # required reviewers and "Prevent self-review": each run waits for an approval, and the federated credential is bound to this environment
+    timeout-minutes: 150
+    permissions:
+      id-token: write   # the OIDC sign-in
+      contents: read
+      actions: read     # gh run view in the sweep step
+    concurrency:
+      group: powerops-ephemeral-${{ github.event.pull_request.number }}   # one run per PR; a newer push cancels the older run
+      cancel-in-progress: true
+    env:
+      # One value each; configuration, never credentials. Variables have defaults, so the example runs with none set.
+      EPHEMERAL_PREFIX: ${{ vars.EPHEMERAL_PREFIX || 'powerops-pr' }}
+      REPO_ID: ${{ github.repository_id }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      RUN_ID: ${{ github.run_id }}
+      RUN_ATTEMPT: ${{ github.run_attempt }}
+      TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install pac
+        run: |
+          dotnet tool install --global Microsoft.PowerApps.CLI.Tool --version "$PAC_VERSION"
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      # No environment: the pac admin commands act on the tenant. pac's output stays out of the public log unless debug logging is on.
+      - name: Sign in pac to the tenant
+        run: |
+          if ! pac auth create --githubFederated --tenant "$TENANT_ID" --applicationId "$CLIENT_ID" > "$RUNNER_TEMP/pac-auth.log" 2>&1; then
+            echo "::error::pac auth create failed; its output is printed only with debug logging on"
+            if [ "${RUNNER_DEBUG:-}" = 1 ]; then cat "$RUNNER_TEMP/pac-auth.log"; fi
+            exit 1
+          fi
+
+      # Removes this PR's environments from older runs that have finished (a cancelled create can leave one), so leftovers per PR stay bounded.
+      - name: Sweep this PR's leftovers
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          POWEROPS_SWEEP_PR: ${{ github.event.pull_request.number }}
+          POWEROPS_SWEEP_DELETE: 'true'
+        run: bash docs/examples/powerops/ephemeral-sweep.sh
+
+      # A cancel here ends pac while the service goes on creating the environment. The delete step may then find nothing yet; the
+      # next sweep, or the next run of this PR, deletes it.
+      - name: Create the environment
+        timeout-minutes: 75
+        env:
+          ENV_TYPE: ${{ vars.EPHEMERAL_TYPE || 'Sandbox' }}
+          ENV_REGION: ${{ vars.EPHEMERAL_REGION || 'unitedstates' }}
+          ENV_CURRENCY: ${{ vars.EPHEMERAL_CURRENCY || 'USD' }}
+          ENV_LANGUAGE: ${{ vars.EPHEMERAL_LANGUAGE || '1033' }}
+        run: |
+          # The recipe never creates a production environment.
+          case "$ENV_TYPE" in
+            Sandbox | Trial) ;;
+            *) echo "::error::EPHEMERAL_TYPE must be Sandbox or Trial"; exit 1 ;;
+          esac
+          prefix_re='^[a-z][a-z0-9-]{1,19}$'
+          [[ $EPHEMERAL_PREFIX =~ $prefix_re ]] || { echo "::error::EPHEMERAL_PREFIX must match [a-z][a-z0-9-]{1,19}"; exit 1; }
+          # The same name as in ephemeral-env.sh, which looks the environment up by it.
+          env_name="$EPHEMERAL_PREFIX-$REPO_ID-pr$PR_NUMBER-$RUN_ID-$RUN_ATTEMPT"
+          if ! pac admin create --type "$ENV_TYPE" --name "$env_name" --region "$ENV_REGION" --currency "$ENV_CURRENCY" --language "$ENV_LANGUAGE" > "$RUNNER_TEMP/pac-create.log" 2>&1; then
+            echo "::error::pac admin create failed; its output is printed only with debug logging on"
+            if [ "${RUNNER_DEBUG:-}" = 1 ]; then cat "$RUNNER_TEMP/pac-create.log"; fi
+            exit 1
+          fi
+
+      # Writes id and url to the step outputs only after every form of both is masked.
+      - name: Find the environment
+        id: find
+        run: bash docs/examples/powerops/ephemeral-env.sh find
+
+      - name: Turn Managed Environments on
+        env:
+          ENV_ID: ${{ steps.find.outputs.id }}
+        run: |
+          if ! pac admin set-governance-config --environment "$ENV_ID" --protection-level Standard > "$RUNNER_TEMP/pac-governance.log" 2>&1; then
+            echo "::error::pac admin set-governance-config failed; its output is printed only with debug logging on"
+            if [ "${RUNNER_DEBUG:-}" = 1 ]; then cat "$RUNNER_TEMP/pac-governance.log"; fi
+            exit 1
+          fi
+
+      # System Administrator in a throwaway environment. Learn does not say the creating app becomes a user of the new environment.
+      - name: Make the app a user of the environment
+        env:
+          ENV_ID: ${{ steps.find.outputs.id }}
+        run: |
+          if ! pac admin assign-user --environment "$ENV_ID" --user "$CLIENT_ID" --role "System Administrator" --application-user > "$RUNNER_TEMP/pac-assign.log" 2>&1; then
+            echo "::error::pac admin assign-user failed; its output is printed only with debug logging on"
+            if [ "${RUNNER_DEBUG:-}" = 1 ]; then cat "$RUNNER_TEMP/pac-assign.log"; fi
+            exit 1
+          fi
+
+      # powerops deploy plan reads the environment with a token from az.
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true   # the app has no Azure subscription, only the environments
+
+      - name: Sign in pac to the new environment
+        env:
+          ENVIRONMENT_URL: ${{ steps.find.outputs.url }}
+        run: |
+          if ! pac auth create --githubFederated --tenant "$TENANT_ID" --applicationId "$CLIENT_ID" --environment "$ENVIRONMENT_URL" > "$RUNNER_TEMP/pac-auth-env.log" 2>&1; then
+            echo "::error::pac auth create failed; its output is printed only with debug logging on"
+            if [ "${RUNNER_DEBUG:-}" = 1 ]; then cat "$RUNNER_TEMP/pac-auth-env.log"; fi
+            exit 1
+          fi
+
+      # A solution that needs environment variable values gets a <zip name>.settings.json in deploy/ here, built from repository
+      # variables as docs/examples/powerops/build-settings.sh does (with no connection references). Leave it out when none is needed.
+
+      # Pin this action to one commit SHA and use the same SHA in both calls: the plan file's `tool` (the powerops version) must match.
+      # The plan of an empty environment holds only installs, so there is no PR comment. The analysis gates the zips (fail-on: error).
+      - uses: Chrome71/PowerOps@0000000000000000000000000000000000000000 # replace with the full commit SHA of the PowerOps release you use, the same in both jobs
+        with:
+          path: deploy
+          upload-sarif: 'false'
+          deploy-folder: deploy
+          target: ${{ steps.find.outputs.url }}
+
+      - uses: Chrome71/PowerOps@0000000000000000000000000000000000000000 # replace with the full commit SHA of the PowerOps release you use, the same in both jobs
+        with:
+          path: deploy
+          upload-sarif: 'false'
+          fail-on: none   # the call above gated these exact bytes; the hash check proves they are the same
+          plan-file: deploy/powerops-plan.json
+          apply: 'true'
+          target: ${{ steps.find.outputs.url }}
+
+      # Last step, always, never continue-on-error: a failed delete turns the run red. The first sign-in may be hours old, so sign in
+      # again, with no environment. `pac admin delete --async` returns at once, so this fits GitHub's 5-minute window after a cancel.
+      # The environment is soft-deleted and can be recovered for 7 days.
+      - name: Delete the environment
+        if: always()
+        env:
+          ENV_ID: ${{ steps.find.outputs.id }}
+        run: |
+          if ! pac auth create --githubFederated --tenant "$TENANT_ID" --applicationId "$CLIENT_ID" > "$RUNNER_TEMP/pac-auth-delete.log" 2>&1; then
+            echo "::error::pac auth create failed; its output is printed only with debug logging on"
+            if [ "${RUNNER_DEBUG:-}" = 1 ]; then cat "$RUNNER_TEMP/pac-auth-delete.log"; fi
+            exit 1
+          fi
+          bash docs/examples/powerops/ephemeral-env.sh delete
