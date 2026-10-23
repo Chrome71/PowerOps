@@ -85,7 +85,18 @@ public static partial class DeployPlanFile
                     ? new DependencyInput(name, Nullable(d, "version", path))
                     : throw Bad($"{path}.name is not a solution unique name");
             });
+            NoDuplicates(zips.Select(z => z.Zip), "inputs.zips[].zip");
+            NoDuplicates(zips.Select(z => z.Settings).OfType<string>(), "inputs.zips[].settings");
+            NoDuplicates(dependencies.Select(d => d.Name), "inputs.dependencies[].name");
             return new PlanFileRead(new ReviewedPlan(version, fileTool, hash, target, blocked, new PlanInputs(zips, dependencies)), null);
+        }
+    }
+
+    private static void NoDuplicates(IEnumerable<string> names, string path)
+    {
+        if (names.GroupBy(n => n, StringComparer.OrdinalIgnoreCase).Any(g => g.Count() > 1))
+        {
+            throw Bad($"{path} names the same file or solution twice");
         }
     }
 

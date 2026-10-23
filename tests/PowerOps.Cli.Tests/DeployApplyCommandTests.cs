@@ -207,6 +207,7 @@ public class DeployApplyCommandTests : IDisposable
     [InlineData("missing-plan-file")]
     [InlineData("plan-file-is-a-folder")]
     [InlineData("out-is-a-folder")]
+    [InlineData("out-directory-missing")]
     [InlineData("no-plan-file-argument")]
     public void A_usage_error_exits_2_before_anything_is_read_or_run(string problem)
     {
@@ -226,6 +227,9 @@ public class DeployApplyCommandTests : IDisposable
                 break;
             case "out-is-a-folder":
                 args = [.. args, "--out", Out];
+                break;
+            case "out-directory-missing":
+                args = [.. args, "--out", Path.Combine(_root, "no-such-folder", "apply.txt")];
                 break;
             default:
                 args = ["deploy", "apply", "--target", TargetValue];
@@ -270,7 +274,7 @@ public class DeployApplyCommandTests : IDisposable
         var r = Apply(new FakeTarget { Fail = new DriftReadException("the read failed", "tool line", exitCode) }, pac, "--apply");
 
         Assert.Equal(exitCode, r.Code);
-        Assert.Equal("error: --target: the read failed\ntool line\n", r.Err);
+        Assert.Equal("error: --target: the read failed\n  | tool line\n", r.Err);
         Assert.Equal("", r.Out);
         Assert.Empty(pac.Calls);
     }
@@ -776,6 +780,26 @@ public class DeployApplyCommandTests : IDisposable
         Assert.Equal(["PowerOpsSeed:ok"], Statuses(doc));
         Assert.Null(doc["flows"]![0]!["stateAfter"]);
         Assert.Contains("  | tool line\n", r.Err);
+    }
+
+    [Fact]
+    public void Any_exception_from_the_second_read_after_good_imports_is_the_same_exit_3_row_and_keeps_the_report()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var file = Path.Combine(Out, "apply.json");
+
+        var r = Apply(new FakeTarget { Snaps = SeedTarget().Snaps, FailAfter = new HttpRequestException("SENTINEL") }, new FakePac(), "--apply", "--format", "json", "--out", file);
+
+        Assert.Equal(3, r.Code);
+        var doc = JsonNode.Parse(File.ReadAllText(file))!.AsObject();
+        Assert.Equal("imported", (string?)doc["status"]);
+        Assert.StartsWith("The imports succeeded. ", (string?)doc["message"]);
+        Assert.DoesNotContain("SENTINEL", (string?)doc["message"]);
+        Assert.DoesNotContain("SENTINEL", r.Err);
+        Assert.DoesNotContain("rollback", (string?)doc["message"]);
+        Assert.Equal(["PowerOpsSeed:ok"], Statuses(doc));
+        Assert.Null(doc["flows"]![0]!["stateAfter"]);
     }
 
     [Fact]

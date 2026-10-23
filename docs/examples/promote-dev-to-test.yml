@@ -12,11 +12,12 @@ name: Promote Dev to Test
 
 on:
   pull_request:
+    branches: [main]   # a PR merged into another branch must not promote
     types: [opened, synchronize, reopened, closed]
 
 env:
-  # Set this to the pac version you tested. Both jobs install it, so plan and apply run the same one.
-  PAC_VERSION: 1.0.0
+  # The pac version this example was tested with; pin the version you test. Both jobs install it, so plan and apply run the same one.
+  PAC_VERSION: 2.14.1
 
 jobs:
   plan:
@@ -89,7 +90,7 @@ jobs:
 
       # Pin this action to one commit SHA and use the same SHA in the plan and apply jobs: the plan file's `tool`
       # (the powerops version) must match, and two builds of one version cannot be told apart.
-      - uses: Chrome71/PowerOps@v1
+      - uses: Chrome71/PowerOps@0000000000000000000000000000000000000000 # replace with the full commit SHA of the PowerOps release you use, the same in both jobs
         with:
           path: ${{ runner.temp }}/deploy   # the analysis gates the exact zip that will be imported
           upload-sarif: 'false'
@@ -230,7 +231,7 @@ jobs:
           fi
 
       # The same commit SHA as in the plan job.
-      - uses: Chrome71/PowerOps@v1
+      - uses: Chrome71/PowerOps@0000000000000000000000000000000000000000 # replace with the full commit SHA of the PowerOps release you use, the same in both jobs
         with:
           path: ${{ runner.temp }}/deploy
           upload-sarif: 'false'

@@ -8,6 +8,8 @@ How it runs:
 2. After the PR is merged, the `find` job looks up the newest unexpired `powerops-plan` artifact made for the PR's last commit and writes its run id, artifact id and plan hash to the job summary. Compare them with the PR comment.
 3. The `apply` job runs in the GitHub environment `test`, which has required reviewers, so it waits for an approval. Then it downloads that artifact and runs `powerops deploy apply --apply`. That command plans again against Test, refuses if anything differs from the reviewed plan, imports the zips in plan order and reports each cloud flow's state.
 
+The workflow runs only for pull requests into `main` (`branches: [main]`), so a PR merged into a scratch branch never promotes. Change it if your release branch has another name.
+
 There is no rollback. `deploy apply` refuses (exit 1) when it can, and stops at the first failed import, but an import that has run stays.
 
 All values below are fake: `contoso` stands for your own.
@@ -85,6 +87,8 @@ Fork pull requests get no secrets, so every job skips them.
 - The settings script, or the `Chrome71/PowerOps` ref, changed in the PR after the plan ran. The plan file's `tool` must equal the version that applies it, and two builds of one release cannot be told apart, so pin the action to one commit SHA and use the same SHA in both jobs.
 - A platform update of a dependency solution in Test (each dependency's version is part of the hash).
 - A change made in Test since the plan.
+
+The `apply` job's concurrency group is repository-wide with `cancel-in-progress: false`, so GitHub keeps at most one waiting apply: a third merge cancels the second waiting apply. Re-run the cancelled promotion by hand (re-run its run).
 
 The way back is to plan again: re-run the PR's last plan run (it replaces the artifact), review the new comment, then re-run the apply.
 

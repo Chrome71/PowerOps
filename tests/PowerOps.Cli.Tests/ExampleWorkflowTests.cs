@@ -66,18 +66,51 @@ public sealed partial class ExampleWorkflowTests
     }
 
     [Fact]
-    public void Every_other_action_is_pinned_by_a_full_commit_sha()
+    public void Every_action_is_pinned_by_a_full_commit_sha()
     {
-        var others = Steps().Where(s => s.Uses is not null && !s.Uses.StartsWith("Chrome71/PowerOps@", StringComparison.Ordinal)).ToList();
+        var uses = Steps().Where(s => s.Uses is not null).Select(s => s.Uses!).ToList();
 
-        Assert.NotEmpty(others);
-        Assert.All(others.Select(s => s.Uses!), uses => Assert.Matches(Sha(), uses[(uses.IndexOf('@') + 1)..]));
+        Assert.NotEmpty(uses);
+        Assert.All(uses, u => Assert.Matches(Sha(), u[(u.IndexOf('@') + 1)..]));
     }
 
     [Fact]
-    public void No_run_text_holds_an_event_expression()
+    public void No_run_text_holds_an_expression()
     {
-        Assert.All(Steps(), s => Assert.DoesNotContain("${{ github.event", s.Run));
+        Assert.All(Steps(), s => Assert.DoesNotContain("${{", s.Run));
+    }
+
+    [Fact]
+    public void The_workflow_runs_only_for_pull_requests_into_main()
+    {
+        var trigger = (Dictionary<object, object>)((Dictionary<object, object>)Workflow["on"])["pull_request"];
+
+        Assert.Equal(["main"], ((List<object>)trigger["branches"]).Cast<string>());
+    }
+
+    [Fact]
+    public void The_apply_waits_for_the_find_job_and_the_test_environment_and_only_it_applies()
+    {
+        Assert.Equal("find", Job("apply")["needs"]);
+        Assert.Equal("test", Job("apply")["environment"]);
+        var applying = Steps().Where(s => s.With.TryGetValue("apply", out var v) && (string)v == "true").Select(s => s.Job).ToList();
+
+        Assert.Equal(["apply"], applying);
+    }
+
+    [Fact]
+    public void Only_a_merged_pull_request_from_this_repository_is_found_and_only_its_head_commit_counts()
+    {
+        var find = Steps("find").Single(s => s.Run.Contains("actions/artifacts"));
+        var findIf = (string)Job("find")["if"];
+
+        Assert.Contains("github.event.pull_request.merged == true", findIf);
+        Assert.Contains("github.event.pull_request.head.repo.full_name == github.repository", findIf);
+        Assert.Contains("head_sha == $sha", find.Run);
+        Assert.Contains("head_repository_id == $repo_id", find.Run);
+        var planIf = (string)Job("plan")["if"];
+        Assert.Contains("github.event.action != 'closed'", planIf);
+        Assert.Contains("github.event.pull_request.head.repo.full_name == github.repository", planIf);
     }
 
     [Fact]

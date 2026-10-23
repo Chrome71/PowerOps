@@ -113,6 +113,19 @@ runs:
         PO_COMMENT: ${{ runner.temp }}/powerops-comment.md
       run: bash "$GITHUB_ACTION_PATH/action/plan.sh"
 
+    # With plan-file set the import runs here, so the real fail-on gates it: a failure stops the job before Deploy apply.
+    - name: Gate the apply
+      if: inputs.plan-file != ''
+      shell: bash
+      env:
+        PO_PATH: ${{ inputs.path }}
+        PO_BASELINE: ${{ inputs.baseline }}
+        PO_FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        args=(analyze "$PO_PATH" --fail-on "$PO_FAIL_ON")
+        if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
+        dotnet "$GITHUB_ACTION_PATH/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll" "${args[@]}"
+
     - name: Deploy apply
       id: apply
       if: inputs.plan-file != ''

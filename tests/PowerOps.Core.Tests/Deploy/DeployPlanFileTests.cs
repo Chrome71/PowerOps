@@ -94,6 +94,26 @@ public class DeployPlanFileTests
     }
 
     [Theory]
+    [InlineData("zip")]
+    [InlineData("settings")]
+    [InlineData("dependency")]
+    public void A_duplicate_name_is_unreadable_ignoring_case_and_the_message_names_the_field_but_never_the_value(string kind)
+    {
+        var text = kind switch
+        {
+            "zip" => Edit("inputs.zips.1.zip", "\"SENTINEL.ZIP\"", Edit("inputs.zips.0.zip", "\"sentinel.zip\"")),
+            "settings" => Edit("inputs.zips.1.settingsSha256", "\"" + H1 + "\"", Edit("inputs.zips.1.settings", "\"SENTINEL.settings.json\"", Edit("inputs.zips.0.settings", "\"sentinel.SETTINGS.json\""))),
+            _ => Edit("inputs.dependencies.1.name", "\"SENTINEL_DEP\"", Edit("inputs.dependencies.0.name", "\"sentinel_dep\"")),
+        };
+
+        var e = Assert.Throws<InvalidDataException>(() => DeployPlanFile.Read(text, Tool));
+
+        Assert.Contains(kind switch { "zip" => "inputs.zips", "settings" => "settings", _ => "inputs.dependencies" }, e.Message);
+        Assert.Contains("twice", e.Message);
+        Assert.DoesNotContain("SENTINEL", e.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
     [InlineData("hash", null)]
     [InlineData("hash", "5")]
     [InlineData("hash", "\"SENTINEL\"")]

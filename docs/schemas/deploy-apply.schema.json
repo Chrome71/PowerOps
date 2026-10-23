@@ -8,7 +8,7 @@
   "properties": {
     "schemaVersion": { "const": 1, "description": "Version of this output format." },
     "tool": { "type": "string", "description": "The version 'powerops --version' prints. Plan and apply must run the same version." },
-    "applied": { "type": "boolean", "description": "True only with --apply, whatever the outcome. False for a dry run." },
+    "applied": { "type": "boolean", "description": "True whenever --apply was given, including refusals and failures; 'status' says what happened. False for a dry run." },
     "target": { "type": "string", "description": "The target environment's friendly name. Never its id or URL. Empty when the plan file was made by another powerops version, because none of its fields is trusted then." },
     "hash": { "type": "string", "pattern": "^([0-9a-f]{64})?$", "description": "The reviewed plan file's hash, never the new plan's. Empty when the plan file was made by another powerops version." },
     "status": {

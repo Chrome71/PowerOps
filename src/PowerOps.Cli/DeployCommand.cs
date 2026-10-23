@@ -137,6 +137,10 @@ public static class DeployCommand
         {
             problems.Add("--out names an existing folder, not a file");
         }
+        else if (outFile is not null && !Directory.Exists(Path.GetDirectoryName(Path.GetFullPath(outFile))))
+        {
+            problems.Add("the folder of --out does not exist");
+        }
 
         if (problems.Count > 0)
         {
@@ -207,7 +211,7 @@ public static class DeployCommand
             return Finish(1, reviewed.Target, reviewed.Hash, ApplyStatus.Refused, "a blocked plan is never applied", [], []);
         }
 
-        if (Prepare(folder, target, [], error, read, out var code) is not { } now)
+        if (Prepare(folder, target, [], error, read, out var code, prefixForwarded: true) is not { } now)
         {
             return code;
         }
@@ -294,10 +298,16 @@ public static class DeployCommand
         {
             second = read(target!, [.. now.Zips.Select(z => z.Solution.UniqueName)], DeployPlan.TargetDependencies(now.Zips.Select(z => z.Solution)));
         }
-        catch (DriftReadException ex)
+        catch (Exception ex)
         {
-            Forward(error, ex.Forwarded);
-            return Finish(InternalError, plan.Target, reviewed.Hash, ApplyStatus.Imported, $"The imports succeeded. Reading the target again failed: {ex.Message}", Done(), planned);
+            // Whatever the read throws, the imports stand and the report must still be written; only powerops' own read message is quoted.
+            if (ex is DriftReadException drift)
+            {
+                Forward(error, drift.Forwarded);
+            }
+
+            var why = ex is DriftReadException d ? $": {d.Message}" : ".";
+            return Finish(InternalError, plan.Target, reviewed.Hash, ApplyStatus.Imported, $"The imports succeeded. Reading the target again failed{why}", Done(), planned);
         }
 
         var flows = DeployApply.FlowsAfter(flowRefs, second.Solutions);
@@ -367,7 +377,7 @@ public static class DeployCommand
     // Returns null with the exit code (2 usage, 3 unreadable input or a failed read) when any of them fails; the caller prints nothing more.
     private static Prepared? Prepare(
         string folder, string? target, List<string> problems, TextWriter error,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, out int code)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, out int code, bool prefixForwarded = false)
     {
         code = 0;
         var zips = new List<(string Name, string Path)>();
@@ -422,7 +432,11 @@ public static class DeployCommand
         catch (DriftReadException ex)
         {
             error.WriteLine($"error: --target: {ex.Message}");
-            if (!string.IsNullOrEmpty(ex.Forwarded))
+            if (prefixForwarded)
+            {
+                Forward(error, ex.Forwarded);
+            }
+            else if (!string.IsNullOrEmpty(ex.Forwarded))
             {
                 error.Write(ex.Forwarded.EndsWith('\n') ? ex.Forwarded : ex.Forwarded + "\n");
             }
