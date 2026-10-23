@@ -81,6 +81,15 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      # Masking matches exact text only, so every form of the target's host is masked before any sign-in.
+      - name: Mask the target URL's forms
+        if: env.SAME_REPO == 'true'
+        env:
+          URL: ${{ secrets.TEST_ENVIRONMENT_URL }}
+        run: |
+          host="${URL#*://}"; host="${host%%/*}"
+          for v in "https://$host" "https://$host/" "$host" "${host,,}" "${host^^}" "${host%%.*}"; do echo "::add-mask::$v"; done
+
       # The deploy folder holds the zips and, beside each, its settings file.
       - name: Build the deploy folder
         if: env.SAME_REPO == 'true'
@@ -114,7 +123,13 @@ jobs:
           TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ENVIRONMENT_URL: ${{ secrets.TEST_ENVIRONMENT_URL }}
-        run: pac auth create --githubFederated --tenant "$TENANT_ID" --applicationId "$CLIENT_ID" --environment "$ENVIRONMENT_URL"
+        run: |
+          # pac's sign-in output stays out of the public log unless debug logging is on.
+          if ! pac auth create --githubFederated --tenant "$TENANT_ID" --applicationId "$CLIENT_ID" --environment "$ENVIRONMENT_URL" > "$RUNNER_TEMP/pac-auth.log" 2>&1; then
+            echo "::error::pac auth create failed; its output is printed only with debug logging on"
+            if [ "${RUNNER_DEBUG:-}" = 1 ]; then cat "$RUNNER_TEMP/pac-auth.log"; fi
+            exit 1
+          fi
 
       - uses: Chrome71/PowerOps@v1
         with:
