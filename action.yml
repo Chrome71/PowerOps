@@ -27,6 +27,12 @@ inputs:
   target:
     description: Environment (id or URL) to plan the deployment against with `powerops deploy plan`. pac and az must be signed in by earlier steps. Empty means no plan. Not used on fork pull requests.
     default: ''
+  plan-file:
+    description: Plan file written by an earlier `deploy plan` (its folder holds the zips and settings files). When set, the action runs `powerops deploy apply` against target instead of planning; target is required. pac and az must be signed in by earlier steps.
+    default: ''
+  apply:
+    description: With plan-file, 'true' imports the reviewed plan (`--apply`); anything else is a dry run that imports nothing.
+    default: 'false'
 
 outputs:
   plan-file:
@@ -98,7 +104,7 @@ runs:
 
     - name: Deploy plan
       id: plan
-      if: inputs.target != '' && github.event_name != 'pull_request_target' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)
+      if: inputs.plan-file == '' && inputs.target != '' && github.event_name != 'pull_request_target' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)
       shell: bash
       env:
         PO_DLL: ${{ github.action_path }}/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll
@@ -106,6 +112,19 @@ runs:
         PO_TARGET: ${{ inputs.target }}
         PO_COMMENT: ${{ runner.temp }}/powerops-comment.md
       run: bash "$GITHUB_ACTION_PATH/action/plan.sh"
+
+    - name: Deploy apply
+      id: apply
+      if: inputs.plan-file != ''
+      shell: bash
+      env:
+        PO_DLL: ${{ github.action_path }}/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll
+        PO_PLAN_FILE: ${{ inputs.plan-file }}
+        PO_TARGET: ${{ inputs.target }}
+        PO_APPLY: ${{ inputs.apply }}
+        PO_EVENT: ${{ github.event_name }}
+        PO_FORK: ${{ github.event.pull_request.head.repo.full_name != '' && github.event.pull_request.head.repo.full_name != github.repository }}
+      run: bash "$GITHUB_ACTION_PATH/action/apply.sh"
 
     - name: Diff
       if: inputs.comment == 'true' && github.event_name == 'pull_request' && (inputs.target == '' || github.event.pull_request.head.repo.full_name != github.repository)
@@ -138,10 +157,20 @@ runs:
         dotnet "$GITHUB_ACTION_PATH/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll" "${args[@]}"
 
     - name: Apply plan result
-      if: always() && steps.plan.outputs.exit-code != '' && steps.plan.outputs.exit-code != '0'
+      if: always() && ((steps.plan.outputs.exit-code != '' && steps.plan.outputs.exit-code != '0') || (steps.apply.outputs.exit-code != '' && steps.apply.outputs.exit-code != '0'))
       shell: bash
       env:
         PO_PLAN_EXIT: ${{ steps.plan.outputs.exit-code }}
+        PO_APPLY_EXIT: ${{ steps.apply.outputs.exit-code }}
       run: |
-        echo "::error::powerops deploy plan exited with code $PO_PLAN_EXIT (1 means the plan is blocked; 2 or 3 means it could not run)"
+        if [ -n "$PO_PLAN_EXIT" ] && [ "$PO_PLAN_EXIT" != "0" ]; then
+          echo "::error::powerops deploy plan exited with code $PO_PLAN_EXIT (1 means the plan is blocked; 2 or 3 means it could not run)"
+        fi
+        case "$PO_APPLY_EXIT" in
+          "" | 0) ;;
+          1) echo "::error::powerops deploy apply refused, or a flow is not in its expected state" ;;
+          2) echo "::error::powerops deploy apply: usage error or --target mismatch" ;;
+          3) echo "::error::powerops deploy apply failed; there is no rollback, see the report" ;;
+          *) echo "::error::powerops deploy apply exited with code $PO_APPLY_EXIT" ;;
+        esac
         exit 1

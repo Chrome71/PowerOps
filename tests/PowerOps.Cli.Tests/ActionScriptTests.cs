@@ -4,7 +4,7 @@ using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
 
-// Runs action/plan.sh, action/diff.sh and action/comment.sh with bash, against stub `gh` and `dotnet` programs
+// Runs action/plan.sh, action/apply.sh, action/diff.sh and action/comment.sh with bash, against stub `gh` and `dotnet` programs
 // that come first on PATH. Skipped on Windows and where bash (or jq or git, which a test needs) is not found.
 public sealed class ActionScriptTests : IDisposable
 {
@@ -167,6 +167,90 @@ public sealed class ActionScriptTests : IDisposable
         Assert.Contains("(exit code 2)", File.ReadAllText(run.Comment));
     }
 
+    // ---- apply.sh ----
+
+    [Fact]
+    public void Apply_without_the_flag_is_a_dry_run_and_with_true_adds_apply()
+    {
+        var dry = RunApply(exit: 0, apply: "false");
+        var real = RunApply(exit: 0, apply: "true");
+
+        Assert.Equal("deploy apply plan/powerops-plan.json --target Contoso Test", dry.DotnetCalls.Single().Replace("powerops.dll ", ""));
+        Assert.Equal("deploy apply plan/powerops-plan.json --target Contoso Test --apply", real.DotnetCalls.Single().Replace("powerops.dll ", ""));
+    }
+
+    [Theory]
+    [InlineData("TRUE")]
+    [InlineData("yes")]
+    [InlineData("")]
+    public void Apply_other_values_than_true_do_not_add_apply(string value)
+    {
+        var run = RunApply(exit: 0, apply: value);
+
+        Assert.DoesNotContain("--apply", run.DotnetCalls.Single());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void Apply_records_the_exit_code_and_exits_0(int exit)
+    {
+        var run = RunApply(exit: exit);
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal($"exit-code={exit}\n", run.Output);
+        Assert.Equal("the report\n", run.Out);
+    }
+
+    [Fact]
+    public void Apply_logs_only_error_lines_and_not_forwarded_pac_lines()
+    {
+        var run = RunApply(exit: 3, stderr: "  | error: x\nerror: y\n  | tenant 0000 at https://contoso.crm.dynamics.com\n");
+
+        Assert.Equal("the report\nerror: y\n", run.Out);
+    }
+
+    [Fact]
+    public void Apply_in_debug_mode_prints_the_whole_stderr()
+    {
+        var run = RunApply(exit: 3, stderr: "  | error: x\nerror: y\n", debug: true);
+
+        Assert.Equal("the report\n  | error: x\nerror: y\n", run.Out);
+    }
+
+    [Fact]
+    public void Apply_puts_the_report_in_the_summary_in_a_fence_longer_than_any_run_inside_it()
+    {
+        var run = RunApply(exit: 0, report: "applied\n```` four\n``` three\n");
+
+        Assert.Equal("## PowerOps deploy apply\n\n`````\napplied\n```` four\n``` three\n`````\n", File.ReadAllText(run.Summary));
+    }
+
+    [Fact]
+    public void Apply_summary_uses_a_three_backtick_fence_when_the_report_has_none()
+    {
+        var run = RunApply(exit: 0, report: "applied");
+
+        Assert.Equal("## PowerOps deploy apply\n\n```\napplied\n```\n", File.ReadAllText(run.Summary));
+    }
+
+    [Theory]
+    [InlineData("", "false", "pull_request", "target is required")]
+    [InlineData("Contoso Test", "true", "pull_request", "fork pull requests")]
+    [InlineData("Contoso Test", "false", "pull_request_target", "pull_request_target")]
+    public void Apply_refuses_without_a_target_on_a_fork_and_on_pull_request_target(string target, string fork, string eventName, string text)
+    {
+        var run = RunApply(exit: 0, target: target, fork: fork, eventName: eventName);
+
+        Assert.Equal(0, run.Code);
+        Assert.StartsWith("::error::", run.Out);
+        Assert.Contains(text, run.Out);
+        Assert.Equal("exit-code=2\n", run.Output);
+        Assert.Empty(run.DotnetCalls);
+    }
+
     // ---- diff.sh ----
 
     [Fact]
@@ -259,7 +343,7 @@ public sealed class ActionScriptTests : IDisposable
         if [ "$paginate" = 1 ]; then jq -r "$filter" < "$STUB_DIR/list.json"; fi
         """;
 
-    // The stub dotnet logs its arguments, writes the canned Markdown to --out and an empty plan to --save.
+    // The stub dotnet logs its arguments, writes the canned Markdown to --out, an empty plan to --save and a canned stdout.
     private const string DotnetStub = """
         #!/usr/bin/env bash
         echo "$*" >> "$STUB_DIR/dotnet.log"
@@ -271,6 +355,7 @@ public sealed class ActionScriptTests : IDisposable
         done
         if [ -n "$out" ]; then cp "$STUB_DIR/markdown.md" "$out"; fi
         if [ -n "$save" ] && [ "${STUB_SAVE:-0}" = "1" ]; then echo '{}' > "$save"; fi
+        if [ -f "$STUB_DIR/stdout.txt" ]; then cat "$STUB_DIR/stdout.txt"; fi
         if [ -f "$STUB_DIR/stderr.txt" ]; then cat "$STUB_DIR/stderr.txt" >&2; fi
         exit "${STUB_EXIT:-0}"
         """;
@@ -330,6 +415,35 @@ public sealed class ActionScriptTests : IDisposable
             ["STUB_SAVE"] = save ? "1" : "0",
         });
         return run with { Folder = folder, Comment = comment, Summary = summary, Output = ReadOrEmpty(output) };
+    }
+
+    private Result RunApply(int exit, string? stderr = null, bool debug = false, string apply = "true", string target = "Contoso Test", string fork = "false", string eventName = "pull_request", string report = "the report\n")
+    {
+        Require("bash");
+        var temp = NewDir("apply");
+        WriteStub(temp, "dotnet", DotnetStub);
+        File.WriteAllText(Path.Combine(temp, "stdout.txt"), report);
+        if (stderr is not null)
+        {
+            File.WriteAllText(Path.Combine(temp, "stderr.txt"), stderr);
+        }
+
+        var summary = Path.Combine(temp, "summary.md");
+        var output = Path.Combine(temp, "output.txt");
+        var run = Run("apply.sh", temp, temp, new()
+        {
+            ["PO_DLL"] = "powerops.dll",
+            ["PO_PLAN_FILE"] = "plan/powerops-plan.json",
+            ["PO_TARGET"] = target,
+            ["PO_APPLY"] = apply,
+            ["PO_EVENT"] = eventName,
+            ["PO_FORK"] = fork,
+            ["GITHUB_OUTPUT"] = output,
+            ["GITHUB_STEP_SUMMARY"] = summary,
+            ["RUNNER_DEBUG"] = debug ? "1" : "",
+            ["STUB_EXIT"] = exit.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        });
+        return run with { Summary = summary, Output = ReadOrEmpty(output) };
     }
 
     private Result RunDiff(string workDir, int exit, string? stderr = null)
