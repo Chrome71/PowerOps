@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "tool": "<tool>",
+  "target": "Contoso Test",
+  "hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "blocked": false,
+  "inputs": {
+    "zips": [
+      {
+        "zip": "PowerOpsSeed.zip",
+        "zipSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "settings": "PowerOpsSeed.settings.json",
+        "settingsSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "snapshotSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "dependencies": []
+  },
+  "solutions": [
+    {
+      "order": 1,
+      "solution": "PowerOpsSeed",
+      "zip": "PowerOpsSeed.zip",
+      "settings": "PowerOpsSeed.settings.json",
+      "version": "1.0.0.1",
+      "managed": true,
+      "action": "upgrade",
+      "installed": {
+        "version": "1.0.0.0",
+        "managed": true,
+        "layersRead": true
+      },
+      "dependsOn": [],
+      "flows": [
+        {
+          "name": "Stamp work item status",
+          "exportState": "on",
+          "exists": true,
+          "stateBefore": "on",
+          "expectedState": "on"
+        }
+      ]
+    }
+  ],
+  "items": [
+    {
+      "solution": "PowerOpsSeed",
+      "kind": "deletes",
+      "severity": "warning",
+      "subject": "pops_sharedoffice365_6a2f1",
+      "message": "The upgrade deletes this connection reference because the zip no longer has it."
+    },
+    {
+      "solution": "PowerOpsSeed",
+      "kind": "unmanaged-layer",
+      "severity": "warning",
+      "subject": "Notify on new work item",
+      "message": "An unmanaged layer stays on top of the imported change."
+    }
+  ]
+}

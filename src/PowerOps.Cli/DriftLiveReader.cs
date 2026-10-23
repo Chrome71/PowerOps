@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 
+using PowerOps.Core.Deploy;
 using PowerOps.Core.Drift;
 
 namespace PowerOps.Cli;
@@ -20,8 +21,32 @@ internal sealed class DriftLiveReader(
 
     public Snapshot Read(string solution, string env)
     {
-        var (name, url) = Who(env);
+        var (name, url, _) = Who(env);
+        return ReadSolution(name, url, Token(url), solution);
+    }
+
+    /// <summary>Reads a deploy target: one <c>pac org who</c> and one token, then every solution in full and each dependency by its <c>solution</c> row only (version, or null when not installed).</summary>
+    public DeployTarget ReadTarget(string target, IReadOnlyList<string> solutions, IReadOnlyList<string> dependencies)
+    {
+        var (name, url, idText) = Who(target);
+        if (!Guid.TryParse(idText, out var id))
+        {
+            throw new DriftReadException("`pac org who` printed no environment id powerops can read.");
+        }
+
         var token = Token(url);
+        var snapshots = solutions.Select(s => ReadSolution(name, url, token, s)).ToList();
+        var versions = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var d in dependencies)
+        {
+            versions[d] = Read(url, token, "solution", "solutions", DriftQueries.Solution(d), DriftParsers.Solution)?.Version;
+        }
+
+        return new DeployTarget(name, id, snapshots, versions);
+    }
+
+    private Snapshot ReadSolution(string name, string url, string token, string solution)
+    {
         var found = Read(url, token, "solution", "solutions", DriftQueries.Solution(solution), DriftParsers.Solution);
         if (found is not { } sol)
         {
@@ -45,7 +70,7 @@ internal sealed class DriftLiveReader(
             variables, references, flows));
     }
 
-    private (string Name, string Url) Who(string env)
+    private (string Name, string Url, string? EnvironmentId) Who(string env)
     {
         var who = pac(["org", "who", "--environment", env], Timeout);
         if (!who.Started)
@@ -70,7 +95,7 @@ internal sealed class DriftLiveReader(
         {
             var uri = DriftParsers.EnvironmentUrl(SettingsCommand.Field(who.Stdout, "Org URL:"));
             return DriftParsers.IsDataverseHost(uri)
-                ? (name, uri.GetLeftPart(UriPartial.Authority))
+                ? (name, uri.GetLeftPart(UriPartial.Authority), SettingsCommand.Field(who.Stdout, "Environment ID:"))
                 : throw new DriftReadException(
                     "`pac org who` named an environment URL that is not on a documented Dataverse host (*.dynamics.com, *.crm.microsoftdynamics.us, *.crm.appsplatform.us, *.crm.dynamics.cn); no token was requested.", exitCode: 2);
         }

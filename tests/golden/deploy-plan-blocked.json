@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "tool": "<tool>",
+  "target": "Contoso Test",
+  "hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "blocked": true,
+  "inputs": {
+    "zips": [
+      {
+        "zip": "Conflict.zip",
+        "zipSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "settings": null,
+        "settingsSha256": null,
+        "snapshotSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      {
+        "zip": "CycleA.zip",
+        "zipSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "settings": null,
+        "settingsSha256": null,
+        "snapshotSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      {
+        "zip": "CycleB.zip",
+        "zipSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "settings": null,
+        "settingsSha256": null,
+        "snapshotSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      {
+        "zip": "NeedsDep.zip",
+        "zipSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "settings": null,
+        "settingsSha256": null,
+        "snapshotSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      {
+        "zip": "PowerOpsSeed.zip",
+        "zipSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "settings": null,
+        "settingsSha256": null,
+        "snapshotSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "dependencies": [
+      {
+        "name": "absent",
+        "version": null
+      }
+    ]
+  },
+  "solutions": [
+    {
+      "order": 1,
+      "solution": "Conflict",
+      "zip": "Conflict.zip",
+      "settings": null,
+      "version": "2.0.0.0",
+      "managed": true,
+      "action": "upgrade",
+      "installed": {
+        "version": "1.0.0.0",
+        "managed": false,
+        "layersRead": true
+      },
+      "dependsOn": [],
+      "flows": []
+    },
+    {
+      "order": 2,
+      "solution": "NeedsDep",
+      "zip": "NeedsDep.zip",
+      "settings": null,
+      "version": "1.0.0.0",
+      "managed": true,
+      "action": "install",
+      "installed": null,
+      "dependsOn": [
+        "Absent"
+      ],
+      "flows": []
+    },
+    {
+      "order": 3,
+      "solution": "PowerOpsSeed",
+      "zip": "PowerOpsSeed.zip",
+      "settings": null,
+      "version": "1.0.0.1",
+      "managed": true,
+      "action": "install",
+      "installed": null,
+      "dependsOn": [],
+      "flows": [
+        {
+          "name": "Stamp work item status",
+          "exportState": "on",
+          "exists": false,
+          "stateBefore": null,
+          "expectedState": "on"
+        }
+      ]
+    },
+    {
+      "order": 4,
+      "solution": "CycleA",
+      "zip": "CycleA.zip",
+      "settings": null,
+      "version": "1.0.0.0",
+      "managed": true,
+      "action": "install",
+      "installed": null,
+      "dependsOn": [
+        "CycleB"
+      ],
+      "flows": []
+    },
+    {
+      "order": 5,
+      "solution": "CycleB",
+      "zip": "CycleB.zip",
+      "settings": null,
+      "version": "1.0.0.0",
+      "managed": true,
+      "action": "install",
+      "installed": null,
+      "dependsOn": [
+        "CycleA"
+      ],
+      "flows": []
+    }
+  ],
+  "items": [
+    {
+      "solution": "Conflict",
+      "kind": "managed-conflict",
+      "severity": "block",
+      "subject": "Conflict",
+      "message": "The zip is managed but the solution is installed unmanaged in the target."
+    },
+    {
+      "solution": "NeedsDep",
+      "kind": "missing-dependency",
+      "severity": "block",
+      "subject": "Absent",
+      "message": "The solution it depends on is not installed in the target and no earlier zip provides it."
+    },
+    {
+      "solution": "PowerOpsSeed",
+      "kind": "settings",
+      "severity": "block",
+      "subject": "pops_SeedDataverse",
+      "message": "connectionReference missing: in the solution but not in the settings file"
+    },
+    {
+      "solution": "CycleA",
+      "kind": "cycle",
+      "severity": "block",
+      "subject": "CycleA",
+      "message": "It is in a dependency cycle among the zips or depends on one; left over: CycleA, CycleB."
+    },
+    {
+      "solution": "CycleB",
+      "kind": "cycle",
+      "severity": "block",
+      "subject": "CycleB",
+      "message": "It is in a dependency cycle among the zips or depends on one; left over: CycleA, CycleB."
+    }
+  ]
+}

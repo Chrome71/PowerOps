@@ -13,6 +13,7 @@ public class OutputSchemaTests
     private static readonly (string Prefix, string Schema)[] Map =
     [
         ("analyze-", "analyze.schema.json"),
+        ("deploy-plan", "deploy-plan.schema.json"),
         ("diff-", "diff.schema.json"),
         ("drift-", "drift.schema.json"),
         ("plan-status", "plan-status.schema.json"),

@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.Text;
 
+using PowerOps.Core.Deploy;
 using PowerOps.Core.Drift;
 
 namespace PowerOps.Cli;
@@ -17,8 +18,9 @@ public static class Program
     public static int Run(string[] args, TextWriter output, TextWriter error) =>
         Run(args, output, error, (pacArgs, timeout) => new PacRunner(timeout: timeout).Run(pacArgs));
 
-    // The pac runner is injectable so tests of `settings apply` never call a real pac; so is the live read of `drift`.
-    public static int Run(string[] args, TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot>? driftLive = null)
+    // The pac runner is injectable so tests of `settings apply` never call a real pac; so are the live reads of `drift` and `deploy plan`.
+    public static int Run(string[] args, TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot>? driftLive = null,
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? deployTarget = null)
     {
         // The live reader (az runner, HttpClient) is built only when a run has a live --env.
         var reader = new Lazy<DriftLiveReader>(() => new DriftLiveReader(
@@ -37,6 +39,8 @@ public static class Program
         root.Subcommands.Add(RulesCommand.Create(output));
         root.Subcommands.Add(SettingsCommand.Create(output, error, pac));
         root.Subcommands.Add(DriftCommand.Create(output, error, driftLive ?? ((solution, env) => reader.Value.Read(solution, env))));
+
+        root.Subcommands.Add(DeployCommand.Create(output, error, deployTarget ?? ((target, solutions, dependencies) => reader.Value.ReadTarget(target, solutions, dependencies))));
 
         var parse = root.Parse(args);
         if (parse.Errors.Count > 0)

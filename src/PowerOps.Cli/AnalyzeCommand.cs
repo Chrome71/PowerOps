@@ -36,7 +36,7 @@ public static class AnalyzeCommand
     }
 
     // Same value `--version` prints.
-    private static string ToolVersion() =>
+    internal static string ToolVersion() =>
         Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
 
     private static int Execute(string[] paths, string format, string? outFile, string failOn, string? baselineFile, TextWriter output, TextWriter error) =>

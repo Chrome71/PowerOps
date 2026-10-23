@@ -2,7 +2,7 @@
 
 A free, open-source, cross-platform toolkit that brings software-engineering discipline (analysis, diffing, testing, repeatable deployment) to Microsoft Power Platform. It works alongside `pac`; it does not replace it.
 
-**Status:** early development, not yet released. Built so far: `analyze`, `baseline`, `rules`, `diff`, `settings` (`generate`, `validate`, `apply`), `drift`, `plan` and `skills`.
+**Status:** early development, not yet released. Built so far: `analyze`, `baseline`, `rules`, `diff`, `settings` (`generate`, `validate`, `apply`), `drift`, `deploy plan`, `plan` and `skills`.
 
 ## Install
 
@@ -43,6 +43,113 @@ steps:
 
 Until `v1` is tagged, use `Chrome71/PowerOps@main` (the action builds PowerOps from source). Pull requests from forks cannot upload SARIF (their token has no `security-events` permission); they still get the job summary and the annotations.
 
+### Pull request comment
+
+With `comment: 'true'` on a `pull_request` event, the action posts one pull request comment and edits it on each later run (it finds its own comment by a hidden marker and the `github-actions[bot]` author, so a PR keeps one PowerOps comment). It is off by default, so existing workflows do not start needing `pull-requests: write`. What the comment holds depends on `target`:
+
+- With `target` (and `deploy-folder`) set, it holds the `deploy plan` of the zips in `deploy-folder` against that environment, and the plan file is written to `deploy-folder/powerops-plan.json` (the `plan-file` output names it). `pac` and `az` must be signed in by earlier steps; the action signs in to nothing. The step records the plan's exit code, writes the comment, and then a last step fails the job when the plan is blocked or could not run. If `deploy plan` fails (exit `2` or `3`), the comment says only that the plan could not run and gives the exit code; the log shows only powerops' own `error:` lines, because text forwarded from `az` and the Web API can name tenant ids and the environment URL. Set the runner's debug logging on (`RUNNER_DEBUG`) to see the forwarded text.
+- Without `target`, it holds the `diff` of the PR's base and head solution (`path` must name one solution, relative to the repository root). The diff reads the first parent of the checked-out commit, so it needs the default `actions/checkout` of a pull request, which checks out the merge commit, with the default `persist-credentials` (the script fetches the base commit). If the solution is new in the PR, `path` holds several solutions, or the fetch fails, the comment says that the diff could not run and which step failed.
+- A PR from a fork gets no sign-in and no secrets, and its token cannot comment. For a fork PR the action skips the plan and writes the diff to the job summary only; the run passes.
+- A comment over 65,000 bytes is replaced by a short note, and the full report goes to the job summary. If the comment cannot be posted (a read-only token, for example on a Dependabot run), the action writes a warning and the job summary and does not fail the job.
+- The plan Markdown always goes to the job summary. The comment goes there instead of the PR only for a fork PR, a body over the size cap, or a failed post. The comment is public in a public repository: it shows the target's friendly name, solution, file and flow names and versions, never a setting's value or a connection id.
+- The scripts use `gh` and `git`, which GitHub-hosted runners have installed; a self-hosted runner needs both. `pull_request_target` is not supported.
+
+An example workflow. The plan job runs in a GitHub environment (`test-plan`) whose environment secrets hold the target's URL, the tenant id, the app id and one secret for each value the settings file needs. The settings file is built at run time with `jq` under `$RUNNER_TEMP`, never printed, and left out of the artifact. Sign-in and plan run only for same-repository PRs. Fake values:
+
+```yaml
+name: Deploy plan
+on: pull_request
+
+permissions:
+  contents: read
+  pull-requests: write   # the comment
+  id-token: write        # the OIDC sign-in
+
+concurrency:
+  group: powerops-plan-${{ github.event.pull_request.number }}   # two quick pushes must not both create a comment
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    environment: test-plan
+    env:
+      SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+
+      # Masking matches exact text only, so every form of the target's host is masked before any sign-in.
+      - name: Mask the target URL's forms
+        if: env.SAME_REPO == 'true'
+        env:
+          URL: ${{ secrets.TEST_ENVIRONMENT_URL }}
+        run: |
+          host="${URL#*://}"; host="${host%%/*}"
+          for v in "https://$host" "https://$host/" "$host" "${host,,}" "${host^^}" "${host%%.*}"; do echo "::add-mask::$v"; done
+
+      # The deploy folder holds the zips and, beside each, its settings file.
+      - name: Build the deploy folder
+        if: env.SAME_REPO == 'true'
+        env:
+          SITE_URL: ${{ secrets.CONTOSO_SITE_URL }}
+          CONNECTION_ID: ${{ secrets.CONTOSO_SHAREPOINT_CONNECTION_ID }}
+        run: |
+          mkdir "$RUNNER_TEMP/deploy"
+          cp exports/*.zip "$RUNNER_TEMP/deploy/"
+          jq -n --arg site "$SITE_URL" --arg conn "$CONNECTION_ID" '{
+            EnvironmentVariables: [{SchemaName: "contoso_SiteUrl", Value: $site}],
+            ConnectionReferences: [{LogicalName: "contoso_sharepoint", ConnectionId: $conn, ConnectorId: "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"}]
+          }' > "$RUNNER_TEMP/deploy/ContosoApp_managed.settings.json"
+
+      - name: Install pac
+        if: env.SAME_REPO == 'true'
+        run: |
+          dotnet tool install --global Microsoft.PowerApps.CLI.Tool
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      - uses: azure/login@<full commit SHA> # use the latest release of azure/login
+        if: env.SAME_REPO == 'true'
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true   # the app has no Azure subscription, only the environment
+
+      - name: Sign in pac
+        if: env.SAME_REPO == 'true'
+        env:
+          TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ENVIRONMENT_URL: ${{ secrets.TEST_ENVIRONMENT_URL }}
+        run: |
+          # pac's sign-in output stays out of the public log unless debug logging is on.
+          if ! pac auth create --githubFederated --tenant "$TENANT_ID" --applicationId "$CLIENT_ID" --environment "$ENVIRONMENT_URL" > "$RUNNER_TEMP/pac-auth.log" 2>&1; then
+            echo "::error::pac auth create failed; its output is printed only with debug logging on"
+            if [ "${RUNNER_DEBUG:-}" = 1 ]; then cat "$RUNNER_TEMP/pac-auth.log"; fi
+            exit 1
+          fi
+
+      - uses: Chrome71/PowerOps@v1
+        with:
+          path: solutions/ContosoApp        # the unpacked solution: analyzed, and diffed on a fork PR
+          comment: 'true'
+          deploy-folder: ${{ runner.temp }}/deploy
+          target: ${{ env.SAME_REPO == 'true' && secrets.TEST_ENVIRONMENT_URL || '' }}
+
+      # The zips and the plan file, for a later apply job; never the settings files.
+      - uses: actions/upload-artifact@<full commit SHA> # use the latest release of actions/upload-artifact
+        if: always() && env.SAME_REPO == 'true'
+        with:
+          name: powerops-plan
+          path: |
+            ${{ runner.temp }}/deploy/*.zip
+            ${{ runner.temp }}/deploy/powerops-plan.json
+```
+
+Pin every action to a full commit SHA, as above. In a public repository, anyone who can push a branch can run code as the identity the plan job signs in with, so give the app registration of the plan job a read-only role in the target, not an administrator role.
+
 ## Usage
 
 ```sh
@@ -57,6 +164,8 @@ powerops settings apply solution.zip --settings deploymentsettings.json --apply 
 powerops drift --solution MySolution --env <dev> --env <test>   # compare one solution across environments or saved snapshot files (--save <dir>, --format text|json|markdown, --out <file>)
 powerops drift --solution MySolution --env <dev> --env <test> --save snapshots/   # the same, and write snapshots/MySolution.<environment name>.json for each environment
 powerops drift --solution MySolution --env "snapshots/MySolution.Contoso Dev.json" --env "snapshots/MySolution.Contoso Test.json"   # compare saved snapshots, offline
+powerops deploy plan exports/ --target <test>   # what importing the solution zips in exports/ would do to the target: order, install, upgrade or skip, deletions, layers, settings, flow states (reads the target only)
+powerops deploy plan exports/ --target <test> --save exports/powerops-plan.json --format markdown --out plan.md   # the same, with the Markdown for a PR and the plan file from one read
 powerops baseline                     # accept today's findings: writes powerops-baseline.json
 powerops analyze --baseline powerops-baseline.json   # report only findings that are not in the baseline
 ```
@@ -85,6 +194,14 @@ Values are never printed. A snapshot file holds a SHA-256 of each variable's cur
 Each live environment costs one `pac` call, one `az` call and five Web API reads, each with a 30 second limit. For a managed solution it also makes one layer read per component that is a table, flow, canvas app, environment variable definition or connection reference (the layer table takes one component per query; about 0.4 s each in the capture), to find unmanaged layers; other component types are not checked for layers. More than 50 such components skip the layer reads, and the report says `layers-not-read`. A read returns one page of at most 5,000 rows; more than that exits `3`. When a call fails, the message names the `--env` by position and the read. Text forwarded from `pac`, `az` or the Web API goes to stderr only, never to the report or a file, and may repeat an `--env` value or the environment URL. Tested with `pac` 2.13.1 and Azure CLI 2.90.0 on Linux, live on 2026-10-22 against an unmanaged developer environment and a managed install in a trial environment, with an account that holds the System Administrator role there; the minimum role for the reads was not tested, and Windows is not tested. JSON follows [docs/schemas/drift.schema.json](docs/schemas/drift.schema.json), and snapshot files follow [docs/schemas/snapshot.schema.json](docs/schemas/snapshot.schema.json). Exit codes: `0` no drift, `1` drift, `2` usage error (no `--solution` or a name that is not a solution unique name, fewer than two `--env`, an `--env` ending in `.json` with no file, `--save` naming a file or used with no live environment, a snapshot for another solution, two environments that would be saved to the same file name, a solution installed in none of the environments, or an environment URL on a host that is not a documented Dataverse host), `3` a `pac` or `az` call or a Web API read failed, timed out or returned output it cannot read, `pac` or `az` not found, or an unreadable snapshot file.
 
 Agents: run `drift` only against environments the user named in the session.
+
+`deploy plan <folder> --target <environment> [--save <plan file>] [--format text|json|markdown] [--out <file>]` says, before anything is imported, what importing the exported solution zips in `<folder>` into the target would do. It reads the target and writes nothing to it; its only file writes are `--out` and `--save`. Every file directly in the folder (not in subfolders) whose name ends in `.zip`, in any case, is one solution. Beside a zip, `<zip name without .zip>.settings.json` (the exact name, at most 1 MB) is its deployment settings file in `pac`'s format, as in `settings validate`. A zip or settings file name may hold only letters, digits, `.`, `_` and `-`. `--target` is an environment (an id or URL, as `pac` takes it and as `drift`'s `--env`); it is never printed, and the report names the target by its friendly name. The target is read the way `drift` reads it (one `pac org who`, one `az` token and the same Web API reads for each solution in the folder; for each other solution a zip depends on, only whether it is installed and its version), so the same limits apply: documented Dataverse hosts only, 5,000 rows per read, and text forwarded from `pac`, `az` and the Web API goes to stderr only.
+
+The plan lists the solutions in import order: a topological sort on each zip's dependencies on the other zips in the folder (from its `<MissingDependencies>`; ties in name order). Each solution gets an action: `install` (not installed in the target), `upgrade` (the zip's version is higher) or `skip` (the same or a lower version, as `pac solution import --skip-lower-version`). Versions must have four numeric parts. For an install or upgrade it checks the settings file with `settings validate`; a zip with no settings file is checked as if the file were `{}`, so a connection reference, or a variable with no default or current value, is a problem, because `pac solution import` binds references only from a settings file. It also checks the dependencies and gives each cloud flow's expected state after the import (`settings apply`'s prediction, against the flow's state in the target). Every finding is an item with a kind and a severity. These block the plan (exit `1`): `cycle` (a dependency cycle among the zips), `missing-dependency` (a required solution that is neither installed in the target nor earlier in the order), `managed-conflict` (a managed zip over an unmanaged install, or the other way round, for any action) and `settings`. These are warnings: `dependency-not-checked` (a `<Required>` that names no solution), `deletes` and `unmanaged-layer`. These are information: `layers-not-read` and `components-not-checked`. The deletion check applies to the upgrade of a managed zip. It names the cloud flows, environment variables and connection references of the target's solution that the zip no longer has, which the upgrade deletes. Tables and canvas apps are compared by count only, because the target names them by id: when the target's solution holds more of them than the zip's root components, one item says the upgrade deletes at least that many (a deleted table loses its data). Other component types are counted and listed as not checked, so their deletion is not checked. `unmanaged-layer` names components of a managed target solution that have an unmanaged layer, which the import does not override; layers appear only when the target snapshot holds them, and the live read does not read them yet, so a live plan says `layers-not-read`. A block is a rule of the plan, not of `pac`: when one is wrong for your case, fix the input, or import with `pac` directly, outside PowerOps. The plan has no waiver.
+
+The plan has a hash (SHA-256, lowercase hex) over its inputs: the target's environment id, each zip's bytes, each settings file's bytes (a change of line ending is a change), the target snapshot of each solution in the folder, and the installed version of each dependency read from the target. The same inputs give the same hash. The hash covers the inputs, not the findings. `--save <file>` writes the JSON report to a file whatever `--format` is, so one run gives the Markdown for the PR and the plan file. The plan file holds the tool version (`tool`), the hash, the target's friendly name, and `inputs`: for each zip the SHA-256 of the zip, of its settings file and of the target snapshot, and the dependency versions, so a later step can say which input changed. It holds no environment id or URL, no folder path, no connection id and no variable value. The Markdown report stops at whole rows before 60,000 characters and says how many rows it left out. JSON follows [docs/schemas/deploy-plan.schema.json](docs/schemas/deploy-plan.schema.json). Exit codes: `0` plan ok, `1` blocked (the report and the plan file are still written), `2` usage error (no folder, no zip, a file name outside the rule, a symbolic link, two zips with the same unique name, a settings file with no zip of that exact name, no `--target`, an `--out` or `--save` that names a folder, or a URL on a host that is not a documented Dataverse host), `3` an unreadable zip, settings file, version or flow id, a failed, timed-out or unreadable `pac`, `az` or Web API read, or `pac` or `az` not found.
+
+Agents: run `deploy plan` only against environments the user named in the session, and show the user the plan before asking for approval.
 
 | Rule | Severity | Finds |
 |---|---|---|
