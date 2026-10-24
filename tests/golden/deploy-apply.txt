@@ -1,0 +1,8 @@
+environment: Contoso Test
+importing 1 PowerOpsSeed (PowerOpsSeed.zip)
+imported PowerOpsSeed
+Target: Contoso Test
+Plan hash: 0000000000000000000000000000000000000000000000000000000000000000
+1 PowerOpsSeed (PowerOpsSeed.zip): upgrade, ok
+flow PowerOpsSeed/Stamp work item status: expected on, now on
+applied

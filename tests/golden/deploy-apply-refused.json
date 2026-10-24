@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "tool": "<tool>",
+  "applied": true,
+  "target": "Contoso Test",
+  "hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "status": "refused",
+  "message": "the settings file of PowerOpsSeed.zip changed since the plan; nothing was imported. Plan again and review the new plan.",
+  "solutions": [
+    {
+      "order": 1,
+      "solution": "PowerOpsSeed",
+      "zip": "PowerOpsSeed.zip",
+      "action": "upgrade",
+      "import": "not-run",
+      "pacExitCode": null
+    }
+  ],
+  "flows": []
+}

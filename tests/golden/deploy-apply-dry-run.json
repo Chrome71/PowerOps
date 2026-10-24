@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "tool": "<tool>",
+  "applied": false,
+  "target": "Contoso Test",
+  "hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "status": "planned",
+  "message": null,
+  "solutions": [
+    {
+      "order": 1,
+      "solution": "PowerOpsSeed",
+      "zip": "PowerOpsSeed.zip",
+      "action": "upgrade",
+      "import": "planned",
+      "pacExitCode": null
+    }
+  ],
+  "flows": [
+    {
+      "solution": "PowerOpsSeed",
+      "name": "Stamp work item status",
+      "expectedState": "on",
+      "stateAfter": null
+    }
+  ]
+}

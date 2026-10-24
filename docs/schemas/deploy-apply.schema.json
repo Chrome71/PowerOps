@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/deploy-apply.schema.json",
+  "title": "powerops deploy apply --format json",
+  "description": "The JSON written by 'powerops deploy apply --format json': what a dry run would import, or what an apply imported, and the state of each planned cloud flow afterwards. It never holds an environment id or URL, a folder path, a connection id, an environment variable value, the --target value or pac's output text; only the target's friendly name, the tool version, file names, solution names, flow names, states and the reviewed plan's hash. Keep the report in private places, because the names can still identify a tenant.",
+  "type": "object",
+  "required": ["schemaVersion", "tool", "applied", "target", "hash", "status", "message", "solutions", "flows"],
+  "properties": {
+    "schemaVersion": { "const": 1, "description": "Version of this output format." },
+    "tool": { "type": "string", "description": "The version 'powerops --version' prints. Plan and apply must run the same version." },
+    "applied": { "type": "boolean", "description": "True whenever --apply was given, including refusals and failures; 'status' says what happened. False for a dry run." },
+    "target": { "type": "string", "description": "The target environment's friendly name. Never its id or URL. Empty when the plan file was made by another powerops version, because none of its fields is trusted then." },
+    "hash": { "type": "string", "pattern": "^([0-9a-f]{64})?$", "description": "The reviewed plan file's hash, never the new plan's. Empty when the plan file was made by another powerops version." },
+    "status": {
+      "enum": ["refused", "planned", "imported", "failed"],
+      "description": "refused: nothing was imported (exit 1), because the plan file is blocked or from another version, the new plan's hash differs, or the new plan is blocked. planned: a dry run (exit 0). imported: the imports ran; see message and flows for exit 1 and 3. failed: an import failed, timed out, pac was not found, or a file changed before its import (exit 3); there is no rollback."
+    },
+    "message": { "type": ["string", "null"], "description": "Why a run stopped, or null. For a failure it says there is no rollback and names the imported solutions; after good imports, a second read that failed starts with 'The imports succeeded.'." },
+    "solutions": {
+      "type": "array",
+      "description": "In plan order; empty when the run was refused before the re-plan.",
+      "items": {
+        "type": "object",
+        "required": ["order", "solution", "zip", "action", "import", "pacExitCode"],
+        "properties": {
+          "order": { "type": "integer", "minimum": 1, "description": "The position in the import order, from 1." },
+          "solution": { "type": "string", "description": "The solution's unique name." },
+          "zip": { "type": "string", "description": "The zip's file name, without a folder." },
+          "action": { "enum": ["install", "upgrade", "skip"], "description": "The new plan's action; a skip imports nothing." },
+          "import": {
+            "enum": ["ok", "failed", "not-run", "planned", "skipped"],
+            "description": "ok: imported. failed: pac failed or timed out, or a file changed before its import. not-run: nothing was imported for it (the run stopped first or was refused). planned: a dry run would import it. skipped: its action is skip (not in a refusal, where every row is not-run)."
+          },
+          "pacExitCode": { "type": ["integer", "null"], "description": "pac's exit code when it failed; null otherwise, also for a timeout or a changed file." }
+        }
+      }
+    },
+    "flows": {
+      "type": "array",
+      "description": "The cloud flows of the planned installs and upgrades, in plan order; empty when the run was refused or failed, or nothing was imported.",
+      "items": {
+        "type": "object",
+        "required": ["solution", "name", "expectedState", "stateAfter"],
+        "properties": {
+          "solution": { "type": "string", "description": "The unique name of the flow's solution." },
+          "name": { "type": "string" },
+          "expectedState": { "type": "string", "description": "The state the plan predicted for the flow after the import." },
+          "stateAfter": { "type": ["string", "null"], "description": "The flow's state in the target after the imports, found by its id ('missing' when it is not there); null in a dry run or when the second read failed. Exit 1 when it differs from expectedState." }
+        }
+      }
+    }
+  }
+}
