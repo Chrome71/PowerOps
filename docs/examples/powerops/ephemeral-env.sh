@@ -23,6 +23,10 @@ fail() {
   exit 1
 }
 
+# bash 3.2 (macOS) has no ${x,,} or ${x^^}.
+lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+upper() { printf '%s' "$1" | tr '[:lower:]' '[:upper:]'; }
+
 mode="${1:-}"
 if [ "$mode" != find ] && [ "$mode" != delete ]; then
   echo "::error::usage: ephemeral-env.sh <find|delete>"
@@ -82,7 +86,7 @@ read_match() {
   match_id="$(jq -er --arg name "$name" '[.[] | select(.DisplayName == $name)][0].EnvironmentId | select(type == "string" and length > 0)' "$list")" || fail "the environment named $name has no EnvironmentId in the list"
   [[ $match_id =~ $guid_re ]] || fail "the id of the environment named $name is not a GUID"
   match_url="$(jq -r --arg name "$name" '[.[] | select(.DisplayName == $name)][0].EnvironmentUrl | if type == "string" then . else "" end' "$list")"
-  lower_url="${match_url,,}"
+  lower_url="$(lower "$match_url")"
   if [[ $lower_url =~ $url_re ]]; then
     return 0
   fi
@@ -94,14 +98,14 @@ read_match() {
 # Masking matches exact text only, so every form of the id and URL is registered. Nothing else is printed before this.
 mask_id() {
   echo "::add-mask::$1"
-  echo "::add-mask::${1,,}"
-  echo "::add-mask::${1^^}"
+  echo "::add-mask::$(lower "$1")"
+  echo "::add-mask::$(upper "$1")"
 }
 
 mask_url() {
   local host="${1#*://}" h v
   host="${host%%/*}"
-  for h in "$host" "${host,,}" "${host^^}"; do
+  for h in "$host" "$(lower "$host")" "$(upper "$host")"; do
     for v in "$h" "$h/" "https://$h" "https://$h/"; do echo "::add-mask::$v"; done
     echo "::add-mask::${h%%.*}"
   done
@@ -153,11 +157,11 @@ fi
 
 # The delete goes by id, so the list is read again just before it: exactly one environment with this id and exactly this name.
 list_environments
-same="$(jq --arg name "$name" --arg id "${id,,}" '[.[] | select(.DisplayName == $name and ((.EnvironmentId // "" | tostring | ascii_downcase) == $id))] | length' "$list")"
+same="$(jq --arg name "$name" --arg id "$(lower "$id")" '[.[] | select(.DisplayName == $name and ((.EnvironmentId // "" | tostring | ascii_downcase) == $id))] | length' "$list")"
 if [ "$same" -ne 1 ] || [ "$(count_with_name)" -ne 1 ]; then
   fail "the environment list no longer holds exactly one environment with the expected id and the name $name; nothing was deleted"
 fi
-type="$(jq -r --arg id "${id,,}" '[.[] | select((.EnvironmentId // "" | tostring | ascii_downcase) == $id)][0].Type | if type == "string" then . else "" end' "$list")"
+type="$(jq -r --arg id "$(lower "$id")" '[.[] | select((.EnvironmentId // "" | tostring | ascii_downcase) == $id)][0].Type | if type == "string" then . else "" end' "$list")"
 if [ "$type" != Sandbox ] && [ "$type" != Trial ]; then
   fail "the environment to delete is not a Sandbox or a Trial; nothing was deleted"
 fi

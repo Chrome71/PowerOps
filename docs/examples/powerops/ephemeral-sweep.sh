@@ -56,13 +56,14 @@ fi
 
 name_re="^$EPHEMERAL_PREFIX-$REPO_ID-pr([0-9]+)-([0-9]+)-([0-9]+)$"
 # jq selects with \A and \z, which, unlike $, do not allow a trailing newline.
-mapfile -t rows < <(jq -r --arg re "\\A$EPHEMERAL_PREFIX-$REPO_ID-pr([0-9]+)-([0-9]+)-([0-9]+)\\z" \
+rows=()
+while IFS= read -r row; do rows+=("$row"); done < <(jq -r --arg re "\\A$EPHEMERAL_PREFIX-$REPO_ID-pr([0-9]+)-([0-9]+)-([0-9]+)\\z" \
   '.[] | select((.DisplayName | type) == "string" and (.DisplayName | test($re))) | [.DisplayName, (.EnvironmentId // "" | tostring), (.Type // "" | tostring)] | @tsv' "$list")
 
 if [ "$delete" = true ]; then echo "sweep: deleting the leftovers"; else echo "sweep: dry run, nothing is removed (POWEROPS_SWEEP_DELETE is not true)"; fi
 
 matched=0 leftovers=0 kept=0 failed=0
-for row in "${rows[@]}"; do
+for row in ${rows[@]+"${rows[@]}"}; do
   environment_name="${row%%$'\t'*}"
   rest="${row#*$'\t'}"
   environment_id="${rest%%$'\t'*}"
