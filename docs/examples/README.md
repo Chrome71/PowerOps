@@ -75,7 +75,7 @@ Create two environments, `test-plan` (no reviewers) and `test` (required reviewe
 | `TEST_ENVVAR_CONTOSO_SITEURL` | the Test value of `contoso_SiteUrl` |
 | `POWEROPS_ZIP_KEY` | the zip key (public repositories) |
 
-`docs/examples/powerops/build-settings.sh` writes the settings file from `TEST_CONNECTION_ID` and `TEST_ENVVAR_CONTOSO_SITEURL` with `jq` and a fixed filter, and never prints it. Both jobs call the same script and must have the same values, so the bytes, and so the plan hash, are equal. Add one secret and one entry for each environment variable and connection reference of your solution. The workflow calls the script at its path in this folder; if you copy it elsewhere, change both steps.
+`docs/examples/powerops/build-settings.sh` writes the settings file from `TEST_CONNECTION_ID` and `TEST_ENVVAR_CONTOSO_SITEURL` with `jq` and a fixed filter, and never prints it. Both jobs call the same script and must have the same values, so the bytes, and so the plan hash, are equal. Add one secret and one entry for each environment variable and connection reference of your solution. Prefer single-line values: GitHub masks each line of a multi-line secret on its own, so a line such as `review` is hidden wherever that word appears in the job's log. The workflow calls the script at its path in this folder; if you copy it elsewhere, change both steps.
 
 Fork pull requests get no secrets, so every job skips them.
 
