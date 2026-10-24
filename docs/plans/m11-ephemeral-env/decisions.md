@@ -28,3 +28,4 @@ Answer: A repository variable, `Sandbox` by default, so a tenant that allows ano
 - signed off 2026-10-23 by this session under the user's delegation (see above)
 - 2026-10-23: built (step 1); one deviation from the plan text, to follow M10's review fix: the PowerOps action is pinned like every other action, as `Chrome71/PowerOps@0000000000000000000000000000000000000000 # replace with the full commit SHA of the PowerOps release you use, the same in both jobs`, so the pinning test covers every action, PowerOps included, by a 40-character hex SHA with a comment
 - code review (Sonnet) 2026-10-24: no High, 2 Medium, 10 Low and 5 test gaps; all fixed
+- offline checks 2026-10-24 on the branch with M10 merged: 1321 tests pass, format clean, `bash -n` clean, leak scan of the diff clean (only the fake hosts in the tests); no live run (Q1); status done
