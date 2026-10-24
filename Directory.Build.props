@@ -7,7 +7,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <LangVersion>latest</LangVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
-    <Version>0.0.0</Version> <!-- x-release-please-version -->
+    <Version>0.1.0</Version> <!-- x-release-please-version -->
     <Authors>PowerOps contributors</Authors>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/Chrome71/PowerOps</RepositoryUrl>
