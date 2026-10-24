@@ -160,6 +160,7 @@ public sealed partial class ExampleWorkflowTests
         Assert.False(delete.Raw.ContainsKey("continue-on-error"));
         Assert.False(create.Raw.ContainsKey("continue-on-error"));
         Assert.Equal("75", Text(create.Raw, "timeout-minutes"));
+        Assert.Equal("10", Text(delete.Raw, "timeout-minutes"));
         // The first sign-in may be hours old: the step signs in again, with no environment.
         Assert.Contains("pac auth create --githubFederated", delete.Run);
         Assert.DoesNotContain("--environment", delete.Run);
@@ -173,7 +174,18 @@ public sealed partial class ExampleWorkflowTests
 
         Assert.Contains("github.event.pull_request.head.repo.full_name == github.repository", guard);
         Assert.Contains("github.actor != 'dependabot[bot]'", guard);
+        // A person re-running a Dependabot PR becomes the actor, so the PR's author counts too.
+        Assert.Contains("github.event.pull_request.user.login != 'dependabot[bot]'", guard);
         Assert.All(PrSteps.Where(s => s.Raw.ContainsKey("if")), s => Assert.Equal("Delete the environment", (string)s.Raw["name"]));
+    }
+
+    [Fact]
+    public void The_sweep_step_of_the_pr_workflow_cannot_fail_the_run_and_no_other_step_may_continue_on_error()
+    {
+        var sweep = Assert.Single(PrSteps, s => s.Run.Contains("ephemeral-sweep.sh", StringComparison.Ordinal));
+
+        Assert.Matches(@"ephemeral-sweep\.sh \|\| echo ""::warning::", sweep.Run);
+        Assert.All(PrSteps, s => Assert.False(s.Raw.ContainsKey("continue-on-error"), (string)s.Raw.GetValueOrDefault("name", s.Uses ?? "")!));
     }
 
     [Fact]
@@ -316,9 +328,10 @@ public sealed partial class ExampleWorkflowTests
         Assert.Equal("read", Text(permissions, "contents"));
         Assert.Equal("${{ github.repository }}", Text(env, "GH_REPO"));
         Assert.Equal("${{ github.token }}", Text(env, "GH_TOKEN"));
-        var delete = Text(env, "POWEROPS_SWEEP_DELETE");
-        Assert.Contains("github.event_name == 'workflow_dispatch' && inputs.delete", delete);
-        Assert.Contains("vars.POWEROPS_SWEEP_DELETE == 'true'", delete);
+        // A manual run follows its input only; the schedule follows the variable only.
+        Assert.Equal(
+            "${{ (github.event_name == 'workflow_dispatch' && inputs.delete == true) || (github.event_name == 'schedule' && vars.POWEROPS_SWEEP_DELETE == 'true') }}",
+            Text(env, "POWEROPS_SWEEP_DELETE"));
         Assert.Contains(StepsOf(SweepWorkflow), s => s.Run.Contains("bash docs/examples/powerops/ephemeral-sweep.sh", StringComparison.Ordinal));
     }
 

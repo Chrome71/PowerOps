@@ -27,3 +27,4 @@ Answer: A repository variable, `Sandbox` by default, so a tenant that allows ano
 - fresh review (Sonnet) 2026-10-23: 3 High, 8 Medium, 4 Low; all fixed in the plan text (R15 needed no change; R10's repository-wide queue left to the reader); no user decision needed; review.md plan-hash updated to the final body with a note
 - signed off 2026-10-23 by this session under the user's delegation (see above)
 - 2026-10-23: built (step 1); one deviation from the plan text, to follow M10's review fix: the PowerOps action is pinned like every other action, as `Chrome71/PowerOps@0000000000000000000000000000000000000000 # replace with the full commit SHA of the PowerOps release you use, the same in both jobs`, so the pinning test covers every action, PowerOps included, by a 40-character hex SHA with a comment
+- code review (Sonnet) 2026-10-24: no High, 2 Medium, 10 Low and 5 test gaps; all fixed

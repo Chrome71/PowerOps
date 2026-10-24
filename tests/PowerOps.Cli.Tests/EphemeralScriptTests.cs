@@ -24,8 +24,8 @@ public sealed class EphemeralScriptTests : IDisposable
 
     private static string Url(string label) => $"https://{label}.crm.dynamics.com";
 
-    private static string Item(string name, string id, string url, string type = "Sandbox") =>
-        $$"""{"DisplayName":"{{name}}","DomainName":"{{name}}","EnvironmentId":"{{id}}","EnvironmentUrl":"{{url}}","GroupName":null,"OrganizationId":"{{id}}","Type":"{{type}}","Version":"9.2.0.1"}""";
+    private static string Item(string name, string id, string? url, string type = "Sandbox") =>
+        $$"""{"DisplayName":"{{name}}","DomainName":"{{name}}","EnvironmentId":"{{id}}","EnvironmentUrl":{{(url is null ? "null" : $"\"{url}\"")}},"GroupName":null,"OrganizationId":"{{id}}","Type":"{{type}}","Version":"9.2.0.1"}""";
 
     private static string List(params string[] items) => "[" + string.Join(",", items) + "]";
 
@@ -100,6 +100,20 @@ public sealed class EphemeralScriptTests : IDisposable
         Assert.Equal(0, run.Code);
         Assert.Equal(3, run.PacCalls.Length);
         Assert.Equal($"id={Id('a')}\nurl={Url("orgpr7x")}\n", run.Output);
+    }
+
+    [Fact]
+    public void Find_retries_a_failed_or_non_json_list_like_zero_matches()
+    {
+        var failing = RunEnv("find", [List(Item(Name(), Id('a'), Url("orgpr7x")))], extra: new() { ["PAC_LIST_FAILS"] = "2" });
+        var banner = RunEnv("find", ["Welcome to pac\n[]", List(Item(Name(), Id('a'), Url("orgpr7x")))]);
+
+        Assert.Equal(0, failing.Code);
+        Assert.Equal(3, failing.PacCalls.Length);
+        Assert.Equal($"id={Id('a')}\nurl={Url("orgpr7x")}\n", failing.Output);
+        Assert.Equal(0, banner.Code);
+        Assert.Equal(2, banner.PacCalls.Length);
+        Assert.Equal($"id={Id('a')}\nurl={Url("orgpr7x")}\n", banner.Output);
     }
 
     [Fact]
@@ -255,6 +269,66 @@ public sealed class EphemeralScriptTests : IDisposable
         AssertNoLeak(renamed, "renamed-by-an-admin");
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("http://not-dataverse.example.com")]
+    public void Delete_by_name_needs_no_valid_url_because_a_provisioning_environment_has_none(string? url)
+    {
+        var run = RunEnv("delete", [List(Item(Name(), Id('a'), url), Others())]);
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal(["admin list --json", "admin list --json", $"admin delete --environment {Id('a')} --async"], run.PacCalls);
+        AssertNoLeak(run);
+    }
+
+    [Fact]
+    public void Delete_with_an_id_deletes_nothing_when_two_environments_have_the_name()
+    {
+        var run = RunEnv("delete", [List(Item(Name(), Id('a'), Url("orgone")), Item(Name(), Id('b'), Url("orgtwo")))], extra: new() { ["ENV_ID"] = Id('a') });
+
+        Assert.Equal(1, run.Code);
+        Assert.Contains("::error::", run.Out);
+        Assert.DoesNotContain(run.PacCalls, c => c.StartsWith("admin delete", StringComparison.Ordinal));
+        AssertNoLeak(run, "orgone", "orgtwo", Id('b'));
+    }
+
+    [Fact]
+    public void Delete_with_an_id_whose_environment_has_another_name_deletes_nothing_even_if_the_exact_name_exists_with_another_id()
+    {
+        var run = RunEnv("delete", [List(Item("renamed-by-an-admin", Id('a'), Url("orgone")), Item(Name(), Id('b'), Url("orgtwo")))], extra: new() { ["ENV_ID"] = Id('a') });
+
+        Assert.Equal(1, run.Code);
+        Assert.Contains("::error::", run.Out);
+        Assert.DoesNotContain(run.PacCalls, c => c.StartsWith("admin delete", StringComparison.Ordinal));
+        AssertNoLeak(run, "renamed-by-an-admin", "orgone", "orgtwo");
+    }
+
+    [Theory]
+    [InlineData("Production", false)]
+    [InlineData("Developer", false)]
+    [InlineData("Default", false)]
+    [InlineData("sandbox", false)]
+    [InlineData("Sandbox", true)]
+    [InlineData("Trial", true)]
+    public void Delete_takes_only_a_sandbox_or_a_trial_even_when_the_name_matches(string type, bool deleted)
+    {
+        var list = List(Item(Name(), Id('a'), Url("orgpr7x"), type));
+        var byId = RunEnv("delete", [list], extra: new() { ["ENV_ID"] = Id('a') });
+        var byName = RunEnv("delete", [list]);
+
+        Assert.All(new[] { byId, byName }, r =>
+        {
+            Assert.Equal(deleted ? 0 : 1, r.Code);
+            Assert.Equal(deleted, r.PacCalls.Any(c => c.StartsWith("admin delete", StringComparison.Ordinal)));
+            if (!deleted)
+            {
+                Assert.Contains("::error::", r.Out);
+                Assert.DoesNotContain(Name(), r.Out + r.Err);
+            }
+        });
+    }
+
     [Fact]
     public void Delete_fails_when_pac_delete_fails_and_prints_none_of_its_text()
     {
@@ -285,12 +359,17 @@ public sealed class EphemeralScriptTests : IDisposable
 
     // ---- ephemeral-sweep.sh ----
 
-    // Runs 1000 and 1001 are completed, 2000 is in progress, 3000 cannot be read.
+    // Runs 1000 and 1001 are completed, 2000 is in progress, 2001 is queued, 2002 is waiting, 3000 cannot be read (gh fails), 4000 prints
+    // nothing and 4001 prints text that is not JSON.
     private static readonly Dictionary<long, string> Runs = new()
     {
         [1000] = """{"status":"completed","conclusion":"cancelled"}""",
         [1001] = """{"status":"completed","conclusion":"success"}""",
         [2000] = """{"status":"in_progress","conclusion":""}""",
+        [2001] = """{"status":"queued","conclusion":""}""",
+        [2002] = """{"status":"waiting","conclusion":""}""",
+        [4000] = "",
+        [4001] = "not json {",
     };
 
     [Fact]
@@ -358,6 +437,75 @@ public sealed class EphemeralScriptTests : IDisposable
         Assert.Contains("failed 1", run.Out);
         Assert.Contains("::error::", run.Out);
         Assert.DoesNotContain("secret-repo", run.Out + run.Err);
+    }
+
+    [Theory]
+    [InlineData(2000)]
+    [InlineData(2001)]
+    [InlineData(2002)]
+    public void Sweep_keeps_the_environment_of_a_run_that_has_not_finished(long runId)
+    {
+        var run = RunSweep([List(Item(Name(run: runId), Id('a'), Url("org1")))], delete: true);
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal(["admin list --json"], run.PacCalls);
+        Assert.Contains($"kept {Name(run: runId)}", run.Out);
+        Assert.Contains("matched 1, leftovers 0, kept 1, failed 0", run.Out);
+    }
+
+    [Theory]
+    [InlineData(4000)]
+    [InlineData(4001)]
+    public void Sweep_keeps_the_environment_and_turns_red_when_gh_succeeds_but_prints_no_usable_json(long runId)
+    {
+        var run = RunSweep([List(Item(Name(run: runId), Id('a'), Url("org1")))], delete: true);
+
+        Assert.Equal(1, run.Code);
+        Assert.Equal(["admin list --json"], run.PacCalls);
+        Assert.Contains($"kept {Name(run: runId)}", run.Out);
+        Assert.Contains("failed 1", run.Out);
+    }
+
+    [Fact]
+    public void Sweep_matches_the_whole_repository_id_so_repository_42_leaves_repository_4242_alone()
+    {
+        var run = RunSweep([List(Item(Name(), Id('a'), Url("org1")))], delete: true, extra: new() { ["REPO_ID"] = "42" });
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal(["admin list --json"], run.PacCalls);
+        Assert.Empty(run.GhCalls);
+        Assert.Contains("matched 0", run.Out);
+        AssertNoLeak(run, Name(), Id('a'), "org1");
+    }
+
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Developer")]
+    [InlineData("Default")]
+    public void Sweep_keeps_an_environment_that_is_not_a_sandbox_or_a_trial_and_turns_red_without_naming_it(string type)
+    {
+        var list = List(Item(Name(run: 1000), Id('a'), Url("org1"), type));
+        var deleting = RunSweep([list], delete: true);
+        var dry = RunSweep([list]);
+
+        Assert.All(new[] { deleting, dry }, r =>
+        {
+            Assert.Equal(1, r.Code);
+            Assert.Equal(["admin list --json"], r.PacCalls);
+            Assert.DoesNotContain("would delete", r.Out);
+            Assert.DoesNotContain("deleted ", r.Out);
+            Assert.Contains("failed 1", r.Out);
+            AssertNoLeak(r, Name(run: 1000), Id('a'), "org1");
+        });
+    }
+
+    [Fact]
+    public void Sweep_deletes_a_trial()
+    {
+        var run = RunSweep([List(Item(Name(run: 1000), Id('a'), Url("org1"), "Trial"))], delete: true);
+
+        Assert.Equal(0, run.Code);
+        Assert.Contains($"admin delete --environment {Id('a')} --async", run.PacCalls);
     }
 
     [Fact]
@@ -454,7 +602,7 @@ public sealed class EphemeralScriptTests : IDisposable
     private static string[] ReadLines(string path) => File.Exists(path) ? File.ReadAllLines(path) : [];
 
     // The stub pac logs its arguments. `admin list --json` prints list.<n>.json for the n-th call (the last one again after that) and
-    // PAC_LIST_EXIT makes it fail; `admin delete` prints text that names other environments, and PAC_DELETE_EXIT makes it fail.
+    // PAC_LIST_EXIT makes it fail, PAC_LIST_FAILS makes the first n calls fail; `admin delete` prints text that names other environments, and PAC_DELETE_EXIT makes it fail.
     private const string PacStub = """
         #!/usr/bin/env bash
         echo "$*" >> "$STUB_DIR/pac.log"
@@ -464,7 +612,9 @@ public sealed class EphemeralScriptTests : IDisposable
             if [ -f "$STUB_DIR/list.count" ]; then n="$(cat "$STUB_DIR/list.count")"; fi
             n=$((n + 1))
             echo "$n" > "$STUB_DIR/list.count"
-            if [ "${PAC_LIST_EXIT:-0}" != "0" ]; then echo "pac: contoso-secret-env could not be listed (noise)" >&2; exit "$PAC_LIST_EXIT"; fi
+            code="${PAC_LIST_EXIT:-0}"
+            if [ "$n" -le "${PAC_LIST_FAILS:-0}" ]; then code=1; fi
+            if [ "$code" != "0" ]; then echo "pac: contoso-secret-env could not be listed (noise)" >&2; exit "$code"; fi
             for ((i = n; i >= 1; i--)); do
               if [ -f "$STUB_DIR/list.$i.json" ]; then cat "$STUB_DIR/list.$i.json"; break; fi
             done

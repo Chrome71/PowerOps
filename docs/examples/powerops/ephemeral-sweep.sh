@@ -8,7 +8,9 @@
 # <prefix>-<repository id>-pr<number>-<run id>-<attempt>; every other name, another repository's included, is never touched or printed.
 # For each, `gh run view <run id>` says whether the creating run has finished: a finished run should have deleted its environment, so
 # this one is a leftover (whatever the state of its pull request). A run still going keeps its environment. A gh failure keeps it too and
-# turns the run red.
+# turns the run red; so does a leftover whose run no longer exists (GitHub deletes runs after a retention period, 90 days by default).
+# An environment whose Type is not Sandbox or Trial (a hand-made Production environment with a matching name) is never deleted: it is
+# kept, counted as failed, and its name is not printed.
 # It deletes only when POWEROPS_SWEEP_DELETE is exactly `true`; otherwise it prints what it would delete (a dry run).
 # With POWEROPS_SWEEP_PR set it handles only that pull request's environments.
 # It prints the names of the matching environments and counts, never the list. It exits 1 when a matching environment could not be
@@ -55,14 +57,16 @@ fi
 name_re="^$EPHEMERAL_PREFIX-$REPO_ID-pr([0-9]+)-([0-9]+)-([0-9]+)$"
 # jq selects with \A and \z, which, unlike $, do not allow a trailing newline.
 mapfile -t rows < <(jq -r --arg re "\\A$EPHEMERAL_PREFIX-$REPO_ID-pr([0-9]+)-([0-9]+)-([0-9]+)\\z" \
-  '.[] | select((.DisplayName | type) == "string" and (.DisplayName | test($re))) | [.DisplayName, (.EnvironmentId // "" | tostring)] | @tsv' "$list")
+  '.[] | select((.DisplayName | type) == "string" and (.DisplayName | test($re))) | [.DisplayName, (.EnvironmentId // "" | tostring), (.Type // "" | tostring)] | @tsv' "$list")
 
 if [ "$delete" = true ]; then echo "sweep: deleting the leftovers"; else echo "sweep: dry run, nothing is removed (POWEROPS_SWEEP_DELETE is not true)"; fi
 
 matched=0 leftovers=0 kept=0 failed=0
 for row in "${rows[@]}"; do
   environment_name="${row%%$'\t'*}"
-  environment_id="${row#*$'\t'}"
+  rest="${row#*$'\t'}"
+  environment_id="${rest%%$'\t'*}"
+  environment_type="${rest#*$'\t'}"
   [[ $environment_name =~ $name_re ]] || continue
   pr="${BASH_REMATCH[1]}"
   run_id="${BASH_REMATCH[2]}"
@@ -71,6 +75,12 @@ for row in "${rows[@]}"; do
 
   if ! [[ $environment_id =~ $guid_re ]]; then
     echo "failed $environment_name: its id is missing or is not a GUID"
+    failed=$((failed + 1))
+    continue
+  fi
+
+  if [ "$environment_type" != Sandbox ] && [ "$environment_type" != Trial ]; then
+    echo "failed: a matching environment is not a Sandbox or a Trial, so it is kept"
     failed=$((failed + 1))
     continue
   fi

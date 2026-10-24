@@ -119,15 +119,15 @@ The recipe signs in as an app that can create and delete environments. Once an E
 Recommended:
 
 - Run it in a tenant, or a region, that has no production environments.
-- Keep the approval gate: the job runs in the GitHub environment `ephemeral` with required reviewers and "Prevent self-review", so each run waits for an approval, and the federated credential is bound to that environment, not to `pull_request`.
+- Keep the approval gate: the job runs in the GitHub environment `ephemeral` with required reviewers and "Prevent self-review", so each run waits for an approval, and the federated credential is bound to that environment, not to `pull_request`. Prevent self-review means a second person, not the one who triggered the run, has to approve it.
 - Use an Entra app for nothing else, and a private repository.
 - Protect `.github/workflows/` and `docs/examples/powerops/` (or your copy of it) with CODEOWNERS or a repository ruleset. A `pull_request` run uses the workflow file from the PR.
 - Secrets in the job are configuration (tenant id, app id), never credentials.
-- A fork PR gets no token, so the job skips forks. It skips Dependabot runs too, which get no secrets.
+- A fork PR gets no token, so the job skips forks. It skips Dependabot runs too, which get no secrets: the job checks the actor and the PR's author, because a person who re-runs a Dependabot PR becomes the actor.
 
 ## How it runs
 
-On a pull request that changes `deploy/` (a folder of **managed** solution zips that your own build makes, for example `pac solution pack --packagetype Managed` from an unpack made with `--packagetype Both`), the job waits for an approval, then:
+On a pull request that touches `deploy/` (GitHub checks the workflow's `paths` against the whole diff of the PR, so every later push to that PR runs it again, even a push that changes nothing in `deploy/`; a folder of **managed** solution zips that your own build makes, for example `pac solution pack --packagetype Managed` from an unpack made with `--packagetype Both`), the job waits for an approval, then:
 
 1. installs `pac` and signs in with GitHub OIDC, with no environment;
 2. deletes this PR's environments from older runs that have finished (`ephemeral-sweep.sh` with `POWEROPS_SWEEP_PR`), so leftovers per PR stay bounded;
@@ -139,7 +139,7 @@ On a pull request that changes `deploy/` (a folder of **managed** solution zips 
 8. runs the PowerOps action twice: `deploy plan`, then `deploy apply` with `apply: 'true'` (M9 and M10);
 9. in a last step that always runs, signs in again and deletes the environment with `ephemeral-env.sh delete`.
 
-The name of an environment is `<prefix>-<repository id>-pr<number>-<run id>-<attempt>`, with the numeric repository id from GitHub and the prefix from `EPHEMERAL_PREFIX` (`[a-z][a-z0-9-]{1,19}`). The scripts select only a display name that matches that whole pattern. Any other environment, even one an admin named with the prefix, is never touched. `delete` goes by id, and reads the list again just before it: it deletes only when exactly one environment has that id and exactly that name, and otherwise fails the job and deletes nothing.
+The name of an environment is `<prefix>-<repository id>-pr<number>-<run id>-<attempt>`, with the numeric repository id from GitHub and the prefix from `EPHEMERAL_PREFIX` (`[a-z][a-z0-9-]{1,19}`). The scripts select only a display name that matches that whole pattern. Any other environment, even one an admin named with the prefix, is never touched. `delete` goes by id, and reads the list again just before it: it deletes only when exactly one environment has that id and exactly that name and its `Type` is `Sandbox` or `Trial`, and otherwise fails the job and deletes nothing. It does not need the environment's URL, because an environment still provisioning after a timed-out or cancelled create has none. The sweep applies the same `Type` check: a hand-made Production environment with a matching name is kept, counted as failed and not named.
 
 Pin the PowerOps action to one commit SHA, and use the same one in both calls.
 
@@ -158,7 +158,7 @@ Apps, tables and flows with built-in actions only work. An environment variable 
 ## Recommended setup
 
 1. Make the Entra app. An admin signed in as a user registers it as a Power Platform management application with `pac admin application register --application-id <app id>` (Learn: "Create a service principal application"). Ask your admin first; see the questions at the end.
-2. Create the GitHub environment `ephemeral` with required reviewers and "Prevent self-review".
+2. Create the GitHub environment `ephemeral` with required reviewers and "Prevent self-review". With self-review prevented, a second person has to approve each run.
 3. Add the two federated credentials below, the secrets and the variables.
 4. Copy the two workflows and the two scripts (and the settings script, if you need it). Change the paths if you move the scripts, and the `deploy/` folder if yours has another name.
 5. Make `deploy/` hold the managed zips for the PR. The recipe does not pack them.
@@ -185,9 +185,9 @@ Read the form your repository uses with `gh api repos/contoso-org/powerops-demo/
 | `EPHEMERAL_REGION` | variable | `unitedstates` | `pac admin create --region` |
 | `EPHEMERAL_CURRENCY` | variable | `USD` | `pac admin create --currency` |
 | `EPHEMERAL_LANGUAGE` | variable | `1033` | `pac admin create --language` |
-| `POWEROPS_SWEEP_DELETE` | variable | not set: a dry run | the scheduled sweep deletes only when this is `true` |
+| `POWEROPS_SWEEP_DELETE` | variable | not set: a dry run | the scheduled sweep deletes only when this is `true`; a manual run ignores it and follows its `delete` input only. The PR workflow's own PR-scoped sweep step deletes that PR's finished leftovers without this variable |
 
-The sweep has no GitHub environment, so the two secrets must be repository secrets. A manual run of the sweep deletes when its input `delete` is on (default off), and the scheduled run only when the variable is `true`.
+The sweep has no GitHub environment, so the two secrets must be repository secrets. A manual run of the sweep deletes only when its input `delete` is on (default off), whatever the variable says, and the scheduled run only when the variable is `true`. The PR workflow's first sweep step (`POWEROPS_SWEEP_PR`, with deleting on) is separate: it deletes that PR's leftovers from finished runs without the variable. It races the scheduled sweep and an earlier run's delete step, so a failure there is a warning and the run goes on.
 
 The sweep needs `id-token: write`, `actions: read` and `contents: read` and nothing more; the workflow sets `GH_REPO` and `GH_TOKEN`. The PR job needs the same three.
 
@@ -195,7 +195,9 @@ The sweep needs `id-token: write`, `actions: read` and `contents: read` and noth
 
 A cancel (a new push, or a person) during `pac admin create` ends `pac` while the service goes on creating the environment. The delete step may find nothing yet, so the environment is deleted by the next sweep, or by the PR's next run (step 2), not by the cancelled run. No cancelled run was tried.
 
-The sweep reads one `pac admin list --json`, keeps the names that match this repository's pattern, and asks `gh run view` about each run id. It deletes an environment only when `gh` reports that run as completed (a finished run should already have deleted it), whatever the state of the PR. A run in progress keeps its environment; a `gh` failure keeps it and turns the sweep red, so GitHub notifies you. It prints counts and the names of the recipe's own environments, never the list. It is a dry run until `POWEROPS_SWEEP_DELETE` is `true`, or you start it by hand with `delete` on.
+The sweep reads one `pac admin list --json`, keeps the names that match this repository's pattern, and asks `gh run view` about each run id. It deletes an environment only when `gh` reports that run as completed (a finished run should already have deleted it), whatever the state of the PR. A run in progress keeps its environment; a `gh` failure keeps it and turns the sweep red, so GitHub notifies you. It prints counts and the names of the recipe's own environments, never the list. The scheduled sweep is a dry run until `POWEROPS_SWEEP_DELETE` is `true`; a manual run deletes only with `delete` on.
+
+Runs are kept for 90 days (the default retention), and a schedule that GitHub disabled after 60 days without activity lets leftovers age past that. A leftover whose run no longer exists makes `gh run view` fail, so the sweep keeps it and fails every time. Delete it by hand: find its id with `pac admin list`, check the name and that it is yours, then run `pac admin delete --environment <environment id>`.
 
 GitHub disables a schedule after 60 days without activity in a public repository, and then leftovers build up with nothing red anywhere. Look at `pac admin list` for the prefix by hand now and then.
 
@@ -230,6 +232,10 @@ No environment was created or deleted for this recipe (decision of the master se
 | Import | An import works right after `create` returns, and `deploy plan` of an empty environment holds only installs | M9 and M10 against existing environments only | not run |
 | Cancel | A cancelled run's environment is deleted by the sweep or the PR's next run | GitHub's cancellation rules and the scripts' tests with stubs | not run; no cancelled run tried |
 | Delete | `pac admin delete --async` returns within GitHub's 5-minute window after a cancel | Learn: `delete` waits by default, `--async` does not | not run |
+| Name | `pac admin create --name X` gives the environment the `DisplayName` X | Learn's `pac admin create` reference documents `--name` | not run |
+| Run status | `gh run view <id>` reports the latest attempt of that run | none read | not run |
+| Timeout | An `if: always()` step runs after a job-level timeout | GitHub's rules for `always()` and cancellation; not read for a timeout | not run |
+| Provisioning | `pac admin list` lists environments that are still provisioning or being deleted | Learn is silent | not run |
 | Capacity | A soft-deleted environment does not hold database capacity | Learn is silent | not verified |
 | The sweep | The schedule, the second federated credential, `gh run view` with the job's token and the deletes | the script's tests with stubs | not run |
 
@@ -237,7 +243,7 @@ The offline tests (`tests/PowerOps.Cli.Tests/EphemeralScriptTests.cs` and `Examp
 
 ## A safe first use
 
-1. A throwaway private repository, a tenant or region with no production environments, a dedicated app, and a `ContosoTables`-like solution with no connection reference in `deploy/`.
+1. A throwaway private repository, a tenant or region with no production environments **and no environment whose name matches the pattern** (the PR workflow's own sweep step deletes this PR's finished leftovers without the variable), a dedicated app, a second person to approve each run (Prevent self-review), and a `ContosoTables`-like solution with no connection reference in `deploy/`.
 2. Run the sweep by hand with `delete` off. It must list nothing, or only what you expect.
 3. Open one PR, approve it, and watch the run. Check with `pac admin list` that the environment was created, deployed into and deleted.
 4. Cancel one run during the create step, then run the sweep with `delete` off, then on, and note what happened.

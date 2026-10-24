@@ -13,19 +13,19 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
-      - deploy/**   # the folder of managed solution zips; a push that changes nothing there creates no environment
+      - deploy/**   # the folder of managed solution zips; GitHub checks paths against the whole PR diff, so every later push to a PR that touches it runs again
 
 env:
-  # The pac version this example was tested with; pin the version you test. (This recipe itself was not run end to end.)
+  # The pac version to pin; this recipe's admin commands were not run with it (the list fields were observed with 2.13.1).
   PAC_VERSION: 2.14.1
 
 jobs:
   ephemeral:
-    # Not for a fork PR and not for Dependabot: both get no secrets and no OIDC token. The guard is on the job, so the delete step below
-    # never runs where nothing was created.
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    # Not for a fork PR and not for Dependabot: both get no secrets and no OIDC token. A person who re-runs a Dependabot PR becomes the
+    # actor, so the PR's author is checked too. The guard is on the job, so the delete step below never runs where nothing was created.
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    environment: ephemeral   # required reviewers and "Prevent self-review": each run waits for an approval, and the federated credential is bound to this environment
+    environment: ephemeral   # required reviewers and "Prevent self-review" (a second person approves): each run waits for an approval, and the federated credential is bound to this environment
     timeout-minutes: 150
     permissions:
       id-token: write   # the OIDC sign-in
@@ -70,7 +70,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           POWEROPS_SWEEP_PR: ${{ github.event.pull_request.number }}
           POWEROPS_SWEEP_DELETE: 'true'
-        run: bash docs/examples/powerops/ephemeral-sweep.sh
+        # It races the scheduled sweep and an earlier run's delete step, so a failure here is a warning and the run goes on.
+        run: bash docs/examples/powerops/ephemeral-sweep.sh || echo "::warning::the sweep of this PR's leftovers failed; see its lines above, and the run goes on"
 
       # A cancel here ends pac while the service goes on creating the environment. The delete step may then find nothing yet; the
       # next sweep, or the next run of this PR, deletes it.
@@ -145,14 +146,14 @@ jobs:
 
       # Pin this action to one commit SHA and use the same SHA in both calls: the plan file's `tool` (the powerops version) must match.
       # The plan of an empty environment holds only installs, so there is no PR comment. The analysis gates the zips (fail-on: error).
-      - uses: Chrome71/PowerOps@0000000000000000000000000000000000000000 # replace with the full commit SHA of the PowerOps release you use, the same in both jobs
+      - uses: Chrome71/PowerOps@0000000000000000000000000000000000000000 # replace with the full commit SHA of the PowerOps release you use
         with:
           path: deploy
           upload-sarif: 'false'
           deploy-folder: deploy
           target: ${{ steps.find.outputs.url }}
 
-      - uses: Chrome71/PowerOps@0000000000000000000000000000000000000000 # replace with the full commit SHA of the PowerOps release you use, the same in both jobs
+      - uses: Chrome71/PowerOps@0000000000000000000000000000000000000000 # replace with the full commit SHA of the PowerOps release you use
         with:
           path: deploy
           upload-sarif: 'false'
@@ -166,6 +167,7 @@ jobs:
       # The environment is soft-deleted and can be recovered for 7 days.
       - name: Delete the environment
         if: always()
+        timeout-minutes: 10
         env:
           ENV_ID: ${{ steps.find.outputs.id }}
         run: |
