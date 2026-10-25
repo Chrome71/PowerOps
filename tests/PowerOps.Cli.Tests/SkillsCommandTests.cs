@@ -222,4 +222,25 @@ public partial class SkillsCommandTests : IDisposable
             Assert.InRange(fields["description"].Length, 1, 1024);
         }
     }
+
+    [Fact]
+    public void Plan_skill_description_says_to_run_before_the_microsoft_build_skills()
+    {
+        var description = SkillsCommand.Shipped()["powerops-plan/SKILL.md"].Split('\n').First(l => l.StartsWith("description:", StringComparison.Ordinal));
+        string[] buildSkills = ["app-builder", "genpage", "canvas-app", "build-flow", "create-site"];
+
+        Assert.Contains("Run it before any Microsoft build skill", description);
+        Assert.All(buildSkills, s => Assert.Contains(s, description));
+    }
+
+    [Fact]
+    public void Implement_skill_names_the_microsoft_build_skills_and_the_import_paths_that_need_a_yes()
+    {
+        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        string[] build = ["canvas-apps", "model-apps", "power-automate", "power-pages", "code-apps", "create-site", "create-code-app", "checkout of microsoft/power-platform-skills"];
+        string[] imports = ["solution_import", "solution-settings.js import", "import-solution", "deploy-pipeline", "dv-solution", "`powerops deploy plan` and then `powerops deploy apply`"];
+
+        Assert.All(build, s => Assert.Contains(s, text));
+        Assert.All(imports, s => Assert.Contains(s, text));
+    }
 }

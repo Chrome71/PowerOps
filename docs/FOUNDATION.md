@@ -2,7 +2,7 @@
 
 **One line:** a free, open-source, cross-platform toolkit that brings software-engineering discipline (analysis, diffing, testing, repeatable deployment) to Microsoft Power Platform. It works alongside `pac`; it does not replace it.
 
-Last updated 2026-10-21.
+Last updated 2026-10-24.
 
 ## 1. Why now
 
@@ -17,7 +17,8 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
 | A CLI and library that runs headless in CI on Linux, macOS and Windows | Another desktop GUI (XrmToolBox and Power Platform ToolBox already cover that) |
 | Offline-first: most commands read an exported or unpacked solution, with no tenant needed | A replacement for `pac`, which it calls for pack, import and check |
 | Machine-readable output (JSON, SARIF, Markdown for PR comments) | A low-code maker tool |
-| Agent-friendly: stable output, a dry-run plan mode, read-only by default, planning skills that gate implementation on a signed-off plan ([design](PLANNING-SKILLS.md)), and an MCP server later | A replacement for Microsoft's skills ([power-platform-skills](https://github.com/microsoft/power-platform-skills)). Those focus on building, and their one planner covers Power Pages ALM. Ours plan any Power Platform project, add an independent review and a CI check, work across agents, and work alongside Microsoft's. |
+| Agent-friendly: stable output, a dry-run plan mode, read-only by default, planning skills that gate implementation on a signed-off plan ([design](PLANNING-SKILLS.md)), and an MCP server later | A replacement for Microsoft's skills. [power-platform-skills](https://github.com/microsoft/power-platform-skills) (MIT; its CONTRIBUTING.md says it "is not currently accepting contributions") and [Dataverse-skills](https://github.com/microsoft/Dataverse-skills) (MIT) build and deploy one product at a time, with approval steps inside the session:<ul><li>model-apps' `app-builder` builds model-driven apps with a plan approval, and its `solution-settings.js` writes a deployment settings file and imports with it</li><li>power-pages plans Pages ALM (`plan-alm`) and imports</li><li>Dataverse-skills' `dv-solution` exports, unpacks, packs and imports solutions through `pac`</li></ul>In the SKILL.md files read, none of them has an offline repo-wide check, a hash-gated multi-solution plan, a drift check across environments or a CI check on pull requests. PowerOps is the check-and-plan step between their build or export and the import, and it hands the build to them ([Phase 3b](BUILD-PLAN.md#phase-3b-works-with-microsofts-skills-and-mcp-servers-m12m13)). Ours plan any Power Platform project, add an independent review and a CI check, and work across agents. Read 2026-10-24 in the repos' SKILL.md files, manifests and changelogs, at power-platform-skills `aed70bf` (model-apps 2.19.0) and Dataverse-skills `1966192` (dataverse 1.16.1). |
+| Used next to Microsoft's MCP servers: it calls `pac` itself, and its own MCP server (Phase 5) adds only checks and plans | A replacement for Microsoft's MCP servers. <ul><li>The [Dataverse MCP server](https://learn.microsoft.com/power-apps/maker/data-platform/data-platform-mcp) is remote (`/api/mcp` on the environment URL, 15 tools) and generally available ([FAQ](https://learn.microsoft.com/power-apps/maker/data-platform/data-platform-mcp-faq)). Since 2025-12-15 its tools are charged when agents built outside Copilot Studio call them, with exemptions for some licences. It is turned on per environment, and each non-Microsoft client is allowed separately ([manage the server](https://learn.microsoft.com/power-apps/maker/data-platform/data-platform-mcp-disable))</li><li>pac's [built-in MCP server](https://learn.microsoft.com/power-platform/developer/howto/use-mcp) runs with `pac copilot mcp --run` and is "designed for local development and testing purposes"</li></ul>PowerOps doesn't depend on either one. Read on Learn 2026-10-24 (the pages show no update date). |
 
 **Who uses it.** The main users are agents: PowerOps hooks into the user's own Claude Code or Codex, and the agents those tools run call it. So every feature has to be fast for an agent to read, check and repeat, and easy for the person behind the agent to follow. In practice:
 
@@ -60,7 +61,7 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
 
 ## 5. Roadmap
 
-The ordered milestones for Phases 1–3 are in [BUILD-PLAN.md](BUILD-PLAN.md).
+The ordered milestones for Phases 1–3b are in [BUILD-PLAN.md](BUILD-PLAN.md).
 
 Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform tenant**, which keeps contribution easy.
 
@@ -72,8 +73,9 @@ Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform
 | **1c. Agent base** | Versioned JSON output with schemas; fix hints on every finding; `powerops rules --json`; plan `depth` and `supersedes`; AGENTS.md recipes; dated sources in rule docs | An agent adds a rule from the recipe alone, and every JSON output validates against its schema |
 | **2. Settings and connections** | `settings generate/validate/diff`, and turning flows on after import | Replaces a hand-written `deploymentsettings.json` workflow end to end |
 | **3. Environment-aware** | `drift`, `deploy --plan`, pre-deploy layer and impact check, ephemeral environment per PR | A Dev→Test promotion runs from GitHub Actions with a plan reviewed in the PR |
+| **3b. Works with Microsoft's skills and MCP servers** | The skills hand the build to Microsoft's skills, and the check, plan and import stay with PowerOps; a documented hand-off flow; the skills packaged as a Claude Code and Codex plugin marketplace | An agent with Microsoft's skills installed builds with theirs and checks, plans and imports with PowerOps, with one tool per write |
 | **4. Testing** | Flow test harness, Playwright starter, a Copilot Studio eval gate | A failing flow assertion blocks a merge |
-| **5. Agents** | MCP server over the same core | An agent can run analyze, diff and plan, but never writes without an explicit flag |
+| **5. Agents** | An MCP server over the same core, with only what `pac`'s and Dataverse's MCP servers lack (BUILD-PLAN [decision 16](BUILD-PLAN.md#decisions-phase-3b-2026-10-24)): `analyze`, `rules`, `baseline`, `diff`, `settings generate` and `validate`, `plan status` and `facts`, `drift` and `deploy plan`, read-only, plus `deploy apply` as a dry run unless an explicit flag is set. No export, import, environment, auth or record tools, which theirs already have. Tool descriptions say to promote a reviewed plan with `deploy apply`, not with an import tool. It does not need either Microsoft server and does not name their tools, which have changed before | An agent can run analyze, diff, drift and deploy plan, but never writes without an explicit flag |
 
 ## 6. Risks
 
@@ -149,6 +151,9 @@ To verify before or during the phase that depends on them:
   - It is a PowerShell pipeline framework for Azure DevOps and GitHub Actions, and it is active (releases v1.18.0 to v1.19.1 on 2026-10-19 to 20).
   - Overlap is partial. It takes per-environment values from CI variables, activates flows under a configured service-account user, and uses a service principal or OIDC. It documents no deployment settings file, offline validation or `pac`-style generation, which is where PowerOps differs.
   - Not read: its pipeline code, so how it binds connection references is unverified.
+- [ ] **(Phase 3b)** Which skill an agent loads when two match. A request such as "build me an app" matches `powerops-plan` and `powerops-implement`, a Microsoft build skill (`app-builder`, `genpage`, `canvas-app`, `build-flow`, `create-site`), and any routing skill whose description covers all of Power Platform. No two of them share a name, so which one runs is the model's choice. Since 2026-10-24 the `powerops-plan` description says to run it before Microsoft's build skills, but no run has checked that it wins. Not tested in Claude Code, Codex or Copilot. M12's smoke-test case with a routing skill present checks it in Claude Code and Codex.
+- [ ] **(Phase 3b)** Whether PowerOps works on `pac` older than 2.13.1, for example 2.11.2. Microsoft's model-apps skill accepts any `pac` newer than 2.10.0, so an agent that set up `pac` for Microsoft's skills can have an older build than any PowerOps was tested on (the tested and pinned versions are in BUILD-PLAN decision 16(d)). Untested on older builds, among others: `pac org who`, `pac solution list`, `pac solution import --settings-file` and `--stage-and-upgrade`, and `pac power-automate list-cloud-flows`.
+- [ ] **(Phase 3b)** What an empty deployment settings entry does on each import path. Microsoft's model-apps `solution-settings.js` says "An entry left empty overrides nothing". Its import goes through the SDK first and falls back to `pac` only where the SDK refuses. `pac` 2.13.1 rejects `"Value": ""` (observed), and `powerops settings validate` reports empty values and connection ids. So a file from `solution-settings.js template` can import on the SDK path and still fail `settings validate`, or fail on the `pac` fallback. Untested: an empty entry on the SDK path. Until then the M12 hand-off flow says to remove an entry instead of leaving it empty.
 - [ ] **(Phase 4)** Flow run-history and static-results APIs, to find the best mocking approach.
 - [x] **(Phase 4)** GA status of Copilot Studio evaluation. [Answered](https://learn.microsoft.com/microsoft-copilot-studio/whats-new):
   - Agent evaluations are GA (March 2026).
