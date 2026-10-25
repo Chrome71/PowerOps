@@ -1,0 +1,69 @@
+# not run end to end; see docs/examples/README.md
+# Deletes the leftovers of ephemeral-pr.yml: environments of this repository whose creating run has finished. It is a dry run
+# (it lists what it would delete) unless the schedule runs with the repository variable POWEROPS_SWEEP_DELETE set to `true`, or a manual
+# run sets `delete`; a manual run follows only its input, the schedule only the variable.
+# Read docs/examples/README.md before using it: the credential it needs can create and delete any environment in the tenant.
+#
+# It signs in with a second federated credential, for the default branch, and runs on the default branch only. GitHub disables a
+# schedule after 60 days without activity in a public repository, so also look at `pac admin list` for the prefix by hand now and then.
+name: Ephemeral environment sweep
+
+on:
+  schedule:
+    - cron: '17 3 * * *'   # daily; GitHub runs a schedule on the default branch only
+  workflow_dispatch:
+    inputs:
+      delete:
+        description: Delete the leftovers (false lists what would be deleted)
+        type: boolean
+        default: false
+
+env:
+  # The pac version to pin; this recipe's admin commands were not run with it (the list fields were observed with 2.13.1).
+  PAC_VERSION: 2.14.1
+
+jobs:
+  sweep:
+    # The federated credential names the default branch, so a run from another branch could not sign in anyway.
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      id-token: write   # the OIDC sign-in
+      actions: read     # gh run view
+      contents: read
+    concurrency:
+      group: powerops-ephemeral-sweep   # two sweeps at once would delete the same environments twice
+      cancel-in-progress: false
+    env:
+      EPHEMERAL_PREFIX: ${{ vars.EPHEMERAL_PREFIX || 'powerops-pr' }}
+      REPO_ID: ${{ github.repository_id }}
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+      # A manual run follows its input only; the schedule follows the repository variable only.
+      POWEROPS_SWEEP_DELETE: ${{ (github.event_name == 'workflow_dispatch' && inputs.delete == true) || (github.event_name == 'schedule' && vars.POWEROPS_SWEEP_DELETE == 'true') }}
+      TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install pac
+        run: |
+          dotnet tool install --global Microsoft.PowerApps.CLI.Tool --version "$PAC_VERSION"
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      - name: Sign in pac to the tenant
+        run: |
+          if ! pac auth create --githubFederated --tenant "$TENANT_ID" --applicationId "$CLIENT_ID" > "$RUNNER_TEMP/pac-auth.log" 2>&1; then
+            echo "::error::pac auth create failed; its output is printed only with debug logging on"
+            if [ "${RUNNER_DEBUG:-}" = 1 ]; then cat "$RUNNER_TEMP/pac-auth.log"; fi
+            exit 1
+          fi
+
+      # Prints the names of this repository's environments and counts, never the tenant's list. Exits 1 (the run turns red, so GitHub
+      # notifies) when a matching environment could not be classified or deleted.
+      - name: Sweep
+        run: bash docs/examples/powerops/ephemeral-sweep.sh
