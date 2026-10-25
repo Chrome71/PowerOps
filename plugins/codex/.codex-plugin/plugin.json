@@ -1,6 +1,6 @@
 {
   "name": "powerops",
-  "description": "Plan, review and gate Microsoft Power Platform builds: powerops-plan turns an idea into a signed-off plan, powerops-review-plan reviews it in a fresh context, and powerops-implement builds only from a signed-off plan, handing the build to Microsoft's skills. Needs the `powerops` CLI on PATH (dotnet tool install --global PowerOps).",
+  "description": "Plan, review and gate Microsoft Power Platform builds: powerops-plan turns an idea into a signed-off plan, powerops-review-plan reviews it in a fresh context, and powerops-implement builds only from a signed-off plan, handing the build to Microsoft's skills. Needs the `powerops` CLI on PATH: see Install in the PowerOps README.",
   "version": "0.0.0",
   "author": {
     "name": "PowerOps contributors"
@@ -13,7 +13,7 @@
   "interface": {
     "displayName": "PowerOps",
     "shortDescription": "Plan and gate Power Platform builds",
-    "longDescription": "Plan, review and gate Microsoft Power Platform builds: powerops-plan turns an idea into a signed-off plan, powerops-review-plan reviews it in a fresh context, and powerops-implement builds only from a signed-off plan, handing the build to Microsoft's skills. Needs the `powerops` CLI on PATH (dotnet tool install --global PowerOps).",
+    "longDescription": "Plan, review and gate Microsoft Power Platform builds: powerops-plan turns an idea into a signed-off plan, powerops-review-plan reviews it in a fresh context, and powerops-implement builds only from a signed-off plan, handing the build to Microsoft's skills. Needs the `powerops` CLI on PATH: see Install in the PowerOps README.",
     "developerName": "PowerOps contributors",
     "category": "Developer Tools",
     "capabilities": ["Read", "Write"],
