@@ -62,23 +62,36 @@ public class DriftCompareTests
     [Fact]
     public void Component_missing_and_extra_are_named_by_type_and_id_on_the_later_environment()
     {
-        var items = Run(Snap(components: [new(61, G1, null)]), Snap("Test", components: [new(62, G2, null)]));
+        var items = Run(Snap(components: [new(61, G1, null)]), Snap("Test", components: [new(26, G2, null)]));
 
-        Assert.Equal([(DriftKind.ComponentMissing, "61 " + G1.ToString("D")), (DriftKind.ComponentExtra, "62 " + G2.ToString("D"))], items.Select(i => (i.Kind, i.Subject)));
+        Assert.Equal([(DriftKind.ComponentMissing, "61 " + G1.ToString("D")), (DriftKind.ComponentExtra, "26 " + G2.ToString("D"))], items.Select(i => (i.Kind, i.Subject)));
         Assert.All(items, i => Assert.Equal(2, i.Position));
         Assert.Empty(Run(Snap(components: [new(61, G1, null)]), Snap("Test", components: [new(61, G1, null)])));
     }
 
     [Theory]
     [InlineData(1)]
+    [InlineData(62)]
+    [InlineData(80)]
     [InlineData(300)]
     [InlineData(380)]
     [InlineData(381)]
+    [InlineData(10087)]
     public void Types_whose_ids_change_on_import_are_left_out_of_the_component_kinds(int type)
     {
         Assert.Empty(Run(Snap(components: [new(type, G1, null)]), Snap("Test", components: [new(type, G2, null)])));
         Assert.Empty(Run(Snap(components: [new(type, G1, null)]), Snap("Test")));
         Assert.Empty(Run(Snap(), Snap("Test", components: [new(type, G1, null)])));
+    }
+
+    [Fact]
+    public void A_model_driven_app_with_new_ids_after_import_is_no_drift_but_a_flow_with_a_new_id_still_is()
+    {
+        var items = Run(
+            Snap(components: [new(80, G1, null), new(62, G1, null), new(10087, G1, null), new(29, G3, null)], flows: [new(G3, "Flow", "on")]),
+            Snap("Test", components: [new(80, G2, null), new(62, G2, null), new(10087, G2, null), new(29, G2, null)], flows: [new(G2, "Flow", "on")]));
+
+        Assert.Equal([(DriftKind.FlowMissing, "Flow"), (DriftKind.FlowMissing, "Flow")], items.Select(i => (i.Kind, i.Subject)));
     }
 
     [Fact]
