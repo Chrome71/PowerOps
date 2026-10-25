@@ -16,7 +16,8 @@ public partial class HandoffDocTests
 
     private static string Page() => File.ReadAllText(Path.Combine(Golden.RepoRoot, "docs", "HANDOFF.md"));
 
-    // The words up to and including the first one that is not a subcommand, or null when they all resolve.
+    // The words up to and including the first one that is not a subcommand, all of them when they stop at a command
+    // that still has subcommands, or null when they reach a command.
     private static string? Unknown(IReadOnlyList<string> words)
     {
         Command current = Program.Root(TextWriter.Null, TextWriter.Null, (_, _) => throw new InvalidOperationException("no pac call"));
@@ -31,7 +32,7 @@ public partial class HandoffDocTests
             current = next;
         }
 
-        return null;
+        return current.Subcommands.Count > 0 ? string.Join(' ', words) : null;
     }
 
     [Fact]
@@ -65,6 +66,7 @@ public partial class HandoffDocTests
     {
         Assert.Equal("deploy nope", Unknown(["deploy", "nope"]));
         Assert.Equal("nope", Unknown(["nope"]));
+        Assert.Equal("deploy", Unknown(["deploy"]));
         Assert.Null(Unknown(["deploy", "apply"]));
         Assert.Null(Unknown(["plan", "sign-off", "docs"]));
 

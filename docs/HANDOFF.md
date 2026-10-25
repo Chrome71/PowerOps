@@ -13,13 +13,13 @@ Microsoft's [power-platform-skills](https://github.com/microsoft/power-platform-
 
 The steps go from Dev to Test. For Prod, repeat steps 7 to 9 with Prod as the target, with its own plan and approval.
 
-1. **Plan.** The `powerops-plan` skill turns the request into a plan in `docs/plans/<name>/`, `powerops-review-plan` reviews it in a fresh context, and `powerops plan sign-off docs/plans/<name>` signs it off. `powerops plan status` shows where each plan stands. Asked to build without a signed-off plan, the skills draft one and ask only the route.
+1. **Plan.** The `powerops-plan` skill turns the request into a plan in `docs/plans/<name>/`, `powerops-review-plan` reviews it in a fresh context, and `powerops plan sign-off docs/plans/<name>` signs it off. `powerops plan status` shows where each plan stands. Asked to build without a signed-off plan, the skills draft one and ask only the route, and the publisher prefix if the repo doesn't show it.
 2. **Build in Dev.** `powerops-implement` does the plan's steps in order and hands the build work to the Microsoft skill for the product: `canvas-app` (canvas-apps), `app-builder` or `genpage` (model-apps), `build-flow` (power-automate), `create-site` (power-pages) or `create-code-app` (code-apps). Build in Dev only, never in Test or Prod.
 3. **Export, and unpack into XML only.** Export the solution from Dev, unmanaged for the source and managed for Test, and unpack the unmanaged zip into an XML folder (`Other/Solution.xml`) that you commit:
 
    ```sh
-   pac solution export --name ContosoApp --path ContosoApp.zip
-   pac solution export --name ContosoApp --path deploy/ContosoApp_managed.zip --managed
+   pac solution export --environment <dev> --name ContosoApp --path ContosoApp.zip
+   pac solution export --environment <dev> --name ContosoApp --path deploy/ContosoApp_managed.zip --managed
    pac solution unpack --zipfile ContosoApp.zip --folder src/ContosoApp
    ```
 
@@ -28,7 +28,7 @@ The steps go from Dev to Test. For Prod, repeat steps 7 to 9 with Prod as the ta
 5. **Diff.** `powerops diff <old> src/ContosoApp --format markdown` compares the base branch's copy of the solution with the new one, for the pull request. The PowerOps Action puts this diff in its PR comment only when `target` is not set; with `target` (step 7) the comment holds the plan, so the diff then needs its own step.
 6. **Settings.** One tool writes the deployment settings file: `powerops settings generate src/ContosoApp`, or model-apps' `solution-settings.js template`. Fill in each connection id and value, save it beside the managed zip as `deploy/ContosoApp_managed.settings.json` (the `<zip name>.settings.json` that `deploy plan` reads), and check it with `powerops settings validate src/ContosoApp --settings deploy/ContosoApp_managed.settings.json`. To keep a variable's default or current value, remove its entry instead of leaving `"Value": ""`, which `pac solution import` rejects. The file holds the target's connection ids and values, so keep it out of Git and build it in CI from repository variables, as [docs/examples/](examples/README.md) does.
 7. **Plan the import in CI.** `powerops deploy plan deploy --target <test> --save deploy/powerops-plan.json` runs on the pull request (the Action's `deploy-folder` and `target` inputs write the same plan file), so the reviewer sees the import order, installs, upgrades, deletions, settings problems and flow states before approving.
-8. **Import.** After approval, `powerops deploy apply deploy/powerops-plan.json --target <test> --apply`. It plans again and refuses when anything changed since the reviewed plan. Don't import with a skill's or an MCP tool's import: pac's MCP server (`solution_import`), model-apps' `solution-settings.js import`, power-pages' `import-solution` or `deploy-pipeline`, or Dataverse-skills' `dv-solution`. None of them checks a reviewed plan.
+8. **Import.** After approval, `powerops deploy apply deploy/powerops-plan.json --target <test> --apply`. It plans again and refuses when anything changed since the reviewed plan. An agent runs it only after the user said yes to that environment in the session; a pull request approval is not that yes. Don't import with a skill's or an MCP tool's import: pac's MCP server (`solution_import`), model-apps' `solution-settings.js import`, power-pages' `import-solution` or `deploy-pipeline`, or Dataverse-skills' `dv-solution`. None of them checks a reviewed plan.
 9. **Confirm.** `powerops drift --solution ContosoApp --env <dev> --env <test>` compares the solution in both environments.
 10. **A flow is off.** `deploy apply` reports each cloud flow's state after the import, but it can't turn a flow on, because `pac` can't. Use power-automate's `debug-flow` to find out why and `manage-flows` to turn the flow on (its publish operation). That is a write in that environment, so ask first. Then run `drift` again.
 

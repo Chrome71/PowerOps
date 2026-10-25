@@ -180,7 +180,8 @@ new_repo
 check_fast_path "Use the powerops-implement skill. Build a cloud flow that emails the team lead when a site visit report is overdue."
 
 # 4. The fast path with a routing skill beside the PowerOps skills, and a request that names no skill.
-# The router is fake and written here; if it wins, the agent writes files outside docs/plans.
+# The router is fake and written here; if it wins, the agent writes files outside docs/plans. Nothing here checks
+# that the agent sees it: a control run with only the router, by hand, wrote under src/ in both agents (M12).
 scenario=router
 new_repo
 if [ "$agent" = claude ]; then skills="$dir/.claude/skills"; else skills="$dir/.agents/skills"; fi
