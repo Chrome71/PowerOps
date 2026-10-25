@@ -237,7 +237,7 @@ public partial class SkillsCommandTests : IDisposable
     public void Implement_skill_names_the_microsoft_build_skills_and_the_import_paths_that_need_a_yes()
     {
         var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
-        string[] build = ["canvas-apps", "model-apps", "power-automate", "power-pages", "code-apps", "checkout of microsoft/power-platform-skills"];
+        string[] build = ["canvas-apps", "model-apps", "power-automate", "power-pages", "code-apps", "create-site", "create-code-app", "checkout of microsoft/power-platform-skills"];
         string[] imports = ["solution_import", "solution-settings.js import", "import-solution", "deploy-pipeline", "dv-solution", "`powerops deploy plan` and then `powerops deploy apply`"];
 
         Assert.All(build, s => Assert.Contains(s, text));

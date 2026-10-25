@@ -17,7 +17,7 @@ What exists today:
 
 | Project | Licence | Covers | Gap for us |
 |---|---|---|---|
-| [microsoft/power-platform-skills](https://github.com/microsoft/power-platform-skills) | MIT | Building skills for canvas and code apps, model-driven apps, flows, Power Pages and PCF. Its one planner, `plan-alm`, plans Power Pages ALM | No general planning, no independent review, no CI check; targets Claude Code and Copilot CLI |
+| [microsoft/power-platform-skills](https://github.com/microsoft/power-platform-skills) | MIT | Building skills for canvas and code apps, model-driven apps, flows, Power Pages and PCF. Its planners each cover one product: `plan-alm` plans Power Pages ALM, and model-apps' `app-builder` and `genpage` plan the app they build (read 2026-10-24) | No general planning, no independent review, no CI check; targets Claude Code and Copilot CLI |
 | [github/spec-kit](https://github.com/github/spec-kit) | MIT | Generic spec-driven development: specify, clarify, plan, tasks | Knows nothing about solutions, environments, connectors or `pac`; branch-coupled layout and scripts |
 | [mattpocock/skills](https://github.com/mattpocock/skills) | MIT | A "grilling" loop: keep asking, a recommended answer per question, stop when nothing is left to ask | Not Power Platform specific |
 | [obra/superpowers](https://github.com/obra/superpowers) | MIT | Brainstorm, plan and review skills; per-agent tool maps; reviews in a fresh subagent | Not Power Platform specific |
