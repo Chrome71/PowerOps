@@ -1,6 +1,6 @@
 # PowerOps build plan: v0.2 to v0.11
 
-This plan turns [FOUNDATION.md](FOUNDATION.md) Phases 1–3 (including the planning skills, Phase 1b) into ordered, testable milestones. Phase 3 is in [its own section](#phase-3-environment-aware-m8m11). Last updated 2026-10-23.
+This plan turns [FOUNDATION.md](FOUNDATION.md) Phases 1–3 (including the planning skills, Phase 1b) into ordered, testable milestones. Phase 3 is in [its own section](#phase-3-environment-aware-m8m11). Last updated 2026-10-24.
 
 ## Where PowerOps fits
 
@@ -10,7 +10,7 @@ Today nothing fills that slot well:
 
 - **Solution Checker** runs as an online service, and you can't add your own rules to it.
 - **Pipelines** checks only for missing dependencies.
-- **`pac solution create-settings`** generates a deployment settings file but never checks it.
+- **`pac solution create-settings`** generates a deployment settings file but never checks it. Microsoft's model-apps skill (2.19.0) also generates and imports deployment settings with its own script. Its import checks that each filled entry names something in the package and lets an empty entry override nothing; `settings validate` also reports missing entries and empty connection ids.
 - **Existing diff tools** don't read the Git-integration YAML layout or canvas `.pa.yaml` files.
 
 The first release therefore answers one question offline, in seconds: **"will this solution import and run cleanly?"**
@@ -264,3 +264,14 @@ This starts once M1 passes locally.
 13. **Import directly through `pac`, not through Pipelines.** Pipelines deploys one solution per run, with a fixed import mode. It needs a host environment and can't carry a plan into its gate (see the research basis). `pac pipeline deploy` can be added later as another way to apply a plan.
 14. **`deploy apply` runs only a reviewed plan.** It plans again against the target and refuses on any hash mismatch, so what runs is what was reviewed in the PR.
 15. **`drift` reads the solution's rows through the Dataverse Web API, with a token from `az`, not through `pac env fetch` (2026-10-21).** Microsoft Learn documents no output format for `pac env fetch`, so its text cannot be parsed against documented behaviour. The Web API's JSON, raw values, errors and paging are documented. `pac org who` still turns `--env` into the environment's name and URL, so `--env` takes what `pac` takes. A token for that URL comes from `az account get-access-token`, run as a subprocess like `pac`. No new package. The costs: the Azure CLI is a prerequisite beside `pac`, and the `az` account can differ from the pac profile. See Q6 of the [M8 plan](plans/m8-drift/plan.md).
+
+## Decisions, coexistence with Microsoft's tools (2026-10-24)
+
+16. **PowerOps works alongside Microsoft's skills and MCP servers and does not wrap them.** Read in local copies on 2026-10-24, nothing run: Microsoft's model-apps, power-pages and Dataverse skills and the `pac` MCP server can all import a solution, and the `pac` MCP server's `solution_import` takes `--settings-file` with no plan or hash check. So:
+    - PowerOps stays on the `pac` binary as a subprocess and does not wrap the `pac` MCP server.
+    - The Phase 5 MCP server exposes only what neither `pac` nor its MCP server offers: `analyze`, `rules`, `baseline`, `diff`, `settings generate` and `validate`, `plan status` and `facts`, `drift`, `deploy plan`, and `deploy apply` as a dry run unless `--apply` is set. It leaves out the environment, solution, admin, auth and pages tools, marks its read tools read-only, and says in its tool descriptions to use `deploy apply`, not `solution_import`, for a reviewed plan. It does not depend on Microsoft's Dataverse MCP server, which needs a tenant admin's consent that not every user can get.
+    - `deploy apply --apply` stays the only PowerOps write.
+    - Tested `pac` versions are 2.13.1 (README) and 2.14.1 (CI and the example workflows). Microsoft's model-apps asks for more than 2.10.0; older versions are untested (FOUNDATION §8).
+    - `skills/powerops-implement` names the Microsoft build skill by product, and its environment-write rule covers Microsoft's import tools.
+
+    Sources: [Use Power Platform CLI with built-in MCP server](https://learn.microsoft.com/power-platform/developer/howto/use-mcp) (Learn describes it as meant for local development and testing). verified: 2026-10-24

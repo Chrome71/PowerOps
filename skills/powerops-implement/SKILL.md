@@ -35,11 +35,11 @@ If the gate fails, write no code and change no solution:
 
 1. Set `status: implementing` in the plan header. Edit that one line only. Skip this if it already says `implementing`.
 2. Read `plan.md` in full, especially `Environments and route`, `Solution and publisher` and `Steps`.
-3. Do the `Steps` in order, one at a time. Where Microsoft's power-platform-skills are installed, use them for the build work.
+3. Do the `Steps` in order, one at a time. For the build work use Microsoft's power-platform-skills, by what the step builds: Canvas apps `canvas-apps` (`canvas-app`), model-driven apps `model-apps` (`app-builder`, `genpage`), cloud flows `power-automate` (`build-flow`), Power Pages `power-pages`, code apps `code-apps`. If no such skill is registered, look for a routing skill, or read the plugin's `SKILL.md` from a checkout of microsoft/power-platform-skills. If you find neither, continue without them.
 4. After each step, check it (build, test or inspect, as fits the step). Then commit with the step number in the message, for example `feat: step 2, add the Visit table (plan site-visits)`. Never push unless asked.
 5. Keep progress in commit messages. Do not write it to `plan.md`.
 6. Never edit the plan body. If a step cannot be done as written, or the plan must change, stop and go back to `powerops-plan`. A changed plan needs a new sign-off.
-7. Never write to an environment (import, deploy, publish, create) without the user's explicit go-ahead for that step. Ask each time. Use the plan's `environment` only as the named target. Never run `powerops settings apply --apply` unless the user said yes to that environment in this session: run it without `--apply` first, show the user the target line, and pass the name they approved as `--target`.
+7. Never write to an environment (import, deploy, publish, create) without the user's explicit go-ahead for that step. Ask each time. This covers every tool, Microsoft's too: the `pac` MCP server's `solution_import`, model-apps `solution-settings.js import`, power-pages `import-solution` and `deploy-pipeline`, and the Dataverse skills' `dv-solution`. To promote exported solutions to another environment, use `powerops deploy plan` and then `powerops deploy apply`, not those tools. Use the plan's `environment` only as the named target. Never run `powerops settings apply --apply` unless the user said yes to that environment in this session: run it without `--apply` first, show the user the target line, and pass the name they approved as `--target`.
 8. Do not add features, tables, flows or settings that are not in the plan.
 
 ## 4. Finish

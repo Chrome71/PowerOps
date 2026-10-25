@@ -91,7 +91,7 @@ Header fields are left out of the hash, so status changes never invalidate a sig
 - `powerops-plan` owns the fast path and mockups, because both are planning; `powerops-implement` only holds the gate.
 - The `powerops-plan` description must also match requests for a mockup, screen, wireframe or prototype of a Power Platform app. In the prototype test, "mock it up" did not trigger the skill.
 - Mockups are static HTML with inline CSS and no external resources (no scripts, fonts, images or links to other sites). They show fake data only, are labelled as a sketch, are written only to `mockups/` in the plan folder, and are never published or uploaded anywhere.
-- Once the gate passes, `powerops-implement` can hand the build work to the Microsoft build skills where they are installed.
+- Once the gate passes, `powerops-implement` hands the build work to the Microsoft build skill for the product (named by plugin in the skill), found as a registered skill, through a routing skill, or in a checkout of power-platform-skills. Its environment-write rule names Microsoft's import tools too, and promotion between environments goes through `powerops deploy plan` and `deploy apply`.
 
 ## Plan files
 
