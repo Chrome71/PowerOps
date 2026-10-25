@@ -241,7 +241,9 @@ PowerOps ships three agent skills that turn an idea into a reviewed, signed-off 
 - `powerops-review-plan` reviews an approved plan in a fresh context against a Power Platform checklist and writes `review.md`. It never asks you questions.
 - `powerops-implement` builds only from a signed-off plan whose body still matches its sign-off.
 
-Run `powerops skills install` in your repo to add them. Supported: Claude Code and Codex. Gemini CLI and GitHub Copilot are provisional and untested. The skills are also in [skills/](skills/) for `npx skills add` (that CLI has telemetry on by default). Design: [docs/PLANNING-SKILLS.md](docs/PLANNING-SKILLS.md).
+Run `powerops skills install` in your repo to add them. In a workspace whose own tooling rewrites `.claude/skills/`, run it in each child project, not at the workspace root, and start the agent there: the next rewrite removes skills installed at the root. Supported: Claude Code and Codex. Gemini CLI and GitHub Copilot are provisional and untested. The skills are also in [skills/](skills/) for `npx skills add` (that CLI has telemetry on by default). Design: [docs/PLANNING-SKILLS.md](docs/PLANNING-SKILLS.md).
+
+With Microsoft's power-platform-skills or Dataverse-skills installed too, their skills build in Dev and PowerOps checks, plans and imports: the steps are in [docs/HANDOFF.md](docs/HANDOFF.md).
 
 Plans live in `docs/plans/<name>/plan.md`, with a header between `---` lines (`status`, `review`, `signed-off`, `signed-off-hash`, `environment`).
 
@@ -266,5 +268,6 @@ dotnet test
 ## Documentation
 
 - [Foundation plan and roadmap](docs/FOUNDATION.md)
+- [Hand-off to Microsoft's skills](docs/HANDOFF.md)
 - [Contributing](CONTRIBUTING.md)
 - [License (Apache 2.0)](LICENSE)
