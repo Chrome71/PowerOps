@@ -33,7 +33,7 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
 |---|---|---|
 | **Solution analysis** | `powerops analyze`: custom rules over unpacked solutions (naming, hard-coded URLs, missing connection references, unmanaged leaks, dependency and layer risk), SARIF output, a baseline file | Solution Checker runs as an online service and can't take custom rules or per-component suppressions. When it is enforced in Managed Environments you can exclude rules, but not add your own. The only OSS alternative is a 1★ PowerShell module. |
 | **ALM** | `powerops diff`: component-level semantic diff of two solution versions, rendered as Markdown for PRs. `powerops settings`: generate, validate and diff deployment settings per environment. | Unpack noise, `.pa.yaml` merges done by hand, and more than 9 open issues on connection references and environment variables |
-| **Testing** | Flow test harness (mock connector outputs, assert on run results). A Playwright starter that wraps Microsoft's samples. | Test Engine is deprecated, and no flow test framework exists anywhere |
+| **Testing** | Flow test harness (mock connector outputs, assert on run results). A Playwright starter that wraps Microsoft's samples. | Test Engine is deprecated, and no maintained flow test framework exists (the last open one had its last release in 2022) |
 | **Deployment automation** | `powerops deploy --plan`: a dependency-ordered multi-solution deploy that binds connection references and turns flows back on. `powerops drift`: compares Dev, Test and Prod. A composite GitHub Action. | Pipelines deploy one solution at a time, upgrade-only. Flows arrive switched off after a service-principal import. Nothing detects drift since the CoE kit was archived. |
 
 ## 4. Technical baseline
@@ -45,7 +45,7 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
 - **Shape:**
   - A core library, with a thin CLI on top and later a thin MCP server on top of that.
   - `pac` is called as a subprocess. It is never re-implemented.
-  - Playwright testing lives in a separate TypeScript package if we build it.
+  - The Playwright starter is a small TypeScript example project in `docs/examples/playwright/` that follows Microsoft's samples, not a published package (BUILD-PLAN M16).
 - **Distribution, in order:**
   1. NuGet tool with trusted publishing.
   2. A composite GitHub Action.
@@ -157,7 +157,7 @@ To verify before or during the phase that depends on them:
 - [x] **(Phase 4)** Flow run-history and static-results APIs, to find the best mocking approach. Answered 2026-10-25 in the [Phase 4 research basis](BUILD-PLAN.md#phase-4-research-basis): mock offline, against the exported definition (BUILD-PLAN decisions 17 and 18).
   - Static results are documented for cloud flows, with the definition shape `staticResults` and `runtimeConfiguration.staticResult`. Learn's way to capture a mock is by hand, from a run's "Show raw outputs". No API turns them on or off.
   - Run history is run-level only: the Dataverse `flowrun` table and the Power Platform API's flow runs list. No documented API returns a run's per-action inputs or outputs, or starts a run.
-  - No open library fits as a dependency. [PowerAutomateMockUp](https://github.com/thygesteffensen/PowerAutomateMockUp) (MIT) has had no release since 2022, so §3's "no flow test framework" means no maintained one.
+  - No open library fits as a dependency. [PowerAutomateMockUp](https://github.com/thygesteffensen/PowerAutomateMockUp) (MIT) has had no release since 2022.
 - [ ] **(Phase 4)** Whether an exported solution keeps an action's enabled static result. Learn doesn't say. M14's capture step settles it, and the answer decides whether the simulator uses a flow's own static results.
 - [x] **(Phase 4)** GA status of Copilot Studio evaluation. [Answered](https://learn.microsoft.com/microsoft-copilot-studio/whats-new), and rechecked on 2026-10-25 ([Phase 4 research basis](BUILD-PLAN.md#phase-4-research-basis)):
   - Agent evaluations are GA (March 2026).
