@@ -267,6 +267,7 @@ When `available` is false, the skill says what `reason` and `fix` say (for examp
 
 - The shared `SKILL.md` uses only the spec's portable front matter (`name`, `description`, `license`, `compatibility`, `metadata`). Agent-specific tuning lives in copies generated at install time.
 - Descriptions stay short, with the trigger first. Codex reserves about 2% of the context window for the skill list, and Claude Code truncates descriptions at 1,536 characters.
+- The Claude Code and Codex plugins (`plugins/claude/` and `plugins/codex/`, listed by `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json`) hold generated copies: the Claude Code copies as `skills install` writes them to `.claude/skills/`, the Codex copies unchanged. A test keeps them equal to the shipped files. For a team, `skills install` stays the default.
 - The repo layout `skills/<name>/SKILL.md` also lets people install with `npx skills add`. That CLI has telemetry on by default, which the docs will say.
 - CI validates the skills with `skills-ref validate` from [agentskills](https://github.com/agentskills/agentskills) (Apache-2.0).
 

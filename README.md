@@ -243,6 +243,15 @@ PowerOps ships three agent skills that turn an idea into a reviewed, signed-off 
 
 Run `powerops skills install` in your repo to add them. In a workspace whose own tooling rewrites `.claude/skills/`, run it in each child project, not at the workspace root, and start the agent there: the next rewrite removes skills installed at the root. Supported: Claude Code and Codex. Gemini CLI and GitHub Copilot are provisional and untested. The skills are also in [skills/](skills/) for `npx skills add` (that CLI has telemetry on by default). Design: [docs/PLANNING-SKILLS.md](docs/PLANNING-SKILLS.md).
 
+For your own Claude Code or Codex setup, the skills also install as a plugin from this repo, beside Microsoft's plugins. Install the `powerops` CLI first ([Install](#install)): the plugin's skills call it and need it on PATH.
+
+```sh
+claude plugin marketplace add Chrome71/PowerOps && claude plugin install powerops@powerops   # Claude Code (in a session: /plugin marketplace add Chrome71/PowerOps)
+codex plugin marketplace add Chrome71/PowerOps && codex plugin add powerops@powerops         # Codex
+```
+
+For a team, `powerops skills install` stays the default: the skills then live in the repo, so every contributor and CI sees the same gate. Use one or the other in a repo; with both, each skill is listed twice.
+
 With Microsoft's power-platform-skills or Dataverse-skills installed too, their skills build in Dev and PowerOps checks, plans and imports: the steps are in [docs/HANDOFF.md](docs/HANDOFF.md).
 
 Plans live in `docs/plans/<name>/plan.md`, with a header between `---` lines (`status`, `review`, `signed-off`, `signed-off-hash`, `environment`).

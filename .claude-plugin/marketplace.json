@@ -1,0 +1,15 @@
+{
+  "name": "powerops",
+  "owner": {
+    "name": "PowerOps contributors"
+  },
+  "metadata": {
+    "description": "PowerOps planning skills for Claude Code: plan, review and gate Power Platform builds before Microsoft's skills build them"
+  },
+  "plugins": [
+    {
+      "name": "powerops",
+      "source": "./plugins/claude"
+    }
+  ]
+}

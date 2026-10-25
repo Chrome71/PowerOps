@@ -10,6 +10,16 @@
         {
           "type": "generic",
           "path": "Directory.Build.props"
+        },
+        {
+          "type": "json",
+          "path": "plugins/claude/.claude-plugin/plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "plugins/codex/.codex-plugin/plugin.json",
+          "jsonpath": "$.version"
         }
       ],
       "initial-version": "0.1.0"

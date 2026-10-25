@@ -1,0 +1,23 @@
+{
+  "name": "powerops",
+  "owner": {
+    "name": "PowerOps contributors"
+  },
+  "interface": {
+    "displayName": "PowerOps"
+  },
+  "plugins": [
+    {
+      "name": "powerops",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
