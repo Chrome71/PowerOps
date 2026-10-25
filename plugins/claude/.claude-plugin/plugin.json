@@ -1,0 +1,12 @@
+{
+  "name": "powerops",
+  "version": "0.0.0",
+  "description": "Plan, review and gate Microsoft Power Platform builds: powerops-plan turns an idea into a signed-off plan, powerops-review-plan reviews it in a fresh context, and powerops-implement builds only from a signed-off plan, handing the build to Microsoft's skills. Needs the `powerops` CLI on PATH (dotnet tool install --global PowerOps).",
+  "author": {
+    "name": "PowerOps contributors"
+  },
+  "homepage": "https://github.com/Chrome71/PowerOps",
+  "repository": "https://github.com/Chrome71/PowerOps",
+  "license": "Apache-2.0",
+  "keywords": ["power-platform", "dataverse", "planning", "alm", "powerops"]
+}
