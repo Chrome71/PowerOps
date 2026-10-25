@@ -102,9 +102,9 @@ converse() {
   return 1
 }
 
-# The distinct menu letters in a reply: **A** style (one per line or all on one line) or "A." / "A)" at a line start.
+# The distinct menu letters in a reply: **A** or **A.** style (one per line or all on one line) or "A." / "A)" at a line start.
 menu_letters() {
-  grep -oE '\*\*[ABC]\*\*|^[[:space:]-]*[ABC][).:]' <<<"$1" | tr -dc 'ABC\n' | sort -u | tr -d '\n'
+  grep -oE '\*\*[ABC][).:]?\*\*|^[[:space:]-]*[ABC][).:]' <<<"$1" | tr -dc 'ABC\n' | sort -u | tr -d '\n'
 }
 
 # decisions.md shape: every round has 1-3 questions, option 1 is the recommended one, every question has an answer.
@@ -154,14 +154,15 @@ fi
 
 # Fast path: asking to build without a plan drafts one and asks the route; a route answer approves nothing. No code.
 check_fast_path() {
-  local first other
+  # The prefix question may be numbered or free text, so the answer names the prefix in words.
+  local first other answer="Route option 1. Publisher prefix: cso."
   reply="$(agent_turn "$1")" || fail "the agent call failed"
   printf '\n--- agent ---\n%s\n' "$reply"
   if [ -n "$(plan_dir)" ]; then
     grep -qE '^[[:space:]]*1\. ' <<<"$reply" || fail "no numbered route options"
     first="$reply"
-    reply="$(agent_turn "1 1")" || fail "the agent call failed"
-    printf -- '--- user ---\n1 1\n--- agent ---\n%s\n' "$reply"
+    reply="$(agent_turn "$answer")" || fail "the agent call failed"
+    printf -- '--- user ---\n%s\n--- agent ---\n%s\n' "$answer" "$reply"
     # The A/B/C menu may come with the route question or right after the answer.
     [ "$(menu_letters "$first"$'\n'"$reply")" = ABC ] || fail "no lettered A/B/C menu"
     [ "$(header status)" = draft ] || fail "status is '$(header status)' after a route answer, expected draft"
