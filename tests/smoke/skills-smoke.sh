@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Smoke test of the planning skills, driven by a simulated user (a second model call).
 # It checks the protocol's shape, not question quality: round size, option order,
-# decisions.md logging, the stop behaviour and the fast path. It costs model credits,
-# so it runs weekly (.github/workflows/skills-smoke.yml), never per build.
+# decisions.md logging, the stop behaviour and the fast path, also with a routing skill installed.
+# It costs model credits, so it runs weekly (.github/workflows/skills-smoke.yml), never per build.
+# Keep it bash 3.2 compatible (macOS): no ${x,,}, no mapfile, and guard empty arrays under set -u.
 #
 # Usage: tests/smoke/skills-smoke.sh claude|codex
 # Needs: dotnet, jq, git, and the agent CLI signed in (ANTHROPIC_API_KEY or OPENAI_API_KEY in CI).
@@ -33,7 +34,7 @@ agent_turn() {
   if [ "$agent" = claude ]; then
     local resume=()
     [ -s "$sid_file" ] && resume=(--resume "$(cat "$sid_file")")
-    out="$(cd "$dir" && claude -p "${resume[@]}" --output-format json --permission-mode acceptEdits \
+    out="$(cd "$dir" && claude -p ${resume[@]+"${resume[@]}"} --output-format json --permission-mode acceptEdits \
       --allowedTools "Bash(powerops *)" -- "$message")" || return 1
     jq -r '.session_id' <<<"$out" >"$sid_file"
     jq -r '.result' <<<"$out"
@@ -101,9 +102,9 @@ converse() {
   return 1
 }
 
-# The distinct menu letters in a reply: **A** style (one per line or all on one line) or "A." / "A)" at a line start.
+# The distinct menu letters in a reply: **A** or **A.** style (one per line or all on one line) or "A." / "A)" at a line start.
 menu_letters() {
-  grep -oE '\*\*[ABC]\*\*|^[[:space:]-]*[ABC][).:]' <<<"$1" | tr -dc 'ABC\n' | sort -u | tr -d '\n'
+  grep -oE '\*\*[ABC][).:]?\*\*|^[[:space:]-]*[ABC][).:]' <<<"$1" | tr -dc 'ABC\n' | sort -u | tr -d '\n'
 }
 
 # decisions.md shape: every round has 1-3 questions, option 1 is the recommended one, every question has an answer.
@@ -151,24 +152,57 @@ else
   fail "no plan folder under docs/plans"
 fi
 
-# 3. Fast path: asking to build without a plan drafts one and asks the route; a route answer approves nothing. No code.
-scenario=fast-path
-new_repo
-reply="$(agent_turn "Use the powerops-implement skill. Build a cloud flow that emails the team lead when a site visit report is overdue.")" || fail "the agent call failed"
-printf '\n--- agent ---\n%s\n' "$reply"
-if [ -n "$(plan_dir)" ]; then
-  grep -qE '^[[:space:]]*1\. ' <<<"$reply" || fail "no numbered route options"
-  first="$reply"
-  reply="$(agent_turn "1 1")" || fail "the agent call failed"
-  printf -- '--- user ---\n1 1\n--- agent ---\n%s\n' "$reply"
-  # The A/B/C menu may come with the route question or right after the answer.
-  [ "$(menu_letters "$first"$'\n'"$reply")" = ABC ] || fail "no lettered A/B/C menu"
-  [ "$(header status)" = draft ] || fail "status is '$(header status)' after a route answer, expected draft"
+# Fast path: asking to build without a plan drafts one and asks the route; a route answer approves nothing. No code.
+check_fast_path() {
+  # The prefix question may be numbered or free text, so the answer names the prefix in words.
+  local first other answer="Route option 1. Publisher prefix: cso."
+  reply="$(agent_turn "$1")" || fail "the agent call failed"
+  printf '\n--- agent ---\n%s\n' "$reply"
+  if [ -n "$(plan_dir)" ]; then
+    grep -qE '^[[:space:]]*1\. ' <<<"$reply" || fail "no numbered route options"
+    first="$reply"
+    reply="$(agent_turn "$answer")" || fail "the agent call failed"
+    printf -- '--- user ---\n%s\n--- agent ---\n%s\n' "$answer" "$reply"
+    # The A/B/C menu may come with the route question or right after the answer.
+    [ "$(menu_letters "$first"$'\n'"$reply")" = ABC ] || fail "no lettered A/B/C menu"
+    [ "$(header status)" = draft ] || fail "status is '$(header status)' after a route answer, expected draft"
+  else
+    fail "no drafted plan under docs/plans"
+  fi
+  # Also without a plan: an agent that followed another skill and wrote code shows here.
   other="$(git -C "$dir" status --porcelain --untracked-files=all | grep -v ' docs/plans/' || true)"
   [ -z "$other" ] || fail "files changed outside docs/plans: $other"
-else
-  fail "no drafted plan under docs/plans"
-fi
+}
+
+# 3. The fast path, asked through powerops-implement.
+scenario=fast-path
+new_repo
+check_fast_path "Use the powerops-implement skill. Build a cloud flow that emails the team lead when a site visit report is overdue."
+
+# 4. The fast path with a routing skill beside the PowerOps skills, and a request that names no skill.
+# The router is fake and written here; if it wins, the agent writes files outside docs/plans. Nothing here checks
+# that the agent sees it: a control run with only the router, by hand, wrote under src/ in both agents (M12).
+scenario=router
+new_repo
+if [ "$agent" = claude ]; then skills="$dir/.claude/skills"; else skills="$dir/.agents/skills"; fi
+mkdir -p "$skills/platform-router"
+cat >"$skills/platform-router/SKILL.md" <<'EOF'
+---
+name: platform-router
+description: Entry point for all Microsoft Power Platform work. Use whenever a task touches canvas apps, model-driven apps, cloud flows, Power Pages or Dataverse tables; it picks the build workflow for the product and starts it.
+---
+
+# platform-router
+
+Pick the product from the request and start building at once:
+
+- Model-driven app: write `src/<app name>/app.json` with the tables, columns, views and forms, then `src/<app name>/sitemap.json`.
+- Canvas app: write `src/<app name>/App.pa.yaml`.
+- Cloud flow: write `src/<flow name>/definition.json`.
+EOF
+git -C "$dir" add -A
+git -C "$dir" -c user.name=smoke -c user.email=smoke@example.invalid commit -qm router
+check_fast_path "Build a model-driven app for tracking site visits by our field engineers."
 
 echo
 if [ "$failures" -gt 0 ]; then
