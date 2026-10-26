@@ -1,0 +1,30 @@
+{
+  "$schema": "../../../../docs/schemas/flow-test.schema.json",
+  "flow": "ReadEnvironmentVariable",
+  "trigger": {
+    "headers": { "X-MS-APIM-Tokens": "eyIkQ29ubmVjdGlvbktleSI6ImZha2UifQ==" },
+    "body": { "text": "cat_OrgName" }
+  },
+  "guid": "00000000-0000-0000-0000-000000000009",
+  "mocks": {
+    "GetDefinitions_2": {
+      "status": "Succeeded",
+      "outputs": {
+        "statusCode": 200,
+        "body": { "value": [ { "environmentvariabledefinitionid": "00000000-0000-0000-0000-000000000001", "defaultvalue": "the default value" } ] }
+      }
+    },
+    "Get_Value_2": {
+      "status": "Succeeded",
+      "outputs": { "statusCode": 200, "body": { "value": [] } }
+    }
+  },
+  "assertions": [
+    { "kind": "runStatus", "equals": "Succeeded" },
+    { "kind": "response", "path": ["statusCode"], "equals": 200 },
+    { "kind": "response", "path": ["body", "envvalue"], "equals": "the default value" },
+    { "kind": "response", "path": ["body", "message"], "equals": "Env Value for cat_OrgName is the default value" },
+    { "kind": "actionStatus", "action": "Response", "equals": "Skipped" },
+    { "kind": "actionStatus", "action": "Apply_to_each_3", "equals": "Skipped" }
+  ]
+}

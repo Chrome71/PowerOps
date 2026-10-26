@@ -5,10 +5,10 @@ namespace PowerOps.Core.Readers;
 /// <summary>Finds solutions (unpacked XML folders, YAML layout `solution.yml` files and exported zips) under a path.</summary>
 public static class SolutionDiscovery
 {
-    private static readonly HashSet<string> Skipped = new(StringComparer.OrdinalIgnoreCase) { "bin", "obj", ".git", "node_modules" };
+    internal static readonly HashSet<string> Skipped = new(StringComparer.OrdinalIgnoreCase) { "bin", "obj", ".git", "node_modules" };
 
     // Symlinks are not followed (loops, escapes); unreadable folders are skipped; `X.ZIP` matches too.
-    private static readonly EnumerationOptions Options = new()
+    internal static readonly EnumerationOptions Options = new()
     {
         IgnoreInaccessible = true,
         AttributesToSkip = FileAttributes.ReparsePoint,

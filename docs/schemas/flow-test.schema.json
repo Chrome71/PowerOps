@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/flow-test.schema.json",
+  "title": "A powerops flow test file (*.flowtest.json)",
+  "description": "One offline test of a Power Automate cloud flow, run by 'powerops test'. It names a flow, gives the run its trigger, mocks for the connector actions and fixed values, and lists assertions about the run. Closed on purpose: powerops rejects a property that is not listed here, and a wrong type or a missing required property, with exit code 3.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["flow", "assertions"],
+  "properties": {
+    "$schema": { "type": "string", "minLength": 1, "description": "This schema's URL or path, for editors. Ignored by powerops." },
+    "flow": { "type": "string", "minLength": 1, "description": "The cloud flow to run: its display name (exact match), or its workflow id (a GUID; braces and case are ignored). It must match exactly one cloud flow in the solutions under the path." },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What triggerOutputs() returns in the run; triggerBody() returns its 'body'. Without it, a flow that reads the trigger is 'unmocked'.",
+      "properties": {
+        "headers": { "type": "object", "description": "The trigger's headers, for example a manual trigger's 'X-MS-APIM-Tokens'." },
+        "body": { "description": "The trigger's body: any JSON value, such as the Dataverse row a trigger returns." }
+      }
+    },
+    "mocks": {
+      "type": "object",
+      "description": "Connector actions that do not run. The key is the action name. The value is one mock, or a list of mocks, one per call in order (for an action inside a Foreach or Until). Only OpenApiConnection, OpenApiConnectionWebhook, Http and Workflow actions, and actions with a static result enabled, take a mock; a connector action without one makes the test 'unmocked'.",
+      "additionalProperties": {
+        "oneOf": [
+          { "$ref": "#/$defs/mock" },
+          { "type": "array", "items": { "$ref": "#/$defs/mock" } }
+        ]
+      }
+    },
+    "environmentVariables": {
+      "type": "object",
+      "description": "Environment variable schema name -> the JSON value for this run. It wins over the solution's current value and default value. The value is used as given: powerops does not convert it.",
+      "additionalProperties": true
+    },
+    "utcNow": { "type": "string", "minLength": 1, "description": "The text every utcNow() call returns, for example '2026-01-02T03:04:05.0000000Z'. Without it, a flow that calls utcNow() is 'unmocked'." },
+    "guid": { "type": "string", "minLength": 1, "description": "The text every guid() call returns. Without it, a flow that calls guid() is 'unmocked'. Every function argument is evaluated, so a guid() inside an if() needs it too." },
+    "workflow": { "type": "object", "description": "The object workflow() returns. Without it, a flow that calls workflow() is 'unmocked'." },
+    "assertions": {
+      "type": "array",
+      "minItems": 1,
+      "description": "What must hold after the run. All of them are checked, in order, when the run finishes. Each has a 'kind' and an 'equals' value; the other properties depend on the kind.",
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/runStatus" },
+          { "$ref": "#/$defs/actionStatus" },
+          { "$ref": "#/$defs/inputsOrOutputs" },
+          { "$ref": "#/$defs/variable" },
+          { "$ref": "#/$defs/response" }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "mock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "description": "A connector action's result, in the shape of a static result.",
+      "properties": {
+        "status": { "enum": ["Succeeded", "Failed"], "description": "The action's status. A simulated run never times out, so TimedOut is not available." },
+        "outputs": { "type": "object", "description": "The action's outputs, as the run history's 'Show raw outputs' shows them: usually 'statusCode', 'headers' and 'body'. Pasted in unchanged." },
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The action's error. Only with status 'Failed'.",
+          "properties": {
+            "code": { "type": "string", "minLength": 1, "description": "The error code, for example 'BadGateway'." },
+            "message": { "type": "string", "minLength": 1, "description": "The error message." }
+          }
+        }
+      },
+      "if": { "properties": { "status": { "const": "Succeeded" } } },
+      "then": { "not": { "required": ["error"] } }
+    },
+    "call": { "type": "integer", "minimum": 0, "maximum": 2147483647, "description": "Which call of the action to check, counting from 0. An action inside a Foreach or Until is called once per iteration. Without it the assertion must hold on every call, and an action that did not run fails it." },
+    "path": {
+      "type": "array",
+      "description": "Where to look inside the value: strings are properties, integers are array items from 0. A key with a slash such as 'item/pops_name' is one string, with no escaping. Without it, or empty, the whole value is compared.",
+      "items": {
+        "oneOf": [
+          { "type": "string" },
+          { "type": "integer", "minimum": 0, "maximum": 2147483647 }
+        ]
+      }
+    },
+    "runStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "equals"],
+      "description": "The run's status.",
+      "properties": {
+        "kind": { "const": "runStatus", "description": "Checks the run's status." },
+        "equals": { "enum": ["Succeeded", "Failed", "Cancelled", "Skipped"], "description": "The expected status. Skipped means a trigger condition was false." }
+      }
+    },
+    "actionStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "action", "equals"],
+      "description": "An action's status.",
+      "properties": {
+        "kind": { "const": "actionStatus", "description": "Checks an action's status." },
+        "action": { "type": "string", "minLength": 1, "description": "The action's name in the flow." },
+        "call": { "$ref": "#/$defs/call" },
+        "equals": { "enum": ["Succeeded", "Failed", "Skipped"], "description": "The expected status. TimedOut never occurs in a simulated run." }
+      }
+    },
+    "inputsOrOutputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "action", "equals"],
+      "description": "What an action got (its inputs with every expression evaluated, which is what the flow would send) or returned.",
+      "properties": {
+        "kind": { "enum": ["inputs", "outputs"], "description": "'inputs' checks the evaluated inputs of the action; 'outputs' checks what it returned (for a mocked action, the mock's outputs)." },
+        "action": { "type": "string", "minLength": 1, "description": "The action's name in the flow." },
+        "call": { "$ref": "#/$defs/call" },
+        "path": { "$ref": "#/$defs/path" },
+        "equals": { "description": "The expected value: any JSON value, null included. Compared as JSON, numbers by value." }
+      }
+    },
+    "variable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name", "equals"],
+      "description": "A variable's value at the end of the run.",
+      "properties": {
+        "kind": { "const": "variable", "description": "Checks a variable's value at the end of the run." },
+        "name": { "type": "string", "minLength": 1, "description": "The variable's name, case-sensitive." },
+        "path": { "$ref": "#/$defs/path" },
+        "equals": { "description": "The expected value: any JSON value, null included. Compared as JSON, numbers by value." }
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "equals"],
+      "description": "The first Response action that ran, as { statusCode, headers, body }.",
+      "properties": {
+        "kind": { "const": "response", "description": "Checks the first Response action that ran. Fails when none ran." },
+        "path": { "$ref": "#/$defs/path" },
+        "equals": { "description": "The expected value: any JSON value, null included. Compared as JSON, numbers by value." }
+      }
+    }
+  }
+}

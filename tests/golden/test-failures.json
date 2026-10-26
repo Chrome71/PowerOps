@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "tests": [
+    {
+      "file": "changed-expectation.flowtest.json",
+      "flow": "BuildRequestCancellation",
+      "solution": "ALMAcceleratorforMakers",
+      "result": "failed",
+      "runStatus": "Succeeded",
+      "assertions": [
+        {
+          "index": 0,
+          "description": "run status",
+          "passed": false,
+          "expected": "Failed",
+          "actual": "Succeeded"
+        },
+        {
+          "index": 1,
+          "description": "status of Terminate",
+          "passed": true,
+          "expected": "Succeeded"
+        },
+        {
+          "index": 2,
+          "description": "status of List_records",
+          "passed": false,
+          "expected": "Succeeded",
+          "actual": "Skipped"
+        }
+      ]
+    },
+    {
+      "file": "missing-mock.flowtest.json",
+      "flow": "ReadEnvironmentVariable",
+      "solution": "ALMAcceleratorforMakers",
+      "result": "unmocked",
+      "message": "Action 'GetDefinitions_2': it never runs in a test, so the test needs a mock for it.",
+      "assertions": []
+    },
+    {
+      "file": "unsupported-function.flowtest.json",
+      "flow": "BuildRequestCancellation",
+      "solution": "ALMAcceleratorforMakers",
+      "result": "unsupported",
+      "message": "Action 'List_records': Unsupported function 'addHours' in expression 'addHours('2026-01-01T00:00:00Z', 1)'.",
+      "assertions": []
+    }
+  ],
+  "summary": {
+    "passed": 0,
+    "failed": 1,
+    "unmocked": 1,
+    "unsupported": 1
+  }
+}

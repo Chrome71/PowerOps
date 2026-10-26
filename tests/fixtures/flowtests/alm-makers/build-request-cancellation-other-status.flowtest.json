@@ -1,0 +1,12 @@
+{
+  "$schema": "../../../../docs/schemas/flow-test.schema.json",
+  "flow": "BuildRequestCancellation",
+  "trigger": {
+    "body": { "cat_deploymentstatus": 809060001, "cat_projectid": "00000000-0000-0000-0000-000000000001" }
+  },
+  "assertions": [
+    { "kind": "runStatus", "equals": "Succeeded" },
+    { "kind": "actionStatus", "action": "Terminate", "equals": "Succeeded" },
+    { "kind": "actionStatus", "action": "List_records", "equals": "Skipped" }
+  ]
+}

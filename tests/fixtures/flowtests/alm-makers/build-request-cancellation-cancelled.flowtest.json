@@ -1,0 +1,25 @@
+{
+  "$schema": "../../../../docs/schemas/flow-test.schema.json",
+  "flow": "BuildRequestCancellation",
+  "trigger": {
+    "body": { "cat_deploymentstatus": 809060013, "cat_projectid": "00000000-0000-0000-0000-000000000001" }
+  },
+  "mocks": {
+    "List_records": {
+      "status": "Succeeded",
+      "outputs": {
+        "statusCode": 200,
+        "body": { "value": [ { "cat_buildrequestid": "00000000-0000-0000-0000-000000000002", "cat_buildenvironment": "00000000-0000-0000-0000-000000000003" } ] }
+      }
+    },
+    "Update_Build_Request_to_Cancelled": { "status": "Succeeded" },
+    "Delete_Environment": { "status": "Succeeded" }
+  },
+  "assertions": [
+    { "kind": "runStatus", "equals": "Succeeded" },
+    { "kind": "inputs", "action": "List_records", "path": ["parameters", "$filter"], "equals": "_cat_project_value eq '00000000-0000-0000-0000-000000000001'" },
+    { "kind": "inputs", "action": "Update_Build_Request_to_Cancelled", "call": 0, "path": ["parameters", "recordId"], "equals": "00000000-0000-0000-0000-000000000002" },
+    { "kind": "actionStatus", "action": "Delete_Environment", "call": 0, "equals": "Succeeded" },
+    { "kind": "inputs", "action": "Delete_Environment", "call": 0, "path": ["parameters", "environment"], "equals": "00000000-0000-0000-0000-000000000003" }
+  ]
+}

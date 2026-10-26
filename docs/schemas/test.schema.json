@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/test.schema.json",
+  "title": "powerops test --format json",
+  "description": "The JSON written by 'powerops test --format json': one entry per flow test file, sorted by file, and a count per result. It holds no solution path, tenant value or time, so it is stable.",
+  "type": "object",
+  "required": ["schemaVersion", "tests", "summary"],
+  "properties": {
+    "schemaVersion": { "const": 1, "description": "Version of this output format." },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "flow", "result", "assertions"],
+        "properties": {
+          "file": { "type": "string", "description": "The test file, relative to the tests folder, with forward slashes." },
+          "flow": { "type": "string", "description": "The flow's display name when it was found, else what the test file named." },
+          "solution": { "type": "string", "description": "The unique name of the solution the flow was found in. Absent when no flow was found." },
+          "result": {
+            "enum": ["passed", "failed", "unmocked", "unsupported"],
+            "description": "passed: the run finished and every assertion held. failed: an assertion did not hold, or the flow was not found or not unique, or the test is wrong. unmocked: the run needed a mock or a value the test did not give. unsupported: the flow uses something the simulator does not support. Anything but passed makes the exit code 1."
+          },
+          "runStatus": { "enum": ["Succeeded", "Failed", "Cancelled", "Skipped"], "description": "The run's status. Present when the run finished." },
+          "message": { "type": "string", "description": "Why the test did not reach its assertions (flow not found, unmocked action, unsupported function, ...). Absent when the run finished; look at the assertions then." },
+          "assertions": {
+            "type": "array",
+            "description": "One entry per assertion of the test file, in order. Empty when the run did not finish.",
+            "items": {
+              "type": "object",
+              "required": ["index", "description", "passed", "expected"],
+              "properties": {
+                "index": { "type": "integer", "minimum": 0, "description": "Position in the test file's assertions, from 0." },
+                "description": { "type": "string", "description": "What was checked, such as 'run status', 'status of Delete_Environment call 1' or 'inputs of Update_a_row at [\"parameters\",\"item/pops_name\"]'." },
+                "passed": { "type": "boolean" },
+                "expected": { "description": "The test's 'equals' value (any JSON value, null included)." },
+                "actual": { "description": "The value found (any JSON value, null included). Present only for a failed assertion that found one; absent when there was none (the action did not run, the path was not found)." },
+                "message": { "type": "string", "description": "Why it failed when the values do not say, such as 'did not run', 'path not found' or 'call 1 of 2' (the call that differed)." }
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["passed", "failed", "unmocked", "unsupported"],
+      "properties": {
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "unmocked": { "type": "integer", "minimum": 0 },
+        "unsupported": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
