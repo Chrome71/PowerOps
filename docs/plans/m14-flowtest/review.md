@@ -1,9 +1,10 @@
-plan-hash: e487b01b6ce17943c398d5c8acffbb06d2bf832f0ff7c6e62f7b9b510f6a6528
+plan-hash: f2d5349b24f9d6f335c96d01c206f05dae7fe0a87ea79825ec49a3f19ceae534
 model: claude-sonnet-5-5
 fresh-context: yes
 
 The plan-hash was updated after the text fixes for R1 to R14 below (the practice of the M7 to M13 reviews). Reviewed hash: c9dec9d965c8ac2f235ef5ef9314ca0d4cab355cf1d5c1147f3eeb50af800851. The fixes changed Goal (done-when), Data, Automation, Environments and route, and Steps 2 to 6.
 Updated again on 2026-10-25 after the code review of the build (powerops-reviewer, Sonnet, on 2fe48a2..4419896), from signed-off hash 5ddd377ec867bd5c32364c2994934afda2406ee3c4ae848890fcb03e6dcce969: Data (an unused `environmentVariables` key fails the test; a `Skipped` call fails `inputs` and `outputs` assertions), Automation (a skipped handler handles no failure; an Until stops after a failed iteration, also listed under Not on Learn; loop iterations count toward the 100 000 cap; a value deeper than 64 levels is `unsupported`; the ambiguous-flow message names each solution's folder). No other change.
+Updated a third time on 2026-10-25 after a second, independent code review relayed by the master session (on 074aaf4), from signed-off hash e487b01b6ce17943c398d5c8acffbb06d2bf832f0ff7c6e62f7b9b510f6a6528: Automation (Until continues after a failed iteration and takes its last iteration's status, per Learn's Until loop considerations, so that choice leaves Not on Learn; a non-integer `limit.count`, and a field of the wrong JSON type, are `unsupported`; arrays and multi-property objects inside a condition argument are evaluated; a 256 MB run budget and Learn's 104 857 600-character string limit; the Logic Apps restrictions on Terminate and Response inside loops are listed as not checked). No other change.
 
 ## Findings
 
