@@ -397,6 +397,46 @@ public class FlowSimulatorTests
         Assert.Equal(60, run.Calls["Add"].Count);
     }
 
+    private const string HttpUntil = """
+        {"Loop":{"type":"Until","expression":"@equals(outputs('Http')?['statusCode'], 200)","limit":{"count":LIMIT},"actions":{
+           "Http":{"type":"Http","inputs":{"method":"GET","uri":"https://contoso.example/x"},"runAfter":{}}},"runAfter":{}}}
+        """;
+
+    [Fact]
+    public void An_Until_goes_on_after_a_failed_iteration_and_takes_its_last_iterations_status()
+    {
+        var run = Run(HttpUntil.Replace("LIMIT", "3"), In(mocks: Mocks(("Http", [Fail(), Ok("""{"statusCode":200}""")]))));
+
+        Assert.Equal(FlowRunOutcome.Finished, run.Outcome);
+        Assert.Equal(2, run.Calls["Http"].Count);
+        Assert.Equal("Succeeded", St(run, "Loop"));
+        Assert.Equal("Succeeded", run.Status);
+    }
+
+    [Fact]
+    public void An_Until_whose_last_iteration_fails_is_failed()
+    {
+        var run = Run(HttpUntil.Replace("LIMIT", "2"), In(mocks: Mocks(("Http", [Fail(), Fail()]))));
+
+        Assert.Equal(2, run.Calls["Http"].Count);
+        Assert.Equal("Failed", St(run, "Loop"));
+        Assert.Equal("Failed", run.Status);
+    }
+
+    [Theory]
+    [InlineData("{\"count\":\"2\"}", "limit.count")]
+    [InlineData("{\"count\":\"@variables('n')\"}", "limit.count")]
+    [InlineData("{\"count\":2.5}", "limit.count")]
+    [InlineData("{\"count\":null}", "limit.count")]
+    [InlineData("\"3\"", "'limit'")]
+    public void An_Until_limit_that_is_not_an_integer_count_is_unsupported(string limit, string field)
+    {
+        var run = Run(UntilFlow("\"@equals(1, 2)\"", limit));
+
+        Assert.Equal(FlowRunOutcome.Unsupported, run.Outcome);
+        Assert.Contains(field, run.Message);
+    }
+
     [Fact]
     public void An_Until_with_an_empty_body_and_a_huge_count_stops_at_the_call_cap()
     {
@@ -442,6 +482,54 @@ public class FlowSimulatorTests
 
         Assert.Equal(FlowRunOutcome.Finished, run.Outcome);
         Assert.Equal("Succeeded", run.Status);
+    }
+
+    // Memory
+
+    [Fact]
+    public void A_run_that_records_more_than_256_MB_of_values_is_unsupported_without_building_them()
+    {
+        var big = new string('a', 100_000);
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        var run = Run(
+            """{"Loop":{"type":"Until","expression":"@equals(1, 2)","limit":{"count":2000},"actions":{"C":{"type":"Compose","inputs":"@triggerBody()","runAfter":{}}},"runAfter":{}}}""",
+            In("{\"body\":[\"" + big + "\",\"" + big + "\",\"" + big + "\"]}"));
+
+        Assert.Equal(FlowRunOutcome.Unsupported, run.Outcome);
+        Assert.Contains("256 MB", run.Message);
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), watch.Elapsed.ToString());
+    }
+
+    [Fact]
+    public void A_replace_that_would_give_a_string_over_the_concat_limit_is_unsupported_without_building_it()
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        var run = Run(
+            """{"C":{"type":"Compose","inputs":"@replace(triggerBody(), 'a', triggerBody())","runAfter":{}}}""",
+            In("{\"body\":\"" + new string('a', 30_000) + "\"}"));
+
+        Assert.Equal(FlowRunOutcome.Unsupported, run.Outcome);
+        Assert.Contains("104857600", run.Message);
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), watch.Elapsed.ToString());
+    }
+
+    // Malformed definitions
+
+    [Theory]
+    [InlineData("[]", Manual, "'actions'")]
+    [InlineData("""{"S":{"type":"Scope","actions":[],"runAfter":{}}}""", Manual, "'actions'")]
+    [InlineData("""{"I":{"type":"If","expression":true,"actions":{},"else":{"actions":[]},"runAfter":{}}}""", Manual, "'actions'")]
+    [InlineData("""{"A":{"type":"Compose","inputs":1,"runAfter":{}},"B":{"type":"Compose","inputs":1,"runAfter":{"A":"Succeeded"}}}""", Manual, "'runAfter'")]
+    [InlineData("""{"A":{"type":"Compose","inputs":1,"runAfter":[]}}""", Manual, "'runAfter'")]
+    [InlineData("""{"A":{"type":"Compose","inputs":1,"runAfter":{}}}""", """{"manual":{"type":"Request","conditions":"@equals(1, 2)"}}""", "'conditions'")]
+    public void A_field_of_the_wrong_json_type_is_unsupported_and_named(string actions, string triggers, string field)
+    {
+        var run = Run(actions, triggers: triggers);
+
+        Assert.Equal(FlowRunOutcome.Unsupported, run.Outcome);
+        Assert.Contains(field, run.Message);
     }
 
     // Terminate

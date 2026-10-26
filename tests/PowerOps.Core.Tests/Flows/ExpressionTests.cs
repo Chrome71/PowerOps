@@ -873,6 +873,32 @@ public class ExpressionTests
     }
 
     [Fact]
+    public void EvaluateCondition_evaluates_the_items_of_an_array_argument()
+    {
+        var condition = JsonNode.Parse("""{"contains":[["@variables('numItems')","b"],20]}""");
+
+        AssertJson("true", Expression.EvaluateCondition(condition, Ctx));
+    }
+
+    [Fact]
+    public void EvaluateCondition_evaluates_an_object_argument_with_several_properties_property_by_property()
+    {
+        var condition = JsonNode.Parse("""{"equals":[{"a":"@variables('numItems')","b":1},{"a":20,"b":1}]}""");
+
+        AssertJson("true", Expression.EvaluateCondition(condition, Ctx));
+    }
+
+    [Fact]
+    public void A_replace_that_would_give_a_string_over_the_concat_limit_is_unsupported()
+    {
+        var a = new string('a', 30_000);
+
+        var ex = Assert.Throws<UnsupportedException>(() => Expression.Evaluate($"@replace('{a}', 'a', '{a}')", Ctx));
+
+        Assert.Contains("104857600", ex.Message);
+    }
+
+    [Fact]
     public void EvaluateCondition_with_an_unknown_function_is_unsupported()
     {
         var ex = Assert.Throws<UnsupportedException>(() => Expression.EvaluateCondition(JsonNode.Parse("""{"startsWith":["abc","a"]}"""), Ctx));

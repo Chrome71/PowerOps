@@ -8,6 +8,15 @@ namespace PowerOps.Core.Flows;
 /// <summary>The 37 functions of the expression language that flow tests support, each written from its section of Learn's expression functions reference.</summary>
 public static class ExpressionFunctions
 {
+    /// <summary>Learn's limit on the result of <c>concat</c>, applied to every string the simulator builds.</summary>
+    internal const long MaxStringLength = 104_857_600;
+
+    /// <summary>The bytes a recorded node is counted as, besides its text.</summary>
+    internal const long NodeBytes = 64;
+
+    /// <summary>The most a run may record (see <c>FlowSimulator</c>); a function that builds many nodes checks its result against it first.</summary>
+    internal const long MaxRunBytes = 256L * 1024 * 1024;
+
     private delegate JsonNode? Function(JsonNode?[] args, IExpressionContext context);
 
     private static readonly Dictionary<string, Function> Table = new()
@@ -25,7 +34,7 @@ public static class ExpressionFunctions
         ["result"] = (a, c) => c.Result(Str("result", Count("result", a, 1)[0])),
 
         // String
-        ["concat"] = (a, _) => JsonValue.Create(string.Concat(Count("concat", a, 2, int.MaxValue).Select(Expression.ToText))),
+        ["concat"] = (a, _) => Concat(Count("concat", a, 2, int.MaxValue)),
         ["substring"] = (a, _) => Substring(Count("substring", a, 2, 3)),
         ["replace"] = (a, _) => Replace(Count("replace", a, 3)),
         ["split"] = (a, _) => Split(Count("split", a, 2)),
@@ -52,7 +61,7 @@ public static class ExpressionFunctions
 
         // Conversion
         ["json"] = (a, _) => Json(Count("json", a, 1)[0]),
-        ["string"] = (a, _) => JsonValue.Create(Expression.ToText(Count("string", a, 1)[0])),
+        ["string"] = (a, _) => Concat(Count("string", a, 1)),
         ["decodeBase64"] = (a, _) => DecodeBase64(Str("decodeBase64", Count("decodeBase64", a, 1)[0])),
         ["createArray"] = (a, _) => new JsonArray(Count("createArray", a, 1, int.MaxValue).Select(x => x?.DeepClone()).ToArray()),
 
@@ -66,6 +75,15 @@ public static class ExpressionFunctions
 
     /// <summary>The supported function names, sorted.</summary>
     public static IReadOnlyList<string> Names { get; } = [.. Table.Keys.Order(StringComparer.Ordinal)];
+
+    /// <exception cref="UnsupportedException">A string of <paramref name="length"/> characters is past <see cref="MaxStringLength"/>.</exception>
+    internal static void CheckLength(long length)
+    {
+        if (length > MaxStringLength)
+        {
+            throw new UnsupportedException($"a string longer than {MaxStringLength} characters is not supported (Learn's limit on concat).");
+        }
+    }
 
     internal static bool IsKnown(string name) => Table.ContainsKey(name);
 
@@ -188,16 +206,50 @@ public static class ExpressionFunctions
         return JsonValue.Create(text.Substring((int)start, (int)length));
     }
 
+    private static JsonNode? Concat(JsonNode?[] a)
+    {
+        var parts = a.Select(Expression.ToText).ToArray();
+        CheckLength(parts.Sum(p => (long)p.Length));
+        return JsonValue.Create(string.Concat(parts));
+    }
+
+    // Non-overlapping, left to right, as string.Replace and string.Split find them.
+    private static long CountMatches(string text, string find)
+    {
+        long count = 0;
+        for (var at = text.IndexOf(find, StringComparison.Ordinal); at >= 0; at = text.IndexOf(find, at + find.Length, StringComparison.Ordinal))
+        {
+            count++;
+        }
+
+        return count;
+    }
+
     private static JsonNode? Replace(JsonNode?[] a)
     {
         var oldText = Str("replace", a[1]);
-        return oldText.Length == 0
-            ? throw new ExpressionException("replace() cannot replace an empty string.")
-            : JsonValue.Create(Str("replace", a[0]).Replace(oldText, Str("replace", a[2]), StringComparison.Ordinal));
+        if (oldText.Length == 0)
+        {
+            throw new ExpressionException("replace() cannot replace an empty string.");
+        }
+
+        var text = Str("replace", a[0]);
+        var newText = Str("replace", a[2]);
+        CheckLength(text.Length + (CountMatches(text, oldText) * (newText.Length - oldText.Length)));
+        return JsonValue.Create(text.Replace(oldText, newText, StringComparison.Ordinal));
     }
 
-    private static JsonNode? Split(JsonNode?[] a) =>
-        new JsonArray(Str("split", a[0]).Split(Str("split", a[1]), StringSplitOptions.None).Select(part => (JsonNode?)JsonValue.Create(part)).ToArray());
+    private static JsonNode? Split(JsonNode?[] a)
+    {
+        var text = Str("split", a[0]);
+        var separator = Str("split", a[1]);
+        if (separator.Length > 0 && (CountMatches(text, separator) + 1) * NodeBytes > MaxRunBytes)
+        {
+            throw new UnsupportedException("split() would give more parts than a run can record.");
+        }
+
+        return new JsonArray(text.Split(separator, StringSplitOptions.None).Select(part => (JsonNode?)JsonValue.Create(part)).ToArray());
+    }
 
     private static JsonNode? Contains(JsonNode?[] a) => a[0] switch
     {

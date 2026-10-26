@@ -74,6 +74,7 @@ public static class FlowSimulator
         private readonly Dictionary<string, Var> _vars = [];
         private readonly List<Frame> _frames = [];
         private int _count;
+        private long _bytes;
         private bool _ended;
         private string? _runStatus;
         private JsonNode? _response;
@@ -82,14 +83,15 @@ public static class FlowSimulator
         {
             try
             {
-                Index(definition["actions"] as JsonObject, []);
+                var actions = Field<JsonObject>(definition, "actions", "The flow");
+                Index(actions, []);
                 CheckMocks();
                 if (TriggerSkipsRun())
                 {
                     return Finish("Skipped");
                 }
 
-                var status = RunBlock(definition["actions"] as JsonObject);
+                var status = RunBlock(actions);
                 return Finish(_runStatus ?? status);
             }
             catch (RunStop stop)
@@ -179,11 +181,18 @@ public static class FlowSimulator
         private static JsonObject Error(string message) => new() { ["code"] = "InvalidTemplate", ["message"] = message };
 
         /// <summary>Every block of actions inside an action: <c>actions</c>, <c>else.actions</c>, <c>cases.*.actions</c> and <c>default.actions</c>.</summary>
-        private static IEnumerable<JsonObject> Blocks(JsonObject action)
+        private static IEnumerable<JsonObject> Blocks(JsonObject action, string owner = "An action")
         {
             var holders = new[] { action, action["else"], action["default"] }.Concat(action["cases"] is JsonObject cases ? cases.Select(c => c.Value) : []);
-            return holders.OfType<JsonObject>().Select(h => h["actions"]).OfType<JsonObject>();
+            return holders.OfType<JsonObject>().Select(h => Field<JsonObject>(h, "actions", owner)).OfType<JsonObject>();
         }
+
+        /// <summary>A property that may be absent but, when there, must be a <typeparamref name="T"/> (an object or an array): a malformed definition must not pass by running nothing.</summary>
+        private static T? Field<T>(JsonObject holder, string key, string owner)
+            where T : JsonNode =>
+            holder.TryGetPropertyValue(key, out var node)
+                ? node as T ?? throw new RunStop(FlowRunOutcome.Unsupported, $"{owner} has '{key}' that is not {(typeof(T) == typeof(JsonObject) ? "an object" : "an array")}.")
+                : null;
 
         private static bool StaticResultOn(JsonObject action) =>
             action["runtimeConfiguration"] is JsonObject rc && rc["staticResult"] is JsonObject sr && Str(sr["staticResultOptions"]) == "Enabled";
@@ -205,7 +214,7 @@ public static class FlowSimulator
                     throw new RunStop(FlowRunOutcome.Unsupported, $"The flow has two actions named '{name}'.");
                 }
 
-                foreach (var inner in Blocks(action))
+                foreach (var inner in Blocks(action, $"Action '{name}'"))
                 {
                     Index(inner, type is "Foreach" or "Until" ? [.. loops, name] : loops);
                 }
@@ -255,7 +264,7 @@ public static class FlowSimulator
                 throw new RunStop(FlowRunOutcome.Unsupported, "The trigger has splitOn, which is not supported.");
             }
 
-            foreach (var condition in trigger["conditions"] as JsonArray ?? [])
+            foreach (var condition in Field<JsonArray>(trigger, "conditions", "The trigger") ?? [])
             {
                 try
                 {
@@ -317,6 +326,43 @@ public static class FlowSimulator
             }
         }
 
+        /// <summary>Adds the size of a recorded value to the run's total: 2 bytes a character plus a constant a node, counted node by node and stopped as soon as the budget is passed.</summary>
+        private void Charge(JsonNode? value)
+        {
+            var pending = new Stack<JsonNode?>();
+            pending.Push(value);
+            while (pending.TryPop(out var node))
+            {
+                _bytes += ExpressionFunctions.NodeBytes;
+                switch (node)
+                {
+                    case JsonObject o:
+                        foreach (var (key, item) in o)
+                        {
+                            _bytes += 2L * key.Length;
+                            pending.Push(item);
+                        }
+
+                        break;
+                    case JsonArray a:
+                        foreach (var item in a)
+                        {
+                            pending.Push(item);
+                        }
+
+                        break;
+                    case JsonValue v when v.TryGetValue(out string? text):
+                        _bytes += 2L * text.Length;
+                        break;
+                }
+
+                if (_bytes > ExpressionFunctions.MaxRunBytes)
+                {
+                    throw new UnsupportedException("the run's recorded values pass 256 MB.");
+                }
+            }
+        }
+
         private void Record(string name, ActionCall call)
         {
             Tick();
@@ -325,6 +371,9 @@ public static class FlowSimulator
                 CheckDepth(call.Inputs);
                 CheckDepth(call.Outputs);
                 CheckDepth(call.Error);
+                Charge(call.Inputs);
+                Charge(call.Outputs);
+                Charge(call.Error);
             }
             catch (UnsupportedException e)
             {
@@ -406,14 +455,14 @@ public static class FlowSimulator
         private static Dictionary<string, string[]> ReadRunAfter(JsonObject block, string name, JsonObject action)
         {
             var result = new Dictionary<string, string[]>();
-            foreach (var (predecessor, statuses) in action["runAfter"] as JsonObject ?? [])
+            foreach (var (predecessor, statuses) in Field<JsonObject>(action, "runAfter", $"Action '{name}'") ?? [])
             {
                 if (!block.ContainsKey(predecessor))
                 {
                     throw new RunStop(FlowRunOutcome.Unsupported, $"Action '{name}' runs after '{predecessor}', which is not in the same block.");
                 }
 
-                var list = (statuses as JsonArray ?? []).Select(Str).ToArray();
+                var list = (statuses as JsonArray ?? throw new RunStop(FlowRunOutcome.Unsupported, $"Action '{name}' has 'runAfter' for '{predecessor}' that is not an array of statuses.")).Select(Str).ToArray();
                 foreach (var status in list.Where(s => s is null || !Statuses.Contains(s)))
                 {
                     throw new RunStop(FlowRunOutcome.Unsupported, $"Action '{name}' has the runAfter status '{status}' for '{predecessor}'; use Succeeded, Failed, Skipped or TimedOut.");
@@ -591,6 +640,7 @@ public static class FlowSimulator
 
             CheckType(name, type, variable["value"]);
             CheckDepth(variable["value"]);
+            Charge(variable["value"]);
             _vars[name] = new Var(type) { Value = variable["value"]?.DeepClone() };
             return new("Succeeded", evaluated, null, null);
         }
@@ -606,6 +656,7 @@ public static class FlowSimulator
                 case "SetVariable":
                     CheckType(name, variable.Type, value);
                     CheckDepth(value);
+                    Charge(value);
                     variable.Value = value?.DeepClone();
                     break;
                 case "AppendToStringVariable":
@@ -614,6 +665,8 @@ public static class FlowSimulator
                         throw new UnsupportedException($"appending to '{name}' needs a string variable and a string value.");
                     }
 
+                    ExpressionFunctions.CheckLength((long)(Str(variable.Value)?.Length ?? 0) + text.Length);
+                    Charge(value);
                     variable.Value = Str(variable.Value) + text;
                     break;
                 default:
@@ -622,9 +675,10 @@ public static class FlowSimulator
                         throw new UnsupportedException($"appending to '{name}' needs an array variable.");
                     }
 
+                    CheckDepth(value);
+                    Charge(value);
                     var array = variable.Value as JsonArray ?? new JsonArray();
                     array.Add(value?.DeepClone());
-                    CheckDepth(value);
                     variable.Value = array;
                     break;
             }
@@ -660,7 +714,9 @@ public static class FlowSimulator
 
         private ActionCall Until(ActionInfo action)
         {
-            var limit = action.Definition["limit"] is JsonObject l && ExpressionFunctions.TryLong(l["count"], out var count) ? count : 60;
+            var limit = Field<JsonObject>(action.Definition, "limit", $"Action '{action.Name}'") is { } l && l.ContainsKey("count")
+                ? ExpressionFunctions.TryLong(l["count"], out var count) ? count : throw new UnsupportedException("its 'limit.count' is not an integer.")
+                : 60;
             var status = "Succeeded";
             for (long i = 0; i < limit && !_ended; i++)
             {
@@ -670,8 +726,8 @@ public static class FlowSimulator
                 {
                     status = RunBlock(action.Definition["actions"] as JsonObject);
 
-                    // shortcut: an iteration that failed ends the loop (Learn doesn't say), change it if the capture shows otherwise
-                    if (_ended || status == "Failed" || (AsBool(Expression.EvaluateCondition(action.Definition["expression"], this)) ?? throw new ExpressionException("The condition of Until must give a boolean.")))
+                    // Learn: a failed iteration does not stop the loop; the Until is Failed only if its last iteration failed.
+                    if (_ended || (AsBool(Expression.EvaluateCondition(action.Definition["expression"], this)) ?? throw new ExpressionException("The condition of Until must give a boolean.")))
                     {
                         break;
                     }

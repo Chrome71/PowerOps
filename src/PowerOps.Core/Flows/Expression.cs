@@ -45,7 +45,9 @@ public static class Expression
                     throw new UnsupportedException($"Cannot read '{text}': '@{{' is never closed.");
                 }
 
-                sb.Append(ToText(Run(text[(i + 2)..end], context)));
+                var part = ToText(Run(text[(i + 2)..end], context));
+                ExpressionFunctions.CheckLength((long)sb.Length + part.Length);
+                sb.Append(part);
                 i = end;
             }
             else
@@ -88,12 +90,20 @@ public static class Expression
             }
 
             var (name, value) = obj.Single();
-            var args = (value is JsonArray arr ? arr.ToArray() : [value]).Select(arg => EvaluateCondition(arg, context)).ToArray();
+            var args = (value is JsonArray arr ? arr.ToArray() : [value]).Select(arg => EvaluateArgument(arg, context)).ToArray();
             return ExpressionFunctions.Invoke(name, args, context)?.DeepClone();
         }
 
         return IsString(condition) ? Evaluate(condition!.GetValue<string>(), context) : condition?.DeepClone();
     }
+
+    // An argument may also be an array or an object of several properties: both are literals whose strings and function objects are evaluated.
+    private static JsonNode? EvaluateArgument(JsonNode? argument, IExpressionContext context) => argument switch
+    {
+        JsonArray arr => new JsonArray(arr.Select(item => EvaluateArgument(item, context)).ToArray()),
+        JsonObject { Count: not 1 } obj => new JsonObject(obj.Select(p => KeyValuePair.Create(p.Key, EvaluateArgument(p.Value, context)))),
+        _ => EvaluateCondition(argument, context),
+    };
 
     /// <summary>The text form used by <c>@{...}</c>, <c>string()</c> and <c>concat()</c>, always in the invariant culture.</summary>
     internal static string ToText(JsonNode? value) => value switch

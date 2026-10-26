@@ -188,6 +188,19 @@ public class TestCommandTests : IDisposable
     }
 
     [Fact]
+    public void A_failing_assertion_with_an_expected_value_nested_61_levels_deep_still_writes_the_json_report()
+    {
+        var tests = Folder("deep");
+        Write(tests, "a.flowtest.json", "{ \"flow\": \"Stamp work item status\", \"trigger\": { \"body\": { \"pops_workitemid\": \"00000000-0000-0000-0000-000000000001\" } }, \"mocks\": { \"Update_a_row\": { \"status\": \"Succeeded\" } }, \"assertions\": [ { \"kind\": \"response\", \"equals\": " + new string('[', 61) + "1" + new string(']', 61) + " } ] }");
+
+        var (code, output, err) = Run(Seed, "--tests", tests, "--format", "json");
+
+        Assert.Equal(1, code);
+        Assert.Equal("", err);
+        Assert.Contains("\"result\": \"failed\"", output);
+    }
+
+    [Fact]
     public void Two_flows_with_one_name_in_a_solution_fail_the_test_as_ambiguous()
     {
         var seed = CopyOf(Seed, "seed");

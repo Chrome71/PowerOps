@@ -17,10 +17,11 @@ public static class TestReport
     {
         WriteIndented = true,
         NewLine = "\n",
+        MaxDepth = 128, // a value from a test file (parsed to 64 levels) plus the report's own nesting
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    private static readonly JsonSerializerOptions Compact = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    private static readonly JsonSerializerOptions Compact = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, MaxDepth = 128 };
 
     public static void WriteText(IReadOnlyList<FlowTestResult> results, TextWriter writer)
     {
