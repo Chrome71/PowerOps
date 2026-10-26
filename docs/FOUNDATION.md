@@ -2,7 +2,7 @@
 
 **One line:** a free, open-source, cross-platform toolkit that brings software-engineering discipline (analysis, diffing, testing, repeatable deployment) to Microsoft Power Platform. It works alongside `pac`; it does not replace it.
 
-Last updated 2026-10-24.
+Last updated 2026-10-25.
 
 ## 1. Why now
 
@@ -33,7 +33,7 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
 |---|---|---|
 | **Solution analysis** | `powerops analyze`: custom rules over unpacked solutions (naming, hard-coded URLs, missing connection references, unmanaged leaks, dependency and layer risk), SARIF output, a baseline file | Solution Checker runs as an online service and can't take custom rules or per-component suppressions. When it is enforced in Managed Environments you can exclude rules, but not add your own. The only OSS alternative is a 1★ PowerShell module. |
 | **ALM** | `powerops diff`: component-level semantic diff of two solution versions, rendered as Markdown for PRs. `powerops settings`: generate, validate and diff deployment settings per environment. | Unpack noise, `.pa.yaml` merges done by hand, and more than 9 open issues on connection references and environment variables |
-| **Testing** | Flow test harness (mock connector outputs, assert on run results). A Playwright starter that wraps Microsoft's samples. | Test Engine is deprecated, and no flow test framework exists anywhere |
+| **Testing** | Flow test harness (mock connector outputs, assert on run results). A Playwright starter that wraps Microsoft's samples. | Test Engine is deprecated, and no maintained flow test framework exists (the last open one had its last release in 2022) |
 | **Deployment automation** | `powerops deploy --plan`: a dependency-ordered multi-solution deploy that binds connection references and turns flows back on. `powerops drift`: compares Dev, Test and Prod. A composite GitHub Action. | Pipelines deploy one solution at a time, upgrade-only. Flows arrive switched off after a service-principal import. Nothing detects drift since the CoE kit was archived. |
 
 ## 4. Technical baseline
@@ -45,7 +45,7 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
 - **Shape:**
   - A core library, with a thin CLI on top and later a thin MCP server on top of that.
   - `pac` is called as a subprocess. It is never re-implemented.
-  - Playwright testing lives in a separate TypeScript package if we build it.
+  - The Playwright starter is a small TypeScript example project in `docs/examples/playwright/` that follows Microsoft's samples, not a published package (BUILD-PLAN M16).
 - **Distribution, in order:**
   1. NuGet tool with trusted publishing.
   2. A composite GitHub Action.
@@ -61,7 +61,7 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
 
 ## 5. Roadmap
 
-The ordered milestones for Phases 1–3b are in [BUILD-PLAN.md](BUILD-PLAN.md).
+The ordered milestones for Phases 1–4 are in [BUILD-PLAN.md](BUILD-PLAN.md).
 
 Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform tenant**, which keeps contribution easy.
 
@@ -74,7 +74,7 @@ Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform
 | **2. Settings and connections** | `settings generate/validate/diff`, and turning flows on after import | Replaces a hand-written `deploymentsettings.json` workflow end to end |
 | **3. Environment-aware** | `drift`, `deploy --plan`, pre-deploy layer and impact check, ephemeral environment per PR | A Dev→Test promotion runs from GitHub Actions with a plan reviewed in the PR |
 | **3b. Works with Microsoft's skills and MCP servers** | The skills hand the build to Microsoft's skills, and the check, plan and import stay with PowerOps; a documented hand-off flow; the skills packaged as a Claude Code and Codex plugin marketplace | An agent with Microsoft's skills installed builds with theirs and checks, plans and imports with PowerOps, with one tool per write |
-| **4. Testing** | Flow test harness, Playwright starter, a Copilot Studio eval gate | A failing flow assertion blocks a merge |
+| **4. Testing** | A flow test harness that runs exported flow definitions offline with mocked actions, and its merge gate; a Playwright starter that follows Microsoft's samples; a Copilot Studio eval gate on the preview evaluation API ([Phase 4](BUILD-PLAN.md#phase-4-testing-m14m17)) | A failing flow assertion blocks a merge |
 | **5. Agents** | An MCP server over the same core, with only what `pac`'s and Dataverse's MCP servers lack (BUILD-PLAN [decision 16](BUILD-PLAN.md#decisions-phase-3b-2026-10-24)): `analyze`, `rules`, `baseline`, `diff`, `settings generate` and `validate`, `plan status` and `facts`, `drift` and `deploy plan`, read-only, plus `deploy apply` as a dry run unless an explicit flag is set. No export, import, environment, auth or record tools, which theirs already have. Tool descriptions say to promote a reviewed plan with `deploy apply`, not with an import tool. It does not need either Microsoft server and does not name their tools, which have changed before | An agent can run analyze, diff, drift and deploy plan, but never writes without an explicit flag |
 
 ## 6. Risks
@@ -154,11 +154,16 @@ To verify before or during the phase that depends on them:
 - [ ] **(Phase 3b)** Which skill an agent loads when two match. A request such as "build me an app" matches `powerops-plan` and `powerops-implement`, a Microsoft build skill (`app-builder`, `genpage`, `canvas-app`, `build-flow`, `create-site`), and any routing skill whose description covers all of Power Platform. No two of them share a name, so which one runs is the model's choice. Since 2026-10-24 the `powerops-plan` description says to run it before Microsoft's build skills, but no run has checked that it wins. Not tested in Claude Code, Codex or Copilot. M12's smoke-test case with a routing skill present checks it in Claude Code and Codex. On 2026-10-24 that case passed in both in local runs with a fake routing skill, in Claude Code after two fixes to the test itself ([verification record](BUILD-PLAN.md#verification-record)). It stays open for Copilot, for real routing skills and for repeated runs.
 - [ ] **(Phase 3b)** Whether PowerOps works on `pac` older than 2.13.1, for example 2.11.2. Microsoft's model-apps skill accepts any `pac` newer than 2.10.0, so an agent that set up `pac` for Microsoft's skills can have an older build than any PowerOps was tested on (the tested and pinned versions are in BUILD-PLAN decision 16(d)). Untested on older builds, among others: `pac org who`, `pac solution list`, `pac solution import --settings-file` and `--stage-and-upgrade`, and `pac power-automate list-cloud-flows`.
 - [ ] **(Phase 3b)** What an empty deployment settings entry does on each import path. Microsoft's model-apps `solution-settings.js` says "An entry left empty overrides nothing". Its import goes through the SDK first and falls back to `pac` only where the SDK refuses. `pac` 2.13.1 rejects `"Value": ""` (observed), and `powerops settings validate` reports empty values and connection ids. So a file from `solution-settings.js template` can import on the SDK path and still fail `settings validate`, or fail on the `pac` fallback. Untested: an empty entry on the SDK path. Until then the [hand-off page](HANDOFF.md) (step 6) says to remove an entry instead of leaving it empty.
-- [ ] **(Phase 4)** Flow run-history and static-results APIs, to find the best mocking approach.
-- [x] **(Phase 4)** GA status of Copilot Studio evaluation. [Answered](https://learn.microsoft.com/microsoft-copilot-studio/whats-new):
+- [x] **(Phase 4)** Flow run-history and static-results APIs, to find the best mocking approach. Answered 2026-10-25 in the [Phase 4 research basis](BUILD-PLAN.md#phase-4-research-basis): mock offline, against the exported definition (BUILD-PLAN decisions 17 and 18).
+  - Static results are documented for cloud flows, with the definition shape `staticResults` and `runtimeConfiguration.staticResult`. Learn's way to capture a mock is by hand, from a run's "Show raw outputs". No API turns them on or off.
+  - Run history is run-level only: the Dataverse `flowrun` table and the Power Platform API's flow runs list. No documented API returns a run's per-action inputs or outputs, or starts a run.
+  - No open library fits as a dependency. [PowerAutomateMockUp](https://github.com/thygesteffensen/PowerAutomateMockUp) (MIT) has had no release since 2022.
+- [ ] **(Phase 4)** Whether an exported solution keeps an action's enabled static result. Learn doesn't say. M14's capture step settles it, and the answer decides whether the simulator uses a flow's own static results.
+- [x] **(Phase 4)** GA status of Copilot Studio evaluation. [Answered](https://learn.microsoft.com/microsoft-copilot-studio/whats-new), and rechecked on 2026-10-25 ([Phase 4 research basis](BUILD-PLAN.md#phase-4-research-basis)):
   - Agent evaluations are GA (March 2026).
-  - Running them through the Power Platform API is in preview (April 2026).
-  - The `pac copilot-studio` evaluation commands are still preview.
+  - Running them through the Power Platform API is in preview (April 2026). Learn documents it with a user token only.
+  - The `pac copilot-studio` evaluation commands are still preview, with no documented output format or exit codes.
+- [ ] **(Phase 4)** Whether an application user can start a Copilot Studio evaluation run, whether a run uses Copilot credits, and whether evaluation works with a trial licence. Learn documents none of them. The eval capture (BUILD-PLAN build-order item 36) settles the first and records the other two.
 - [x] **(All)** Contributor tenant options now that unmanaged developer environments are going away. Answered 2026-10-21 in [Important changes coming](https://learn.microsoft.com/power-platform/important-changes-coming#deprecation-of-unmanaged-developer-environments-and-the-power-apps-developer-plan): no new ones from 2026-11-15, suspended from 2026-12-15, deleted from 2027-01-15. The Developer Plan stays free but creates no environment after 2026-11-15. One managed developer environment per user remains. It needs an admin to enable Managed Environments and a premium licence to run apps and flows ([developer plan](https://learn.microsoft.com/power-platform/developer/plan)).
   - What a contributor can use: a 30-day [trial environment](https://learn.microsoft.com/power-platform/admin/trial-environments) (throwaway, work or school account recommended); a [Microsoft 365 Developer Program](https://learn.microsoft.com/office/developer-program/microsoft-365-developer-program-faq) sandbox tenant (free, but only for Visual Studio subscribers, eligible partners and Premier/Unified Support customers; it does not document a Dataverse environment); or an environment in a paid tenant. Dataverse for Teams is deprecated too.
   - Service principals: documented for Dataverse environments in general ([pac admin create-service-principal](https://learn.microsoft.com/power-platform/developer/cli/reference/admin#pac-admin-create-service-principal)), not for trial or managed developer environments specifically.
