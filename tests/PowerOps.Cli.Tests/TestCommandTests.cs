@@ -208,6 +208,16 @@ public class TestCommandTests : IDisposable
         Assert.Contains("is ambiguous: 2 flows match", output);
     }
 
+    [Fact]
+    public void Solutions_with_one_name_are_told_apart_by_their_folder_below_the_path()
+    {
+        var (code, output, _) = Run(Path.Combine(Fixtures, "powerops-seed"), "--tests", SeedTests);
+
+        Assert.Equal(1, code);
+        Assert.Contains("is ambiguous: 2 flows match, in v1 (PowerOpsSeed 1.0.0.0), v2 (PowerOpsSeed 1.0.0.0).", output);
+        Assert.DoesNotContain(Fixtures, output);
+    }
+
     // Usage errors
 
     [Fact]

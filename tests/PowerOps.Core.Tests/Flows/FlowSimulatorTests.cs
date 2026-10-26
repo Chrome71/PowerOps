@@ -347,6 +347,21 @@ public class FlowSimulatorTests
         Assert.Equal("Succeeded", run.Status);
     }
 
+    [Fact]
+    public void A_failure_is_handled_only_by_a_handler_that_ran()
+    {
+        var run = Run("""
+            {"A":{"type":"Compose","inputs":"@variables('nope')","runAfter":{}},
+             "B":{"type":"Compose","inputs":1,"runAfter":{}},
+             "H":{"type":"Compose","inputs":1,"runAfter":{"A":["Failed"],"B":["Failed"]}}}
+            """);
+
+        Assert.Equal("Failed", St(run, "A"));
+        Assert.Equal("Succeeded", St(run, "B"));
+        Assert.Equal("Skipped", St(run, "H"));
+        Assert.Equal("Failed", run.Status);
+    }
+
     // Until
 
     private static string UntilFlow(string expression, string limit) =>
@@ -380,6 +395,53 @@ public class FlowSimulatorTests
         var run = Run(UntilFlow("\"@equals(1, 2)\"", "{}"));
 
         Assert.Equal(60, run.Calls["Add"].Count);
+    }
+
+    [Fact]
+    public void An_Until_with_an_empty_body_and_a_huge_count_stops_at_the_call_cap()
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        var run = Run("""{"Loop":{"type":"Until","expression":"@equals(1, 2)","limit":{"count":3000000000},"actions":{},"runAfter":{}}}""");
+
+        Assert.Equal(FlowRunOutcome.Unsupported, run.Outcome);
+        Assert.Contains("100000", run.Message);
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(1), watch.Elapsed.ToString());
+    }
+
+    [Fact]
+    public void A_Foreach_with_an_empty_body_counts_every_item_toward_the_call_cap()
+    {
+        var items = "[" + string.Join(",", Enumerable.Repeat("0", 100_001)) + "]";
+
+        var run = Run("""{"Loop":{"type":"Foreach","foreach":"@triggerBody()","actions":{},"runAfter":{}}}""", In("{\"body\":" + items + "}"));
+
+        Assert.Equal(FlowRunOutcome.Unsupported, run.Outcome);
+        Assert.Contains("100000", run.Message);
+    }
+
+    [Fact]
+    public void A_value_nested_deeper_than_64_levels_is_unsupported()
+    {
+        var run = Run("{\"V\":" + Var("v", "array", "[]") + """
+            ,"Loop":{"type":"Until","expression":"@equals(1, 2)","limit":{"count":100},"actions":{
+               "Nest":{"type":"SetVariable","inputs":{"name":"v","value":"@createArray(variables('v'))"},"runAfter":{}}},"runAfter":{"V":["Succeeded"]}}}
+            """);
+
+        Assert.Equal(FlowRunOutcome.Unsupported, run.Outcome);
+        Assert.Contains("a value nested deeper than 64 levels", run.Message);
+    }
+
+    [Fact]
+    public void A_value_nested_exactly_64_levels_deep_is_fine()
+    {
+        var run = Run("{\"V\":" + Var("v", "array", "[]") + """
+            ,"Loop":{"type":"Until","expression":"@equals(1, 2)","limit":{"count":60},"actions":{
+               "Nest":{"type":"SetVariable","inputs":{"name":"v","value":"@createArray(variables('v'))"},"runAfter":{}}},"runAfter":{"V":["Succeeded"]}}}
+            """);
+
+        Assert.Equal(FlowRunOutcome.Finished, run.Outcome);
+        Assert.Equal("Succeeded", run.Status);
     }
 
     // Terminate

@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 
 using PowerOps.Core.Flows;
 using PowerOps.Core.Model;
+using PowerOps.Core.Output;
 using PowerOps.Core.Tests.Readers;
 
 namespace PowerOps.Core.Tests;
@@ -154,6 +155,14 @@ public class FlowTestTests
     }
 
     [Fact]
+    public void A_duplicate_property_deep_inside_a_mock_is_rejected_when_the_file_is_read()
+    {
+        var e = Assert.Throws<InvalidDataException>(() => Parse(Test("\"mocks\":{\"A\":{\"status\":\"Succeeded\",\"outputs\":{\"body\":{\"a\":1,\"a\":2}}}},")));
+
+        Assert.StartsWith(File + ":", e.Message);
+    }
+
+    [Fact]
     public void A_file_over_four_megabytes_is_rejected()
     {
         var json = Test(assertions: """[{"kind":"runStatus","equals":"Succeeded"}]""").Replace("\"flow\":\"F\"", "\"flow\":\"" + new string('x', 4 * 1024 * 1024) + "\"");
@@ -278,6 +287,19 @@ public class FlowTestTests
     }
 
     [Fact]
+    public void Solutions_in_an_ambiguous_message_come_with_their_location_below_the_path()
+    {
+        var result = FlowTestRunner.Run(
+            File,
+            Parse(Pass()),
+            [Sol("V", "1.0.0.0", [Flow("F", Compose)]), Sol("V", "1.0.0.0", [Flow("F", Compose)])],
+            ["v1", "sub/v2"]);
+
+        Assert.Equal(FlowTestOutcome.Failed, result.Outcome);
+        Assert.Contains("in v1 (V 1.0.0.0), sub/v2 (V 1.0.0.0).", result.Message);
+    }
+
+    [Fact]
     public void A_flow_without_clientdata_or_a_definition_fails()
     {
         var none = Sol("S", "1.0.0.0", [Flow("F", Compose) with { ClientData = null }]);
@@ -291,6 +313,17 @@ public class FlowTestTests
             Assert.Equal(FlowTestOutcome.Failed, result.Outcome);
             Assert.Contains("definition", result.Message);
         }
+    }
+
+    [Fact]
+    public void A_definition_with_a_duplicate_property_fails_the_test_instead_of_throwing()
+    {
+        var duplicate = Flow("F", Compose) with { ClientData = "{\"properties\":{\"definition\":{\"triggers\":{},\"actions\":{\"C\":{\"type\":\"Compose\",\"inputs\":1,\"inputs\":2,\"runAfter\":{}}}}}}" };
+
+        var result = RunOne(Pass(), duplicate);
+
+        Assert.Equal(FlowTestOutcome.Failed, result.Outcome);
+        Assert.Contains("definition", result.Message);
     }
 
     // Outcomes
@@ -458,6 +491,27 @@ public class FlowTestTests
             Sol("S", "1.0.0.0", [ParameterFlow("Int")], Variable("notANumber", null)));
 
         Assert.Equal(FlowTestOutcome.Passed, result.Outcome);
+    }
+
+    [Fact]
+    public void An_environment_variable_key_that_names_no_parameter_of_the_flow_fails_the_test()
+    {
+        var result = ParameterRun(ParameterFlow(), "\"environmentVariables\":{\"pops_DefaultStatuss\":\"x\"},", Variable("fromCurrent", null));
+
+        Assert.Equal(FlowTestOutcome.Failed, result.Outcome);
+        Assert.Equal("environment variable 'pops_DefaultStatuss' is not a parameter of this flow", result.Message);
+        Assert.Empty(result.Assertions);
+        Assert.Equal("F", result.Flow);
+        Assert.Equal("S", result.Solution);
+    }
+
+    [Fact]
+    public void An_environment_variable_key_fails_a_flow_that_has_no_parameters()
+    {
+        var result = RunOne(Test("\"environmentVariables\":{\"pops_A\":1},"), Flow("F", Compose));
+
+        Assert.Equal(FlowTestOutcome.Failed, result.Outcome);
+        Assert.Contains("'pops_A'", result.Message);
     }
 
     // Assertions
@@ -655,6 +709,60 @@ public class FlowTestTests
         var result = RunOne(test, Flow("F", actions));
 
         Assert.Equal(FlowTestOutcome.Passed, result.Outcome);
+    }
+
+    [Theory]
+    [InlineData("""{"kind":"inputs","action":"Skipme","equals":null}""")]
+    [InlineData("""{"kind":"outputs","action":"Skipme","equals":null}""")]
+    [InlineData("""{"kind":"outputs","action":"Skipme","call":0,"equals":null}""")]
+    public void A_skipped_call_has_no_inputs_or_outputs_so_the_assertion_fails_with_did_not_run(string assertion)
+    {
+        var result = One(assertion);
+
+        Assert.False(result.Passed);
+        Assert.False(result.HasActual);
+        Assert.Equal("did not run", result.Message);
+    }
+
+    [Fact]
+    public void Without_call_a_skipped_call_among_several_fails_and_names_it()
+    {
+        var actions = """
+            {"Each":{"type":"Foreach","foreach":[1,2],"actions":{
+               "Inner":{"type":"Compose","inputs":"@item()","runAfter":{}},
+               "Later":{"type":"Compose","inputs":"@item()","runAfter":{"Inner":["Failed"]}}},"runAfter":{}}}
+            """;
+
+        var result = RunOne(Test(assertions: """[{"kind":"inputs","action":"Later","equals":null}]"""), Flow("F", actions));
+
+        Assert.Equal("call 0 of 2: did not run", result.Assertions.Single().Message);
+    }
+
+    [Fact]
+    public void A_skipped_status_can_still_be_asserted()
+    {
+        Assert.True(One("""{"kind":"actionStatus","action":"Skipme","call":0,"equals":"Skipped"}""").Passed);
+    }
+
+    // Report
+
+    [Fact]
+    public void A_name_with_a_newline_cannot_forge_a_report_line()
+    {
+        const string name = "x\\n::error::forged"; // the JSON escape of a newline
+        var result = RunOne(
+            Test(assertions: $$"""[{"kind":"variable","name":"{{name}}","equals":1},{"kind":"outputs","action":"{{name}}","equals":1}]"""),
+            Flow("F", Compose));
+        var text = new StringWriter();
+        var markdown = new StringWriter();
+
+        TestReport.WriteText([result], text);
+        TestReport.WriteMarkdown([result], markdown);
+
+        Assert.All(result.Assertions, a => Assert.Contains('\n', a.Message!));
+        Assert.Equal(5, text.ToString().Split('\n').Length); // the test, its two assertions, the summary and the end
+        Assert.DoesNotContain(text.ToString().Split('\n'), line => line.StartsWith("::error::", StringComparison.Ordinal));
+        Assert.DoesNotContain(markdown.ToString().Split('\n'), line => line.StartsWith("::error::", StringComparison.Ordinal));
     }
 
     // Discovery

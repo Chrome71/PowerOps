@@ -55,6 +55,7 @@ public static class FlowSimulator
     private sealed class Simulation(JsonObject definition, FlowRunInputs inputs) : IExpressionContext
     {
         private const int MaxCalls = 100_000;
+        private const int MaxDepth = 64;
         private static readonly string[] Statuses = ["Succeeded", "Failed", "Skipped", "TimedOut"];
         private static readonly string[] ConnectorTypes = ["OpenApiConnection", "OpenApiConnectionWebhook", "Http", "Workflow"];
         private static readonly string[] VariableTypes = ["string", "integer", "float", "boolean", "array", "object"];
@@ -292,11 +293,42 @@ public static class FlowSimulator
 
         // Running
 
-        private void Record(string name, ActionCall call)
+        // Every call, loop iteration and item counts, so a loop with an empty body still ends.
+        private void Tick()
         {
             if (++_count > MaxCalls)
             {
                 throw new RunStop(FlowRunOutcome.Unsupported, $"The run made more than {MaxCalls} action calls; the simulator stops there.");
+            }
+        }
+
+        private static bool TooDeep(JsonNode? node, int level = 1) => node switch
+        {
+            JsonObject o => level > MaxDepth || o.Any(p => TooDeep(p.Value, level + 1)),
+            JsonArray a => level > MaxDepth || a.Any(i => TooDeep(i, level + 1)),
+            _ => false,
+        };
+
+        private static void CheckDepth(JsonNode? value)
+        {
+            if (TooDeep(value))
+            {
+                throw new UnsupportedException($"a value nested deeper than {MaxDepth} levels is not supported.");
+            }
+        }
+
+        private void Record(string name, ActionCall call)
+        {
+            Tick();
+            try
+            {
+                CheckDepth(call.Inputs);
+                CheckDepth(call.Outputs);
+                CheckDepth(call.Error);
+            }
+            catch (UnsupportedException e)
+            {
+                throw new RunStop(FlowRunOutcome.Unsupported, $"Action '{name}': {e.Message}");
             }
 
             if (!_calls.TryGetValue(name, out var list))
@@ -366,8 +398,9 @@ public static class FlowSimulator
                 SkipAction(name, (JsonObject)action!);
             }
 
-            // Failed when an action failed that no other action in the block runs after on Failed.
-            return done.Where(p => p.Value == "Failed").Any(p => !after.Values.Any(a => a.TryGetValue(p.Key, out var on) && on.Contains("Failed"))) ? "Failed" : "Succeeded";
+            // Failed when an action failed that no action in the block that ran (not Skipped) handles with Failed in its runAfter.
+            bool Handled(string failed) => after.Any(h => h.Value.TryGetValue(failed, out var on) && on.Contains("Failed") && done.TryGetValue(h.Key, out var status) && status != "Skipped");
+            return done.Where(p => p.Value == "Failed").Any(p => !Handled(p.Key)) ? "Failed" : "Succeeded";
         }
 
         private static Dictionary<string, string[]> ReadRunAfter(JsonObject block, string name, JsonObject action)
@@ -557,6 +590,7 @@ public static class FlowSimulator
             }
 
             CheckType(name, type, variable["value"]);
+            CheckDepth(variable["value"]);
             _vars[name] = new Var(type) { Value = variable["value"]?.DeepClone() };
             return new("Succeeded", evaluated, null, null);
         }
@@ -571,6 +605,7 @@ public static class FlowSimulator
             {
                 case "SetVariable":
                     CheckType(name, variable.Type, value);
+                    CheckDepth(value);
                     variable.Value = value?.DeepClone();
                     break;
                 case "AppendToStringVariable":
@@ -589,6 +624,7 @@ public static class FlowSimulator
 
                     var array = variable.Value as JsonArray ?? new JsonArray();
                     array.Add(value?.DeepClone());
+                    CheckDepth(value);
                     variable.Value = array;
                     break;
             }
@@ -607,6 +643,7 @@ public static class FlowSimulator
                     break;
                 }
 
+                Tick();
                 _frames.Add(new Frame(action.Name, item?.DeepClone(), true));
                 try
                 {
@@ -627,6 +664,7 @@ public static class FlowSimulator
             var status = "Succeeded";
             for (long i = 0; i < limit && !_ended; i++)
             {
+                Tick();
                 _frames.Add(new Frame(action.Name, null, false));
                 try
                 {
@@ -656,7 +694,7 @@ public static class FlowSimulator
             {
                 try
                 {
-                    body = JsonNode.Parse(text);
+                    body = ExpressionFunctions.ParseJson(text);
                 }
                 catch (JsonException e)
                 {

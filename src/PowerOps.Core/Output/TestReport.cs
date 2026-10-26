@@ -34,7 +34,7 @@ public static class TestReport
 
             foreach (var a in r.Assertions.Where(a => !a.Passed))
             {
-                writer.Write($"  assertion {a.Index}, {TextReport.Clean(a.Description)}: {Detail(a)}\n");
+                writer.Write($"  assertion {a.Index}, {TextReport.Clean(a.Description)}: {TextReport.Clean(Detail(a))}\n");
             }
         }
 

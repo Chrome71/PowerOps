@@ -61,22 +61,14 @@ public sealed record FlowTestFile(
         JsonNode? root;
         try
         {
-            root = JsonNode.Parse(json.TrimStart('﻿'));
+            root = ExpressionFunctions.ParseJson(json.TrimStart('﻿'));
         }
         catch (Exception e) when (e is JsonException or ArgumentException)
         {
             throw new InvalidDataException($"{path}: not valid JSON: {e.Message}", e);
         }
 
-        try
-        {
-            return new Reader(path).Read(root);
-        }
-        catch (ArgumentException e)
-        {
-            // A JsonObject finds a duplicate property only when it is first enumerated.
-            throw new InvalidDataException($"{path}: {e.Message}", e);
-        }
+        return new Reader(path).Read(root);
     }
 
     private sealed class Reader(string path)
@@ -285,18 +277,19 @@ public static class FlowTestRunner
 {
     private static readonly JsonSerializerOptions Compact = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
-    public static FlowTestResult Run(string file, FlowTestFile test, IReadOnlyList<Solution> solutions)
+    /// <param name="locations">Where each solution is, below the path the command was given (forward slashes), to tell apart solutions with one name; null when not known.</param>
+    public static FlowTestResult Run(string file, FlowTestFile test, IReadOnlyList<Solution> solutions, IReadOnlyList<string>? locations = null)
     {
         FlowTestResult Stop(FlowTestOutcome outcome, string message, string? flow = null, string? solution = null) =>
             new(file, flow ?? test.Flow, solution, outcome, null, message, []);
 
         var matches = solutions
-            .SelectMany(s => s.Workflows.Where(w => w.Category == 5 && IsFlow(w, test.Flow)).Select(w => (Solution: s, Flow: w)))
+            .SelectMany((s, i) => s.Workflows.Where(w => w.Category == 5 && IsFlow(w, test.Flow)).Select(w => (Index: i, Flow: w)))
             .ToList();
         if (matches.Count != 1)
         {
-            var named = matches.Count == 0 ? solutions : matches.Select(m => m.Solution).ToList();
-            var list = named.Count == 0 ? "no solution" : string.Join(", ", named.Select(s => $"{s.UniqueName} {s.Version}"));
+            var named = matches.Count == 0 ? Enumerable.Range(0, solutions.Count) : matches.Select(m => m.Index);
+            var list = solutions.Count == 0 ? "no solution" : string.Join(", ", named.Select(i => Named(solutions[i], locations?[i])));
             return Stop(
                 FlowTestOutcome.Failed,
                 matches.Count == 0
@@ -304,13 +297,14 @@ public static class FlowTestRunner
                     : $"The flow '{test.Flow}' is ambiguous: {matches.Count} flows match, in {list}. Point the path at one solution.");
         }
 
-        var (solution, workflow) = matches[0];
+        var (solution, workflow) = (solutions[matches[0].Index], matches[0].Flow);
         if (Definition(workflow) is not { } definition)
         {
             return Stop(FlowTestOutcome.Failed, $"The flow '{workflow.Name}' has no readable definition (clientdata with properties.definition).", workflow.Name, solution.UniqueName);
         }
 
         var parameters = new Dictionary<string, JsonNode?>();
+        var used = new HashSet<string>();
         foreach (var (name, node) in definition["parameters"] as JsonObject ?? new JsonObject())
         {
             var parameter = node as JsonObject;
@@ -318,6 +312,8 @@ public static class FlowTestRunner
             {
                 continue;
             }
+
+            used.Add(schema);
 
             if (test.EnvironmentVariables.TryGetValue(schema, out var given))
             {
@@ -341,6 +337,12 @@ public static class FlowTestRunner
             parameters[name] = value;
         }
 
+        // a typo would otherwise run against the solution's value
+        if (test.EnvironmentVariables.Keys.FirstOrDefault(k => !used.Contains(k)) is { } unused)
+        {
+            return Stop(FlowTestOutcome.Failed, $"environment variable '{unused}' is not a parameter of this flow", workflow.Name, solution.UniqueName);
+        }
+
         var run = FlowSimulator.Run(definition, new FlowRunInputs(test.Trigger, test.Mocks, parameters, test.UtcNow, test.Guid, test.Workflow));
         if (run.Outcome != FlowRunOutcome.Finished)
         {
@@ -359,6 +361,9 @@ public static class FlowTestRunner
         return new FlowTestResult(file, workflow.Name, solution.UniqueName, results.All(r => r.Passed) ? FlowTestOutcome.Passed : FlowTestOutcome.Failed, run.Status, null, results);
     }
 
+    private static string Named(Solution s, string? location) =>
+        location is { Length: > 0 } and not "." ? $"{location} ({s.UniqueName} {s.Version})" : $"{s.UniqueName} {s.Version}";
+
     private static bool IsFlow(Workflow w, string reference) =>
         w.Name == reference || (System.Guid.TryParse(reference, out var id) && System.Guid.TryParse(w.Id, out var own) && id == own);
 
@@ -371,7 +376,7 @@ public static class FlowTestRunner
 
         try
         {
-            return ((JsonNode.Parse(w.ClientData.TrimStart('﻿')) as JsonObject)?["properties"] as JsonObject)?["definition"] as JsonObject;
+            return ((ExpressionFunctions.ParseJson(w.ClientData.TrimStart('﻿')) as JsonObject)?["properties"] as JsonObject)?["definition"] as JsonObject;
         }
         catch (Exception e) when (e is JsonException or ArgumentException)
         {
@@ -401,7 +406,7 @@ public static class FlowTestRunner
             case "int" or "float" or "object" or "array":
                 try
                 {
-                    value = JsonNode.Parse(text);
+                    value = ExpressionFunctions.ParseJson(text);
                 }
                 catch (JsonException)
                 {
@@ -465,6 +470,9 @@ public static class FlowTestRunner
         var description = Describe(a);
         FlowAssertionResult Fail(string message) => new(index, description, false, a.Expected?.DeepClone(), false, null, message);
 
+        // A skipped call has no inputs or outputs.
+        (string? Label, JsonNode? Value, bool Ran) Candidate(string? label, ActionCall call) => (label, Pick(call), a.Kind == "actionStatus" || call.Status != "Skipped");
+
         JsonNode? Pick(ActionCall call) => a.Kind switch
         {
             "actionStatus" => JsonValue.Create(call.Status),
@@ -472,11 +480,11 @@ public static class FlowTestRunner
             _ => call.Outputs,
         };
 
-        List<(string? Label, JsonNode? Value)> candidates;
+        List<(string? Label, JsonNode? Value, bool Ran)> candidates;
         switch (a.Kind)
         {
             case "runStatus":
-                candidates = [(null, JsonValue.Create(run.Status))];
+                candidates = [(null, JsonValue.Create(run.Status), true)];
                 break;
             case "variable":
                 if (!run.Variables.TryGetValue(a.Name!, out var variable))
@@ -484,7 +492,7 @@ public static class FlowTestRunner
                     return Fail($"no variable named '{a.Name}'");
                 }
 
-                candidates = [(null, variable)];
+                candidates = [(null, variable, true)];
                 break;
             case "response":
                 if (run.Response is null)
@@ -492,7 +500,7 @@ public static class FlowTestRunner
                     return Fail("no Response action ran");
                 }
 
-                candidates = [(null, run.Response)];
+                candidates = [(null, run.Response, true)];
                 break;
             default:
                 if (!run.Calls.TryGetValue(a.Action!, out var calls) || calls.Count == 0)
@@ -507,18 +515,23 @@ public static class FlowTestRunner
                         return Fail($"call {c} of {calls.Count}: the action made {calls.Count} call{(calls.Count == 1 ? "" : "s")}");
                     }
 
-                    candidates = [(null, Pick(calls[c]))];
+                    candidates = [Candidate(null, calls[c])];
                 }
                 else
                 {
-                    candidates = calls.Select((call, i) => (calls.Count > 1 ? $"call {i} of {calls.Count}" : null, Pick(call))).ToList();
+                    candidates = calls.Select((call, i) => Candidate(calls.Count > 1 ? $"call {i} of {calls.Count}" : null, call)).ToList();
                 }
 
                 break;
         }
 
-        foreach (var (label, value) in candidates)
+        foreach (var (label, value, ran) in candidates)
         {
+            if (!ran)
+            {
+                return Fail(label is null ? "did not run" : $"{label}: did not run");
+            }
+
             var target = value;
             if (a.Path is { Count: > 0 } path && !TryWalk(value, path, out target))
             {

@@ -70,7 +70,8 @@ public static class TestCommand
             var files = testFiles.Select(f => (Name: Path.GetRelativePath(tests, f).Replace('\\', '/'), Test: FlowTestFile.Load(f))).ToList();
             var context = new LoadContext();
             var solutions = solutionPaths.Select(p => SolutionLoader.Load(p, context)).ToList();
-            var results = files.Select(f => FlowTestRunner.Run(f.Name, f.Test, solutions)).ToList();
+            var locations = solutionPaths.Select(p => Path.GetRelativePath(path, p).Replace('\\', '/')).ToList();
+            var results = files.Select(f => FlowTestRunner.Run(f.Name, f.Test, solutions, locations)).ToList();
 
             var report = new StringWriter();
             if (format == "json")

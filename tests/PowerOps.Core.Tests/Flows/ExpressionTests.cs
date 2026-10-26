@@ -361,6 +361,10 @@ public class ExpressionTests
     [InlineData("substring('hello', '1', 2)")]
     [InlineData("substring(5, 0, 1)")]
     [InlineData("substring('hello')")]
+    [InlineData("substring('abc', 9223372036854775807, 1)")] // start + length wraps around
+    [InlineData("substring('abc', 1, 9223372036854775807)")]
+    [InlineData("substring('abc', 9223372036854775807)")]
+    [InlineData("substring('abc', -9223372036854775808)")]
     public void Substring_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
 
     // replace: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#replace
@@ -914,6 +918,45 @@ public class ExpressionTests
         finally
         {
             CultureInfo.CurrentCulture = saved;
+        }
+    }
+
+    // Hostile input: only the three Flows exceptions may come out of an expression, never a .NET one.
+    [Theory]
+    [InlineData("substring('abc', 9223372036854775807, 1)")]
+    [InlineData("substring('abc', -9223372036854775808, 9223372036854775807)")]
+    [InlineData("addDays('2026-01-01T00:00:00Z', 9223372036854775807)")]
+    [InlineData("addDays('2026-01-01T00:00:00Z', -9223372036854775808)")]
+    [InlineData("addDays('9999-12-31T23:59:59Z', 1)")]
+    [InlineData("addDays('0001-01-01T00:00:00Z', -1)")]
+    [InlineData("addDays('0001-01-01T00:00:00+14:00', 1)")]
+    [InlineData("createArray(1)[9223372036854775807]")]
+    [InlineData("createArray(1)[-9223372036854775808]")]
+    [InlineData("createArray(1)?[9223372036854775807]")]
+    [InlineData("createArray(1)[2147483648]")]
+    [InlineData("createArray(1)[1.5]")]
+    [InlineData("split('abc', '')")]
+    [InlineData("replace('abc', '', 'x')")]
+    [InlineData("min(9223372036854775807, -9223372036854775808)")]
+    [InlineData("min(createArray())")]
+    [InlineData("min(createArray(1, 'a'))")]
+    [InlineData("decodeBase64('!!!')")]
+    [InlineData("decodeBase64('/w==')")] // 0xFF is not UTF-8
+    [InlineData("decodeBase64('YQ')")] // padding missing
+    [InlineData("json('1e999')")]
+    [InlineData("json('{\"a\":')")]
+    [InlineData("json('{\"a\":1,\"a\":2}')['a']")] // a JsonObject finds the duplicate only when it is read
+    [InlineData("json('[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]')")]
+    [InlineData("string(99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999)")]
+    [InlineData("greater(99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999, 1)")]
+    public void Hostile_input_never_escapes_as_a_dotnet_exception(string expression)
+    {
+        try
+        {
+            Eval(expression)?.ToJsonString();
+        }
+        catch (Exception e) when (e is ExpressionException or UnsupportedException or UnmockedException)
+        {
         }
     }
 }

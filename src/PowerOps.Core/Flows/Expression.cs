@@ -413,9 +413,14 @@ public static class Expression
             }
 
             var number = text[start.._pos];
-            return !isDecimal && long.TryParse(number, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var l)
-                ? JsonValue.Create(l)
-                : JsonValue.Create(double.Parse(number, NumberStyles.Float, CultureInfo.InvariantCulture));
+            if (!isDecimal && long.TryParse(number, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var l))
+            {
+                return JsonValue.Create(l);
+            }
+
+            // a number past the double range is infinity, which JSON cannot write
+            var d = double.Parse(number, NumberStyles.Float, CultureInfo.InvariantCulture);
+            return double.IsFinite(d) ? JsonValue.Create(d) : throw Bad("the number is too large");
         }
 
         private void SkipDigits()

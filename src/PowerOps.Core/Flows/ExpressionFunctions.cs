@@ -87,6 +87,10 @@ public static class ExpressionFunctions
         _ => "a value",
     };
 
+    /// <summary>Parses JSON text and rejects a duplicate property at once: a JsonObject would find it only when first read, as an ArgumentException.</summary>
+    /// <exception cref="JsonException">The text is not valid JSON, is nested deeper than 64 levels or has a duplicate property.</exception>
+    internal static JsonNode? ParseJson(string text) => JsonNode.Parse(text, null, new JsonDocumentOptions { AllowDuplicateProperties = false });
+
     internal static bool TryLong(JsonNode? node, out long value)
     {
         value = 0;
@@ -175,7 +179,7 @@ public static class ExpressionFunctions
         var text = Str("substring", a[0]);
         var start = Int("substring", a[1]);
         var length = a.Length == 3 ? Int("substring", a[2]) : text.Length - start;
-        if (start < 0 || length < 0 || start + length > text.Length)
+        if (start < 0 || length < 0 || start > text.Length || length > text.Length - start)
         {
             // Learn: a start and length that reach past the end are an error, not a shorter result
             throw new ExpressionException($"substring() cannot take {length} characters from index {start} of a string of {text.Length}.");
@@ -237,7 +241,7 @@ public static class ExpressionFunctions
 
         try
         {
-            return JsonNode.Parse(Str("json", a));
+            return ParseJson(Str("json", a));
         }
         catch (JsonException e)
         {
