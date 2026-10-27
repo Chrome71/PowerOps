@@ -4,6 +4,10 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    ignore:
+      # 9.x is under the OSMF EULA (see #22); patches on 8.0 stay allowed.
+      - dependency-name: "JsonSchema.Net"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
