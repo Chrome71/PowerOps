@@ -107,6 +107,10 @@ Between the re-plan and each import there is a short window in which someone can
 
 Run both jobs on the same operating system, as the example does (`ubuntu-latest`). A friendly environment name with non-ASCII characters may be decoded differently on Windows than on Linux, which would change the plan hash.
 
+## Browser tests after the apply
+
+After the `apply` job has imported the solution into Test, and before you promote it any further, run the [Playwright starter](playwright/README.md) against Test to check the apps in a browser. A person signs in for it, so it is not a job in this workflow.
+
 # Example: an ephemeral environment per pull request
 
 [ephemeral-pr.yml](ephemeral-pr.yml) gives each pull request its own short-lived Power Platform environment. [ephemeral-sweep.yml](ephemeral-sweep.yml) deletes what a run leaves behind. The scripts they call are [ephemeral-env.sh](powerops/ephemeral-env.sh) and [ephemeral-sweep.sh](powerops/ephemeral-sweep.sh). **This recipe was not run end to end.** Its scripts are tested offline with stub `pac` and `gh` programs and its workflows are checked as text, but no environment was ever created or deleted with it. See "Not verified" below. It is opt-in: PowerOps' own CI never creates environments.
