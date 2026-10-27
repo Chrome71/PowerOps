@@ -4,7 +4,7 @@ using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
 
-// Runs action/plan.sh, action/apply.sh, action/diff.sh and action/comment.sh with bash, against stub `gh` and `dotnet` programs
+// Runs action/plan.sh, action/apply.sh, action/diff.sh, action/comment.sh and action/test.sh with bash, against stub `gh` and `dotnet` programs
 // that come first on PATH. Skipped on Windows and where bash (or jq or git, which a test needs) is not found.
 public sealed class ActionScriptTests : IDisposable
 {
@@ -251,6 +251,122 @@ public sealed class ActionScriptTests : IDisposable
         Assert.Empty(run.DotnetCalls);
     }
 
+    // ---- test.sh ----
+
+    // A passed test; a failed one in a sub folder whose name needs escaping, with a passed assertion, a failed one whose actual
+    // is null and one with no actual; an unmocked one whose message has a line break.
+    private const string TestJson = """
+        {
+          "schemaVersion": 1,
+          "tests": [
+            { "file": "a.flowtest.json", "flow": "Flow A", "result": "passed", "runStatus": "Succeeded", "assertions": [] },
+            { "file": "sub/b,1:%.flowtest.json", "flow": "Flow B", "result": "failed", "runStatus": "Succeeded", "assertions": [
+              { "index": 0, "description": "run status", "passed": false, "expected": "Failed", "actual": "Succeeded" },
+              { "index": 1, "description": "status of X", "passed": true, "expected": "Succeeded" },
+              { "index": 2, "description": "variable v", "passed": false, "expected": 1, "actual": null },
+              { "index": 3, "description": "inputs of Y", "passed": false, "expected": 1, "message": "did not run" }
+            ] },
+            { "file": "c.flowtest.json", "flow": "Flow C", "result": "unmocked", "message": "Action 'Get':\nit needs a mock", "assertions": [] }
+          ],
+          "summary": { "passed": 1, "failed": 1, "unmocked": 1, "unsupported": 0 }
+        }
+        """;
+
+    [Fact]
+    public void Test_with_exit_0_writes_the_report_to_the_summary_and_no_annotation()
+    {
+        var run = RunTest(exit: 0);
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal("exit-code=0\n", run.Output);
+        Assert.Equal("## Flow tests\n\nthe report\n", File.ReadAllText(run.Summary));
+        Assert.Equal("", run.Out);
+        Assert.Matches(@"^test sol --tests flowtests --format markdown --out \S+$", Assert.Single(run.DotnetCalls).Replace("powerops.dll ", ""));
+    }
+
+    [Fact]
+    public void Test_with_exit_1_annotates_each_test_file_that_did_not_pass()
+    {
+        var run = RunTest(exit: 1);
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal("exit-code=1\n", run.Output);
+        Assert.Equal("## Flow tests\n\nthe report\n", File.ReadAllText(run.Summary));
+        Assert.Equal(2, run.DotnetCalls.Length);
+        Assert.Matches(@"^test sol --tests flowtests --format json --out \S+$", run.DotnetCalls[1].Replace("powerops.dll ", ""));
+        Assert.Equal(
+            "::error file=flowtests/sub/b%2C1%3A%25.flowtest.json,title=Flow test failed::Flow B: assertion 0, run status: expected \"Failed\", got \"Succeeded\"; " +
+            "assertion 2, variable v: expected 1, got null; assertion 3, inputs of Y: did not run\n" +
+            "::error file=flowtests/c.flowtest.json,title=Flow test unmocked::Flow C: Action 'Get':%0Ait needs a mock\n",
+            run.Out);
+    }
+
+    [Theory]
+    [InlineData(".", "sub/b")]
+    [InlineData("./", "sub/b")]
+    [InlineData("./flowtests/", "flowtests/sub/b")]
+    [InlineData("tests/flow tests/", "tests/flow tests/sub/b")]
+    [InlineData("WORKSPACE/flowtests", "flowtests/sub/b")]
+    [InlineData("WORKSPACE", "sub/b")]
+    [InlineData("tests\\flows\\", "tests/flows/sub/b")]
+    public void Test_annotation_paths_start_at_the_repository_root(string tests, string path)
+    {
+        var run = RunTest(exit: 1, tests: tests);
+
+        Assert.StartsWith($"::error file={path}%2C1%3A%25.flowtest.json,", run.Out);
+        Assert.Equal(2, run.DotnetCalls.Length);
+    }
+
+    [Fact]
+    public void Test_annotation_values_are_cut_at_300_characters()
+    {
+        var json = """{"tests":[{"file":"a.flowtest.json","flow":"F","result":"failed","assertions":[{"index":0,"description":"d","passed":false,"expected":"LONG","actual":"a"}]}]}"""
+            .Replace("LONG", new string('e', 400));
+
+        var run = RunTest(exit: 1, json: json);
+
+        Assert.Equal($"::error file=flowtests/a.flowtest.json,title=Flow test failed::F: assertion 0, d: expected \"{new string('e', 299)}…, got \"a\"\n", run.Out);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(137)]
+    public void Test_with_another_exit_writes_the_fixed_text_and_runs_nothing_else(int exit)
+    {
+        var run = RunTest(exit: exit);
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal($"exit-code={exit}\n", run.Output);
+        Assert.Equal($"## Flow tests\n\nThe tests could not run (exit code {exit}). See the job log.\n", File.ReadAllText(run.Summary));
+        Assert.Single(run.DotnetCalls);
+        Assert.Equal("", run.Out);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Test_without_a_report_file_gives_a_warning_and_exits_0(int exit)
+    {
+        var run = RunTest(exit: exit, noOut: true);
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal($"exit-code={exit}\n", run.Output);
+        Assert.StartsWith("::warning::", run.Out);
+        Assert.DoesNotContain("::error", run.Out);
+    }
+
+    [Fact]
+    public void Test_with_a_json_report_that_does_not_parse_gives_a_warning_and_exits_0()
+    {
+        var run = RunTest(exit: 1, json: "not json");
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal("exit-code=1\n", run.Output);
+        Assert.Equal("## Flow tests\n\nthe report\n", File.ReadAllText(run.Summary));
+        Assert.Equal("::warning::the annotations could not be written; the job summary has the report\n", run.Out);
+    }
+
     // ---- diff.sh ----
 
     [Fact]
@@ -343,17 +459,21 @@ public sealed class ActionScriptTests : IDisposable
         if [ "$paginate" = 1 ]; then jq -r "$filter" < "$STUB_DIR/list.json"; fi
         """;
 
-    // The stub dotnet logs its arguments, writes the canned Markdown to --out, an empty plan to --save and a canned stdout.
+    // The stub dotnet logs its arguments, writes the canned Markdown (or, for --format json, the canned report.json when there is one)
+    // to --out, an empty plan to --save and a canned stdout. STUB_NO_OUT=1 writes no --out file.
     private const string DotnetStub = """
         #!/usr/bin/env bash
         echo "$*" >> "$STUB_DIR/dotnet.log"
         out=
         save=
+        format=
         while [ $# -gt 0 ]; do
-          case "$1" in --out) out="$2";; --save) save="$2";; esac
+          case "$1" in --out) out="$2";; --save) save="$2";; --format) format="$2";; esac
           shift
         done
-        if [ -n "$out" ]; then cp "$STUB_DIR/markdown.md" "$out"; fi
+        if [ -n "$out" ] && [ "${STUB_NO_OUT:-0}" != "1" ]; then
+          if [ "$format" = "json" ] && [ -f "$STUB_DIR/report.json" ]; then cp "$STUB_DIR/report.json" "$out"; else cp "$STUB_DIR/markdown.md" "$out"; fi
+        fi
         if [ -n "$save" ] && [ "${STUB_SAVE:-0}" = "1" ]; then echo '{}' > "$save"; fi
         if [ -f "$STUB_DIR/stdout.txt" ]; then cat "$STUB_DIR/stdout.txt"; fi
         if [ -f "$STUB_DIR/stderr.txt" ]; then cat "$STUB_DIR/stderr.txt" >&2; fi
@@ -442,6 +562,29 @@ public sealed class ActionScriptTests : IDisposable
             ["GITHUB_STEP_SUMMARY"] = summary,
             ["RUNNER_DEBUG"] = debug ? "1" : "",
             ["STUB_EXIT"] = exit.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        });
+        return run with { Summary = summary, Output = ReadOrEmpty(output) };
+    }
+
+    private Result RunTest(int exit, string tests = "flowtests", string json = TestJson, bool noOut = false)
+    {
+        Require("bash", "jq");
+        var temp = NewDir("test");
+        WriteStub(temp, "dotnet", DotnetStub);
+        File.WriteAllText(Path.Combine(temp, "markdown.md"), "## Flow tests\n\nthe report\n");
+        File.WriteAllText(Path.Combine(temp, "report.json"), json);
+        var summary = Path.Combine(temp, "summary.md");
+        var output = Path.Combine(temp, "output.txt");
+        var run = Run("test.sh", temp, temp, new()
+        {
+            ["PO_DLL"] = "powerops.dll",
+            ["PO_PATH"] = "sol",
+            ["PO_TESTS"] = tests.Replace("WORKSPACE", temp),
+            ["GITHUB_OUTPUT"] = output,
+            ["GITHUB_STEP_SUMMARY"] = summary,
+            ["GITHUB_WORKSPACE"] = temp,
+            ["STUB_EXIT"] = exit.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["STUB_NO_OUT"] = noOut ? "1" : "0",
         });
         return run with { Summary = summary, Output = ReadOrEmpty(output) };
     }

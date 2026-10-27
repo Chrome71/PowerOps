@@ -4,7 +4,7 @@ using YamlDotNet.Serialization;
 
 namespace PowerOps.Cli.Tests;
 
-// Reads action.yml: the real fail-on gate must run before anything is imported.
+// Reads action.yml: the real fail-on gate must run before anything is imported, and a failing flow test must fail the job.
 public sealed class ActionYmlTests
 {
     private static List<Dictionary<object, object>> Steps()
@@ -33,5 +33,31 @@ public sealed class ActionYmlTests
         Assert.Contains("--fail-on \"$PO_FAIL_ON\"", run);
         Assert.Contains("--baseline", run);
         Assert.DoesNotContain("${{", run);
+    }
+
+    [Fact]
+    public void Flow_tests_run_on_every_event_when_set_and_the_last_step_fails_the_job()
+    {
+        var steps = Steps();
+        int Index(string name) => steps.FindIndex(s => Text(s, "name") == name);
+        var test = Index("Flow tests");
+        var result = Index("Apply test result");
+
+        Assert.True(Index("Upload SARIF") < test && test < Index("Deploy plan") && test < Index("Deploy apply"), "Flow tests must run after Upload SARIF and before the deploy steps");
+        Assert.Equal("test", Text(steps[test], "id"));
+        Assert.Equal("inputs.tests != ''", Text(steps[test], "if"));
+        Assert.Contains("action/test.sh", Text(steps[test], "run"));
+        Assert.DoesNotContain("continue-on-error", steps[test].Keys.Cast<string>());
+        var env = (Dictionary<object, object>)steps[test]["env"];
+        Assert.Equal("${{ inputs.tests }}", env["PO_TESTS"]);
+        Assert.Equal("${{ inputs.path }}", env["PO_PATH"]);
+        Assert.Equal("${{ github.action_path }}/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll", env["PO_DLL"]);
+
+        Assert.Equal(steps.Count - 1, result);
+        Assert.Equal("always() && steps.test.outputs.exit-code != '' && steps.test.outputs.exit-code != '0'", Text(steps[result], "if"));
+        Assert.Contains("exit 1", Text(steps[result], "run"));
+        Assert.DoesNotContain("continue-on-error", steps[result].Keys.Cast<string>());
+
+        Assert.EndsWith("&& (steps.test.outputs.exit-code == '' || steps.test.outputs.exit-code == '0')", Text(steps[Index("Deploy apply")], "if"));
     }
 }
