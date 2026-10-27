@@ -14,6 +14,8 @@ JSON Schemas (draft 2020-12) for the JSON that `powerops` prints. Every output h
 | [rules.schema.json](rules.schema.json) | `powerops rules --json` |
 | [settings-apply.schema.json](settings-apply.schema.json) | `powerops settings apply --format json` |
 | [settings-validate.schema.json](settings-validate.schema.json) | `powerops settings validate --format json` |
+| [test.schema.json](test.schema.json) | `powerops test --format json` |
+| [flow-test.schema.json](flow-test.schema.json) | the file format of the `*.flowtest.json` files `powerops test` reads (not an output, so no `schemaVersion`). It is the one closed schema (`additionalProperties: false`): the code rejects a property that is not listed, a wrong type and a missing required property, so a test file cannot silently ignore a typo |
 | [snapshot.schema.json](snapshot.schema.json) | the snapshot files `powerops drift --save` writes (a file format with its own `schemaVersion`, which moves only when the file format changes, not with the outputs above) |
 
 The baseline file (`powerops-baseline.json`) is a file format with its own `version`, not an output. The settings file `powerops settings generate` writes is pac's deployment settings format, not an output, so it has no `schemaVersion`.

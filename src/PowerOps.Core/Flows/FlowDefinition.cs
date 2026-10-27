@@ -25,6 +25,23 @@ public sealed partial record FlowDefinition(
     [GeneratedRegex(@"\(([^()\s]+)\)\s*$")]
     private static partial Regex LabelSuffix();
 
+    /// <summary>The environment variable schema name a flow parameter stands for: <c>metadata.schemaName</c>, else the <c>(schema)</c> suffix of its label. Null for <c>$connections</c>, <c>$authentication</c> and parameters that are no environment variable.</summary>
+    internal static string? EnvironmentVariableSchema(string parameterName, string? metadataSchemaName)
+    {
+        if (SkippedParameters.Contains(parameterName))
+        {
+            return null;
+        }
+
+        var schema = metadataSchemaName;
+        if (string.IsNullOrEmpty(schema) && LabelSuffix().Match(parameterName) is { Success: true } m)
+        {
+            schema = m.Groups[1].Value;
+        }
+
+        return string.IsNullOrEmpty(schema) ? null : schema;
+    }
+
     /// <exception cref="InvalidDataException">The text is not a JSON object.</exception>
     public static FlowDefinition Parse(string clientDataJson)
     {
@@ -65,18 +82,7 @@ public sealed partial record FlowDefinition(
                 {
                     foreach (var p in parameters.EnumerateObject())
                     {
-                        if (SkippedParameters.Contains(p.Name))
-                        {
-                            continue;
-                        }
-
-                        var schema = Str(Get(Get(p.Value, "metadata"), "schemaName"));
-                        if (string.IsNullOrEmpty(schema) && LabelSuffix().Match(p.Name) is { Success: true } m)
-                        {
-                            schema = m.Groups[1].Value;
-                        }
-
-                        if (!string.IsNullOrEmpty(schema))
+                        if (EnvironmentVariableSchema(p.Name, Str(Get(Get(p.Value, "metadata"), "schemaName"))) is { } schema)
                         {
                             envVars.Add(schema);
                         }

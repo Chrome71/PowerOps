@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "tests": [
+    {
+      "file": "build-request-cancellation-cancelled.flowtest.json",
+      "flow": "BuildRequestCancellation",
+      "solution": "ALMAcceleratorforMakers",
+      "result": "passed",
+      "runStatus": "Succeeded",
+      "assertions": [
+        {
+          "index": 0,
+          "description": "run status",
+          "passed": true,
+          "expected": "Succeeded"
+        },
+        {
+          "index": 1,
+          "description": "inputs of List_records at [\"parameters\",\"$filter\"]",
+          "passed": true,
+          "expected": "_cat_project_value eq '00000000-0000-0000-0000-000000000001'"
+        },
+        {
+          "index": 2,
+          "description": "inputs of Update_Build_Request_to_Cancelled call 0 at [\"parameters\",\"recordId\"]",
+          "passed": true,
+          "expected": "00000000-0000-0000-0000-000000000002"
+        },
+        {
+          "index": 3,
+          "description": "status of Delete_Environment call 0",
+          "passed": true,
+          "expected": "Succeeded"
+        },
+        {
+          "index": 4,
+          "description": "inputs of Delete_Environment call 0 at [\"parameters\",\"environment\"]",
+          "passed": true,
+          "expected": "00000000-0000-0000-0000-000000000003"
+        }
+      ]
+    },
+    {
+      "file": "build-request-cancellation-other-status.flowtest.json",
+      "flow": "BuildRequestCancellation",
+      "solution": "ALMAcceleratorforMakers",
+      "result": "passed",
+      "runStatus": "Succeeded",
+      "assertions": [
+        {
+          "index": 0,
+          "description": "run status",
+          "passed": true,
+          "expected": "Succeeded"
+        },
+        {
+          "index": 1,
+          "description": "status of Terminate",
+          "passed": true,
+          "expected": "Succeeded"
+        },
+        {
+          "index": 2,
+          "description": "status of List_records",
+          "passed": true,
+          "expected": "Skipped"
+        }
+      ]
+    },
+    {
+      "file": "read-environment-variable-current.flowtest.json",
+      "flow": "ReadEnvironmentVariable",
+      "solution": "ALMAcceleratorforMakers",
+      "result": "passed",
+      "runStatus": "Succeeded",
+      "assertions": [
+        {
+          "index": 0,
+          "description": "run status",
+          "passed": true,
+          "expected": "Succeeded"
+        },
+        {
+          "index": 1,
+          "description": "response at [\"statusCode\"]",
+          "passed": true,
+          "expected": 200
+        },
+        {
+          "index": 2,
+          "description": "response at [\"body\",\"envvalue\"]",
+          "passed": true,
+          "expected": "the current value"
+        },
+        {
+          "index": 3,
+          "description": "response at [\"body\",\"message\"]",
+          "passed": true,
+          "expected": "Env Value for cat_OrgName is the current value"
+        },
+        {
+          "index": 4,
+          "description": "status of Response",
+          "passed": true,
+          "expected": "Skipped"
+        },
+        {
+          "index": 5,
+          "description": "status of Apply_to_each_2",
+          "passed": true,
+          "expected": "Skipped"
+        }
+      ]
+    },
+    {
+      "file": "read-environment-variable-default.flowtest.json",
+      "flow": "ReadEnvironmentVariable",
+      "solution": "ALMAcceleratorforMakers",
+      "result": "passed",
+      "runStatus": "Succeeded",
+      "assertions": [
+        {
+          "index": 0,
+          "description": "run status",
+          "passed": true,
+          "expected": "Succeeded"
+        },
+        {
+          "index": 1,
+          "description": "response at [\"statusCode\"]",
+          "passed": true,
+          "expected": 200
+        },
+        {
+          "index": 2,
+          "description": "response at [\"body\",\"envvalue\"]",
+          "passed": true,
+          "expected": "the default value"
+        },
+        {
+          "index": 3,
+          "description": "response at [\"body\",\"message\"]",
+          "passed": true,
+          "expected": "Env Value for cat_OrgName is the default value"
+        },
+        {
+          "index": 4,
+          "description": "status of Response",
+          "passed": true,
+          "expected": "Skipped"
+        },
+        {
+          "index": 5,
+          "description": "status of Apply_to_each_3",
+          "passed": true,
+          "expected": "Skipped"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "unmocked": 0,
+    "unsupported": 0
+  }
+}
