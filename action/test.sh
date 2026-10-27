@@ -3,15 +3,18 @@
 # PO_DLL, PO_PATH, PO_TESTS, GITHUB_OUTPUT, GITHUB_STEP_SUMMARY and GITHUB_WORKSPACE.
 # It writes the report to the job summary and, on exit 1, one error annotation per test file that did not pass.
 # It records the exit code in the step output and always exits 0; the last step of the action fails the job.
-# powerops test is offline, so its stderr names only local paths and committed files, and goes to the log as it is.
 set -euo pipefail
 
 report="$(mktemp)"
 json="$(mktemp)"
-trap 'rm -f "$report" "$json"' EXIT
+stderr="$(mktemp)"
+trap 'rm -f "$report" "$json" "$stderr"' EXIT
 
 code=0
-dotnet "$PO_DLL" test "$PO_PATH" --tests "$PO_TESTS" --format markdown --out "$report" || code=$?
+dotnet "$PO_DLL" test "$PO_PATH" --tests "$PO_TESTS" --format markdown --out "$report" 2>"$stderr" || code=$?
+# A pull request, also from a fork, controls the test files, and a log line that starts with :: is a workflow command.
+# So only powerops' own error: lines reach the log; it keeps each message on its line.
+grep '^error:' "$stderr" || true
 echo "exit-code=$code" >> "$GITHUB_OUTPUT"
 
 case "$code" in
@@ -33,9 +36,9 @@ if [ "$code" = 1 ]; then
   dir="${dir#./}"
   dir="${dir%/}"
   if [ "$dir" = "." ] || [ -z "$dir" ]; then dir=""; else dir="$dir/"; fi
-  # The same tests give the same exit code, so 1 is expected here; anything else means there is no report to read.
+  # The same tests give the same exit code and errors (logged above), so 1 is expected here; anything else means there is no report to read.
   json_code=0
-  dotnet "$PO_DLL" test "$PO_PATH" --tests "$PO_TESTS" --format json --out "$json" || json_code=$?
+  dotnet "$PO_DLL" test "$PO_PATH" --tests "$PO_TESTS" --format json --out "$json" 2>/dev/null || json_code=$?
   if [ "$json_code" != 1 ] || [ ! -s "$json" ] || ! jq -r --arg dir "$dir" '
       def data: gsub("%"; "%25") | gsub("\r"; "%0D") | gsub("\n"; "%0A");
       def prop: data | gsub(":"; "%3A") | gsub(","; "%2C");

@@ -356,6 +356,28 @@ public sealed class ActionScriptTests : IDisposable
         Assert.DoesNotContain("::error", run.Out);
     }
 
+    [Theory]
+    [InlineData("", "0")] // exit 1 as expected, but no JSON report written
+    [InlineData(TestJson, "3")]
+    public void Test_with_a_json_run_that_gives_no_report_gives_a_warning_and_exits_0(string json, string jsonExit)
+    {
+        var run = RunTest(exit: 1, json: json, jsonExit: jsonExit == "0" ? null : jsonExit);
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal("exit-code=1\n", run.Output);
+        Assert.Equal("## Flow tests\n\nthe report\n", File.ReadAllText(run.Summary));
+        Assert.Equal("::warning::the annotations could not be written; the job summary has the report\n", run.Out);
+    }
+
+    [Fact]
+    public void Test_logs_only_error_lines_of_stderr_so_a_test_file_cannot_add_a_workflow_command()
+    {
+        var run = RunTest(exit: 3, stderr: "error: a\n::error::y\n  ::add-mask::z\nmore\n");
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal("error: a\n", run.Out);
+    }
+
     [Fact]
     public void Test_with_a_json_report_that_does_not_parse_gives_a_warning_and_exits_0()
     {
@@ -460,7 +482,8 @@ public sealed class ActionScriptTests : IDisposable
         """;
 
     // The stub dotnet logs its arguments, writes the canned Markdown (or, for --format json, the canned report.json when there is one)
-    // to --out, an empty plan to --save and a canned stdout. STUB_NO_OUT=1 writes no --out file.
+    // to --out, an empty plan to --save and a canned stdout. STUB_NO_OUT=1 writes no --out file; STUB_JSON_EXIT sets the exit code of a
+    // --format json call.
     private const string DotnetStub = """
         #!/usr/bin/env bash
         echo "$*" >> "$STUB_DIR/dotnet.log"
@@ -477,6 +500,7 @@ public sealed class ActionScriptTests : IDisposable
         if [ -n "$save" ] && [ "${STUB_SAVE:-0}" = "1" ]; then echo '{}' > "$save"; fi
         if [ -f "$STUB_DIR/stdout.txt" ]; then cat "$STUB_DIR/stdout.txt"; fi
         if [ -f "$STUB_DIR/stderr.txt" ]; then cat "$STUB_DIR/stderr.txt" >&2; fi
+        if [ "$format" = "json" ] && [ -n "${STUB_JSON_EXIT:-}" ]; then exit "$STUB_JSON_EXIT"; fi
         exit "${STUB_EXIT:-0}"
         """;
 
@@ -566,13 +590,18 @@ public sealed class ActionScriptTests : IDisposable
         return run with { Summary = summary, Output = ReadOrEmpty(output) };
     }
 
-    private Result RunTest(int exit, string tests = "flowtests", string json = TestJson, bool noOut = false)
+    private Result RunTest(int exit, string tests = "flowtests", string json = TestJson, bool noOut = false, string? jsonExit = null, string? stderr = null)
     {
         Require("bash", "jq");
         var temp = NewDir("test");
         WriteStub(temp, "dotnet", DotnetStub);
         File.WriteAllText(Path.Combine(temp, "markdown.md"), "## Flow tests\n\nthe report\n");
         File.WriteAllText(Path.Combine(temp, "report.json"), json);
+        if (stderr is not null)
+        {
+            File.WriteAllText(Path.Combine(temp, "stderr.txt"), stderr);
+        }
+
         var summary = Path.Combine(temp, "summary.md");
         var output = Path.Combine(temp, "output.txt");
         var run = Run("test.sh", temp, temp, new()
@@ -585,6 +614,7 @@ public sealed class ActionScriptTests : IDisposable
             ["GITHUB_WORKSPACE"] = temp,
             ["STUB_EXIT"] = exit.ToString(System.Globalization.CultureInfo.InvariantCulture),
             ["STUB_NO_OUT"] = noOut ? "1" : "0",
+            ["STUB_JSON_EXIT"] = jsonExit ?? "",
         });
         return run with { Summary = summary, Output = ReadOrEmpty(output) };
     }
