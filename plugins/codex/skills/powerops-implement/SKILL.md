@@ -45,8 +45,9 @@ If the gate fails, write no code and change no solution:
 ## 4. Finish
 
 1. Run `powerops analyze` on each solution you changed (a path to an unpacked folder or an exported zip). Report the findings. If it could not run, say "not verified" and why.
-2. Set `status: done` in the plan header, one line only.
-3. Tell the user what was built, the commits, and the analyze result.
+2. Before you open a pull request, for each cloud flow the plan adds or changes, write or update its tests once the solution is exported and unpacked into the repo, and commit them with that export. Tests are `*.flowtest.json` files in the folder that the repo's PowerOps Action `tests` input names, else `flowtests/` at the repo root: one test for each path through the flow that the plan describes, with a mock for each connector action (see "Flow tests" in the PowerOps README). Use fake values in triggers and mocks; never paste a real run's raw outputs without replacing tenant URLs, ids, emails and names. Run `powerops test <solution> --tests <folder>` and report the result. A test that does not pass blocks the merge in CI: fix the flow or the test, and never delete or weaken a test to make it pass. If a test is `unsupported`, tell the user and let them decide. If the solution is not in the repo yet, say "not verified" and why.
+3. Set `status: done` in the plan header, one line only.
+4. Tell the user what was built, the commits, and the analyze and test results.
 
 ## Per agent
 
