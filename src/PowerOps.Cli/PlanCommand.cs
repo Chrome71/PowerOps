@@ -1,5 +1,6 @@
 using System.CommandLine;
 
+using PowerOps.Core.Output;
 using PowerOps.Core.Plans;
 
 namespace PowerOps.Cli;
@@ -100,7 +101,7 @@ public static class PlanCommand
         }
         catch (Exception ex)
         {
-            error.WriteLine(Environment.GetEnvironmentVariable("POWEROPS_DEBUG") == "1" ? ex.ToString() : $"error: {ex.Message}");
+            error.WriteLine(Environment.GetEnvironmentVariable("POWEROPS_DEBUG") == "1" ? ex.ToString() : $"error: {TextReport.Clean(ex.Message)}");
             return InternalError;
         }
     }

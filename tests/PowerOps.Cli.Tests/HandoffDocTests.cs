@@ -11,6 +11,10 @@ public partial class HandoffDocTests
     [GeneratedRegex(@"\bpowerops((?: [a-z][a-z-]*)+)")]
     private static partial Regex Mention();
 
+    // A step of the flow: a line that starts with its number and a bold title.
+    [GeneratedRegex(@"^(\d+)\. \*\*")]
+    private static partial Regex Step();
+
     private static List<string[]> WordLists(string text) =>
         [.. Mention().Matches(text).Select(m => m.Groups[1].Value.Trim().Split(' ')).DistinctBy(w => string.Join(' ', w))];
 
@@ -49,7 +53,7 @@ public partial class HandoffDocTests
     {
         var lists = WordLists(Page()).Select(w => string.Join(' ', w)).ToList();
 
-        foreach (var command in new[] { "plan status", "plan sign-off", "skills install", "analyze", "diff", "settings generate", "settings validate", "deploy plan", "deploy apply", "drift" })
+        foreach (var command in new[] { "plan status", "plan sign-off", "skills install", "analyze", "test", "diff", "settings generate", "settings validate", "deploy plan", "deploy apply", "drift" })
         {
             Assert.Contains(lists, l => l == command || l.StartsWith(command + " ", StringComparison.Ordinal));
         }
@@ -72,5 +76,15 @@ public partial class HandoffDocTests
 
         var misspelled = WordLists(Page().Replace("deploy apply", "deploy aply"));
         Assert.Contains("deploy aply", misspelled.Select(Unknown));
+    }
+
+    [Fact]
+    public void Step_4_also_runs_the_flow_tests_and_no_step_is_renumbered()
+    {
+        var lines = Page().Split('\n');
+        var numbers = lines.Select(l => Step().Match(l)).Where(m => m.Success).Select(m => int.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture));
+
+        Assert.Equal(Enumerable.Range(1, 10), numbers);
+        Assert.Contains("`powerops test ", lines.Single(l => l.StartsWith("4. **Analyze", StringComparison.Ordinal)));
     }
 }

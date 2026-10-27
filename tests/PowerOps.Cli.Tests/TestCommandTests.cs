@@ -311,6 +311,20 @@ public class TestCommandTests : IDisposable
     }
 
     [Fact]
+    public void A_line_break_in_a_test_file_key_stays_on_the_error_line()
+    {
+        // In GitHub Actions a line that starts with :: is a workflow command, and a fork PR controls the test files.
+        var tests = Folder("inject");
+        Write(tests, "a.flowtest.json", """{ "flow": "x", "bogus\n::warning::INJECTED": 1 }""");
+
+        var (code, _, err) = Run(Seed, "--tests", tests);
+
+        Assert.Equal(3, code);
+        Assert.Contains("::warning::INJECTED", err);
+        Assert.DoesNotContain(err.Split('\n'), l => l.TrimStart().StartsWith("::", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void A_test_file_that_breaks_a_rule_exits_three_before_any_test_runs()
     {
         var tests = Folder("rule");

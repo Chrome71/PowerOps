@@ -36,6 +36,7 @@ Also:
 - Protect `.github/workflows/` (and the settings script) with CODEOWNERS or a repository ruleset, so a branch cannot change what runs in `test-plan` unreviewed.
 - Turn on "Prevent self-review" on the `test` environment, so the person who pushed cannot approve their own apply.
 - Make the `plan` job a required status check. Otherwise a PR can be merged with no plan for its last commit, and `find` fails.
+- Run flow tests in their own workflow, as in the README's [merge gate](../../README.md#merge-gate-flow-tests), not in the `plan` job: its `path` is Dev's export, so the test report in the job summary would show values from it, and the job is skipped on fork PRs. The merge-gate workflow tests the committed solution.
 
 For a quick trial in a repository only you can push to, one app registration with both federated credentials works. Do not do that where others can push branches.
 

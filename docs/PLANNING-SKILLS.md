@@ -63,7 +63,7 @@ Body edited after sign-off ──► `powerops plan status` exits 1: "changed si
 | approved | approved, `review: done` | `powerops-review-plan`, in a fresh context on the top model, dispatched by the parent session | `review.md` with its header; findings numbered R1, R2... |
 | approved | signed-off | `powerops-plan` sign-off step: shows the open-question count, unresolved findings and the `review.md` header lines, asks once with lettered options, then runs `powerops plan sign-off <plan>` | `status`, `signed-off`, `signed-off-hash`; `review: skipped` if there is no `review.md` and the user chose to skip |
 | signed-off | implementing | `powerops-implement`, after the gate passes | `status` only |
-| implementing | done | `powerops-implement`, after the steps and the final `analyze` | `status` only; progress lives in commit messages, not in `plan.md` |
+| implementing | done | `powerops-implement`, after the steps and the final `analyze` and `test` | `status` only; progress lives in commit messages, not in `plan.md` |
 | any | draft | `powerops-plan`, when the user asks for more rounds or edits the plan | `status` |
 
 Header fields are left out of the hash, so status changes never invalidate a sign-off; edits to the body do. The state is visible in the files and checkable in CI.
@@ -86,7 +86,7 @@ Header fields are left out of the hash, so status changes never invalidate a sig
 |---|---|---|
 | `powerops-plan` | Refines the idea through question rounds, reads environment facts, drafts the plan, runs the fast path, and writes HTML mockups | `plan.md`, `decisions.md`, `mockups/*.html` |
 | `powerops-review-plan` | Reviews an approved draft in a fresh context on the top model, against a Power Platform checklist. Never asks the user | `review.md` |
-| `powerops-implement` | Checks the gate (`powerops plan status`: status `signed-off` and the hash matches). With no signed-off plan it hands over to `powerops-plan` in fast-path mode; with one, it implements step by step and runs `powerops analyze` at the end | code and solution changes |
+| `powerops-implement` | Checks the gate (`powerops plan status`: status `signed-off` and the hash matches). With no signed-off plan it hands over to `powerops-plan` in fast-path mode; with one, it implements step by step and runs `powerops analyze` and `powerops test` at the end | code and solution changes |
 
 - `powerops-plan` owns the fast path and mockups, because both are planning; `powerops-implement` only holds the gate.
 - The `powerops-plan` description must also match requests for a mockup, screen, wireframe or prototype of a Power Platform app. In the prototype test, "mock it up" did not trigger the skill.

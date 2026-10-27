@@ -105,12 +105,12 @@ public static class AnalyzeCommand
             }
             catch (InvalidDataException ex)
             {
-                error.WriteLine($"error: {ex.Message}");
+                error.WriteLine($"error: {TextReport.Clean(ex.Message)}");
                 return UsageError;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                error.WriteLine($"error: cannot read baseline {baselineFile}: {ex.Message}");
+                error.WriteLine($"error: cannot read baseline {TextReport.Clean(baselineFile)}: {TextReport.Clean(ex.Message)}");
                 return UsageError;
             }
         }
@@ -128,7 +128,7 @@ public static class AnalyzeCommand
         }
         catch (Exception ex)
         {
-            error.WriteLine(Environment.GetEnvironmentVariable("POWEROPS_DEBUG") == "1" ? ex.ToString() : $"error: {ex.Message}");
+            error.WriteLine(Environment.GetEnvironmentVariable("POWEROPS_DEBUG") == "1" ? ex.ToString() : $"error: {TextReport.Clean(ex.Message)}");
             return InternalError;
         }
     }
