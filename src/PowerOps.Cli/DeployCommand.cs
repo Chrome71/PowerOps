@@ -431,7 +431,7 @@ public static class DeployCommand
         }
         catch (DriftReadException ex)
         {
-            error.WriteLine($"error: --target: {ex.Message}");
+            error.WriteLine($"error: --target: {Clean(ex.Message)}");
             if (prefixForwarded)
             {
                 Forward(error, ex.Forwarded);

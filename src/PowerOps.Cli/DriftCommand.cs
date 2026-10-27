@@ -86,7 +86,7 @@ public static class DriftCommand
             catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
             {
                 // Only InvalidDataException's text is safe: IO messages quote the path.
-                error.WriteLine($"error: --env {i + 1}: {(ex is InvalidDataException ? ex.Message : "the snapshot file could not be read")}");
+                error.WriteLine($"error: --env {i + 1}: {(ex is InvalidDataException ? TextReport.Clean(ex.Message) : "the snapshot file could not be read")}");
                 return InternalError;
             }
 
@@ -105,7 +105,7 @@ public static class DriftCommand
             }
             catch (DriftReadException ex)
             {
-                error.WriteLine($"error: --env {i + 1}: {ex.Message}");
+                error.WriteLine($"error: --env {i + 1}: {TextReport.Clean(ex.Message)}");
                 if (!string.IsNullOrEmpty(ex.Forwarded))
                 {
                     error.Write(ex.Forwarded.EndsWith('\n') ? ex.Forwarded : ex.Forwarded + "\n");

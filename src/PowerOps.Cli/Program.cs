@@ -3,6 +3,7 @@ using System.Text;
 
 using PowerOps.Core.Deploy;
 using PowerOps.Core.Drift;
+using PowerOps.Core.Output;
 
 namespace PowerOps.Cli;
 
@@ -56,7 +57,7 @@ public static class Program
             // System.CommandLine returns 1 for parse errors; usage errors are 2 here.
             foreach (var e in parse.Errors)
             {
-                error.WriteLine($"error: {e.Message}");
+                error.WriteLine($"error: {TextReport.Clean(e.Message)}");
             }
 
             return 2;

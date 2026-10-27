@@ -86,7 +86,7 @@ public static class SettingsCommand
             }
             catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
             {
-                error.WriteLine($"error: {file}: {ex.Message}");
+                error.WriteLine($"error: {TextReport.Clean(file)}: {TextReport.Clean(ex.Message)}");
                 return InternalError;
             }
 
@@ -160,7 +160,7 @@ public static class SettingsCommand
             }
             catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
             {
-                error.WriteLine($"error: {file}: {ex.Message}");
+                error.WriteLine($"error: {TextReport.Clean(file)}: {TextReport.Clean(ex.Message)}");
                 return InternalError;
             }
 
@@ -339,7 +339,7 @@ public static class SettingsCommand
         }
         catch (Exception ex)
         {
-            error.WriteLine(Environment.GetEnvironmentVariable("POWEROPS_DEBUG") == "1" ? ex.ToString() : $"error: {ex.Message}");
+            error.WriteLine(Environment.GetEnvironmentVariable("POWEROPS_DEBUG") == "1" ? ex.ToString() : $"error: {TextReport.Clean(ex.Message)}");
             return InternalError;
         }
     }
