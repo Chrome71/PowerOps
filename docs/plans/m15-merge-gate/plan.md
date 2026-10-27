@@ -1,8 +1,8 @@
 ---
 status: done
 review: done
-signed-off: 2026-10-26
-signed-off-hash: ae37bdcc453568b86ee5dc97b84843f32682da328655c8765d0505bae28d0b5f
+signed-off: 2026-10-27
+signed-off-hash: 3065dbadc1e17bbe485666bb5e621434c777cbddb727f970cb6e8dc4a10da3cf
 environment: null
 depth: quick
 supersedes: null
@@ -21,7 +21,8 @@ Done when:
   - exit 1: one `::error` annotation per test file that did not pass, at the tests folder plus the report's file path, none for a passed one; the message holds the flow, the test's message and each failed assertion; an `actual` of `null` is shown as `null`; values over 300 characters are cut;
   - the tests folder given as `.`, `./`, with a trailing slash, or as an absolute path under `GITHUB_WORKSPACE` gives a path from the repository root; a path with a space works; `%`, `,`, `:` and a line break in a file name or message are escaped;
   - exit 2, 3 and another code (137): a fixed text in the summary, the exit code recorded, nothing else run;
-  - exit 0 or 1 without the report file, and a JSON report that does not parse: a `::warning::`, and the script still exits 0 with the exit code recorded.
+  - exit 0 or 1 without the report file; on exit 1 a JSON run that exits otherwise, writes no report or writes one that does not parse: a `::warning::`, and the script still exits 0 with the exit code recorded;
+  - stderr with other lines than `error:` ones (`::error::`, an indented `::add-mask::`): only the `error:` lines reach the log. `TestCommandTests` adds a test file whose key holds a line break followed by `::warning::`: the error stays on one line.
 - `tests/PowerOps.Cli.Tests/ActionYmlTests.cs` passes with a new test: the `Flow tests` step runs only when `tests` is set, has no fork or event condition and no `continue-on-error`, and comes after `Upload SARIF` and before `Deploy plan` and `Deploy apply`; `Apply test result` is the last step, runs on `always()`, reads the test step's exit code and has no `continue-on-error`; `Deploy apply` does not run when that exit code is set and not `0`.
 - The repository's own CI `action` job (`.github/workflows/ci.yml`, `uses: ./`) runs with `tests: tests/fixtures/flowtests/seed` and passes on ubuntu, an end-to-end pass of the real step.
 - `SkillsCommandTests` pins that `powerops-implement` writes or updates the tests of each flow a plan changes, after the export, with fake values only, and runs `powerops test` before the pull request; `HandoffDocTests` pins that the hand-off page's step 4 runs `powerops test` and that the page still has steps 1 to 10.
@@ -44,7 +45,7 @@ New input in `action.yml`: `tests`, a folder of `*.flowtest.json` files, relativ
 
 **`action/test.sh`**, a new script in the style of `plan.sh` and `apply.sh`. Inputs come only from the environment: `PO_DLL`, `PO_PATH`, `PO_TESTS`, `GITHUB_OUTPUT`, `GITHUB_STEP_SUMMARY`, `GITHUB_WORKSPACE`. It works in bash 3.2 (macOS runners): no `mapfile`, `${var,,}` or associative arrays.
 
-1. Run `dotnet "$PO_DLL" test "$PO_PATH" --tests "$PO_TESTS" --format markdown --out <temp file>` and record its exit code as `exit-code=<n>` in `GITHUB_OUTPUT`. Its stderr goes to the log unfiltered: the command is offline, so its errors name local paths and the committed files, never a value from an environment.
+1. Run `dotnet "$PO_DLL" test "$PO_PATH" --tests "$PO_TESTS" --format markdown --out <temp file>` and record its exit code as `exit-code=<n>` in `GITHUB_OUTPUT`. Only the `error:` lines of its stderr go to the log, as in `apply.sh`: a pull request, also from a fork, controls the test files, and a log line that starts with `::` is a workflow command, so the CLI prints each exception message on its `error:` line with control characters replaced (`TextReport.Clean`, in every command), and the script drops any other line. The JSON run's stderr is dropped, since it repeats the first run's.
 2. Exit 0 or 1: append the Markdown report to the job summary (a `::warning::` instead when the file is missing). Any other exit: append `## Flow tests`, then "The tests could not run (exit code <n>). See the job log."
 3. Exit 1 only: run the same command with `--format json`. That run also exits 1, which is expected; any other exit, or JSON that `jq` cannot read, gives a `::warning::` that the annotations could not be written, and the script goes on (the summary and the exit code already hold the result). Then print one `::error file=<path>,title=Flow test <result>::<message>` line for each test whose `result` is not `passed`. `<path>` is the tests folder (without a `GITHUB_WORKSPACE/` prefix, a leading `./` or a trailing `/`; nothing when it is `.`) joined with the report's `file`, so the annotation names the test file from the repository root. `<message>` is the flow's name, then the test's `message` and each failed assertion in the text report's words (`assertion <index>, <description>: expected <value>, got <value>`, or its message when the assertion has no `actual`; `has("actual")` decides, so an `actual` of `null` prints `null`). Values are `jq`'s `tojson`, cut at 300 characters, so they can differ in number format from the text report; the tests use a canned report. Escaping as in the Annotations step of `action.yml` (`%`, CR, LF in the message; also `:` and `,` in the properties). GitHub shows at most 10 error annotations per step (Checks API docs); the job summary lists every test.
 4. Always exit 0; the action's last step fails the job.

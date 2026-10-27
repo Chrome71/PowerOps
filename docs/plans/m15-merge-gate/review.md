@@ -1,8 +1,9 @@
-plan-hash: ae37bdcc453568b86ee5dc97b84843f32682da328655c8765d0505bae28d0b5f
+plan-hash: 3065dbadc1e17bbe485666bb5e621434c777cbddb727f970cb6e8dc4a10da3cf
 model: claude-sonnet-5-5
 fresh-context: yes
 
 The plan-hash was updated after the text fixes for R1 to R17 below (the practice of the M7 to M14 reviews). Reviewed hash: e4b14656c83482e6d9773dcc520f51e06c001dedfe5ed881b83863a9be395e57. The reviewer (powerops-reviewer, Sonnet, fresh context) could not write files, so the planning session wrote this file from its reply and added the resolutions. The fixes changed Goal (done-when), Users, Data, Automation, Environments and route, Constraints, Assumptions and Steps 2, 3 and 6, and decision Q2.
+Updated again on 2026-10-27 after the master session's review of the build (powerops-reviewer, Sonnet), from signed-off hash ae37bdcc453568b86ee5dc97b84843f32682da328655c8765d0505bae28d0b5f: Automation step 1 (only the `error:` lines of `powerops test`'s stderr reach the log, and every command keeps an exception message on its `error:` line, because a pull request controls the test files and a line starting with `::` is a workflow command; the earlier text said the stderr was safe to log unfiltered, which was wrong) and Goal (the tests for that and for the JSON run's other exits). No other change.
 
 ## Findings
 
