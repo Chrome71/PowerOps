@@ -46,5 +46,6 @@ jobs:
       - uses: ./
         with:
           path: tests/fixtures/powerops-seed/v2
+          tests: tests/fixtures/flowtests/seed
           upload-sarif: 'false'
           fail-on: none
