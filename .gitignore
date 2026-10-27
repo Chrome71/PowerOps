@@ -486,3 +486,6 @@ $RECYCLE.BIN/
 
 # Private research notes (kept locally, not published)
 docs/research/
+
+# Playwright starter: a saved sign-in (docs/examples/playwright/README.md)
+.auth/
