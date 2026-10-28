@@ -2,7 +2,7 @@
 status: done
 review: done
 signed-off: 2026-10-28
-signed-off-hash: 03b18f888e3569e5914c61123d48c36f5e534acd84a287f8f0cbdf401f0fd8e7
+signed-off-hash: ff116fe30061e00d14c594db2e30a2bfe8f44e06f5885df6e28c30f2b03a3551
 environment: null
 depth: quick
 supersedes: null
@@ -50,6 +50,7 @@ Done when:
 - Claude Code 2.1.303 starts a bare `powerops` from PATH. `claude -p --plugin-dir <prototype> --no-session-persistence` with the tool path first on PATH listed the 12 tools as `mcp__plugin_powerops_powerops__<tool>`, the scoped name its docs give plugin servers (`plugin:<plugin>:<server>`). `claude plugin validate --strict` passed on the prototype with the `.mcp.json` above.
 - Codex 0.163.0 reads a plugin's server entries with the same `RawMcpServerConfig` as `config.toml` (`codex-mcp/src/plugin_config.rs` `normalize_plugin_mcp_server` at `rust-v0.163.0`), so `tool_timeout_sec` (seconds) works in a plugin `.mcp.json`. In a throwaway `CODEX_HOME`, `codex plugin marketplace add <prototype>`, `codex plugin add powerops@powerops` and `codex mcp get powerops --json` showed the server enabled with the prototype's `tool_timeout_sec: 1800.0`. A user's own `[mcp_servers.powerops]` takes the place of the plugin's entry (`-c mcp_servers.powerops.tool_timeout_sec=120` with the same command gave 120). The per-plugin settings in `config.toml` (`[plugins."powerops@powerops".mcp_servers.powerops]`) cover `enabled`, approval modes and tool lists, not timeouts (`apply_plugin_mcp_server_policy`, `core-plugins/src/loader.rs`).
 - Codex reads `.mcp.json` at a plugin root even without `mcpServers` in the manifest (`DEFAULT_MCP_CONFIG_FILE`, `core-plugins/src/loader.rs`), and the manifest's `./.mcp.json` path is read when present (`plugin_mcp_config_paths`). The row's field stays, so the manifest says where the servers are.
+- Codex's plugin docs (the "Build plugins" page, read 2026-10-28) put a portable plugin's servers in a root `mcp.json` (no dot) with a transport `type` per server and no `mcpServers` field in a manifest. For the compatibility layout that this plugin uses, they say only that the `@plugin-creator` scaffold makes a `.mcp.json` with an `mcpServers` object and that the manifest references it, and not to just rename that file because the portable format adds a `type`; they show neither the field's form nor a local server entry. So the `.mcp.json` file, the field's `./.mcp.json` value and the missing `type` rest on Codex's code at `rust-v0.163.0` and the observed run.
 - Why 3600 seconds: `deploy apply` waits up to 60 minutes for each import (`SettingsCommand.ImportTimeout`), and the imports run inside the `deploy_apply` call. Codex's default is 300 seconds in its code at `rust-v0.163.0` (`DEFAULT_TOOL_TIMEOUT`, `codex-mcp/src/rmcp_client.rs`; its docs say 60), so a long import could outlast the call, which then ends with an error while the import goes on. Codex stops a call's clock while a form from that server is open (`pause_state.enter()` in `create_elicitation`, `rmcp-client/src/elicitation_client_service.rs`, read by `active_time_timeout` in `rmcp-client/src/rmcp_client.rs`), so the time the user spends on the form doesn't count. Claude Code's default limit is about 28 hours, with a 30-minute idle window for stdio calls (`CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT`); the Claude plugin sets nothing, and the README names the variable.
 
 **Codex's form** (settled before this plan; `decisions.md` Q4; read in its code at `rust-v0.163.0`):
@@ -116,7 +117,7 @@ None.
 ## Constraints
 
 - No new package and no code under `src/`. Dependencies stay as they are (Apache-2.0 and MIT).
-- AGENTS.md: no `--apply`, and `deploy_apply` with `apply: true` only after the user's yes, with the user declining the form. This session never answers the form. Tenant work only after the user's yes in this session.
+- AGENTS.md: no `--apply`, and `deploy_apply` with `apply: true` only after the user's yes, with the user declining the form. This session never answers the form on its own. In the run, at the user's instruction, it sent the user's Decline (Claude Code) and Esc (Codex) through tmux with the field empty, and allowed each call once (amended 2026-10-28; `decisions.md` Log). Tenant work only after the user's yes in this session.
 - No version or changelog edits (the plugin manifests' `version` included); no push or pull request from this session. Conventional Commits, no attribution lines. No environment URL, id, email or user name in the repo, the plan or the record.
 - Deadline: Test expires about 2026-11-21.
 

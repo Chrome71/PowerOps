@@ -1,10 +1,12 @@
-plan-hash: 03b18f888e3569e5914c61123d48c36f5e534acd84a287f8f0cbdf401f0fd8e7
+plan-hash: ff116fe30061e00d14c594db2e30a2bfe8f44e06f5885df6e28c30f2b03a3551
 model: claude-sonnet-5-5
 fresh-context: yes
 
 The plan-hash was updated after the text fixes for R1 to R13 below (the practice of the M7 to M19 reviews). Reviewed hash: 3739ebfc3ba6a60657c534bb154f004b6eabfec3123cda5a4ad894ad220cb99b. The reviewer (powerops-reviewer, Sonnet, fresh context) could not write files, so the planning session wrote this file from its reply and added the resolutions. The fixes changed Data (Codex's reduced environment, the descriptions), Automation (the test, the Usage paragraph, the README points), Environments and route (the setup checks, the scripts, the run steps, the evidence, the clean-up) and Step 7. The reviewer contacted no tenant and ran no client.
 
 The plan-hash was updated again on 2026-10-28 for the manual run's finding: Codex's reduced environment kept `pac` from its saved sign-in on Linux, so the Codex entry passes `DBUS_SESSION_BUS_ADDRESS` and `XDG_RUNTIME_DIR` in `env_vars` (R7's suggested change, made after the run showed it was needed). Signed-off hash before that change: 13915f6d9416fdd5200697c32270464365a5351ef4ff7fd886f81f9fe11e2d26.
+
+The plan-hash was updated a third time on 2026-10-28 for the master session's wording review of the record (`decisions.md` Log): a Data line on Codex's plugin docs and the Constraints line on who answered the form. Signed-off hash before that change: 03b18f888e3569e5914c61123d48c36f5e534acd84a287f8f0cbdf401f0fd8e7.
 
 Most of the Power Platform checklist does not apply: this is a CLI and plugin milestone with no solution. Items 1 and 2 (solution boundary, publisher, connection references, environment variables), 3 and 4 (connectors, licences, DLP), 5 (route: only the manual run reads Test, and it imports nothing), 6 (managed or unmanaged: the run reuses the managed seed zip of M9 and M10), 7 (volume, delegation) and 8 (security roles: the run uses the user's own `pac` and `az` sign-in). Items 9 and 10 drive the findings. Open questions: 0. No URL, GUID, email or person's name in the plan or `decisions.md`.
 
