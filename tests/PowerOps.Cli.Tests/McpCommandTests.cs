@@ -1390,7 +1390,7 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         AssertRefused(
             await Apply(pair, ApplyArgs(planFile)),
-            "error: planFile: the plan's target name cannot be shown in the form (too long, control or format characters, or white space at either end); nothing was imported", Hint);
+            "error: planFile: the plan's target name cannot be shown in the form (too long, characters that can't be typed, or white space at either end); nothing was imported", Hint);
 
         Assert.Empty(forms.Seen);
         Assert.Equal(0, _fakes.Total);

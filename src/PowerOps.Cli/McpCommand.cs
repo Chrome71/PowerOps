@@ -282,7 +282,7 @@ public static partial class McpCommand
         if (plan.Target.Length > 200 || plan.Target.EnumerateRunes().Any(r => Rune.GetUnicodeCategory(r) is UnicodeCategory.Control or UnicodeCategory.Format or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator or UnicodeCategory.PrivateUse)
             || char.IsWhiteSpace(plan.Target[0]) || char.IsWhiteSpace(plan.Target[^1]))
         {
-            return Refuse("error: planFile: the plan's target name cannot be shown in the form (too long, control or format characters, or white space at either end); nothing was imported", FormHint);
+            return Refuse("error: planFile: the plan's target name cannot be shown in the form (too long, characters that can't be typed, or white space at either end); nothing was imported", FormHint);
         }
 
         // The report's target is the live friendly name of the environment the target input names, so the name typed below is that environment's.

@@ -1,10 +1,12 @@
-plan-hash: c13657d570c799524f1b78838602dd8bd41212f97d657c71f70b90cf2e37c66a
+plan-hash: 90a5128883bf887838c71f02f8e873b095bc8a99f3b73916901ff7d85b380f13
 model: claude-sonnet-5-5
 fresh-context: yes
 
 The plan-hash was updated after the text fixes for R1 to R11 below (the practice of the M7 to M18 reviews). Reviewed hash: f31b6dd11306a28c81e45aaa84b345e1985076ef37435b6965f116a238845c5f. The reviewer (powerops-reviewer, Sonnet, fresh context) could not write files, so the planning session wrote this file from its reply and added the resolutions. The fixes changed Goal (done-when), Data, Automation (Files, the elicitation summary, the form, the call order, the refusal lines, the guard, the tests), Assumptions and Steps 3 and 5; Q2's form message lost the plan file's name (R6), logged in `decisions.md`. The reviewer contacted no tenant.
 
 The plan-hash was updated again on 2026-10-28 after the master session's review of the build (an independent Sonnet review: 0 High, 1 Medium, 5 Low), which changed Data, Files, the call order (a new step 6, the dry run before the form, so the typed name is the live name of the environment the `target` input names; the plan's hash doesn't cover the file's `target` text), step 5's characters, the refusal lines, the description (two sentences), Assumptions, the tests and Steps. One Low (a client or hook that answers the form automatically) was accepted as decision 26's design. Signed-off hash before that change: 62b2cd27a96c62a76e059d731a9f11ac671496594651ebffc2ae859b0c103b29.
+
+The plan-hash was updated a third time on 2026-10-28 for the master session's re-review (every finding closed, two Low wording nits: the step 5 refusal line now says "characters that can't be typed") and for the record of Q5's interactive checks in Step 1. Signed-off hash before that change: c13657d570c799524f1b78838602dd8bd41212f97d657c71f70b90cf2e37c66a.
 
 Most of the Power Platform checklist (items 1 to 8) does not apply: the plan is a .NET CLI/MCP feature, has no solution, publisher, connector, DLP, environment-variable or security-role content, and `environment` is null. Items 9 and 10 apply and drive the findings. Open questions: 0. No URL, GUID, email or person's name in the plan or `decisions.md`.
 

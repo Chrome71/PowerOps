@@ -1,8 +1,8 @@
 ---
-status: implementing
+status: done
 review: done
 signed-off: 2026-10-28
-signed-off-hash: c13657d570c799524f1b78838602dd8bd41212f97d657c71f70b90cf2e37c66a
+signed-off-hash: 90a5128883bf887838c71f02f8e873b095bc8a99f3b73916901ff7d85b380f13
 environment: null
 depth: quick
 supersedes: null
@@ -92,7 +92,7 @@ So `apply` stays. Decision 26's fallback (a dry run only) is not needed.
 - Steps 2 and 10 (guard): `error: apply: an import is already running in this server; nothing was imported`
 - Step 3: `error: apply: this client cannot show the confirmation form; nothing was imported`
 - Step 4: `error: apply: the plan file cannot be applied; nothing was imported`
-- Step 5: `error: planFile: the plan's target name cannot be shown in the form (too long, control or format characters, or white space at either end); nothing was imported`
+- Step 5: `error: planFile: the plan's target name cannot be shown in the form (too long, characters that can't be typed, or white space at either end); nothing was imported`
 - Step 6: `error: apply: the dry run did not pass, so no form was sent; nothing was imported`
 - Step 7: `error: apply: the confirmation form failed; nothing was imported`
 - Step 8: `error: apply: the confirmation form was declined; nothing was imported`, `error: apply: the confirmation form was cancelled; nothing was imported` (also for any other action), or `error: apply: the name typed in the form is not the plan's target; nothing was imported`
@@ -161,7 +161,7 @@ None.
 
 ## Steps
 
-1. Elicitation check, outside the repo: a toy Core-only server that elicits, `claude -p` and `codex exec` (listing only) with per-run config, and Codex's code at `rust-v0.163.0`. Done on 2026-10-28 (`decisions.md`, Log). The interactive checks wait on Q5.
+1. Elicitation check, outside the repo: a toy Core-only server that elicits, `claude -p` and `codex exec` (listing only) with per-run config, and Codex's code at `rust-v0.163.0`. Done on 2026-10-28 (`decisions.md`, Log). The interactive checks (Q5), after the user's yes: Codex's TUI showed the form, but no answer reached the server, and Claude Code stopped at its folder-trust prompt, so an answered form is left to M20's manual run.
 2. `docs:` this plan, its decisions and review, signed off.
 3. `feat(cli):` item 44: the plan file read shared with `DeployCommand`, the `deploy_apply` tool (the flag field, the asynchronous run, the `ran` seam, the capability check, the form, the guard), the `deploy_plan` description, tests 1 to 12, the `mcp-tools.txt` golden, and the AGENTS.md and README lines.
 4. Run `dotnet build --no-incremental` (0 warnings), `dotnet test`, `dotnet format --verify-no-changes`, `dotnet pack src/PowerOps.Cli -c Release -o artifacts` and `powerops plan status .`; update goldens with the recipe and read the golden diff.
