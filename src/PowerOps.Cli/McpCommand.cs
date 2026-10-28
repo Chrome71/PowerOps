@@ -207,7 +207,7 @@ public static partial class McpCommand
                 (v, o, e, ct) => DeployPlan(v, o, e, Cli, ct),
                 WritePlan,
                 CheckSave),
-            new("deploy_apply", "Promote a reviewed plan file from deploy_plan's `save`: plan again against the target, refuse when anything changed, and import the zips in plan order through pac. Without `apply` it is a dry run that imports nothing. With `apply: true` it imports only after the user types the target's name into the server's confirmation form, never without that typed yes. Returns the JSON of `powerops deploy apply --format json` (docs/schemas/deploy-apply.schema.json). Promote a reviewed plan with this tool, not with an import tool.",
+            new("deploy_apply", "Promote a reviewed plan file from deploy_plan's `save` with this tool, not with an import tool: it plans again against the target and returns the JSON of `powerops deploy apply --format json` (docs/schemas/deploy-apply.schema.json), as a dry run that imports nothing unless `apply` is true. With `apply: true` it imports the zips in plan order through pac only after the user types the target's name into the server's confirmation form, and refuses when anything changed since the plan.",
                 [
                     new("planFile", Kind.Path, true, "Absolute path of a plan file saved by deploy_plan's save; the zips and settings files are read from its folder."),
                     new("target", Kind.Text, true, "The environment the plan was made for: an id or URL (as pac --environment)."),
@@ -227,6 +227,22 @@ public static partial class McpCommand
 
     // A command's result that the tool refuses anyway: isError, with the line after the command's own error lines.
     private static CallToolResult RefuseWith(string stdout, string stderr, string line) => Result(3, stdout, stderr + "\n" + line);
+
+    private sealed record DryRun(string? Status, string? Target, string? Hash);
+
+    // The dry run's report says planned for this plan's target and hash; a stdout that is not such a JSON object does not.
+    private static bool Passed(int code, string stdout, ReviewedPlan plan)
+    {
+        try
+        {
+            var report = JsonSerializer.Deserialize<DryRun>(stdout, JsonSerializerOptions.Web);
+            return code == 0 && report is { Status: ApplyStatus.Planned } && report.Target == plan.Target && report.Hash == plan.Hash;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
 
     // Without apply: a dry run. With it: the user types the plan's target name into the client's form, and only an ordinal accept with that exact name passes.
     private static async ValueTask<CallToolResult> DeployApply(Values v, McpServer server, SemaphoreSlim guard, Func<string[], TextWriter, TextWriter, int> cli, CancellationToken cancellationToken)
@@ -263,10 +279,17 @@ public static partial class McpCommand
             return RefuseWith(o, e, "error: apply: the plan file cannot be applied; nothing was imported");
         }
 
-        if (plan.Target.Length > 200 || plan.Target.EnumerateRunes().Any(r => Rune.GetUnicodeCategory(r) is UnicodeCategory.Control or UnicodeCategory.Format)
+        if (plan.Target.Length > 200 || plan.Target.EnumerateRunes().Any(r => Rune.GetUnicodeCategory(r) is UnicodeCategory.Control or UnicodeCategory.Format or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator or UnicodeCategory.PrivateUse)
             || char.IsWhiteSpace(plan.Target[0]) || char.IsWhiteSpace(plan.Target[^1]))
         {
             return Refuse("error: planFile: the plan's target name cannot be shown in the form (too long, control or format characters, or white space at either end); nothing was imported", FormHint);
+        }
+
+        // The report's target is the live friendly name of the environment the target input names, so the name typed below is that environment's.
+        var (dryCode, dryOut, dryErr) = Exec(Args(false));
+        if (!Passed(dryCode, dryOut, plan))
+        {
+            return RefuseWith(dryOut, dryErr, "error: apply: the dry run did not pass, so no form was sent; nothing was imported");
         }
 
         var zips = string.Join(", ", plan.Inputs.Zips.Select(z => z.Zip));

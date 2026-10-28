@@ -832,6 +832,8 @@ public sealed class McpCommandTests : IAsyncLifetime
     private const string WrongName = "error: apply: the name typed in the form is not the plan's target; nothing was imported";
     private const string FormFailed = "error: apply: the confirmation form failed; nothing was imported";
     private const string NotApplicable = "error: apply: the plan file cannot be applied; nothing was imported";
+    private const string DryRunFailed = "error: apply: the dry run did not pass, so no form was sent; nothing was imported";
+    private const string OtherName = "Other Name";
     private static readonly TimeSpan Wait = TimeSpan.FromSeconds(20);
 
     private static readonly string[] Revisions = ["2026-07-28", "2025-06-18"];
@@ -893,7 +895,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         }
     }
 
-    private static async Task<Pair> Connect(Fakes fakes, string revision, Forms forms)
+    private static async Task<Pair> Connect(Fakes fakes, string revision, Forms forms, ElicitationCapability? elicitation = null)
     {
         var ran = new ConcurrentQueue<string[]>();
         var (clientToServer, serverToClient) = (new Pipe(), new Pipe());
@@ -901,7 +903,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         var run = server.RunAsync();
         var client = await McpClient.CreateAsync(
             new StreamClientTransport(clientToServer.Writer.AsStream(), serverToClient.Reader.AsStream()),
-            new McpClientOptions { ProtocolVersion = revision, Handlers = new McpClientHandlers { ElicitationHandler = forms.Handle } },
+            new McpClientOptions { ProtocolVersion = revision, Capabilities = elicitation is null ? null : new ClientCapabilities { Elicitation = elicitation }, Handlers = new McpClientHandlers { ElicitationHandler = forms.Handle } },
             cancellationToken: TestContext.Current.CancellationToken);
         return new Pair(server, run, client, ran);
     }
@@ -954,6 +956,16 @@ public sealed class McpCommandTests : IAsyncLifetime
         return CliWith(new Fakes { TargetBehavior = ReadTarget, PacBehavior = _ => pac ?? Ok("imported\n") }, args);
     }
 
+    // What a refusal after a failed dry run holds: the CLI's stdout for the same arguments, then its error lines and the tool's line.
+    private static string[] DryRunThen(Fakes fakes, string planFile, string line)
+    {
+        var dry = CliWith(fakes, "deploy", "apply", planFile, "--target", Secret, "--format", "json");
+        var errors = dry.Err.Split('\n').Where(l => l.StartsWith("error:", StringComparison.Ordinal));
+        return [.. (dry.Out.Length > 0 ? new[] { dry.Out } : []), string.Join("\n", [.. errors, line])];
+    }
+
+    private static void AssertNoApply(Pair pair) => Assert.DoesNotContain(pair.Ran, a => a.Contains("--apply"));
+
     private static string Status(CallToolResult result) => (string)JsonNode.Parse(Text(result))!["status"]!;
 
     // 2
@@ -1001,8 +1013,15 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         await Refused("deploy_apply", ApplyArgs(planFile), "error: apply: this client cannot show the confirmation form; nothing was imported", Hint);
 
+        // A client that declares only url elicitation can't show a form either (if the SDK added a form capability, the call would reach the form and these lines would differ).
+        var forms = NoFormExpected();
+        await using var pair = await Connect(_fakes, "2026-07-28", forms, new ElicitationCapability { Url = new() });
+        AssertRefused(await Apply(pair, ApplyArgs(planFile)), "error: apply: this client cannot show the confirmation form; nothing was imported", Hint);
+
+        Assert.Empty(forms.Seen);
         Assert.Equal(0, _fakes.Total);
         Assert.Empty(_ran);
+        Assert.Empty(pair.Ran);
     }
 
     // 4
@@ -1030,6 +1049,7 @@ public sealed class McpCommandTests : IAsyncLifetime
     public async Task Anything_but_an_accept_with_the_exact_name_imports_nothing(string revision, string kind, string line)
     {
         var (_, planFile) = SavedPlan();
+        ImportFakes();
         var forms = new Forms(_ => kind switch
         {
             "decline" => new ElicitResult { Action = "decline" },
@@ -1047,20 +1067,21 @@ public sealed class McpCommandTests : IAsyncLifetime
         AssertRefused(await Apply(pair, ApplyArgs(planFile)), line, Hint);
 
         Assert.Single(forms.Seen);
-        Assert.Equal(0, _fakes.Total);
-        Assert.Empty(pair.Ran);
+        Assert.Equal(0, _fakes.Pacs);
+        AssertNoApply(pair);
     }
 
     [Fact]
     public async Task A_client_whose_form_handler_fails_imports_nothing()
     {
         var (_, planFile) = SavedPlan();
+        ImportFakes();
         await using var pair = await Connect(_fakes, "2025-06-18", new Forms(_ => throw new InvalidOperationException("boom")));
 
         AssertRefused(await Apply(pair, ApplyArgs(planFile)), FormFailed, Hint);
 
-        Assert.Equal(0, _fakes.Total);
-        Assert.Empty(pair.Ran);
+        Assert.Equal(0, _fakes.Pacs);
+        AssertNoApply(pair);
     }
 
     // 5
@@ -1104,18 +1125,53 @@ public sealed class McpCommandTests : IAsyncLifetime
 
     // 6
 
-    [Fact]
-    public async Task A_target_that_changed_since_the_plan_is_refused_after_the_yes_and_imports_nothing()
+    private static Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> ChangedTarget(string kind) => (_, solutions, dependencies) =>
+        new(kind == "name" ? OtherName : TargetName, Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), [.. solutions.Select(_ => SnapshotFile.Load(kind == "snapshot" ? DevFile : TestFile))], dependencies.ToDictionary(d => d, _ => (string?)null));
+
+    [Theory]
+    [InlineData("snapshot")]
+    [InlineData("name")]
+    public async Task A_target_that_changed_since_the_plan_fails_the_dry_run_so_no_form_is_sent(string kind)
     {
         var (_, planFile) = SavedPlan();
         ImportFakes();
-        _fakes.TargetBehavior = (_, solutions, dependencies) => new(TargetName, Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), [.. solutions.Select(_ => SnapshotFile.Load(DevFile))], dependencies.ToDictionary(d => d, _ => (string?)null));
-        await using var pair = await Connect(_fakes, "2026-07-28", new Forms(_ => Accepted(TargetName)));
+        _fakes.TargetBehavior = ChangedTarget(kind);
+        var forms = NoFormExpected();
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
 
         var result = await Apply(pair, ApplyArgs(planFile));
 
-        Assert.False(result.IsError);
-        Assert.Equal("refused", Status(result));
+        Assert.True(result.IsError);
+        Assert.Equal(DryRunThen(new Fakes { TargetBehavior = ChangedTarget(kind) }, planFile, DryRunFailed), result.Content.Select(c => ((TextContentBlock)c).Text));
+        Assert.Empty(forms.Seen);
+        Assert.Equal(0, _fakes.Pacs);
+        AssertNoApply(pair);
+    }
+
+    [Theory]
+    [InlineData("snapshot")]
+    [InlineData("name")]
+    public async Task A_target_that_changes_while_the_form_is_open_is_refused_after_the_yes_and_imports_nothing(string kind)
+    {
+        var (_, planFile) = SavedPlan();
+        ImportFakes();
+        await using var pair = await Connect(_fakes, "2026-07-28", new Forms(_ =>
+        {
+            _fakes.TargetBehavior = ChangedTarget(kind);
+            return Accepted(TargetName);
+        }));
+
+        var result = await Apply(pair, ApplyArgs(planFile));
+
+        var cli = CliWith(new Fakes { TargetBehavior = ChangedTarget(kind), PacBehavior = _ => Ok("imported\n") }, "deploy", "apply", planFile, "--target", Secret, "--format", "json", "--apply");
+        Assert.Equal(kind == "snapshot" ? 1 : 2, cli.Code);
+        Assert.Equal(kind == "name", result.IsError);
+        Assert.Equal(cli.Code == 1 ? cli.Out : string.Join("\n", cli.Err.Split('\n').Where(l => l.StartsWith("error:", StringComparison.Ordinal))), Text(result));
+        if (kind == "snapshot")
+        {
+            Assert.Equal("refused", Status(result));
+        }
+
         Assert.Equal(0, _fakes.Pacs);
     }
 
@@ -1188,20 +1244,23 @@ public sealed class McpCommandTests : IAsyncLifetime
 
     // 9
 
-    [Fact]
-    public async Task A_plan_file_rewritten_while_the_form_is_open_is_refused_and_nothing_runs()
+    [Theory]
+    [InlineData("hash")]
+    [InlineData("target")]
+    public async Task A_plan_file_rewritten_while_the_form_is_open_is_refused_and_nothing_runs(string field)
     {
         var (_, planFile) = SavedPlan();
+        ImportFakes();
         await using var pair = await Connect(_fakes, "2026-07-28", new Forms(_ =>
         {
-            EditPlan(planFile, plan => plan["hash"] = new string('a', 64));
+            EditPlan(planFile, plan => plan[field] = field == "hash" ? new string('a', 64) : OtherName);
             return Accepted(TargetName);
         }));
 
         AssertRefused(await Apply(pair, ApplyArgs(planFile)), "error: planFile: the plan file changed while the form was open; nothing was imported");
 
-        Assert.Equal(0, _fakes.Total);
-        Assert.Empty(pair.Ran);
+        Assert.Equal(0, _fakes.Pacs);
+        AssertNoApply(pair);
     }
 
     // 10
@@ -1210,6 +1269,9 @@ public sealed class McpCommandTests : IAsyncLifetime
     [InlineData("blocked")]
     [InlineData("version")]
     [InlineData("missing")]
+    [InlineData("malformed")]
+    [InlineData("symlink")]
+    [InlineData("surrogate")]
     public async Task A_plan_file_that_cannot_be_applied_gets_the_dry_run_report_and_a_line_and_no_form(string kind)
     {
         var (folder, planFile) = SavedPlan();
@@ -1223,22 +1285,47 @@ public sealed class McpCommandTests : IAsyncLifetime
             {
                 plan["tool"] = "9.9.9";
             }
+            else if (kind == "surrogate")
+            {
+                plan["target"] = "MARK";
+            }
         });
-        var file = kind == "missing" ? Path.Combine(folder, "nope.json") : planFile;
+        var file = kind switch
+        {
+            "missing" => Path.Combine(folder, "nope.json"),
+            "symlink" => Path.Combine(folder, "link.json"),
+            _ => planFile,
+        };
+        if (kind == "malformed")
+        {
+            File.WriteAllText(planFile, "{not json");
+        }
+        else if (kind == "surrogate")
+        {
+            File.WriteAllText(planFile, File.ReadAllText(planFile).Replace("MARK", "\\ud800"));
+        }
+        else if (kind == "symlink")
+        {
+            try
+            {
+                File.CreateSymbolicLink(file, planFile);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+            {
+                Assert.Skip("This OS refuses to create a symbolic link here.");
+            }
+        }
+
         var forms = NoFormExpected();
         await using var pair = await Connect(_fakes, "2026-07-28", forms);
 
         var result = await Apply(pair, ApplyArgs(file));
 
-        var dry = CliWith(new Fakes(), "deploy", "apply", file, "--target", Secret, "--format", "json");
-        var errors = dry.Err.Split('\n').Where(l => l.StartsWith("error:", StringComparison.Ordinal));
-        string[] expected = [.. (dry.Out.Length > 0 ? new[] { dry.Out } : []), string.Join("\n", [.. errors, NotApplicable])];
         Assert.True(result.IsError);
-        Assert.Equal(expected, result.Content.Select(c => ((TextContentBlock)c).Text));
+        Assert.Equal(DryRunThen(new Fakes(), file, NotApplicable), result.Content.Select(c => ((TextContentBlock)c).Text));
         Assert.Empty(forms.Seen);
         Assert.Equal(0, _fakes.Total);
-        var ran = Assert.Single(pair.Ran);
-        Assert.DoesNotContain("--apply", ran);
+        Assert.DoesNotContain("--apply", Assert.Single(pair.Ran));
     }
 
     [Theory]
@@ -1246,6 +1333,9 @@ public sealed class McpCommandTests : IAsyncLifetime
     [InlineData("leading-space")]
     [InlineData("trailing-space")]
     [InlineData("long")]
+    [InlineData("line-separator")]
+    [InlineData("paragraph-separator")]
+    [InlineData("private-use")]
     public async Task A_target_name_the_user_cannot_read_and_type_is_refused_without_a_form(string kind)
     {
         var (_, planFile) = SavedPlan();
@@ -1254,6 +1344,9 @@ public sealed class McpCommandTests : IAsyncLifetime
             "zero-width" => "Contoso\u200BTest",
             "leading-space" => " Contoso Test",
             "trailing-space" => "Contoso Test ",
+            "line-separator" => "Contoso\u2028Test",
+            "paragraph-separator" => "Contoso\u2029Test",
+            "private-use" => "Contoso\uE000Test",
             _ => new string('x', 201),
         });
         var forms = NoFormExpected();
@@ -1348,6 +1441,7 @@ public sealed class McpCommandTests : IAsyncLifetime
     public async Task At_2026_07_28_the_form_is_an_input_required_result_and_a_retry_with_no_answer_imports_nothing()
     {
         var (_, planFile) = SavedPlan();
+        ImportFakes();
         var ran = new ConcurrentQueue<string[]>();
         await using var raw = new Raw(_fakes, ran);
         static JsonObject Meta() => new()
@@ -1366,14 +1460,15 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         Assert.True((bool)second["isError"]!);
         Assert.Equal(string.Join("\n", FormFailed, Hint), (string)second["content"]![0]!["text"]!);
-        Assert.Equal(0, _fakes.Total);
-        Assert.Empty(ran);
+        Assert.Equal(0, _fakes.Pacs);
+        Assert.DoesNotContain(ran, a => a.Contains("--apply"));
     }
 
     [Fact]
     public async Task At_2025_06_18_a_cancelled_call_imports_nothing_even_when_the_form_is_answered_after_it()
     {
         var (_, planFile) = SavedPlan();
+        ImportFakes();
         var ran = new ConcurrentQueue<string[]>();
         await using var raw = new Raw(_fakes, ran);
         await raw.Send(JsonNode.Parse("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{"elicitation":{"form":{}}},"clientInfo":{"name":"t","version":"1"}}}""")!);
@@ -1394,8 +1489,8 @@ public sealed class McpCommandTests : IAsyncLifetime
         });
 
         Assert.True(await raw.Done.WaitAsync(Wait, TestContext.Current.CancellationToken), "the handler never returned");
-        Assert.Equal(0, _fakes.Total);
-        Assert.Empty(ran);
+        Assert.Equal(0, _fakes.Pacs);
+        Assert.DoesNotContain(ran, a => a.Contains("--apply"));
     }
 
     // 12

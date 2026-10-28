@@ -31,6 +31,19 @@ public static partial class DeployPlanFile
     /// <exception cref="InvalidDataException">The text is not JSON, or a field is missing or wrong; the message names the field (or the line and position), never a value.</exception>
     public static PlanFileRead Read(string json, string tool)
     {
+        try
+        {
+            return ReadFields(json, tool);
+        }
+        catch (InvalidOperationException)
+        {
+            // GetString throws for a string that is not valid Unicode (a lone surrogate escape), whichever field holds it.
+            throw Bad("a string in the file is not valid Unicode");
+        }
+    }
+
+    private static PlanFileRead ReadFields(string json, string tool)
+    {
         JsonDocument doc;
         try
         {
