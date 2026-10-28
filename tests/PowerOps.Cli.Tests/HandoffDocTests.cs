@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
 using PowerOps.Tests.Shared;
@@ -19,6 +20,14 @@ public partial class HandoffDocTests
         [.. Mention().Matches(text).Select(m => m.Groups[1].Value.Trim().Split(' ')).DistinctBy(w => string.Join(' ', w))];
 
     private static string Page() => File.ReadAllText(Path.Combine(Golden.RepoRoot, "docs", "HANDOFF.md"));
+
+    // The PreToolUse groups of the page's one JSON block, the Claude Code hooks.
+    private static JsonArray HookGroups()
+    {
+        var page = Page();
+        var start = page.IndexOf("```json\n", StringComparison.Ordinal) + "```json\n".Length;
+        return JsonNode.Parse(page[start..page.IndexOf("```", start, StringComparison.Ordinal)])!["hooks"]!["PreToolUse"]!.AsArray();
+    }
 
     // The words up to and including the first one that is not a subcommand, all of them when they stop at a command
     // that still has subcommands, or null when they reach a command.
@@ -76,6 +85,40 @@ public partial class HandoffDocTests
 
         var misspelled = WordLists(Page().Replace("deploy apply", "deploy aply"));
         Assert.Contains("deploy aply", misspelled.Select(Unknown));
+    }
+
+    [Fact]
+    public void The_hooks_only_run_the_dry_run_and_block_when_it_fails()
+    {
+        var groups = HookGroups();
+
+        Assert.Equal(["mcp__pac-cli__solution_import", "Bash"], groups.Select(g => (string?)g!["matcher"]));
+        foreach (var hook in groups.SelectMany(g => g!["hooks"]!.AsArray()))
+        {
+            var command = (string)hook!["command"]!;
+            Assert.Contains("powerops deploy apply ", command, StringComparison.Ordinal);
+            Assert.DoesNotContain("--apply", command, StringComparison.Ordinal);
+            Assert.EndsWith(">&2 || exit 2", command, StringComparison.Ordinal);
+            Assert.Equal("block", (string?)hook["onFailure"]);
+        }
+    }
+
+    [Theory]
+    [InlineData("pac solution import \\\n  --path ./solutions/Contoso.zip --environment <url> --async", true)]
+    [InlineData("node \"${PLUGIN_ROOT}/scripts/solution-settings.js\" import --env '<url>' --package 'a.zip' --settings 's.json'", true)]
+    [InlineData("node \"${PLUGIN_ROOT}/scripts/encode-solution-file.js\" --zipPath \"a.zip\"", true)]
+    [InlineData("curl -X POST <url>/api/data/v9.2/ImportSolutionAsync", true)]
+    [InlineData("pac pipeline deploy --environment <url> --solutionName Contoso", true)]
+    [InlineData("<url>/api/data/v9.0/DeployPackageAsync", true)]
+    [InlineData("node \"${PLUGIN_ROOT}/scripts/solution-settings.js\" template --env '<url>' --solution Contoso --out 's.json'", false)]
+    [InlineData("powerops deploy apply deploy/powerops-plan.json --target <test> --apply", false)]
+    public void The_shell_hook_checks_the_imports_of_Microsofts_skills_only(string command, bool checks)
+    {
+        var hook = (string)HookGroups()[1]!["hooks"]![0]!["command"]!;
+        var pattern = Regex.Match(hook, "^grep -qE '([^']+)' \\|\\| exit 0; ").Groups[1].Value;
+
+        Assert.NotEmpty(pattern);
+        Assert.Equal(checks, Regex.IsMatch(command, pattern));
     }
 
     [Fact]
