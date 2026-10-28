@@ -1,8 +1,10 @@
-plan-hash: 47e8816f4f661bff6d317665f028253b8acf151ec4261e5d414105729709b7db
+plan-hash: 41217aedc57f5ee5487f250a1778cf872922904c9b0cdd9a23d90fc5ab362294
 model: claude-sonnet-5-5
 fresh-context: yes
 
 The plan-hash was updated after the text fixes for R1 to R13 below (the practice of the M7 to M16 reviews). Reviewed hash: d16edf6cbc911958d980de78881a47408ad7049546a5df9a6e4d125b4f351303. The reviewer (powerops-reviewer, Sonnet, fresh context) could not write files, so the planning session wrote this file from its reply and added the resolutions. The fixes changed Goal (done-when), Automation (Files, the `mcp` command, Tools, Descriptions, Input checks, Results, `save`, Concurrency, Tests), Constraints, Assumptions and Steps 3, 4 and 6; no decision in `decisions.md` changed.
+
+The plan-hash was updated again on 2026-10-27 after the master session's review of the build (an independent Sonnet review: 0 High, 2 Medium, 5 Low), which changed Files, Input checks 4 and 5, Results, Tests 4 to 8, Assumptions and Steps: UNC and device paths are refused (R7 below, now fixed), `deploy_plan` honours a cancelled call before it writes `save`, `drift` and `deploy plan` forward text after `  | `, Windows device names are refused in `save`, and four tests now fail when a safety rule breaks. Signed-off hash before that change: 47e8816f4f661bff6d317665f028253b8acf151ec4261e5d414105729709b7db.
 
 While testing, the reviewer ran `powerops drift` once with a live `--env` value, which ran one read-only `pac org who --environment` call; it failed (exit 1). No other tenant call was made, and the scratch folder it made in the worktree was deleted.
 
@@ -58,7 +60,7 @@ No findings.
 - Area: Input checks, security
 - Finding: `Path.IsPathFullyQualified` accepts `\\host\share\x` and `\\?\...` on Windows; a steered agent could make the server open a network path.
 - Suggested fix: On Windows, refuse a path that starts with `\\` or `//`; test it as a pure function.
-- Resolution: accepted (Assumptions: the CLI accepts UNC paths, and an agent that could send one can open it with its own shell tools, so the rule would close nothing)
+- Resolution: fixed (first accepted, then fixed after the master session's review rated it Medium: a read-only tool may run with no prompt, so the agent's own shell access does not cover it. Input checks 4 refuses any path value and any `envs` entry that starts with `\\` or `//`, on every OS, tested as a function and through the server)
 
 #### R8. Empty, whitespace and `null` values are not defined
 - Area: Input checks 2 and 3
