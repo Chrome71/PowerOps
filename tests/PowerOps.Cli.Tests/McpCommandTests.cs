@@ -895,11 +895,15 @@ public sealed class McpCommandTests : IAsyncLifetime
         }
     }
 
-    private static async Task<Pair> Connect(Fakes fakes, string revision, Forms forms, ElicitationCapability? elicitation = null)
+    private static async Task<Pair> Connect(Fakes fakes, string revision, Forms forms, ElicitationCapability? elicitation = null, Action<string[]>? onRan = null)
     {
         var ran = new ConcurrentQueue<string[]>();
         var (clientToServer, serverToClient) = (new Pipe(), new Pipe());
-        var server = McpServer.Create(new StreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream()), McpCommand.Options(fakes.Pac, fakes.Live, fakes.Target, ran.Enqueue));
+        var server = McpServer.Create(new StreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream()), McpCommand.Options(fakes.Pac, fakes.Live, fakes.Target, a =>
+        {
+            ran.Enqueue(a);
+            onRan?.Invoke(a);
+        }));
         var run = server.RunAsync();
         var client = await McpClient.CreateAsync(
             new StreamClientTransport(clientToServer.Writer.AsStream(), serverToClient.Reader.AsStream()),
@@ -1143,6 +1147,38 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         Assert.True(result.IsError);
         Assert.Equal(DryRunThen(new Fakes { TargetBehavior = ChangedTarget(kind) }, planFile, DryRunFailed), result.Content.Select(c => ((TextContentBlock)c).Text));
+        Assert.Empty(forms.Seen);
+        Assert.Equal(0, _fakes.Pacs);
+        AssertNoApply(pair);
+    }
+
+    // The plan file changes between the tool's own read and the dry run's, so the dry run passes (exit 0, planned) but its report differs from what the tool read: each comparison is pinned alone.
+    [Theory]
+    [InlineData("target")]
+    [InlineData("hash")]
+    public async Task A_dry_run_that_passes_for_another_target_or_hash_than_the_tool_read_sends_no_form(string field)
+    {
+        var (_, planFile) = SavedPlan();
+        ImportFakes();
+        var real = (string)JsonNode.Parse(File.ReadAllText(planFile))![field]!;
+        EditPlan(planFile, plan => plan[field] = field == "target" ? "Contoso Dev" : new string('b', 64));
+        var changed = false;
+        var forms = NoFormExpected();
+        await using var pair = await Connect(_fakes, "2026-07-28", forms, onRan: a =>
+        {
+            if (!changed && !a.Contains("--apply"))
+            {
+                changed = true;
+                EditPlan(planFile, plan => plan[field] = real);
+            }
+        });
+
+        var result = await Apply(pair, ApplyArgs(planFile));
+
+        Assert.True(changed);
+        Assert.True(result.IsError);
+        Assert.Equal("planned", Status(result));
+        Assert.Equal(DryRunFailed, Text(result, result.Content.Count - 1));
         Assert.Empty(forms.Seen);
         Assert.Equal(0, _fakes.Pacs);
         AssertNoApply(pair);
