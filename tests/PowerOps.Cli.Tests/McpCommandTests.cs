@@ -1,4 +1,5 @@
 using System.IO.Pipelines;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -199,6 +200,7 @@ public sealed class McpCommandTests : IAsyncLifetime
             Assert.Equal(expected, [tool.Annotations!.ReadOnlyHint, tool.Annotations.DestructiveHint, tool.Annotations.IdempotentHint, tool.Annotations.OpenWorldHint]);
         }
 
+        Assert.Equal("2026-07-28", _client.NegotiatedProtocolVersion);
         Golden.Verify(JsonSerializer.Serialize(tools, new JsonSerializerOptions(McpJsonUtilities.DefaultOptions) { WriteIndented = true }), "mcp-tools.txt");
     }
 
@@ -347,6 +349,30 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         await Refused("analyze", new() { ["paths"] = new[] { "/h" } }, "error: path not found: /h");
         await Refused("diff", new() { ["old"] = "/?", ["new"] = "/?" }, "error: path not found: /?");
+        await Refused("settings_validate", new() { ["solution"] = "/h", ["settings"] = Valid }, "error: path not found: /h");
+        _fakes.TargetBehavior = TargetFakes().TargetBehavior;
+        await Refused("deploy_plan", new() { ["folder"] = "/?", ["target"] = Secret }, "error: the folder argument is not an existing folder");
+        Assert.Equal(0, _fakes.Targets);
+    }
+
+    private static int Findings(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.GetProperty("solutions").EnumerateArray().Sum(s => s.GetProperty("findings").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Analyze_with_a_baseline_equals_the_cli_and_lists_fewer_findings()
+    {
+        var baseline = Path.Combine(_temp, "baseline.json");
+        File.WriteAllText(baseline, Text(await Call("baseline", new() { ["paths"] = new[] { Fixtures } })));
+
+        var without = await Call("analyze", new() { ["paths"] = new[] { Fixtures } });
+        var with = await Call("analyze", new() { ["paths"] = new[] { Fixtures }, ["baseline"] = baseline });
+
+        Assert.False(with.IsError);
+        Assert.Equal(Cli("analyze", "--format", "json", "--baseline", baseline, "--", Fixtures).Out, Text(with));
+        Assert.True(Findings(Text(with)) < Findings(Text(without)));
     }
 
     // 5
@@ -429,7 +455,30 @@ public sealed class McpCommandTests : IAsyncLifetime
         await Assert.ThrowsAsync<McpProtocolException>(async () => await Call("nope"));
     }
 
+    [Theory]
+    [InlineData(@"\\host\share\x", true)]
+    [InlineData("//host/share/x", true)]
+    [InlineData(@"\\.\pipe\x", true)]
+    [InlineData(@"\\?\C:\x", true)]
+    [InlineData("/tmp/x", false)]
+    [InlineData(@"C:\x", false)]
+    public void A_network_or_device_path_is_recognised(string value, bool expected)
+    {
+        Assert.Equal(expected, McpCommand.IsNetworkPath(value));
+    }
+
     // 5, with fakes
+
+    [Theory]
+    [InlineData(@"\\host\share\x")]
+    [InlineData("//host/share/x")]
+    public async Task A_network_path_is_refused_as_a_path_and_as_an_env_entry_and_nothing_runs(string path)
+    {
+        await Refused("analyze", new() { ["paths"] = new[] { path } }, @"error: paths 1: a network or device path (starting with \\ or //) is refused");
+        await Refused("drift", new() { ["solution"] = "S", ["envs"] = new[] { path, DevFile } }, @"error: envs 1: a network or device path (starting with \\ or //) is refused");
+
+        Assert.Equal(0, _fakes.Total);
+    }
 
     [Fact]
     public async Task A_response_file_in_target_or_folder_is_refused_and_nothing_runs_or_is_written()
@@ -527,6 +576,10 @@ public sealed class McpCommandTests : IAsyncLifetime
     [InlineData("plan.txt", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]
     [InlineData("plan.json\n", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]
     [InlineData("plan.settings.json", "error: save: a name that ends in .settings.json is refused")]
+    [InlineData("plan.Settings.json", "error: save: a name that ends in .settings.json is refused")]
+    [InlineData("CON.json", "error: save: a Windows device name is refused")]
+    [InlineData("nul.plan.json", "error: save: a Windows device name is refused")]
+    [InlineData("Lpt1.json", "error: save: a Windows device name is refused")]
     [InlineData("Plan.Settings.JSON", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]
     public async Task Save_refuses_a_bad_name_before_the_target_is_read(string save, string line)
     {
@@ -640,6 +693,82 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         Assert.False((await first.WaitAsync(timeout, TestContext.Current.CancellationToken)).IsError);
     }
+
+    // The SDK's own client sends no notifications/cancelled, so this speaks JSON-RPC over the pipes.
+    [Fact]
+    public async Task A_cancelled_deploy_plan_does_not_write_the_plan_file()
+    {
+        var folder = DeployFolder();
+        var timeout = TimeSpan.FromSeconds(20);
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var done = new ManualResetEventSlim();
+        var seen = new TaskCompletionSource<CancellationToken>();
+        var fakes = new Fakes
+        {
+            TargetBehavior = (t, s, d) =>
+            {
+                entered.Set();
+                Assert.True(release.Wait(timeout), "the test never released the target read");
+                return ReadTarget(t, s, d);
+            },
+        };
+        var options = McpCommand.Options(fakes.Pac, fakes.Live, fakes.Target);
+        var inner = options.Handlers.CallToolHandler!;
+        options.Handlers.CallToolHandler = async (context, token) =>
+        {
+            seen.TrySetResult(token);
+            try
+            {
+                return await inner(context, token);
+            }
+            finally
+            {
+                done.Set();
+            }
+        };
+        var clientToServer = new Pipe();
+        var serverToClient = new Pipe();
+        await using var server = McpServer.Create(new StreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream()), options);
+        var run = server.RunAsync(TestContext.Current.CancellationToken);
+        using var writer = new StreamWriter(clientToServer.Writer.AsStream(), new UTF8Encoding(false)) { AutoFlush = true, NewLine = "\n" };
+        using var reader = new StreamReader(serverToClient.Reader.AsStream(), Encoding.UTF8);
+        try
+        {
+            await Send(writer, """{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}""");
+            Assert.NotNull(await reader.ReadLineAsync(TestContext.Current.CancellationToken).AsTask().WaitAsync(timeout, TestContext.Current.CancellationToken));
+            await Send(writer, """{"jsonrpc":"2.0","method":"notifications/initialized"}""");
+            await Send(writer, JsonSerializer.Serialize(new
+            {
+                jsonrpc = "2.0",
+                id = 2,
+                method = "tools/call",
+                @params = new { name = "deploy_plan", arguments = new { folder, target = Secret, save = "plan.json" } },
+            }));
+            Assert.True(entered.Wait(timeout, TestContext.Current.CancellationToken));
+
+            await Send(writer, """{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":2,"reason":"test"}}""");
+            var token = await seen.Task.WaitAsync(timeout, TestContext.Current.CancellationToken);
+            Assert.True(token.WaitHandle.WaitOne(timeout), "the handler's token was never cancelled");
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        Assert.True(done.Wait(timeout, TestContext.Current.CancellationToken));
+        Assert.Equal(["PowerOpsSeed.settings.json", "PowerOpsSeed.zip"], Files(folder));
+        writer.Close();
+        try
+        {
+            await run.WaitAsync(timeout, TestContext.Current.CancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private static Task Send(StreamWriter writer, string line) => writer.WriteLineAsync(line.AsMemory(), TestContext.Current.CancellationToken);
 
     // 7
 

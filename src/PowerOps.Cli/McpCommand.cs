@@ -21,7 +21,8 @@ public static partial class McpCommand
 
     private enum Kind { Path, Paths, Text, Texts }
 
-    private sealed record Field(string Name, Kind Kind, bool Required, string Description, int MinItems = 0)
+    // Local: a text field whose entries can also be file paths (drift's envs).
+    private sealed record Field(string Name, Kind Kind, bool Required, string Description, int MinItems = 0, bool Local = false)
     {
         public bool IsList => Kind is Kind.Paths or Kind.Texts;
 
@@ -40,7 +41,7 @@ public static partial class McpCommand
     }
 
     // Extra holds the checks of one tool beyond the generic ones: the labels that already failed are passed in so a value is refused once.
-    private sealed record ToolDef(string Name, string Description, Field[] Fields, Func<Values, TextWriter, TextWriter, int> Run, ToolAnnotations? Annotations = null,
+    private sealed record ToolDef(string Name, string Description, Field[] Fields, Func<Values, TextWriter, TextWriter, CancellationToken, int> Run, ToolAnnotations? Annotations = null,
         Action<Values, ISet<string>, List<string>>? Extra = null);
 
     private static readonly ToolAnnotations ReadOnly = new() { ReadOnlyHint = true, DestructiveHint = false, IdempotentHint = true, OpenWorldHint = false };
@@ -49,6 +50,12 @@ public static partial class McpCommand
 
     [GeneratedRegex(@"^[A-Za-z0-9._-]+\.json\z")]
     private static partial Regex SaveName();
+
+    // FileStream throws NotSupportedException for these on Windows; refused on every OS.
+    private static readonly string[] DeviceNames = ["CON", "PRN", "AUX", "NUL", .. Enumerable.Range(0, 10).SelectMany(i => new[] { "COM" + i, "LPT" + i })];
+
+    // On Windows \\host\share and \\.\ open another host, which can send the user's NTLM credentials; on Unix // is /, so nothing is lost.
+    internal static bool IsNetworkPath(string value) => value.StartsWith(@"\\", StringComparison.Ordinal) || value.StartsWith("//", StringComparison.Ordinal);
 
     public static Command Create(TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot> driftLive,
         Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget)
@@ -87,7 +94,7 @@ public static partial class McpCommand
             Handlers = new McpServerHandlers
             {
                 ListToolsHandler = (_, _) => ValueTask.FromResult(new ListToolsResult { Tools = listed }),
-                CallToolHandler = (context, _) => ValueTask.FromResult(Call(tools, context.Params)),
+                CallToolHandler = (context, cancellationToken) => ValueTask.FromResult(Call(tools, context.Params, cancellationToken)),
             },
         };
     }
@@ -132,13 +139,13 @@ public static partial class McpCommand
                     new("paths", Kind.Paths, true, PathsText, 1),
                     new("baseline", Kind.Path, false, "Optional: the absolute path of a baseline file from the baseline tool; the findings it lists are left out."),
                 ],
-                (v, o, e) => Cli(["analyze", "--format", "json", .. Option("--baseline", v.Optional("baseline")), "--", .. v.List("paths")], o, e)),
+                (v, o, e, _) => Cli(["analyze", "--format", "json", .. Option("--baseline", v.Optional("baseline")), "--", .. v.List("paths")], o, e)),
             new("rules", "List every analysis rule with its id, severity, title, fix and docs link. " + Json + "rules --json` (docs/schemas/rules.schema.json).",
                 [],
-                (_, o, e) => Cli(["rules", "--json"], o, e)),
+                (_, o, e, _) => Cli(["rules", "--json"], o, e)),
             new("baseline", "Record the current analyze findings of solution folders or zips as a baseline for analyze's `baseline` input. Read-only: returns the baseline file's text (a file format with its own `version`, no schema) and writes nothing.",
                 [new("paths", Kind.Paths, true, PathsText, 1)],
-                (v, o, e) => AnalyzeCommand.Run(v.List("paths"), null, e, r =>
+                (v, o, e, _) => AnalyzeCommand.Run(v.List("paths"), null, e, r =>
                 {
                     Baseline.Write(r, o);
                     return 0;
@@ -148,35 +155,35 @@ public static partial class McpCommand
                     new("old", Kind.Path, true, "Absolute path of the older solution: an exported zip or an unpacked folder."),
                     new("new", Kind.Path, true, "Absolute path of the newer solution: an exported zip or an unpacked folder."),
                 ],
-                (v, o, e) => Cli(["diff", "--format", "json", "--", v.Text("old"), v.Text("new")], o, e)),
+                (v, o, e, _) => Cli(["diff", "--format", "json", "--", v.Text("old"), v.Text("new")], o, e)),
             new("test", "Run the offline flow tests (*.flowtest.json) against the cloud flows of the solutions under a path, with mocked connector actions. " + Json + "test --format json` (docs/schemas/test.schema.json).",
                 [
                     new("path", Kind.Path, true, "Absolute path of the solution folder or zip to test against; folders are searched recursively."),
                     new("tests", Kind.Path, false, "Optional: the absolute path of the folder to search for *.flowtest.json files (default: path; needed when path is a zip)."),
                 ],
-                (v, o, e) => Cli(["test", "--format", "json", .. Option("--tests", v.Optional("tests")), "--", v.Text("path")], o, e)),
+                (v, o, e, _) => Cli(["test", "--format", "json", .. Option("--tests", v.Optional("tests")), "--", v.Text("path")], o, e)),
             new("settings_generate", "Make a pac deployment settings file with empty values for a solution's connection references and environment variables. Read-only: returns the file's text (pac's settings format, no schema) and writes nothing.",
                 [new("solution", Kind.Path, true, SolutionText)],
-                (v, o, e) => Cli(["settings", "generate", "--", v.Text("solution")], o, e)),
+                (v, o, e, _) => Cli(["settings", "generate", "--", v.Text("solution")], o, e)),
             new("settings_validate", "Check a pac deployment settings file against a solution: missing or extra entries, empty connection ids and values. " + Json + "settings validate --format json` (docs/schemas/settings-validate.schema.json).",
                 [
                     new("solution", Kind.Path, true, SolutionText),
                     new("settings", Kind.Path, true, "Absolute path of the deployment settings file to check."),
                 ],
-                (v, o, e) => Cli(["settings", "validate", "--settings", v.Text("settings"), "--format", "json", "--", v.Text("solution")], o, e)),
+                (v, o, e, _) => Cli(["settings", "validate", "--settings", v.Text("settings"), "--format", "json", "--", v.Text("solution")], o, e)),
             new("plan_status", "Check the planning documents (docs/plans/*/plan.md) under a path: header, sign-off hash, review and tenant data. " + Json + "plan status --json` (docs/schemas/plan-status.schema.json).",
                 [new("path", Kind.Path, true, "Absolute path of a repo folder, a plan folder or a plan.md.")],
-                (v, o, e) => Cli(["plan", "status", "--json", "--", v.Text("path")], o, e)),
+                (v, o, e, _) => Cli(["plan", "status", "--json", "--", v.Text("path")], o, e)),
             new("plan_facts", "Read the name of pac's current environment and its solutions (unique name, version, managed) through pac. " + Json + "plan facts` (docs/schemas/plan-facts.schema.json).",
                 [],
-                (_, o, e) => Cli(["plan", "facts"], o, e),
+                (_, o, e, _) => Cli(["plan", "facts"], o, e),
                 ReadTenant),
             new("drift", "Compare one solution across environments, read through pac, az and the Dataverse Web API, or across saved snapshot files: version, components, layers, variables, references and flows. " + Json + "drift --format json` (docs/schemas/drift.schema.json).",
                 [
                     new("solution", Kind.Text, true, "The solution's unique name."),
-                    new("envs", Kind.Texts, true, "At least two: an entry ending in .json is the absolute path of a snapshot file; any other is an environment id, URL or name (as pac --environment).", 2),
+                    new("envs", Kind.Texts, true, "At least two: an entry ending in .json is the absolute path of a snapshot file; any other is an environment id, URL or name (as pac --environment).", 2, true),
                 ],
-                (v, o, e) => Cli(["drift", "--solution", v.Text("solution"), .. v.List("envs").SelectMany(env => new[] { "--env", env }), "--format", "json"], o, e),
+                (v, o, e, _) => Cli(["drift", "--solution", v.Text("solution"), .. v.List("envs").SelectMany(env => new[] { "--env", env }), "--format", "json"], o, e),
                 ReadTenant,
                 CheckEnvs),
             new("deploy_plan", "Say what importing the solution zips in a folder into a target environment would do, reading the target through pac, az and the Dataverse Web API; returns the JSON of `powerops deploy plan --format json` (docs/schemas/deploy-plan.schema.json). It writes only when `save` names a new file, which gets that JSON in the folder; promote a reviewed plan with `powerops deploy apply`, not with an import tool.",
@@ -185,7 +192,7 @@ public static partial class McpCommand
                     new("target", Kind.Text, true, "The environment to plan against: an id or URL (as pac --environment)."),
                     new("save", Kind.Text, false, "Optional: a new file name (letters, digits, '.', '_' and '-', ending in .json but not .settings.json) for the plan file in folder; an existing file is never replaced."),
                 ],
-                (v, o, e) => DeployPlan(v, o, e, Cli),
+                (v, o, e, ct) => DeployPlan(v, o, e, Cli, ct),
                 WritePlan,
                 CheckSave),
         ];
@@ -225,6 +232,10 @@ public static partial class McpCommand
         {
             problems.Add("error: save: a name that ends in .settings.json is refused");
         }
+        else if (DeviceNames.Contains(save[..save.IndexOf('.')], StringComparer.OrdinalIgnoreCase))
+        {
+            problems.Add("error: save: a Windows device name is refused");
+        }
         else if (!refused.Contains("folder") && values.Optional("folder") is { } folder && (File.Exists(Path.Combine(folder, save)) || Directory.Exists(Path.Combine(folder, save))))
         {
             problems.Add("error: save: the file already exists in folder");
@@ -232,7 +243,7 @@ public static partial class McpCommand
     }
 
     // The plan runs without --save; the plan file is written here, as a new file only, so one that appeared since the check is not replaced.
-    private static int DeployPlan(Values v, TextWriter output, TextWriter error, Func<string[], TextWriter, TextWriter, int> cli)
+    private static int DeployPlan(Values v, TextWriter output, TextWriter error, Func<string[], TextWriter, TextWriter, int> cli, CancellationToken cancellationToken)
     {
         var folder = v.Text("folder");
         string[] args = ["deploy", "plan", "--target", v.Text("target"), "--format", "json", "--", folder];
@@ -245,6 +256,13 @@ public static partial class McpCommand
         var code = cli(args, plan, error);
         var text = plan.ToString();
         output.Write(text);
+        if (code is 0 or 1 && text.Length > 0 && cancellationToken.IsCancellationRequested)
+        {
+            // The client gave up (it may retry), so a file written now would make its retry fail.
+            error.WriteLine("error: save: the call was cancelled; the plan file was not saved");
+            return 3;
+        }
+
         if (code is 0 or 1 && text.Length > 0 && !TrySave(Path.Combine(folder, save), text))
         {
             error.WriteLine("error: save: the plan file was not saved (it exists, or the folder is not writable)");
@@ -318,7 +336,7 @@ public static partial class McpCommand
         return new Tool { Name = tool.Name, Description = tool.Description, InputSchema = JsonSerializer.SerializeToElement(schema), Annotations = tool.Annotations ?? ReadOnly };
     }
 
-    private static CallToolResult Call(ToolDef[] tools, CallToolRequestParams? request)
+    private static CallToolResult Call(ToolDef[] tools, CallToolRequestParams? request, CancellationToken cancellationToken)
     {
         if (request is null)
         {
@@ -336,7 +354,7 @@ public static partial class McpCommand
 
         var output = new StringWriter();
         var error = new StringWriter();
-        var code = tool.Run(values, output, error);
+        var code = tool.Run(values, output, error, cancellationToken);
         return Result(code, output.ToString(), error.ToString());
     }
 
@@ -388,7 +406,7 @@ public static partial class McpCommand
             ? ((string[])values[f.Name]).Select((s, i) => (Field: f, Label: $"{f.Name} {i + 1}", Value: s))
             : [(Field: f, Label: f.Name, Value: (string)values[f.Name])]).ToList();
         var refused = new HashSet<string>();
-        foreach (var (_, label, value) in entries)
+        foreach (var (field, label, value) in entries)
         {
             if (string.IsNullOrWhiteSpace(value))
             {
@@ -397,6 +415,10 @@ public static partial class McpCommand
             else if (value[0] is '-' or '@')
             {
                 problems.Add($"error: {label}: a value that starts with - or @ is refused");
+            }
+            else if ((field.IsPath || field.Local) && IsNetworkPath(value))
+            {
+                problems.Add($"error: {label}: a network or device path (starting with \\\\ or //) is refused");
             }
             else
             {
