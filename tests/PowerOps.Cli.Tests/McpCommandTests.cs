@@ -964,7 +964,7 @@ public sealed class McpCommandTests : IAsyncLifetime
     private static string[] DryRunThen(Fakes fakes, string planFile, string line)
     {
         var dry = CliWith(fakes, "deploy", "apply", planFile, "--target", Secret, "--format", "json");
-        var errors = dry.Err.Split('\n').Where(l => l.StartsWith("error:", StringComparison.Ordinal));
+        var errors = dry.Err.Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.StartsWith("error:", StringComparison.Ordinal));
         return [.. (dry.Out.Length > 0 ? new[] { dry.Out } : []), string.Join("\n", [.. errors, line])];
     }
 
@@ -1202,7 +1202,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         var cli = CliWith(new Fakes { TargetBehavior = ChangedTarget(kind), PacBehavior = _ => Ok("imported\n") }, "deploy", "apply", planFile, "--target", Secret, "--format", "json", "--apply");
         Assert.Equal(kind == "snapshot" ? 1 : 2, cli.Code);
         Assert.Equal(kind == "name", result.IsError);
-        Assert.Equal(cli.Code == 1 ? cli.Out : string.Join("\n", cli.Err.Split('\n').Where(l => l.StartsWith("error:", StringComparison.Ordinal))), Text(result));
+        Assert.Equal(cli.Code == 1 ? cli.Out : string.Join("\n", cli.Err.Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.StartsWith("error:", StringComparison.Ordinal))), Text(result));
         if (kind == "snapshot")
         {
             Assert.Equal("refused", Status(result));
