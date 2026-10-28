@@ -2,7 +2,7 @@
 
 **One line:** a free, open-source, cross-platform toolkit that brings software-engineering discipline (analysis, diffing, testing, repeatable deployment) to Microsoft Power Platform. It works alongside `pac`; it does not replace it.
 
-Last updated 2026-10-25.
+Last updated 2026-10-27.
 
 ## 1. Why now
 
@@ -61,7 +61,7 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
 
 ## 5. Roadmap
 
-The ordered milestones for Phases 1–4 are in [BUILD-PLAN.md](BUILD-PLAN.md).
+The ordered milestones for Phases 1–5 are in [BUILD-PLAN.md](BUILD-PLAN.md).
 
 Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform tenant**, which keeps contribution easy.
 
@@ -74,8 +74,8 @@ Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform
 | **2. Settings and connections** | `settings generate/validate/diff`, and turning flows on after import | Replaces a hand-written `deploymentsettings.json` workflow end to end |
 | **3. Environment-aware** | `drift`, `deploy --plan`, pre-deploy layer and impact check, ephemeral environment per PR | A Dev→Test promotion runs from GitHub Actions with a plan reviewed in the PR |
 | **3b. Works with Microsoft's skills and MCP servers** | The skills hand the build to Microsoft's skills, and the check, plan and import stay with PowerOps; a documented hand-off flow; the skills packaged as a Claude Code and Codex plugin marketplace | An agent with Microsoft's skills installed builds with theirs and checks, plans and imports with PowerOps, with one tool per write |
-| **4. Testing** | A flow test harness that runs exported flow definitions offline with mocked actions, and its merge gate; a Playwright starter that follows Microsoft's samples; a Copilot Studio eval gate on the preview evaluation API ([Phase 4](BUILD-PLAN.md#phase-4-testing-m14m17)) | A failing flow assertion blocks a merge |
-| **5. Agents** | An MCP server over the same core, with only what `pac`'s and Dataverse's MCP servers lack (BUILD-PLAN [decision 16](BUILD-PLAN.md#decisions-phase-3b-2026-10-24)): `analyze`, `rules`, `baseline`, `diff`, `settings generate` and `validate`, `plan status` and `facts`, `drift` and `deploy plan`, read-only, plus `deploy apply` as a dry run unless an explicit flag is set. No export, import, environment, auth or record tools, which theirs already have. Tool descriptions say to promote a reviewed plan with `deploy apply`, not with an import tool. It does not need either Microsoft server and does not name their tools, which have changed before | An agent can run analyze, diff, drift and deploy plan, but never writes without an explicit flag |
+| **4. Testing** | A flow test harness that runs exported flow definitions offline with mocked actions, and its merge gate; a Playwright starter that follows Microsoft's samples; a Copilot Studio eval gate on the preview evaluation API, on hold by the user's choice since 2026-10-27 ([Phase 4](BUILD-PLAN.md#phase-4-testing-m14m17)) | A failing flow assertion blocks a merge (met by M14 and M15) |
+| **5. Agents** | `powerops mcp`, a stdio MCP server over the same core, with only what `pac`'s and Dataverse's MCP servers lack (BUILD-PLAN [decision 16](BUILD-PLAN.md#decisions-phase-3b-2026-10-24), amended by decision 25): `analyze`, `rules`, `baseline`, `diff`, `test`, `settings generate` and `validate`, `plan status` and `facts`, `drift` and `deploy plan`, read-only except that `deploy plan` can save the plan file, plus `deploy apply` as a dry run unless the call sets `apply` and the user confirms ([Phase 5](BUILD-PLAN.md#phase-5-agents-m18m20)). No export, import, environment, auth or record tools, which theirs already have. Tool descriptions say to promote a reviewed plan with `deploy apply`, not with an import tool. It does not need either Microsoft server and does not name their tools, which have changed before | An agent can run analyze, diff, drift and deploy plan, but never writes without an explicit flag |
 
 ## 6. Risks
 
@@ -163,7 +163,10 @@ To verify before or during the phase that depends on them:
   - Agent evaluations are GA (March 2026).
   - Running them through the Power Platform API is in preview (April 2026). Learn documents it with a user token only.
   - The `pac copilot-studio` evaluation commands are still preview, with no documented output format or exit codes.
-- [ ] **(Phase 4)** Whether an application user can start a Copilot Studio evaluation run, whether a run uses Copilot credits, and whether evaluation works with a trial licence. Learn documents none of them. The eval capture (BUILD-PLAN build-order item 36) settles the first and records the other two.
+- [ ] **(Phase 4, on hold)** Whether an application user can start a Copilot Studio evaluation run, whether a run uses Copilot credits, and whether evaluation works with a trial licence. Learn documents none of them. The eval capture (BUILD-PLAN build-order item 36) settles the first and records the other two. On hold by the user's choice on 2026-10-27, with M17 and item 36 ([Phase 4 status](BUILD-PLAN.md#phase-4-testing-m14m17)).
+- [ ] **(Phase 5)** Whether `ModelContextProtocol.Core` 2.3.0 alone, without the host package, runs a stdio server, and which revision it agrees on with Claude Code 2.1.303 and Codex 0.163.0: 2026-07-28, which has no `initialize` handshake, or an earlier one. The SDK's samples use its main package. M18's spike settles both ([Phase 5 research basis](BUILD-PLAN.md#phase-5-research-basis)).
+- [ ] **(Phase 5)** Whether an elicitation form from a plugin's stdio server reaches the user. Claude Code documents form mode. Codex's code (`rust-v0.163.0`) sends a request to the user, a reviewer or an automatic decline, depending on the policy, and its docs don't mention elicitation. M19's tests and M20's manual run settle it. If neither client shows the form to the user, `deploy_apply` stays a dry run (BUILD-PLAN decision 26).
+- [ ] **(Phase 5)** Whether a plugin can start `powerops mcp` from PATH in both agents. Also whether Codex reads `mcpServers` from `.codex-plugin/plugin.json` (its code at `rust-v0.163.0` does, and its docs show the field only for a root `plugin.json`), and whether a plugin's server entry can raise Codex's 60-second tool timeout. M20 settles them.
 - [x] **(All)** Contributor tenant options now that unmanaged developer environments are going away. Answered 2026-10-21 in [Important changes coming](https://learn.microsoft.com/power-platform/important-changes-coming#deprecation-of-unmanaged-developer-environments-and-the-power-apps-developer-plan): no new ones from 2026-11-15, suspended from 2026-12-15, deleted from 2027-01-15. The Developer Plan stays free but creates no environment after 2026-11-15. One managed developer environment per user remains. It needs an admin to enable Managed Environments and a premium licence to run apps and flows ([developer plan](https://learn.microsoft.com/power-platform/developer/plan)).
   - What a contributor can use: a 30-day [trial environment](https://learn.microsoft.com/power-platform/admin/trial-environments) (throwaway, work or school account recommended); a [Microsoft 365 Developer Program](https://learn.microsoft.com/office/developer-program/microsoft-365-developer-program-faq) sandbox tenant (free, but only for Visual Studio subscribers, eligible partners and Premier/Unified Support customers; it does not document a Dataverse environment); or an environment in a paid tenant. Dataverse for Teams is deprecated too.
   - Service principals: documented for Dataverse environments in general ([pac admin create-service-principal](https://learn.microsoft.com/power-platform/developer/cli/reference/admin#pac-admin-create-service-principal)), not for trial or managed developer environments specifically.
