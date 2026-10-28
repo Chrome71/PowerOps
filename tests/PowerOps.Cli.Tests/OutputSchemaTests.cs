@@ -47,10 +47,10 @@ public class OutputSchemaTests
     // Cached: parsing registers the schema's $id globally, and a second parse of the same $id throws.
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, JsonSchema> Loaded = new();
 
-    private static JsonSchema Load(string schema) =>
+    internal static JsonSchema Load(string schema) =>
         Loaded.GetOrAdd(schema, name => JsonSchema.FromText(File.ReadAllText(Path.Combine(Golden.RepoRoot, "docs", "schemas", name))));
 
-    private static string Errors(JsonSchema schema, JsonNode instance)
+    internal static string Errors(JsonSchema schema, JsonNode instance)
     {
         var result = schema.Evaluate(JsonSerializer.SerializeToElement(instance), new EvaluationOptions { OutputFormat = OutputFormat.List });
         return result.IsValid

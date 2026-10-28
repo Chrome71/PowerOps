@@ -106,11 +106,7 @@ public static class DriftCommand
             catch (DriftReadException ex)
             {
                 error.WriteLine($"error: --env {i + 1}: {TextReport.Clean(ex.Message)}");
-                if (!string.IsNullOrEmpty(ex.Forwarded))
-                {
-                    error.Write(ex.Forwarded.EndsWith('\n') ? ex.Forwarded : ex.Forwarded + "\n");
-                }
-
+                DeployCommand.Forward(error, ex.Forwarded);
                 return ex.ExitCode;
             }
         }

@@ -214,6 +214,7 @@ powerops deploy apply exports/powerops-plan.json --target <test>   # dry run: pl
 powerops deploy apply exports/powerops-plan.json --target <test> --apply   # import the reviewed plan through pac, then check each cloud flow
 powerops baseline                     # accept today's findings: writes powerops-baseline.json
 powerops analyze --baseline powerops-baseline.json   # report only findings that are not in the baseline
+powerops mcp                          # run an MCP server over stdio for agents: its tools run the commands above and return their JSON
 ```
 
 `analyze` is offline and read-only. Options: `--format text|json|sarif|markdown` (default `text`), `--out <file>` (write the report to a file instead of stdout), `--fail-on error|warning|none` (default `error`), `--baseline <file>` (drop findings listed in a baseline file before reporting and before the exit code; the summary counts them as `baselined`). It reads unpacked XML folders (`Other/Solution.xml`), exported zips and the YAML layout that Dataverse Git integration commits: point it at the folder that holds `solutions/`, and each `solutions/<name>/solution.yml` is reported as its own solution, with its components picked by its `solutioncomponents.yml`. Canvas app `.pa.yaml` formulas are read only in the YAML layout (PO014). Every finding carries a one-line `fix` and a `helpUri` to its docs page in JSON and Markdown output, and SARIF rules carry the fix as `help`. Every JSON output carries a `schemaVersion`; the schemas are in [docs/schemas/](docs/schemas/).
@@ -271,6 +272,8 @@ Agents: run `deploy apply` without `--apply` freely against an environment the u
 | PO014 | warning | Canvas app formula contains a hard-coded environment or SharePoint URL |
 
 Each rule has a page with what it finds, how to fix it and how to suppress it: [docs/rules/](docs/rules/).
+
+`mcp` runs a Model Context Protocol server over stdio until the client closes stdin (exit `0`, or `3` on an internal error). Its tools run the commands above in-process and return their JSON: `analyze`, `rules`, `baseline`, `diff`, `test`, `settings_generate`, `settings_validate`, `plan_status`, `plan_facts`, `drift` and `deploy_plan`. They only read, except that `deploy_plan` writes its plan file into the deploy folder when `save` names a new file; `baseline` and `settings_generate` return the file's text instead of writing it. `plan_facts`, `drift` (for an environment) and `deploy_plan` read a tenant through `pac` and `az`, as the commands do. Every path must be absolute and local (no `\\host` or `//host` paths), and a value that starts with `-` or `@` is refused. An agent starts it as the command `powerops mcp`.
 
 ### Flow tests
 
