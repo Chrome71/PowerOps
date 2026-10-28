@@ -29,17 +29,26 @@ public class PluginManifestTests
         return dir;
     }
 
-    private static void AssertManifest(JsonObject manifest, string dir)
+    private static void AssertManifest(JsonObject manifest)
     {
         Assert.Equal("powerops", (string?)manifest["name"]);
         var description = (string?)manifest["description"] ?? "";
         Assert.Contains("`powerops` CLI", description);
         Assert.Contains("PATH", description);
+        Assert.Contains("`powerops mcp`", description);
         Assert.Equal(Props("RepositoryUrl"), (string?)manifest["homepage"]);
         Assert.Equal(Props("RepositoryUrl"), (string?)manifest["repository"]);
-        Assert.Null(manifest["mcpServers"]);
-        Assert.False(File.Exists(Path.Combine(dir, ".mcp.json")));
-        Assert.False(File.Exists(Path.Combine(dir, "mcp.json")));
+    }
+
+    // The one server both plugins start: the installed CLI from PATH, so the server is the CLI's version.
+    private static void AssertServer(string mcpJson, params string[] extraKeys)
+    {
+        var server = Assert.Single(Json(mcpJson)["mcpServers"]!.AsObject());
+        Assert.Equal("powerops", server.Key);
+        var entry = server.Value!.AsObject();
+        Assert.Equal(["args", "command", .. extraKeys], entry.Select(p => p.Key).Order(StringComparer.Ordinal));
+        Assert.Equal("powerops", (string?)entry["command"]);
+        Assert.Equal(["mcp"], entry["args"]!.AsArray().Select(a => (string?)a));
     }
 
     [Fact]
@@ -48,7 +57,11 @@ public class PluginManifestTests
         var marketplace = Json(Repo(".claude-plugin", "marketplace.json"));
         var dir = PluginDir(marketplace, (string)marketplace["plugins"]![0]!["source"]!);
 
-        AssertManifest(Json(Path.Combine(dir, ".claude-plugin", "plugin.json")), dir);
+        var manifest = Json(Path.Combine(dir, ".claude-plugin", "plugin.json"));
+        AssertManifest(manifest);
+        // Servers only in .mcp.json, so they are defined once.
+        Assert.Null(manifest["mcpServers"]);
+        AssertServer(Path.Combine(dir, ".mcp.json"));
     }
 
     [Fact]
@@ -63,10 +76,22 @@ public class PluginManifestTests
         var dir = PluginDir(marketplace, (string)entry["source"]!["path"]!);
 
         var manifest = Json(Path.Combine(dir, ".codex-plugin", "plugin.json"));
-        AssertManifest(manifest, dir);
+        AssertManifest(manifest);
         Assert.Equal("./skills/", (string?)manifest["skills"]);
         Assert.False(string.IsNullOrEmpty((string?)manifest["interface"]?["displayName"]));
         Assert.Equal(Props("RepositoryUrl"), (string?)manifest["interface"]?["websiteURL"]);
+        Assert.Equal(manifest["description"]!.GetValue<string>(), (string?)manifest["interface"]?["longDescription"]);
+
+        var servers = (string?)manifest["mcpServers"] ?? "";
+        Assert.Equal("./.mcp.json", servers);
+        var mcpJson = Path.Combine([dir, .. servers[2..].Split('/')]);
+        Assert.True(File.Exists(mcpJson), $"{servers} not found");
+        AssertServer(mcpJson, "env_vars", "tool_timeout_sec");
+        var server = Json(mcpJson)["mcpServers"]!["powerops"]!;
+        // deploy apply waits up to 60 minutes for one import; Codex's default is 300 s in its code.
+        Assert.Equal(3600, (int?)server["tool_timeout_sec"]);
+        // Codex passes a server only a few variables; on Linux pac needs one of these to reach its saved sign-in.
+        Assert.Equal(["DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR"], server["env_vars"]!.AsArray().Select(v => (string?)v));
     }
 
     [Theory]
