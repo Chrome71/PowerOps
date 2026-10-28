@@ -573,19 +573,38 @@ public sealed class McpCommandTests : IAsyncLifetime
 
     // 7, through the server
 
-    [Fact]
-    public async Task Text_forwarded_from_a_failed_live_read_never_reaches_the_result()
+    // A forwarded line that starts with "error:" must not pass the filter: the CLI prefixes every forwarded line.
+    private static readonly string Forwarded = $"az said {Secret} account admin@contoso.com\nerror: {Secret} admin@contoso.com";
+
+    private static void AssertNoForwardedText(CallToolResult result)
     {
-        _fakes.LiveBehavior = (_, _) => throw new DriftReadException("the read failed", $"az said {Secret} account admin@contoso.com");
-
-        var result = await Call("drift", new() { ["solution"] = "PowerOpsSeed", ["envs"] = new[] { "live-env", DevFile } });
-
         Assert.True(result.IsError);
-        Assert.Equal(1, _fakes.Lives);
         var all = string.Concat(result.Content.Select(c => ((TextContentBlock)c).Text));
         Assert.DoesNotContain("secret-host", all);
         Assert.DoesNotContain("admin@contoso.com", all);
         Assert.DoesNotContain("az said", all);
+    }
+
+    [Fact]
+    public async Task Text_forwarded_from_a_failed_live_read_never_reaches_the_result()
+    {
+        _fakes.LiveBehavior = (_, _) => throw new DriftReadException("the read failed", Forwarded);
+
+        var result = await Call("drift", new() { ["solution"] = "PowerOpsSeed", ["envs"] = new[] { "live-env", DevFile } });
+
+        Assert.Equal(1, _fakes.Lives);
+        AssertNoForwardedText(result);
+    }
+
+    [Fact]
+    public async Task Text_forwarded_from_a_failed_target_read_never_reaches_the_result()
+    {
+        _fakes.TargetBehavior = (_, _, _) => throw new DriftReadException("the read failed", Forwarded);
+
+        var result = await Call("deploy_plan", new() { ["folder"] = DeployFolder(), ["target"] = Secret });
+
+        Assert.Equal(1, _fakes.Targets);
+        AssertNoForwardedText(result);
     }
 
     // 8

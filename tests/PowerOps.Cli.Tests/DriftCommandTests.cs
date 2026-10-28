@@ -501,27 +501,27 @@ public class DriftCommandTests : IDisposable
     }
 
     [Fact]
-    public void Forwarded_text_goes_to_stderr_after_the_error_line_without_a_doubled_line_break()
+    public void Forwarded_text_goes_to_stderr_after_the_error_line_with_every_line_prefixed_and_no_doubled_line_break()
     {
         var fakes = new LiveFakes();
         Failures["pac exit 1"](fakes);
 
         var r = RunLive(fakes, Args(DevEnv, TestEnv));
 
-        Assert.Equal("error: --env 2: `pac org who` failed (exit code 1). Sign in with pac auth create, and check that the account can read that environment.\npac says no\npac stderr\n", r.Err);
+        Assert.Equal("error: --env 2: `pac org who` failed (exit code 1). Sign in with pac auth create, and check that the account can read that environment.\n  | pac says no\n  | pac stderr\n", r.Err);
         Assert.DoesNotContain("\n\n", r.Err);
         Assert.Equal("", r.Out);
     }
 
     [Fact]
-    public void A_web_error_message_is_forwarded_to_stderr_only_and_ends_with_a_line_break()
+    public void A_web_error_message_is_forwarded_to_stderr_only_with_a_prefix_and_ends_with_a_line_break()
     {
         var fakes = new LiveFakes();
         Failures["web 400"](fakes);
 
         var r = RunLive(fakes, Args(DevEnv, TestEnv));
 
-        Assert.Equal("error: --env 2: the Web API read of `solution` failed (HTTP 400).\nEntity 'nosuchtable' With Id = 00000000-0000-0000-0000-000000000000 Does Not Exist\n", r.Err);
+        Assert.Equal("error: --env 2: the Web API read of `solution` failed (HTTP 400).\n  | Entity 'nosuchtable' With Id = 00000000-0000-0000-0000-000000000000 Does Not Exist\n", r.Err);
         Assert.Equal("", r.Out);
     }
 

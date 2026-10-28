@@ -211,7 +211,7 @@ public static class DeployCommand
             return Finish(1, reviewed.Target, reviewed.Hash, ApplyStatus.Refused, "a blocked plan is never applied", [], []);
         }
 
-        if (Prepare(folder, target, [], error, read, out var code, prefixForwarded: true) is not { } now)
+        if (Prepare(folder, target, [], error, read, out var code) is not { } now)
         {
             return code;
         }
@@ -365,7 +365,7 @@ public static class DeployCommand
     }
 
     // Another tool's text goes to stderr with every line prefixed, so no line can start with "error:" or "::".
-    private static void Forward(TextWriter error, string? text)
+    internal static void Forward(TextWriter error, string? text)
     {
         if (!string.IsNullOrEmpty(text))
         {
@@ -377,7 +377,7 @@ public static class DeployCommand
     // Returns null with the exit code (2 usage, 3 unreadable input or a failed read) when any of them fails; the caller prints nothing more.
     private static Prepared? Prepare(
         string folder, string? target, List<string> problems, TextWriter error,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, out int code, bool prefixForwarded = false)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, out int code)
     {
         code = 0;
         var zips = new List<(string Name, string Path)>();
@@ -432,15 +432,7 @@ public static class DeployCommand
         catch (DriftReadException ex)
         {
             error.WriteLine($"error: --target: {Clean(ex.Message)}");
-            if (prefixForwarded)
-            {
-                Forward(error, ex.Forwarded);
-            }
-            else if (!string.IsNullOrEmpty(ex.Forwarded))
-            {
-                error.Write(ex.Forwarded.EndsWith('\n') ? ex.Forwarded : ex.Forwarded + "\n");
-            }
-
+            Forward(error, ex.Forwarded);
             code = ex.ExitCode;
             return null;
         }
