@@ -353,7 +353,7 @@ Every path must be absolute and local (no `\\host` or `//host` paths), and a val
 
 ```sh
 claude mcp add powerops -- powerops mcp   # Claude Code, local scope; --scope project writes a .mcp.json the team shares, --scope user covers all your projects
-codex mcp add powerops -- powerops mcp    # Codex; then set tool_timeout_sec (Timeouts below)
+codex mcp add powerops -- powerops mcp    # Codex; then set env_vars and tool_timeout_sec (below)
 ```
 
 Use the plugin or your own entry. With both, Claude Code connects the command once and prefers your own entry, so the server runs as `powerops`, not as the plugin's `plugin:powerops:powerops`, and its tools are named `mcp__powerops__<tool>`. In Codex your own `[mcp_servers.powerops]` takes the place of the plugin's.
@@ -361,6 +361,8 @@ Use the plugin or your own entry. With both, Claude Code connects the command on
 **What asks first.** Claude Code asks before a tool call unless a permission rule allows it, such as `mcp__plugin_powerops_powerops__analyze` for the plugin's server or `mcp__powerops__analyze` for your own entry. Codex, in its default approval mode, runs the read-only tools without asking, `plan_facts` and `drift` included, which read a tenant, and asks before `deploy_plan` and `deploy_apply`. Don't allow `deploy_apply` in a rule: an agent asks you in chat before it sets `apply`, and the form is where you say yes.
 
 **Answer the form yourself.** Whoever answers `deploy_apply`'s form gives the yes, so don't set up anything that answers forms for you, such as a Claude Code `Elicitation` hook or a Codex reviewer. An answer without the exact name is refused. Codex 0.163.0 passes this form to you even with its reviewer on, and declines it under the `never` approval policy. Its form has no Decline: Esc cancels it, which imports nothing too. `claude -p` and `codex exec` cancel forms, so `apply` imports only in an interactive session; elsewhere run `powerops deploy apply --apply` yourself.
+
+**Codex's environment.** Codex starts a server with only a few of its own environment variables, such as `HOME`, `PATH` and `USER`. On Linux, `pac` then can't reach its saved sign-in and asks you to sign in again, so the Codex plugin also passes `DBUS_SESSION_BUS_ADDRESS` and `XDG_RUNTIME_DIR`. With your own Codex entry, add `env_vars = ["DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR"]` under `[mcp_servers.powerops]` in `config.toml`.
 
 **Timeouts.** `deploy apply` waits up to 60 minutes for each import. The Codex plugin sets `tool_timeout_sec = 3600`; with your own Codex entry, add it under `[mcp_servers.powerops]` in `config.toml`, because Codex's default (60 seconds in its docs, 300 in the code of Codex 0.163.0) can end the call while an import runs. Codex 0.163.0 stops that clock while its form is open. Claude Code ends a stdio call after 30 minutes without a response: for a longer import, raise `CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT` (milliseconds). A Claude Code call still running after two minutes moves to a background task (`/tasks`), and its result arrives when it ends; a call waiting on the form stays in front. A call the client gives up on doesn't stop an import that has started: it runs to its end, and another `apply` call to that server is refused until then. If the client stops the server instead, `pac` keeps importing and no report comes back. Either way, run `deploy_apply` without `apply` to see where the target stands before trying again.
 

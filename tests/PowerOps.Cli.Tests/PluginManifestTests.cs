@@ -86,9 +86,12 @@ public class PluginManifestTests
         Assert.Equal("./.mcp.json", servers);
         var mcpJson = Path.Combine([dir, .. servers[2..].Split('/')]);
         Assert.True(File.Exists(mcpJson), $"{servers} not found");
-        AssertServer(mcpJson, "tool_timeout_sec");
-        // Codex's default of 60 s ends a deploy_apply before the form is answered; deploy apply waits up to 60 minutes for one import.
-        Assert.Equal(3600, (int?)Json(mcpJson)["mcpServers"]!["powerops"]!["tool_timeout_sec"]);
+        AssertServer(mcpJson, "env_vars", "tool_timeout_sec");
+        var server = Json(mcpJson)["mcpServers"]!["powerops"]!;
+        // deploy apply waits up to 60 minutes for one import; Codex's default is 300 s in its code.
+        Assert.Equal(3600, (int?)server["tool_timeout_sec"]);
+        // Codex passes a server only a few variables; on Linux pac needs one of these to reach its saved sign-in.
+        Assert.Equal(["DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR"], server["env_vars"]!.AsArray().Select(v => (string?)v));
     }
 
     [Theory]

@@ -3,6 +3,7 @@
     "powerops": {
       "command": "powerops",
       "args": ["mcp"],
+      "env_vars": ["DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR"],
       "tool_timeout_sec": 3600
     }
   }
