@@ -25,7 +25,7 @@ dotnet pack src/PowerOps.Cli -c Release -o artifacts
 
 - Offline first: commands work on exported or unpacked solutions, with no tenant, wherever possible (the live reads of `drift` are the exception).
 - Read-only by default. Anything that writes to a tenant or to files outside the output path needs an explicit flag.
-- Never run `powerops settings apply --apply` or `powerops deploy apply --apply` unless the user said yes to that environment in this session.
+- Never run `powerops settings apply --apply` or `powerops deploy apply --apply`, or call the MCP tool `deploy_apply` with `apply: true`, unless the user said yes to that environment in this session. Ask in chat first; the tool's form, where the user types the environment's name, is where they confirm.
 - Machine-readable output: stable JSON or SARIF (Markdown for PR comments), and meaningful exit codes.
 - Call `pac` as a subprocess. Do not reimplement it. Pass arguments as a list, never through a shell string. Reads that `pac` prints in no documented format go through the Dataverse Web API, with a token from `az` run the same way.
 - Make the smallest change that fully solves the task. No unrequested features, options or dependencies.

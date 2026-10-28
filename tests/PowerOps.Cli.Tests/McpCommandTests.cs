@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO.Pipelines;
 using System.Text;
 using System.Text.Json;
@@ -25,7 +26,7 @@ public sealed class McpCommandTests : IAsyncLifetime
     private static readonly string DevFile = Path.Combine(Fixtures, "drift", "seed-dev.json");
     private static readonly string TestFile = Path.Combine(Fixtures, "drift", "seed-test.json");
     private static readonly string OrgWho = Path.Combine(Fixtures, "pac", "org-who.txt");
-    private static readonly string[] ToolNames = ["analyze", "rules", "baseline", "diff", "test", "settings_generate", "settings_validate", "plan_status", "plan_facts", "drift", "deploy_plan"];
+    private static readonly string[] ToolNames = ["analyze", "rules", "baseline", "diff", "test", "settings_generate", "settings_validate", "plan_status", "plan_facts", "drift", "deploy_plan", "deploy_apply"];
 
     private const string SolutionTable = """
         Unique Name           Friendly Name                         Version Managed
@@ -36,13 +37,14 @@ public sealed class McpCommandTests : IAsyncLifetime
 
     private readonly string _temp = Directory.CreateTempSubdirectory("powerops-mcp-").FullName;
     private readonly Fakes _fakes = new();
+    private readonly ConcurrentQueue<string[]> _ran = [];
     private McpServer _server = null!;
     private Task _run = null!;
     private McpClient _client = null!;
 
     public async ValueTask InitializeAsync()
     {
-        var options = McpCommand.Options(_fakes.Pac, _fakes.Live, _fakes.Target);
+        var options = McpCommand.Options(_fakes.Pac, _fakes.Live, _fakes.Target, _ran.Enqueue);
         var clientToServer = new Pipe();
         var serverToClient = new Pipe();
         _server = McpServer.Create(new StreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream()), options);
@@ -173,8 +175,11 @@ public sealed class McpCommandTests : IAsyncLifetime
 
     private async Task Refused(string tool, Dictionary<string, object?>? arguments, params string[] lines)
     {
-        var result = await Call(tool, arguments);
+        AssertRefused(await Call(tool, arguments), lines);
+    }
 
+    private static void AssertRefused(CallToolResult result, params string[] lines)
+    {
         Assert.True(result.IsError);
         Assert.Single(result.Content);
         Assert.Equal(string.Join("\n", lines), Text(result));
@@ -195,11 +200,13 @@ public sealed class McpCommandTests : IAsyncLifetime
             {
                 "plan_facts" or "drift" => new bool?[] { true, false, true, true },
                 "deploy_plan" => [false, false, false, true],
+                "deploy_apply" => [false, true, false, true],
                 _ => [true, false, true, false],
             };
             Assert.Equal(expected, [tool.Annotations!.ReadOnlyHint, tool.Annotations.DestructiveHint, tool.Annotations.IdempotentHint, tool.Annotations.OpenWorldHint]);
         }
 
+        Assert.Contains("deploy_apply", tools.Single(t => t.Name == "deploy_plan").Description);
         Assert.Equal("2026-07-28", _client.NegotiatedProtocolVersion);
         Golden.Verify(JsonSerializer.Serialize(tools, new JsonSerializerOptions(McpJsonUtilities.DefaultOptions) { WriteIndented = true }), "mcp-tools.txt");
     }
@@ -813,5 +820,602 @@ public sealed class McpCommandTests : IAsyncLifetime
     {
         Assert.False(McpCommand.Result(1, "{}", "").IsError);
         Assert.True(McpCommand.Result(4, "{}", "").IsError);
+    }
+
+    // M19: deploy_apply. Each elicitation test builds its own server and client over the same fakes (a client declares its capabilities at connect).
+
+    private const string TargetName = "Contoso Test";
+    private const string GuardLine = "error: apply: an import is already running in this server; nothing was imported";
+    private const string Hint = "error: apply: to import without the form, the user runs: powerops deploy apply <plan file> --target <environment id or URL> --apply";
+    private const string Declined = "error: apply: the confirmation form was declined; nothing was imported";
+    private const string Cancelled = "error: apply: the confirmation form was cancelled; nothing was imported";
+    private const string WrongName = "error: apply: the name typed in the form is not the plan's target; nothing was imported";
+    private const string FormFailed = "error: apply: the confirmation form failed; nothing was imported";
+    private const string NotApplicable = "error: apply: the plan file cannot be applied; nothing was imported";
+    private static readonly TimeSpan Wait = TimeSpan.FromSeconds(20);
+
+    private static readonly string[] Revisions = ["2026-07-28", "2025-06-18"];
+
+    private readonly ConcurrentQueue<string[]> _imports = [];
+
+    // What the client's form handler does: answers at once, or (with no answer function) holds each form open until the test answers it.
+    private sealed class Forms(Func<ElicitRequestParams, ElicitResult>? answer = null)
+    {
+        private readonly ConcurrentQueue<TaskCompletionSource<ElicitResult>> _held = [];
+        private readonly SemaphoreSlim _opened = new(0);
+
+        public ConcurrentQueue<ElicitRequestParams> Seen { get; } = [];
+
+        public async ValueTask<ElicitResult> Handle(ElicitRequestParams? request, CancellationToken cancellationToken)
+        {
+            Seen.Enqueue(request!);
+            if (answer is not null)
+            {
+                return answer(request!);
+            }
+
+            var held = new TaskCompletionSource<ElicitResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _held.Enqueue(held);
+            _opened.Release();
+            return await held.Task.WaitAsync(cancellationToken);
+        }
+
+        // The oldest form that is open, to be answered by the test.
+        public async Task<TaskCompletionSource<ElicitResult>> Next()
+        {
+            Assert.True(await _opened.WaitAsync(Wait, TestContext.Current.CancellationToken), "no form was sent");
+            Assert.True(_held.TryDequeue(out var held));
+            return held;
+        }
+    }
+
+    // For a call that must not send a form: if it does, the test fails on what it sees instead of waiting for an answer.
+    private static Forms NoFormExpected() => new(_ => new ElicitResult { Action = "cancel" });
+
+    private sealed class Pair(McpServer server, Task run, McpClient client, ConcurrentQueue<string[]> ran) : IAsyncDisposable
+    {
+        public McpClient Client => client;
+
+        // Every argument list the server passed to Program.Run.
+        public ConcurrentQueue<string[]> Ran => ran;
+
+        public async ValueTask DisposeAsync()
+        {
+            await client.DisposeAsync();
+            await server.DisposeAsync();
+            try
+            {
+                await run;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+    }
+
+    private static async Task<Pair> Connect(Fakes fakes, string revision, Forms forms)
+    {
+        var ran = new ConcurrentQueue<string[]>();
+        var (clientToServer, serverToClient) = (new Pipe(), new Pipe());
+        var server = McpServer.Create(new StreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream()), McpCommand.Options(fakes.Pac, fakes.Live, fakes.Target, ran.Enqueue));
+        var run = server.RunAsync();
+        var client = await McpClient.CreateAsync(
+            new StreamClientTransport(clientToServer.Writer.AsStream(), serverToClient.Reader.AsStream()),
+            new McpClientOptions { ProtocolVersion = revision, Handlers = new McpClientHandlers { ElicitationHandler = forms.Handle } },
+            cancellationToken: TestContext.Current.CancellationToken);
+        return new Pair(server, run, client, ran);
+    }
+
+    private static Task<CallToolResult> Apply(Pair pair, Dictionary<string, object?> arguments) => pair.Client.CallToolAsync("deploy_apply", arguments, cancellationToken: TestContext.Current.CancellationToken).AsTask();
+
+    private static Dictionary<string, object?> ApplyArgs(string planFile, bool? apply = true)
+    {
+        var arguments = new Dictionary<string, object?> { ["planFile"] = planFile, ["target"] = Secret };
+        if (apply is not null)
+        {
+            arguments["apply"] = apply;
+        }
+
+        return arguments;
+    }
+
+    private static ElicitResult Accepted(string name) => new() { Action = "accept", Content = new Dictionary<string, JsonElement> { ["environment"] = JsonSerializer.SerializeToElement(name) } };
+
+    // A plan file saved by deploy plan --save with the fakes, beside the seed zip and its settings file.
+    private (string Folder, string PlanFile) SavedPlan()
+    {
+        var folder = DeployFolder();
+        var planFile = Path.Combine(folder, "plan.json");
+        Assert.Equal(0, CliWith(TargetFakes(), "deploy", "plan", "--target", Secret, "--save", planFile, "--", folder).Code);
+        return (folder, planFile);
+    }
+
+    private static void EditPlan(string planFile, Action<JsonObject> edit)
+    {
+        var plan = JsonNode.Parse(File.ReadAllText(planFile))!.AsObject();
+        edit(plan);
+        File.WriteAllText(planFile, plan.ToJsonString());
+    }
+
+    // The fakes of a tenant that matches the plan, and a pac that records the imports it is asked for.
+    private void ImportFakes(Func<int, PacResult>? pac = null)
+    {
+        _fakes.TargetBehavior = ReadTarget;
+        _fakes.PacBehavior = a =>
+        {
+            _imports.Enqueue([.. a]);
+            return pac?.Invoke(_imports.Count) ?? Ok("imported\n");
+        };
+    }
+
+    private (int Code, string Out, string Err) CliApply(string planFile, bool apply, PacResult? pac = null)
+    {
+        string[] args = ["deploy", "apply", planFile, "--target", Secret, "--format", "json", .. (apply ? new[] { "--apply" } : [])];
+        return CliWith(new Fakes { TargetBehavior = ReadTarget, PacBehavior = _ => pac ?? Ok("imported\n") }, args);
+    }
+
+    private static string Status(CallToolResult result) => (string)JsonNode.Parse(Text(result))!["status"]!;
+
+    // 2
+
+    [Theory]
+    [InlineData("absent")]
+    [InlineData("false")]
+    [InlineData("null")]
+    public async Task Without_apply_the_tool_is_a_dry_run_that_imports_nothing_and_sends_no_form(string apply)
+    {
+        var (_, planFile) = SavedPlan();
+        ImportFakes();
+        var arguments = ApplyArgs(planFile, apply == "false" ? false : null);
+        if (apply == "null")
+        {
+            arguments["apply"] = null;
+        }
+
+        var forms = NoFormExpected();
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
+
+        var results = new[] { await Call("deploy_apply", arguments), await Apply(pair, arguments) };
+
+        string[] ran = ["deploy", "apply", "--target", Secret, "--format", "json", "--", planFile];
+        foreach (var result in results)
+        {
+            Assert.False(result.IsError);
+            Assert.Single(result.Content);
+            Assert.Equal(CliApply(planFile, apply: false).Out, Text(result));
+            Assert.Equal("", OutputSchemaTests.Errors(OutputSchemaTests.Load("deploy-apply.schema.json"), JsonNode.Parse(Text(result))!));
+        }
+
+        Assert.Equal(0, _fakes.Pacs);
+        Assert.Empty(forms.Seen);
+        Assert.Equal(ran, Assert.Single(_ran));
+        Assert.Equal(ran, Assert.Single(pair.Ran));
+    }
+
+    // 3
+
+    [Fact]
+    public async Task Apply_from_a_client_that_cannot_show_the_form_is_refused_before_anything_runs()
+    {
+        var (_, planFile) = SavedPlan();
+
+        await Refused("deploy_apply", ApplyArgs(planFile), "error: apply: this client cannot show the confirmation form; nothing was imported", Hint);
+
+        Assert.Equal(0, _fakes.Total);
+        Assert.Empty(_ran);
+    }
+
+    // 4
+
+    public static TheoryData<string, string, string> NotTheYes()
+    {
+        var data = new TheoryData<string, string, string>();
+        foreach (var revision in Revisions)
+        {
+            foreach (var (kind, line) in new[]
+            {
+                ("decline", Declined), ("cancel", Cancelled), ("action-case", Cancelled), ("name-case", WrongName), ("trailing-space", WrongName), ("empty-name", WrongName),
+                ("no-content", WrongName), ("empty-content", WrongName), ("number", WrongName),
+            })
+            {
+                data.Add(revision, kind, line);
+            }
+        }
+
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(NotTheYes))]
+    public async Task Anything_but_an_accept_with_the_exact_name_imports_nothing(string revision, string kind, string line)
+    {
+        var (_, planFile) = SavedPlan();
+        var forms = new Forms(_ => kind switch
+        {
+            "decline" => new ElicitResult { Action = "decline" },
+            "cancel" => new ElicitResult { Action = "cancel" },
+            "action-case" => new ElicitResult { Action = "Accept", Content = Accepted(TargetName).Content },
+            "name-case" => Accepted("contoso test"),
+            "trailing-space" => Accepted("Contoso Test "),
+            "empty-name" => Accepted(""),
+            "no-content" => new ElicitResult { Action = "accept" },
+            "empty-content" => new ElicitResult { Action = "accept", Content = new Dictionary<string, JsonElement>() },
+            _ => new ElicitResult { Action = "accept", Content = new Dictionary<string, JsonElement> { ["environment"] = JsonSerializer.SerializeToElement(5) } },
+        });
+        await using var pair = await Connect(_fakes, revision, forms);
+
+        AssertRefused(await Apply(pair, ApplyArgs(planFile)), line, Hint);
+
+        Assert.Single(forms.Seen);
+        Assert.Equal(0, _fakes.Total);
+        Assert.Empty(pair.Ran);
+    }
+
+    [Fact]
+    public async Task A_client_whose_form_handler_fails_imports_nothing()
+    {
+        var (_, planFile) = SavedPlan();
+        await using var pair = await Connect(_fakes, "2025-06-18", new Forms(_ => throw new InvalidOperationException("boom")));
+
+        AssertRefused(await Apply(pair, ApplyArgs(planFile)), FormFailed, Hint);
+
+        Assert.Equal(0, _fakes.Total);
+        Assert.Empty(pair.Ran);
+    }
+
+    // 5
+
+    [Theory]
+    [InlineData("2026-07-28")]
+    [InlineData("2025-06-18")]
+    public async Task The_exact_name_in_an_accepted_form_imports_the_plan_and_the_form_holds_what_the_user_must_see(string revision)
+    {
+        var (folder, planFile) = SavedPlan();
+        ImportFakes();
+        var forms = new Forms(_ => Accepted(TargetName));
+        await using var pair = await Connect(_fakes, revision, forms);
+
+        var result = await Apply(pair, ApplyArgs(planFile));
+
+        Assert.False(result.IsError);
+        Assert.Single(result.Content);
+        Assert.Equal(CliApply(planFile, apply: true).Out, Text(result));
+        Assert.Equal("", OutputSchemaTests.Errors(OutputSchemaTests.Load("deploy-apply.schema.json"), JsonNode.Parse(Text(result))!));
+        var import = Assert.Single(_imports);
+        Assert.Equal(["solution", "import"], import.Take(2));
+        Assert.Equal(Path.Combine(folder, "PowerOpsSeed.settings.json"), import[(Array.IndexOf(import, "--settings-file") + 1)]);
+        var apply = Assert.Single(pair.Ran, a => a.Contains("--apply"));
+        Assert.Equal(["deploy", "apply", "--target", Secret, "--format", "json", "--apply", "--", planFile], apply);
+
+        var form = Assert.Single(forms.Seen);
+        var property = Assert.Single(form.RequestedSchema!.Properties);
+        var field = Assert.IsType<ElicitRequestParams.StringSchema>(property.Value);
+        var hash = (string)JsonNode.Parse(File.ReadAllText(planFile))!["hash"]!;
+        Assert.Equal("form", form.Mode);
+        Assert.Equal("environment", property.Key);
+        Assert.Null(field.Default);
+        Assert.Equal(["environment"], form.RequestedSchema.Required);
+        Assert.Null(form.Meta);
+        Assert.Contains($"Target environment: {TargetName}\nPlan hash: {hash}\nSolution zips: PowerOpsSeed.zip\n", form.Message);
+        Assert.DoesNotContain("secret-host", form.Message);
+        Assert.DoesNotContain("plan.json", form.Message);
+        Assert.DoesNotContain(folder, form.Message);
+    }
+
+    // 6
+
+    [Fact]
+    public async Task A_target_that_changed_since_the_plan_is_refused_after_the_yes_and_imports_nothing()
+    {
+        var (_, planFile) = SavedPlan();
+        ImportFakes();
+        _fakes.TargetBehavior = (_, solutions, dependencies) => new(TargetName, Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), [.. solutions.Select(_ => SnapshotFile.Load(DevFile))], dependencies.ToDictionary(d => d, _ => (string?)null));
+        await using var pair = await Connect(_fakes, "2026-07-28", new Forms(_ => Accepted(TargetName)));
+
+        var result = await Apply(pair, ApplyArgs(planFile));
+
+        Assert.False(result.IsError);
+        Assert.Equal("refused", Status(result));
+        Assert.Equal(0, _fakes.Pacs);
+    }
+
+    // 7
+
+    [Fact]
+    public async Task A_failed_import_is_an_error_with_the_failed_report()
+    {
+        var (_, planFile) = SavedPlan();
+        ImportFakes(_ => new PacResult(true, false, 1, "", "boom"));
+        await using var pair = await Connect(_fakes, "2026-07-28", new Forms(_ => Accepted(TargetName)));
+
+        var result = await Apply(pair, ApplyArgs(planFile));
+
+        Assert.True(result.IsError);
+        Assert.Equal("failed", Status(result));
+        Assert.DoesNotContain("boom", string.Concat(result.Content.Select(c => ((TextContentBlock)c).Text)));
+    }
+
+    // 8
+
+    [Fact]
+    public async Task One_import_runs_at_a_time_and_the_guard_is_released_once_by_the_call_that_took_it()
+    {
+        var (_, planFile) = SavedPlan();
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        ImportFakes(n =>
+        {
+            if (n == 1)
+            {
+                entered.Set();
+                Assert.True(release.Wait(Wait), "the test never released the first import");
+            }
+
+            return Ok("imported\n");
+        });
+        var forms = new Forms();
+        await using var pair = await Connect(_fakes, "2025-06-18", forms);
+        Task<CallToolResult>? first = null;
+        try
+        {
+            first = Apply(pair, ApplyArgs(planFile));
+            var firstForm = await forms.Next();
+            var second = Apply(pair, ApplyArgs(planFile));
+            var secondForm = await forms.Next();
+
+            firstForm.SetResult(Accepted(TargetName));
+            Assert.True(entered.Wait(Wait, TestContext.Current.CancellationToken));
+            secondForm.SetResult(Accepted(TargetName));
+            AssertRefused(await second.WaitAsync(Wait, TestContext.Current.CancellationToken), GuardLine);
+
+            AssertRefused(await Apply(pair, ApplyArgs(planFile)).WaitAsync(Wait, TestContext.Current.CancellationToken), GuardLine);
+            Assert.Equal(2, forms.Seen.Count);
+            var dry = await Apply(pair, ApplyArgs(planFile, apply: null)).WaitAsync(Wait, TestContext.Current.CancellationToken);
+            Assert.False(dry.IsError);
+            Assert.False(first.IsCompleted);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        Assert.False((await first.WaitAsync(Wait, TestContext.Current.CancellationToken)).IsError);
+        var fourth = Apply(pair, ApplyArgs(planFile));
+        (await forms.Next()).SetResult(Accepted(TargetName));
+        Assert.False((await fourth.WaitAsync(Wait, TestContext.Current.CancellationToken)).IsError);
+        Assert.Equal(2, _imports.Count);
+    }
+
+    // 9
+
+    [Fact]
+    public async Task A_plan_file_rewritten_while_the_form_is_open_is_refused_and_nothing_runs()
+    {
+        var (_, planFile) = SavedPlan();
+        await using var pair = await Connect(_fakes, "2026-07-28", new Forms(_ =>
+        {
+            EditPlan(planFile, plan => plan["hash"] = new string('a', 64));
+            return Accepted(TargetName);
+        }));
+
+        AssertRefused(await Apply(pair, ApplyArgs(planFile)), "error: planFile: the plan file changed while the form was open; nothing was imported");
+
+        Assert.Equal(0, _fakes.Total);
+        Assert.Empty(pair.Ran);
+    }
+
+    // 10
+
+    [Theory]
+    [InlineData("blocked")]
+    [InlineData("version")]
+    [InlineData("missing")]
+    public async Task A_plan_file_that_cannot_be_applied_gets_the_dry_run_report_and_a_line_and_no_form(string kind)
+    {
+        var (folder, planFile) = SavedPlan();
+        EditPlan(planFile, plan =>
+        {
+            if (kind == "blocked")
+            {
+                plan["blocked"] = true;
+            }
+            else if (kind == "version")
+            {
+                plan["tool"] = "9.9.9";
+            }
+        });
+        var file = kind == "missing" ? Path.Combine(folder, "nope.json") : planFile;
+        var forms = NoFormExpected();
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
+
+        var result = await Apply(pair, ApplyArgs(file));
+
+        var dry = CliWith(new Fakes(), "deploy", "apply", file, "--target", Secret, "--format", "json");
+        var errors = dry.Err.Split('\n').Where(l => l.StartsWith("error:", StringComparison.Ordinal));
+        string[] expected = [.. (dry.Out.Length > 0 ? new[] { dry.Out } : []), string.Join("\n", [.. errors, NotApplicable])];
+        Assert.True(result.IsError);
+        Assert.Equal(expected, result.Content.Select(c => ((TextContentBlock)c).Text));
+        Assert.Empty(forms.Seen);
+        Assert.Equal(0, _fakes.Total);
+        var ran = Assert.Single(pair.Ran);
+        Assert.DoesNotContain("--apply", ran);
+    }
+
+    [Theory]
+    [InlineData("zero-width")]
+    [InlineData("leading-space")]
+    [InlineData("trailing-space")]
+    [InlineData("long")]
+    public async Task A_target_name_the_user_cannot_read_and_type_is_refused_without_a_form(string kind)
+    {
+        var (_, planFile) = SavedPlan();
+        EditPlan(planFile, plan => plan["target"] = kind switch
+        {
+            "zero-width" => "Contoso\u200BTest",
+            "leading-space" => " Contoso Test",
+            "trailing-space" => "Contoso Test ",
+            _ => new string('x', 201),
+        });
+        var forms = NoFormExpected();
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
+
+        AssertRefused(
+            await Apply(pair, ApplyArgs(planFile)),
+            "error: planFile: the plan's target name cannot be shown in the form (too long, control or format characters, or white space at either end); nothing was imported", Hint);
+
+        Assert.Empty(forms.Seen);
+        Assert.Equal(0, _fakes.Total);
+        Assert.Empty(pair.Ran);
+    }
+
+    // 11: raw lines. The SDK's client resolves forms inside CallToolAsync and sends no cancellation.
+
+    private sealed class Raw : IAsyncDisposable
+    {
+        private readonly McpServer _server;
+        private readonly Task _run;
+        private readonly StreamWriter _writer;
+        private readonly StreamReader _reader;
+
+        public Raw(Fakes fakes, ConcurrentQueue<string[]> ran)
+        {
+            var options = McpCommand.Options(fakes.Pac, fakes.Live, fakes.Target, ran.Enqueue);
+            var inner = options.Handlers.CallToolHandler!;
+            options.Handlers.CallToolHandler = async (context, token) =>
+            {
+                Token.TrySetResult(token);
+                try
+                {
+                    return await inner(context, token);
+                }
+                finally
+                {
+                    Done.Release();
+                }
+            };
+            var (clientToServer, serverToClient) = (new Pipe(), new Pipe());
+            _server = McpServer.Create(new StreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream()), options);
+            _run = _server.RunAsync();
+            _writer = new StreamWriter(clientToServer.Writer.AsStream(), new UTF8Encoding(false)) { AutoFlush = true, NewLine = "\n" };
+            _reader = new StreamReader(serverToClient.Reader.AsStream(), Encoding.UTF8);
+        }
+
+        // Released each time a tools/call handler returns.
+        public SemaphoreSlim Done { get; } = new(0);
+
+        // The token of the first tools/call handler.
+        public TaskCompletionSource<CancellationToken> Token { get; } = new();
+
+        public Task Send(JsonNode message) => _writer.WriteLineAsync(message.ToJsonString().AsMemory(), TestContext.Current.CancellationToken);
+
+        public async Task<JsonNode> Read() => JsonNode.Parse(await _reader.ReadLineAsync(TestContext.Current.CancellationToken).AsTask().WaitAsync(Wait, TestContext.Current.CancellationToken) ?? throw new EndOfStreamException())!;
+
+        public async ValueTask DisposeAsync()
+        {
+            _writer.Close();
+            try
+            {
+                await _run.WaitAsync(Wait);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            finally
+            {
+                await _server.DisposeAsync();
+                _reader.Dispose();
+            }
+        }
+    }
+
+    private static JsonObject ToolCall(int id, string planFile, JsonObject? meta = null, string? requestState = null)
+    {
+        var parameters = new JsonObject { ["name"] = "deploy_apply", ["arguments"] = new JsonObject { ["planFile"] = planFile, ["target"] = Secret, ["apply"] = true } };
+        if (meta is not null)
+        {
+            parameters["_meta"] = meta;
+        }
+
+        if (requestState is not null)
+        {
+            parameters["requestState"] = requestState;
+        }
+
+        return new JsonObject { ["jsonrpc"] = "2.0", ["id"] = id, ["method"] = "tools/call", ["params"] = parameters };
+    }
+
+    [Fact]
+    public async Task At_2026_07_28_the_form_is_an_input_required_result_and_a_retry_with_no_answer_imports_nothing()
+    {
+        var (_, planFile) = SavedPlan();
+        var ran = new ConcurrentQueue<string[]>();
+        await using var raw = new Raw(_fakes, ran);
+        static JsonObject Meta() => new()
+        {
+            ["io.modelcontextprotocol/protocolVersion"] = "2026-07-28",
+            ["io.modelcontextprotocol/clientCapabilities"] = new JsonObject { ["elicitation"] = new JsonObject { ["form"] = new JsonObject() } },
+        };
+
+        await raw.Send(ToolCall(1, planFile, Meta()));
+        var first = (await raw.Read())["result"]!;
+        Assert.Equal("input_required", (string)first["resultType"]!);
+        Assert.Equal("elicitation/create", (string)Assert.Single(first["inputRequests"]!.AsObject()).Value!["method"]!);
+
+        await raw.Send(ToolCall(2, planFile, Meta(), (string)first["requestState"]!));
+        var second = (await raw.Read())["result"]!;
+
+        Assert.True((bool)second["isError"]!);
+        Assert.Equal(string.Join("\n", FormFailed, Hint), (string)second["content"]![0]!["text"]!);
+        Assert.Equal(0, _fakes.Total);
+        Assert.Empty(ran);
+    }
+
+    [Fact]
+    public async Task At_2025_06_18_a_cancelled_call_imports_nothing_even_when_the_form_is_answered_after_it()
+    {
+        var (_, planFile) = SavedPlan();
+        var ran = new ConcurrentQueue<string[]>();
+        await using var raw = new Raw(_fakes, ran);
+        await raw.Send(JsonNode.Parse("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{"elicitation":{"form":{}}},"clientInfo":{"name":"t","version":"1"}}}""")!);
+        await raw.Read();
+        await raw.Send(JsonNode.Parse("""{"jsonrpc":"2.0","method":"notifications/initialized"}""")!);
+        await raw.Send(ToolCall(2, planFile));
+        var form = await raw.Read();
+        Assert.Equal("elicitation/create", (string)form["method"]!);
+
+        await raw.Send(JsonNode.Parse("""{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":2,"reason":"test"}}""")!);
+        var token = await raw.Token.Task.WaitAsync(Wait, TestContext.Current.CancellationToken);
+        Assert.True(token.WaitHandle.WaitOne(Wait), "the handler's token was never cancelled");
+        await raw.Send(new JsonObject
+        {
+            ["jsonrpc"] = "2.0",
+            ["id"] = form["id"]!.DeepClone(),
+            ["result"] = new JsonObject { ["action"] = "accept", ["content"] = new JsonObject { ["environment"] = TargetName } },
+        });
+
+        Assert.True(await raw.Done.WaitAsync(Wait, TestContext.Current.CancellationToken), "the handler never returned");
+        Assert.Equal(0, _fakes.Total);
+        Assert.Empty(ran);
+    }
+
+    // 12
+
+    [Fact]
+    public async Task Input_that_the_checks_refuse_gives_the_servers_error_lines_and_runs_nothing()
+    {
+        var (_, planFile) = SavedPlan();
+        var response = Path.Combine(_temp, "args.rsp");
+        File.WriteAllText(response, "--apply\n");
+
+        await Refused("deploy_apply", ApplyArgs("plan.json"), "error: planFile: must be an absolute path");
+        await Refused("deploy_apply", ApplyArgs("-plan.json"), "error: planFile: a value that starts with - or @ is refused");
+        await Refused("deploy_apply", ApplyArgs("@" + response), "error: planFile: a value that starts with - or @ is refused");
+        await Refused("deploy_apply", ApplyArgs(@"\\host\share\x"), @"error: planFile: a network or device path (starting with \\ or //) is refused");
+        await Refused("deploy_apply", new() { ["planFile"] = planFile, ["target"] = "@" + response }, "error: target: a value that starts with - or @ is refused");
+        await Refused("deploy_apply", new() { ["planFile"] = planFile, ["target"] = Secret, ["apply"] = "true" }, "error: apply: must be true or false");
+        await Refused("deploy_apply", new() { ["planFile"] = planFile, ["target"] = Secret, ["extra"] = 1 }, "error: extra: unknown field");
+
+        Assert.Equal(0, _fakes.Total);
+        Assert.Empty(_ran);
     }
 }

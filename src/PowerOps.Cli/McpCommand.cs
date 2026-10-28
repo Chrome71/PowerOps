@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -19,7 +20,7 @@ public static partial class McpCommand
     private const string PathsText = "Absolute paths of solution folders or exported zips; folders are searched recursively.";
     private const string SolutionText = "Absolute path of an unpacked solution folder or an exported zip.";
 
-    private enum Kind { Path, Paths, Text, Texts }
+    private enum Kind { Path, Paths, Text, Texts, Flag }
 
     // Local: a text field whose entries can also be file paths (drift's envs).
     private sealed record Field(string Name, Kind Kind, bool Required, string Description, int MinItems = 0, bool Local = false)
@@ -33,6 +34,8 @@ public static partial class McpCommand
     {
         public string Text(string name) => (string)map[name];
 
+        public bool Flag(string name) => map.TryGetValue(name, out var value) && (bool)value;
+
         public string? Optional(string name) => map.TryGetValue(name, out var value) ? (string)value : null;
 
         public string[] List(string name) => (string[])map[name];
@@ -41,12 +44,14 @@ public static partial class McpCommand
     }
 
     // Extra holds the checks of one tool beyond the generic ones: the labels that already failed are passed in so a value is refused once.
-    private sealed record ToolDef(string Name, string Description, Field[] Fields, Func<Values, TextWriter, TextWriter, CancellationToken, int> Run, ToolAnnotations? Annotations = null,
-        Action<Values, ISet<string>, List<string>>? Extra = null);
+    // RunAsync (given instead of Run) also gets the request's own server, to ask the user.
+    private sealed record ToolDef(string Name, string Description, Field[] Fields, Func<Values, TextWriter, TextWriter, CancellationToken, int>? Run, ToolAnnotations? Annotations = null,
+        Action<Values, ISet<string>, List<string>>? Extra = null, Func<Values, McpServer, CancellationToken, ValueTask<CallToolResult>>? RunAsync = null);
 
     private static readonly ToolAnnotations ReadOnly = new() { ReadOnlyHint = true, DestructiveHint = false, IdempotentHint = true, OpenWorldHint = false };
     private static readonly ToolAnnotations ReadTenant = new() { ReadOnlyHint = true, DestructiveHint = false, IdempotentHint = true, OpenWorldHint = true };
     private static readonly ToolAnnotations WritePlan = new() { ReadOnlyHint = false, DestructiveHint = false, IdempotentHint = false, OpenWorldHint = true };
+    private static readonly ToolAnnotations Import = new() { ReadOnlyHint = false, DestructiveHint = true, IdempotentHint = false, OpenWorldHint = true };
 
     [GeneratedRegex(@"^[A-Za-z0-9._-]+\.json\z")]
     private static partial Regex SaveName();
@@ -82,11 +87,11 @@ public static partial class McpCommand
         return command;
     }
 
-    // Tests build a server from these options over in-process pipes.
+    // Tests build a server from these options over in-process pipes; ran sees every argument list a tool passes to Program.Run.
     internal static McpServerOptions Options(Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot> driftLive,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget, Action<string[]>? ran = null)
     {
-        var tools = Tools(pac, driftLive, deployTarget);
+        var tools = Tools(pac, driftLive, deployTarget, ran);
         var listed = tools.Select(Describe).ToList();
         return new McpServerOptions
         {
@@ -94,7 +99,7 @@ public static partial class McpCommand
             Handlers = new McpServerHandlers
             {
                 ListToolsHandler = (_, _) => ValueTask.FromResult(new ListToolsResult { Tools = listed }),
-                CallToolHandler = (context, cancellationToken) => ValueTask.FromResult(Call(tools, context.Params, cancellationToken)),
+                CallToolHandler = (context, cancellationToken) => Call(tools, context, cancellationToken),
             },
         };
     }
@@ -126,9 +131,16 @@ public static partial class McpCommand
     }
 
     private static ToolDef[] Tools(Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot> driftLive,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget, Action<string[]>? ran)
     {
-        int Cli(string[] args, TextWriter output, TextWriter error) => Program.Run(args, output, error, pac, driftLive, deployTarget);
+        int Cli(string[] args, TextWriter output, TextWriter error)
+        {
+            ran?.Invoke(args);
+            return Program.Run(args, output, error, pac, driftLive, deployTarget);
+        }
+
+        // One import at a time in this server; it covers the import only, never the form (see DeployApply).
+        var guard = new SemaphoreSlim(1, 1);
         static string[] Option(string name, string? value) => value is null ? [] : [name, value];
         const string Json = "Read-only; returns the JSON of `powerops ";
 
@@ -186,7 +198,7 @@ public static partial class McpCommand
                 (v, o, e, _) => Cli(["drift", "--solution", v.Text("solution"), .. v.List("envs").SelectMany(env => new[] { "--env", env }), "--format", "json"], o, e),
                 ReadTenant,
                 CheckEnvs),
-            new("deploy_plan", "Say what importing the solution zips in a folder into a target environment would do, reading the target through pac, az and the Dataverse Web API; returns the JSON of `powerops deploy plan --format json` (docs/schemas/deploy-plan.schema.json). It writes only when `save` names a new file, which gets that JSON in the folder; promote a reviewed plan with `powerops deploy apply`, not with an import tool.",
+            new("deploy_plan", "Say what importing the solution zips in a folder into a target environment would do, reading the target through pac, az and the Dataverse Web API; returns the JSON of `powerops deploy plan --format json` (docs/schemas/deploy-plan.schema.json). It writes only when `save` names a new file, which gets that JSON in the folder; promote a reviewed plan with deploy_apply, not with an import tool.",
                 [
                     new("folder", Kind.Path, true, "Absolute path of a folder of exported solution zips, each with an optional <zip name>.settings.json beside it."),
                     new("target", Kind.Text, true, "The environment to plan against: an id or URL (as pac --environment)."),
@@ -195,7 +207,125 @@ public static partial class McpCommand
                 (v, o, e, ct) => DeployPlan(v, o, e, Cli, ct),
                 WritePlan,
                 CheckSave),
+            new("deploy_apply", "Promote a reviewed plan file from deploy_plan's `save`: plan again against the target, refuse when anything changed, and import the zips in plan order through pac. Without `apply` it is a dry run that imports nothing. With `apply: true` it imports only after the user types the target's name into the server's confirmation form, never without that typed yes. Returns the JSON of `powerops deploy apply --format json` (docs/schemas/deploy-apply.schema.json). Promote a reviewed plan with this tool, not with an import tool.",
+                [
+                    new("planFile", Kind.Path, true, "Absolute path of a plan file saved by deploy_plan's save; the zips and settings files are read from its folder."),
+                    new("target", Kind.Text, true, "The environment the plan was made for: an id or URL (as pac --environment)."),
+                    new("apply", Kind.Flag, false, "Optional, default false: true imports after the user types the target's name into the confirmation form; false is a dry run."),
+                ],
+                null,
+                Import,
+                RunAsync: (v, server, ct) => DeployApply(v, server, guard, Cli, ct)),
         ];
+    }
+
+    private const string GuardLine = "error: apply: an import is already running in this server; nothing was imported";
+    private const string NoFormLine = "error: apply: this client cannot show the confirmation form; nothing was imported";
+    private const string FormHint = "error: apply: to import without the form, the user runs: powerops deploy apply <plan file> --target <environment id or URL> --apply";
+
+    private static CallToolResult Refuse(params string[] lines) => new() { IsError = true, Content = [new TextContentBlock { Text = string.Join("\n", lines) }] };
+
+    // A command's result that the tool refuses anyway: isError, with the line after the command's own error lines.
+    private static CallToolResult RefuseWith(string stdout, string stderr, string line) => Result(3, stdout, stderr + "\n" + line);
+
+    // Without apply: a dry run. With it: the user types the plan's target name into the client's form, and only an ordinal accept with that exact name passes.
+    private static async ValueTask<CallToolResult> DeployApply(Values v, McpServer server, SemaphoreSlim guard, Func<string[], TextWriter, TextWriter, int> cli, CancellationToken cancellationToken)
+    {
+        var (planFile, target) = (v.Text("planFile"), v.Text("target"));
+        string[] Args(bool apply) => ["deploy", "apply", "--target", target, "--format", "json", .. (apply ? new[] { "--apply" } : []), "--", planFile];
+        (int Code, string Out, string Err) Exec(string[] args)
+        {
+            var (o, e) = (new StringWriter(), new StringWriter());
+            return (cli(args, o, e), o.ToString(), e.ToString());
+        }
+
+        if (!v.Flag("apply"))
+        {
+            var (code, o, e) = Exec(Args(false));
+            return Result(code, o, e);
+        }
+
+        if (guard.CurrentCount == 0)
+        {
+            return Refuse(GuardLine);
+        }
+
+        if (server.ClientCapabilities?.Elicitation?.Form is null)
+        {
+            return Refuse(NoFormLine, FormHint);
+        }
+
+        var tool = AnalyzeCommand.ToolVersion();
+        PlanFileRead? Read() => File.Exists(planFile) ? DeployCommand.ReadPlanFile(planFile, tool, TextWriter.Null) : null;
+        if (Read()?.Plan is not { Blocked: false } plan)
+        {
+            var (_, o, e) = Exec(Args(false));
+            return RefuseWith(o, e, "error: apply: the plan file cannot be applied; nothing was imported");
+        }
+
+        if (plan.Target.Length > 200 || plan.Target.EnumerateRunes().Any(r => Rune.GetUnicodeCategory(r) is UnicodeCategory.Control or UnicodeCategory.Format)
+            || char.IsWhiteSpace(plan.Target[0]) || char.IsWhiteSpace(plan.Target[^1]))
+        {
+            return Refuse("error: planFile: the plan's target name cannot be shown in the form (too long, control or format characters, or white space at either end); nothing was imported", FormHint);
+        }
+
+        var zips = string.Join(", ", plan.Inputs.Zips.Select(z => z.Zip));
+        var form = new ElicitRequestParams
+        {
+            Message = $"powerops deploy_apply wants to import a reviewed plan into an environment. There is no rollback.\n\nTarget environment: {TextReport.Clean(plan.Target)}\nPlan hash: {plan.Hash}\nSolution zips: {zips}\n\nTo import, type the target environment's name exactly as shown above. Decline or cancel to import nothing.",
+            RequestedSchema = new()
+            {
+                // No default: the SDK fills a missing accepted field from it, so an empty accept would pass.
+                Properties = { ["environment"] = new ElicitRequestParams.StringSchema { Title = "Environment name", Description = "Type the target environment's name exactly as shown above." } },
+                Required = ["environment"],
+            },
+        };
+        ElicitResult answer;
+        try
+        {
+            answer = await server.ElicitAsync(form, cancellationToken);
+        }
+        catch (Exception)
+        {
+            // The client's error, a cancel, a retry with no answer or a closed connection: whatever the cause, nothing is imported.
+            return Refuse("error: apply: the confirmation form failed; nothing was imported", FormHint);
+        }
+
+        if (!string.Equals(answer.Action, "accept", StringComparison.Ordinal))
+        {
+            return Refuse($"error: apply: the confirmation form was {(answer.Action == "decline" ? "declined" : "cancelled")}; nothing was imported", FormHint);
+        }
+
+        if (answer.Content is null || !answer.Content.TryGetValue("environment", out var typed) || typed.ValueKind != JsonValueKind.String || !string.Equals(typed.GetString(), plan.Target, StringComparison.Ordinal))
+        {
+            return Refuse("error: apply: the name typed in the form is not the plan's target; nothing was imported", FormHint);
+        }
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return Refuse("error: apply: the call was cancelled; nothing was imported");
+        }
+
+        // The file may have changed while the form was open.
+        if (Read()?.Plan is not { } again || again.Hash != plan.Hash || !string.Equals(again.Target, plan.Target, StringComparison.Ordinal))
+        {
+            return Refuse("error: planFile: the plan file changed while the form was open; nothing was imported");
+        }
+
+        if (!guard.Wait(0))
+        {
+            return Refuse(GuardLine);
+        }
+
+        try
+        {
+            var (code, o, e) = Exec(Args(true));
+            return Result(code, o, e);
+        }
+        finally
+        {
+            guard.Release();
+        }
     }
 
     // An entry ending in .json is a snapshot path and must be absolute; any other entry that names a file would be read by drift as a snapshot relative to the server's folder.
@@ -314,7 +444,7 @@ public static partial class McpCommand
         var properties = new JsonObject();
         foreach (var f in tool.Fields)
         {
-            var property = new JsonObject { ["type"] = f.IsList ? "array" : "string" };
+            var property = new JsonObject { ["type"] = f.IsList ? "array" : f.Kind == Kind.Flag ? "boolean" : "string" };
             if (f.IsList)
             {
                 property["items"] = new JsonObject { ["type"] = "string" };
@@ -336,8 +466,9 @@ public static partial class McpCommand
         return new Tool { Name = tool.Name, Description = tool.Description, InputSchema = JsonSerializer.SerializeToElement(schema), Annotations = tool.Annotations ?? ReadOnly };
     }
 
-    private static CallToolResult Call(ToolDef[] tools, CallToolRequestParams? request, CancellationToken cancellationToken)
+    private static async ValueTask<CallToolResult> Call(ToolDef[] tools, RequestContext<CallToolRequestParams> context, CancellationToken cancellationToken)
     {
+        var request = context.Params;
         if (request is null)
         {
             throw new McpProtocolException("Missing params.", McpErrorCode.InvalidParams);
@@ -352,9 +483,14 @@ public static partial class McpCommand
             return new CallToolResult { IsError = true, Content = [new TextContentBlock { Text = string.Join("\n", problems) }] };
         }
 
+        if (tool.RunAsync is { } runAsync)
+        {
+            return await runAsync(values, context.Server, cancellationToken);
+        }
+
         var output = new StringWriter();
         var error = new StringWriter();
-        var code = tool.Run(values, output, error, cancellationToken);
+        var code = tool.Run!(values, output, error, cancellationToken);
         return Result(code, output.ToString(), error.ToString());
     }
 
@@ -375,6 +511,17 @@ public static partial class McpCommand
                 if (f.Required)
                 {
                     problems.Add($"error: {f.Name}: missing");
+                }
+            }
+            else if (f.Kind == Kind.Flag)
+            {
+                if (given.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                {
+                    values[f.Name] = given.GetBoolean();
+                }
+                else
+                {
+                    problems.Add($"error: {f.Name}: must be true or false");
                 }
             }
             else if (!f.IsList)
@@ -402,7 +549,7 @@ public static partial class McpCommand
             }
         }
 
-        var entries = tool.Fields.Where(f => values.ContainsKey(f.Name)).SelectMany(f => f.IsList
+        var entries = tool.Fields.Where(f => f.Kind != Kind.Flag && values.ContainsKey(f.Name)).SelectMany(f => f.IsList
             ? ((string[])values[f.Name]).Select((s, i) => (Field: f, Label: $"{f.Name} {i + 1}", Value: s))
             : [(Field: f, Label: f.Name, Value: (string)values[f.Name])]).ToList();
         var refused = new HashSet<string>();
