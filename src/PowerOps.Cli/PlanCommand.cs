@@ -10,12 +10,12 @@ public static class PlanCommand
     private const int UsageError = 2;
     private const int InternalError = 3;
 
-    public static Command Create(TextWriter output, TextWriter error)
+    public static Command Create(TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac)
     {
         var command = new Command("plan", "Check and sign off planning documents in docs/plans/ (offline).");
         command.Subcommands.Add(Status(output, error));
         command.Subcommands.Add(SignOff(output, error));
-        command.Subcommands.Add(Facts(output, error));
+        command.Subcommands.Add(Facts(output, error, pac));
         return command;
     }
 
@@ -79,12 +79,12 @@ public static class PlanCommand
         return command;
     }
 
-    private static Command Facts(TextWriter output, TextWriter error)
+    private static Command Facts(TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac)
     {
         var command = new Command("facts", "Print the environment name and solution names from pac as JSON (read-only; needs pac signed in).");
         command.SetAction(_ => Guard(error, () =>
         {
-            output.Write(PlanFacts.Run(new PacRunner().Run));
+            output.Write(PlanFacts.Run(a => pac(a, TimeSpan.FromSeconds(30))));
             return 0;
         }));
         return command;

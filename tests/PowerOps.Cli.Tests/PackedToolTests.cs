@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 
 using PowerOps.Tests.Shared;
@@ -52,6 +53,8 @@ public class PackedToolTests
             var skills = Run(exe, ["skills", "install", repo]);
             Assert.True(skills.Code == 0, skills.Out + skills.Err);
             Assert.True(File.Exists(Path.Combine(repo, ".agents", "skills", "powerops-plan", "SKILL.md")));
+
+            Mcp(exe);
         }
         finally
         {
@@ -62,6 +65,65 @@ public class PackedToolTests
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 // Best effort: cleanup must not mask the real test failure.
+            }
+        }
+    }
+
+    // `powerops mcp` over real stdio: one request at a time, each response read before the next write, because the server drops
+    // responses to requests still in flight when stdin closes.
+    private static void Mcp(string exe)
+    {
+        var info = new ProcessStartInfo(exe, "mcp")
+        {
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardInputEncoding = new UTF8Encoding(false),
+            Environment = { ["DOTNET_NOLOGO"] = "1", ["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1" },
+        };
+        using var process = Process.Start(info)!;
+        var stderr = process.StandardError.ReadToEndAsync();
+        var lines = new List<string>();
+        try
+        {
+            string Exchange(string request)
+            {
+                process.StandardInput.WriteLine(request);
+                process.StandardInput.Flush();
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+                var line = process.StandardOutput.ReadLineAsync(cts.Token).AsTask().GetAwaiter().GetResult() ?? throw new InvalidOperationException("the server closed stdout");
+                lines.Add(line);
+                return line;
+            }
+
+            Exchange("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"powerops-tests","version":"1"}}}""");
+            process.StandardInput.WriteLine("""{"jsonrpc":"2.0","method":"notifications/initialized"}""");
+            var tools = Exchange("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""");
+            var rules = Exchange("""{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"rules","arguments":{}}}""");
+            process.StandardInput.Close();
+            if (!process.WaitForExit(TimeSpan.FromSeconds(60)))
+            {
+                throw new TimeoutException("powerops mcp did not exit after stdin closed");
+            }
+
+            Assert.Equal(0, process.ExitCode);
+            lines.AddRange(process.StandardOutput.ReadToEnd().Split('\n', StringSplitOptions.RemoveEmptyEntries));
+            using var list = JsonDocument.Parse(tools);
+            Assert.Equal(11, list.RootElement.GetProperty("result").GetProperty("tools").GetArrayLength());
+            using var call = JsonDocument.Parse(rules);
+            Assert.Equal(Run(exe, ["rules", "--json"]).Out, call.RootElement.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString());
+            Assert.Equal("", stderr.GetAwaiter().GetResult());
+            Assert.All(lines, l =>
+            {
+                using var doc = JsonDocument.Parse(l);
+                Assert.Equal("2.0", doc.RootElement.GetProperty("jsonrpc").GetString());
+            });
+        }
+        finally
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
             }
         }
     }

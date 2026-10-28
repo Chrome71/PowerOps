@@ -273,7 +273,7 @@ Agents: run `deploy apply` without `--apply` freely against an environment the u
 
 Each rule has a page with what it finds, how to fix it and how to suppress it: [docs/rules/](docs/rules/).
 
-`mcp` runs a Model Context Protocol server over stdio until the client closes stdin (exit `0`, or `3` on an internal error). Its tools run the commands above in-process and return their JSON: `analyze`, `rules`, `baseline`, `diff`, `test`, `settings_generate`, `settings_validate` and `plan_status`. They only read; `baseline` and `settings_generate` return the file's text instead of writing it. Every path must be absolute, and a value that starts with `-` or `@` is refused. An agent starts it as the command `powerops mcp`.
+`mcp` runs a Model Context Protocol server over stdio until the client closes stdin (exit `0`, or `3` on an internal error). Its tools run the commands above in-process and return their JSON: `analyze`, `rules`, `baseline`, `diff`, `test`, `settings_generate`, `settings_validate`, `plan_status`, `plan_facts`, `drift` and `deploy_plan`. They only read, except that `deploy_plan` writes its plan file into the deploy folder when `save` names a new file; `baseline` and `settings_generate` return the file's text instead of writing it. `plan_facts`, `drift` (for an environment) and `deploy_plan` read a tenant through `pac` and `az`, as the commands do. Every path must be absolute, and a value that starts with `-` or `@` is refused. An agent starts it as the command `powerops mcp`.
 
 ### Flow tests
 

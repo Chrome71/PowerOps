@@ -1,6 +1,8 @@
 using System.CommandLine;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
@@ -12,7 +14,7 @@ using PowerOps.Core.Output;
 
 namespace PowerOps.Cli;
 
-public static class McpCommand
+public static partial class McpCommand
 {
     private const string PathsText = "Absolute paths of solution folders or exported zips; folders are searched recursively.";
     private const string SolutionText = "Absolute path of an unpacked solution folder or an exported zip.";
@@ -33,11 +35,20 @@ public static class McpCommand
         public string? Optional(string name) => map.TryGetValue(name, out var value) ? (string)value : null;
 
         public string[] List(string name) => (string[])map[name];
+
+        public string[] OptionalList(string name) => map.TryGetValue(name, out var value) ? (string[])value : [];
     }
 
-    private sealed record ToolDef(string Name, string Description, Field[] Fields, Func<Values, TextWriter, TextWriter, int> Run);
+    // Extra holds the checks of one tool beyond the generic ones: the labels that already failed are passed in so a value is refused once.
+    private sealed record ToolDef(string Name, string Description, Field[] Fields, Func<Values, TextWriter, TextWriter, int> Run, ToolAnnotations? Annotations = null,
+        Action<Values, ISet<string>, List<string>>? Extra = null);
 
     private static readonly ToolAnnotations ReadOnly = new() { ReadOnlyHint = true, DestructiveHint = false, IdempotentHint = true, OpenWorldHint = false };
+    private static readonly ToolAnnotations ReadTenant = new() { ReadOnlyHint = true, DestructiveHint = false, IdempotentHint = true, OpenWorldHint = true };
+    private static readonly ToolAnnotations WritePlan = new() { ReadOnlyHint = false, DestructiveHint = false, IdempotentHint = false, OpenWorldHint = true };
+
+    [GeneratedRegex(@"^[A-Za-z0-9._-]+\.json\z")]
+    private static partial Regex SaveName();
 
     public static Command Create(TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot> driftLive,
         Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget)
@@ -156,7 +167,128 @@ public static class McpCommand
             new("plan_status", "Check the planning documents (docs/plans/*/plan.md) under a path: header, sign-off hash, review and tenant data. " + Json + "plan status --json` (docs/schemas/plan-status.schema.json).",
                 [new("path", Kind.Path, true, "Absolute path of a repo folder, a plan folder or a plan.md.")],
                 (v, o, e) => Cli(["plan", "status", "--json", "--", v.Text("path")], o, e)),
+            new("plan_facts", "Read the name of pac's current environment and its solutions (unique name, version, managed) through pac. " + Json + "plan facts` (docs/schemas/plan-facts.schema.json).",
+                [],
+                (_, o, e) => Cli(["plan", "facts"], o, e),
+                ReadTenant),
+            new("drift", "Compare one solution across environments, read through pac, az and the Dataverse Web API, or across saved snapshot files: version, components, layers, variables, references and flows. " + Json + "drift --format json` (docs/schemas/drift.schema.json).",
+                [
+                    new("solution", Kind.Text, true, "The solution's unique name."),
+                    new("envs", Kind.Texts, true, "At least two: an entry ending in .json is the absolute path of a snapshot file; any other is an environment id, URL or name (as pac --environment).", 2),
+                ],
+                (v, o, e) => Cli(["drift", "--solution", v.Text("solution"), .. v.List("envs").SelectMany(env => new[] { "--env", env }), "--format", "json"], o, e),
+                ReadTenant,
+                CheckEnvs),
+            new("deploy_plan", "Say what importing the solution zips in a folder into a target environment would do, reading the target through pac, az and the Dataverse Web API; returns the JSON of `powerops deploy plan --format json` (docs/schemas/deploy-plan.schema.json). It writes only when `save` names a new file, which gets that JSON in the folder; promote a reviewed plan with `powerops deploy apply`, not with an import tool.",
+                [
+                    new("folder", Kind.Path, true, "Absolute path of a folder of exported solution zips, each with an optional <zip name>.settings.json beside it."),
+                    new("target", Kind.Text, true, "The environment to plan against: an id or URL (as pac --environment)."),
+                    new("save", Kind.Text, false, "Optional: a new file name (letters, digits, '.', '_' and '-', ending in .json but not .settings.json) for the plan file in folder; an existing file is never replaced."),
+                ],
+                (v, o, e) => DeployPlan(v, o, e, Cli),
+                WritePlan,
+                CheckSave),
         ];
+    }
+
+    // An entry ending in .json is a snapshot path and must be absolute; any other entry that names a file would be read by drift as a snapshot relative to the server's folder.
+    private static void CheckEnvs(Values values, ISet<string> refused, List<string> problems)
+    {
+        foreach (var (entry, i) in values.OptionalList("envs").Select((s, i) => (s, i)).Where(t => !refused.Contains($"envs {t.i + 1}")))
+        {
+            if (entry.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!Path.IsPathFullyQualified(entry))
+                {
+                    problems.Add($"error: envs {i + 1}: must be an absolute path");
+                }
+            }
+            else if (File.Exists(entry))
+            {
+                problems.Add($"error: envs {i + 1}: an entry that names a file must end in .json");
+            }
+        }
+    }
+
+    private static void CheckSave(Values values, ISet<string> refused, List<string> problems)
+    {
+        if (values.Optional("save") is not { } save || refused.Contains("save"))
+        {
+            return;
+        }
+
+        if (!SaveName().IsMatch(save))
+        {
+            problems.Add("error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json");
+        }
+        else if (save.EndsWith(".settings.json", StringComparison.OrdinalIgnoreCase))
+        {
+            problems.Add("error: save: a name that ends in .settings.json is refused");
+        }
+        else if (!refused.Contains("folder") && values.Optional("folder") is { } folder && (File.Exists(Path.Combine(folder, save)) || Directory.Exists(Path.Combine(folder, save))))
+        {
+            problems.Add("error: save: the file already exists in folder");
+        }
+    }
+
+    // The plan runs without --save; the plan file is written here, as a new file only, so one that appeared since the check is not replaced.
+    private static int DeployPlan(Values v, TextWriter output, TextWriter error, Func<string[], TextWriter, TextWriter, int> cli)
+    {
+        var folder = v.Text("folder");
+        string[] args = ["deploy", "plan", "--target", v.Text("target"), "--format", "json", "--", folder];
+        if (v.Optional("save") is not { } save)
+        {
+            return cli(args, output, error);
+        }
+
+        var plan = new StringWriter();
+        var code = cli(args, plan, error);
+        var text = plan.ToString();
+        output.Write(text);
+        if (code is 0 or 1 && text.Length > 0 && !TrySave(Path.Combine(folder, save), text))
+        {
+            error.WriteLine("error: save: the plan file was not saved (it exists, or the folder is not writable)");
+            return 3;
+        }
+
+        return code;
+    }
+
+    private static bool TrySave(string path, string text)
+    {
+        FileStream stream;
+        try
+        {
+            stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+
+        try
+        {
+            using (stream)
+            {
+                stream.Write(new UTF8Encoding(false).GetBytes(text));
+            }
+
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // This call created the file, so it removes it (and only it).
+            try
+            {
+                File.Delete(path);
+            }
+            catch (Exception deleteEx) when (deleteEx is IOException or UnauthorizedAccessException)
+            {
+                // Best effort: the caller reports the failed save either way.
+            }
+
+            return false;
+        }
     }
 
     private static Tool Describe(ToolDef tool)
@@ -183,7 +315,7 @@ public static class McpCommand
         }
 
         schema["additionalProperties"] = false;
-        return new Tool { Name = tool.Name, Description = tool.Description, InputSchema = JsonSerializer.SerializeToElement(schema), Annotations = ReadOnly };
+        return new Tool { Name = tool.Name, Description = tool.Description, InputSchema = JsonSerializer.SerializeToElement(schema), Annotations = tool.Annotations ?? ReadOnly };
     }
 
     private static CallToolResult Call(ToolDef[] tools, CallToolRequestParams? request)
@@ -208,7 +340,7 @@ public static class McpCommand
         return Result(code, output.ToString(), error.ToString());
     }
 
-    // The plan's input checks 1 to 4, all problems at once; messages hold field names only, never a value.
+    // The plan's input checks 1 to 5, all problems at once; messages hold field names only, never a value.
     private static Values? Check(ToolDef tool, IDictionary<string, JsonElement>? arguments, List<string> problems)
     {
         arguments ??= new Dictionary<string, JsonElement>();
@@ -279,9 +411,12 @@ public static class McpCommand
             if (field.IsPath && !refused.Contains(label) && !Path.IsPathFullyQualified(value))
             {
                 problems.Add($"error: {label}: must be an absolute path");
+                refused.Add(label);
             }
         }
 
-        return problems.Count > 0 ? null : new Values(values);
+        var checkedValues = new Values(values);
+        tool.Extra?.Invoke(checkedValues, refused, problems);
+        return problems.Count > 0 ? null : checkedValues;
     }
 }
