@@ -1,8 +1,10 @@
-plan-hash: 8a5aaf4bd471ee09ca8538f02ef3a8566e9009ec9b5975cd23a3e1efb675b853
+plan-hash: a36bebe57258710c95661a13985b195321d39303d03f9f8fd5139e1c1e967867
 model: claude-sonnet-5-5
 fresh-context: yes
 
 The plan-hash was updated after the text fixes for R1 to R17 below (the practice of the M7 to M19 reviews). Reviewed hash: 074c2d2ea518b72fe92a5ae4c1b0d4e93bd2fbbaa40acc97ceb38dc7726f175a. The reviewer (a general-purpose agent following this skill, Sonnet, fresh context) wrote the findings; the planning session wrote the resolutions. The fixes changed the Goal, Users, Data (the import forms table, Output), Automation (Files, what is an import, the reading rules, the flag table, the check order, exit codes, the deadline, block lines, tests, the HANDOFF section), Constraints, Assumptions, Open questions (one, for the user: R11) and Steps (new Steps 2 and 7). Answers changed in `decisions.md`: Q3 and Q6, and Q7 was added. The reviewer contacted no tenant.
+
+The plan-hash was updated again on 2026-10-28 after the user answered the open question (decisions Q8: keep imports into Dev blocked). The only change to the body is that the open question left `Open questions`. Hash before that change: 8a5aaf4bd471ee09ca8538f02ef3a8566e9009ec9b5975cd23a3e1efb675b853.
 
 ## Findings
 
@@ -74,7 +76,7 @@ The plan-hash was updated after the text fixes for R1 to R17 below (the practice
 - Area: 5 (route from Dev to Test to Prod)
 - Finding: HANDOFF step 2 builds in Dev with Microsoft's skills, which import into Dev (model-apps' `solution-settings.js import`, `dv-solution`). With the hooks on, every such import is blocked, because the one plan file is for Test. The plan's answer is "the hooks off, or a plan for Dev in that file". The second does not work with the fixed hook path: the file holds one environment, so a Dev plan replaces the Test plan. The first is not described. The plan does not say how to turn off one gate for the build phase and back on for steps 7 to 9, or whether Claude Code can switch off one repo hook without `disableAllHooks` (not checked here). Q6's consequence for the build phase was answered by the planning session from the recommended option, and the user did not see it. So the gate protects only the phase where the flow already says to use `deploy apply`.
 - Suggested fix: put the question to the user as an open question. If one plan file stays, the HANDOFF section must say exactly how to enable the hooks only for steps 7 to 9 and what that does to other hooks. Otherwise reopen Q6 option 2 (several plan files) or a per-environment hook path.
-- Resolution: fixed (the HANDOFF section says to add the hooks at step 7 and remove them when building in Dev again; an open question asks the user about a later `--allow` option for Dev; Q6's answer notes it)
+- Resolution: fixed (the HANDOFF section says to add the hooks at step 7 and remove them when building in Dev again; an open question asked the user about a later `--allow` option for Dev, and the user answered: keep Dev blocked (Q8); Q6's answer notes it)
 
 #### R12. The listed test inputs fail on the Windows leg of CI
 - Area: 9 (testability)

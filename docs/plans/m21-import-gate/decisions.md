@@ -38,7 +38,7 @@ Answer: No. Step 7 already asks before every import and sends promotion through 
 1. One plan file, the one the hook names: an import into any environment other than the plan's target is blocked, so Dev imports through a Microsoft tool need the hooks off or a plan for Dev in that file (recommended)
 2. The gate takes several plan files and allows an import that any of them covers
 3. In your own words
-Answer: One plan file, the one the hook names: an import into any environment other than the plan's target is blocked, so Dev imports through a Microsoft tool need the hooks off or a plan for Dev in that file. That is the brief (`deploy/powerops-plan.json`), and it is what makes an import into Dev differ from one into Test. Several plan files would be a later change if users ask for it. After the review (R11): the HANDOFF section says to add the hooks at step 7 and remove them when building in Dev again, and the plan's open question asks the user whether a later option should let imports into a listed Dev environment through.
+Answer: One plan file, the one the hook names: an import into any environment other than the plan's target is blocked, so Dev imports through a Microsoft tool need the hooks off or a plan for Dev in that file. That is the brief (`deploy/powerops-plan.json`), and it is what makes an import into Dev differ from one into Test. Several plan files would be a later change if users ask for it. After the review (R11): the HANDOFF section says to add the hooks at step 7 and remove them when building in Dev again, and the plan's open question asks the user whether a later option should let imports into a listed Dev environment through. The user answered it on 2026-10-28: keep Dev blocked (Q8).
 
 ## Round 3
 
@@ -47,6 +47,14 @@ Answer: One plan file, the one the hook names: an import into any environment ot
 2. The gate also requires the plan file to be tracked in git and unchanged from `HEAD`
 3. In your own words
 Answer: No: a pass shows that the call matches the plan file at the hook's path and the live target; the user's yes stays required (AGENTS.md, `powerops-implement` step 7, the client's prompt), and the missing tie to a review is an accepted risk. Raised by the review (R2). An agent that can write and commit files can also commit a new plan file, so option 2 adds a rule without adding a control. The gap the gate closes is that Microsoft's tools skipped the plan check entirely; the human step for an import stays the user's yes, as it is for `deploy apply --apply`. The Goal, the HANDOFF section and Constraints say so.
+
+## Round 4
+
+### Q8. Should imports into a listed Dev environment pass without a plan?
+1. Keep Dev blocked: the hooks are on for steps 7 to 9 only, and no `--allow` option is built (recommended)
+2. Add an `--allow <environment id>` option that lets imports into a listed Dev environment through, compared by id or host, with its tests
+3. In your own words
+Answer: Keep Dev blocked: the hooks are on for steps 7 to 9 only, and no `--allow` option is built. Asked of the user in this session after the review (R11), and answered by the user.
 
 ## Log
 
@@ -60,3 +68,4 @@ Answer: No: a pass shows that the call matches the plan file at the hook's path 
 - approved (2026-10-28)
 - fresh review (general-purpose agent following `powerops-review-plan`, Sonnet, fresh context) 2026-10-28: 3 High, 9 Medium, 5 Low. All 17 fixed in the plan text, with resolutions in `review.md`. Answers changed: Q3 (the model-apps script, `pac package deploy` and `pac solution upgrade` always block) and Q6 (the hooks are on for steps 7 to 9 only, and an open question for the user); Q7 added (R2). The reviewer contacted no tenant
 - re-check of the fixes (powerops-reviewer, Sonnet, fresh context) 2026-10-28: R1 to R17 fixed (R10 partly, closed by R23); new: 0 High, 3 Medium, 6 Low (R18 to R26), all fixed in the plan text. No answer changed. No High or Medium finding is left open. Ready for sign-off; the plan has one open question for the user (imports into Dev)
+- 2026-10-28: the user answered the open question (Q8): keep imports into Dev blocked. The open question was removed from `plan.md`; no other text changed. Open questions: 0. Ready for sign-off

@@ -205,8 +205,6 @@ None.
 
 ## Open questions
 
-- Should a hook also let imports into a Dev environment it lists pass without a plan (a later option, for example `--allow <environment id>` compared by id or host, with no tenant read), so the hooks can stay on while building in Dev? This plan doesn't build it: as written, the hooks are turned on for steps 7 to 9 only (decisions Q6).
-
 ## Questions for your admin
 
 ## Steps
