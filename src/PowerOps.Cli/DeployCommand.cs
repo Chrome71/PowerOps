@@ -117,6 +117,32 @@ public static class DeployCommand
         return result.Blocked ? 1 : 0;
     }
 
+    // The plan file read of `deploy apply` and of the MCP tool deploy_apply, under the same rules; null after an error line.
+    internal static PlanFileRead? ReadPlanFile(string planFile, string tool, TextWriter error)
+    {
+        try
+        {
+            var info = new FileInfo(planFile);
+            if (info.LinkTarget is not null || info.Length > MaxSettingsBytes)
+            {
+                error.WriteLine(info.LinkTarget is not null ? "error: the plan file is a symbolic link; symbolic links are not read" : "error: the plan file is larger than 1 MB");
+                return null;
+            }
+
+            return DeployPlanFile.Read(File.ReadAllText(planFile), tool);
+        }
+        catch (InvalidDataException ex)
+        {
+            error.WriteLine($"error: {Clean(ex.Message)}");
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            error.WriteLine("error: the plan file could not be read");
+            return null;
+        }
+    }
+
     private static int Apply(
         string planFile, string? target, bool apply, string format, string? outFile, TextWriter output, TextWriter error,
         Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
@@ -177,26 +203,8 @@ public static class DeployCommand
             return code;
         }
 
-        var info = new FileInfo(planFile);
-        PlanFileRead reviewedRead;
-        try
+        if (ReadPlanFile(planFile, tool, error) is not { } reviewedRead)
         {
-            if (info.LinkTarget is not null || info.Length > MaxSettingsBytes)
-            {
-                error.WriteLine(info.LinkTarget is not null ? "error: the plan file is a symbolic link; symbolic links are not read" : "error: the plan file is larger than 1 MB");
-                return InternalError;
-            }
-
-            reviewedRead = DeployPlanFile.Read(File.ReadAllText(planFile), tool);
-        }
-        catch (InvalidDataException ex)
-        {
-            error.WriteLine($"error: {Clean(ex.Message)}");
-            return InternalError;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            error.WriteLine("error: the plan file could not be read");
             return InternalError;
         }
 

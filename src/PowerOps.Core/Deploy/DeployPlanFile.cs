@@ -28,8 +28,21 @@ public static partial class DeployPlanFile
 
     /// <summary>Checks, in this order: valid JSON; <c>schemaVersion</c> and <c>tool</c> present; a refusal when either differs from this powerops'; then <c>hash</c>, <c>target</c>, <c>blocked</c> and <c>inputs</c>.</summary>
     /// <param name="tool">This powerops' version.</param>
-    /// <exception cref="InvalidDataException">The text is not JSON, or a field is missing or wrong; the message names the field (or the line and position), never a value.</exception>
+    /// <exception cref="InvalidDataException">The text is not JSON, or a field is missing or wrong; the message names the field (or the line and position, or says a string is not valid Unicode), never a value.</exception>
     public static PlanFileRead Read(string json, string tool)
+    {
+        try
+        {
+            return ReadFields(json, tool);
+        }
+        catch (InvalidOperationException)
+        {
+            // GetString throws for a string that is not valid Unicode (a lone surrogate escape), whichever field holds it.
+            throw Bad("a string in the file is not valid Unicode");
+        }
+    }
+
+    private static PlanFileRead ReadFields(string json, string tool)
     {
         JsonDocument doc;
         try

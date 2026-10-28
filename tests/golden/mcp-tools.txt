@@ -250,7 +250,7 @@
   },
   {
     "name": "deploy_plan",
-    "description": "Say what importing the solution zips in a folder into a target environment would do, reading the target through pac, az and the Dataverse Web API; returns the JSON of \u0060powerops deploy plan --format json\u0060 (docs/schemas/deploy-plan.schema.json). It writes only when \u0060save\u0060 names a new file, which gets that JSON in the folder; promote a reviewed plan with \u0060powerops deploy apply\u0060, not with an import tool.",
+    "description": "Say what importing the solution zips in a folder into a target environment would do, reading the target through pac, az and the Dataverse Web API; returns the JSON of \u0060powerops deploy plan --format json\u0060 (docs/schemas/deploy-plan.schema.json). It writes only when \u0060save\u0060 names a new file, which gets that JSON in the folder; promote a reviewed plan with deploy_apply, not with an import tool.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -275,6 +275,38 @@
     },
     "annotations": {
       "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true,
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "deploy_apply",
+    "description": "Promote a reviewed plan file from deploy_plan\u0027s \u0060save\u0060 with this tool, not with an import tool: it plans again against the target and returns the JSON of \u0060powerops deploy apply --format json\u0060 (docs/schemas/deploy-apply.schema.json), as a dry run that imports nothing unless \u0060apply\u0060 is true. With \u0060apply: true\u0060 it imports the zips in plan order through pac only after the user types the target\u0027s name into the server\u0027s confirmation form, and refuses when anything changed since the plan.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "planFile": {
+          "type": "string",
+          "description": "Absolute path of a plan file saved by deploy_plan\u0027s save; the zips and settings files are read from its folder."
+        },
+        "target": {
+          "type": "string",
+          "description": "The environment the plan was made for: an id or URL (as pac --environment)."
+        },
+        "apply": {
+          "type": "boolean",
+          "description": "Optional, default false: true imports after the user types the target\u0027s name into the confirmation form; false is a dry run."
+        }
+      },
+      "required": [
+        "planFile",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "destructiveHint": true,
       "idempotentHint": false,
       "openWorldHint": true,
       "readOnlyHint": false
