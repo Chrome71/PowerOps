@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "powerops": {
+      "command": "powerops",
+      "args": ["mcp"]
+    }
+  }
+}

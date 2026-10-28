@@ -273,7 +273,7 @@ Agents: run `deploy apply` without `--apply` freely against an environment the u
 
 Each rule has a page with what it finds, how to fix it and how to suppress it: [docs/rules/](docs/rules/).
 
-`mcp` runs a Model Context Protocol server over stdio until the client closes stdin (exit `0`, or `3` on an internal error). Its tools run the commands above in-process and return their JSON: `analyze`, `rules`, `baseline`, `diff`, `test`, `settings_generate`, `settings_validate`, `plan_status`, `plan_facts`, `drift`, `deploy_plan` and `deploy_apply`. They only read, except that `deploy_plan` writes its plan file into the deploy folder when `save` names a new file, and `deploy_apply` imports a reviewed plan only when the call sets `apply` and the user types the plan's target name into the server's confirmation form (a client that cannot show the form gets a refusal and the CLI command to run); without `apply` it is a dry run. `baseline` and `settings_generate` return the file's text instead of writing it. `plan_facts`, `drift` (for an environment), `deploy_plan` and `deploy_apply` read a tenant through `pac` and `az`, as the commands do. Every path must be absolute and local (no `\\host` or `//host` paths), and a value that starts with `-` or `@` is refused. An agent starts it as the command `powerops mcp`.
+`mcp` runs a Model Context Protocol server over stdio until the client closes stdin (exit `0`, or `3` on an internal error). Its tools, what they write, and how Claude Code and Codex start it: [Use from an agent (MCP)](#use-from-an-agent-mcp).
 
 ### Flow tests
 
@@ -322,6 +322,8 @@ claude plugin marketplace add Chrome71/PowerOps && claude plugin install powerop
 codex plugin marketplace add Chrome71/PowerOps && codex plugin add powerops@powerops         # Codex
 ```
 
+The plugin also starts the PowerOps MCP server: see [Use from an agent (MCP)](#use-from-an-agent-mcp).
+
 For a team, `powerops skills install` stays the default: the skills then live in the repo, so every contributor and CI sees the same gate. Use one or the other in a repo; with both, each skill is listed twice.
 
 With Microsoft's power-platform-skills or Dataverse-skills installed too, their skills build in Dev and PowerOps checks, plans and imports: the steps are in [docs/HANDOFF.md](docs/HANDOFF.md).
@@ -336,6 +338,31 @@ powerops skills install               # copy the planning skills into .claude/sk
 ```
 
 `plan status` checks the header, that a signed-off plan still matches its recorded hash, that the review is done (with `review.md`) or skipped, and that no file in the plan folder holds a URL, GUID or email (add `<!-- plan-status: allow -->` to a line to allow it). `plan sign-off` refuses unless `status` is `approved`, the review is done or skipped, and the scan is clean; it edits only the header. Exit codes: `0` clean, `1` violations or a refused sign-off, `2` usage error or malformed header, `3` internal error.
+
+## Use from an agent (MCP)
+
+`powerops mcp` is a Model Context Protocol server over stdio for Claude Code, Codex and other agents. Its tools run the commands above in-process and return what the command prints: its JSON, which follows its schema in [docs/schemas/](docs/schemas/), or for `baseline` and `settings_generate` the file's text.
+
+- `analyze`, `rules`, `baseline`, `diff`, `test`, `settings_generate`, `settings_validate` and `plan_status` read only files. `baseline` and `settings_generate` return the file's text instead of writing it.
+- `plan_facts`, `drift` (for an environment, not a snapshot file), `deploy_plan` and `deploy_apply` read a tenant through `pac` and `az`, as the commands do, so both must be signed in.
+- Two tools write. `deploy_plan` writes its plan file into the deploy folder when `save` names a new file, never over an existing one. `deploy_apply` is a dry run unless the call sets `apply: true`. Then the server plans again, and only when that passes shows a form with the plan's target, hash and zips; it imports only after the user types the target's name there. A decline, a cancel or another name imports nothing, and a client that can't show the form gets a refusal and the CLI command to run.
+
+Every path must be absolute and local (no `\\host` or `//host` paths), and a value that starts with `-` or `@` is refused.
+
+**Register it.** The plugin ([Planning](#planning)) starts the server in each session where it is enabled. It runs `powerops mcp` from PATH, so the server is the CLI you installed, at its version, and `powerops` must be on the PATH of the agent's process; `/mcp` in either agent shows a server that failed to start. Without the plugin:
+
+```sh
+claude mcp add powerops -- powerops mcp   # Claude Code, local scope; --scope project writes a .mcp.json the team shares, --scope user covers all your projects
+codex mcp add powerops -- powerops mcp    # Codex; then set tool_timeout_sec (Timeouts below)
+```
+
+Use the plugin or your own entry. With both, Claude Code connects the command once and prefers your own entry, so the server runs as `powerops`, not as the plugin's `plugin:powerops:powerops`, and its tools are named `mcp__powerops__<tool>`. In Codex your own `[mcp_servers.powerops]` takes the place of the plugin's.
+
+**What asks first.** Claude Code asks before a tool call unless a permission rule allows it, such as `mcp__plugin_powerops_powerops__analyze` for the plugin's server or `mcp__powerops__analyze` for your own entry. Codex, in its default approval mode, runs the read-only tools without asking, `plan_facts` and `drift` included, which read a tenant, and asks before `deploy_plan` and `deploy_apply`. Don't allow `deploy_apply` in a rule: an agent asks you in chat before it sets `apply`, and the form is where you say yes.
+
+**Answer the form yourself.** Whoever answers `deploy_apply`'s form gives the yes, so don't set up anything that answers forms for you, such as a Claude Code `Elicitation` hook or a Codex reviewer. An answer without the exact name is refused. Codex 0.163.0 passes this form to you even with its reviewer on, and declines it under the `never` approval policy. Its form has no Decline: Esc cancels it, which imports nothing too. `claude -p` and `codex exec` cancel forms, so `apply` imports only in an interactive session; elsewhere run `powerops deploy apply --apply` yourself.
+
+**Timeouts.** `deploy apply` waits up to 60 minutes for each import. The Codex plugin sets `tool_timeout_sec = 3600`; with your own Codex entry, add it under `[mcp_servers.powerops]` in `config.toml`, because Codex's default (60 seconds in its docs, 300 in the code of Codex 0.163.0) can end the call while an import runs. Codex 0.163.0 stops that clock while its form is open. Claude Code ends a stdio call after 30 minutes without a response: for a longer import, raise `CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT` (milliseconds). A Claude Code call still running after two minutes moves to a background task (`/tasks`), and its result arrives when it ends; a call waiting on the form stays in front. A call the client gives up on doesn't stop an import that has started: it runs to its end, and another `apply` call to that server is refused until then. If the client stops the server instead, `pac` keeps importing and no report comes back. Either way, run `deploy_apply` without `apply` to see where the target stands before trying again.
 
 ## Build from source
 
