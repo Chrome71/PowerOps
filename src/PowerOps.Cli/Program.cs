@@ -28,6 +28,8 @@ public static class Program
             pac,
             (azArgs, timeout) => new PacRunner(DriftLiveReader.AzExecutable(OperatingSystem.IsWindows()), timeout).Run(azArgs),
             DriftLiveReader.Web(DriftLiveReader.Handler())));
+        driftLive ??= (solution, env) => reader.Value.Read(solution, env);
+        deployTarget ??= (target, solutions, dependencies) => reader.Value.ReadTarget(target, solutions, dependencies);
         var root = new RootCommand(
             "A free, open-source, cross-platform toolkit that brings software-engineering discipline " +
             "(analysis, diffing, testing, repeatable deployment) to Microsoft Power Platform.");
@@ -40,9 +42,10 @@ public static class Program
         root.Subcommands.Add(SkillsCommand.Create(output, error));
         root.Subcommands.Add(RulesCommand.Create(output));
         root.Subcommands.Add(SettingsCommand.Create(output, error, pac));
-        root.Subcommands.Add(DriftCommand.Create(output, error, driftLive ?? ((solution, env) => reader.Value.Read(solution, env))));
+        root.Subcommands.Add(DriftCommand.Create(output, error, driftLive));
 
-        root.Subcommands.Add(DeployCommand.Create(output, error, pac, deployTarget ?? ((target, solutions, dependencies) => reader.Value.ReadTarget(target, solutions, dependencies))));
+        root.Subcommands.Add(DeployCommand.Create(output, error, pac, deployTarget));
+        root.Subcommands.Add(McpCommand.Create(error, pac, driftLive, deployTarget));
 
         return root;
     }

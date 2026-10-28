@@ -1,0 +1,204 @@
+[
+  {
+    "name": "analyze",
+    "description": "Check solution folders or exported zips for common problems, offline. Read-only; returns the JSON of \u0060powerops analyze --format json\u0060 (docs/schemas/analyze.schema.json).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "Absolute paths of solution folders or exported zips; folders are searched recursively."
+        },
+        "baseline": {
+          "type": "string",
+          "description": "Optional: the absolute path of a baseline file from the baseline tool; the findings it lists are left out."
+        }
+      },
+      "required": [
+        "paths"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "rules",
+    "description": "List every analysis rule with its id, severity, title, fix and docs link. Read-only; returns the JSON of \u0060powerops rules --json\u0060 (docs/schemas/rules.schema.json).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "baseline",
+    "description": "Record the current analyze findings of solution folders or zips as a baseline for analyze\u0027s \u0060baseline\u0060 input. Read-only: returns the baseline file\u0027s text (a file format with its own \u0060version\u0060, no schema) and writes nothing.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "Absolute paths of solution folders or exported zips; folders are searched recursively."
+        }
+      },
+      "required": [
+        "paths"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "diff",
+    "description": "Compare two versions of a solution (exported zips or unpacked folders) component by component, offline. Read-only; returns the JSON of \u0060powerops diff --format json\u0060 (docs/schemas/diff.schema.json).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "old": {
+          "type": "string",
+          "description": "Absolute path of the older solution: an exported zip or an unpacked folder."
+        },
+        "new": {
+          "type": "string",
+          "description": "Absolute path of the newer solution: an exported zip or an unpacked folder."
+        }
+      },
+      "required": [
+        "old",
+        "new"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "test",
+    "description": "Run the offline flow tests (*.flowtest.json) against the cloud flows of the solutions under a path, with mocked connector actions. Read-only; returns the JSON of \u0060powerops test --format json\u0060 (docs/schemas/test.schema.json).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Absolute path of the solution folder or zip to test against; folders are searched recursively."
+        },
+        "tests": {
+          "type": "string",
+          "description": "Optional: the absolute path of the folder to search for *.flowtest.json files (default: path; needed when path is a zip)."
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "settings_generate",
+    "description": "Make a pac deployment settings file with empty values for a solution\u0027s connection references and environment variables. Read-only: returns the file\u0027s text (pac\u0027s settings format, no schema) and writes nothing.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "solution": {
+          "type": "string",
+          "description": "Absolute path of an unpacked solution folder or an exported zip."
+        }
+      },
+      "required": [
+        "solution"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "settings_validate",
+    "description": "Check a pac deployment settings file against a solution: missing or extra entries, empty connection ids and values. Read-only; returns the JSON of \u0060powerops settings validate --format json\u0060 (docs/schemas/settings-validate.schema.json).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "solution": {
+          "type": "string",
+          "description": "Absolute path of an unpacked solution folder or an exported zip."
+        },
+        "settings": {
+          "type": "string",
+          "description": "Absolute path of the deployment settings file to check."
+        }
+      },
+      "required": [
+        "solution",
+        "settings"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "plan_status",
+    "description": "Check the planning documents (docs/plans/*/plan.md) under a path: header, sign-off hash, review and tenant data. Read-only; returns the JSON of \u0060powerops plan status --json\u0060 (docs/schemas/plan-status.schema.json).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Absolute path of a repo folder, a plan folder or a plan.md."
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  }
+]
