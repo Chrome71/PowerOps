@@ -83,4 +83,19 @@ public sealed class WorkflowTests
         Assert.NotEmpty(grepLines);
         Assert.All(grepLines, l => Assert.DoesNotContain("\\+", l));
     }
+
+    [Fact]
+    public void Dependabot_titles_start_with_chore_deps_and_the_playwright_example_is_watched()
+    {
+        var updates = ((List<object>)Load(".github", "dependabot.yml")["updates"]).Select(Map).ToList();
+        var npm = updates.Single(u => Text(u, "package-ecosystem") == "npm");
+        var ignore = Map(((List<object>)Map(updates.Single(u => Text(u, "package-ecosystem") == "nuget"))["ignore"]).Single());
+
+        Assert.Equal(["github-actions", "npm", "nuget"], updates.Select(u => Text(u, "package-ecosystem")!).Order());
+        Assert.All(updates, u => Assert.Equal("chore(deps)", (string)Map(u["commit-message"])["prefix"]));
+        Assert.Equal("/docs/examples/playwright", Text(npm, "directory"));
+        Assert.True(File.Exists(Path.Combine(Golden.RepoRoot, "docs", "examples", "playwright", "package-lock.json")));
+        Assert.Equal("JsonSchema.Net", Text(ignore, "dependency-name"));
+        Assert.Equal(["version-update:semver-major", "version-update:semver-minor"], ((List<object>)ignore["update-types"]).Cast<string>());
+    }
 }
