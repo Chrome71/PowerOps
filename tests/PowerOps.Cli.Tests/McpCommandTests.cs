@@ -974,7 +974,8 @@ public sealed class McpCommandTests : IAsyncLifetime
         var result = await Call("analyze", new() { ["paths"] = new[] { sol } });
 
         Assert.Equal(2, result.Content.Count);
-        Assert.Equal($"note: {sol}/Link.txt: a link inside the solution, not followed and not read", Text(result, 1));
+        // The note names the link with "/" on every OS.
+        Assert.Equal($"note: {sol.Replace('\\', '/')}/Link.txt: a link inside the solution, not followed and not read", Text(result, 1));
     }
 
     [Fact]
