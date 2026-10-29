@@ -332,11 +332,11 @@ public static class DeployCommand
         progress.Write(SettingsApplyReport.Header(Clean(plan.Target)));
         var state = new Dictionary<int, string>();
         int? pacExit = null;
-        string? failure = null;
+        (string Text, bool TimedOut)? failure = null;
         foreach (var step in imports)
         {
             failure = Import(step);
-            state[step.Order] = failure is null ? ImportStatus.Ok : ImportStatus.Failed;
+            state[step.Order] = failure is null ? ImportStatus.Ok : failure.Value.TimedOut ? ImportStatus.Unknown : ImportStatus.Failed;
             if (failure is not null)
             {
                 break;
@@ -352,8 +352,10 @@ public static class DeployCommand
         if (failure is not null)
         {
             var did = imports.Where(i => state.GetValueOrDefault(i.Order) == ImportStatus.Ok).Select(i => i.Solution).ToList();
-            var after = did.Count == 0 ? "Nothing was imported." : $"Imported: {string.Join(", ", did)}.";
-            return Finish(InternalError, plan.Target, reviewed.Hash, ApplyStatus.Failed, $"{failure} There is no rollback. {after}", Done(), []);
+            var after = failure.Value.TimedOut
+                ? did.Count == 0 ? "No import before it finished." : $"Imported before it: {string.Join(", ", did)}."
+                : did.Count == 0 ? "Nothing was imported." : $"Imported: {string.Join(", ", did)}.";
+            return Finish(InternalError, plan.Target, reviewed.Hash, ApplyStatus.Failed, $"{failure.Value.Text} There is no rollback. {after}", Done(), []);
         }
 
         if (flowRefs.Count == 0)
@@ -381,8 +383,8 @@ public static class DeployCommand
         var flows = DeployApply.FlowsAfter(flowRefs, second.Solutions);
         return Finish(flows.AsExpected ? 0 : 1, plan.Target, reviewed.Hash, ApplyStatus.Imported, null, Done(), flows.Flows);
 
-        // The failure message of one import, or null when it went through; hashes both files again first.
-        string? Import(ImportStep step)
+        // The failure message of one import (and whether it timed out), or null when it went through; hashes both files again first.
+        (string Text, bool TimedOut)? Import(ImportStep step)
         {
             var input = plan.Inputs.Zips.First(z => z.Zip == step.Zip);
             var zip = Path.Combine(folder, step.Zip);
@@ -390,7 +392,7 @@ public static class DeployCommand
             var changed = Changed(zip, input.ZipSha256, BoundedRead.MaxZipBytes) ? step.Zip : settings is not null && Changed(settings, input.SettingsSha256, MaxSettingsBytes) ? step.Settings : null;
             if (changed is not null)
             {
-                return $"{changed} changed after the re-plan read it, so it was not imported.";
+                return ($"{changed} changed after the re-plan read it, so it was not imported.", false);
             }
 
             progress.WriteLine($"importing {step.Order} {Clean(step.Solution)} ({Clean(step.Zip)})");
@@ -398,12 +400,12 @@ public static class DeployCommand
             var result = pac(SettingsCommand.ImportArguments(now.Target.Id.ToString("D"), zip, settings, step.StageAndUpgrade), SettingsCommand.ImportTimeout);
             if (!result.Started)
             {
-                return "pac was not found on PATH.";
+                return ("pac was not found on PATH.", false);
             }
 
             if (result.TimedOut)
             {
-                return SettingsCommand.ImportTimedOut;
+                return (SettingsCommand.ImportTimedOut, true);
             }
 
             if (result.ExitCode != 0)
@@ -411,7 +413,7 @@ public static class DeployCommand
                 Forward(error, result.Stdout);
                 Forward(error, result.Stderr);
                 pacExit = result.ExitCode;
-                return $"The import failed (pac exit code {result.ExitCode}); pac's output is on stderr.";
+                return ($"The import failed (pac exit code {result.ExitCode}); pac's output is on stderr.", false);
             }
 
             progress.WriteLine($"imported {Clean(step.Solution)}");

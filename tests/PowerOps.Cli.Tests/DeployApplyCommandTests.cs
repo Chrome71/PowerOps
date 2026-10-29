@@ -653,6 +653,8 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Contains("  | secret pac text\n", r.Err);
     }
 
+    private const string TimeoutText = "The import timed out after 60 minutes. It may still be running in the environment: check the solution's import history there before running again.";
+
     [Fact]
     public void A_timed_out_import_exits_3_with_the_timeout_text_and_forwards_nothing()
     {
@@ -664,8 +666,45 @@ public class DeployApplyCommandTests : DeployTestBase
 
         Assert.Equal(3, r.Code);
         Assert.Equal("", r.Err);
-        Assert.Contains("failed: The import timed out after 60 minutes. It may still be running in the environment: check the solution's import history there before running again.", r.Out);
-        Assert.Contains("PowerOpsSeed (PowerOpsSeed.zip): upgrade, failed\n", r.Out);
+        Assert.Contains($"failed: {TimeoutText} There is no rollback. No import before it finished.\n", r.Out);
+        Assert.Contains("PowerOpsSeed (PowerOpsSeed.zip): upgrade, unknown\n", r.Out);
+    }
+
+    [Fact]
+    public void A_timeout_on_the_first_zip_leaves_its_row_unknown_the_rest_not_run_and_says_no_import_finished()
+    {
+        Chain();
+        MakePlan(new FakeTarget());
+        var pac = new FakePac { Answer = n => n == 0 ? new PacResult(true, true, 0, "") : null };
+
+        var r = Apply(new FakeTarget(), pac, "--apply", "--format", "json");
+
+        Assert.Equal(3, r.Code);
+        Assert.Single(pac.Calls);
+        var doc = Json(r);
+        Assert.Equal("failed", (string?)doc["status"]);
+        Assert.Equal(["A:unknown", "B:not-run", "C:not-run"], Statuses(doc));
+        Assert.Equal($"{TimeoutText} There is no rollback. No import before it finished.", (string?)doc["message"]);
+        Assert.DoesNotContain("Nothing was imported", (string?)doc["message"]);
+        Assert.Null(doc["solutions"]![0]!["pacExitCode"]);
+    }
+
+    [Fact]
+    public void A_timeout_on_the_second_zip_names_the_imports_before_it()
+    {
+        Chain();
+        MakePlan(new FakeTarget());
+        var pac = new FakePac { Answer = n => n == 1 ? new PacResult(true, true, 0, "") : null };
+
+        var r = Apply(new FakeTarget(), pac, "--apply", "--format", "json");
+
+        Assert.Equal(3, r.Code);
+        var doc = Json(r);
+        Assert.Equal(["A:ok", "B:unknown", "C:not-run"], Statuses(doc));
+        Assert.Equal($"{TimeoutText} There is no rollback. Imported before it: A.", (string?)doc["message"]);
+
+        var text = Apply(new FakeTarget(), new FakePac { Answer = n => n == 1 ? new PacResult(true, true, 0, "") : null }, "--apply");
+        Assert.Contains("1 A (A.zip): install, ok\n2 B (B.zip): install, unknown\n3 C (C.zip): install, not-run\n", text.Out);
     }
 
     [Fact]
@@ -961,5 +1000,18 @@ public class DeployApplyCommandTests : DeployTestBase
 
         Assert.Equal(3, r.Code);
         Golden.Verify(Scrub(r.Out), "deploy-apply-failed.json");
+    }
+
+    [Fact]
+    public void A_timed_out_import_matches_the_golden()
+    {
+        Chain();
+        MakePlan(new FakeTarget());
+        var pac = new FakePac { Answer = n => n == 1 ? new PacResult(true, true, 0, "") : null };
+
+        var r = Apply(new FakeTarget(), pac, "--apply", "--format", "json");
+
+        Assert.Equal(3, r.Code);
+        Golden.Verify(Scrub(r.Out), "deploy-apply-timeout.json");
     }
 }

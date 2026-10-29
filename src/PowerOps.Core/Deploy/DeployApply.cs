@@ -26,6 +26,7 @@ public static class ImportStatus
 {
     public const string Ok = "ok";
     public const string Failed = "failed";
+    public const string Unknown = "unknown";
     public const string NotRun = "not-run";
     public const string Planned = "planned";
     public const string Skipped = "skipped";
