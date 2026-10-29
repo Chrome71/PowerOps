@@ -487,6 +487,98 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Equal(0, _fakes.Total);
     }
 
+    // S-5: a control character in any string is refused with the field's label, never the value (an LF would forge an error: line).
+    [Theory]
+    [InlineData("plan_status", "path", "NUL", "path")]
+    [InlineData("plan_status", "path", "LF", "path")]
+    [InlineData("plan_status", "path", "CR", "path")]
+    [InlineData("drift", "solution", "TAB", "solution")]
+    [InlineData("drift", "solution", "DEL", "solution")]
+    [InlineData("drift", "solution", "NEL", "solution")]
+    [InlineData("drift", "envs", "LF", "envs 1")]
+    [InlineData("deploy_plan", "target", "LF", "target")]
+    public async Task A_string_with_a_control_character_is_refused_and_nothing_runs(string tool, string field, string character, string label)
+    {
+        var bad = character switch
+        {
+            "NUL" => "\0",
+            "LF" => "\nerror: forged",
+            "CR" => "\r",
+            "TAB" => "\t",
+            "DEL" => "\u007f",
+            _ => "\u0085",
+        };
+        var value = (field == "path" ? Path.Combine(_temp, "a") : "a") + bad + "b";
+        Dictionary<string, object?> arguments = (tool, field) switch
+        {
+            ("plan_status", _) => new() { ["path"] = value },
+            ("drift", "solution") => new() { ["solution"] = value, ["envs"] = new[] { DevFile, TestFile } },
+            ("drift", _) => new() { ["solution"] = "S", ["envs"] = new[] { value, TestFile } },
+            _ => new() { ["folder"] = _temp, ["target"] = value },
+        };
+
+        await Refused(tool, arguments, $"error: {label}: must not hold a control character");
+
+        Assert.Equal(0, _fakes.Total);
+        Assert.Empty(_ran);
+    }
+
+    [Theory]
+    [InlineData(4097, true)]
+    [InlineData(4096, false)]
+    public async Task A_string_over_4096_characters_is_refused_and_one_of_4096_is_not_refused_by_the_cap(int length, bool refused)
+    {
+        var path = Path.Combine(_temp, new string('a', length - _temp.Length - 1));
+        Assert.Equal(length, path.Length);
+
+        var result = await Call("plan_status", new() { ["path"] = path });
+
+        if (refused)
+        {
+            AssertRefused(result, "error: path: longer than 4096 characters");
+            Assert.Empty(_ran);
+        }
+        else
+        {
+            Assert.DoesNotContain("longer than", Text(result, result.Content.Count - 1));
+        }
+    }
+
+    [Theory]
+    [InlineData("analyze", 51, true)]
+    [InlineData("analyze", 50, false)]
+    [InlineData("drift", 11, true)]
+    [InlineData("drift", 10, false)]
+    public async Task More_than_50_paths_or_10_envs_are_refused_and_that_many_are_not_refused_by_the_cap(string tool, int count, bool refused)
+    {
+        Dictionary<string, object?> arguments = tool == "analyze"
+            ? new() { ["paths"] = Enumerable.Repeat(V1, count).ToArray() }
+            : new() { ["solution"] = "S", ["envs"] = Enumerable.Repeat(DevFile, count).ToArray() };
+
+        var result = await Call(tool, arguments);
+
+        if (refused)
+        {
+            AssertRefused(result, tool == "analyze" ? "error: paths: give at most 50" : "error: envs: give at most 10");
+            Assert.Equal(0, _fakes.Total);
+            Assert.Empty(_ran);
+        }
+        else
+        {
+            Assert.DoesNotContain("give at most", Text(result, result.Content.Count - 1));
+        }
+    }
+
+    [Fact]
+    public async Task A_pair_of_surrogates_that_spells_one_character_is_valid_text()
+    {
+        var result = await Call("plan_status", new() { ["path"] = Path.Combine(_temp, "\U0001F600") });
+
+        var text = Text(result, result.Content.Count - 1);
+        Assert.DoesNotContain("unpaired surrogate", text);
+        Assert.DoesNotContain("control character", text);
+    }
+
     [Fact]
     public async Task A_response_file_in_target_or_folder_is_refused_and_nothing_runs_or_is_written()
     {
@@ -581,7 +673,7 @@ public sealed class McpCommandTests : IAsyncLifetime
     [InlineData("..\\plan.json", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]
     [InlineData("../plan.json", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]
     [InlineData("plan.txt", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]
-    [InlineData("plan.json\n", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]
+    [InlineData("plan.json\n", "error: save: must not hold a control character")]
     [InlineData("plan.settings.json", "error: save: a name that ends in .settings.json is refused")]
     [InlineData("plan.Settings.json", "error: save: a name that ends in .settings.json is refused")]
     [InlineData("CON.json", "error: save: a Windows device name is refused")]
@@ -1475,6 +1567,9 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         public Task Send(JsonNode message) => _writer.WriteLineAsync(message.ToJsonString().AsMemory(), TestContext.Current.CancellationToken);
 
+        // A line as written: a client library cannot write a lone surrogate and JsonNode would not serialize one.
+        public Task SendRaw(string line) => _writer.WriteLineAsync(line.AsMemory(), TestContext.Current.CancellationToken);
+
         public async Task<JsonNode> Read() => JsonNode.Parse(await _reader.ReadLineAsync(TestContext.Current.CancellationToken).AsTask().WaitAsync(Wait, TestContext.Current.CancellationToken) ?? throw new EndOfStreamException())!;
 
         public async ValueTask DisposeAsync()
@@ -1564,6 +1659,51 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.True(await raw.Done.WaitAsync(Wait, TestContext.Current.CancellationToken), "the handler never returned");
         Assert.Equal(0, _fakes.Pacs);
         Assert.DoesNotContain(ran, a => a.Contains("--apply"));
+    }
+
+    // S-5: the SDK answers -32603 before any handler runs when a request holds a lone surrogate, so an incoming filter turns it into a tool error.
+    [Theory]
+    [InlineData("2026-07-28", "value")]
+    [InlineData("2026-07-28", "item")]
+    [InlineData("2026-07-28", "key")]
+    [InlineData("2025-06-18", "value")]
+    [InlineData("2025-06-18", "item")]
+    [InlineData("2025-06-18", "key")]
+    public async Task A_lone_surrogate_in_a_value_a_list_item_or_a_key_is_a_tool_error_and_runs_nothing(string revision, string where)
+    {
+        var ran = new ConcurrentQueue<string[]>();
+        await using var raw = new Raw(_fakes, ran);
+        var (tool, arguments) = where switch
+        {
+            "value" => ("plan_status", """{"path":"/tmp/\ud800x"}"""),
+            "item" => ("analyze", """{"paths":["\ud800"]}"""),
+            _ => ("plan_status", """{"\ud800":"x"}"""),
+        };
+
+        string meta;
+        if (revision == "2026-07-28")
+        {
+            meta = "\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{}},";
+        }
+        else
+        {
+            meta = "";
+            await raw.Send(JsonNode.Parse("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}""")!);
+            await raw.Read();
+            await raw.Send(JsonNode.Parse("""{"jsonrpc":"2.0","method":"notifications/initialized"}""")!);
+        }
+
+        await raw.SendRaw("{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{" + meta + "\"name\":\"" + tool + "\",\"arguments\":" + arguments + "}}");
+        var reply = await raw.Read();
+
+        Assert.Equal(7, (int)reply["id"]!);
+        Assert.Null(reply["error"]);
+        var result = reply["result"]!;
+        Assert.True((bool)result["isError"]!);
+        Assert.Equal("error: arguments: a string holds an unpaired surrogate", (string)result["content"]![0]!["text"]!);
+        Assert.Equal(revision == "2026-07-28" ? "complete" : null, (string?)result["resultType"]);
+        Assert.Equal(0, _fakes.Total);
+        Assert.Empty(ran);
     }
 
     // 12

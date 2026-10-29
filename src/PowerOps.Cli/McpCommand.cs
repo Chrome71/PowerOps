@@ -20,6 +20,11 @@ public static partial class McpCommand
     private const string PathsText = "Absolute paths of solution folders or exported zips; folders are searched recursively.";
     private const string SolutionText = "Absolute path of an unpacked solution folder or an exported zip.";
 
+    // Limits on what a caller can send (UTF-16 units; entries per list). They are not in the tools' input schemas: an agent that goes over reads the limit in the error.
+    private const int MaxTextLength = 4096;
+    private const int MaxPaths = 50;
+    private const int MaxEnvs = 10;
+
     private enum Kind { Path, Paths, Text, Texts, Flag }
 
     // Local: a text field whose entries can also be file paths (drift's envs).
@@ -28,6 +33,8 @@ public static partial class McpCommand
         public bool IsList => Kind is Kind.Paths or Kind.Texts;
 
         public bool IsPath => Kind is Kind.Path or Kind.Paths;
+
+        public int MaxItems => Kind == Kind.Paths ? MaxPaths : MaxEnvs;
     }
 
     private sealed class Values(Dictionary<string, object> map)
@@ -101,8 +108,39 @@ public static partial class McpCommand
                 ListToolsHandler = (_, _) => ValueTask.FromResult(new ListToolsResult { Tools = listed }),
                 CallToolHandler = (context, cancellationToken) => Call(tools, context, cancellationToken),
             },
+            Filters = new McpServerFilters { Message = { IncomingFilters = { RefuseUnpairedSurrogate } } },
         };
     }
+
+    private const string SurrogateLine = "error: arguments: a string holds an unpaired surrogate";
+
+    // The SDK cannot turn a request that holds a lone surrogate back into JSON, so it answers -32603 before any handler runs. This filter runs first and answers with a tool error instead.
+    private static McpMessageHandler RefuseUnpairedSurrogate(McpMessageHandler next) => async (context, cancellationToken) =>
+    {
+        if (context.JsonRpcMessage is JsonRpcRequest { Method: "tools/call", Params: { } parameters } request)
+        {
+            try
+            {
+                _ = parameters.ToJsonString();
+            }
+            catch (InvalidOperationException)
+            {
+                var refusal = Refuse(SurrogateLine);
+
+                // The 2026-07-28 schema requires resultType on results; the SDK stamps it on handler results only, so a result sent from here carries it itself.
+                var revision = request.Context?.ProtocolVersion ?? context.Server.NegotiatedProtocolVersion;
+                if (revision is not null && string.CompareOrdinal(revision, "2026-07-28") >= 0)
+                {
+                    refusal.ResultType = "complete";
+                }
+
+                await context.Server.SendMessageAsync(new JsonRpcResponse { Id = request.Id, Result = JsonSerializer.SerializeToNode(refusal, McpJsonUtilities.DefaultOptions) }, cancellationToken);
+                return;
+            }
+        }
+
+        await next(context, cancellationToken);
+    };
 
     // Exit code 0 and 1 are reports; 2, 3 and anything else are errors, and so is a 1 that printed nothing
     // (System.CommandLine's own exception handler returns 1). Only powerops' own error lines are passed on:
@@ -569,6 +607,10 @@ public static partial class McpCommand
             {
                 problems.Add($"error: {f.Name}: give at least {f.MinItems}");
             }
+            else if (given.GetArrayLength() > f.MaxItems)
+            {
+                problems.Add($"error: {f.Name}: give at most {f.MaxItems}");
+            }
             else
             {
                 values[f.Name] = given.EnumerateArray().Select(i => i.GetString()!).ToArray();
@@ -584,6 +626,14 @@ public static partial class McpCommand
             if (string.IsNullOrWhiteSpace(value))
             {
                 problems.Add($"error: {label}: must not be empty");
+            }
+            else if (value.Any(char.IsControl))
+            {
+                problems.Add($"error: {label}: must not hold a control character");
+            }
+            else if (value.Length > MaxTextLength)
+            {
+                problems.Add($"error: {label}: longer than {MaxTextLength} characters");
             }
             else if (value[0] is '-' or '@')
             {
