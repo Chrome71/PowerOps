@@ -11,7 +11,7 @@ permissions:
 
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-  - uses: Chrome71/PowerOps@b4abce4cb00421c7017076de7b53e53a7ce063c7 # main on 2026-10-28; pin the newest commit of main
+  - uses: Chrome71/PowerOps@df04828b945dbd2b8d3ee10361668a100ed72d90 # main on 2026-10-29; pin the newest commit of main
     with:
       path: solutions        # default: .
       fail-on: error         # error | warning | none
@@ -19,7 +19,7 @@ steps:
       # tests: flowtests     # *.flowtest.json files to run; see "Merge gate: flow tests"
 ```
 
-No release is tagged yet, so these snippets pin a commit of `main` (the action builds PowerOps from source, in locked mode: a package that differs from the committed `packages.lock.json` files fails the build). Replace it with the full SHA of the newest commit of `main`. Pull requests from forks cannot upload SARIF (their token has no `security-events` permission); they still get the job summary and the annotations. The `category` input (default `powerops`) is the code scanning category of the SARIF upload; set it to tell several analyses in one repository apart.
+No release is tagged yet, so these snippets pin a commit of `main` (the action builds PowerOps from source, in locked mode: a package that differs from the committed `packages.lock.json` files fails the build). Pin the full SHA of the newest commit of `main` when you copy them; the pin in these snippets is `main` as of 2026-10-29. Pull requests from forks cannot upload SARIF (their token has no `security-events` permission); they still get the job summary and the annotations. The `category` input (default `powerops`) is the code scanning category of the SARIF upload; set it to tell several analyses in one repository apart.
 
 The log of the analysis, flow test and diff steps keeps only powerops' own `error:` and `note:` lines (a `note:` names a link inside a solution that was not followed or read); other text, which a solution could fill, stays out of the log. When the analysis exits with code 3 or more without an `error:` line (a crash, a missing .NET), its log gets `error: powerops exited with code N`.
 
@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: Chrome71/PowerOps@b4abce4cb00421c7017076de7b53e53a7ce063c7 # main on 2026-10-28; pin the newest commit of main
+      - uses: Chrome71/PowerOps@df04828b945dbd2b8d3ee10361668a100ed72d90 # main on 2026-10-29; pin the newest commit of main
         with:
           path: solutions
           tests: flowtests
@@ -87,6 +87,9 @@ concurrency:
   group: powerops-plan-${{ github.event.pull_request.number }}   # two quick pushes must not both create a comment
   cancel-in-progress: true
 
+env:
+  PAC_VERSION: 2.14.1   # the pac version to pin; test the one you pin
+
 jobs:
   plan:
     runs-on: ubuntu-latest
@@ -125,10 +128,10 @@ jobs:
       - name: Install pac
         if: env.SAME_REPO == 'true'
         run: |
-          dotnet tool install --global Microsoft.PowerApps.CLI.Tool
+          dotnet tool install --global Microsoft.PowerApps.CLI.Tool --version "$PAC_VERSION"
           echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
 
-      - uses: azure/login@<full commit SHA> # use the latest release of azure/login
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         if: env.SAME_REPO == 'true'
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -149,7 +152,7 @@ jobs:
             exit 1
           fi
 
-      - uses: Chrome71/PowerOps@b4abce4cb00421c7017076de7b53e53a7ce063c7 # main on 2026-10-28; pin the newest commit of main
+      - uses: Chrome71/PowerOps@df04828b945dbd2b8d3ee10361668a100ed72d90 # main on 2026-10-29; pin the newest commit of main
         with:
           path: solutions/ContosoApp        # the unpacked solution: analyzed, and diffed on a fork PR
           tests: flowtests                  # flow tests of that solution, also on a fork PR
@@ -158,7 +161,7 @@ jobs:
           target: ${{ env.SAME_REPO == 'true' && secrets.TEST_ENVIRONMENT_URL || '' }}
 
       # The zips and the plan file, for a later apply job; never the settings files.
-      - uses: actions/upload-artifact@<full commit SHA> # use the latest release of actions/upload-artifact
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always() && env.SAME_REPO == 'true'
         with:
           name: powerops-plan

@@ -37,6 +37,10 @@ public partial class DocsDriftTests
     [GeneratedRegex(@"^[a-z]+(?:_[a-z]+)+$")]
     private static partial Regex SnakeCase();
 
+    // A PowerOps pin: the action's ref or the commit of the README's clone, as 40 hex characters or as anything else after the @.
+    [GeneratedRegex(@"Chrome71/PowerOps@(\S+)|git -C \S*PowerOps\S* checkout (\S+)")]
+    private static partial Regex PowerOpsPin();
+
     [GeneratedRegex(@"mcp__(?:plugin_powerops_)?powerops__([a-z_]*)")]
     private static partial Regex McpName();
 
@@ -223,5 +227,99 @@ public partial class DocsDriftTests
         Assert.DoesNotContain("category", UndocumentedInputs(Step + "The `category` input.", ActionInputs()));
         Assert.Equal(["deploy_aply", "plan_check"], UnknownTools("`deploy_aply` and `mcp__plugin_powerops_powerops__plan_check`", ToolNames()));
         Assert.Equal(["PowerOps@v1", "PowerOps v0"], VersionProblems("- uses: Chrome71/PowerOps@v1, shipped in PowerOps v0.4.0"));
+    }
+
+    // README, GITHUB-ACTION and the example workflows: the files a reader copies a pin from.
+    private static IEnumerable<(string Name, string Text)> PinPages() =>
+        Pages().Where(p => p.Name is "README.md" or "docs/GITHUB-ACTION.md" || (p.Name.StartsWith("docs/examples/", StringComparison.Ordinal) && p.Name.EndsWith(".yml", StringComparison.Ordinal)));
+
+    // Placeholders, pins that are not a full commit SHA, and pins that name different commits.
+    internal static List<string> PinProblems(IEnumerable<(string Name, string Text)> pages)
+    {
+        var all = pages.ToList();
+        var pins = all.SelectMany(p => PowerOpsPin().Matches(p.Text).Select(m => (p.Name, Pin: m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value))).ToList();
+        var problems = pins.Where(p => !Regex.IsMatch(p.Pin, "^[0-9a-f]{40}$") || p.Pin.All(c => c == '0')).Select(p => $"{p.Name}: {p.Pin} is not a full commit SHA").ToList();
+        problems.AddRange(all.Where(p => p.Text.Contains("<full commit SHA>", StringComparison.Ordinal)).Select(p => $"{p.Name}: placeholder <full commit SHA>"));
+        if (pins.Select(p => p.Pin).Distinct().Count() > 1)
+        {
+            problems.Add("the PowerOps pins name different commits: " + string.Join(", ", pins.Select(p => $"{p.Name}@{p.Pin[..Math.Min(7, p.Pin.Length)]}")));
+        }
+
+        return problems;
+    }
+
+    // The first sh fence of the README that clones PowerOps: one temp folder variable for the clone, the pack and the install, and a path for analyze.
+    internal static List<string> QuickStartProblems(string readme)
+    {
+        var body = Fence().Matches(readme).Select(f => f.Groups[2].Value).FirstOrDefault(b => b.Contains("git clone", StringComparison.Ordinal));
+        if (body is null)
+        {
+            return ["no snippet clones PowerOps"];
+        }
+
+        var lines = body.Split('\n').Select(l => TrailingComment().Replace(l, "").Trim()).ToList();
+        string Line(string start) => lines.FirstOrDefault(l => l.StartsWith(start, StringComparison.Ordinal)) ?? "";
+        var problems = new List<string>();
+        if (!lines.Contains("po=\"$(mktemp -d)\""))
+        {
+            problems.Add("the folder is not made with po=\"$(mktemp -d)\"");
+        }
+
+        if (!Line("git clone").EndsWith(" \"$po/PowerOps\"", StringComparison.Ordinal))
+        {
+            problems.Add("the clone does not go into \"$po/PowerOps\"");
+        }
+
+        if (!Line("dotnet pack").Contains("\"$po/PowerOps/src/PowerOps.Cli\"", StringComparison.Ordinal) || !Line("dotnet pack").Contains("-o \"$po/PowerOps/artifacts\"", StringComparison.Ordinal))
+        {
+            problems.Add("the pack does not read and write under $po");
+        }
+
+        if (!Line("dotnet tool install").Contains("--source \"$po/PowerOps/artifacts\"", StringComparison.Ordinal))
+        {
+            problems.Add("the install does not use --source \"$po/PowerOps/artifacts\"");
+        }
+
+        if (!Regex.IsMatch(Line("powerops analyze"), @"^powerops analyze [^-\s]"))
+        {
+            problems.Add("analyze has no path");
+        }
+
+        return problems;
+    }
+
+    [Fact]
+    public void Every_powerops_pin_is_one_full_commit_and_no_snippet_has_a_placeholder_sha()
+    {
+        var pages = PinPages().ToList();
+
+        Assert.Contains(pages, p => p.Name.StartsWith("docs/examples/", StringComparison.Ordinal));
+        Assert.Empty(PinProblems(pages));
+        Assert.DoesNotContain(pages, p => Regex.IsMatch(p.Text, @"\buses: \S+@<|0{40}"));
+    }
+
+    [Fact]
+    public void The_pin_check_catches_a_placeholder_a_short_pin_and_a_half_updated_set()
+    {
+        const string Sha = "df04828b945dbd2b8d3ee10361668a100ed72d90";
+        var ok = ("a.md", $"git -C PowerOps checkout {Sha} # x\n- uses: Chrome71/PowerOps@{Sha}");
+
+        Assert.Empty(PinProblems([ok]));
+        Assert.NotEmpty(PinProblems([("a.yml", $"uses: Chrome71/PowerOps@{new string('0', 40)}")]));
+        Assert.NotEmpty(PinProblems([("a.yml", "uses: Chrome71/PowerOps@df04828")]));
+        Assert.NotEmpty(PinProblems([("a.md", "uses: azure/login@<full commit SHA>")]));
+        Assert.NotEmpty(PinProblems([ok, ("b.yml", $"uses: Chrome71/PowerOps@{new string('a', 40)}")]));
+        Assert.NotEmpty(PinProblems([("a.md", $"git -C PowerOps checkout {new string('b', 40)}"), ("b.yml", $"uses: Chrome71/PowerOps@{Sha}")]));
+    }
+
+    [Fact]
+    public void The_readme_quick_start_clones_outside_the_checkout_and_gives_analyze_a_path()
+    {
+        var readme = Page("README.md");
+
+        Assert.Empty(QuickStartProblems(readme));
+        Assert.NotEmpty(QuickStartProblems(readme.Replace("git clone https://github.com/Chrome71/PowerOps.git \"$po/PowerOps\"", "git clone https://github.com/Chrome71/PowerOps.git")));
+        Assert.NotEmpty(QuickStartProblems(readme.Replace("--source \"$po/PowerOps/artifacts\"", "--source PowerOps/artifacts")));
+        Assert.NotEmpty(QuickStartProblems(readme.Replace("powerops analyze solutions --format", "powerops analyze --format")));
     }
 }
