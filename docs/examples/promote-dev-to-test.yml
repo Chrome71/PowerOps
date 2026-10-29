@@ -90,7 +90,7 @@ jobs:
 
       # Pin this action to one commit SHA and use the same SHA in the plan and apply jobs: the plan file's `tool`
       # (the powerops version) must match, and two builds of one version cannot be told apart.
-      - uses: Chrome71/PowerOps@df04828b945dbd2b8d3ee10361668a100ed72d90 # main on 2026-10-29; pin the newest commit of main
+      - uses: Chrome71/PowerOps@391a6e07420c816526e218eebc4fc92a905c153a # main on 2026-10-29; pin the newest commit of main
         with:
           path: ${{ runner.temp }}/deploy   # the analysis gates the exact zip that will be imported
           upload-sarif: 'false'
@@ -231,7 +231,7 @@ jobs:
           fi
 
       # The same commit SHA as in the plan job.
-      - uses: Chrome71/PowerOps@df04828b945dbd2b8d3ee10361668a100ed72d90 # main on 2026-10-29; pin the newest commit of main
+      - uses: Chrome71/PowerOps@391a6e07420c816526e218eebc4fc92a905c153a # main on 2026-10-29; pin the newest commit of main
         with:
           path: ${{ runner.temp }}/deploy
           upload-sarif: 'false'
