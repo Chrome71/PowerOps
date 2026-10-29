@@ -18,6 +18,8 @@ powerops --version
 
 `--source` makes the install use only `artifacts`. Leave it out and the install looks the name `PowerOps` up on nuget.org, where it is not registered, so it could install whatever package someone registers under it.
 
+CI builds and tests PowerOps on Linux, Windows and macOS, but nobody has run it by hand on Windows or macOS yet; [what is not verified there](docs/FOUNDATION.md#8-research-topics-still-open).
+
 ## Quick start
 
 Run `analyze` where your solutions are. It finds the unpacked XML folders and exported `.zip` files under the current folder and reports what would break the import or a run:

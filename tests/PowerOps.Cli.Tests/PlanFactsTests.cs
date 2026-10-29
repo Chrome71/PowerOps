@@ -20,7 +20,7 @@ public class PlanFactsTests
           Environment ID:             00000000-0000-0000-0000-000000000000
         """;
 
-    private const string SolutionList = """
+    internal const string SolutionList = """
         Connected as admin@contoso.com
         Connected to... Contoso Dev
 

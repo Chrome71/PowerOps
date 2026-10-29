@@ -572,9 +572,9 @@ public sealed class EphemeralScriptTests : IDisposable
     [InlineData("ephemeral-sweep.sh")]
     public void The_scripts_parse_with_bash_and_follow_the_rules_for_scripts(string script)
     {
-        Require("bash");
+        Tools.Require("bash");
         var path = Path.Combine(Scripts, script);
-        var start = new ProcessStartInfo("bash") { RedirectStandardOutput = true, RedirectStandardError = true };
+        var start = new ProcessStartInfo(Tools.Bash) { RedirectStandardOutput = true, RedirectStandardError = true };
         start.ArgumentList.Add("-n");
         start.ArgumentList.Add(path);
         var syntax = Execute(start);
@@ -670,7 +670,7 @@ public sealed class EphemeralScriptTests : IDisposable
 
     private Result Run(string script, string[] args, string[] lists, Dictionary<string, string> extra, bool outputToStdout)
     {
-        Require("bash", "jq");
+        Tools.Require("bash", "jq");
         var temp = Directory.CreateDirectory(Path.Combine(_root, Guid.NewGuid().ToString("N")[..8])).FullName;
         WriteStub(temp, "pac", PacStub);
         WriteStub(temp, "gh", GhStub);
@@ -685,7 +685,7 @@ public sealed class EphemeralScriptTests : IDisposable
         }
 
         var runnerTemp = Directory.CreateDirectory(Path.Combine(temp, "runner")).FullName;
-        var start = new ProcessStartInfo("bash") { WorkingDirectory = temp, RedirectStandardOutput = true, RedirectStandardError = true };
+        var start = new ProcessStartInfo(Tools.Bash) { WorkingDirectory = temp, RedirectStandardOutput = true, RedirectStandardError = true };
         start.ArgumentList.Add(Path.Combine(Scripts, script));
         foreach (var arg in args)
         {
@@ -737,19 +737,6 @@ public sealed class EphemeralScriptTests : IDisposable
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
     }
-
-    private static void Require(params string[] programs)
-    {
-        Assert.SkipWhen(OperatingSystem.IsWindows(), "The scripts need bash.");
-        foreach (var program in programs)
-        {
-            Assert.SkipWhen(!OnPath(program), program + " is not on PATH.");
-        }
-    }
-
-    private static bool OnPath(string program) =>
-        (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
-            .Any(dir => File.Exists(Path.Combine(dir, program)));
 
     private static (int Code, string Out, string Err) Execute(ProcessStartInfo start)
     {
