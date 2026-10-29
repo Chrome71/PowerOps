@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
+using PowerOps.Core.Drift;
 using PowerOps.Core.Output;
 
 namespace PowerOps.Core.Deploy;
@@ -21,12 +22,16 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
     private const string RouteTemplate = "create-site's template import imports a template solution that no plan holds, and overwrites unmanaged customizations";
     private const string RoutePackage = "pac package deploy imports a package that no plan holds";
     private const string RouteUpgrade = "pac solution upgrade applies a staged upgrade that no plan holds";
+    private const string RoutePcf = "pac pcf push imports a solution that no plan holds";
+    private const string RouteApplication = "pac application install installs an application that no plan holds";
+    private const string RouteCode = "pac code push pushes an app that no plan holds";
 
     private const string CantRead = "the command holds an import that the gate can't read";
     private const string Stray = "the command has a word the gate doesn't read";
     private const string PathHint = "must be a literal absolute path (no $, backtick, escape, ~ or wildcard)";
+    private const string AnsiC = "the command has a $'...' word with an escape, which the gate can't read";
 
-    private static readonly string[] Routes = [RouteModelApps, RoutePowerPages, RoutePipeline, RouteTemplate, RoutePackage, RouteUpgrade];
+    private static readonly string[] Routes = [RouteModelApps, RoutePowerPages, RoutePipeline, RouteTemplate, RoutePackage, RouteUpgrade, RoutePcf, RouteApplication, RouteCode];
 
     private static readonly Dictionary<string, string> Canonical = new(StringComparer.Ordinal)
     {
@@ -52,8 +57,12 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
 
     private sealed record Given(string Value, bool Literal);
 
-    [GeneratedRegex($"solution{Gap}import|solution{Gap}upgrade|pipeline{Gap}deploy|package{Gap}deploy|solution-settings\\.js|import-template-solution|encode-solution-file|ImportSolution|StageAndUpgrade|DeployPackageAsync|RetryFailedDeploymentAsync", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex($"solution{Gap}import|solution{Gap}upgrade|pipeline{Gap}deploy|package{Gap}deploy|solution-settings\\.js|import-template-solution|encode-solution-file|ImportSolution|StageAndUpgrade|DeployPackageAsync|RetryFailedDeploymentAsync|(?<!\\w)(?:pcf{Gap}push|application{Gap}install|code{Gap}push)|Import-CrmSolution", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex Markers();
+
+    // A $'...' word holding a backslash: its escapes (\x70, \160, \u0070) can spell any text.
+    [GeneratedRegex(@"\$'[^']*\\")]
+    private static partial Regex AnsiCEscape();
 
     [GeneratedRegex(@"(?<!\w)pac(?:\.exe)?(?!\w)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex PacWord();
@@ -116,7 +125,7 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
             }
 
             var tool = nameElement.GetString()!;
-            var shell = tool is "Bash" or "PowerShell";
+            var shell = tool is "Bash" or "PowerShell" or "Monitor";
             var mcp = tool.StartsWith("mcp__", StringComparison.Ordinal) && tool.EndsWith("__solution_import", StringComparison.Ordinal);
             if (!shell && !mcp)
             {
@@ -133,7 +142,13 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
                 return ReadMcp(toolInput);
             }
 
-            return toolInput.TryGetProperty("command", out var command) && command.ValueKind == JsonValueKind.String
+            if (!toolInput.TryGetProperty("command", out var command))
+            {
+                // A Monitor watch with a ws object and no command runs no shell.
+                return tool == "Monitor" ? new ImportRead.NotImport() : Blocked("the hook input has no command string");
+            }
+
+            return command.ValueKind == JsonValueKind.String
                 ? ReadShell(command.GetString()!, tool == "PowerShell")
                 : Blocked("the hook input has no command string");
         }
@@ -170,6 +185,15 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
             {
                 lines.Add($"{name} must be \"true\"");
             }
+            else if (name == "--async" && property.Value.GetString() is not ("true" or "false"))
+            {
+                lines.Add($"{name} must be \"true\" or \"false\"");
+            }
+            else if (name is "--path" or "--settings-file" && (property.Value.GetString()!.StartsWith('-') || property.Value.GetString()!.Any(c => char.IsWhiteSpace(c) || char.IsControl(c))))
+            {
+                // A free-form string could carry another pac flag; in the shell form the tokenizer has made each one a word.
+                lines.Add($"{name} must not hold a space or control character, or start with '-'");
+            }
             else
             {
                 given[name] = new Given(property.Value.GetString()!, true);
@@ -192,6 +216,11 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
 
         var segments = Tokenize(command, out var unclosed);
         var lines = new List<string>();
+        if (AnsiCEscape().IsMatch(command))
+        {
+            lines.Add(AnsiC);
+        }
+
         var recognized = new HashSet<Segment>();
         var imports = new List<Segment>();
         var rest = command.ToCharArray();
@@ -223,6 +252,15 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
                         break;
                     case "pipeline deploy":
                         lines.Add(RoutePipeline);
+                        break;
+                    case "pcf push":
+                        lines.Add(RoutePcf);
+                        break;
+                    case "application install":
+                        lines.Add(RouteApplication);
+                        break;
+                    case "code push":
+                        lines.Add(RouteCode);
                         break;
                     default:
                         // An option before the subcommand must not hide an import.
@@ -306,7 +344,10 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
 
             if (!Canonical.TryGetValue(word.Value, out var flag))
             {
-                lines.Add(word.Value.StartsWith('-') ? $"the gate doesn't read {Printable(word.Value.Split('=')[0])}" : Stray);
+                var name = word.Value.Split('=')[0];
+                lines.Add(!word.Value.StartsWith('-') ? Stray
+                    : word.Value.Contains('=') && Canonical.TryGetValue(name, out var known) ? $"give {known} and its value as separate words"
+                    : $"the gate doesn't read {Printable(name)}");
                 continue;
             }
 
@@ -360,7 +401,7 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
 
         if (given.TryGetValue("--environment", out var environment) && !(environment.Literal && IsEnvironment(environment.Value)))
         {
-            lines.Add("--environment must be an environment id or https URL");
+            lines.Add("--environment must be an environment id or the https URL of a Dataverse host");
         }
 
         if (given.TryGetValue("--max-async-wait-time", out var wait) && !(wait.Literal && wait.Value.Length > 0 && wait.Value.All(char.IsAsciiDigit)))
@@ -373,11 +414,23 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
             : new ImportCall(given["--path"].Value, given["--environment"].Value, given.TryGetValue("--settings-file", out var settings) ? settings.Value : null, given.ContainsKey("--stage-and-upgrade"));
     }
 
-    // A GUID, or an absolute https URL. It goes to pac org who --environment as --target, so it can never start with '-'.
-    private static bool IsEnvironment(string value) =>
-        value.All(c => c is > ' ' and < '\u007f')
-        && (Guid.TryParseExact(value, "D", out _)
-            || (value.StartsWith("https://", StringComparison.OrdinalIgnoreCase) && Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps && uri.Host.Length > 0));
+    // A GUID, or the https URL of a Dataverse host (the hosts that drift and deploy read). It goes to pac org who --environment as --target, so it can never start with '-'.
+    private static bool IsEnvironment(string value)
+    {
+        if (!value.All(c => c is > ' ' and < '\u007f'))
+        {
+            return false;
+        }
+
+        try
+        {
+            return Guid.TryParseExact(value, "D", out _) || DriftParsers.IsDataverseHost(DriftParsers.EnvironmentUrl(value));
+        }
+        catch (InvalidDataException)
+        {
+            return false;
+        }
+    }
 
     // ---- the POSIX word splitter ------------------------------------------------------------------------------
 

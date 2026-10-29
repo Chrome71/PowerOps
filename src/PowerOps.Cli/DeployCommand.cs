@@ -406,7 +406,10 @@ public static class DeployCommand
         var planFile = new Argument<string>("plan-file") { Description = "The plan file written by deploy plan --save that the hook trusts." };
         var command = new Command("gate", "A PreToolUse hook for Microsoft's import tools: reads the hook's JSON on stdin and exits 0 for a call that is not an import or is the plan's first import, 2 for any other call (the reason is on stderr).") { planFile };
         // Not SettingsCommand.Guard: the gate exits only 0 or 2, whatever happens, because a hook blocks only on exit 2.
-        command.SetAction(parse => RunGate(parse.GetValue(planFile)!, error, input, deadline, read));
+        // Shadows the recursive help option: help would print to stdout and exit 0, which lets every call through.
+        var help = new Option<bool>("-h", "--help", "-?") { Hidden = true };
+        command.Options.Add(help);
+        command.SetAction(parse => RunGate(parse.GetValue(help) ? "-h" : parse.GetValue(planFile)!, error, input, deadline, read));
         return command;
     }
 
@@ -415,6 +418,13 @@ public static class DeployCommand
     {
         try
         {
+            if (planFile.StartsWith('-'))
+            {
+                // Without this a mistyped option would be taken as the plan file.
+                GateBlocked(error, ["the plan file must not start with '-'"], false);
+                return UsageError;
+            }
+
             // The check runs on its own task and writes to its own buffer, so past the deadline its late output is dropped.
             var report = new StringWriter();
             var check = Task.Run(() => GateCheck(planFile, input, report, read));
@@ -501,8 +511,8 @@ public static class DeployCommand
     private static int GateCheckCall(ImportCall call, string planFile, TextWriter report, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
     {
         // The call's files are opened only to hash them.
-        var zipHash = HashCallFile(call.Zip, BoundedRead.MaxZipBytes);
-        var settingsHash = call.Settings is null ? null : HashCallFile(call.Settings, MaxSettingsBytes);
+        var zipHash = HashRegularFile(call.Zip, BoundedRead.MaxZipBytes);
+        var settingsHash = call.Settings is null ? null : HashRegularFile(call.Settings, MaxSettingsBytes);
         var missing = new[] { (call.Zip, zipHash), (call.Settings!, settingsHash) }
             .Where(f => f.Item1 is not null && f.Item2 is null)
             .Select(f => $"{ImportCall.Printable(Path.GetFileName(f.Item1))} does not exist, is a symbolic link, is not a file, or can't be read")
@@ -556,34 +566,54 @@ public static class DeployCommand
             lines.Add($"the plan {(first.StageAndUpgrade ? "stages and upgrades" : "doesn't stage and upgrade")} {Clean(first.Zip)}");
         }
 
-        return lines.Count == 0 ? 0 : GateBlocked(report, lines, false);
+        if (lines.Count > 0)
+        {
+            return GateBlocked(report, lines, false);
+        }
+
+        // The dry run can take minutes of live reads: the files the call names must still be the bytes that were checked.
+        var swapped = new[] { (call.Zip, zipHash, BoundedRead.MaxZipBytes), (call.Settings, settingsHash, MaxSettingsBytes) }
+            .Where(f => f.Item1 is not null && HashRegularFile(f.Item1, f.Item3) != f.Item2)
+            .Select(f => $"{ImportCall.Printable(Path.GetFileName(f.Item1!))} changed while the gate checked it")
+            .ToList();
+        return swapped.Count == 0 ? 0 : GateBlocked(report, swapped, false);
     }
 
-    // The SHA-256 of a regular file that a hook call names, or null when it does not exist, is a symbolic link or cannot be read.
-    private static string? HashCallFile(string path, long maxBytes)
+    // The SHA-256 of a regular file, or null when it does not exist, is a symbolic link, is not a seekable file (a FIFO), is over the cap or cannot be read.
+    // The bytes read must equal the length it reports and be followed by the end of the file, so a device such as /dev/zero (seekable, length 0) is refused too.
+    private static string? HashRegularFile(string path, long maxBytes)
     {
         try
         {
-            return !File.Exists(path) || new FileInfo(path).LinkTarget is not null ? null : DeployPlan.Sha256Hex(BoundedRead.ReadAllBytes(path, maxBytes));
+            if (new FileInfo(path).LinkTarget is not null)
+            {
+                return null;
+            }
+
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            if (!stream.CanSeek || stream.Length > maxBytes)
+            {
+                return null;
+            }
+
+            var bytes = new byte[stream.Length];
+            var got = 0;
+            int read;
+            while (got < bytes.Length && (read = stream.Read(bytes, got, bytes.Length - got)) > 0)
+            {
+                got += read;
+            }
+
+            return got == bytes.Length && stream.ReadByte() < 0 ? DeployPlan.Sha256Hex(bytes) : null;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return null;
         }
     }
 
     // True when the file's SHA-256 is not `expected`, or it cannot be read, or it is now over the cap the first read had.
-    private static bool Changed(string path, string? expected, long maxBytes)
-    {
-        try
-        {
-            return DeployPlan.Sha256Hex(BoundedRead.ReadAllBytes(path, maxBytes)) != expected;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
-        {
-            return true;
-        }
-    }
+    private static bool Changed(string path, string? expected, long maxBytes) => HashRegularFile(path, maxBytes) is not { } hash || hash != expected;
 
     // Another tool's text goes to stderr with every line prefixed, so no line can start with "error:" or "::".
     internal static void Forward(TextWriter error, string? text)

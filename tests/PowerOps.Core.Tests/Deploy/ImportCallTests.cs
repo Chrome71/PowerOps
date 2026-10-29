@@ -12,6 +12,8 @@ public class ImportCallTests
     private const string PathHint = "must be a literal absolute path (no $, backtick, escape, ~ or wildcard)";
     private const string CantRead = "the command holds an import that the gate can't read";
     private const string Stray = "the command has a word the gate doesn't read";
+    private const string EnvLine = "--environment must be an environment id or the https URL of a Dataverse host";
+    private const string AnsiC = "the command has a $'...' word with an escape, which the gate can't read";
 
     // Paths are built per OS, so the Windows leg of CI reads them as fully qualified.
     private static readonly string Dir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "powerops-gate"));
@@ -250,19 +252,22 @@ public class ImportCallTests
             { $"$'pac' $'solution' $'import' --path {z} --environment {Env}", CantRead },
             // Before \r\n a backslash escapes the \r, so the newline ends the command and --environment is not pac's.
             { $"pac solution import --path {z} \\\r\n  --environment {Env}", "--environment is missing" },
-            { $"pac solution import --path {z} --environment {Env}\r", "--environment must be an environment id or https URL" },
+            { $"pac solution import --path {z} --environment {Env}\r", EnvLine },
             { $"{Import()} > log", Stray },
             { $"{Import()} < in", Stray },
             { $"{Import()} extra", Stray },
             { $"{Import()} 2>log", Stray },
-            { $"pac solution import --path {z} --environment Test", "--environment must be an environment id or https URL" },
-            { $"pac solution import --path {z} --environment http://contoso-test.crm.dynamics.com", "--environment must be an environment id or https URL" },
-            { $"pac solution import --path {z} --environment -env", "--environment must be an environment id or https URL" },
-            { $"pac solution import --path {z} --environment $E", "--environment must be an environment id or https URL" },
+            { $"pac solution import --path {z} --environment Test", EnvLine },
+            { $"pac solution import --path {z} --environment http://contoso-test.crm.dynamics.com", EnvLine },
+            { $"pac solution import --path {z} --environment -env", EnvLine },
+            { $"pac solution import --path {z} --environment $E", EnvLine },
             { $"{Import()} -wt '$(x)'", "--max-async-wait-time must be a whole number of minutes" },
             { $"{Import()} -wt \"`x`\"", "--max-async-wait-time must be a whole number of minutes" },
             { $"{Import()} -wt soon", "--max-async-wait-time must be a whole number of minutes" },
-            { $"{Import()} --path=/x.zip", "the gate doesn't read --path" },
+            { $"{Import()} --path=/x.zip", "give --path and its value as separate words" },
+            { $"{Import()} -p=/x.zip", "give --path and its value as separate words" },
+            { $"{Import()} --settings-file=/s.json", "give --settings-file and its value as separate words" },
+            { $"{Import()} --force-overwrite=true", "the gate doesn't read --force-overwrite" },
             { $"{Import()} && {Import()}", "the command holds more than one import" },
             { $"sh -c '{Import()}'", CantRead },
             { $"eval \"{Import()}\"", CantRead },
@@ -284,6 +289,20 @@ public class ImportCallTests
             { $"pac pipeline deploy --environment {Env} --solutionName Seed --stageId {Env} --currentVersion 1.0.0.0 --newVersion 1.0.0.1 --wait", "pac pipeline deploy has no zip, and its target is a pipeline stage" },
             { $"pac package deploy --package {z} --environment {Url}", "pac package deploy imports a package that no plan holds" },
             { $"pac solution upgrade --solution-name Seed --environment {Env}", "pac solution upgrade applies a staged upgrade that no plan holds" },
+            { "pac pcf push --publisher-prefix pub", "pac pcf push imports a solution that no plan holds" },
+            { "pac application install --application-name x --environment " + Env, "pac application install installs an application that no plan holds" },
+            { "pac code push --environment " + Env, "pac code push pushes an app that no plan holds" },
+            { "sh -c \"pac pcf push\"", CantRead },
+            { "sh -c 'pac application install --application-name x'", CantRead },
+            { "bash -c \"pac code push\"", CantRead },
+            { "pwsh -c 'Import-CrmSolution -Path x.zip'", CantRead },
+            { "pac --verbose pcf push", CantRead },
+            { $"pac solution import --path {z} --environment https://attacker.example", EnvLine },
+            { $"pac solution import --path {z} --environment https://plan-env@other.crm.dynamics.com", EnvLine },
+            { $"pac solution import --path {z} --environment https://x.crm.dynamics.com:444", EnvLine },
+            // $'...' escapes can spell anything, so a word with one is not read, whatever else the command holds.
+            { $"$'\\x70ac' $'\\x73olution' $'\\x69mport' --path {z} --environment {Env}", AnsiC },
+            { "printf $'a\\nb'", AnsiC },
         };
 
         foreach (var flag in Unread)
@@ -342,10 +361,7 @@ public class ImportCallTests
     [Fact]
     public void A_posix_path_with_a_nul_is_not_a_literal_path()
     {
-        var input = McpInput();
-        input["--path"] = Zip + "\0";
-
-        Assert.Contains($"--path {PathHint}", Blocked(Mcp(input)).Lines);
+        Assert.Contains($"--path {PathHint}", Blocked(Bash($"pac solution import --path '{Zip}\0' --environment {Env}")).Lines);
     }
 
     [Fact]
@@ -391,9 +407,22 @@ public class ImportCallTests
     [Theory]
     [InlineData("--max-async-wait-time", "soon", "--max-async-wait-time must be a whole number of minutes")]
     [InlineData("--max-async-wait-time", "$(x)", "--max-async-wait-time must be a whole number of minutes")]
-    [InlineData("--environment", "Test", "--environment must be an environment id or https URL")]
-    [InlineData("--environment", "http://contoso-test.crm.dynamics.com", "--environment must be an environment id or https URL")]
+    [InlineData("--environment", "Test", EnvLine)]
+    [InlineData("--environment", "http://contoso-test.crm.dynamics.com", EnvLine)]
     [InlineData("--stage-and-upgrade", "false", "--stage-and-upgrade must be \"true\"")]
+    [InlineData("--async", "--force-overwrite", "--async must be \"true\" or \"false\"")]
+    [InlineData("--async", "", "--async must be \"true\" or \"false\"")]
+    [InlineData("--environment", "https://attacker.example", EnvLine)]
+    [InlineData("--environment", "https://plan-env@other.crm.dynamics.com", EnvLine)]
+    [InlineData("--environment", "https://x.crm.dynamics.com:444", EnvLine)]
+    [InlineData("--environment", "https://x.crm.dynamics.com/path", EnvLine)]
+    [InlineData("--path", "/tmp/z.zip --force-overwrite", "--path must not hold a space or control character, or start with '-'")]
+    [InlineData("--path", "/tmp/z.zip\t--force-overwrite", "--path must not hold a space or control character, or start with '-'")]
+    [InlineData("--path", "-/tmp/z.zip", "--path must not hold a space or control character, or start with '-'")]
+    [InlineData("--path", "/tmp/z.zip\n", "--path must not hold a space or control character, or start with '-'")]
+    [InlineData("--settings-file", "/tmp/s.json\n--force-overwrite", "--settings-file must not hold a space or control character, or start with '-'")]
+    [InlineData("--settings-file", "/tmp/s.json\t--force-overwrite", "--settings-file must not hold a space or control character, or start with '-'")]
+    [InlineData("--settings-file", "--force-overwrite", "--settings-file must not hold a space or control character, or start with '-'")]
     [InlineData("--force-overwrite", "true", "the gate doesn't read --force-overwrite")]
     [InlineData("-p", "x", "the gate doesn't read -p")]
     [InlineData("--path", "./solutions/x.zip", $"--path {PathHint}")]
@@ -405,6 +434,31 @@ public class ImportCallTests
         input[key] = value;
 
         Assert.Contains(line, Blocked(Mcp(input)).Lines);
+    }
+
+    [Theory]
+    [InlineData("true")]
+    [InlineData("false")]
+    public void The_mcp_async_switch_is_true_or_false(string value)
+    {
+        var input = McpInput();
+        input["--async"] = value;
+
+        Assert.Equal(new ImportCall(Zip, Env, null, false), Checked(Mcp(input)));
+    }
+
+    [Theory]
+    [InlineData(Url)]
+    [InlineData(Url + "/")]
+    [InlineData("https://CONTOSO.crm4.dynamics.com")]
+    [InlineData("https://gov.crm.microsoftdynamics.us")]
+    public void The_environment_may_be_a_dataverse_host_url_in_either_form(string env)
+    {
+        var input = McpInput();
+        input["--environment"] = env;
+
+        Assert.Equal(env, Checked(Mcp(input)).Environment);
+        Assert.Equal(env, Checked(Bash($"pac solution import --path {Q(Zip)} --environment {env}")).Environment);
     }
 
     [Fact]
@@ -431,6 +485,73 @@ public class ImportCallTests
             + $",\"--environment\":\"{Env}\",\"--environment\":\"{Url}\"}}}}";
 
         Assert.Equal(["a key appears twice in the hook input"], Blocked(ImportCall.Read(Encoding.UTF8.GetBytes(json))).Lines);
+    }
+
+    // ---- Monitor, PowerShell and $'...' ------------------------------------------------------------------------
+
+    [Fact]
+    public void Monitor_runs_a_shell_command_like_Bash()
+    {
+        Assert.Equal(new ImportCall(Zip, Env, null, false), Checked(Bash(Import(), "Monitor")));
+        Assert.Contains(CantRead, Blocked(Bash("sh -c 'pac solution import'", "Monitor")).Lines);
+        Assert.Contains("pac pcf push imports a solution that no plan holds", Blocked(Bash("pac pcf push", "Monitor")).Lines);
+        Assert.IsType<ImportRead.NotImport>(Bash("tail -f /var/log/syslog", "Monitor"));
+    }
+
+    [Fact]
+    public void A_monitor_input_with_a_description_and_timeout_gives_its_call()
+    {
+        var input = new JsonObject { ["command"] = Import(), ["description"] = "Import", ["timeout_ms"] = 60000 };
+
+        Assert.Equal(new ImportCall(Zip, Env, null, false), Checked(ImportCall.Read(Bytes(Claude("Monitor", input)))));
+    }
+
+    [Fact]
+    public void A_monitor_ws_watch_with_no_command_is_not_an_import()
+    {
+        var input = new JsonObject { ["ws"] = new JsonObject { ["url"] = "wss://example.test/feed" }, ["description"] = "Watch" };
+
+        Assert.IsType<ImportRead.NotImport>(ImportCall.Read(Bytes(Claude("Monitor", input))));
+    }
+
+    [Fact]
+    public void A_monitor_command_that_is_not_a_string_blocks()
+    {
+        var input = new JsonObject { ["command"] = 7, ["ws"] = new JsonObject() };
+
+        Assert.Equal(["the hook input has no command string"], Blocked(ImportCall.Read(Bytes(Claude("Monitor", input)))).Lines);
+    }
+
+    [Theory]
+    [InlineData("pac pcf push --publisher-prefix pub")]
+    [InlineData("pac application install --application-name x")]
+    [InlineData("pac code push")]
+    [InlineData("pac solution import --path /x.zip")]
+    [InlineData("Import-CrmSolution -InFile x.zip")]
+    [InlineData("& 'C:\\Tools\\pac.exe' auth list")]
+    public void A_pac_or_import_command_in_the_powershell_tool_is_blocked(string command)
+    {
+        Assert.Contains("imports are read only in Bash commands, not in PowerShell", Blocked(Bash(command, "PowerShell")).Lines);
+    }
+
+    [Fact]
+    public void An_ansi_c_word_with_a_backslash_is_unreadable_and_one_without_is_as_before()
+    {
+        var z = Q(Zip);
+
+        Assert.True(Blocked(Bash($"echo $'a\\x41'")).Unreadable);
+        Assert.DoesNotContain(AnsiC, Blocked(Bash($"$'pac' solution import --path {z} --environment {Env}")).Lines);
+        Assert.Contains(CantRead, Blocked(Bash($"$'pac' solution import --path {z} --environment {Env}")).Lines);
+        Assert.IsType<ImportRead.NotImport>(Bash("echo $'a' 'b\\c'"));
+    }
+
+    [Fact]
+    public void The_new_always_blocked_routes_ask_for_the_plan_not_a_rewrite()
+    {
+        foreach (var command in new[] { "pac pcf push", "pac application install --application-name x", "pac code push" })
+        {
+            Assert.False(Blocked(Bash(command)).Unreadable);
+        }
     }
 
     // ---- 3. input ----------------------------------------------------------------------------------------------

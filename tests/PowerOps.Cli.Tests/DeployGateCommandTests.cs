@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json.Nodes;
 
@@ -46,8 +47,28 @@ public class DeployGateCommandTests : DeployTestBase
     private static byte[] Hook(string tool, JsonObject input) => Encoding.UTF8.GetBytes(new JsonObject { ["tool_name"] = tool, ["tool_input"] = input }.ToJsonString());
 
     // A plain pac solution import, as an agent writes it.
+    private static string PacCommand(string env, string zip, string? settings = null, bool stage = false) =>
+        $"pac solution import --path '{zip}' --environment {env}{(settings is null ? "" : $" --settings-file '{settings}'")}{(stage ? " --stage-and-upgrade" : "")}";
+
+    // Claude Code's Bash input holds the command and a description.
     private static byte[] Cli(string env, string zip, string? settings = null, bool stage = false, string tool = "Bash") =>
-        Hook(tool, new JsonObject { ["command"] = $"pac solution import --path '{zip}' --environment {env}{(settings is null ? "" : $" --settings-file '{settings}'")}{(stage ? " --stage-and-upgrade" : "")}" });
+        Hook(tool, new JsonObject { ["command"] = PacCommand(env, zip, settings, stage), ["description"] = "Import the solution" });
+
+    // Codex's PreToolUse input for its Bash tool (0.163.0), with the common fields it sends.
+    private byte[] CodexBash(string command) =>
+        Encoding.UTF8.GetBytes(new JsonObject
+        {
+            ["session_id"] = "s",
+            ["turn_id"] = "t",
+            ["transcript_path"] = null,
+            ["cwd"] = Folder,
+            ["hook_event_name"] = "PreToolUse",
+            ["model"] = "m",
+            ["permission_mode"] = "default",
+            ["tool_name"] = "Bash",
+            ["tool_input"] = new JsonObject { ["command"] = command },
+            ["tool_use_id"] = "u",
+        }.ToJsonString());
 
     private static byte[] Mcp(string env, string zip, string? settings = null, bool stage = false, string tool = "mcp__pac-cli__solution_import")
     {
@@ -68,13 +89,28 @@ public class DeployGateCommandTests : DeployTestBase
     // The seed plan upgrades a managed zip, so its first import has a settings file and stages.
     private byte[] SeedCall(string env = TargetIdText, bool mcp = false) => mcp ? Mcp(env, SeedZipPath, SeedSettingsPath, stage: true) : Cli(env, SeedZipPath, SeedSettingsPath, stage: true);
 
-    private Outcome Gate(Dictionary<string, FakeTarget> environments, byte[]? stdin, FakePac? pac = null)
+    // `during` runs inside the target read, as a slow live read would; `deadline` ends a check that hangs (a test seam, else the 300 seconds).
+    private Outcome Gate(Dictionary<string, FakeTarget> environments, byte[]? stdin, FakePac? pac = null, Action? during = null, TimeSpan? deadline = null)
     {
         var (o, e) = (new StringWriter(), new StringWriter());
-        var code = Program.Run(
-            ["deploy", "gate", PlanFile], o, e, (pac ?? new FakePac()).Run, null,
-            (target, solutions, dependencies) => environments[target].Read(target, solutions, dependencies),
-            () => stdin is null ? null : new MemoryStream(stdin));
+        DeployTarget Read(string target, IReadOnlyList<string> solutions, IReadOnlyList<string> dependencies)
+        {
+            during?.Invoke();
+            return environments[target].Read(target, solutions, dependencies);
+        }
+
+        Func<Stream?> input = () => stdin is null ? null : new MemoryStream(stdin);
+        int code;
+        if (deadline is null)
+        {
+            code = Program.Run(["deploy", "gate", PlanFile], o, e, (pac ?? new FakePac()).Run, null, Read, input);
+        }
+        else
+        {
+            var root = new RootCommand { DeployCommand.Create(o, e, (pac ?? new FakePac()).Run, Read, input, deadline) };
+            code = root.Parse(["deploy", "gate", PlanFile]).Invoke(new InvocationConfiguration { Output = o, Error = e, EnableDefaultExceptionHandler = false });
+        }
+
         return new Outcome(code, o.ToString().ReplaceLineEndings("\n"), e.ToString().ReplaceLineEndings("\n"));
     }
 
@@ -133,6 +169,7 @@ public class DeployGateCommandTests : DeployTestBase
         {
             "claude-mcp" => SeedCall(mcp: true),
             "codex-mcp" => Mcp(TargetIdText, SeedZipPath, SeedSettingsPath, stage: true, tool: "mcp__pac_cli__solution_import"),
+            "codex-bash" => CodexBash(PacCommand(TargetIdText, SeedZipPath, SeedSettingsPath, stage: true)),
             _ => SeedCall(),
         };
 
@@ -390,6 +427,139 @@ public class DeployGateCommandTests : DeployTestBase
         Assert.Equal(2, code);
         Assert.Equal("", o.ToString());
         Assert.Equal($"{Prefix}the check took longer than 1 seconds\n{ImportGuidance}\n", e.ToString().ReplaceLineEndings("\n"));
+    }
+
+    // ---- 6b. the files the call names ---------------------------------------------------------------------------
+
+    private static void MakeFifo(string path)
+    {
+        using var mkfifo = Process.Start(new ProcessStartInfo("mkfifo") { ArgumentList = { path }, RedirectStandardError = true })!;
+        mkfifo.WaitForExit();
+        Assert.True(mkfifo.ExitCode == 0, "mkfifo failed");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_fifo_as_the_zip_or_the_settings_file_is_blocked_and_does_not_hang(bool settings)
+    {
+        // Opening a FIFO read-write without blocking is Linux behaviour; POSIX leaves it undefined, so a hang elsewhere is not risked.
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "Linux only.");
+        SeedZip(Folder);
+        MakePlan();
+        var fifo = Path.Combine(Stage, settings ? "Fifo.settings.json" : "Fifo.zip");
+        MakeFifo(fifo);
+        // Held open for reading and writing, so the gate's open does not wait for a writer; with no data a read of it would wait for ever.
+        using var holder = new FileStream(fifo, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+
+        var r = Gate(Seeded(), settings ? Cli(TargetIdText, SeedZipPath, fifo, stage: true) : Cli(TargetIdText, fifo, SeedSettingsPath, stage: true), deadline: TimeSpan.FromSeconds(20));
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal("", r.Out);
+        Assert.Contains($"{Prefix}{Path.GetFileName(fifo)} does not exist, is a symbolic link, is not a file, or can't be read\n", r.Err);
+        Assert.EndsWith(ImportGuidance + "\n", r.Err);
+    }
+
+    [Fact]
+    public void A_device_that_reads_for_ever_as_the_zip_is_blocked()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "/dev/zero is a Linux device.");
+        SeedZip(Folder);
+        MakePlan();
+
+        var r = Gate(Seeded(), Cli(TargetIdText, "/dev/zero", SeedSettingsPath, stage: true), deadline: TimeSpan.FromSeconds(20));
+
+        Assert.Equal(2, r.Code);
+        Assert.Contains($"{Prefix}zero does not exist, is a symbolic link, is not a file, or can't be read\n", r.Err);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_zip_or_settings_file_rewritten_during_the_dry_run_blocks(bool settings)
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var (path, name) = settings ? (SeedSettingsPath, "PowerOpsSeed.settings.json") : (SeedZipPath, "PowerOpsSeed.zip");
+        var test = SeedTarget();
+        var pac = new FakePac();
+
+        var r = Gate(Environments(test), SeedCall(), pac, during: () => File.WriteAllBytes(path, [.. File.ReadAllBytes(path), (byte)' ']));
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal("", r.Out);
+        Assert.Contains($"{Prefix}{name} changed while the gate checked it\n", r.Err);
+        Assert.EndsWith(ImportGuidance + "\n", r.Err);
+        Assert.Equal(1, test.Calls);
+        Assert.Empty(pac.Calls);
+    }
+
+    [Fact]
+    public void Apply_refuses_a_zip_that_became_a_link_after_the_re_plan_read_it()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var copy = Path.Combine(Stage, "Copy.zip");
+        File.Copy(SeedZipPath, copy);
+        var (test, pac) = (SeedTarget(), new FakePac());
+        var (o, e) = (new StringWriter(), new StringWriter());
+
+        var code = Program.Run(["deploy", "apply", PlanFile, "--target", TargetValue, "--apply"], o, e, pac.Run, null, (t, s, d) =>
+        {
+            File.Delete(SeedZipPath);
+            try
+            {
+                File.CreateSymbolicLink(SeedZipPath, copy);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Assert.Skip("Symbolic links are not available here.");
+            }
+
+            return test.Read(t, s, d);
+        });
+
+        Assert.Equal(3, code);
+        Assert.Empty(pac.Calls);
+        Assert.Contains("PowerOpsSeed.zip changed after the re-plan read it, so it was not imported.", o.ToString());
+    }
+
+    [Fact]
+    public void The_first_import_comes_from_the_fresh_plan_not_the_plan_files_solutions_array()
+    {
+        Chain();
+        MakePlan(new FakeTarget());
+        var doc = JsonNode.Parse(File.ReadAllText(PlanFile))!.AsObject();
+        var edited = new JsonArray([.. doc["solutions"]!.AsArray().Reverse().Select(n => n!.DeepClone())]);
+        Assert.Equal("C.zip", (string?)edited[0]!["zip"]);
+        doc["solutions"] = edited;
+        File.WriteAllText(PlanFile, doc.ToJsonString());
+
+        var first = Gate(Environments(new FakeTarget()), Cli(TargetIdText, Path.Combine(Folder, "A.zip")));
+        var other = Gate(Environments(new FakeTarget()), Cli(TargetIdText, Path.Combine(Folder, "C.zip")));
+
+        Assert.Equal((0, "", ""), (first.Code, first.Out, first.Err));
+        Assert.Equal(2, other.Code);
+        Assert.Contains($"{Prefix}the plan imports A.zip first\n", other.Err);
+    }
+
+    // ---- 6c. the arguments --------------------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("-x")]
+    [InlineData("--bogus")]
+    [InlineData("-h")]
+    [InlineData("--help")]
+    [InlineData("-?")]
+    public void A_plan_file_argument_that_starts_with_a_dash_or_asks_for_help_blocks_everything(string argument)
+    {
+        var (o, e) = (new StringWriter(), new StringWriter());
+
+        var code = Program.Run(["deploy", "gate", argument], o, e, new FakePac().Run, null, (t, s, d) => throw new InvalidOperationException(), () => new MemoryStream(Hook("Bash", new JsonObject { ["command"] = "git status" })));
+
+        Assert.Equal(2, code);
+        Assert.Equal("", o.ToString());
+        Assert.Contains(argument is "-x" or "--bogus" ? $"{Prefix}the plan file must not start with '-'\n{ImportGuidance}\n" : "error: ", e.ToString().ReplaceLineEndings("\n"));
     }
 
     // ---- 7. exit codes -----------------------------------------------------------------------------------------
