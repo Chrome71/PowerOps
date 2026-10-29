@@ -281,6 +281,46 @@ public class DeployCommandTests : IDisposable
         Assert.All(r.Err.Split('\n'), l => Assert.DoesNotMatch("^::", l));
     }
 
+    // M28: --save and --out are not written through a link; the line names the option and no path.
+    [Theory]
+    [InlineData("--save")]
+    [InlineData("--out")]
+    public void A_link_as_save_or_out_exits_2_and_the_file_behind_it_is_not_touched(string option)
+    {
+        SeedZip(Folder);
+        var victim = Path.Combine(_root, "victim.txt");
+        File.WriteAllText(victim, "victim");
+        var link = Path.Combine(Out, "plan.json");
+        Links.Create(link, victim);
+        var zips = Directory.GetFiles(Folder).ToDictionary(f => f, File.ReadAllBytes);
+
+        var fake = new FakeTarget();
+        var r = Plan(fake, option, link);
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal($"error: {option} is a symbolic link; symbolic links are not written.\n", r.Err);
+        Assert.Equal("", r.Out);
+        Assert.Empty(fake.Calls);
+        Assert.Equal("victim", File.ReadAllText(victim));
+        Assert.Equal(victim, new FileInfo(link).LinkTarget);
+        Assert.All(zips, z => Assert.Equal(z.Value, File.ReadAllBytes(z.Key)));
+    }
+
+    [Fact]
+    public void Save_run_again_replaces_its_own_file()
+    {
+        SeedZip(Folder);
+        var save = Path.Combine(Folder, "plan.json");
+
+        var first = Plan(SeedTarget(), "--format", "json", "--save", save);
+        var second = Plan(SeedTarget(), "--format", "json", "--save", save);
+
+        Assert.Equal(0, first.Code);
+        Assert.Equal(0, second.Code);
+        Assert.Equal(second.Out, File.ReadAllText(save));
+        Assert.Empty(Directory.GetFiles(Folder, ".powerops-*.tmp"));
+    }
+
     // ---- exit 3 ------------------------------------------------------------------------------------------------
 
     [Theory]

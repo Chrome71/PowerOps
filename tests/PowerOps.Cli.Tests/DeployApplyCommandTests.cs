@@ -85,6 +85,42 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.DoesNotContain(_root, r.Err);
     }
 
+    // M28: the report is written after the imports, so a refused --out is found before the first one.
+    [Theory]
+    [InlineData("link")]
+    [InlineData("plan-file")]
+    public void An_out_that_is_a_link_or_the_plan_file_exits_2_before_any_import_and_leaves_both_files(string kind)
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var victim = Path.Combine(_root, "victim.txt");
+        File.WriteAllText(victim, "victim");
+        var link = Path.Combine(Out, "apply.txt");
+        string outFile;
+        if (kind == "link")
+        {
+            Links.Create(link, victim);
+            outFile = link;
+        }
+        else
+        {
+            outFile = PlanFile;
+        }
+
+        var files = Directory.GetFiles(Folder).ToDictionary(f => f, File.ReadAllBytes);
+        var (fake, pac) = (SeedTarget(), new FakePac());
+
+        var r = Apply(fake, pac, "--apply", "--out", outFile);
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal(kind == "link" ? "error: --out is a symbolic link; symbolic links are not written.\n" : "error: --out is an input of this command; it is not overwritten.\n", r.Err);
+        Assert.Equal("", r.Out);
+        Assert.Equal(0, fake.Calls);
+        Assert.Empty(pac.Calls);
+        Assert.Equal("victim", File.ReadAllText(victim));
+        Assert.All(files, f => Assert.Equal(f.Value, File.ReadAllBytes(f.Key)));
+    }
+
     [Fact]
     public void A_target_whose_friendly_name_differs_from_the_plans_exits_2_and_imports_nothing()
     {
