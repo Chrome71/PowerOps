@@ -133,11 +133,14 @@ public static partial class McpCommand
     private static ToolDef[] Tools(Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot> driftLive,
         Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget, Action<string[]>? ran)
     {
-        int Cli(string[] args, TextWriter output, TextWriter error)
+        // Only deploy_apply passes a hash: the one the user approved in the form.
+        int Approved(string[] args, TextWriter output, TextWriter error, string? approvedHash)
         {
             ran?.Invoke(args);
-            return Program.Run(args, output, error, pac, driftLive, deployTarget);
+            return Program.Run(args, output, error, pac, driftLive, deployTarget, approvedHash: approvedHash);
         }
+
+        int Cli(string[] args, TextWriter output, TextWriter error) => Approved(args, output, error, null);
 
         // One import at a time in this server; it covers the import only, never the form (see DeployApply).
         var guard = new SemaphoreSlim(1, 1);
@@ -215,7 +218,7 @@ public static partial class McpCommand
                 ],
                 null,
                 Import,
-                RunAsync: (v, server, ct) => DeployApply(v, server, guard, Cli, ct)),
+                RunAsync: (v, server, ct) => DeployApply(v, server, guard, Approved, ct)),
         ];
     }
 
@@ -245,14 +248,14 @@ public static partial class McpCommand
     }
 
     // Without apply: a dry run. With it: the user types the plan's target name into the client's form, and only an ordinal accept with that exact name passes.
-    private static async ValueTask<CallToolResult> DeployApply(Values v, McpServer server, SemaphoreSlim guard, Func<string[], TextWriter, TextWriter, int> cli, CancellationToken cancellationToken)
+    private static async ValueTask<CallToolResult> DeployApply(Values v, McpServer server, SemaphoreSlim guard, Func<string[], TextWriter, TextWriter, string?, int> cli, CancellationToken cancellationToken)
     {
         var (planFile, target) = (v.Text("planFile"), v.Text("target"));
         string[] Args(bool apply) => ["deploy", "apply", "--target", target, "--format", "json", .. (apply ? new[] { "--apply" } : []), "--", planFile];
-        (int Code, string Out, string Err) Exec(string[] args)
+        (int Code, string Out, string Err) Exec(string[] args, string? approvedHash = null)
         {
             var (o, e) = (new StringWriter(), new StringWriter());
-            return (cli(args, o, e), o.ToString(), e.ToString());
+            return (cli(args, o, e, approvedHash), o.ToString(), e.ToString());
         }
 
         if (!v.Flag("apply"))
@@ -342,7 +345,7 @@ public static partial class McpCommand
 
         try
         {
-            var (code, o, e) = Exec(Args(true));
+            var (code, o, e) = Exec(Args(true), plan.Hash);
             return Result(code, o, e);
         }
         finally

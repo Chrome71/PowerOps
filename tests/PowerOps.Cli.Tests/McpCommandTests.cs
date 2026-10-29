@@ -129,7 +129,7 @@ public sealed class McpCommandTests : IAsyncLifetime
     private static Fakes TargetFakes() => new() { TargetBehavior = ReadTarget };
 
     // The seed as a managed zip one version higher, with its valid settings file, in a new folder.
-    private string DeployFolder()
+    private string DeployFolder(string version = "1.0.0.1")
     {
         var folder = Directory.CreateDirectory(Path.Combine(_temp, "deploy-" + Guid.NewGuid().ToString("N"))).FullName;
         var dir = Path.Combine(_temp, "seed-" + Guid.NewGuid().ToString("N"));
@@ -141,7 +141,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         }
 
         var xml = Path.Combine(dir, "Other", "Solution.xml");
-        File.WriteAllText(xml, File.ReadAllText(xml).Replace("<Managed>0</Managed>", "<Managed>1</Managed>").Replace("<Version>1.0.0.0</Version>", "<Version>1.0.0.1</Version>"));
+        File.WriteAllText(xml, File.ReadAllText(xml).Replace("<Managed>0</Managed>", "<Managed>1</Managed>").Replace("<Version>1.0.0.0</Version>", $"<Version>{version}</Version>"));
         SolutionZip.Create(dir, Path.Combine(folder, "PowerOpsSeed.zip"));
         File.Copy(Valid, Path.Combine(folder, "PowerOpsSeed.settings.json"));
         return folder;
@@ -1212,6 +1212,39 @@ public sealed class McpCommandTests : IAsyncLifetime
         }
 
         Assert.Equal(0, _fakes.Pacs);
+    }
+
+    [Theory]
+    [InlineData("2026-07-28")]
+    [InlineData("2025-06-18")]
+    public async Task A_plan_file_and_zip_swapped_as_a_consistent_pair_after_the_yes_imports_nothing(string revision)
+    {
+        var (folder, planFile) = SavedPlan();
+        ImportFakes();
+        var other = DeployFolder("1.0.0.2");
+        var swapped = false;
+
+        // onRan fires for the --apply run before Program.Run starts, which is after the tool's last recheck of the plan file.
+        await using var pair = await Connect(_fakes, revision, new Forms(_ => Accepted(TargetName)), onRan: args =>
+        {
+            if (!args.Contains("--apply"))
+            {
+                return;
+            }
+
+            File.Copy(Path.Combine(other, "PowerOpsSeed.zip"), Path.Combine(folder, "PowerOpsSeed.zip"), overwrite: true);
+            File.Delete(planFile);
+            Assert.Equal(0, CliWith(TargetFakes(), "deploy", "plan", "--target", Secret, "--save", planFile, "--", folder).Code);
+            swapped = true;
+        });
+
+        var result = await Apply(pair, ApplyArgs(planFile));
+
+        Assert.True(swapped);
+        Assert.Equal("refused", Status(result));
+        Assert.Contains("the plan is not the one that was approved", (string)JsonNode.Parse(Text(result))!["message"]!);
+        Assert.Equal(0, _fakes.Pacs);
+        Assert.Empty(_imports);
     }
 
     // 7
