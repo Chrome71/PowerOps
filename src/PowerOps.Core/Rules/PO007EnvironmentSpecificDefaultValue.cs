@@ -20,7 +20,8 @@ public sealed partial class PO007EnvironmentSpecificDefaultValue : IRule
     [GeneratedRegex(@"^\{?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}?$", RegexOptions.IgnoreCase)]
     private static partial Regex Guid();
 
-    [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$")]
+    // NonBacktracking: the backtracking engine took quadratic time on a long value of dots (R-3).
+    [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.NonBacktracking)]
     private static partial Regex Email();
 
     public IEnumerable<Finding> Evaluate(Solution solution)

@@ -13,7 +13,8 @@ internal sealed record SolutionFiles(
     IReadOnlyCollection<string> Paths,
     Func<string, string> ReadText,
     string ManifestFile,
-    string CustomizationsFile);
+    string CustomizationsFile,
+    ReadBudget Budget);
 
 /// <summary>Parses the files of an unpacked or exported solution; folder and zip differ only in <see cref="SolutionFiles"/>.</summary>
 internal static partial class SolutionParser
@@ -81,7 +82,7 @@ internal static partial class SolutionParser
 
         var canvasApps = paths.Values
             .Where(p => CanvasMetaPath().IsMatch(p))
-            .Select(files.ReadText)
+            .Select(p => CheckedMeta(files, p))
             .Concat((customizations?.Element("CanvasApps")?.Elements("CanvasApp") ?? []).Select(e => e.ToString(SaveOptions.DisableFormatting)))
             .ToList();
 
@@ -213,28 +214,54 @@ internal static partial class SolutionParser
     {
         try
         {
-            // DTDs are prohibited: solutions are untrusted input.
-            var text = files.ReadText(path);
-            var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit };
-
-            // XDocument.Load is quadratic in nesting depth, so reject deep input with a cheap forward-only pass first.
-            using (var scan = XmlReader.Create(new StringReader(text), settings))
-            {
-                while (scan.Read())
-                {
-                    if (scan.Depth > MaxXmlDepth)
-                    {
-                        throw new XmlException($"XML is nested deeper than {MaxXmlDepth} levels.");
-                    }
-                }
-            }
-
-            using var reader = XmlReader.Create(new StringReader(text), settings);
-            return XDocument.Load(reader).Root!;
+            return ParseXml(files.ReadText(path), path, files.Budget).Root!;
         }
         catch (XmlException e)
         {
             throw new InvalidDataException($"{path}: {e.Message}", e);
+        }
+    }
+
+    /// <summary>Canvas metadata stays text, and malformed XML in it is tolerated (SolutionDiff reads it later); too deep or too large is refused here, where the file's path is known.</summary>
+    private static string CheckedMeta(SolutionFiles files, string path)
+    {
+        var text = files.ReadText(path);
+        try
+        {
+            ScanXml(text, path, files.Budget);
+        }
+        catch (XmlException)
+        {
+        }
+
+        return text;
+    }
+
+    /// <summary>
+    /// The one place XML text becomes an XDocument: DTDs are prohibited (solutions are untrusted), and nesting deeper than <see cref="MaxXmlDepth"/>
+    /// or more nodes than the budget has left are refused first.
+    /// </summary>
+    /// <exception cref="XmlException">The text is not well-formed XML.</exception>
+    /// <exception cref="InvalidDataException">The text is too deep or has too many nodes; the message starts with <paramref name="path"/>.</exception>
+    internal static XDocument ParseXml(string text, string path, ReadBudget budget, bool ignoreWhitespace = false)
+    {
+        ScanXml(text, path, budget);
+        using var reader = XmlReader.Create(new StringReader(text), new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, IgnoreWhitespace = ignoreWhitespace });
+        return XDocument.Load(reader);
+    }
+
+    // XDocument.Load is quadratic in nesting depth and costs memory per node, so a cheap forward-only pass refuses hostile input first.
+    private static void ScanXml(string text, string path, ReadBudget budget)
+    {
+        using var scan = XmlReader.Create(new StringReader(text), new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit });
+        while (scan.Read())
+        {
+            if (scan.Depth > MaxXmlDepth)
+            {
+                throw new InvalidDataException($"{path}: XML is nested deeper than {MaxXmlDepth} levels.");
+            }
+
+            budget.CountNode(path);
         }
     }
 

@@ -18,7 +18,7 @@ public static class XmlUnpackReader
             throw new InvalidDataException($"{folder}: folder not found.");
         }
 
-        var paths = Directory.EnumerateFiles(root, "*", Options)
+        var paths = budget.LimitFiles(Directory.EnumerateFiles(root, "*", Options), folder)
             .Select(f => Path.GetRelativePath(root, f).Replace('\\', '/'))
             .ToList();
 
@@ -26,6 +26,7 @@ public static class XmlUnpackReader
             paths,
             p => SolutionParser.ReadCapped(File.OpenRead(Path.Combine(root, p)), p, budget),
             "Other/Solution.xml",
-            "Other/Customizations.xml"));
+            "Other/Customizations.xml",
+            budget));
     }
 }

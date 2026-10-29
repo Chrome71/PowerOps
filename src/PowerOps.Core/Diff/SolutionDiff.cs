@@ -4,6 +4,7 @@ using System.Xml;
 using System.Xml.Linq;
 
 using PowerOps.Core.Model;
+using PowerOps.Core.Readers;
 
 namespace PowerOps.Core.Diff;
 
@@ -205,8 +206,8 @@ public static class SolutionDiff
     {
         try
         {
-            using var reader = XmlReader.Create(new StringReader(text), new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, IgnoreWhitespace = true });
-            var root = XDocument.Load(reader).Root!;
+            // The loader already refused deep or huge metadata with its path; this check is for a Solution built by hand.
+            var root = SolutionParser.ParseXml(text, "Canvas app metadata", new ReadBudget(), ignoreWhitespace: true).Root!;
             var name = root.Element("Name")?.Value.Trim() ?? "";
             var version = root.Element("AppVersion")?.Value.Trim();
             root.Element("AppVersion")?.Remove();

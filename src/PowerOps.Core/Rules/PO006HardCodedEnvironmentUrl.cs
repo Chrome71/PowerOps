@@ -18,7 +18,7 @@ public sealed class PO006HardCodedEnvironmentUrl : IRule
         {
             // Literals under definition.parameters are env-var defaults mirrored into the flow; PO007 owns those.
             var urls = flow.StringLiterals
-                .Where(l => !l.JsonPath.StartsWith("$.parameters", StringComparison.Ordinal))
+                .Where(l => !l.InParameters)
                 .SelectMany(l => RuleHelpers.EnvironmentUrl().Matches(l.Value).Select(m => m.Value))
                 .Distinct(StringComparer.OrdinalIgnoreCase);
             foreach (var url in urls)

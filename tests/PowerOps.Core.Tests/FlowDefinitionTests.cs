@@ -85,10 +85,22 @@ public class FlowDefinitionTests
 
         Assert.Equal(
             [
-                new StringLiteral("$.actions.Get.inputs.uri", "https://org1.crm.dynamics.com/api"),
-                new StringLiteral("$.actions.Get.inputs.items[0]", "one"),
-                new StringLiteral("$.actions.Get.inputs.items[1].k", "two"),
+                new StringLiteral(false, "https://org1.crm.dynamics.com/api"),
+                new StringLiteral(false, "one"),
+                new StringLiteral(false, "two"),
             ],
+            flow.StringLiterals);
+    }
+
+    [Fact]
+    public void String_literals_are_flagged_only_under_the_top_level_parameters_key()
+    {
+        var flow = FlowDefinition.Parse(Flow(
+            "{}",
+            """{"parameters":{"U":{"defaultValue":"in","list":["in2"]}},"parametersX":"out1","actions":{"A":{"inputs":{"parameters":{"p":"out2"}}}}}"""));
+
+        Assert.Equal(
+            [new StringLiteral(true, "in"), new StringLiteral(true, "in2"), new StringLiteral(false, "out1"), new StringLiteral(false, "out2")],
             flow.StringLiterals);
     }
 
