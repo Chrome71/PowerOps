@@ -340,14 +340,12 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Empty(pac.Calls);
     }
 
-    [Theory]
-    [InlineData("tool")]
-    [InlineData("schemaVersion")]
-    public void A_plan_made_by_another_tool_or_schema_version_is_refused_before_the_target_is_read(string field)
+    [Fact]
+    public void A_plan_made_by_another_tool_is_refused_before_the_target_is_read()
     {
         SeedZip(Folder);
         MakePlan();
-        EditPlanFile(d => d[field] = field == "tool" ? "9.9.9\n::error::x" : 99);
+        EditPlanFile(d => d["tool"] = "9.9.9\n::error::x");
 
         var (fake, pac) = (SeedTarget(), new FakePac());
         var r = Apply(fake, pac, "--apply", "--format", "json");

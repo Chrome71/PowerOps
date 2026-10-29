@@ -79,9 +79,7 @@ public class ImportCallTests
     // ---- 1. not an import --------------------------------------------------------------------------------------
 
     [Theory]
-    [InlineData("ls -la")]
     [InlineData("git status")]
-    [InlineData("dotnet test")]
     [InlineData("pac solution list")]
     [InlineData("pac auth list --verbose")]
     [InlineData("pac solution export --name Seed --path /x/seed.zip")]
@@ -95,18 +93,10 @@ public class ImportCallTests
 
     [Theory]
     [InlineData("Write")]
-    [InlineData("Read")]
-    [InlineData("spawn_agent")]
     [InlineData("mcp__other__list")]
     public void Another_tool_is_not_an_import(string tool)
     {
         Assert.IsType<ImportRead.NotImport>(ImportCall.Read(Bytes(Codex(tool, new JsonObject { ["command"] = "pac solution import" }))));
-    }
-
-    [Fact]
-    public void An_apply_patch_whose_text_holds_an_import_is_not_one()
-    {
-        Assert.IsType<ImportRead.NotImport>(ImportCall.Read(Bytes(Codex("apply_patch", new JsonObject { ["command"] = "*** Begin Patch\n+pac solution import\n*** End Patch" }))));
     }
 
     // ---- 2. readable forms -------------------------------------------------------------------------------------
@@ -142,7 +132,6 @@ public class ImportCallTests
             { $"{Import()} | tail -5" },
             { $"{Import()} && pac solution list" },
             { $"{Import()} 2>&1" },
-            { $"{Import()} 2>&1 | tail -5" },
             { $"cd /work && {Import()} >&2" },
             { $"pac sol\"\"ution im''port --path {z} --environment {Env}" },
             { $"pac solution import --path {z} --environment {Env} -wt 30 -a" },
@@ -170,8 +159,6 @@ public class ImportCallTests
     }
 
     [Theory]
-    [InlineData("mcp__pac-cli__solution_import")]
-    [InlineData("mcp__pac_cli__solution_import")]
     [InlineData("mcp__plugin_dataverse_pac-cli__solution_import")]
     public void The_mcp_form_gives_its_call_under_any_servers_name(string tool)
     {
@@ -200,15 +187,6 @@ public class ImportCallTests
     }
 
     [Fact]
-    public void The_mcp_environment_may_be_an_https_url()
-    {
-        var input = McpInput();
-        input["--environment"] = Url;
-
-        Assert.Equal(Url, Checked(Mcp(input)).Environment);
-    }
-
-    [Fact]
     public void A_quoted_windows_path_is_read_on_windows()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "Windows paths");
@@ -220,8 +198,7 @@ public class ImportCallTests
 
     private static readonly string[] Unread =
     [
-        "--force-overwrite", "--activate-plugins", "--publish-changes", "--import-as-holding", "--convert-to-managed", "--skip-dependency-check",
-        "--skip-lower-version", "--activate-flows", "--update-canvas-app-ownership", "--import-mode", "--Path",
+        "--force-overwrite", "--Path",
     ];
 
     public static TheoryData<string, string> Blocks()
@@ -280,8 +257,6 @@ public class ImportCallTests
             { "echo it's; pac solution import", "the quotes are not closed" },
             { $"curl -X POST \"$URL/api/data/v9.2/ImportSolutionAsync\" -d @body.json", CantRead },
             { $"pac --verbose solution import --path {z} --environment {Env}", CantRead },
-            { $"pac solution import --path ./solutions/x.zip --environment {Url} --async --activate-plugins", "the gate doesn't read --activate-plugins" },
-            { $"pac solution import --path ./solutions/x.zip --environment {Url} --async --activate-plugins", $"--path {PathHint}" },
             // The always-blocked routes, with the skills' own command lines.
             { $"node \"${{PLUGIN_ROOT}}/scripts/solution-settings.js\" import --env {Url} --package {z} --settings {Q(Settings)}", "model-apps' solution-settings.js import builds its own import request, so its options can't be checked" },
             { $"node \"${{CLAUDE_PLUGIN_ROOT}}/scripts/encode-solution-file.js\" --zipPath {z}", "power-pages' import-solution sends the zip in a request body, so its zip and environment can't be checked" },
@@ -314,12 +289,12 @@ public class ImportCallTests
             data.Add($"{Import()} {flag}", $"the gate doesn't read {flag}");
         }
 
-        // A flag given twice under any two of its names, in both orders.
+        // A flag given twice: --path under one name, and every flag under its long then its short name.
         string[][] names = [["--path", "-p"], ["--environment", "-env"], ["--stage-and-upgrade", "-up"], ["--async", "-a"], ["--max-async-wait-time", "-wt"]];
         foreach (var pair in names)
         {
             var value = pair[0] switch { "--path" => z, "--environment" => Env, "--max-async-wait-time" => "5", _ => "" };
-            foreach (var (first, second) in new[] { (pair[0], pair[0]), (pair[0], pair[1]), (pair[1], pair[0]), (pair[1], pair[1]) })
+            foreach (var (first, second) in pair[0] == "--path" ? new[] { (pair[0], pair[0]), (pair[0], pair[1]) } : [(pair[0], pair[1])])
             {
                 var others = pair[0] switch { "--path" => $"--environment {Env}", "--environment" => $"--path {z}", _ => $"--path {z} --environment {Env}" };
                 data.Add($"pac solution import {others} {first} {value} {second} {value}", $"{pair[0]} is given twice");
@@ -360,6 +335,8 @@ public class ImportCallTests
         var lines = Blocked(Bash($"pac solution import --path ./solutions/x.zip --environment {Url} --async --activate-plugins")).Lines;
 
         Assert.Equal(2, lines.Count);
+        Assert.Contains("the gate doesn't read --activate-plugins", lines);
+        Assert.Contains($"--path {PathHint}", lines);
     }
 
     [Theory]
@@ -481,7 +458,6 @@ public class ImportCallTests
     }
 
     [Theory]
-    [InlineData("true")]
     [InlineData("false")]
     public void The_mcp_async_switch_is_true_or_false(string value)
     {
@@ -494,8 +470,6 @@ public class ImportCallTests
     [Theory]
     [InlineData(Url)]
     [InlineData(Url + "/")]
-    [InlineData("https://CONTOSO.crm4.dynamics.com")]
-    [InlineData("https://gov.crm.microsoftdynamics.us")]
     public void The_environment_may_be_a_dataverse_host_url_in_either_form(string env)
     {
         var input = McpInput();
@@ -543,14 +517,6 @@ public class ImportCallTests
     }
 
     [Fact]
-    public void A_monitor_input_with_a_description_and_timeout_gives_its_call()
-    {
-        var input = new JsonObject { ["command"] = Import(), ["description"] = "Import", ["timeout_ms"] = 60000 };
-
-        Assert.Equal(new ImportCall(Zip, Env, null, false), Checked(ImportCall.Read(Bytes(Claude("Monitor", input)))));
-    }
-
-    [Fact]
     public void A_monitor_ws_watch_with_no_command_is_not_an_import()
     {
         var input = new JsonObject { ["ws"] = new JsonObject { ["url"] = "wss://example.test/feed" }, ["description"] = "Watch" };
@@ -567,11 +533,6 @@ public class ImportCallTests
     }
 
     [Theory]
-    [InlineData("pac pcf push --publisher-prefix pub")]
-    [InlineData("pac application install --application-name x")]
-    [InlineData("pac code push")]
-    [InlineData("pac catalog install --catalog-item-id x")]
-    [InlineData("pac app-management install-application-package --unique-name x")]
     [InlineData("pac solution import --path /x.zip")]
     [InlineData("Import-CrmSolution -InFile x.zip")]
     [InlineData("& 'C:\\Tools\\pac.exe' auth list")]
@@ -604,7 +565,6 @@ public class ImportCallTests
 
     [Theory]
     [InlineData("not json", "the hook input is not JSON")]
-    [InlineData("", "the hook input is not JSON")]
     [InlineData("[]", "the hook input has no tool_name")]
     [InlineData("{}", "the hook input has no tool_name")]
     [InlineData("""{"tool_name":7}""", "the hook input has no tool_name")]

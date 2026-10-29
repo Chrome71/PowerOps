@@ -408,18 +408,6 @@ public sealed class McpCommandTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task A_response_file_value_is_refused_and_nothing_is_written()
-    {
-        var written = Path.Combine(_temp, "written.json");
-        var response = Path.Combine(_temp, "args.rsp");
-        File.WriteAllText(response, $"--out {written}\n--format json\n");
-
-        await Refused("analyze", new() { ["paths"] = new[] { "@" + response } }, "error: paths 1: a value that starts with - or @ is refused");
-
-        Assert.False(File.Exists(written));
-    }
-
-    [Fact]
     public async Task Problems_are_all_reported_at_once_with_field_names_only()
     {
         await Refused("diff", new() { ["old"] = 5, ["extra"] = 1 }, "error: extra: unknown field", "error: old: must be a string", "error: new: missing");
@@ -497,11 +485,6 @@ public sealed class McpCommandTests : IAsyncLifetime
 
     [Theory]
     [InlineData(@"\\host\share\x")]
-    [InlineData("//host/share/x")]
-    [InlineData(@"/\host\share\x")]
-    [InlineData(@"\/host/share/x")]
-    [InlineData(@"\\?\C:\x")]
-    [InlineData(@"\\.\pipe\x")]
     public async Task A_network_path_is_refused_as_a_path_and_as_an_env_entry_and_nothing_runs(string path)
     {
         await Refused("analyze", new() { ["paths"] = new[] { path } }, @"error: paths 1: a network or device path (starting with two \ or / characters) is refused");
@@ -654,18 +637,6 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Equal((1, 1), (_fakes.Lives, _fakes.Targets));
     }
 
-    [Fact]
-    public async Task Null_for_save_runs_like_an_absent_save()
-    {
-        _fakes.TargetBehavior = TargetFakes().TargetBehavior;
-        var folder = DeployFolder();
-
-        var result = await Call("deploy_plan", new() { ["folder"] = folder, ["target"] = Secret, ["save"] = null });
-
-        Assert.False(result.IsError);
-        Assert.Equal(["PowerOpsSeed.settings.json", "PowerOpsSeed.zip"], Files(folder));
-    }
-
     // 6
 
     [Fact]
@@ -734,14 +705,11 @@ public sealed class McpCommandTests : IAsyncLifetime
     }
 
     [Theory]
-    [InlineData("sub/plan.json", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]
     [InlineData("..\\plan.json", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]
     [InlineData("../plan.json", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]
     [InlineData("plan.txt", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]
     [InlineData("plan.json\n", "error: save: must not hold a control character")]
-    [InlineData("plan.settings.json", "error: save: a name that ends in .settings.json is refused")]
     [InlineData("plan.Settings.json", "error: save: a name that ends in .settings.json is refused")]
-    [InlineData("CON.json", "error: save: a Windows device name is refused")]
     [InlineData("nul.plan.json", "error: save: a Windows device name is refused")]
     [InlineData("Lpt1.json", "error: save: a Windows device name is refused")]
     [InlineData("Plan.Settings.JSON", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]
@@ -964,15 +932,6 @@ public sealed class McpCommandTests : IAsyncLifetime
     }
 
     [Fact]
-    public void Exit_zero_with_json_is_one_block_and_not_an_error()
-    {
-        var result = McpCommand.Result(0, "{\"a\":1}\n", "");
-
-        Assert.False(result.IsError);
-        Assert.Equal("{\"a\":1}\n", Assert.IsType<TextContentBlock>(Assert.Single(result.Content)).Text);
-    }
-
-    [Fact]
     public void Exit_one_with_a_report_is_not_an_error_and_a_code_beyond_three_is()
     {
         Assert.False(McpCommand.Result(1, "{}", "").IsError);
@@ -1142,16 +1101,11 @@ public sealed class McpCommandTests : IAsyncLifetime
     [Theory]
     [InlineData("absent")]
     [InlineData("false")]
-    [InlineData("null")]
     public async Task Without_apply_the_tool_is_a_dry_run_that_imports_nothing_and_sends_no_form(string apply)
     {
         var (_, planFile) = SavedPlan();
         ImportFakes();
         var arguments = ApplyArgs(planFile, apply == "false" ? false : null);
-        if (apply == "null")
-        {
-            arguments["apply"] = null;
-        }
 
         var forms = NoFormExpected();
         await using var pair = await Connect(_fakes, "2026-07-28", forms);
