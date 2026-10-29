@@ -42,7 +42,7 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
-      - run: dotnet pack src/PowerOps.Cli -c Release -o artifacts
+      - run: dotnet pack src/PowerOps.Cli -c Release -o artifacts -p:RestoreLockedMode=true
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: artifacts/*.nupkg

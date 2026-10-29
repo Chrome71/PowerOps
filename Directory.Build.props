@@ -8,6 +8,8 @@
     <!-- A new advisory (NU1901-NU1904), or an audit source that is down or has no vulnerability database (NU1900, NU1905), must not break a build: https://learn.microsoft.com/nuget/concepts/auditing-packages -->
     <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1900;NU1901;NU1902;NU1903;NU1904;NU1905</WarningsNotAsErrors>
     <LangVersion>latest</LangVersion>
+    <!-- The Action builds from source in consumers' jobs; locked mode (RestoreLockedMode) checks each package's content hash against these files. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Version>0.0.0</Version> <!-- x-release-please-version -->
     <Authors>PowerOps contributors</Authors>

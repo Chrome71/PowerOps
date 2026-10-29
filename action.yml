@@ -52,7 +52,7 @@ runs:
     - name: Build PowerOps
       shell: bash
       working-directory: ${{ github.action_path }}
-      run: dotnet build src/PowerOps.Cli -c Release
+      run: dotnet build src/PowerOps.Cli -c Release -p:RestoreLockedMode=true
 
     # The report steps use --fail-on none so every report is written. They continue on error so that a crash
     # (exit 2 or 3) is not hidden: the last step runs the analysis again with the real --fail-on and fails the job.

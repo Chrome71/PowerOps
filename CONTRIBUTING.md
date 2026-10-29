@@ -21,6 +21,10 @@ Some tests skip themselves instead of failing:
 - The tests of the scripts under `action/` and `docs/examples/` need `bash`, and some need `jq` or `git` too. They skip on Windows and when a program is not on `PATH`. CI sets `POWEROPS_REQUIRE_TOOLS=1` on Linux and macOS, so a missing program fails there instead of skipping; you can set it too to see every script test run.
 - A few tests skip where the file system has no symbolic links or no line breaks in file names, or where a culture is not installed, and a few others skip on Windows or where a file lock does not apply.
 
+## Lock files
+
+Every project has a `packages.lock.json`. After you add or change a `PackageReference`, run `dotnet restore --force-evaluate` and commit the lock files. CI and the Action restore in locked mode, so a stale lock file fails with NU1004. Dependabot may leave the lock file of a project that gets the package only through a `ProjectReference` (here PowerOps.Cli.Tests, through PowerOps.Cli) unchanged ([dependabot-core#13950](https://github.com/dependabot/dependabot-core/issues/13950)), so such a PR fails CI with NU1004 until someone runs `dotnet restore --force-evaluate` on its branch and commits.
+
 ## Commits
 
 Use [Conventional Commits](https://www.conventionalcommits.org/): `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`. Mark breaking changes with `feat!` (or `fix!`, etc.). Releases and the changelog are generated from these by release-please.

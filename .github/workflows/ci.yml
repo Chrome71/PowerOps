@@ -20,7 +20,9 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
-      - run: dotnet build -c Release
+      - run: dotnet build -c Release -p:RestoreLockedMode=true
+      - name: The Action's build, in locked mode
+        run: dotnet build src/PowerOps.Cli -c Release -p:RestoreLockedMode=true
       - run: dotnet test -c Release --no-build
         env:
           POWEROPS_REQUIRE_TOOLS: ${{ runner.os != 'Windows' && '1' || '' }}
@@ -33,8 +35,9 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
-      - run: dotnet format --verify-no-changes
-      - run: dotnet pack src/PowerOps.Cli -c Release -o artifacts
+      - run: dotnet restore --locked-mode
+      - run: dotnet format --verify-no-changes --no-restore
+      - run: dotnet pack src/PowerOps.Cli -c Release -o artifacts --no-restore
       - name: Smoke test the packed tool
         run: |
           dotnet tool install --tool-path ./tool --source ./artifacts PowerOps --prerelease
