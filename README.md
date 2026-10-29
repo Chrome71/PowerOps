@@ -21,6 +21,7 @@ In any CI system that has the .NET 10 SDK, build PowerOps from a clone, then one
 
 ```sh
 git clone https://github.com/Chrome71/PowerOps.git
+git -C PowerOps checkout b4abce4cb00421c7017076de7b53e53a7ce063c7 # main on 2026-10-28; pin the newest commit of main
 dotnet pack PowerOps/src/PowerOps.Cli -c Release -o PowerOps/artifacts
 dotnet tool install --global --source PowerOps/artifacts PowerOps
 powerops analyze --format sarif --out powerops.sarif

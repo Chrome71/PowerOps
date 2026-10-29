@@ -73,7 +73,8 @@ public sealed class PacRunner(string executable = "pac", TimeSpan? timeout = nul
         var names = windows && Path.GetExtension(name).Length == 0
             ? (string.IsNullOrEmpty(pathExt) ? ".COM;.EXE;.BAT;.CMD" : pathExt).Split(';', StringSplitOptions.RemoveEmptyEntries).Select(ext => name + ext)
             : [name];
-        foreach (var dir in (path ?? "").Split(Path.PathSeparator).Where(Path.IsPathFullyQualified))
+        // shortcut: any execute bit counts (not only the current user's), and a PATHEXT entry such as .VBS can be picked; both fail closed as "not found". Upgrade if a user reports pac not found while it is on PATH.
+        foreach (var dir in (path ?? "").Split(Path.PathSeparator).Select(d => windows ? d.Trim('"') : d).Where(Path.IsPathFullyQualified))
         {
             foreach (var candidate in names.Select(n => Path.Combine(dir, n)))
             {

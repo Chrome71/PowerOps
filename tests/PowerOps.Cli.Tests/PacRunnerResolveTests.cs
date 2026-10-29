@@ -75,6 +75,16 @@ public class PacRunnerResolveTests : IDisposable
     }
 
     [Fact]
+    public void On_Windows_double_quotes_around_a_PATH_entry_are_trimmed()
+    {
+        var exe = Make("pac.exe", "q");
+        var quoted = "\"" + Path.Combine(_dir, "q") + "\"";
+
+        Assert.Equal(exe, PacRunner.Resolve("pac", quoted, windows: true, pathExt: ".exe"));
+        Assert.Null(PacRunner.Resolve("pac", quoted, windows: false, pathExt: null));
+    }
+
+    [Fact]
     public void A_name_with_a_directory_separator_is_used_as_given()
     {
         var given = Path.Combine("some", "dir", "pac");

@@ -13,6 +13,6 @@ public class BuildPropsTests
         var codes = props.Descendants("WarningsNotAsErrors").Single().Value.Split(';');
 
         Assert.Equal("true", props.Descendants("TreatWarningsAsErrors").Single().Value);
-        Assert.All(new[] { "NU1901", "NU1902", "NU1903", "NU1904" }, c => Assert.Contains(c, codes));
+        Assert.All(new[] { "NU1900", "NU1901", "NU1902", "NU1903", "NU1904", "NU1905" }, c => Assert.Contains(c, codes));
     }
 }
