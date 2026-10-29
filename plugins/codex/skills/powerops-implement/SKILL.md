@@ -11,7 +11,7 @@ Build what a signed-off plan says, and nothing else. Until the gate below passes
 
 ## 1. Find the plan
 
-1. If `powerops` is not found, tell the user to run `dotnet tool install --global PowerOps`, and stop.
+1. If `powerops` is not found, tell the user to install PowerOps as the Install section of its README says (https://github.com/Chrome71/PowerOps#install), and stop.
 2. Run `powerops plan status --json` from the repo root. It lists every plan under `docs/plans/`. The exit code covers all plans, so read the entry of the plan you pick, not the exit code.
 3. Pick the plan that matches the request. If more than one fits, ask the user which. If none fits, there is no plan.
 
@@ -39,7 +39,7 @@ If the gate fails, write no code and change no solution:
 4. After each step, check it (build, test or inspect, as fits the step). Then commit with the step number in the message, for example `feat: step 2, add the Visit table (plan site-visits)`. Never push unless asked.
 5. Keep progress in commit messages. Do not write it to `plan.md`.
 6. Never edit the plan body. If a step cannot be done as written, or the plan must change, stop and go back to `powerops-plan`. A changed plan needs a new sign-off.
-7. Never write to an environment (import, deploy, publish, create) without the user's explicit go-ahead for that step. Ask each time. This covers every tool, Microsoft's too: the `pac` MCP server's `solution_import`, model-apps `solution-settings.js import`, power-pages `import-solution` and `deploy-pipeline`, and the Dataverse skills' `dv-solution`. To promote exported solutions to another environment, use `powerops deploy plan` and then `powerops deploy apply`, not those tools. Use the plan's `environment` only as the named target. Never run `powerops settings apply --apply` unless the user said yes to that environment in this session: run it without `--apply` first, show the user the target line, and pass the name they approved as `--target`.
+7. Never write to an environment (import, deploy, publish, create) without the user's explicit go-ahead for that step. Ask each time. This covers every tool, Microsoft's too: the `pac` MCP server's `solution_import`, model-apps `solution-settings.js import`, power-pages `import-solution` and `deploy-pipeline`, and the Dataverse skills' `dv-solution`. To promote exported solutions to another environment, use `powerops deploy plan` and then `powerops deploy apply`, not those tools. Use the plan's `environment` only as the named target. Never run `powerops settings apply --apply` or `powerops deploy apply --apply`, or call the MCP tool `deploy_apply` with `apply: true`, unless the user said yes to that environment in this session. Run each command without `--apply` first and show the user the target line. `settings apply` takes the name they approved as `--target`. `deploy apply` takes the environment's id or URL as `--target` (in the dry run too) and prints its friendly name on the target line; the MCP tool asks the user to type that name in a form.
 8. Do not add features, tables, flows or settings that are not in the plan.
 
 ## 4. Finish

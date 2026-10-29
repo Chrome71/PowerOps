@@ -6,23 +6,25 @@ A free, open-source, cross-platform toolkit that brings software-engineering dis
 
 ## Install
 
+PowerOps is not on NuGet yet. Install it from a clone (needs the .NET 10 SDK):
+
 ```sh
-dotnet tool install --global PowerOps
+dotnet pack src/PowerOps.Cli -c Release -o artifacts && dotnet tool install --global --source artifacts PowerOps
 powerops --version
 ```
 
-Until the first release is on NuGet, install from a clone instead:
-
-```sh
-dotnet pack src/PowerOps.Cli -c Release -o artifacts && dotnet tool install --global --add-source artifacts PowerOps
-```
+`--source` makes the install use only `artifacts`. Leave it out and the install looks the name `PowerOps` up on nuget.org, where it is not registered, so it could install whatever package someone registers under it.
 
 ## Quick start
 
-In any CI system that has the .NET SDK, one `run:` line writes a SARIF report and fails the build on errors:
+In any CI system that has the .NET 10 SDK, build PowerOps from a clone, then one command writes a SARIF report and fails the build on errors:
 
 ```sh
-dotnet tool install --global PowerOps && powerops analyze --format sarif --out powerops.sarif
+git clone https://github.com/Chrome71/PowerOps.git
+git -C PowerOps checkout b4abce4cb00421c7017076de7b53e53a7ce063c7 # main on 2026-10-28; pin the newest commit of main
+dotnet pack PowerOps/src/PowerOps.Cli -c Release -o PowerOps/artifacts
+dotnet tool install --global --source PowerOps/artifacts PowerOps
+powerops analyze --format sarif --out powerops.sarif
 ```
 
 On GitHub Actions, use the action. It writes a job summary and annotations, and uploads the findings to code scanning:
@@ -34,7 +36,7 @@ permissions:
 
 steps:
   - uses: actions/checkout@v7
-  - uses: Chrome71/PowerOps@v1
+  - uses: Chrome71/PowerOps@b4abce4cb00421c7017076de7b53e53a7ce063c7 # main on 2026-10-28; pin the newest commit of main
     with:
       path: solutions        # default: .
       fail-on: error         # error | warning | none
@@ -42,13 +44,13 @@ steps:
       # tests: flowtests     # *.flowtest.json files to run; see "Merge gate: flow tests"
 ```
 
-Until `v1` is tagged, use `Chrome71/PowerOps@main` (the action builds PowerOps from source). Pull requests from forks cannot upload SARIF (their token has no `security-events` permission); they still get the job summary and the annotations.
+No release is tagged yet, so these snippets pin a commit of `main` (the action builds PowerOps from source). Replace it with the full SHA of the newest commit of `main`. Pull requests from forks cannot upload SARIF (their token has no `security-events` permission); they still get the job summary and the annotations.
 
 ### Merge gate: flow tests
 
 With `tests` set to a folder of `*.flowtest.json` files ([Flow tests](#flow-tests)), the action runs `powerops test <path> --tests <folder>`, writes the report to the job summary, adds an error annotation for each test file that did not pass, and its last step fails the job when the exit code is not `0`: a test `failed`, is `unmocked` or `unsupported`, or no test file or solution was found. It needs no tenant and no secret, so it runs on pull requests from forks too. GitHub shows at most 10 error annotations per step; the job summary lists every test. The annotations show on the check run, and beside the file in "Files changed" only when the test file is in the PR's diff.
 
-Run the tests on committed files only, never on an export from an environment: the report quotes values from the solution and the test files. It gates only the flows that have test files, and only when `tests` is set: with `tests` empty the action runs no tests, and the job summary has no "Flow tests" section. A release of the action from before v0.15.0 ignores the input with a warning.
+Run the tests on committed files only, never on an export from an environment: the report quotes values from the solution and the test files. It gates only the flows that have test files, and only when `tests` is set: with `tests` empty the action runs no tests, and the job summary has no "Flow tests" section. A commit of the action from before the `tests` input was added ignores it with a warning.
 
 A failing test blocks a merge only when the job is a required status check. A workflow for it:
 
@@ -64,7 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: Chrome71/PowerOps@v1
+      - uses: Chrome71/PowerOps@b4abce4cb00421c7017076de7b53e53a7ce063c7 # main on 2026-10-28; pin the newest commit of main
         with:
           path: solutions
           tests: flowtests
@@ -169,7 +171,7 @@ jobs:
             exit 1
           fi
 
-      - uses: Chrome71/PowerOps@v1
+      - uses: Chrome71/PowerOps@b4abce4cb00421c7017076de7b53e53a7ce063c7 # main on 2026-10-28; pin the newest commit of main
         with:
           path: solutions/ContosoApp        # the unpacked solution: analyzed, and diffed on a fork PR
           tests: flowtests                  # flow tests of that solution, also on a fork PR

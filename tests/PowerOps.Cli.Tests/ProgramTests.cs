@@ -33,4 +33,25 @@ public class ProgramTests
 
         Assert.Equal(2, exitCode);
     }
+
+    [Fact]
+    public void An_at_file_argument_is_a_plain_path_not_a_response_file()
+    {
+        var dir = Directory.CreateTempSubdirectory("powerops-rsp-").FullName;
+        try
+        {
+            var file = Path.Combine(dir, "args.rsp");
+            File.WriteAllText(file, "--help\n");
+            var (o, e) = (new StringWriter(), new StringWriter());
+
+            var exitCode = Program.Run(["analyze", "@" + file], o, e);
+
+            Assert.Equal(2, exitCode); // the path "@<file>" does not exist; a response file would have printed the help and exited 0
+            Assert.DoesNotContain("Usage:", o.ToString());
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }

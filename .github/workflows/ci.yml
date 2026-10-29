@@ -35,7 +35,7 @@ jobs:
       - run: dotnet pack src/PowerOps.Cli -c Release -o artifacts
       - name: Smoke test the packed tool
         run: |
-          dotnet tool install --tool-path ./tool --add-source ./artifacts PowerOps --prerelease
+          dotnet tool install --tool-path ./tool --source ./artifacts PowerOps --prerelease
           ./tool/powerops --version
           ./tool/powerops analyze tests/fixtures --fail-on none
 

@@ -245,6 +245,15 @@ public partial class SkillsCommandTests : IDisposable
     }
 
     [Fact]
+    public void Implement_skill_asks_for_a_yes_before_every_apply_that_writes_to_an_environment()
+    {
+        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        string[] rule = ["Never run `powerops settings apply --apply` or `powerops deploy apply --apply`, or call the MCP tool `deploy_apply` with `apply: true`, unless the user said yes to that environment in this session", "Run each command without `--apply` first and show the user the target line"];
+
+        Assert.All(rule, s => Assert.Contains(s, text));
+    }
+
+    [Fact]
     public void Implement_skill_writes_the_flow_tests_with_fake_values_and_runs_them_before_the_pull_request()
     {
         var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];

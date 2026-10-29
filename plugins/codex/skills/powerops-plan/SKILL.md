@@ -23,7 +23,7 @@ Never answer your own questions. After you ask, end your turn and wait.
 
 ## 2. Start or resume
 
-1. Check that `powerops` runs (for example `powerops --version`). If it is not found, tell the user to run `dotnet tool install --global PowerOps`, and stop.
+1. Check that `powerops` runs (for example `powerops --version`). If it is not found, tell the user to install PowerOps as the Install section of its README says (https://github.com/Chrome71/PowerOps#install), and stop.
 2. Pick a plan name in kebab-case from the idea (`site-visits`). The folder is `docs/plans/<name>/`.
 3. If the folder exists, read `plan.md` and `decisions.md`, then run `powerops plan status docs/plans/<name> --json`. If it exits 2, show the reason and fix the header with the user first. Keep the `depth` from the header (section 6). Then continue where the plan stopped:
    - `draft`: go to the what-next menu (section 6).
