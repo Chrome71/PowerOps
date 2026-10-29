@@ -88,18 +88,39 @@ public class SafeWriteTests : IDisposable
 
     [Fact]
     [UnsupportedOSPlatform("windows")]
-    public void A_failed_move_leaves_the_target_whole_removes_the_temp_file_and_names_the_target()
+    public void The_unix_mode_of_an_existing_file_is_kept_even_when_the_umask_would_clear_bits()
+    {
+        NotWindows();
+        const UnixFileMode Wide = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.OtherRead | UnixFileMode.OtherWrite;
+        var probe = Path_("probe");
+        File.Delete(probe);
+        new FileStream(probe, new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, UnixCreateMode = Wide }).Dispose();
+        Assert.SkipWhen(File.GetUnixFileMode(probe) == Wide, "The umask clears no bit of 0666.");
+        var path = Put("out.json", "old");
+        File.SetUnixFileMode(path, Wide);
+
+        SafeWrite.WriteText(path, "new", []);
+
+        Assert.Equal(Wide, File.GetUnixFileMode(path));
+    }
+
+    // The move fails while the temp file still exists (a non-empty folder took the target's place), so only the cleanup removes it.
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void A_failed_move_removes_the_temp_file_and_names_the_target()
     {
         NotWindows();
         var path = Put("out.json", "old");
-        File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead);
 
-        var error = Assert.ThrowsAny<IOException>(() => SafeWrite.WriteText(path, "new", [], null, File.Delete));
+        var error = Assert.ThrowsAny<IOException>(() => SafeWrite.WriteText(path, "new", [], null, _ =>
+        {
+            File.Delete(path);
+            Directory.CreateDirectory(path);
+            File.WriteAllText(System.IO.Path.Combine(path, "keep"), "keep");
+        }));
 
         Assert.Contains(path, error.Message);
         Assert.DoesNotContain(".powerops-", error.Message);
-        Assert.Equal("old", File.ReadAllText(path));
-        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead, File.GetUnixFileMode(path));
         Assert.Empty(Temps(_temp));
     }
 
@@ -226,6 +247,57 @@ public class SafeWriteTests : IDisposable
         };
 
         Assert.Equal(new WriteRefusal(path, SafeWrite.InputReason), SafeWrite.Refusal(path, [input]));
+    }
+
+    // The same file spelled through a link on the way: the kernel's view of the root, a link to the folder itself, and a link followed by a physical "..".
+    [Theory]
+    [InlineData("proc-root")]
+    [InlineData("self")]
+    [InlineData("dotdot")]
+    public void A_target_that_reaches_an_input_through_a_link_on_the_way_is_refused(string kind)
+    {
+        Assert.SkipWhen(kind == "proc-root" && !OperatingSystem.IsLinux(), "Linux only.");
+        var input = Put("in.zip", "zip bytes");
+        string target;
+        switch (kind)
+        {
+            case "proc-root":
+                target = "/proc/self/root" + input;
+                break;
+            case "self":
+                Links.Create(Path_("self"), ".", folder: true);
+                target = Path_(System.IO.Path.Combine("self", "in.zip"));
+                break;
+            default:
+                Directory.CreateDirectory(Path_(System.IO.Path.Combine("sub", "deep")));
+                input = Put(System.IO.Path.Combine("sub", "in.zip"), "zip bytes");
+                Links.Create(Path_("x"), System.IO.Path.Combine("sub", "deep"), folder: true);
+                target = Path_(System.IO.Path.Combine("x", "..", "in.zip"));
+                break;
+        }
+
+        Assert.Equal(new WriteRefusal(target, SafeWrite.InputReason), SafeWrite.Refusal(target, [input]));
+        Assert.Equal("zip bytes", File.ReadAllText(input));
+    }
+
+    [Fact]
+    public void An_empty_name_is_refused_and_a_folder_is_refused_unless_it_is_a_link()
+    {
+        var folder = Directory.CreateDirectory(Path_("dir")).FullName;
+        var link = Path_("linked");
+        Links.Create(link, folder, folder: true);
+
+        Assert.Equal(new WriteRefusal("", SafeWrite.EmptyReason), SafeWrite.Refusal("", []));
+        Assert.Equal("the file name is empty; name a file.", SafeWrite.Refusal("", [])!.Text);
+        Assert.Equal(new WriteRefusal(folder, SafeWrite.FolderReason), SafeWrite.Refusal(folder, []));
+        Assert.Equal(new WriteRefusal(link, SafeWrite.LinkReason), SafeWrite.Refusal(link, []));
+    }
+
+    [Fact]
+    public void CanCreateBeside_is_true_in_a_writable_folder_and_leaves_nothing()
+    {
+        Assert.True(SafeWrite.CanCreateBeside(Path_("out.json")));
+        Assert.Empty(Temps(_temp));
     }
 
     [Fact]

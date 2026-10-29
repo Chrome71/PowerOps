@@ -1,5 +1,7 @@
 using System.Text.RegularExpressions;
 
+using PowerOps.Core.Output;
+
 namespace PowerOps.Cli.Tests;
 
 public partial class SkillsCommandTests : IDisposable
@@ -49,9 +51,9 @@ public partial class SkillsCommandTests : IDisposable
 
         var (code, output, error) = Run(args);
 
-        Assert.Equal(1, code);
+        Assert.Equal(2, code);
         Assert.Equal("", output);
-        Assert.Contains("powerops-plan/SKILL.md is a directory", error);
+        Assert.Contains($"powerops-plan/SKILL.md: {SafeWrite.FolderReason}", error);
         Assert.Equal([P(".claude", "skills", "powerops-plan", "SKILL.md")], Directory.EnumerateFileSystemEntries(_temp, "*", SearchOption.AllDirectories).Where(e => e.EndsWith("SKILL.md", StringComparison.Ordinal)));
         Assert.False(Directory.Exists(P(".agents")));
     }

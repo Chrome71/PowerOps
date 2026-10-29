@@ -121,6 +121,60 @@ public class WritePathsTests : IDisposable
         Assert.Equal(before, File.ReadAllBytes(input));
     }
 
+    // The reviewer's repro: a link to the input's own folder, then the input's name under it.
+    [Fact]
+    public void Out_over_an_input_through_a_link_to_its_folder_is_refused_with_exit_2_and_the_input_is_not_touched()
+    {
+        var zip = ZipOf(V2, "in.zip");
+        Links.Create(Path.Combine(_temp, "self"), ".", folder: true);
+        var before = File.ReadAllBytes(zip);
+
+        var (code, output, error) = Run("settings", "generate", zip, "--out", Path.Combine(_temp, "self", "in.zip"));
+
+        Assert.Equal(2, code);
+        Assert.Equal("", output);
+        Assert.Equal($"error: {Path.Combine(_temp, "self", "in.zip")}: {SafeWrite.InputReason}", Assert.Single(Lines(error)));
+        Assert.Equal(before, File.ReadAllBytes(zip));
+    }
+
+    // On Linux /dev/fd is a link to /proc/self/fd, so /dev/fd/1 is a link: only the typed names /dev/stdout and /dev/stderr are exempt.
+    [Fact]
+    public void Out_dev_fd_1_is_a_link_and_refused_with_exit_2()
+    {
+        Assert.SkipWhen(!OperatingSystem.IsLinux(), "Linux only.");
+
+        var (code, output, error) = Run("analyze", V2, "--out", "/dev/fd/1");
+
+        Assert.Equal(2, code);
+        Assert.Equal("", output);
+        Assert.Equal($"error: /dev/fd/1: {SafeWrite.LinkReason}", Assert.Single(Lines(error)));
+    }
+
+    [Theory]
+    [InlineData("analyze", "")]
+    [InlineData("analyze", "folder")]
+    [InlineData("drift", "")]
+    [InlineData("drift", "folder")]
+    public void Out_empty_or_an_existing_folder_exits_2_with_a_message_and_writes_nothing(string command, string kind)
+    {
+        var folder = Directory.CreateDirectory(Path.Combine(_temp, "dir")).FullName;
+        var outFile = kind == "" ? "" : folder;
+
+        var (code, output, error) = Run(ArgsFor(command, outFile));
+
+        Assert.Equal(2, code);
+        Assert.Equal("", output);
+        var reason = kind == "" ? SafeWrite.EmptyReason : SafeWrite.FolderReason;
+        var expected = (command, kind) switch
+        {
+            ("drift", _) => $"error: --out {reason}",
+            (_, "") => "error: the file name is empty; name a file.",
+            _ => $"error: {folder}: {reason}",
+        };
+        Assert.Equal(expected, Assert.Single(Lines(error)));
+        Assert.Empty(Directory.GetFileSystemEntries(folder));
+    }
+
     [Theory]
     [InlineData("analyze")]
     [InlineData("settings generate")]
@@ -264,6 +318,22 @@ public class WritePathsTests : IDisposable
         Assert.Equal("error: --env 2 would be saved to a symbolic link; nothing was saved", Assert.Single(Lines(error)));
         Assert.Equal("victim", File.ReadAllText(victim));
         Assert.Equal([link], Directory.GetFileSystemEntries(save));
+    }
+
+    [Fact]
+    public void Save_with_a_folder_at_a_file_name_it_would_write_exits_2_and_saves_nothing()
+    {
+        var save = Directory.CreateDirectory(Path.Combine(_temp, "saved")).FullName;
+        var folder = Directory.CreateDirectory(Path.Combine(save, "PowerOpsSeed.Beta.json")).FullName;
+
+        var (code, output, error) = Run(
+            (_, value) => Named(value == "a" ? "Alpha" : "Beta"),
+            "drift", "--solution", "PowerOpsSeed", "--env", "a", "--env", "b", "--save", save);
+
+        Assert.Equal(2, code);
+        Assert.Equal("", output);
+        Assert.Equal("error: --env 2 would be saved to a folder; nothing was saved", Assert.Single(Lines(error)));
+        Assert.Equal([folder], Directory.GetFileSystemEntries(save));
     }
 
     [Fact]

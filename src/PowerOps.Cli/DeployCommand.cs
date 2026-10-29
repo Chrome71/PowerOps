@@ -267,14 +267,18 @@ public static class DeployCommand
         {
             problems.Add("--out names an existing folder, not a file");
         }
-        else if (outFile is not null && !Directory.Exists(Path.GetDirectoryName(Path.GetFullPath(outFile))))
-        {
-            problems.Add("the folder of --out does not exist");
-        }
         else if (outFile is not null && SafeWrite.Refusal(outFile, [planFile]) is { } refusal)
         {
             // Before any import: the report is written after them, and a refusal then would lose the report of an import that ran.
             problems.Add($"--out {refusal.Reason}");
+        }
+        else if (outFile is not null && !Directory.Exists(Path.GetDirectoryName(Path.GetFullPath(outFile))))
+        {
+            problems.Add("the folder of --out does not exist");
+        }
+        else if (outFile is not null && !SafeWrite.CanCreateBeside(outFile))
+        {
+            problems.Add("a file cannot be created in the folder of --out");
         }
 
         var tool = AnalyzeCommand.ToolVersion();

@@ -181,9 +181,12 @@ public static class DriftCommand
         {
             if (SafeWrite.Refusal(Path.Combine(dir, name), inputs) is { } refusal)
             {
-                error.WriteLine(refusal.Reason == SafeWrite.LinkReason
-                    ? $"error: --env {i + 1} would be saved to a symbolic link; nothing was saved"
-                    : $"error: --env {i + 1} would be saved over a snapshot file given as an --env; nothing was saved");
+                error.WriteLine(refusal.Reason switch
+                {
+                    SafeWrite.LinkReason => $"error: --env {i + 1} would be saved to a symbolic link; nothing was saved",
+                    SafeWrite.FolderReason => $"error: --env {i + 1} would be saved to a folder; nothing was saved",
+                    _ => $"error: --env {i + 1} would be saved over a snapshot file given as an --env; nothing was saved",
+                });
                 return UsageError;
             }
         }
