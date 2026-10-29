@@ -22,3 +22,9 @@ updates:
       interval: weekly
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # The M16 plan's pins: typescript 6 has no dependencies (7.x adds a platform package per OS), and @types/node follows CI's Node 24.
+      - dependency-name: "typescript"
+        versions: [">= 7"]
+      - dependency-name: "@types/node"
+        versions: [">= 25"]
