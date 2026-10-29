@@ -23,6 +23,11 @@ internal static class Tools
     public static void RequireAnywhere(params string[] programs)
     {
         var missing = Missing(programs.Select(program => program == "bash" ? Bash : program), Environment.GetEnvironmentVariable("PATH"));
+        if (missing is not null && Environment.GetEnvironmentVariable("POWEROPS_REQUIRE_TOOLS") == "1")
+        {
+            Assert.Fail(FailMessage(missing));
+        }
+
         Assert.SkipWhen(missing is not null, missing + " is not on PATH.");
     }
 }
