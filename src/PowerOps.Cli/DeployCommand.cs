@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.Text;
 
 using PowerOps.Core.Deploy;
 using PowerOps.Core.Drift;
@@ -84,6 +83,10 @@ public static class DeployCommand
             {
                 problems.Add($"{name} names an existing folder, not a file");
             }
+            else if (value is not null && SafeWrite.Refusal(value, []) is { } refusal)
+            {
+                problems.Add($"{name} {refusal.Reason}");
+            }
         }
 
         if (Prepare(folder, target, problems, error, read, out var code) is not { } prepared)
@@ -111,12 +114,12 @@ public static class DeployCommand
         {
             var json = new StringWriter();
             DeployPlanReport.WriteJson(result, AnalyzeCommand.ToolVersion(), json);
-            File.WriteAllText(save, json.ToString(), new UTF8Encoding(false));
+            SafeWrite.WriteText(save, json.ToString(), []);
         }
 
         if (outFile is not null)
         {
-            File.WriteAllText(outFile, report.ToString(), new UTF8Encoding(false));
+            SafeWrite.WriteText(outFile, report.ToString(), []);
         }
         else
         {
@@ -264,9 +267,18 @@ public static class DeployCommand
         {
             problems.Add("--out names an existing folder, not a file");
         }
+        else if (outFile is not null && SafeWrite.Refusal(outFile, [planFile]) is { } refusal)
+        {
+            // Before any import: the report is written after them, and a refusal then would lose the report of an import that ran.
+            problems.Add($"--out {refusal.Reason}");
+        }
         else if (outFile is not null && !Directory.Exists(Path.GetDirectoryName(Path.GetFullPath(outFile))))
         {
             problems.Add("the folder of --out does not exist");
+        }
+        else if (outFile is not null && !SafeWrite.CanCreateBeside(outFile))
+        {
+            problems.Add("a file cannot be created in the folder of --out");
         }
 
         var tool = AnalyzeCommand.ToolVersion();
@@ -287,7 +299,7 @@ public static class DeployCommand
 
             if (outFile is not null)
             {
-                File.WriteAllText(outFile, report.ToString(), new UTF8Encoding(false));
+                SafeWrite.WriteText(outFile, report.ToString(), [planFile]);
             }
             else
             {

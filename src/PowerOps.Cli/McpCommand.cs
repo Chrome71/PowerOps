@@ -195,7 +195,7 @@ public static partial class McpCommand
                 (_, o, e, _) => Cli(["rules", "--json"], o, e)),
             new("baseline", "Record the current analyze findings of solution folders or zips as a baseline for analyze's `baseline` input. Read-only: returns the baseline file's text (a file format with its own `version`, no schema) and writes nothing.",
                 [new("paths", Kind.Paths, true, PathsText, 1)],
-                (v, o, e, _) => AnalyzeCommand.Run(v.List("paths"), null, e, r =>
+                (v, o, e, _) => AnalyzeCommand.Run(v.List("paths"), null, null, e, r =>
                 {
                     Baseline.Write(r, o);
                     return 0;
@@ -463,6 +463,7 @@ public static partial class McpCommand
         return code;
     }
 
+    // Not SafeWrite: `save` must refuse a file or link that exists, which CreateNew does and SafeWrite (it replaces a file) does not.
     private static bool TrySave(string path, string text)
     {
         FileStream stream;

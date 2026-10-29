@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.Text;
 
 using PowerOps.Core.Drift;
 using PowerOps.Core.Output;
@@ -59,6 +58,12 @@ public static class DriftCommand
                 // Neither a URL nor a file, so it would reach pac as an environment name; none holds a path separator.
                 problems.Add($"--env {i + 1}: not a snapshot file or an environment; a value with a path separator must be a URL or an existing file");
             }
+        }
+
+        if (outFile is not null && SafeWrite.Refusal(outFile, envs.Where(IsSnapshotPath)) is { } refusal)
+        {
+            // Named by the option, as the --env values are.
+            problems.Add($"--out {refusal.Reason}");
         }
 
         if (saveDir is not null && File.Exists(saveDir))
@@ -125,7 +130,7 @@ public static class DriftCommand
             return UsageError;
         }
 
-        if (saveDir is not null && Save(saveDir, solution!, liveAt, snapshots, error) is { } failed)
+        if (saveDir is not null && Save(saveDir, solution!, liveAt, snapshots, envs.Where(IsSnapshotPath).ToList(), error) is { } failed)
         {
             return failed;
         }
@@ -148,7 +153,7 @@ public static class DriftCommand
 
         if (outFile is not null)
         {
-            File.WriteAllText(outFile, report.ToString(), new UTF8Encoding(false));
+            SafeWrite.WriteText(outFile, report.ToString(), envs.Where(IsSnapshotPath));
         }
         else
         {
@@ -159,7 +164,7 @@ public static class DriftCommand
     }
 
     // Returns an exit code when nothing was saved, else null.
-    private static int? Save(string dir, string solution, List<int> liveAt, Snapshot[] snapshots, TextWriter error)
+    private static int? Save(string dir, string solution, List<int> liveAt, Snapshot[] snapshots, List<string> inputs, TextWriter error)
     {
         var names = liveAt.ToDictionary(i => i, i => FileName(solution, snapshots[i].Environment));
         var seen = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -172,10 +177,25 @@ public static class DriftCommand
             }
         }
 
+        foreach (var (i, name) in names)
+        {
+            if (SafeWrite.Refusal(Path.Combine(dir, name), inputs) is { } refusal)
+            {
+                error.WriteLine(refusal.Reason switch
+                {
+                    SafeWrite.LinkReason => $"error: --env {i + 1} would be saved to a symbolic link; nothing was saved",
+                    SafeWrite.FolderReason => $"error: --env {i + 1} would be saved to a folder; nothing was saved",
+                    SafeWrite.LoopReason => $"error: --env {i + 1} would be saved through a link loop or more than 40 links; nothing was saved",
+                    _ => $"error: --env {i + 1} would be saved over a snapshot file given as an --env; nothing was saved",
+                });
+                return UsageError;
+            }
+        }
+
         Directory.CreateDirectory(dir);
         foreach (var (i, name) in names)
         {
-            File.WriteAllText(Path.Combine(dir, name), SnapshotFile.Write(snapshots[i]), new UTF8Encoding(false));
+            SafeWrite.WriteText(Path.Combine(dir, name), SnapshotFile.Write(snapshots[i]), inputs);
         }
 
         return null;

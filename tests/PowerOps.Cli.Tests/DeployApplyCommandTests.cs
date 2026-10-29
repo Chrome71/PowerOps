@@ -1,3 +1,4 @@
+using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -83,6 +84,120 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Equal(0, fake.Calls);
         Assert.Empty(pac.Calls);
         Assert.DoesNotContain(_root, r.Err);
+    }
+
+    // M28: the report is written after the imports, so a refused --out is found before the first one.
+    [Theory]
+    [InlineData("link")]
+    [InlineData("plan-file")]
+    public void An_out_that_is_a_link_or_the_plan_file_exits_2_before_any_import_and_leaves_both_files(string kind)
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var victim = Path.Combine(_root, "victim.txt");
+        File.WriteAllText(victim, "victim");
+        var link = Path.Combine(Out, "apply.txt");
+        string outFile;
+        if (kind == "link")
+        {
+            Links.Create(link, victim);
+            outFile = link;
+        }
+        else
+        {
+            outFile = PlanFile;
+        }
+
+        var files = Directory.GetFiles(Folder).ToDictionary(f => f, File.ReadAllBytes);
+        var (fake, pac) = (SeedTarget(), new FakePac());
+
+        var r = Apply(fake, pac, "--apply", "--out", outFile);
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal(kind == "link" ? "error: --out is a symbolic link; symbolic links are not written.\n" : "error: --out is an input of this command; it is not overwritten.\n", r.Err);
+        Assert.Equal("", r.Out);
+        Assert.Equal(0, fake.Calls);
+        Assert.Empty(pac.Calls);
+        Assert.Equal("victim", File.ReadAllText(victim));
+        Assert.All(files, f => Assert.Equal(f.Value, File.ReadAllBytes(f.Key)));
+    }
+
+    // The report file exists and is writable, but replacing it needs a temp file in its folder.
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void An_out_in_a_folder_where_no_file_can_be_created_exits_2_before_any_import()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Unix modes.");
+        SeedZip(Folder);
+        MakePlan();
+        var folder = Dir("readonly");
+        var outFile = Path.Combine(folder, "apply.txt");
+        File.WriteAllText(outFile, "old");
+        File.SetUnixFileMode(folder, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        try
+        {
+            Assert.SkipWhen(CanCreateIn(folder), "This user can create files there anyway.");
+            var (fake, pac) = (SeedTarget(), new FakePac());
+
+            var r = Apply(fake, pac, "--apply", "--out", outFile);
+
+            Assert.Equal(2, r.Code);
+            Assert.Equal("error: a file cannot be created in the folder of --out\n", r.Err);
+            Assert.Equal("", r.Out);
+            Assert.Equal(0, fake.Calls);
+            Assert.Empty(pac.Calls);
+            Assert.Equal("old", File.ReadAllText(outFile));
+        }
+        finally
+        {
+            File.SetUnixFileMode(folder, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
+    // A device is written in place, so no file needs to be created in /dev.
+    [Fact]
+    public void An_out_of_dev_null_passes_the_folder_check()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Unix devices.");
+        SeedZip(Folder);
+        MakePlan();
+        var (fake, pac) = (SeedTarget(), new FakePac());
+
+        var r = Apply(fake, pac, "--out", "/dev/null");
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal("", r.Err);
+        Assert.Empty(pac.Calls);
+    }
+
+    [Fact]
+    public void An_empty_out_exits_2_before_any_import()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var (fake, pac) = (SeedTarget(), new FakePac());
+
+        var r = Apply(fake, pac, "--apply", "--out", "");
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal("error: --out is empty; name a file.\n", r.Err);
+        Assert.Equal(0, fake.Calls);
+        Assert.Empty(pac.Calls);
+    }
+
+    private static bool CanCreateIn(string folder)
+    {
+        try
+        {
+            var probe = Path.Combine(folder, ".probe");
+            new FileStream(probe, FileMode.CreateNew).Dispose();
+            File.Delete(probe);
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     [Fact]

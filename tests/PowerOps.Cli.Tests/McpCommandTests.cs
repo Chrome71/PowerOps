@@ -700,6 +700,39 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Equal("keep", File.ReadAllText(Path.Combine(folder, "plan.json")));
     }
 
+    // M28: a link at `save` is not written through; CreateNew already refuses it.
+    [Fact]
+    public async Task Save_onto_a_link_to_an_existing_file_is_refused_and_the_file_is_unchanged()
+    {
+        _fakes.TargetBehavior = TargetFakes().TargetBehavior;
+        var folder = DeployFolder();
+        var victim = Path.Combine(_temp, "victim.txt");
+        File.WriteAllText(victim, "victim");
+        Links.Create(Path.Combine(folder, "plan.json"), victim);
+        var before = Files(folder);
+
+        await Refused("deploy_plan", new() { ["folder"] = folder, ["target"] = Secret, ["save"] = "plan.json" }, "error: save: the file already exists in folder");
+
+        Assert.Equal("victim", File.ReadAllText(victim));
+        Assert.Equal(before, Files(folder));
+    }
+
+    [Fact]
+    public async Task Save_onto_a_dangling_link_is_refused_and_nothing_is_created_behind_it()
+    {
+        _fakes.TargetBehavior = TargetFakes().TargetBehavior;
+        var folder = DeployFolder();
+        var missing = Path.Combine(_temp, "missing.txt");
+        Links.Create(Path.Combine(folder, "plan.json"), missing);
+        var before = Files(folder);
+
+        await Refused("deploy_plan", new() { ["folder"] = folder, ["target"] = Secret, ["save"] = "plan.json" }, "error: save: the file already exists in folder");
+
+        Assert.False(File.Exists(missing));
+        Assert.Equal(before, Files(folder));
+        Assert.Equal(missing, new FileInfo(Path.Combine(folder, "plan.json")).LinkTarget);
+    }
+
     [Theory]
     [InlineData("sub/plan.json", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]
     [InlineData("..\\plan.json", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]

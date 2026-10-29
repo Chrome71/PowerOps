@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.Text;
 
 using PowerOps.Core.Flows;
 using PowerOps.Core.Output;
@@ -47,6 +46,12 @@ public static class TestCommand
             error.WriteLine(File.Exists(tests)
                 ? $"error: the tests location is a file: {tests}. Pass a folder with --tests (a zip path needs it)."
                 : $"error: tests folder not found: {tests}");
+            return 2;
+        }
+
+        if (outFile is not null && SafeWrite.Refusal(outFile, [path]) is { } refusal)
+        {
+            error.WriteLine($"error: {refusal.Text}");
             return 2;
         }
 
@@ -104,7 +109,7 @@ public static class TestCommand
             }
             else
             {
-                File.WriteAllText(outFile, report.ToString(), new UTF8Encoding(false));
+                SafeWrite.WriteText(outFile, report.ToString(), [path]);
             }
 
             return results.All(r => r.Outcome == FlowTestOutcome.Passed) ? 0 : 1;

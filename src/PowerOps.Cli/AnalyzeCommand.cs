@@ -1,6 +1,5 @@
 using System.CommandLine;
 using System.Reflection;
-using System.Text;
 
 using PowerOps.Core.Output;
 using PowerOps.Core.Readers;
@@ -41,7 +40,7 @@ public static class AnalyzeCommand
         Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
 
     private static int Execute(string[] paths, string format, string? outFile, string failOn, string? baselineFile, TextWriter output, TextWriter error) =>
-        Run(paths, baselineFile, error, result =>
+        Run(paths, baselineFile, outFile, error, result =>
         {
             var report = new StringWriter();
             if (format == "json")
@@ -67,7 +66,7 @@ public static class AnalyzeCommand
             }
             else
             {
-                File.WriteAllText(outFile, report.ToString(), new UTF8Encoding(false));
+                SafeWrite.WriteText(outFile, report.ToString(), Inputs(paths, baselineFile));
             }
 
             var failed = failOn switch
@@ -79,8 +78,12 @@ public static class AnalyzeCommand
             return failed ? 1 : 0;
         });
 
-    /// <summary>Shared by analyze and baseline: checks the paths and the baseline file, analyzes, drops baselined findings, then hands the result to <paramref name="emit"/> (which returns the exit code). Maps failures to exit codes 2 and 3.</summary>
-    internal static int Run(string[] paths, string? baselineFile, TextWriter error, Func<AnalysisResult, int> emit)
+    // The files the user named: a zip among the paths, and the baseline. A folder is not an input, so a report may be written into it.
+    private static IEnumerable<string> Inputs(string[] paths, string? baselineFile) =>
+        paths.Where(File.Exists).Concat(baselineFile is null ? [] : [baselineFile]);
+
+    /// <summary>Shared by analyze and baseline: checks the paths, the baseline file and the output file (<paramref name="outFile"/>, null for stdout), analyzes, drops baselined findings, then hands the result to <paramref name="emit"/> (which returns the exit code). Maps failures to exit codes 2 and 3.</summary>
+    internal static int Run(string[] paths, string? baselineFile, string? outFile, TextWriter error, Func<AnalysisResult, int> emit)
     {
         foreach (var p in paths)
         {
@@ -94,6 +97,12 @@ public static class AnalyzeCommand
         if (baselineFile is not null && !File.Exists(baselineFile))
         {
             error.WriteLine($"error: baseline file not found: {baselineFile}");
+            return UsageError;
+        }
+
+        if (outFile is not null && SafeWrite.Refusal(outFile, Inputs(paths, baselineFile)) is { } refusal)
+        {
+            error.WriteLine($"error: {refusal.Text}");
             return UsageError;
         }
 

@@ -1,0 +1,552 @@
+using System.Diagnostics;
+using System.Runtime.Versioning;
+using System.Text;
+
+using PowerOps.Core.Output;
+using PowerOps.Tests.Shared;
+
+namespace PowerOps.Core.Tests.Output;
+
+public class SafeWriteTests : IDisposable
+{
+    private readonly string _temp = Directory.CreateTempSubdirectory("powerops-safewrite-").FullName;
+
+    public void Dispose()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            foreach (var dir in Directory.GetDirectories(_temp))
+            {
+                File.SetUnixFileMode(dir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+        }
+
+        Directory.Delete(_temp, recursive: true);
+    }
+
+    private string Path_(string name) => Path.Combine(_temp, name);
+
+    private string Put(string name, string content)
+    {
+        var path = Path_(name);
+        File.WriteAllText(path, content);
+        return path;
+    }
+
+    private static IEnumerable<string> Temps(string folder) => Directory.GetFiles(folder, ".powerops-*.tmp");
+
+    private static void NotWindows() => Assert.SkipWhen(OperatingSystem.IsWindows(), "Unix modes, devices and pipes.");
+
+    [Fact]
+    public void A_new_file_is_written_as_utf8_without_a_byte_order_mark_and_leaves_no_temp_file()
+    {
+        var path = Path_("new.json");
+
+        SafeWrite.WriteText(path, "{\"a\":\"é\"}\n", []);
+
+        Assert.Equal(Encoding.UTF8.GetBytes("{\"a\":\"é\"}\n"), File.ReadAllBytes(path));
+        Assert.Empty(Temps(_temp));
+    }
+
+    [Fact]
+    public void An_existing_file_is_replaced()
+    {
+        var path = Put("out.json", "old old old old");
+
+        SafeWrite.WriteText(path, "new", []);
+
+        Assert.Equal("new", File.ReadAllText(path));
+        Assert.Empty(Temps(_temp));
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void The_unix_mode_of_an_existing_file_is_kept()
+    {
+        NotWindows();
+        var path = Put("out.json", "old");
+        File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead);
+
+        SafeWrite.WriteText(path, "new", []);
+
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead, File.GetUnixFileMode(path));
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void The_temp_file_is_never_wider_than_the_target()
+    {
+        NotWindows();
+        var path = Put("out.json", "old");
+        File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        UnixFileMode? seen = null;
+
+        SafeWrite.WriteText(path, "new", [], null, temp => seen = File.GetUnixFileMode(temp));
+
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, seen);
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void The_unix_mode_of_an_existing_file_is_kept_even_when_the_umask_would_clear_bits()
+    {
+        NotWindows();
+        const UnixFileMode Wide = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.OtherRead | UnixFileMode.OtherWrite;
+        var probe = Path_("probe");
+        File.Delete(probe);
+        new FileStream(probe, new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, UnixCreateMode = Wide }).Dispose();
+        Assert.SkipWhen(File.GetUnixFileMode(probe) == Wide, "The umask clears no bit of 0666.");
+        var path = Put("out.json", "old");
+        File.SetUnixFileMode(path, Wide);
+
+        SafeWrite.WriteText(path, "new", []);
+
+        Assert.Equal(Wide, File.GetUnixFileMode(path));
+    }
+
+    // The move fails while the temp file still exists (a non-empty folder took the target's place), so only the cleanup removes it.
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void A_failed_move_removes_the_temp_file_and_names_the_target()
+    {
+        NotWindows();
+        var path = Put("out.json", "old");
+
+        var error = Assert.ThrowsAny<IOException>(() => SafeWrite.WriteText(path, "new", [], null, _ =>
+        {
+            File.Delete(path);
+            Directory.CreateDirectory(path);
+            File.WriteAllText(System.IO.Path.Combine(path, "keep"), "keep");
+        }));
+
+        Assert.Contains(path, error.Message);
+        Assert.DoesNotContain(".powerops-", error.Message);
+        Assert.Empty(Temps(_temp));
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void A_new_file_in_a_read_only_folder_fails_with_a_message_that_names_the_target()
+    {
+        NotWindows();
+        var folder = Directory.CreateDirectory(Path_("ro")).FullName;
+        File.SetUnixFileMode(folder, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        Assert.SkipWhen(CanCreateIn(folder), "This user can write there anyway.");
+        var path = System.IO.Path.Combine(folder, "out.json");
+
+        var error = Assert.Throws<UnauthorizedAccessException>(() => SafeWrite.WriteText(path, "new", []));
+
+        Assert.Contains(path, error.Message);
+        Assert.DoesNotContain(".powerops-", error.Message);
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void A_read_only_file_is_not_replaced()
+    {
+        NotWindows();
+        var path = Put("out.json", "old");
+        File.SetUnixFileMode(path, UnixFileMode.UserRead);
+        Assert.SkipWhen(CanWrite(path), "This user can write there anyway.");
+
+        Assert.Throws<UnauthorizedAccessException>(() => SafeWrite.WriteText(path, "new", []));
+
+        Assert.Equal("old", File.ReadAllText(path));
+        Assert.Empty(Temps(_temp));
+    }
+
+    // Each row plants a link at report.json that leads to victim.txt (or to nothing); none of them may be followed or touched.
+    [Theory]
+    [InlineData("file")]
+    [InlineData("dangling")]
+    [InlineData("loop")]
+    [InlineData("folder")]
+    [InlineData("proc-root")]
+    [InlineData("proc-cwd")]
+    [InlineData("dev-shm")]
+    public void A_link_at_the_target_is_refused_before_anything_is_opened_and_not_followed(string kind)
+    {
+        Assert.SkipWhen(kind is "proc-root" or "proc-cwd" or "dev-shm" && !OperatingSystem.IsLinux(), "Linux only.");
+        var victim = Put("victim.txt", "victim");
+        var folder = Directory.CreateDirectory(Path_("dir")).FullName;
+        var link = Path_("report.json");
+        var absolute = victim.TrimStart(System.IO.Path.DirectorySeparatorChar);
+        switch (kind)
+        {
+            case "file":
+                Links.Create(link, victim);
+                break;
+            case "dangling":
+                Links.Create(link, Path_("missing.txt"));
+                break;
+            case "loop":
+                Links.Create(Path_("other.json"), link);
+                Links.Create(link, Path_("other.json"));
+                break;
+            case "folder":
+                Links.Create(link, folder, folder: true);
+                break;
+            case "proc-root":
+                Links.Create(link, "/proc/self/root" + victim);
+                break;
+            case "proc-cwd":
+                Links.Create(link, "/proc/self/cwd/" + System.IO.Path.GetRelativePath(Environment.CurrentDirectory, victim));
+                break;
+            case "dev-shm":
+                Links.Create(link, "/dev/shm/../../" + absolute);
+                break;
+        }
+
+        var linkTarget = new FileInfo(link).LinkTarget;
+
+        Assert.Equal(new WriteRefusal(link, SafeWrite.LinkReason), SafeWrite.Refusal(link, []));
+        var error = Assert.Throws<InvalidDataException>(() => SafeWrite.WriteText(link, "new", []));
+        Assert.Equal($"{link}: {SafeWrite.LinkReason}", error.Message);
+        Assert.Equal("victim", File.ReadAllText(victim));
+        Assert.Equal(linkTarget, new FileInfo(link).LinkTarget);
+        Assert.Empty(Temps(_temp));
+    }
+
+    [Fact]
+    public void A_link_on_the_way_is_refused_with_a_root_and_written_through_without_one()
+    {
+        var real = Directory.CreateDirectory(Path_("real")).FullName;
+        var through = Path_("linked");
+        Links.Create(through, real, folder: true);
+        var target = System.IO.Path.Combine(through, "out.json");
+
+        Assert.Equal(new WriteRefusal(through, SafeWrite.LinkReason), SafeWrite.Refusal(target, [], _temp));
+        Assert.Null(SafeWrite.Refusal(target, []));
+        SafeWrite.WriteText(target, "through", []);
+
+        Assert.Equal("through", File.ReadAllText(System.IO.Path.Combine(real, "out.json")));
+    }
+
+    [Fact]
+    public void The_root_itself_may_be_a_link()
+    {
+        var real = Directory.CreateDirectory(Path_("real")).FullName;
+        var root = Path_("linked");
+        Links.Create(root, real, folder: true);
+
+        Assert.Null(SafeWrite.Refusal(System.IO.Path.Combine(root, "out.json"), [], root + System.IO.Path.DirectorySeparatorChar));
+    }
+
+    // ".." is collapsed before any link is followed, as .NET opens every path on every OS: dl/../in.zip is the top in.zip, not sub/in.zip, whether it is the target or the input.
+    [Theory]
+    [InlineData("same")]
+    [InlineData("spelling")]
+    [InlineData("link")]
+    [InlineData("dotdot-input")]
+    [InlineData("dotdot-target")]
+    public void A_named_input_is_refused(string kind)
+    {
+        var path = Put("in.zip", "zip bytes");
+        var (target, input) = kind switch
+        {
+            "same" => (path, path),
+            "spelling" => (path, Path.Combine(_temp, "sub", "..", ".", "in.zip")),
+            "link" => (path, LinkTo(path)),
+            "dotdot-input" => (path, Path.Combine(DeepLink(), "..", "in.zip")),
+            _ => (Path.Combine(DeepLink(), "..", "in.zip"), path),
+        };
+
+        Assert.Equal(new WriteRefusal(target, SafeWrite.InputReason), SafeWrite.Refusal(target, [input]));
+        Assert.Equal("zip bytes", File.ReadAllText(path));
+    }
+
+    // The same file spelled through a link on the way: the kernel's view of the root, and a link to the folder itself.
+    [Theory]
+    [InlineData("proc-root")]
+    [InlineData("self")]
+    public void A_target_that_reaches_an_input_through_a_link_on_the_way_is_refused(string kind)
+    {
+        Assert.SkipWhen(kind == "proc-root" && !OperatingSystem.IsLinux(), "Linux only.");
+        var input = Put("in.zip", "zip bytes");
+        string target;
+        if (kind == "proc-root")
+        {
+            target = "/proc/self/root" + input;
+        }
+        else
+        {
+            Links.Create(Path_("self"), ".", folder: true);
+            target = Path_(Path.Combine("self", "in.zip"));
+        }
+
+        Assert.Equal(new WriteRefusal(target, SafeWrite.InputReason), SafeWrite.Refusal(target, [input]));
+        Assert.Equal("zip bytes", File.ReadAllText(input));
+    }
+
+    // dl -> sub/deep, with a file in sub and one at the top.
+    private string DeepLink()
+    {
+        Directory.CreateDirectory(Path_(Path.Combine("sub", "deep")));
+        Links.Create(Path_("dl"), Path.Combine("sub", "deep"), folder: true);
+        return Path_("dl");
+    }
+
+    // A shell would take dl/../x.json in sub; .NET collapses ".." first and so does SafeWrite, so it is the top x.json on every OS.
+    [Fact]
+    public void A_dotdot_after_a_link_is_collapsed_first_as_NET_opens_it()
+    {
+        var target = Path.Combine(DeepLink(), "..", "x.json");
+        var other = Put(Path.Combine("sub", "x.json"), "draft");
+
+        SafeWrite.WriteText(target, "new", []);
+
+        Assert.Equal("new", File.ReadAllText(Path_("x.json")));
+        Assert.Equal("draft", File.ReadAllText(other));
+        Assert.Empty(Temps(_temp));
+        Assert.Empty(Temps(Path_("sub")));
+    }
+
+    [Fact]
+    public void A_link_as_the_last_name_reached_through_dotdot_is_the_one_NET_finds()
+    {
+        var target = Path.Combine(DeepLink(), "..", "lnk");
+        var victim = Put("victim.txt", "victim");
+        Links.Create(Path_("lnk"), victim);
+        var other = Put(Path.Combine("sub", "lnk"), "plain");
+
+        Assert.Equal(new WriteRefusal(target, SafeWrite.LinkReason), SafeWrite.Refusal(target, []));
+        Assert.Equal("victim", File.ReadAllText(victim));
+        Assert.Equal("plain", File.ReadAllText(other));
+    }
+
+    // The links the temp folder itself costs on the way from the root: on macOS it is under /var, a link to /private/var. The chains below use relative link targets, so each of their links is one hop.
+    private int RootHops()
+    {
+        var hops = 0;
+        for (var dir = _temp; Path.GetDirectoryName(dir) is { } parent; dir = parent)
+        {
+            if (new FileInfo(dir).LinkTarget is not null)
+            {
+                hops++;
+            }
+        }
+
+        return hops;
+    }
+
+    // Only the check runs on the 40-link chain: macOS's own limit is 32 links, so an open through it would fail there (exit 3, which is safe).
+    [Fact]
+    public void A_chain_of_more_than_40_links_and_a_loop_on_the_way_are_refused_as_a_loop()
+    {
+        var real = Directory.CreateDirectory(Path_("real")).FullName;
+        var n = 40 - RootHops();
+        Links.Create(Path_("l0"), "real", folder: true);
+        for (var i = 1; i <= n; i++)
+        {
+            Links.Create(Path_($"l{i}"), $"l{i - 1}", folder: true);
+        }
+
+        Links.Create(Path_("loop"), "loop", folder: true);
+        var chain = Path.Combine(Path_($"l{n}"), "out.json");
+        var loop = Path.Combine(Path_("loop"), "out.json");
+
+        Assert.Equal(new WriteRefusal(chain, SafeWrite.LoopReason), SafeWrite.Refusal(chain, []));
+        Assert.Equal(new WriteRefusal(loop, SafeWrite.LoopReason), SafeWrite.Refusal(loop, []));
+        Assert.Null(SafeWrite.Refusal(Path.Combine(Path_($"l{n - 1}"), "out.json"), []));
+        Assert.Throws<InvalidDataException>(() => SafeWrite.WriteText(chain, "new", []));
+        Assert.Empty(Directory.GetFileSystemEntries(real));
+        Assert.False(SafeWrite.CanCreateBeside(chain));
+    }
+
+    // The input is resolved with the same cap, on every OS: past it the answer is a refusal, not "no match".
+    [Fact]
+    public void An_input_that_is_a_chain_of_more_than_40_links_is_refused_as_a_loop()
+    {
+        Put("victim.txt", "victim");
+        var n = 40 - RootHops();
+        Links.Create(Path_("f0"), "victim.txt");
+        for (var i = 1; i <= n; i++)
+        {
+            Links.Create(Path_($"f{i}"), $"f{i - 1}");
+        }
+
+        Assert.Equal(new WriteRefusal(Path_($"f{n}"), SafeWrite.LoopReason), SafeWrite.Refusal(Path_("out.json"), [Path_($"f{n}")]));
+        Assert.Null(SafeWrite.Refusal(Path_("out.json"), [Path_($"f{n - 1}")]));
+    }
+
+    [Fact]
+    public void An_empty_name_is_refused_and_a_folder_is_refused_unless_it_is_a_link()
+    {
+        var folder = Directory.CreateDirectory(Path_("dir")).FullName;
+        var link = Path_("linked");
+        Links.Create(link, folder, folder: true);
+
+        Assert.Equal(new WriteRefusal("", SafeWrite.EmptyReason), SafeWrite.Refusal("", []));
+        Assert.Equal("the file name is empty; name a file.", SafeWrite.Refusal("", [])!.Text);
+        Assert.Equal(new WriteRefusal(folder, SafeWrite.FolderReason), SafeWrite.Refusal(folder, []));
+        Assert.Equal(new WriteRefusal(link, SafeWrite.LinkReason), SafeWrite.Refusal(link, []));
+    }
+
+    [Fact]
+    public void CanCreateBeside_is_true_in_a_writable_folder_and_leaves_nothing()
+    {
+        Assert.True(SafeWrite.CanCreateBeside(Path_("out.json")));
+        Assert.Empty(Temps(_temp));
+    }
+
+    [Fact]
+    public void WriteText_over_an_input_throws_with_the_path_first_and_leaves_the_bytes()
+    {
+        var path = Put("in.zip", "zip bytes");
+
+        var error = Assert.Throws<InvalidDataException>(() => SafeWrite.WriteText(path, "new", [path]));
+
+        Assert.Equal($"{path}: {SafeWrite.InputReason}", error.Message);
+        Assert.Equal("zip bytes", File.ReadAllText(path));
+        Assert.Empty(Temps(_temp));
+    }
+
+    [Fact]
+    public void An_input_that_is_a_link_loop_is_refused_as_a_loop_and_nothing_is_written()
+    {
+        var path = Path_("out.json");
+        var a = Path_("a.zip");
+        var b = Path_("b.zip");
+        Links.Create(a, b);
+        Links.Create(b, a);
+
+        Assert.Equal(new WriteRefusal(a, SafeWrite.LoopReason), SafeWrite.Refusal(path, [a]));
+        var error = Assert.Throws<InvalidDataException>(() => SafeWrite.WriteText(path, "new", [a]));
+        Assert.Equal($"{a}: {SafeWrite.LoopReason}", error.Message);
+        Assert.False(File.Exists(path));
+        Assert.Empty(Temps(_temp));
+    }
+
+    [Fact]
+    public void Another_file_in_the_same_folder_is_not_an_input()
+    {
+        var path = Put("out.json", "old");
+        var other = Put("in.zip", "zip");
+
+        Assert.Null(SafeWrite.Refusal(path, [other]));
+    }
+
+    [Fact]
+    public void A_difference_in_case_is_an_input_on_windows_and_macos_and_not_on_linux()
+    {
+        var path = Put("out.json", "old");
+        var input = Path_("OUT.JSON");
+
+        Assert.Equal(!OperatingSystem.IsLinux(), SafeWrite.Refusal(path, [input]) is not null);
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void A_link_to_dev_null_is_refused_and_the_typed_name_dev_stdout_is_not()
+    {
+        NotWindows();
+        var link = Path_("null.json");
+        Links.Create(link, "/dev/null");
+
+        Assert.Equal(new WriteRefusal(link, SafeWrite.LinkReason), SafeWrite.Refusal(link, []));
+        Assert.Null(SafeWrite.Refusal("/dev/stdout", []));
+        Assert.Null(SafeWrite.Refusal("/dev/stderr", []));
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void Another_spelling_of_dev_stdout_is_a_link_and_refused()
+    {
+        NotWindows();
+
+        Assert.Equal(new WriteRefusal("/dev/./stdout", SafeWrite.LinkReason), SafeWrite.Refusal("/dev/./stdout", []));
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void Dev_null_is_written_in_place()
+    {
+        NotWindows();
+
+        SafeWrite.WriteText("/dev/null", "text", []);
+
+        Assert.Empty(Temps("/dev"));
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public async Task A_fifo_named_directly_is_written_in_place_and_a_reader_gets_the_whole_text()
+    {
+        NotWindows();
+        var fifo = Path_("pipe");
+        using (var mkfifo = Process.Start(new ProcessStartInfo("mkfifo") { ArgumentList = { fifo }, RedirectStandardError = true }) ?? throw new InvalidOperationException("mkfifo did not start."))
+        {
+            await mkfifo.WaitForExitAsync(TestContext.Current.CancellationToken);
+            Assert.SkipWhen(mkfifo.ExitCode != 0, "mkfifo is not available here.");
+        }
+
+        var reader = Task.Run(() => File.ReadAllText(fifo), TestContext.Current.CancellationToken);
+        SafeWrite.WriteText(fifo, "through the pipe\n", []);
+
+        Assert.Equal("through the pipe\n", await reader.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+        Assert.Empty(Temps(_temp));
+    }
+
+    [Fact]
+    public void A_link_swapped_in_after_the_check_is_replaced_and_not_followed()
+    {
+        var victim = Put("victim.txt", "victim");
+        var path = Put("out.json", "old");
+
+        SafeWrite.WriteText(path, "new", [], null, _ =>
+        {
+            File.Delete(path);
+            Links.Create(path, victim);
+        });
+
+        Assert.Equal("victim", File.ReadAllText(victim));
+        Assert.Null(new FileInfo(path).LinkTarget);
+        Assert.Equal("new", File.ReadAllText(path));
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void IsDirectlyUnderDev_is_true_for_a_file_in_dev_and_false_one_level_down()
+    {
+        NotWindows();
+
+        Assert.True(SafeWrite.IsDirectlyUnderDev("/dev/null"));
+        Assert.False(SafeWrite.IsDirectlyUnderDev("/dev/shm/x"));
+    }
+
+    private string LinkTo(string target)
+    {
+        var link = Path_("in-link.zip");
+        Links.Create(link, target);
+        return link;
+    }
+
+    private static bool CanCreateIn(string folder)
+    {
+        try
+        {
+            File.Delete(Path.Combine(folder, Path.GetRandomFileName()));
+            using var stream = new FileStream(Path.Combine(folder, ".probe"), FileMode.CreateNew);
+            stream.Dispose();
+            File.Delete(Path.Combine(folder, ".probe"));
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static bool CanWrite(string file)
+    {
+        try
+        {
+            File.OpenHandle(file, FileMode.Open, FileAccess.Write).Dispose();
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+}
