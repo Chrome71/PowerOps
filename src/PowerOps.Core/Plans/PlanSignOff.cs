@@ -16,7 +16,7 @@ public static class PlanSignOff
             return Fail(2, $"plan not found: {planPath}");
         }
 
-        var text = File.ReadAllText(file);
+        var text = PlanChecker.ReadPlan(file);
         var doc = PlanDocument.Parse(text);
         if (doc.Header is not { } h)
         {
@@ -31,7 +31,8 @@ public static class PlanSignOff
         }
 
         errors.AddRange(PlanChecker.ReviewProblems(h.Review, Path.Combine(folder, "review.md")));
-        var tenant = PlanChecker.ScanTenantData(folder, baseDir).ToList();
+        var warnings = new List<string>();
+        var tenant = PlanChecker.ScanTenantData(folder, baseDir, warnings).ToList();
         if (tenant.Count > 0)
         {
             errors.AddRange(tenant);
@@ -79,7 +80,7 @@ public static class PlanSignOff
         }
 
         File.WriteAllText(file, sb.ToString(), new UTF8Encoding(false));
-        return new SignOffResult(0, [$"signed off {PlanChecker.Display(folder, baseDir)} (sha256 {hash[..12]}…)"], []);
+        return new SignOffResult(0, [$"signed off {PlanChecker.Display(folder, baseDir)} (sha256 {hash[..12]}…)"], warnings.Select(w => $"warning: {w}").ToList());
     }
 
     private static SignOffResult Fail(int code, string message) => new(code, [], [$"error: {message}"]);

@@ -42,7 +42,7 @@ public static class Expression
                 var end = FindClosingBrace(text, i + 2);
                 if (end < 0)
                 {
-                    throw new UnsupportedException($"Cannot read '{text}': '@{{' is never closed.");
+                    throw new UnsupportedException($"Cannot read '{Excerpt(text)}': '@{{' is never closed.");
                 }
 
                 var part = ToText(Run(text[(i + 2)..end], context));
@@ -168,6 +168,13 @@ public static class Expression
         throw new ExpressionException($"A property name must be a string and an item index an integer, not {ExpressionFunctions.Describe(key)}.");
     }
 
+    /// <summary>At most 200 characters of an expression for a message, so a 5 MB expression doesn't make a 5 MB report line.</summary>
+    private static string Excerpt(string text)
+    {
+        const int Max = 200;
+        return text.Length <= Max ? text : text[..(char.IsHighSurrogate(text[Max - 1]) ? Max - 1 : Max)] + "…";
+    }
+
     private static bool IsString(JsonNode? node) => node is JsonValue v && v.GetValueKind() == JsonValueKind.String;
 
     private static JsonNode? Run(string expression, IExpressionContext context) => Eval(new Parser(expression).Parse(), context);
@@ -233,7 +240,7 @@ public static class Expression
             return _pos < text.Length ? throw Bad($"unexpected '{text[_pos]}'") : node;
         }
 
-        private UnsupportedException Bad(string why) => new($"Cannot read expression '{text}': {why}.");
+        private UnsupportedException Bad(string why) => new($"Cannot read expression '{Excerpt(text)}': {why}.");
 
         private char Peek() => _pos < text.Length ? text[_pos] : '\0';
 
@@ -270,7 +277,7 @@ public static class Expression
                 {
                     if (!ExpressionFunctions.IsKnown(name))
                     {
-                        throw new UnsupportedException($"Unsupported function '{name}' in expression '{text}'.");
+                        throw new UnsupportedException($"Unsupported function '{Excerpt(name)}' in expression '{Excerpt(text)}'.");
                     }
 
                     height = Deeper(height);
@@ -284,7 +291,7 @@ public static class Expression
                         "true" => new Literal(JsonValue.Create(true)),
                         "false" => new Literal(JsonValue.Create(false)),
                         "null" => new Literal(null),
-                        _ => throw Bad($"unexpected '{name}'"),
+                        _ => throw Bad($"unexpected '{Excerpt(name)}'"),
                     };
                 }
             }

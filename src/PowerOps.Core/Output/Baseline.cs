@@ -1,12 +1,17 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
+using PowerOps.Core.Readers;
+
 namespace PowerOps.Core.Output;
 
 /// <summary>Findings accepted as known. The key is (solution unique name, rule id, component, message); the file is left out so a baseline built from a zip also matches the unpacked folder.</summary>
 public sealed class Baseline
 {
     private const int CurrentVersion = 1;
+
+    // A baseline lists accepted findings, about 250 bytes each, and a large repo may accept many; 50 MB matches the cap on one file of a solution.
+    internal const long MaxBytes = 50L * 1024 * 1024;
 
     private static readonly JsonSerializerOptions Options = new()
     {
@@ -25,7 +30,7 @@ public sealed class Baseline
     {
         try
         {
-            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            using var doc = JsonDocument.Parse(BoundedRead.ReadAllText(path, MaxBytes));
             var root = doc.RootElement;
             if (root.ValueKind != JsonValueKind.Object ||
                 !root.TryGetProperty("version", out var version) || version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var v) || v != CurrentVersion)

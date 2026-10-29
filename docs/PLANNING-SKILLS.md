@@ -237,7 +237,7 @@ When `available` is false, the skill says what `reason` and `fix` say (for examp
 - `supersedes`, when set, is a plain folder name and names another plan under the same `docs/plans/` that has a `plan.md` (in every status);
 - `signed-off`, `implementing` or `done` requires `signed-off` and `signed-off-hash`, and the hash matches the current body (otherwise: "changed since sign-off", or "run `powerops plan sign-off`" when the hash is missing);
 - `signed-off` and later requires `review: done` with `review.md` present, or `review: skipped`;
-- no file under the plan folder matches a URL, GUID or email pattern. A `<!-- plan-status: allow -->` comment on the line suppresses the match;
+- no file under the plan folder matches a URL, GUID or email pattern. A `<!-- plan-status: allow -->` comment on the line suppresses the match. Links are not followed, and a binary file or one over 1 MB is skipped with a warning;
 - `draft` and `approved` plans pass, and a repo with no plans passes.
 
 | Exit code | Meaning |

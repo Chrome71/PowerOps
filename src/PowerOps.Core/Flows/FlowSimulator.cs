@@ -148,13 +148,14 @@ public static class FlowSimulator
         public JsonNode? Item() =>
             (_frames.LastOrDefault(f => f.HasItem) ?? throw new ExpressionException("item() is used outside a Foreach or a Query.")).Item;
 
-        public JsonNode? TriggerOutputs() => inputs.TriggerOutputs?.DeepClone() ?? throw new UnmockedException("triggerOutputs() needs a value: set 'trigger' in the test.");
+        // The reads below hand out the shared node: Expression clones whatever it returns, and no function changes an argument.
+        public JsonNode? TriggerOutputs() => inputs.TriggerOutputs ?? throw new UnmockedException("triggerOutputs() needs a value: set 'trigger' in the test.");
 
         public string UtcNow() => inputs.UtcNow ?? throw new UnmockedException("utcNow() needs a value: set 'utcNow' in the test.");
 
         public string Guid() => inputs.Guid ?? throw new UnmockedException("guid() needs a value: set 'guid' in the test.");
 
-        public JsonNode? Workflow() => inputs.Workflow?.DeepClone() ?? throw new UnmockedException("workflow() needs a value: set 'workflow' in the test.");
+        public JsonNode? Workflow() => inputs.Workflow ?? throw new UnmockedException("workflow() needs a value: set 'workflow' in the test.");
 
         public JsonNode? Variable(string name) =>
             _vars.TryGetValue(name, out var v) ? v.Value : throw new ExpressionException($"Variable '{name}' is not initialized.");
@@ -164,11 +165,11 @@ public static class FlowSimulator
             var parameter = (definition["parameters"] as JsonObject)?[name] as JsonObject ?? throw new ExpressionException($"The flow has no parameter '{name}'.");
             if (inputs.Parameters.TryGetValue(name, out var given))
             {
-                return given?.DeepClone();
+                return given;
             }
 
             return parameter.TryGetPropertyValue("defaultValue", out var fallback)
-                ? fallback?.DeepClone()
+                ? fallback
                 : throw new UnmockedException($"parameter '{name}' has no value: set it in the test or give the parameter a defaultValue.");
         }
 
@@ -326,6 +327,21 @@ public static class FlowSimulator
             }
         }
 
+        /// <summary>Adds bytes copied by an operation (2 a character) to the run's total, so a loop of appends can't copy without limit.</summary>
+        private void ChargeCopy(long characters)
+        {
+            _bytes += 2 * characters;
+            CheckBudget();
+        }
+
+        private void CheckBudget()
+        {
+            if (_bytes > ExpressionFunctions.MaxRunBytes)
+            {
+                throw new UnsupportedException("the run's recorded and copied values pass 256 MB.");
+            }
+        }
+
         /// <summary>Adds the size of a recorded value to the run's total: 2 bytes a character plus a constant a node, counted node by node and stopped as soon as the budget is passed.</summary>
         private void Charge(JsonNode? value)
         {
@@ -356,10 +372,7 @@ public static class FlowSimulator
                         break;
                 }
 
-                if (_bytes > ExpressionFunctions.MaxRunBytes)
-                {
-                    throw new UnsupportedException("the run's recorded values pass 256 MB.");
-                }
+                CheckBudget();
             }
         }
 
@@ -665,8 +678,10 @@ public static class FlowSimulator
                         throw new UnsupportedException($"appending to '{name}' needs a string variable and a string value.");
                     }
 
-                    ExpressionFunctions.CheckLength((long)(Str(variable.Value)?.Length ?? 0) + text.Length);
+                    var length = (long)(Str(variable.Value)?.Length ?? 0) + text.Length;
+                    ExpressionFunctions.CheckLength(length);
                     Charge(value);
+                    ChargeCopy(length);
                     variable.Value = Str(variable.Value) + text;
                     break;
                 default:
@@ -689,6 +704,7 @@ public static class FlowSimulator
         private ActionCall Foreach(ActionInfo action)
         {
             var items = Expression.EvaluateValue(action.Definition["foreach"], this) as JsonArray ?? throw new ExpressionException("The foreach input must be an array.");
+            Charge(items); // the array is evaluated again, so copied again, each time the loop runs
             var failed = false;
             foreach (var item in items)
             {

@@ -32,6 +32,22 @@ public class DeploymentSettingsTests
         Assert.Empty(Run(s, """{"EnvironmentVariables":[{"SchemaName":"a_Env","Value":"v"}],"ConnectionReferences":[{"LogicalName":"a_Ref","ConnectionId":"c"}]}"""));
     }
 
+    // R-8: the probe is 20,000 pairs; 40,000 took 12.7 s when each duplicate searched all the names.
+    [Fact]
+    public void Forty_thousand_duplicate_pairs_are_found_fast_with_the_first_spelling()
+    {
+        var pairs = string.Join(',', Enumerable.Range(0, 40_000).Select(i => $"{{\"SchemaName\":\"a_{i}\"}},{{\"SchemaName\":\"A_{i}\"}}"));
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        var problems = DeploymentSettings.Validate(Sln(), "{\"EnvironmentVariables\":[" + pairs + "]}");
+
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(3), watch.Elapsed.ToString());
+        Assert.Equal(40_000, problems.Count(p => p.Kind == "duplicate"));
+        Assert.Equal(40_000, problems.Count(p => p.Kind == "extra"));
+        Assert.Contains(problems, p => p is { Name: "a_39999", ComponentType: "environmentVariable", Message: "listed more than once in the settings file" });
+        Assert.DoesNotContain(problems, p => p.Name.StartsWith("A_", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void Extra_entries_fire_and_names_match_ignoring_case()
     {

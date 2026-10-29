@@ -106,6 +106,32 @@ public class ExpressionTests
     public void Interpolation_with_unreadable_expression_is_unsupported() =>
         Assert.Throws<UnsupportedException>(() => Expression.Evaluate("a @{not a function}", Ctx));
 
+    // C-10a: a parse error echoes at most 200 characters of the expression, however long it is.
+    [Theory]
+    [InlineData("@(", '1', "")]
+    [InlineData("@concat('a',", '1', "")]
+    [InlineData("@", 'x', "")] // a 5 MB name that is not true, false or null
+    [InlineData("@", 'x', "(")] // an unknown function with a 5 MB name
+    [InlineData("a @{", '1', "")] // never closed
+    public void A_parse_error_of_a_5_MB_expression_echoes_200_characters(string start, char fill, string end)
+    {
+        var e = Assert.Throws<UnsupportedException>(() => Expression.Evaluate(start + new string(fill, 5_000_000) + end, Ctx));
+
+        Assert.InRange(e.Message.Length, 1, 600);
+    }
+
+    [Fact]
+    public void A_short_expression_is_echoed_whole_and_a_cut_never_splits_a_surrogate_pair()
+    {
+        var e = Assert.Throws<UnsupportedException>(() => Expression.Evaluate("@(", Ctx));
+        Assert.Equal("Cannot read expression '(': unexpected '('.", e.Message);
+
+        var text = "@(" + new string('1', 198) + "😀" + new string('1', 50); // the parser sees "(" and 198 ones, so the emoji's high surrogate is its 200th character
+        e = Assert.Throws<UnsupportedException>(() => Expression.Evaluate(text, Ctx));
+        Assert.DoesNotContain(e.Message, c => char.IsSurrogate(c));
+        Assert.Contains("…'", e.Message);
+    }
+
     [Fact]
     public void Lone_at_sign_is_an_empty_expression_and_unsupported() =>
         Assert.Throws<UnsupportedException>(() => Expression.Evaluate("@", Ctx));

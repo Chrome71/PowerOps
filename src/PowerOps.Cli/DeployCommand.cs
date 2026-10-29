@@ -14,6 +14,7 @@ public static class DeployCommand
     private const int UsageError = 2;
     private const int InternalError = 3;
     private const long MaxSettingsBytes = 1024 * 1024;
+    private const long MaxZipBytes = 100L * 1024 * 1024; // Learn limits a solution file to 95 MB; the zip is read whole to hash it
     private const string SettingsSuffix = ".settings.json";
 
     /// <param name="pac">Runs pac; <c>deploy apply</c> uses it for the imports only.</param>
@@ -122,14 +123,24 @@ public static class DeployCommand
     {
         try
         {
-            var info = new FileInfo(planFile);
-            if (info.LinkTarget is not null || info.Length > MaxSettingsBytes)
+            if (new FileInfo(planFile).LinkTarget is not null)
             {
-                error.WriteLine(info.LinkTarget is not null ? "error: the plan file is a symbolic link; symbolic links are not read" : "error: the plan file is larger than 1 MB");
+                error.WriteLine("error: the plan file is a symbolic link; symbolic links are not read");
                 return null;
             }
 
-            return DeployPlanFile.Read(File.ReadAllText(planFile), tool);
+            string text;
+            try
+            {
+                text = BoundedRead.ReadAllText(planFile, MaxSettingsBytes);
+            }
+            catch (InvalidDataException)
+            {
+                error.WriteLine("error: the plan file is larger than 1 MB");
+                return null;
+            }
+
+            return DeployPlanFile.Read(text, tool);
         }
         catch (InvalidDataException ex)
         {
@@ -506,7 +517,7 @@ public static class DeployCommand
     {
         try
         {
-            var bytes = File.ReadAllBytes(path);
+            var bytes = BoundedRead.ReadAllBytes(path, MaxZipBytes);
             var solution = SolutionLoader.Load(path);
             var settingsName = System.IO.Path.GetFileNameWithoutExtension(name) + SettingsSuffix;
             var settingsPath = System.IO.Path.Combine(folder, settingsName);
@@ -515,13 +526,17 @@ public static class DeployCommand
                 return new DeployZip(name, DeployPlan.Sha256Hex(bytes), solution, null, null, null);
             }
 
-            if (new FileInfo(settingsPath).Length > MaxSettingsBytes)
+            byte[] settings;
+            try
+            {
+                settings = BoundedRead.ReadAllBytes(settingsPath, MaxSettingsBytes);
+            }
+            catch (InvalidDataException)
             {
                 error.WriteLine($"error: {Clean(settingsName)}: the settings file is larger than 1 MB");
                 return null;
             }
 
-            var settings = File.ReadAllBytes(settingsPath);
             using var reader = new StreamReader(new MemoryStream(settings));
             return new DeployZip(name, DeployPlan.Sha256Hex(bytes), solution, settingsName, DeployPlan.Sha256Hex(settings), reader.ReadToEnd());
         }
