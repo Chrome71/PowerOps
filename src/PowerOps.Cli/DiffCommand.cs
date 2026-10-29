@@ -35,7 +35,17 @@ public static class DiffCommand
             }
 
             // A folder can be a YAML layout root: resolve it the way `analyze` does. With none found, the loader reports why.
-            var found = Directory.Exists(p) ? SolutionDiscovery.Find(p) : [];
+            IReadOnlyList<string> found;
+            try
+            {
+                found = Directory.Exists(p) ? SolutionDiscovery.Find(p) : [];
+            }
+            catch (InvalidDataException ex)
+            {
+                error.WriteLine($"error: {TextReport.Clean(ex.Message)}");
+                return 3;
+            }
+
             if (found.Count > 1)
             {
                 error.WriteLine($"error: {p} holds {found.Count} solutions; pass one of them: {string.Join(", ", found)}");

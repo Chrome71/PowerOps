@@ -44,7 +44,7 @@ public static partial class YamlReader
             ?? throw new InvalidDataException($"{solutionYml}: publishers/{publisherName}/publisher.yml not found.");
         var publisher = Required(root, publisherFile, "Publisher");
 
-        var files = new SolutionFiles(root.Paths.Values.ToList(), root.ReadText, manifestFile, "");
+        var files = new SolutionFiles(root.Paths.Values.ToList(), root.ReadText, manifestFile, "", root.Budget);
         return new Solution(
             UniqueName: SolutionParser.Text(manifest, "UniqueName") ?? "",
             Version: SolutionParser.Text(manifest, "Version") ?? "",

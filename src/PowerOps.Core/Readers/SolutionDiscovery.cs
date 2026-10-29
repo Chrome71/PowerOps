@@ -15,7 +15,14 @@ public static class SolutionDiscovery
         MatchCasing = MatchCasing.CaseInsensitive,
     };
 
-    public static IReadOnlyList<string> Find(string path)
+    // Not const so tests can inject a small cap; only they change it.
+    internal static int MaxFolders = 100_000;
+
+    private static readonly ReadBudget DefaultBudget = new();
+
+    public static IReadOnlyList<string> Find(string path) => Find(path, MaxFolders);
+
+    internal static IReadOnlyList<string> Find(string path, int maxFolders)
     {
         var found = new List<string>();
         if (File.Exists(path))
@@ -28,7 +35,8 @@ public static class SolutionDiscovery
         }
         else if (Directory.Exists(path))
         {
-            Walk(path, found);
+            var folders = 0;
+            Walk(path, found, path, maxFolders, ref folders);
         }
         else if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
         {
@@ -40,8 +48,13 @@ public static class SolutionDiscovery
         return found;
     }
 
-    private static void Walk(string dir, List<string> found)
+    private static void Walk(string dir, List<string> found, string root, int maxFolders, ref int folders)
     {
+        if (++folders > maxFolders)
+        {
+            throw new InvalidDataException($"{root}: more than {maxFolders} folders to search; narrow the path.");
+        }
+
         if (File.Exists(Path.Combine(dir, "Other", "Solution.xml")))
         {
             found.Add(dir);
@@ -61,14 +74,43 @@ public static class SolutionDiscovery
 
         foreach (var sub in Directory.EnumerateDirectories(dir, "*", Options).Where(d => !Skipped.Contains(Path.GetFileName(d))))
         {
-            Walk(sub, found);
+            Walk(sub, found, root, maxFolders, ref folders);
         }
 
         found.AddRange(Directory.EnumerateFiles(dir, "*.zip", Options).Where(HasRootSolutionXml));
     }
 
+    /// <summary>The files under <paramref name="folder"/>, without descending into <see cref="Skipped"/> folders or following symlinks.</summary>
+    internal static IEnumerable<string> EnumerateFiles(string folder)
+    {
+        var pending = new Stack<string>();
+        pending.Push(folder);
+        while (pending.TryPop(out var dir))
+        {
+            foreach (var file in Directory.EnumerateFiles(dir, "*", Options))
+            {
+                yield return file;
+            }
+
+            foreach (var sub in Directory.EnumerateDirectories(dir, "*", Options).Where(d => !Skipped.Contains(Path.GetFileName(d))))
+            {
+                pending.Push(sub);
+            }
+        }
+    }
+
     private static bool HasRootSolutionXml(string zipPath)
     {
+        // Over-cap zips are refused, not skipped, like a zip named on the command line; other trouble just means "not a solution".
+        try
+        {
+            ZipGuard.Check(zipPath, DefaultBudget);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+
         try
         {
             using var zip = ZipFile.OpenRead(zipPath);

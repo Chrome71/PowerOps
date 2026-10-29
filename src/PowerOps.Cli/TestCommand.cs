@@ -57,7 +57,17 @@ public static class TestCommand
             return 2;
         }
 
-        var solutionPaths = SolutionDiscovery.Find(path);
+        IReadOnlyList<string> solutionPaths;
+        try
+        {
+            solutionPaths = SolutionDiscovery.Find(path);
+        }
+        catch (InvalidDataException ex)
+        {
+            error.WriteLine($"error: {TextReport.Clean(ex.Message)}");
+            return 3;
+        }
+
         if (solutionPaths.Count == 0)
         {
             error.WriteLine($"error: no solutions found under {path}. To test a YAML layout, point at the folder that holds solutions/.");

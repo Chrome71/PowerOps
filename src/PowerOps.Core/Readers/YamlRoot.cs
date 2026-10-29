@@ -8,29 +8,28 @@ namespace PowerOps.Core.Readers;
 /// </summary>
 internal sealed class YamlRoot
 {
-    // Symlinks are never followed: a root must not read files outside its folder.
-    private static readonly EnumerationOptions Options = new() { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint };
-
-    private readonly ReadBudget _budget;
     private readonly Dictionary<string, string> _cache = new(StringComparer.Ordinal);
     private readonly Dictionary<string, XElement> _parsed = new(StringComparer.Ordinal);
 
     public YamlRoot(string folder, ReadBudget? budget = null)
     {
         Folder = Path.GetFullPath(folder);
-        _budget = budget ?? new ReadBudget();
+        Budget = budget ?? new ReadBudget();
         if (!Directory.Exists(Folder))
         {
             throw new InvalidDataException($"{folder}: folder not found.");
         }
 
-        foreach (var p in Directory.EnumerateFiles(Folder, "*", Options)
+        // Symlinks are never followed, and .git, node_modules, bin and obj are neither listed nor counted.
+        foreach (var p in Budget.LimitFiles(SolutionDiscovery.EnumerateFiles(Folder), folder)
             .Select(f => Path.GetRelativePath(Folder, f).Replace('\\', '/'))
             .Order(StringComparer.Ordinal))
         {
             Paths.TryAdd(p, p);
         }
     }
+
+    public ReadBudget Budget { get; }
 
     public string Folder { get; }
 
@@ -40,7 +39,7 @@ internal sealed class YamlRoot
     public string ReadText(string path) =>
         _cache.TryGetValue(path, out var text)
             ? text
-            : _cache[path] = SolutionParser.ReadCapped(File.OpenRead(System.IO.Path.Combine(Folder, path)), path, _budget);
+            : _cache[path] = SolutionParser.ReadCapped(File.OpenRead(System.IO.Path.Combine(Folder, path)), path, Budget);
 
     /// <exception cref="InvalidDataException">The message starts with <paramref name="path"/>.</exception>
     /// <remarks>Parsed once per path and shared by every solution of the root, so callers must not change it.</remarks>

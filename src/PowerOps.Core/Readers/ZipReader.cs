@@ -11,7 +11,15 @@ public static class ZipReader
 
     internal static Solution Read(string zipPath, ReadBudget budget)
     {
+        ZipGuard.Check(zipPath, budget);
         using var zip = ZipFile.OpenRead(zipPath);
+
+        // The guard checks the declared count; this catches a central directory that holds more than it declared.
+        if (zip.Entries.Count > budget.MaxEntries)
+        {
+            throw new InvalidDataException($"{zipPath}: more than {budget.MaxEntries} entries.");
+        }
+
         var entries = new Dictionary<string, ZipArchiveEntry>(StringComparer.Ordinal);
         foreach (var entry in zip.Entries)
         {
@@ -28,7 +36,8 @@ public static class ZipReader
             entries.Keys,
             p => ReadEntry(entries[p], p, budget),
             "solution.xml",
-            "customizations.xml"));
+            "customizations.xml",
+            budget));
     }
 
     private static bool IsSafe(string name) =>

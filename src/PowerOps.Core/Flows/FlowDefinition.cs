@@ -6,7 +6,8 @@ namespace PowerOps.Core.Flows;
 /// <summary>A connection reference entry of a cloud flow. <paramref name="LogicalName"/> is null for embedded/direct connections.</summary>
 public sealed record FlowConnectionReference(string Key, string? LogicalName, string? ApiName);
 
-public sealed record StringLiteral(string JsonPath, string Value);
+/// <summary>A string value of the flow's definition. <paramref name="InParameters"/> is true under the definition's top-level <c>parameters</c> key; a path string per literal made a small deep file cost gigabytes.</summary>
+public sealed record StringLiteral(bool InParameters, string Value);
 
 /// <summary>A trigger of a cloud flow. <paramref name="Message"/> is the Dataverse subscription message (1 create, 2 delete, 3 update, ...), null when absent or not a number.</summary>
 public sealed record FlowTrigger(string Name, string? OperationId, int? Message, string? Entity, string? FilteringAttributes);
@@ -110,7 +111,7 @@ public sealed partial record FlowDefinition(
                     }
                 }
 
-                Walk(definition, "$", false, children, literals);
+                Walk(definition, 0, false, false, children, literals);
             }
 
             return new FlowDefinition(connections, envVars, children.Distinct().ToList(), literals, triggers);
@@ -121,7 +122,7 @@ public sealed partial record FlowDefinition(
         }
     }
 
-    private static void Walk(JsonElement e, string path, bool skipped, List<string> children, List<StringLiteral> literals)
+    private static void Walk(JsonElement e, int depth, bool inParameters, bool skipped, List<string> children, List<StringLiteral> literals)
     {
         switch (e.ValueKind)
         {
@@ -134,20 +135,19 @@ public sealed partial record FlowDefinition(
                     }
 
                     // Skipped subtrees still contribute child flow ids, but no literals.
-                    Walk(p.Value, path + "." + p.Name, skipped || SkippedProperties.Contains(p.Name), children, literals);
+                    Walk(p.Value, depth + 1, inParameters || (depth == 0 && p.Name == "parameters"), skipped || SkippedProperties.Contains(p.Name), children, literals);
                 }
 
                 break;
             case JsonValueKind.Array:
-                var i = 0;
                 foreach (var item in e.EnumerateArray())
                 {
-                    Walk(item, $"{path}[{i++}]", skipped, children, literals);
+                    Walk(item, depth + 1, inParameters, skipped, children, literals);
                 }
 
                 break;
             case JsonValueKind.String when !skipped:
-                literals.Add(new StringLiteral(path, e.GetString()!));
+                literals.Add(new StringLiteral(inParameters, e.GetString()!));
                 break;
         }
     }
