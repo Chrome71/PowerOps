@@ -60,41 +60,38 @@ runs:
       shell: bash
       continue-on-error: true
       env:
+        PO_DLL: ${{ github.action_path }}/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll
         PO_PATH: ${{ inputs.path }}
         PO_BASELINE: ${{ inputs.baseline }}
       run: |
         args=(analyze "$PO_PATH" --fail-on none)
         if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
-        dotnet "$GITHUB_ACTION_PATH/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll" "${args[@]}" --format markdown >> "$GITHUB_STEP_SUMMARY"
+        bash "$GITHUB_ACTION_PATH/action/powerops.sh" "${args[@]}" --format markdown | bash "$GITHUB_ACTION_PATH/action/summary.sh"
 
     - name: Annotations
       shell: bash
       continue-on-error: true
       env:
+        PO_DLL: ${{ github.action_path }}/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll
         PO_PATH: ${{ inputs.path }}
         PO_BASELINE: ${{ inputs.baseline }}
       run: |
         args=(analyze "$PO_PATH" --fail-on none)
         if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
-        dotnet "$GITHUB_ACTION_PATH/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll" "${args[@]}" --format json |
-          jq -r '
-            def data: gsub("%"; "%25") | gsub("\r"; "%0D") | gsub("\n"; "%0A");
-            def prop: data | gsub(":"; "%3A") | gsub(","; "%2C");
-            .solutions[] | .path as $p | .findings[]
-            | (if ($p | endswith(".zip")) then $p elif $p == "." then .file else $p + "/" + .file end) as $file
-            | "::\(if .severity == "error" then "error" else "warning" end) file=\($file | prop),title=\(.ruleId | prop)::\(.message | data)"' | tr -d '\r'
+        bash "$GITHUB_ACTION_PATH/action/powerops.sh" "${args[@]}" --format json | bash "$GITHUB_ACTION_PATH/action/annotate.sh"
 
     - name: Write SARIF
       id: sarif
       shell: bash
       continue-on-error: true
       env:
+        PO_DLL: ${{ github.action_path }}/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll
         PO_PATH: ${{ inputs.path }}
         PO_BASELINE: ${{ inputs.baseline }}
       run: |
         args=(analyze "$PO_PATH" --fail-on none)
         if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
-        dotnet "$GITHUB_ACTION_PATH/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll" "${args[@]}" --format sarif --out "$RUNNER_TEMP/powerops.sarif"
+        bash "$GITHUB_ACTION_PATH/action/powerops.sh" "${args[@]}" --format sarif --out "$RUNNER_TEMP/powerops.sarif"
         echo "written=true" >> "$GITHUB_OUTPUT"
 
     - name: Upload SARIF
@@ -132,13 +129,14 @@ runs:
       if: inputs.plan-file != ''
       shell: bash
       env:
+        PO_DLL: ${{ github.action_path }}/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll
         PO_PATH: ${{ inputs.path }}
         PO_BASELINE: ${{ inputs.baseline }}
         PO_FAIL_ON: ${{ inputs.fail-on }}
       run: |
         args=(analyze "$PO_PATH" --fail-on "$PO_FAIL_ON")
         if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
-        dotnet "$GITHUB_ACTION_PATH/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll" "${args[@]}"
+        bash "$GITHUB_ACTION_PATH/action/powerops.sh" "${args[@]}"
 
     - name: Deploy apply
       id: apply
@@ -150,7 +148,7 @@ runs:
         PO_TARGET: ${{ inputs.target }}
         PO_APPLY: ${{ inputs.apply }}
         PO_EVENT: ${{ github.event_name }}
-        PO_FORK: ${{ github.event.pull_request.head.repo.full_name != '' && github.event.pull_request.head.repo.full_name != github.repository }}
+        PO_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
       run: bash "$GITHUB_ACTION_PATH/action/apply.sh"
 
     - name: Diff
@@ -175,13 +173,14 @@ runs:
     - name: Apply fail-on
       shell: bash
       env:
+        PO_DLL: ${{ github.action_path }}/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll
         PO_PATH: ${{ inputs.path }}
         PO_BASELINE: ${{ inputs.baseline }}
         PO_FAIL_ON: ${{ inputs.fail-on }}
       run: |
         args=(analyze "$PO_PATH" --fail-on "$PO_FAIL_ON")
         if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
-        dotnet "$GITHUB_ACTION_PATH/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll" "${args[@]}"
+        bash "$GITHUB_ACTION_PATH/action/powerops.sh" "${args[@]}"
 
     - name: Apply plan result
       if: always() && ((steps.plan.outputs.exit-code != '' && steps.plan.outputs.exit-code != '0') || (steps.apply.outputs.exit-code != '' && steps.apply.outputs.exit-code != '0'))

@@ -21,7 +21,8 @@ public static partial class YamlReader
             : throw new InvalidDataException($"{solutionYml}: not in a solutions/<name> folder.");
     }
 
-    internal static Solution Read(string solutionYml, YamlRoot root)
+    /// <param name="skippedLinks">Receives the links that lie in this solution's own files (its folder or a folder its components cover); the rest of the root is not this solution's.</param>
+    internal static Solution Read(string solutionYml, YamlRoot root, ICollection<string>? skippedLinks = null)
     {
         var manifestFile = Path.GetRelativePath(root.Folder, Path.GetFullPath(solutionYml)).Replace('\\', '/');
         if (!SolutionYmlPath().IsMatch(manifestFile))
@@ -38,6 +39,10 @@ public static partial class YamlReader
         var entries = ReadEntries(root.LoadYaml(componentsFile));
         var solutionFiles = root.Paths.Values.Where(p => Under(entries, p)).Order(StringComparer.Ordinal).ToList();
         var ownFiles = solutionFiles.ToDictionary(p => p, StringComparer.OrdinalIgnoreCase);
+        if (skippedLinks is not null)
+        {
+            root.ReportLinks(link => Under(entries, link) || link.StartsWith(dir + "/", StringComparison.OrdinalIgnoreCase), skippedLinks);
+        }
 
         var publisherName = SolutionParser.Text(manifest.Element("Publisher") ?? new XElement("Publisher"), "UniqueName") ?? "";
         var publisherFile = Find(root, $"publishers/{publisherName}/publisher.yml")

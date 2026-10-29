@@ -1,3 +1,5 @@
+using System.Text;
+
 using PowerOps.Core.Rules;
 
 namespace PowerOps.Core.Output;
@@ -27,7 +29,36 @@ public static class MarkdownReport
         }
     }
 
-    // Everything from the solution is untrusted: control characters become spaces and Markdown/HTML syntax is backslash-escaped.
-    internal static string Escape(string? text) =>
-        string.Concat((text ?? "").Select(c => char.IsControl(c) ? " " : "\\|*_[]<>`".Contains(c) ? "\\" + c : c.ToString()));
+    internal const string Specials = "\\|*_[]<>`";
+
+    // Everything from the solution is untrusted: TextReport.Clean turns control characters into spaces and drops bidi and other format characters, Markdown/HTML syntax is backslash-escaped, and a zero-width
+    // space after '@' and '#' and inside '://' stops a mention, an issue reference or an autolink. Clean runs first and never over this output: it strips that space.
+    internal static string Escape(string? text)
+    {
+        text = TextReport.Clean(text);
+        var result = new StringBuilder(text.Length);
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (Specials.Contains(c))
+            {
+                result.Append('\\').Append(c);
+            }
+            else if (c is '@' or '#')
+            {
+                result.Append(c).Append('\u200B');
+            }
+            else if (c == ':' && string.CompareOrdinal(text, i + 1, "//", 0, 2) == 0)
+            {
+                result.Append(":/\u200B");
+                i++;
+            }
+            else
+            {
+                result.Append(c);
+            }
+        }
+
+        return result.ToString();
+    }
 }

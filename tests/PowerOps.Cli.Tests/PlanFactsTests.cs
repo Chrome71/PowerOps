@@ -149,6 +149,41 @@ public class PlanFactsTests
         Assert.True(elapsed < TimeSpan.FromSeconds(3));
     }
 
+    [Theory]
+    [InlineData("head -c 16777217 /dev/zero; sleep 30")]
+    [InlineData("head -c 16777217 /dev/zero >&2; sleep 30")]
+    public void Output_past_16_MB_on_a_stream_fails_the_run_and_stops_the_process(string body)
+    {
+        var result = RunScript(body, TimeSpan.FromSeconds(20), out var elapsed);
+
+        Assert.True(result.Started);
+        Assert.False(result.TimedOut);
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Equal("", result.Stdout);
+        Assert.Equal(PacRunner.TooLarge, result.Stderr);
+        Assert.True(elapsed < TimeSpan.FromSeconds(15));
+    }
+
+    [Fact]
+    public void Output_of_exactly_16_MB_is_read()
+    {
+        var result = RunScript("head -c 16777216 /dev/zero | tr '\\0' 'x'", TimeSpan.FromSeconds(20), out _);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(16 * 1024 * 1024, result.Stdout.Length);
+    }
+
+    [Fact]
+    public void A_UTF8_BOM_on_either_stream_is_not_part_of_the_text()
+    {
+        var result = RunScript("printf '\\357\\273\\277{\"a\":1}'; printf '\\357\\273\\277err' >&2", TimeSpan.FromSeconds(10), out _);
+
+        Assert.Equal("{\"a\":1}", result.Stdout);
+        Assert.Equal("err", result.Stderr);
+        using var doc = System.Text.Json.JsonDocument.Parse(result.Stdout);
+        Assert.Equal(1, doc.RootElement.GetProperty("a").GetInt32());
+    }
+
     [Fact]
     public void A_child_holding_the_pipe_after_pac_exits_still_times_out()
     {

@@ -60,4 +60,40 @@ public sealed class ActionYmlTests
 
         Assert.EndsWith("&& (steps.test.outputs.exit-code == '' || steps.test.outputs.exit-code == '0')", Text(steps[Index("Deploy apply")], "if"));
     }
+
+    [Fact]
+    public void The_analyze_steps_run_through_powerops_sh_so_only_error_and_note_lines_reach_the_log()
+    {
+        var steps = Steps();
+        foreach (var name in new[] { "Job summary", "Annotations", "Write SARIF", "Gate the apply", "Apply fail-on" })
+        {
+            var step = steps.Single(s => Text(s, "name") == name);
+
+            Assert.Contains("action/powerops.sh", Text(step, "run"));
+            Assert.Equal("${{ github.action_path }}/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll", ((Dictionary<object, object>)step["env"])["PO_DLL"]);
+        }
+
+        Assert.All(steps.Where(s => Text(s, "run") is not null), s => Assert.DoesNotContain("powerops.dll", Text(s, "run")));
+    }
+
+    [Fact]
+    public void The_summary_is_capped_and_the_annotations_are_made_by_the_scripts()
+    {
+        var steps = Steps();
+
+        Assert.Contains("| bash \"$GITHUB_ACTION_PATH/action/summary.sh\"", Text(steps.Single(s => Text(s, "name") == "Job summary"), "run"));
+        Assert.DoesNotContain("GITHUB_STEP_SUMMARY", Text(steps.Single(s => Text(s, "name") == "Job summary"), "run"));
+        var annotations = Text(steps.Single(s => Text(s, "name") == "Annotations"), "run")!;
+        Assert.Contains("| bash \"$GITHUB_ACTION_PATH/action/annotate.sh\"", annotations);
+        Assert.DoesNotContain("jq", annotations);
+    }
+
+    [Fact]
+    public void The_apply_step_passes_the_head_repository_so_a_missing_one_is_refused()
+    {
+        var env = (Dictionary<object, object>)Steps().Single(s => Text(s, "name") == "Deploy apply")["env"];
+
+        Assert.Equal("${{ github.event.pull_request.head.repo.full_name }}", env["PO_HEAD_REPO"]);
+        Assert.DoesNotContain("PO_FORK", env.Keys.Cast<string>());
+    }
 }

@@ -80,21 +80,36 @@ public static class SolutionDiscovery
         found.AddRange(Directory.EnumerateFiles(dir, "*.zip", Options).Where(HasRootSolutionXml));
     }
 
-    /// <summary>The files under <paramref name="folder"/>, without descending into <see cref="Skipped"/> folders or following symlinks.</summary>
-    internal static IEnumerable<string> EnumerateFiles(string folder)
+    // Like Options, but lists the links too, so they can be reported.
+    private static readonly EnumerationOptions WithLinks = new() { IgnoreInaccessible = true, AttributesToSkip = 0, MatchCasing = MatchCasing.CaseInsensitive };
+
+    /// <summary>The files under <paramref name="folder"/>, without descending into <see cref="Skipped"/> folders or following symlinks. A link inside (file or folder) is added to <paramref name="links"/>, so the caller can say it was not read.</summary>
+    internal static IEnumerable<string> EnumerateFiles(string folder, ICollection<string>? links = null)
     {
         var pending = new Stack<string>();
         pending.Push(folder);
         while (pending.TryPop(out var dir))
         {
-            foreach (var file in Directory.EnumerateFiles(dir, "*", Options))
+            foreach (var entry in new DirectoryInfo(dir).EnumerateFileSystemInfos("*", WithLinks))
             {
-                yield return file;
-            }
-
-            foreach (var sub in Directory.EnumerateDirectories(dir, "*", Options).Where(d => !Skipped.Contains(Path.GetFileName(d))))
-            {
-                pending.Push(sub);
+                if (entry.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                {
+                    if (!Skipped.Contains(entry.Name))
+                    {
+                        links?.Add(entry.FullName);
+                    }
+                }
+                else if (entry is DirectoryInfo)
+                {
+                    if (!Skipped.Contains(entry.Name))
+                    {
+                        pending.Push(entry.FullName);
+                    }
+                }
+                else
+                {
+                    yield return entry.FullName;
+                }
             }
         }
     }

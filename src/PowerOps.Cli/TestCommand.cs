@@ -81,6 +81,7 @@ public static class TestCommand
             var context = new LoadContext();
             var solutions = solutionPaths.Select(p => SolutionLoader.Load(p, context)).ToList();
             var locations = solutionPaths.Select(p => Path.GetRelativePath(path, p).Replace('\\', '/')).ToList();
+            TextReport.WriteNotes(context.SkippedLinks, error);
             var results = files.Select(f => FlowTestRunner.Run(f.Name, f.Test, solutions, locations)).ToList();
 
             var report = new StringWriter();

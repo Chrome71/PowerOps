@@ -29,11 +29,11 @@ public sealed record AnalysisResult(IReadOnlyList<SolutionResult> Solutions)
     private int Count(Severity severity) => Solutions.Sum(s => s.Findings.Count(f => f.Severity == severity));
 
     /// <summary>Discovers, loads and analyzes every solution under <paramref name="paths"/>; display paths are relative to <paramref name="baseDir"/> when underneath it.</summary>
-    public static AnalysisResult Run(IEnumerable<string> paths, string baseDir)
+    public static AnalysisResult Run(IEnumerable<string> paths, string baseDir, LoadContext? context = null)
     {
         var seen = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
         var results = new List<SolutionResult>();
-        var context = new LoadContext();
+        context ??= new LoadContext();
         foreach (var root in paths)
         {
             foreach (var found in SolutionDiscovery.Find(root))

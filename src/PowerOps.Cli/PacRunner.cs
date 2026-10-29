@@ -8,6 +8,9 @@ public sealed record PacResult(bool Started, bool TimedOut, int ExitCode, string
 // Runs pac as a subprocess. Arguments go through ArgumentList, never a shell string.
 public sealed class PacRunner(string executable = "pac", TimeSpan? timeout = null)
 {
+    internal const long MaxOutput = 16 * 1024 * 1024;
+    internal const string TooLarge = "the output was over 16 MB; the process was stopped";
+
     private readonly TimeSpan _timeout = timeout ?? TimeSpan.FromSeconds(30);
 
     public PacResult Run(IReadOnlyList<string> args)
@@ -41,10 +44,20 @@ public sealed class PacRunner(string executable = "pac", TimeSpan? timeout = nul
         {
             process.StandardInput.Close();
             var clock = Stopwatch.StartNew();
-            var stdout = process.StandardOutput.ReadToEndAsync();
-            var stderr = process.StandardError.ReadToEndAsync();
+            var tooLarge = false;
+            var stdout = Capture(process.StandardOutput);
+            var stderr = Capture(process.StandardError);
             // The timeout covers the exit and both stream reads: a child that inherits the pipes can keep them open after pac exits.
             if (!process.WaitForExit(_timeout) || !Task.WaitAll([stdout, stderr], Remaining(clock)))
+            {
+                Kill();
+                return new PacResult(true, true, 0, "");
+            }
+
+            // A stream past the cap killed the process, so the exit code is not pac's own.
+            return tooLarge ? new PacResult(true, false, -1, "", TooLarge) : new PacResult(true, false, process.ExitCode, stdout.Result, stderr.Result);
+
+            void Kill()
             {
                 try
                 {
@@ -54,11 +67,29 @@ public sealed class PacRunner(string executable = "pac", TimeSpan? timeout = nul
                 {
                     // The process exited between the wait and the kill.
                 }
-
-                return new PacResult(true, true, 0, "");
             }
 
-            return new PacResult(true, false, process.ExitCode, stdout.Result, stderr.Result);
+            async Task<string> Capture(StreamReader reader)
+            {
+                using var bytes = new MemoryStream();
+                var buffer = new byte[81920];
+                int n;
+                while ((n = await reader.BaseStream.ReadAsync(buffer)) > 0)
+                {
+                    if (bytes.Length + n > MaxOutput)
+                    {
+                        tooLarge = true;
+                        Kill();
+                        return "";
+                    }
+
+                    bytes.Write(buffer, 0, n);
+                }
+
+                // Decoded like StreamReader does, so a UTF-8 byte order mark is dropped instead of becoming U+FEFF.
+                using var text = new StreamReader(new MemoryStream(bytes.GetBuffer(), 0, (int)bytes.Length), reader.CurrentEncoding, detectEncodingFromByteOrderMarks: true);
+                return await text.ReadToEndAsync();
+            }
         }
     }
 

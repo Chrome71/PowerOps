@@ -1,9 +1,21 @@
 #!/usr/bin/env bash
 # Runs `powerops deploy apply` for the action. Inputs come only from the environment:
-# PO_DLL, PO_PLAN_FILE, PO_TARGET, PO_APPLY, PO_EVENT, PO_FORK, GITHUB_OUTPUT, GITHUB_STEP_SUMMARY and, optionally, RUNNER_DEBUG.
+# PO_DLL, PO_PLAN_FILE, PO_TARGET, PO_APPLY, PO_EVENT, PO_HEAD_REPO, GITHUB_REPOSITORY, GITHUB_OUTPUT, GITHUB_STEP_SUMMARY and, optionally, RUNNER_DEBUG.
 # PO_APPLY must be exactly `true` to import; anything else is a dry run.
+# Only push, workflow_dispatch, merge_group and a pull_request whose head repository (PO_HEAD_REPO) is this repository (GITHUB_REPOSITORY) may run it.
+# A pull request with no head repository (a deleted fork) is refused, as is every other event.
 # It records the exit code in the step output and always exits 0; the last step of the action fails the job.
 set -euo pipefail
+
+# An event that can run code or text from someone else (a fork, workflow_run, issue_comment, pull_request_target, ...) is refused.
+# $1 is the event, $2 the head repository of a pull request, $3 this repository.
+allowed() {
+  case "$1" in
+    push | workflow_dispatch | merge_group) return 0 ;;
+    pull_request) [ -n "$2" ] && [ "$2" = "$3" ] ;;
+    *) return 1 ;;
+  esac
+}
 
 code=0
 report="$(mktemp)"
@@ -13,8 +25,8 @@ trap 'rm -f "$report" "$stderr"' EXIT
 if [ -z "${PO_TARGET:-}" ]; then
   echo "::error::target is required when plan-file is set"
   code=2
-elif [ "${PO_FORK:-}" = "true" ] || [ "${PO_EVENT:-}" = "pull_request_target" ]; then
-  echo "::error::plan-file is not supported on fork pull requests or pull_request_target; nothing was imported"
+elif ! allowed "${PO_EVENT:-}" "${PO_HEAD_REPO:-}" "${GITHUB_REPOSITORY:-}"; then
+  echo "::error::plan-file is supported only on push, workflow_dispatch, merge_group and same-repository pull_request events, not on ${PO_EVENT:-an unknown event}, a fork pull request or a pull request whose head repository is missing; nothing was imported"
   code=2
 else
   args=(deploy apply "$PO_PLAN_FILE" --target "$PO_TARGET")

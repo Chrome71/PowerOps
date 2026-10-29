@@ -282,8 +282,8 @@ public static class SettingsCommand
 
             if (import.ExitCode != 0)
             {
-                error.Write(import.Stdout);
-                error.Write(import.Stderr);
+                DeployCommand.Forward(error, import.Stdout);
+                DeployCommand.Forward(error, import.Stderr);
                 return Finish(InternalError, "failed", $"The import failed (pac exit code {import.ExitCode}); pac's output is on stderr. There is no rollback: fix the cause and run again.", import.ExitCode);
             }
 

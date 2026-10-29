@@ -11,8 +11,8 @@ public static class SolutionLoader
         try
         {
             context ??= new LoadContext();
-            return Directory.Exists(path) ? XmlUnpackReader.Read(path)
-                : YamlReader.IsSolutionYml(path) ? YamlReader.Read(path, context.RootFor(YamlReader.RootFolder(path)))
+            return Directory.Exists(path) ? XmlUnpackReader.Read(path, new ReadBudget(), context.SkippedLinkSink)
+                : YamlReader.IsSolutionYml(path) ? YamlReader.Read(path, context.RootFor(YamlReader.RootFolder(path)), context.SkippedLinkSink)
                 : path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ? ZipReader.Read(path)
                 : throw new InvalidDataException($"{path}: not a solution folder or zip.");
         }
