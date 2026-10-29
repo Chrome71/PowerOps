@@ -265,7 +265,8 @@ public static class DeployCommand
         // The --target value, the environment id and every folder path are never printed.
         var problems = new List<string>();
         // The plan file and the zips and settings files beside it, which DryRun reads.
-        string[] inputs = [planFile, .. FolderInputs(Path.GetDirectoryName(Path.GetFullPath(planFile)) ?? "")];
+        // A plan file that does not exist is a usage problem below; its folder is not read (GetFullPath throws on an empty path).
+        string[] inputs = File.Exists(planFile) ? [planFile, .. FolderInputs(Path.GetDirectoryName(Path.GetFullPath(planFile)) ?? "")] : [];
         PlanFileProblems(planFile, target, problems);
         if (outFile is not null && Directory.Exists(outFile))
         {

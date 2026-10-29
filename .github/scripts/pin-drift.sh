@@ -41,7 +41,8 @@ for pin in $pins; do
   count="$(git rev-list --count "$pin..HEAD" -- $paths)"
   if [ "$count" -gt 0 ]; then
     # shellcheck disable=SC2086
-    list="$(git log --oneline -n 10 "$pin..HEAD" -- $paths | paste -sd ';' -)"
+    # A subject is untrusted: drop control characters (a CR would start a new workflow command), keeping the newline paste joins on.
+    list="$(git log --oneline -n 10 "$pin..HEAD" -- $paths | tr -d '\000-\011\013-\037\177' | paste -sd ';' -)"
     warn "The PowerOps pin $short is $count commit(s) behind on the files the Action builds from (src, action, action.yml, skills, global.json, Directory.Build.props): $list. Pin the newest commit of main."
   fi
 done

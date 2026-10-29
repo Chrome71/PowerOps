@@ -279,6 +279,25 @@ public sealed class WorkflowTests
     }
 
     [Fact]
+    public void The_pin_drift_script_does_not_let_a_commit_subject_start_a_workflow_command()
+    {
+        var run = PinDrift(dir =>
+        {
+            var pin = Commit(dir, "feat: code", ("src/a.cs", "a"));
+            Commit(dir, "feat: x\r::error::INJECTED", ("src/a.cs", "b"));
+            return Pins(pin, pin);
+        });
+
+        Warns("1 commit(s) behind", run);
+        foreach (var text in new[] { run.Stdout, run.Summary })
+        {
+            Assert.DoesNotContain(text.Split('\r', '\n'), line => line.StartsWith("::error::", StringComparison.Ordinal));
+        }
+
+        Assert.Contains(run.Stdout.Split('\n'), line => line.StartsWith("::warning::", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void The_pin_drift_script_warns_when_the_pins_differ()
     {
         var run = PinDrift(dir =>

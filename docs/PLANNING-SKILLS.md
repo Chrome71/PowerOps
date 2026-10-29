@@ -152,7 +152,7 @@ Question order: outcome and users, then data, then automation, then environments
 
 An approved draft may still have open questions. The review and the sign-off both see the count.
 
-Facts the environment can answer (the target environment, existing solutions) are read, not asked.
+Facts the environment can answer (existing solutions) are read, not asked, but only for an environment the user named and confirmed `pac` is signed in to (see Environment facts below). Without one, the plan rests on the repo and says so in Assumptions.
 
 ### Depth and versions
 

@@ -82,11 +82,7 @@ public static class AnalyzeCommand
     private static List<string> Inputs(string[] paths, string? baselineFile, IEnumerable<string> found) =>
         [.. paths.Where(File.Exists), .. baselineFile is null ? Array.Empty<string>() : [baselineFile], .. found.Where(File.Exists)];
 
-    /// <summary>Shared by analyze and baseline: checks the paths, the baseline file and the output file (<paramref name="outFile"/>, null for stdout), analyzes, drops baselined findings, then hands the result to <paramref name="emit"/> (which returns the exit code). Maps failures to exit codes 2 and 3.</summary>
-    internal static int Run(string[] paths, string? baselineFile, string? outFile, TextWriter error, Func<AnalysisResult, int> emit) =>
-        Run(paths, baselineFile, outFile, error, (result, _) => emit(result));
-
-    /// <summary>As above; <paramref name="emit"/> also gets the files a write must not replace: those named and those the scan found.</summary>
+    /// <summary>Shared by analyze and baseline: checks the paths, the baseline file and the output file (<paramref name="outFile"/>, null for stdout), analyzes, drops baselined findings, then hands the result to <paramref name="emit"/> (which returns the exit code). Maps failures to exit codes 2 and 3. <paramref name="emit"/> also gets the files a write must not replace: those named and those the scan found.</summary>
     internal static int Run(string[] paths, string? baselineFile, string? outFile, TextWriter error, Func<AnalysisResult, IReadOnlyList<string>, int> emit)
     {
         foreach (var p in paths)

@@ -200,7 +200,7 @@ public static partial class McpCommand
                 (_, o, e, _) => Cli(["rules", "--json"], o, e)),
             new("baseline", "Record the current analyze findings of solution folders or zips as a baseline for analyze's `baseline` input. Read-only: returns the baseline file's text (a file format with its own `version`, no schema) and writes nothing.",
                 [new("paths", Kind.Paths, true, PathsText, 1)],
-                (v, o, e, _) => AnalyzeCommand.Run(v.List("paths"), null, null, e, r =>
+                (v, o, e, _) => AnalyzeCommand.Run(v.List("paths"), null, null, e, (r, _) =>
                 {
                     Baseline.Write(r, o);
                     return 0;

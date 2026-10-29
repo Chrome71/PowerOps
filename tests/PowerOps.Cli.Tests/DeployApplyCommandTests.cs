@@ -48,6 +48,7 @@ public class DeployApplyCommandTests : DeployTestBase
     [InlineData("out-is-a-folder")]
     [InlineData("out-directory-missing")]
     [InlineData("no-plan-file-argument")]
+    [InlineData("empty-plan-file")]
     public void A_usage_error_exits_2_before_anything_is_read_or_run(string problem)
     {
         SeedZip(Folder);
@@ -63,6 +64,9 @@ public class DeployApplyCommandTests : DeployTestBase
                 break;
             case "plan-file-is-a-folder":
                 args = ["deploy", "apply", Out, "--target", TargetValue];
+                break;
+            case "empty-plan-file":
+                args = ["deploy", "apply", "", "--target", TargetValue];
                 break;
             case "out-is-a-folder":
                 args = [.. args, "--out", Out];
@@ -80,6 +84,7 @@ public class DeployApplyCommandTests : DeployTestBase
 
         Assert.Equal(2, r.Code);
         Assert.StartsWith("error: ", r.Err);
+        Assert.DoesNotContain("Exception", r.Err);
         Assert.Equal("", r.Out);
         Assert.Equal(0, fake.Calls);
         Assert.Empty(pac.Calls);
