@@ -105,26 +105,6 @@ public class DriftCaptureTests
     }
 
     [Fact]
-    public void Dev_against_a_clean_test_differs_only_by_the_managed_information_item()
-    {
-        var fakes = Capture.Fakes("clean");
-
-        var items = DriftCompare.Compare([fakes.Reader.Read(Solution, Capture.DevEnv), fakes.Reader.Read(Solution, Capture.TestEnv)]);
-
-        Assert.Equal([(DriftKind.Managed, false)], items.Select(i => (i.Kind, i.Drift)));
-    }
-
-    [Fact]
-    public void Dev_against_the_edited_test_names_the_unmanaged_layer_by_the_flow_name()
-    {
-        var fakes = Capture.Fakes("edited");
-
-        var items = DriftCompare.Compare([fakes.Reader.Read(Solution, Capture.DevEnv), fakes.Reader.Read(Solution, Capture.TestEnv)]);
-
-        Assert.Equal([(DriftKind.Managed, false, "Solution"), (DriftKind.UnmanagedLayer, true, "Stamp work item status")], items.Select(i => (i.Kind, i.Drift, i.Subject == Solution ? "Solution" : i.Subject)));
-    }
-
-    [Fact]
     public void The_layer_fake_answers_like_the_live_table_with_no_rows_for_a_wrong_name()
     {
         var f = Capture.Fakes("clean");

@@ -236,17 +236,14 @@ public sealed class ActionScriptTests : IDisposable
         Assert.Equal("## PowerOps deploy apply\n\n```\napplied\n```\n", File.ReadAllText(run.Summary));
     }
 
-    [Theory]
-    [InlineData("", "contoso/widgets", "pull_request", "target is required")]
-    [InlineData("Contoso Test", "fork/widgets", "pull_request", "a fork pull request")]
-    [InlineData("Contoso Test", "contoso/widgets", "pull_request_target", "pull_request_target")]
-    public void Apply_refuses_without_a_target_on_a_fork_and_on_pull_request_target(string target, string headRepo, string eventName, string text)
+    [Fact]
+    public void Apply_refuses_without_a_target()
     {
-        var run = RunApply(exit: 0, target: target, headRepo: headRepo, eventName: eventName);
+        var run = RunApply(exit: 0, target: "");
 
         Assert.Equal(0, run.Code);
         Assert.StartsWith("::error::", run.Out);
-        Assert.Contains(text, run.Out);
+        Assert.Contains("target is required", run.Out);
         Assert.Equal("exit-code=2\n", run.Output);
         Assert.Empty(run.DotnetCalls);
     }

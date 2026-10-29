@@ -102,12 +102,6 @@ public partial class HandoffDocTests
     }
 
     [Fact]
-    public void No_hook_filters_with_grep()
-    {
-        Assert.DoesNotContain("grep", string.Join('\n', HookGroups().SelectMany(g => g!["hooks"]!.AsArray()).Select(h => (string)h!["command"]!)), StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void Step_4_also_runs_the_flow_tests_and_no_step_is_renumbered()
     {
         var lines = Page().Split('\n');

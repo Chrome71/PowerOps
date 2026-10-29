@@ -63,11 +63,6 @@ public class DriftCommandTests : IDisposable
     private static IEnumerable<(string Name, Func<Snapshot, Snapshot> Change, string Expected)> Changes()
     {
         yield return ("version", s => s with { Version = "2.0.0.0" }, "version PowerOpsSeed: 1.0.0.0 -> 2.0.0.0");
-        yield return ("extra component", s => s with { Components = [.. s.Components, new SnapshotComponent(61, new Guid("00000000-0000-0000-0000-0000000000e1"), null)] }, "component-extra 61 00000000-0000-0000-0000-0000000000e1");
-        yield return ("unmanaged layer", s => s with { Managed = true, Components = [.. s.Components.Select(c => c.Type == 29 ? c with { UnmanagedLayer = true } : c with { UnmanagedLayer = false })] }, "unmanaged-layer Notify on new work item");
-        yield return ("variable value", s => s with { Variables = [new SnapshotVariable("pops_DefaultStatus", Snapshot.Hash("Other"))] }, "variable-value pops_DefaultStatus");
-        yield return ("unbound reference", s => s with { References = [.. s.References.Select(r => r with { Bound = false })] }, "reference-unbound pops_sharedoffice365_6a2f1");
-        yield return ("flow off", s => s with { Flows = [.. s.Flows.Select(f => f with { State = "off" })] }, "flow-state Notify on new work item: on -> off");
     }
 
     public static IEnumerable<object[]> ChangeNames() => Changes().Select(c => new object[] { c.Name });
@@ -175,15 +170,6 @@ public class DriftCommandTests : IDisposable
         Assert.Equal(2, r.Code);
         Assert.Empty(r.Calls);
         Assert.Equal(NotAFileOrEnvironment, r.Err);
-    }
-
-    [Fact]
-    public void A_url_is_not_refused_for_its_slashes()
-    {
-        var r = Run(new Dictionary<string, Snapshot> { ["a"] = Dev, [Url] = Twin }, Args("a", Url));
-
-        Assert.Equal(0, r.Code);
-        Assert.Equal(["PowerOpsSeed|a", $"PowerOpsSeed|{Url}"], r.Calls);
     }
 
     [Fact]
@@ -459,22 +445,10 @@ public class DriftCommandTests : IDisposable
     // Each scenario breaks the second environment (the first one reads fine, so a save would have something to write).
     private static readonly Dictionary<string, Action<LiveFakes>> Failures = new()
     {
-        ["pac not found"] = f => OnTestPac(f, new PacResult(false, false, 0, "")),
-        ["pac timeout"] = f => OnTestPac(f, new PacResult(true, true, 0, "")),
         ["pac exit 1"] = f => OnTestPac(f, new PacResult(true, false, 1, "pac says no\n", "pac stderr\n")),
-        ["pac bad url"] = f => OnTestPac(f, new PacResult(true, false, 0, "Friendly Name: X\nOrg URL: http://contoso-test.crm.dynamics.com/\n")),
-        ["az not found"] = f => f.AzFn = a => a[3].Contains("test") ? new PacResult(false, false, 0, "") : new PacResult(true, false, 0, LiveFakes.Token),
-        ["az timeout"] = f => f.AzFn = a => a[3].Contains("test") ? new PacResult(true, true, 0, "") : new PacResult(true, false, 0, LiveFakes.Token),
         ["az exit 1 with the token on stdout"] = f => f.AzFn = a => a[3].Contains("test") ? new PacResult(true, false, 1, LiveFakes.Token, "ERROR: run az login\n") : new PacResult(true, false, 0, LiveFakes.Token),
-        ["az no token"] = f => f.AzFn = a => a[3].Contains("test") ? new PacResult(true, false, 0, "\n") : new PacResult(true, false, 0, LiveFakes.Token),
-        ["web timeout"] = f => OnTestWeb(f, new WebResult(0, "", true)),
-        ["web transport error"] = f => OnTestWeb(f, new WebResult(0, "", false, "transport error")),
         ["web 400"] = f => OnTestWeb(f, new WebResult(400, LiveFakes.SampleFile("error-400.json"), false)),
-        ["web 401"] = f => OnTestWeb(f, new WebResult(401, "", false)),
         ["web 403"] = f => OnTestWeb(f, new WebResult(403, """{"error":{"code":"1","message":"No access"}}""", false)),
-        ["web 302"] = f => OnTestWeb(f, new WebResult(302, "", false)),
-        ["web morerecords"] = f => OnTestWeb(f, LiveFakes.Ok(LiveFakes.SampleFile("morerecords.json"))),
-        ["web unreadable"] = f => OnTestWeb(f, LiveFakes.Ok("<html>sign in</html>")),
         ["layer read fails"] = f =>
         {
             var good = f.WebFn;

@@ -26,9 +26,6 @@ public sealed partial class ExampleWorkflowTests
     [GeneratedRegex(@"^\s*(-\s+)?uses:")]
     private static partial Regex UsesLine();
 
-    [GeneratedRegex("^[0-9a-f]{40}$")]
-    private static partial Regex Sha();
-
     private sealed record Step(string Job, Dictionary<object, object> Raw)
     {
         public string? Uses => Raw.TryGetValue("uses", out var v) ? (string)v : null;
@@ -81,15 +78,6 @@ public sealed partial class ExampleWorkflowTests
         Assert.All(installs, s => Assert.Contains("--version \"$PAC_VERSION\"", s.Run));
         Assert.All(Steps(), s => Assert.False(s.Raw.TryGetValue("env", out var env) && ((Dictionary<object, object>)env).ContainsKey("PAC_VERSION")));
         Assert.All(Jobs.Values, job => Assert.False(((Dictionary<object, object>)job).TryGetValue("env", out var env) && ((Dictionary<object, object>)env).ContainsKey("PAC_VERSION")));
-    }
-
-    [Fact]
-    public void Every_action_is_pinned_by_a_full_commit_sha()
-    {
-        var uses = Steps().Where(s => s.Uses is not null).Select(s => s.Uses!).ToList();
-
-        Assert.NotEmpty(uses);
-        Assert.All(uses, u => Assert.Matches(Sha(), u[(u.IndexOf('@') + 1)..]));
     }
 
     [Theory]

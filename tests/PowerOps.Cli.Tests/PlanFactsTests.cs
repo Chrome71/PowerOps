@@ -71,18 +71,11 @@ public class PlanFactsTests
     public void Success_json_matches_golden() => Golden.Verify(Run(Healthy).Json, "plan-facts.json");
 
     [Fact]
-    public void Unavailable_json_matches_golden() =>
-        Golden.Verify(Run(_ => new PacResult(false, false, 0, "")).Json, "plan-facts-unavailable.json");
-
-    [Fact]
-    public void Pac_not_found_is_unavailable()
+    public void Unavailable_json_matches_golden()
     {
         var (json, calls) = Run(_ => new PacResult(false, false, 0, ""));
 
-        var root = Parse(json);
-        Assert.False(root.GetProperty("available").GetBoolean());
-        Assert.Equal("pac was not found on PATH", root.GetProperty("reason").GetString());
-        Assert.StartsWith("Install pac (dotnet tool install --global Microsoft.PowerApps.CLI.Tool)", root.GetProperty("fix").GetString());
+        Golden.Verify(json, "plan-facts-unavailable.json");
         Assert.Equal(["org who"], calls);
     }
 

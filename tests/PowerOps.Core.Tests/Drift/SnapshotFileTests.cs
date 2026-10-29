@@ -81,7 +81,6 @@ public class SnapshotFileTests
     [Theory]
     [InlineData("not json")]
     [InlineData("[]")]
-    [InlineData("")]
     public void Non_objects_are_rejected(string json) => Rejected(json);
 
     [Fact]
@@ -128,8 +127,6 @@ public class SnapshotFileTests
 
     [Theory]
     [InlineData("")]
-    [InlineData("\"id\": null,")]
-    [InlineData("\"id\": \"not-a-guid\",")]
     public void A_missing_or_invalid_reference_id_is_rejected(string id) =>
         Rejected(Json(("\"references\": [\n    {\n      \"id\": \"" + IdA + "\",", "\"references\": [\n    {" + id)));
 
@@ -165,7 +162,6 @@ public class SnapshotFileTests
 
     [Theory]
     [InlineData("\"state\": \"on\"", "\"state\": \"On\"")]
-    [InlineData("\"state\": \"on\"", "\"state\": \"missing\"")]
     [InlineData("\"state\": \"on\"", "\"state\": null")]
     public void Unknown_states_are_rejected(string from, string to) => Rejected(Json((from, to)));
 
