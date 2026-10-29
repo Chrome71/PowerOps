@@ -311,6 +311,48 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Empty(pac.Calls);
     }
 
+    // The in-process entry point takes the hash the user approved; no argument list can.
+    private Outcome ApplyApproved(FakeTarget fake, FakePac pac, string approvedHash)
+    {
+        var (o, e) = (new StringWriter(), new StringWriter());
+        var code = Program.Run(["deploy", "apply", PlanFile, "--target", TargetValue, "--format", "json", "--apply"], o, e, pac.Run, null, fake.Read, null, approvedHash);
+        return new Outcome(code, o.ToString().ReplaceLineEndings("\n"), e.ToString().ReplaceLineEndings("\n"));
+    }
+
+    [Fact]
+    public void A_plan_whose_hash_is_not_the_approved_one_is_refused_naming_both_hashes_and_nothing_is_imported()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var planHash = (string)JsonNode.Parse(File.ReadAllText(PlanFile))!["hash"]!;
+        var approved = new string('a', 64);
+
+        var pac = new FakePac();
+        var r = ApplyApproved(SeedTarget(), pac, approved);
+
+        Assert.Equal(1, r.Code);
+        var doc = Json(r);
+        Assert.Equal("refused", (string?)doc["status"]);
+        Assert.Equal($"the plan is not the one that was approved (approved {approved}, found {planHash}); nothing was imported. Plan again and review the new plan.", (string?)doc["message"]);
+        Assert.Equal(planHash, (string?)doc["hash"]);
+        Assert.Equal(["PowerOpsSeed:not-run"], Statuses(doc));
+        Assert.Empty(pac.Calls);
+    }
+
+    [Fact]
+    public void A_plan_with_the_approved_hash_imports_as_before()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var planHash = (string)JsonNode.Parse(File.ReadAllText(PlanFile))!["hash"]!;
+
+        var pac = new FakePac();
+        var r = ApplyApproved(SeedTarget(), pac, planHash);
+
+        Assert.Equal(0, r.Code);
+        Assert.Single(pac.Calls);
+    }
+
     [Fact]
     public void A_blocked_re_plan_with_equal_inputs_is_refused_and_nothing_is_imported()
     {

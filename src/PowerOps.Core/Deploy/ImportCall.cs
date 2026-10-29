@@ -69,6 +69,9 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
     [GeneratedRegex(@"(?<!\w)pac(?:\.exe)?(?!\w)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex PacWord();
 
+    // On Windows two slashes or backslashes in any mix (\\host, /\host, \\?\, \\.\) open another host or a device, which can send the user's NTLM credentials; on Unix // is / and /\x is a root file named \x, so nothing real is lost.
+    public static bool IsNetworkPath(string value) => value.Length >= 2 && value[0] is '/' or '\\' && value[1] is '/' or '\\';
+
     /// <summary>A text for stderr: cleaned of control characters and cut to 100 characters.</summary>
     public static string Printable(string text)
     {
@@ -398,7 +401,7 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
             {
                 lines.Add($"{flag} {PathHint}");
             }
-            else if (value.StartsWith(@"\\", StringComparison.Ordinal) || value.StartsWith("//", StringComparison.Ordinal))
+            else if (IsNetworkPath(value))
             {
                 lines.Add($"{flag} must not be a network or device path");
             }

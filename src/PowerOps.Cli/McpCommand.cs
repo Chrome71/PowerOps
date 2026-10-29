@@ -20,6 +20,11 @@ public static partial class McpCommand
     private const string PathsText = "Absolute paths of solution folders or exported zips; folders are searched recursively.";
     private const string SolutionText = "Absolute path of an unpacked solution folder or an exported zip.";
 
+    // Limits on what a caller can send (UTF-16 units; entries per list). They are not in the tools' input schemas: an agent that goes over reads the limit in the error.
+    private const int MaxTextLength = 4096;
+    private const int MaxPaths = 50;
+    private const int MaxEnvs = 10;
+
     private enum Kind { Path, Paths, Text, Texts, Flag }
 
     // Local: a text field whose entries can also be file paths (drift's envs).
@@ -28,6 +33,8 @@ public static partial class McpCommand
         public bool IsList => Kind is Kind.Paths or Kind.Texts;
 
         public bool IsPath => Kind is Kind.Path or Kind.Paths;
+
+        public int MaxItems => Kind == Kind.Paths ? MaxPaths : MaxEnvs;
     }
 
     private sealed class Values(Dictionary<string, object> map)
@@ -58,9 +65,6 @@ public static partial class McpCommand
 
     // FileStream throws NotSupportedException for these on Windows; refused on every OS.
     private static readonly string[] DeviceNames = ["CON", "PRN", "AUX", "NUL", .. Enumerable.Range(0, 10).SelectMany(i => new[] { "COM" + i, "LPT" + i })];
-
-    // On Windows \\host\share and \\.\ open another host, which can send the user's NTLM credentials; on Unix // is /, so nothing is lost.
-    internal static bool IsNetworkPath(string value) => value.StartsWith(@"\\", StringComparison.Ordinal) || value.StartsWith("//", StringComparison.Ordinal);
 
     public static Command Create(TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot> driftLive,
         Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget)
@@ -101,8 +105,39 @@ public static partial class McpCommand
                 ListToolsHandler = (_, _) => ValueTask.FromResult(new ListToolsResult { Tools = listed }),
                 CallToolHandler = (context, cancellationToken) => Call(tools, context, cancellationToken),
             },
+            Filters = new McpServerFilters { Message = { IncomingFilters = { RefuseUnpairedSurrogate } } },
         };
     }
+
+    private const string SurrogateLine = "error: arguments: a string holds an unpaired surrogate";
+
+    // The SDK cannot turn a request that holds a lone surrogate back into JSON, so it answers -32603 before any handler runs. This filter runs first and answers with a tool error instead.
+    private static McpMessageHandler RefuseUnpairedSurrogate(McpMessageHandler next) => async (context, cancellationToken) =>
+    {
+        if (context.JsonRpcMessage is JsonRpcRequest { Method: "tools/call", Params: { } parameters } request)
+        {
+            try
+            {
+                _ = parameters.ToJsonString();
+            }
+            catch (InvalidOperationException)
+            {
+                var refusal = Refuse(SurrogateLine);
+
+                // The 2026-07-28 schema requires resultType on results; the SDK stamps it on handler results only, so a result sent from here carries it itself.
+                var revision = request.Context?.ProtocolVersion ?? context.Server.NegotiatedProtocolVersion;
+                if (revision is not null && string.CompareOrdinal(revision, "2026-07-28") >= 0)
+                {
+                    refusal.ResultType = "complete";
+                }
+
+                await context.Server.SendMessageAsync(new JsonRpcResponse { Id = request.Id, Result = JsonSerializer.SerializeToNode(refusal, McpJsonUtilities.DefaultOptions) }, cancellationToken);
+                return;
+            }
+        }
+
+        await next(context, cancellationToken);
+    };
 
     // Exit code 0 and 1 are reports; 2, 3 and anything else are errors, and so is a 1 that printed nothing
     // (System.CommandLine's own exception handler returns 1). Only powerops' own error lines are passed on:
@@ -133,11 +168,14 @@ public static partial class McpCommand
     private static ToolDef[] Tools(Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot> driftLive,
         Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget, Action<string[]>? ran)
     {
-        int Cli(string[] args, TextWriter output, TextWriter error)
+        // Only deploy_apply passes a hash: the one the user approved in the form.
+        int Approved(string[] args, TextWriter output, TextWriter error, string? approvedHash)
         {
             ran?.Invoke(args);
-            return Program.Run(args, output, error, pac, driftLive, deployTarget);
+            return Program.Run(args, output, error, pac, driftLive, deployTarget, approvedHash: approvedHash);
         }
+
+        int Cli(string[] args, TextWriter output, TextWriter error) => Approved(args, output, error, null);
 
         // One import at a time in this server; it covers the import only, never the form (see DeployApply).
         var guard = new SemaphoreSlim(1, 1);
@@ -186,11 +224,11 @@ public static partial class McpCommand
             new("plan_status", "Check the planning documents (docs/plans/*/plan.md) under a path: header, sign-off hash, review and tenant data. " + Json + "plan status --json` (docs/schemas/plan-status.schema.json).",
                 [new("path", Kind.Path, true, "Absolute path of a repo folder, a plan folder or a plan.md.")],
                 (v, o, e, _) => Cli(["plan", "status", "--json", "--", v.Text("path")], o, e)),
-            new("plan_facts", "Read the name of pac's current environment and its solutions (unique name, version, managed) through pac. " + Json + "plan facts` (docs/schemas/plan-facts.schema.json).",
+            new("plan_facts", "Read the name of pac's current environment and its solutions (unique name, version, managed) through pac. " + Json + "plan facts` (docs/schemas/plan-facts.schema.json). It reads the environment pac is signed in to; use it only when that is an environment the user named in the session.",
                 [],
                 (_, o, e, _) => Cli(["plan", "facts"], o, e),
                 ReadTenant),
-            new("drift", "Compare one solution across environments, read through pac, az and the Dataverse Web API, or across saved snapshot files: version, components, layers, variables, references and flows. " + Json + "drift --format json` (docs/schemas/drift.schema.json).",
+            new("drift", "Compare one solution across environments, read through pac, az and the Dataverse Web API, or across saved snapshot files: version, components, layers, variables, references and flows. " + Json + "drift --format json` (docs/schemas/drift.schema.json). Use it only on an environment the user named in the session.",
                 [
                     new("solution", Kind.Text, true, "The solution's unique name."),
                     new("envs", Kind.Texts, true, "At least two: an entry ending in .json is the absolute path of a snapshot file; any other is an environment id, URL or name (as pac --environment).", 2, true),
@@ -198,7 +236,7 @@ public static partial class McpCommand
                 (v, o, e, _) => Cli(["drift", "--solution", v.Text("solution"), .. v.List("envs").SelectMany(env => new[] { "--env", env }), "--format", "json"], o, e),
                 ReadTenant,
                 CheckEnvs),
-            new("deploy_plan", "Say what importing the solution zips in a folder into a target environment would do, reading the target through pac, az and the Dataverse Web API; returns the JSON of `powerops deploy plan --format json` (docs/schemas/deploy-plan.schema.json). It writes only when `save` names a new file, which gets that JSON in the folder; promote a reviewed plan with deploy_apply, not with an import tool.",
+            new("deploy_plan", "Say what importing the solution zips in a folder into a target environment would do, reading the target through pac, az and the Dataverse Web API; returns the JSON of `powerops deploy plan --format json` (docs/schemas/deploy-plan.schema.json). It writes only when `save` names a new file, which gets that JSON in the folder; promote a reviewed plan with deploy_apply, not with an import tool. Use it only on an environment the user named in the session.",
                 [
                     new("folder", Kind.Path, true, "Absolute path of a folder of exported solution zips, each with an optional <zip name>.settings.json beside it."),
                     new("target", Kind.Text, true, "The environment to plan against: an id or URL (as pac --environment)."),
@@ -207,7 +245,7 @@ public static partial class McpCommand
                 (v, o, e, ct) => DeployPlan(v, o, e, Cli, ct),
                 WritePlan,
                 CheckSave),
-            new("deploy_apply", "Promote a reviewed plan file from deploy_plan's `save` with this tool, not with an import tool: it plans again against the target and returns the JSON of `powerops deploy apply --format json` (docs/schemas/deploy-apply.schema.json), as a dry run that imports nothing unless `apply` is true. With `apply: true` it imports the zips in plan order through pac only after the user types the target's name into the server's confirmation form, and refuses when anything changed since the plan.",
+            new("deploy_apply", "Promote a reviewed plan file from deploy_plan's `save` with this tool, not with an import tool: it plans again against the target and returns the JSON of `powerops deploy apply --format json` (docs/schemas/deploy-apply.schema.json), as a dry run that imports nothing unless `apply` is true. With `apply: true` it imports the zips in plan order through pac only after the user types the target's name into the server's confirmation form, and refuses when anything changed since the plan. Use it only on an environment the user named in the session.",
                 [
                     new("planFile", Kind.Path, true, "Absolute path of a plan file saved by deploy_plan's save; the zips and settings files are read from its folder."),
                     new("target", Kind.Text, true, "The environment the plan was made for: an id or URL (as pac --environment)."),
@@ -215,7 +253,7 @@ public static partial class McpCommand
                 ],
                 null,
                 Import,
-                RunAsync: (v, server, ct) => DeployApply(v, server, guard, Cli, ct)),
+                RunAsync: (v, server, ct) => DeployApply(v, server, guard, Approved, ct)),
         ];
     }
 
@@ -245,14 +283,14 @@ public static partial class McpCommand
     }
 
     // Without apply: a dry run. With it: the user types the plan's target name into the client's form, and only an ordinal accept with that exact name passes.
-    private static async ValueTask<CallToolResult> DeployApply(Values v, McpServer server, SemaphoreSlim guard, Func<string[], TextWriter, TextWriter, int> cli, CancellationToken cancellationToken)
+    private static async ValueTask<CallToolResult> DeployApply(Values v, McpServer server, SemaphoreSlim guard, Func<string[], TextWriter, TextWriter, string?, int> cli, CancellationToken cancellationToken)
     {
         var (planFile, target) = (v.Text("planFile"), v.Text("target"));
         string[] Args(bool apply) => ["deploy", "apply", "--target", target, "--format", "json", .. (apply ? new[] { "--apply" } : []), "--", planFile];
-        (int Code, string Out, string Err) Exec(string[] args)
+        (int Code, string Out, string Err) Exec(string[] args, string? approvedHash = null)
         {
             var (o, e) = (new StringWriter(), new StringWriter());
-            return (cli(args, o, e), o.ToString(), e.ToString());
+            return (cli(args, o, e, approvedHash), o.ToString(), e.ToString());
         }
 
         if (!v.Flag("apply"))
@@ -342,7 +380,7 @@ public static partial class McpCommand
 
         try
         {
-            var (code, o, e) = Exec(Args(true));
+            var (code, o, e) = Exec(Args(true), plan.Hash);
             return Result(code, o, e);
         }
         finally
@@ -523,7 +561,9 @@ public static partial class McpCommand
         arguments ??= new Dictionary<string, JsonElement>();
         foreach (var name in arguments.Keys.Where(k => tool.Fields.All(f => f.Name != k)))
         {
-            problems.Add($"error: {TextReport.Clean(name)}: unknown field");
+            // A key of any length is cut to 64 characters, not inside a surrogate pair, so the reply stays within the caps.
+            var cut = name.Length <= 64 ? name.Length : char.IsHighSurrogate(name[63]) ? 63 : 64;
+            problems.Add($"error: {TextReport.Clean(name[..cut])}: unknown field");
         }
 
         var values = new Dictionary<string, object>();
@@ -566,6 +606,10 @@ public static partial class McpCommand
             {
                 problems.Add($"error: {f.Name}: give at least {f.MinItems}");
             }
+            else if (given.GetArrayLength() > f.MaxItems)
+            {
+                problems.Add($"error: {f.Name}: give at most {f.MaxItems}");
+            }
             else
             {
                 values[f.Name] = given.EnumerateArray().Select(i => i.GetString()!).ToArray();
@@ -582,13 +626,21 @@ public static partial class McpCommand
             {
                 problems.Add($"error: {label}: must not be empty");
             }
+            else if (value.Any(char.IsControl))
+            {
+                problems.Add($"error: {label}: must not hold a control character");
+            }
+            else if (value.Length > MaxTextLength)
+            {
+                problems.Add($"error: {label}: longer than {MaxTextLength} characters");
+            }
             else if (value[0] is '-' or '@')
             {
                 problems.Add($"error: {label}: a value that starts with - or @ is refused");
             }
-            else if ((field.IsPath || field.Local) && IsNetworkPath(value))
+            else if ((field.IsPath || field.Local) && ImportCall.IsNetworkPath(value))
             {
-                problems.Add($"error: {label}: a network or device path (starting with \\\\ or //) is refused");
+                problems.Add($"error: {label}: a network or device path (starting with two \\ or / characters) is refused");
             }
             else
             {

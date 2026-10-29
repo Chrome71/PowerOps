@@ -362,6 +362,22 @@ public class ImportCallTests
         Assert.Equal(2, lines.Count);
     }
 
+    [Theory]
+    [InlineData(@"\\host\share\x", true)]
+    [InlineData("//host/share/x", true)]
+    [InlineData(@"/\host\share\x", true)]
+    [InlineData(@"\/host/share/x", true)]
+    [InlineData(@"\\?\C:\x", true)]
+    [InlineData(@"\\.\pipe\x", true)]
+    [InlineData("/tmp/x", false)]
+    [InlineData(@"/", false)]
+    [InlineData(@"\x", false)]
+    [InlineData(@"C:\x", false)]
+    public void A_network_or_device_path_is_two_slashes_or_backslashes_in_any_mix(string value, bool expected)
+    {
+        Assert.Equal(expected, ImportCall.IsNetworkPath(value));
+    }
+
     [Fact]
     public void A_posix_path_with_a_nul_is_not_a_literal_path()
     {
@@ -440,6 +456,10 @@ public class ImportCallTests
     [InlineData("-p", "x", "the gate doesn't read -p")]
     [InlineData("--path", "./solutions/x.zip", $"--path {PathHint}")]
     [InlineData("--path", "//host/x.zip", "--path must not be a network or device path")]
+    [InlineData("--path", @"/\host\share\x.zip", "--path must not be a network or device path")]
+    [InlineData("--path", @"\/host/share/x.zip", "--path must not be a network or device path")]
+    [InlineData("--path", @"\\.\CON", "--path must not be a network or device path")]
+    [InlineData("--settings-file", @"/\host\s.json", "--settings-file must not be a network or device path")]
     [InlineData("--settings-file", "s.json", $"--settings-file {PathHint}")]
     public void An_mcp_argument_the_gate_cannot_pass_gives_its_line(string key, string value, string line)
     {

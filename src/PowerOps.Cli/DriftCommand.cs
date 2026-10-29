@@ -29,6 +29,9 @@ public static class DriftCommand
         return command;
     }
 
+    // On Unix Uri.TryCreate accepts /tmp/x as a file URI, hence the scheme check.
+    private static bool IsHttpUrl(string value) => Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https";
+
     private static bool IsSnapshotPath(string value) => value.EndsWith(".json", StringComparison.OrdinalIgnoreCase) || File.Exists(value);
 
     private static int Run(string? solution, string[] envs, string? saveDir, string format, string? outFile, TextWriter output, TextWriter error, Func<string, string, Snapshot> live)
@@ -50,6 +53,11 @@ public static class DriftCommand
             if (envs[i].EndsWith(".json", StringComparison.OrdinalIgnoreCase) && !File.Exists(envs[i]))
             {
                 problems.Add($"--env {i + 1}: no snapshot file at that path");
+            }
+            else if (envs[i].AsSpan().IndexOfAny('/', '\\') >= 0 && !IsHttpUrl(envs[i]) && !File.Exists(envs[i]))
+            {
+                // Neither a URL nor a file, so it would reach pac as an environment name; none holds a path separator.
+                problems.Add($"--env {i + 1}: not a snapshot file or an environment; a value with a path separator must be a URL or an existing file");
             }
         }
 

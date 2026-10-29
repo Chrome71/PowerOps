@@ -37,7 +37,7 @@ public static class Program
 
     // The command tree; tests read it too (HandoffDocTests checks the commands a page names).
     internal static RootCommand Root(TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot>? driftLive = null,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? deployTarget = null, Func<Stream?>? input = null)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? deployTarget = null, Func<Stream?>? input = null, string? approvedHash = null)
     {
         // The live reader (az runner, HttpClient) is built only when a run has a live --env.
         var reader = new Lazy<DriftLiveReader>(() => new DriftLiveReader(
@@ -60,7 +60,7 @@ public static class Program
         root.Subcommands.Add(SettingsCommand.Create(output, error, pac));
         root.Subcommands.Add(DriftCommand.Create(output, error, driftLive));
 
-        root.Subcommands.Add(DeployCommand.Create(output, error, pac, deployTarget, input));
+        root.Subcommands.Add(DeployCommand.Create(output, error, pac, deployTarget, input, approvedHash: approvedHash));
         root.Subcommands.Add(McpCommand.Create(error, pac, driftLive, deployTarget));
 
         return root;
@@ -68,13 +68,13 @@ public static class Program
 
     // The pac runner is injectable so tests of `settings apply` never call a real pac; so are the live reads of `drift` and `deploy plan`.
     public static int Run(string[] args, TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot>? driftLive = null,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? deployTarget = null, Func<Stream?>? input = null)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? deployTarget = null, Func<Stream?>? input = null, string? approvedHash = null)
     {
         UseInvariantCulture();
         try
         {
             // No response files: `@file` is an ordinary argument, so a file cannot supply options.
-            var parse = Root(output, error, pac, driftLive, deployTarget, input).Parse(args, new ParserConfiguration { ResponseFileTokenReplacer = null });
+            var parse = Root(output, error, pac, driftLive, deployTarget, input, approvedHash).Parse(args, new ParserConfiguration { ResponseFileTokenReplacer = null });
             if (parse.Errors.Count > 0)
             {
                 // System.CommandLine returns 1 for parse errors; usage errors are 2 here.

@@ -28,7 +28,7 @@ public static class DeployCommand
     /// <param name="deadline">How long <c>deploy gate</c> may check before it blocks; a test seam, <see cref="GateDeadline"/> in production.</param>
     public static Command Create(
         TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> target,
-        Func<Stream?>? input = null, TimeSpan? deadline = null)
+        Func<Stream?>? input = null, TimeSpan? deadline = null, string? approvedHash = null)
     {
         var folder = new Argument<string>("folder") { Description = "A folder of exported solution zips, each with an optional <zip name>.settings.json beside it." };
         var targetOption = new Option<string?>("--target") { Description = "The environment to plan against (an id or URL, as pac --environment). Never printed." };
@@ -42,11 +42,11 @@ public static class DeployCommand
         };
         plan.SetAction(parse => SettingsCommand.Guard(error, () =>
             Run(parse.GetValue(folder)!, parse.GetValue(targetOption), parse.GetValue(save), parse.GetValue(format)!, parse.GetValue(outFile), output, error, target)));
-        return new Command("deploy", "Plan a deployment of solution zips, and import a reviewed plan.") { plan, Apply(output, error, pac, target), Gate(error, input ?? (() => null), deadline ?? GateDeadline, target) };
+        return new Command("deploy", "Plan a deployment of solution zips, and import a reviewed plan.") { plan, Apply(output, error, pac, target, approvedHash), Gate(error, input ?? (() => null), deadline ?? GateDeadline, target) };
     }
 
     private static Command Apply(
-        TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> target)
+        TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> target, string? approvedHash)
     {
         var planFile = new Argument<string>("plan-file") { Description = "A plan file written by deploy plan --save. The zips and settings files are read from its folder." };
         var targetOption = new Option<string?>("--target") { Description = "The environment the plan was made for (an id or URL, as pac --environment). Never printed." };
@@ -59,7 +59,7 @@ public static class DeployCommand
             planFile, targetOption, apply, format, outFile,
         };
         command.SetAction(parse => SettingsCommand.Guard(error, () =>
-            Apply(parse.GetValue(planFile)!, parse.GetValue(targetOption), parse.GetValue(apply), parse.GetValue(format)!, parse.GetValue(outFile), output, error, pac, target)));
+            Apply(parse.GetValue(planFile)!, parse.GetValue(targetOption), parse.GetValue(apply), parse.GetValue(format)!, parse.GetValue(outFile), output, error, pac, target, approvedHash)));
         return command;
     }
 
@@ -188,7 +188,7 @@ public static class DeployCommand
     // `problems` holds the usage problems found so far; error lines go to `error`.
     private static (Ready? Ready, Stopped? Stop) DryRun(
         string planFile, string? target, List<string> problems, string tool, TextWriter error,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, string? approvedHash = null)
     {
         if (problems.Count > 0)
         {
@@ -231,6 +231,12 @@ public static class DeployCommand
             return (null, new Stopped(1, plan.Target, reviewed.Hash, ApplyStatus.Refused, $"{why}; nothing was imported. Plan again and review the new plan.", Rows(plan, _ => ImportStatus.NotRun)));
         }
 
+        // The MCP tool passes the hash its form showed; a file and zips swapped as a consistent pair after the yes agree with each other, not with that hash.
+        if (approvedHash is not null && plan.Hash != approvedHash)
+        {
+            return (null, new Stopped(1, plan.Target, reviewed.Hash, ApplyStatus.Refused, $"the plan is not the one that was approved (approved {approvedHash}, found {plan.Hash}); nothing was imported. Plan again and review the new plan.", Rows(plan, _ => ImportStatus.NotRun)));
+        }
+
         if (plan.Blocked)
         {
             return (null, new Stopped(1, plan.Target, reviewed.Hash, ApplyStatus.Refused, "the plan is blocked now; nothing was imported. Plan again.", Rows(plan, _ => ImportStatus.NotRun)));
@@ -249,7 +255,7 @@ public static class DeployCommand
 
     private static int Apply(
         string planFile, string? target, bool apply, string format, string? outFile, TextWriter output, TextWriter error,
-        Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
+        Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, string? approvedHash)
     {
         // The --target value, the environment id and every folder path are never printed.
         var problems = new List<string>();
@@ -291,7 +297,7 @@ public static class DeployCommand
             return code;
         }
 
-        var (ready, stop) = DryRun(planFile, target, problems, tool, error, read);
+        var (ready, stop) = DryRun(planFile, target, problems, tool, error, read, approvedHash);
         if (stop is not null)
         {
             return stop.Name is null ? stop.Code : Finish(stop.Code, stop.Name, stop.Hash, stop.Status, stop.Message, stop.Solutions!, []);

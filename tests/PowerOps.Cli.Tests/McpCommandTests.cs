@@ -129,7 +129,7 @@ public sealed class McpCommandTests : IAsyncLifetime
     private static Fakes TargetFakes() => new() { TargetBehavior = ReadTarget };
 
     // The seed as a managed zip one version higher, with its valid settings file, in a new folder.
-    private string DeployFolder()
+    private string DeployFolder(string version = "1.0.0.1")
     {
         var folder = Directory.CreateDirectory(Path.Combine(_temp, "deploy-" + Guid.NewGuid().ToString("N"))).FullName;
         var dir = Path.Combine(_temp, "seed-" + Guid.NewGuid().ToString("N"));
@@ -141,7 +141,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         }
 
         var xml = Path.Combine(dir, "Other", "Solution.xml");
-        File.WriteAllText(xml, File.ReadAllText(xml).Replace("<Managed>0</Managed>", "<Managed>1</Managed>").Replace("<Version>1.0.0.0</Version>", "<Version>1.0.0.1</Version>"));
+        File.WriteAllText(xml, File.ReadAllText(xml).Replace("<Managed>0</Managed>", "<Managed>1</Managed>").Replace("<Version>1.0.0.0</Version>", $"<Version>{version}</Version>"));
         SolutionZip.Create(dir, Path.Combine(folder, "PowerOpsSeed.zip"));
         File.Copy(Valid, Path.Combine(folder, "PowerOpsSeed.settings.json"));
         return folder;
@@ -209,6 +209,22 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Contains("deploy_apply", tools.Single(t => t.Name == "deploy_plan").Description);
         Assert.Equal("2026-07-28", _client.NegotiatedProtocolVersion);
         Golden.Verify(JsonSerializer.Serialize(tools, new JsonSerializerOptions(McpJsonUtilities.DefaultOptions) { WriteIndented = true }), "mcp-tools.txt");
+    }
+
+    [Fact]
+    public async Task Drift_deploy_plan_deploy_apply_and_plan_facts_say_to_use_them_only_on_an_environment_the_user_named()
+    {
+        const string named = "Use it only on an environment the user named in the session.";
+        const string signedIn = "It reads the environment pac is signed in to; use it only when that is an environment the user named in the session.";
+        var tools = (await _client.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken)).Select(t => t.ProtocolTool).ToList();
+
+        foreach (var tool in tools)
+        {
+            Assert.Equal(tool.Name is "drift" or "deploy_plan" or "deploy_apply", tool.Description!.EndsWith(" " + named, StringComparison.Ordinal));
+            Assert.Equal(tool.Name == "plan_facts", tool.Description.EndsWith(" " + signedIn, StringComparison.Ordinal));
+            Assert.Equal(tool.Name is "drift" or "deploy_plan" or "deploy_apply", tool.Description.Contains(named, StringComparison.Ordinal));
+            Assert.Equal(tool.Name == "plan_facts", tool.Description.Contains(signedIn, StringComparison.Ordinal));
+        }
     }
 
     // 2
@@ -411,6 +427,21 @@ public sealed class McpCommandTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task An_unknown_field_is_named_by_its_first_64_characters_at_most()
+    {
+        var plain = new string('k', 100_000);
+        var paired = new string('k', 63) + "\U0001F600" + new string('k', 100);
+        foreach (var (key, echoed) in new[] { (plain, plain[..64]), (paired, paired[..63]) })
+        {
+            var result = await Call("rules", new() { [key] = 1 });
+
+            Assert.True(result.IsError);
+            Assert.Equal($"error: {echoed}: unknown field", Text(result));
+            Assert.True(Text(result).Length <= 7 + 64 + 15);
+        }
+    }
+
+    [Fact]
     public async Task A_relative_path_is_refused()
     {
         await Refused("diff", new() { ["old"] = "old.zip", ["new"] = V2 }, "error: old: must be an absolute path");
@@ -462,29 +493,113 @@ public sealed class McpCommandTests : IAsyncLifetime
         await Assert.ThrowsAsync<McpProtocolException>(async () => await Call("nope"));
     }
 
-    [Theory]
-    [InlineData(@"\\host\share\x", true)]
-    [InlineData("//host/share/x", true)]
-    [InlineData(@"\\.\pipe\x", true)]
-    [InlineData(@"\\?\C:\x", true)]
-    [InlineData("/tmp/x", false)]
-    [InlineData(@"C:\x", false)]
-    public void A_network_or_device_path_is_recognised(string value, bool expected)
-    {
-        Assert.Equal(expected, McpCommand.IsNetworkPath(value));
-    }
-
     // 5, with fakes
 
     [Theory]
     [InlineData(@"\\host\share\x")]
     [InlineData("//host/share/x")]
+    [InlineData(@"/\host\share\x")]
+    [InlineData(@"\/host/share/x")]
+    [InlineData(@"\\?\C:\x")]
+    [InlineData(@"\\.\pipe\x")]
     public async Task A_network_path_is_refused_as_a_path_and_as_an_env_entry_and_nothing_runs(string path)
     {
-        await Refused("analyze", new() { ["paths"] = new[] { path } }, @"error: paths 1: a network or device path (starting with \\ or //) is refused");
-        await Refused("drift", new() { ["solution"] = "S", ["envs"] = new[] { path, DevFile } }, @"error: envs 1: a network or device path (starting with \\ or //) is refused");
+        await Refused("analyze", new() { ["paths"] = new[] { path } }, @"error: paths 1: a network or device path (starting with two \ or / characters) is refused");
+        await Refused("drift", new() { ["solution"] = "S", ["envs"] = new[] { path, DevFile } }, @"error: envs 1: a network or device path (starting with two \ or / characters) is refused");
 
         Assert.Equal(0, _fakes.Total);
+    }
+
+    // S-5: a control character in any string is refused with the field's label, never the value (an LF would forge an error: line).
+    [Theory]
+    [InlineData("plan_status", "path", "NUL", "path")]
+    [InlineData("plan_status", "path", "LF", "path")]
+    [InlineData("plan_status", "path", "CR", "path")]
+    [InlineData("drift", "solution", "TAB", "solution")]
+    [InlineData("drift", "solution", "DEL", "solution")]
+    [InlineData("drift", "solution", "NEL", "solution")]
+    [InlineData("drift", "envs", "LF", "envs 1")]
+    [InlineData("deploy_plan", "target", "LF", "target")]
+    public async Task A_string_with_a_control_character_is_refused_and_nothing_runs(string tool, string field, string character, string label)
+    {
+        var bad = character switch
+        {
+            "NUL" => "\0",
+            "LF" => "\nerror: forged",
+            "CR" => "\r",
+            "TAB" => "\t",
+            "DEL" => "\u007f",
+            _ => "\u0085",
+        };
+        var value = (field == "path" ? Path.Combine(_temp, "a") : "a") + bad + "b";
+        Dictionary<string, object?> arguments = (tool, field) switch
+        {
+            ("plan_status", _) => new() { ["path"] = value },
+            ("drift", "solution") => new() { ["solution"] = value, ["envs"] = new[] { DevFile, TestFile } },
+            ("drift", _) => new() { ["solution"] = "S", ["envs"] = new[] { value, TestFile } },
+            _ => new() { ["folder"] = _temp, ["target"] = value },
+        };
+
+        await Refused(tool, arguments, $"error: {label}: must not hold a control character");
+
+        Assert.Equal(0, _fakes.Total);
+        Assert.Empty(_ran);
+    }
+
+    [Theory]
+    [InlineData(4097, true)]
+    [InlineData(4096, false)]
+    public async Task A_string_over_4096_characters_is_refused_and_one_of_4096_is_not_refused_by_the_cap(int length, bool refused)
+    {
+        var path = Path.Combine(_temp, new string('a', length - _temp.Length - 1));
+        Assert.Equal(length, path.Length);
+
+        var result = await Call("plan_status", new() { ["path"] = path });
+
+        if (refused)
+        {
+            AssertRefused(result, "error: path: longer than 4096 characters");
+            Assert.Empty(_ran);
+        }
+        else
+        {
+            Assert.DoesNotContain("longer than", Text(result, result.Content.Count - 1));
+        }
+    }
+
+    [Theory]
+    [InlineData("analyze", 51, true)]
+    [InlineData("analyze", 50, false)]
+    [InlineData("drift", 11, true)]
+    [InlineData("drift", 10, false)]
+    public async Task More_than_50_paths_or_10_envs_are_refused_and_that_many_are_not_refused_by_the_cap(string tool, int count, bool refused)
+    {
+        Dictionary<string, object?> arguments = tool == "analyze"
+            ? new() { ["paths"] = Enumerable.Repeat(V1, count).ToArray() }
+            : new() { ["solution"] = "S", ["envs"] = Enumerable.Repeat(DevFile, count).ToArray() };
+
+        var result = await Call(tool, arguments);
+
+        if (refused)
+        {
+            AssertRefused(result, tool == "analyze" ? "error: paths: give at most 50" : "error: envs: give at most 10");
+            Assert.Equal(0, _fakes.Total);
+            Assert.Empty(_ran);
+        }
+        else
+        {
+            Assert.DoesNotContain("give at most", Text(result, result.Content.Count - 1));
+        }
+    }
+
+    [Fact]
+    public async Task A_pair_of_surrogates_that_spells_one_character_is_valid_text()
+    {
+        var result = await Call("plan_status", new() { ["path"] = Path.Combine(_temp, "\U0001F600") });
+
+        var text = Text(result, result.Content.Count - 1);
+        Assert.DoesNotContain("unpaired surrogate", text);
+        Assert.DoesNotContain("control character", text);
     }
 
     [Fact]
@@ -514,6 +629,15 @@ public sealed class McpCommandTests : IAsyncLifetime
         await Refused("drift", new() { ["solution"] = "S", ["envs"] = new[] { "rel/snap.json", DevFile } }, "error: envs 1: must be an absolute path");
         await Refused("drift", new() { ["solution"] = "S", ["envs"] = new[] { file, DevFile } }, "error: envs 1: an entry that names a file must end in .json");
         await Refused("drift", new() { ["solution"] = "S", ["envs"] = new[] { DevFile } }, "error: envs: give at least 2");
+
+        Assert.Equal(0, _fakes.Total);
+    }
+
+    [Fact]
+    public async Task A_drift_env_with_a_path_separator_that_is_not_a_url_or_a_file_is_a_tool_error_and_nothing_is_read()
+    {
+        await Refused("drift", new() { ["solution"] = "PowerOpsSeed", ["envs"] = new[] { DevFile, "bad/emptydir" } },
+            "error: --env 2: not a snapshot file or an environment; a value with a path separator must be a URL or an existing file");
 
         Assert.Equal(0, _fakes.Total);
     }
@@ -581,7 +705,7 @@ public sealed class McpCommandTests : IAsyncLifetime
     [InlineData("..\\plan.json", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]
     [InlineData("../plan.json", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]
     [InlineData("plan.txt", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]
-    [InlineData("plan.json\n", "error: save: must be a file name of letters, digits, '.', '_' and '-' that ends in .json")]
+    [InlineData("plan.json\n", "error: save: must not hold a control character")]
     [InlineData("plan.settings.json", "error: save: a name that ends in .settings.json is refused")]
     [InlineData("plan.Settings.json", "error: save: a name that ends in .settings.json is refused")]
     [InlineData("CON.json", "error: save: a Windows device name is refused")]
@@ -877,9 +1001,14 @@ public sealed class McpCommandTests : IAsyncLifetime
     // For a call that must not send a form: if it does, the test fails on what it sees instead of waiting for an answer.
     private static Forms NoFormExpected() => new(_ => new ElicitResult { Action = "cancel" });
 
-    private sealed class Pair(McpServer server, Task run, McpClient client, ConcurrentQueue<string[]> ran) : IAsyncDisposable
+    private sealed class Pair(McpServer server, Task run, McpClient client, ConcurrentQueue<string[]> ran, PipeWriter input) : IAsyncDisposable
     {
         public McpClient Client => client;
+
+        // The server's run, and the client's end of its input: completing the writer is what a client that closes stdin does.
+        public Task Run => run;
+
+        public PipeWriter Input => input;
 
         // Every argument list the server passed to Program.Run.
         public ConcurrentQueue<string[]> Ran => ran;
@@ -912,7 +1041,7 @@ public sealed class McpCommandTests : IAsyncLifetime
             new StreamClientTransport(clientToServer.Writer.AsStream(), serverToClient.Reader.AsStream()),
             new McpClientOptions { ProtocolVersion = revision, DiscoverProbeTimeout = NoProbeTimeout, Capabilities = elicitation is null ? null : new ClientCapabilities { Elicitation = elicitation }, Handlers = new McpClientHandlers { ElicitationHandler = forms.Handle } },
             cancellationToken: TestContext.Current.CancellationToken);
-        return new Pair(server, run, client, ran);
+        return new Pair(server, run, client, ran, clientToServer.Writer);
     }
 
     private static Task<CallToolResult> Apply(Pair pair, Dictionary<string, object?> arguments) => pair.Client.CallToolAsync("deploy_apply", arguments, cancellationToken: TestContext.Current.CancellationToken).AsTask();
@@ -1214,6 +1343,70 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Equal(0, _fakes.Pacs);
     }
 
+    [Theory]
+    [InlineData("2026-07-28")]
+    [InlineData("2025-06-18")]
+    public async Task A_plan_file_and_zip_swapped_as_a_consistent_pair_after_the_yes_imports_nothing(string revision)
+    {
+        var (folder, planFile) = SavedPlan();
+        ImportFakes();
+        var other = DeployFolder("1.0.0.2");
+        var swapped = false;
+
+        // onRan fires for the --apply run before Program.Run starts, which is after the tool's last recheck of the plan file.
+        await using var pair = await Connect(_fakes, revision, new Forms(_ => Accepted(TargetName)), onRan: args =>
+        {
+            if (!args.Contains("--apply"))
+            {
+                return;
+            }
+
+            File.Copy(Path.Combine(other, "PowerOpsSeed.zip"), Path.Combine(folder, "PowerOpsSeed.zip"), overwrite: true);
+            File.Delete(planFile);
+            Assert.Equal(0, CliWith(TargetFakes(), "deploy", "plan", "--target", Secret, "--save", planFile, "--", folder).Code);
+            swapped = true;
+        });
+
+        var result = await Apply(pair, ApplyArgs(planFile));
+
+        Assert.True(swapped);
+        Assert.Equal("refused", Status(result));
+        Assert.Contains("the plan is not the one that was approved", (string)JsonNode.Parse(Text(result))!["message"]!);
+        Assert.Equal(0, _fakes.Pacs);
+        Assert.Empty(_imports);
+    }
+
+    // S-8: this pins what SDK 2.3.0 does when the client closes the server's input during an import; it is not a fix.
+    [Fact]
+    public async Task A_server_whose_input_closes_during_an_import_finishes_the_import_then_exits()
+    {
+        var (_, planFile) = SavedPlan();
+        var (inImport, release) = (new SemaphoreSlim(0), new ManualResetEventSlim());
+        var finished = 0;
+        ImportFakes();
+        _fakes.PacBehavior = args =>
+        {
+            _imports.Enqueue([.. args]);
+            inImport.Release();
+            release.Wait(Wait, TestContext.Current.CancellationToken);
+            Interlocked.Exchange(ref finished, 1);
+            return Ok("imported\n");
+        };
+        await using var pair = await Connect(_fakes, "2026-07-28", new Forms(_ => Accepted(TargetName)));
+        var call = Apply(pair, ApplyArgs(planFile));
+        _ = call.ContinueWith(static t => t.Exception, TaskScheduler.Default);
+        Assert.True(await inImport.WaitAsync(Wait, TestContext.Current.CancellationToken), "the import never started");
+
+        await pair.Input.CompleteAsync();
+
+        Assert.NotSame(pair.Run, await Task.WhenAny(pair.Run, Task.Delay(500, TestContext.Current.CancellationToken)));
+        Assert.Equal(0, Volatile.Read(ref finished));
+        release.Set();
+        await pair.Run.WaitAsync(Wait, TestContext.Current.CancellationToken);
+        Assert.Equal(1, Volatile.Read(ref finished));
+        Assert.Single(_imports);
+    }
+
     // 7
 
     [Fact]
@@ -1442,6 +1635,9 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         public Task Send(JsonNode message) => _writer.WriteLineAsync(message.ToJsonString().AsMemory(), TestContext.Current.CancellationToken);
 
+        // A line as written: a client library cannot write a lone surrogate and JsonNode would not serialize one.
+        public Task SendRaw(string line) => _writer.WriteLineAsync(line.AsMemory(), TestContext.Current.CancellationToken);
+
         public async Task<JsonNode> Read() => JsonNode.Parse(await _reader.ReadLineAsync(TestContext.Current.CancellationToken).AsTask().WaitAsync(Wait, TestContext.Current.CancellationToken) ?? throw new EndOfStreamException())!;
 
         public async ValueTask DisposeAsync()
@@ -1533,6 +1729,51 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.DoesNotContain(ran, a => a.Contains("--apply"));
     }
 
+    // S-5: the SDK answers -32603 before any handler runs when a request holds a lone surrogate, so an incoming filter turns it into a tool error.
+    [Theory]
+    [InlineData("2026-07-28", "value")]
+    [InlineData("2026-07-28", "item")]
+    [InlineData("2026-07-28", "key")]
+    [InlineData("2025-06-18", "value")]
+    [InlineData("2025-06-18", "item")]
+    [InlineData("2025-06-18", "key")]
+    public async Task A_lone_surrogate_in_a_value_a_list_item_or_a_key_is_a_tool_error_and_runs_nothing(string revision, string where)
+    {
+        var ran = new ConcurrentQueue<string[]>();
+        await using var raw = new Raw(_fakes, ran);
+        var (tool, arguments) = where switch
+        {
+            "value" => ("plan_status", """{"path":"/tmp/\ud800x"}"""),
+            "item" => ("analyze", """{"paths":["\ud800"]}"""),
+            _ => ("plan_status", """{"\ud800":"x"}"""),
+        };
+
+        string meta;
+        if (revision == "2026-07-28")
+        {
+            meta = "\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientCapabilities\":{}},";
+        }
+        else
+        {
+            meta = "";
+            await raw.Send(JsonNode.Parse("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}""")!);
+            await raw.Read();
+            await raw.Send(JsonNode.Parse("""{"jsonrpc":"2.0","method":"notifications/initialized"}""")!);
+        }
+
+        await raw.SendRaw("{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{" + meta + "\"name\":\"" + tool + "\",\"arguments\":" + arguments + "}}");
+        var reply = await raw.Read();
+
+        Assert.Equal(7, (int)reply["id"]!);
+        Assert.Null(reply["error"]);
+        var result = reply["result"]!;
+        Assert.True((bool)result["isError"]!);
+        Assert.Equal("error: arguments: a string holds an unpaired surrogate", (string)result["content"]![0]!["text"]!);
+        Assert.Equal(revision == "2026-07-28" ? "complete" : null, (string?)result["resultType"]);
+        Assert.Equal(0, _fakes.Total);
+        Assert.Empty(ran);
+    }
+
     // 12
 
     [Fact]
@@ -1545,7 +1786,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         await Refused("deploy_apply", ApplyArgs("plan.json"), "error: planFile: must be an absolute path");
         await Refused("deploy_apply", ApplyArgs("-plan.json"), "error: planFile: a value that starts with - or @ is refused");
         await Refused("deploy_apply", ApplyArgs("@" + response), "error: planFile: a value that starts with - or @ is refused");
-        await Refused("deploy_apply", ApplyArgs(@"\\host\share\x"), @"error: planFile: a network or device path (starting with \\ or //) is refused");
+        await Refused("deploy_apply", ApplyArgs(@"\\host\share\x"), @"error: planFile: a network or device path (starting with two \ or / characters) is refused");
         await Refused("deploy_apply", new() { ["planFile"] = planFile, ["target"] = "@" + response }, "error: target: a value that starts with - or @ is refused");
         await Refused("deploy_apply", new() { ["planFile"] = planFile, ["target"] = Secret, ["apply"] = "true" }, "error: apply: must be true or false");
         await Refused("deploy_apply", new() { ["planFile"] = planFile, ["target"] = Secret, ["extra"] = 1 }, "error: extra: unknown field");
