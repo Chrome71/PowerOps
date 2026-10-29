@@ -21,6 +21,14 @@ public class OutputHygieneTests
     public void Markdown_cells_defuse_mentions_references_and_links(string text, string expected) => Assert.Equal(expected, MarkdownReport.Escape(text));
 
     [Fact]
+    public void Markdown_cells_lose_bidi_controls_and_line_breaks_but_keep_the_defusing_space()
+    {
+        Assert.Equal("ab c", MarkdownReport.Escape("a\u202Eb\u2028c"));
+        Assert.Equal("a b", MarkdownReport.Escape("a\nb"));
+        Assert.Equal("@" + Zwsp + "x", MarkdownReport.Escape("\u202E@x"));
+    }
+
+    [Fact]
     public void Markdown_report_keeps_the_zero_width_space_and_the_text_report_has_none()
     {
         var finding = new Finding("PO011", Severity.Warning, "owner @octocat, see #12 and https://x.example", "Workflows/a@b.json", null);
@@ -46,6 +54,17 @@ public class OutputHygieneTests
         // U+202E right-to-left override, U+200B zero width space, U+2028 line separator, U+2029 paragraph separator, U+0007 bell.
         Assert.Equal("ab c d e", TextReport.Clean("a\u202Eb\u2028c\u2029d\u200B\u0007e"));
         Assert.Equal("Contoso Dev: ok", TextReport.Clean("Contoso\u202E Dev\u200B: ok"));
+    }
+
+    [Fact]
+    public void Clean_drops_supplementary_plane_format_characters_and_keeps_joiners()
+    {
+        // U+E0041 and U+E007F are tag characters (category Cf, written as surrogate pairs).
+        Assert.Equal("ab", TextReport.Clean("a" + char.ConvertFromUtf32(0xE0041) + "b" + char.ConvertFromUtf32(0xE007F)));
+        Assert.Equal("\U0001F469\u200D\U0001F4BB", TextReport.Clean("\U0001F469\u200D\U0001F4BB"));
+        Assert.Equal("\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u0645", TextReport.Clean("\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u0645"));
+        Assert.Equal("ab c", TextReport.Clean("a\u202Eb\u2028c"));
+        Assert.Equal("x\U0001F600y", TextReport.Clean("x\U0001F600y"));
     }
 
     [Fact]
@@ -101,5 +120,51 @@ public class OutputHygieneTests
         SolutionLoader.Load(Path.Combine(folder.Path, "solutions", "B", "solution.yml"), context);
 
         Assert.Equal([folder.Path.Replace('\\', '/') + "/solutions/A/extra.yml"], context.SkippedLinks);
+    }
+
+    [Fact]
+    public void Only_links_inside_the_solutions_own_files_get_a_note()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Creating links needs privileges on Windows.");
+        using var folder = new TempFolder();
+        using var outside = new TempFolder();
+        outside.Write("o.yml", "x: 1").Write("dir/inner.yml", "x: 1");
+        const string Yml = "ImportExportXml:\n  SolutionManifest:\n    UniqueName: A\n    Version: 1.0.0.0\n    Managed: 0\n    Publisher:\n      UniqueName: demopub\n";
+        folder.Write("solutions/A/solution.yml", Yml)
+            .Write("solutions/A/solutioncomponents.yml", "SolutionComponents:\n  Component:\n  - '@path': /entities\n  - '@path': /entities\n")
+            .Write("publishers/demopub/publisher.yml", "Publisher:\n  UniqueName: demopub\n  CustomizationPrefix: demo\n")
+            .Write("entities/a/entity.yml", "x: 1").Write("README.md", "readme").Write(".github/x.yml", "x: 1");
+        File.CreateSymbolicLink(Path.Combine(folder.Path, "CLAUDE.md"), Path.Combine(folder.Path, "README.md"));
+        Directory.CreateSymbolicLink(Path.Combine(folder.Path, ".github", "etc-link"), Path.Combine(outside.Path, "dir"));
+        File.CreateSymbolicLink(Path.Combine(folder.Path, "entities", "a", "inside.yml"), Path.Combine(outside.Path, "o.yml"));
+        var context = new LoadContext();
+
+        SolutionLoader.Load(Path.Combine(folder.Path, "solutions", "A", "solution.yml"), context);
+
+        Assert.Equal([folder.Path.Replace('\\', '/') + "/entities/a/inside.yml"], context.SkippedLinks);
+    }
+
+    [Fact]
+    public void Notes_are_capped_at_20_then_a_count_follows()
+    {
+        var links = Enumerable.Range(1, 21).Select(i => $"/r/link{i}");
+        var error = new StringWriter();
+
+        TextReport.WriteNotes(links, error);
+
+        var lines = error.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.TrimEnd('\r')).ToList();
+        Assert.Equal(21, lines.Count);
+        Assert.All(lines.Take(20), l => Assert.StartsWith("note: /r/link", l));
+        Assert.Equal("note: and 1 more links, not followed and not read", lines[20]);
+    }
+
+    [Fact]
+    public void Twenty_notes_have_no_count_line()
+    {
+        var error = new StringWriter();
+
+        TextReport.WriteNotes(Enumerable.Range(1, 20).Select(i => $"/r/link{i}"), error);
+
+        Assert.Equal(20, error.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Length);
     }
 }

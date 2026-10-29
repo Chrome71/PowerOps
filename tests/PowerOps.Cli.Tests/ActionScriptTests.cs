@@ -237,12 +237,12 @@ public sealed class ActionScriptTests : IDisposable
     }
 
     [Theory]
-    [InlineData("", "false", "pull_request", "target is required")]
-    [InlineData("Contoso Test", "true", "pull_request", "fork pull requests")]
-    [InlineData("Contoso Test", "false", "pull_request_target", "pull_request_target")]
-    public void Apply_refuses_without_a_target_on_a_fork_and_on_pull_request_target(string target, string fork, string eventName, string text)
+    [InlineData("", "contoso/widgets", "pull_request", "target is required")]
+    [InlineData("Contoso Test", "fork/widgets", "pull_request", "a fork pull request")]
+    [InlineData("Contoso Test", "contoso/widgets", "pull_request_target", "pull_request_target")]
+    public void Apply_refuses_without_a_target_on_a_fork_and_on_pull_request_target(string target, string headRepo, string eventName, string text)
     {
-        var run = RunApply(exit: 0, target: target, fork: fork, eventName: eventName);
+        var run = RunApply(exit: 0, target: target, headRepo: headRepo, eventName: eventName);
 
         Assert.Equal(0, run.Code);
         Assert.StartsWith("::error::", run.Out);
@@ -252,13 +252,14 @@ public sealed class ActionScriptTests : IDisposable
     }
 
     [Theory]
-    [InlineData("push", "false")]
-    [InlineData("workflow_dispatch", "false")]
-    [InlineData("merge_group", "false")]
-    [InlineData("pull_request", "false")]
-    public void Apply_runs_on_push_workflow_dispatch_merge_group_and_a_same_repository_pull_request(string eventName, string fork)
+    [InlineData("push", "")]
+    [InlineData("workflow_dispatch", "")]
+    [InlineData("merge_group", "")]
+    [InlineData("push", "contoso/widgets")]
+    [InlineData("pull_request", "contoso/widgets")]
+    public void Apply_runs_on_push_workflow_dispatch_merge_group_and_a_same_repository_pull_request(string eventName, string headRepo)
     {
-        var run = RunApply(exit: 0, fork: fork, eventName: eventName);
+        var run = RunApply(exit: 0, headRepo: headRepo, eventName: eventName);
 
         Assert.Equal(0, run.Code);
         Assert.Equal("exit-code=0\n", run.Output);
@@ -266,16 +267,20 @@ public sealed class ActionScriptTests : IDisposable
     }
 
     [Theory]
-    [InlineData("workflow_run", "false")]
-    [InlineData("issue_comment", "false")]
-    [InlineData("pull_request_review_comment", "false")]
-    [InlineData("pull_request_target", "false")]
-    [InlineData("pull_request", "true")]
-    [InlineData("schedule", "false")]
-    [InlineData("", "false")]
-    public void Apply_refuses_every_other_event(string eventName, string fork)
+    [InlineData("workflow_run", "contoso/widgets")]
+    [InlineData("issue_comment", "contoso/widgets")]
+    [InlineData("pull_request_review_comment", "contoso/widgets")]
+    [InlineData("pull_request_target", "contoso/widgets")]
+    [InlineData("release", "contoso/widgets")]
+    [InlineData("repository_dispatch", "contoso/widgets")]
+    [InlineData("pull_request", "fork/widgets")]
+    [InlineData("pull_request", "")]
+    [InlineData("pull_request", null)]
+    [InlineData("schedule", "contoso/widgets")]
+    [InlineData("", "contoso/widgets")]
+    public void Apply_refuses_every_other_event(string eventName, string? headRepo)
     {
-        var run = RunApply(exit: 0, fork: fork, eventName: eventName);
+        var run = RunApply(exit: 0, headRepo: headRepo, eventName: eventName);
 
         Assert.Equal(0, run.Code);
         Assert.StartsWith("::error::plan-file is supported only on push, workflow_dispatch, merge_group and same-repository pull_request events", run.Out);
@@ -300,6 +305,39 @@ public sealed class ActionScriptTests : IDisposable
         Assert.Equal("the report\n", run.Out);
         Assert.Equal("error: a\nnote: b\n", run.Err);
         Assert.Equal("powerops.dll analyze sol", Assert.Single(run.DotnetCalls));
+    }
+
+    [Fact]
+    public void Powerops_names_an_exit_of_3_or_more_that_printed_no_error_line()
+    {
+        Require("bash");
+        var temp = NewDir("powerops");
+        WriteStub(temp, "dotnet", DotnetStub);
+        File.WriteAllText(Path.Combine(temp, "stderr.txt"), "You must install .NET to run this application.\n");
+
+        var run = Run("powerops.sh", temp, temp, new() { ["PO_DLL"] = "powerops.dll", ["STUB_EXIT"] = "3" }, stdin: null, args: ["analyze", "sol"]);
+
+        Assert.Equal(3, run.Code);
+        Assert.Equal("error: powerops exited with code 3\n", run.Err);
+    }
+
+    [Theory]
+    [InlineData("error: a\n", 3)]
+    [InlineData("note: b\nerror: a\n", 134)]
+    [InlineData("warning: c\n", 1)]
+    [InlineData("warning: c\n", 2)]
+    [InlineData("", 0)]
+    public void Powerops_adds_no_line_when_stderr_has_an_error_line_or_the_exit_is_below_3(string stderr, int exit)
+    {
+        Require("bash");
+        var temp = NewDir("powerops");
+        WriteStub(temp, "dotnet", DotnetStub);
+        File.WriteAllText(Path.Combine(temp, "stderr.txt"), stderr);
+
+        var run = Run("powerops.sh", temp, temp, new() { ["PO_DLL"] = "powerops.dll", ["STUB_EXIT"] = exit.ToString(System.Globalization.CultureInfo.InvariantCulture) }, stdin: null, args: ["analyze", "sol"]);
+
+        Assert.Equal(exit, run.Code);
+        Assert.Equal(string.Concat(stderr.Split('\n').Where(l => l.StartsWith("error:", StringComparison.Ordinal) || l.StartsWith("note:", StringComparison.Ordinal)).Select(l => l + "\n")), run.Err);
     }
 
     private const string AnnotateJson = """
@@ -366,6 +404,28 @@ public sealed class ActionScriptTests : IDisposable
         Assert.Equal($"_The report was cut to fit the 1 MiB job summary limit: {shown} of {total} bytes are shown._", lines[^2]);
         Assert.StartsWith(report[..20], text, StringComparison.Ordinal);
         Assert.EndsWith(" |\n\n_The report was cut to fit the 1 MiB job summary limit: " + $"{shown} of {total} bytes are shown._\n", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Summary_with_one_line_over_the_limit_keeps_the_start_of_it_as_valid_UTF8()
+    {
+        Require("bash");
+        var temp = NewDir("summary");
+        var summary = Path.Combine(temp, "summary.md");
+        var report = new string('\u20AC', 349_525) + "ab"; // 3 bytes each: 1 MiB + 1 byte on one line, and the cut falls inside a character
+        var total = System.Text.Encoding.UTF8.GetByteCount(report);
+        Assert.Equal(1_048_577, total);
+
+        var run = Run("summary.sh", temp, temp, new() { ["GITHUB_STEP_SUMMARY"] = summary }, stdin: report);
+
+        Assert.Equal(0, run.Code);
+        var written = File.ReadAllBytes(summary);
+        Assert.True(written.Length <= 1_048_576, $"{written.Length} bytes");
+        var text = new System.Text.UTF8Encoding(false, throwOnInvalidBytes: true).GetString(written);
+        var kept = text[..text.IndexOf("\n_The report", StringComparison.Ordinal)];
+        Assert.True(kept.Length > 300_000, $"{kept.Length} characters kept");
+        Assert.All(kept, c => Assert.Equal('\u20AC', c));
+        Assert.EndsWith($"\n_The report was cut to fit the 1 MiB job summary limit: {System.Text.Encoding.UTF8.GetByteCount(kept)} of {total} bytes are shown._\n", text, StringComparison.Ordinal);
     }
 
     // ---- test.sh ----
@@ -701,7 +761,7 @@ public sealed class ActionScriptTests : IDisposable
         return run with { Folder = folder, Comment = comment, Summary = summary, Output = ReadOrEmpty(output) };
     }
 
-    private Result RunApply(int exit, string? stderr = null, bool debug = false, string apply = "true", string target = "Contoso Test", string fork = "false", string eventName = "pull_request", string report = "the report\n")
+    private Result RunApply(int exit, string? stderr = null, bool debug = false, string apply = "true", string target = "Contoso Test", string? headRepo = "contoso/widgets", string eventName = "pull_request", string report = "the report\n")
     {
         Require("bash");
         var temp = NewDir("apply");
@@ -714,19 +774,25 @@ public sealed class ActionScriptTests : IDisposable
 
         var summary = Path.Combine(temp, "summary.md");
         var output = Path.Combine(temp, "output.txt");
-        var run = Run("apply.sh", temp, temp, new()
+        var env = new Dictionary<string, string>
         {
             ["PO_DLL"] = "powerops.dll",
             ["PO_PLAN_FILE"] = "plan/powerops-plan.json",
             ["PO_TARGET"] = target,
             ["PO_APPLY"] = apply,
             ["PO_EVENT"] = eventName,
-            ["PO_FORK"] = fork,
+            ["GITHUB_REPOSITORY"] = "contoso/widgets",
             ["GITHUB_OUTPUT"] = output,
             ["GITHUB_STEP_SUMMARY"] = summary,
             ["RUNNER_DEBUG"] = debug ? "1" : "",
             ["STUB_EXIT"] = exit.ToString(System.Globalization.CultureInfo.InvariantCulture),
-        });
+        };
+        if (headRepo is not null)
+        {
+            env["PO_HEAD_REPO"] = headRepo; // null leaves it unset, as for an event without a pull request
+        }
+
+        var run = Run("apply.sh", temp, temp, env);
         return run with { Summary = summary, Output = ReadOrEmpty(output) };
     }
 

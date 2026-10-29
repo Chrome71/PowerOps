@@ -27,7 +27,7 @@ public sealed class LoadContext
         var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
         if (!_roots.TryGetValue(full, out var root))
         {
-            _roots[full] = root = new YamlRoot(full, _newBudget(), _skippedLinks);
+            _roots[full] = root = new YamlRoot(full, _newBudget());
         }
 
         return root;

@@ -174,6 +174,17 @@ public class PlanFactsTests
     }
 
     [Fact]
+    public void A_UTF8_BOM_on_either_stream_is_not_part_of_the_text()
+    {
+        var result = RunScript("printf '\\357\\273\\277{\"a\":1}'; printf '\\357\\273\\277err' >&2", TimeSpan.FromSeconds(10), out _);
+
+        Assert.Equal("{\"a\":1}", result.Stdout);
+        Assert.Equal("err", result.Stderr);
+        using var doc = System.Text.Json.JsonDocument.Parse(result.Stdout);
+        Assert.Equal(1, doc.RootElement.GetProperty("a").GetInt32());
+    }
+
+    [Fact]
     public void A_child_holding_the_pipe_after_pac_exits_still_times_out()
     {
         var result = RunScript("sleep 5 &\necho \"Friendly Name: X\"", TimeSpan.FromSeconds(1), out var elapsed);

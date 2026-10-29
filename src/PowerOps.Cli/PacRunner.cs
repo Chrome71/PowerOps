@@ -86,7 +86,9 @@ public sealed class PacRunner(string executable = "pac", TimeSpan? timeout = nul
                     bytes.Write(buffer, 0, n);
                 }
 
-                return reader.CurrentEncoding.GetString(bytes.GetBuffer(), 0, (int)bytes.Length);
+                // Decoded like StreamReader does, so a UTF-8 byte order mark is dropped instead of becoming U+FEFF.
+                using var text = new StreamReader(new MemoryStream(bytes.GetBuffer(), 0, (int)bytes.Length), reader.CurrentEncoding, detectEncodingFromByteOrderMarks: true);
+                return await text.ReadToEndAsync();
             }
         }
     }

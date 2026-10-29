@@ -10,8 +10,10 @@ internal sealed class YamlRoot
 {
     private readonly Dictionary<string, string> _cache = new(StringComparer.Ordinal);
     private readonly Dictionary<string, XElement> _parsed = new(StringComparer.Ordinal);
+    private readonly List<string> _links;
+    private readonly HashSet<string> _reported = new(StringComparer.Ordinal);
 
-    public YamlRoot(string folder, ReadBudget? budget = null, ICollection<string>? skippedLinks = null)
+    public YamlRoot(string folder, ReadBudget? budget = null)
     {
         Folder = Path.GetFullPath(folder);
         Budget = budget ?? new ReadBudget();
@@ -29,10 +31,19 @@ internal sealed class YamlRoot
             Paths.TryAdd(p, p);
         }
 
-        links.ForEach(l => skippedLinks?.Add(System.IO.Path.Combine(folder, System.IO.Path.GetRelativePath(Folder, l)).Replace('\\', '/')));
+        _links = links.Select(l => System.IO.Path.GetRelativePath(Folder, l).Replace('\\', '/')).ToList();
     }
 
     public ReadBudget Budget { get; }
+
+    /// <summary>Adds the full path (forward slashes) of each link found under the root that <paramref name="belongs"/> accepts (given as a root-relative path) to <paramref name="sink"/>, once per link even when several solutions of the root claim it.</summary>
+    public void ReportLinks(Func<string, bool> belongs, ICollection<string> sink)
+    {
+        foreach (var link in _links.Where(belongs).Where(_reported.Add))
+        {
+            sink.Add(System.IO.Path.Combine(Folder, link).Replace('\\', '/'));
+        }
+    }
 
     public string Folder { get; }
 

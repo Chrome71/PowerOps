@@ -31,20 +31,16 @@ public static class MarkdownReport
 
     internal const string Specials = "\\|*_[]<>`";
 
-    // Everything from the solution is untrusted: control characters become spaces, Markdown/HTML syntax is backslash-escaped, and a zero-width
-    // space after '@' and '#' and inside '://' stops a mention, an issue reference or an autolink. Never run TextReport.Clean over this output: it strips that space.
+    // Everything from the solution is untrusted: TextReport.Clean turns control characters into spaces and drops bidi and other format characters, Markdown/HTML syntax is backslash-escaped, and a zero-width
+    // space after '@' and '#' and inside '://' stops a mention, an issue reference or an autolink. Clean runs first and never over this output: it strips that space.
     internal static string Escape(string? text)
     {
-        text ??= "";
+        text = TextReport.Clean(text);
         var result = new StringBuilder(text.Length);
         for (var i = 0; i < text.Length; i++)
         {
             var c = text[i];
-            if (char.IsControl(c))
-            {
-                result.Append(' ');
-            }
-            else if (Specials.Contains(c))
+            if (Specials.Contains(c))
             {
                 result.Append('\\').Append(c);
             }

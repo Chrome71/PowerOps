@@ -148,7 +148,7 @@ runs:
         PO_TARGET: ${{ inputs.target }}
         PO_APPLY: ${{ inputs.apply }}
         PO_EVENT: ${{ github.event_name }}
-        PO_FORK: ${{ github.event.pull_request.head.repo.full_name != '' && github.event.pull_request.head.repo.full_name != github.repository }}
+        PO_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
       run: bash "$GITHUB_ACTION_PATH/action/apply.sh"
 
     - name: Diff

@@ -87,4 +87,13 @@ public sealed class ActionYmlTests
         Assert.Contains("| bash \"$GITHUB_ACTION_PATH/action/annotate.sh\"", annotations);
         Assert.DoesNotContain("jq", annotations);
     }
+
+    [Fact]
+    public void The_apply_step_passes_the_head_repository_so_a_missing_one_is_refused()
+    {
+        var env = (Dictionary<object, object>)Steps().Single(s => Text(s, "name") == "Deploy apply")["env"];
+
+        Assert.Equal("${{ github.event.pull_request.head.repo.full_name }}", env["PO_HEAD_REPO"]);
+        Assert.DoesNotContain("PO_FORK", env.Keys.Cast<string>());
+    }
 }
