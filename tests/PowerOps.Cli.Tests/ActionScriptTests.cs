@@ -579,7 +579,7 @@ public sealed class ActionScriptTests : IDisposable
     [Fact]
     public void Diff_compares_the_first_parent_with_the_work_tree()
     {
-        Tools.RequireAnywhere("git");
+        Tools.Require("bash", "git");
         var clone = MakeMergeClone();
 
         var run = RunDiff(clone, exit: 1);
@@ -597,7 +597,7 @@ public sealed class ActionScriptTests : IDisposable
     [Fact]
     public void Diff_without_a_parent_writes_the_fixed_text()
     {
-        Tools.RequireAnywhere("git");
+        Tools.Require("bash", "git");
         var repo = Path.Combine(_root, "single");
         Git(_root, "init", "-q", "-b", "main", repo);
         File.WriteAllText(Path.Combine(repo, "a.txt"), "a");
@@ -613,7 +613,7 @@ public sealed class ActionScriptTests : IDisposable
     [Fact]
     public void Diff_with_a_failed_fetch_writes_the_fixed_text()
     {
-        Tools.RequireAnywhere("git");
+        Tools.Require("bash", "git");
         var clone = MakeMergeClone();
         Git(clone, "remote", "set-url", "origin", "file://" + Path.Combine(_root, "missing"));
 
@@ -627,7 +627,7 @@ public sealed class ActionScriptTests : IDisposable
     [Fact]
     public void Diff_with_exit_3_writes_the_fixed_text_without_the_tool_text()
     {
-        Tools.RequireAnywhere("git");
+        Tools.Require("bash", "git");
         var clone = MakeMergeClone();
 
         var run = RunDiff(clone, exit: 3, stderr: "secret tool text");
@@ -640,7 +640,7 @@ public sealed class ActionScriptTests : IDisposable
     [Fact]
     public void Diff_logs_only_error_and_note_lines_of_stderr_so_a_name_cannot_add_a_workflow_command()
     {
-        Tools.RequireAnywhere("git");
+        Tools.Require("bash", "git");
         var clone = MakeMergeClone();
 
         var run = RunDiff(clone, exit: 1, stderr: "note: sol/Other/x.xml: a link\n::error::forged\n  ::add-mask::z\nerror: b\n");

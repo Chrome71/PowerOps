@@ -18,7 +18,7 @@ powerops --version
 
 `--source` makes the install use only `artifacts`. Leave it out and the install looks the name `PowerOps` up on nuget.org, where it is not registered, so it could install whatever package someone registers under it.
 
-CI builds and tests PowerOps on Linux, Windows and macOS. It runs the Action and example script tests under macOS's bash 3.2, and starts stand-in `pac` and `az` files through the same code that runs `pac` (`.cmd` files on Windows). Nobody has run PowerOps by hand on Windows or macOS, because no such machine was available on 2026-10-28. Not verified there: the install from a clone and the bare `powerops` from a new shell; Claude Code and Codex starting the plugin's `powerops`; the real `az.cmd` and the real `pac`; the guard around `Console.OutputEncoding` for a server that a GUI client started with no console; and a free-text `--environment` through `cmd.exe`, which only a `pac.bat` or `pac.cmd` shim on PATH would reach (the real `pac` is a `pac.exe`, which does not go through it, and .NET's quoting is no escape for `cmd.exe`). The Action's scripts and the example scripts are not run on Windows: their tests skip there by design. The [runbook](docs/BUILD-PLAN.md#windows-and-macos) is for a person with such a machine.
+CI builds and tests PowerOps on Linux, Windows and macOS, but nobody has run it by hand on Windows or macOS yet; [what is not verified there](docs/FOUNDATION.md#8-research-topics-still-open).
 
 ## Quick start
 

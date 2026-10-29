@@ -4,8 +4,10 @@ using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
 
-// Stand-in pac and az files in a temp folder, each printing its arguments joined by spaces, started by the real PacRunner under the production names.
-// They prove that the argument lists PlanFacts and DriftLiveReader build reach a program unchanged, and, on Windows, that a .cmd file is found and started.
+// Stand-in pac and az files in a temp folder, started by the real PacRunner under the production names.
+// On Unix each prints its arguments one per line, which proves that the argument lists PlanFacts and DriftLiveReader build reach a program unchanged.
+// On Windows they are pac.cmd, pac.bat and az.cmd, found through PATHEXT (pac.bat first in the default order) and started; each echoes the command line cmd.exe received,
+// so there the check compares the arguments joined by spaces and does not tell ["org who"] from ["org", "who"].
 public sealed class StandInTests : IDisposable
 {
     private static readonly string OrgWho = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "pac", "org-who.txt");
@@ -27,7 +29,7 @@ public sealed class StandInTests : IDisposable
         foreach (var name in new[] { "pac", "az" })
         {
             var path = Path.Combine(_folder, name);
-            File.WriteAllText(path, "#!/bin/sh\nprintf '%s\\n' \"$*\"\n");
+            File.WriteAllText(path, "#!/bin/sh\nprintf '%s\\n' \"$@\"\n");
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
     }
@@ -38,27 +40,30 @@ public sealed class StandInTests : IDisposable
 
     // Runs the stand-in for real, records the arguments and the real result, and returns the real Started, TimedOut and ExitCode with the stdout the consumer parses.
     // With no canned text the real result passes through.
-    private Func<IReadOnlyList<string>, PacResult> Through(string name, List<(string Args, PacResult Real)> log, Func<string, string>? canned = null) => args =>
+    private Func<IReadOnlyList<string>, PacResult> Through(string name, List<Call> log, Func<string, string>? canned = null) => args =>
     {
         var real = new PacRunner(Resolve(name) ?? throw new FileNotFoundException(name)).Run(args);
-        log.Add((string.Join(" ", args), real));
+        log.Add(new Call(string.Join(" ", args), args, real));
         return canned is null ? real : real with { Stdout = canned(log[^1].Args) };
     };
 
-    private static void AssertEchoed(List<(string Args, PacResult Real)> log)
+    private sealed record Call(string Args, IReadOnlyList<string> Argv, PacResult Real);
+
+    private static void AssertEchoed(List<Call> log)
     {
         Assert.All(log, call =>
         {
             Assert.True(call.Real.Started, call.Args);
             Assert.Equal(0, call.Real.ExitCode);
-            Assert.Equal(call.Args, call.Real.Stdout.Trim('\r', '\n'));
+            var stdout = call.Real.Stdout.Replace("\r\n", "\n").TrimEnd('\n');
+            Assert.Equal(OperatingSystem.IsWindows() ? call.Args : string.Join("\n", call.Argv), stdout);
         });
     }
 
     [Fact]
     public void PlanFacts_sends_both_pac_lists_to_the_program_unchanged()
     {
-        var pac = new List<(string Args, PacResult Real)>();
+        var pac = new List<Call>();
 
         var json = PlanFacts.Run(Through("pac", pac, args => args == "org who" ? File.ReadAllText(OrgWho) : PlanFactsTests.SolutionList));
 
@@ -70,8 +75,8 @@ public sealed class StandInTests : IDisposable
     [Fact]
     public void DriftLiveReader_sends_the_pac_list_and_the_az_list_to_the_programs_unchanged()
     {
-        var pac = new List<(string Args, PacResult Real)>();
-        var az = new List<(string Args, PacResult Real)>();
+        var pac = new List<Call>();
+        var az = new List<Call>();
         var fakes = new LiveFakes
         {
             PacFn = Through("pac", pac, _ => File.ReadAllText(OrgWho)),
