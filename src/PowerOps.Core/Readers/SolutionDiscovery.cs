@@ -101,14 +101,19 @@ public static class SolutionDiscovery
 
     private static bool HasRootSolutionXml(string zipPath)
     {
-        // Over-cap zips are refused, not skipped, like a zip named on the command line; other trouble just means "not a solution".
+        // Over-cap zips are refused, not skipped, like a zip named on the command line. So is a file that cannot be opened or read;
+        // only one that vanished during the scan is skipped. A file that is readable but not a zip is skipped below.
         try
         {
             ZipGuard.Check(zipPath, DefaultBudget);
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException)
         {
             return false;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new InvalidDataException($"{zipPath}: cannot be read: {e.Message}", e);
         }
 
         try

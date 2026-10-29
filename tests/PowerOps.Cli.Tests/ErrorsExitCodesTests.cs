@@ -102,10 +102,43 @@ public sealed class ErrorsExitCodesTests : IDisposable
         Assert.Equal(["error: the output is gone"], e.ToString().Replace("\r", "").TrimEnd('\n').Split('\n'));
     }
 
+    [Theory]
+    [InlineData("analyze")]
+    [InlineData("diff")]
+    public void A_zip_that_cannot_be_read_while_a_folder_is_scanned_exits_three_and_names_it(string command)
+    {
+        // Another handle on the file with FileShare.None: .NET refuses a second open on Windows, and on Unix through its own advisory lock.
+        var dir = WithZip(Lfs());
+        var zip = Path.Combine(dir, "corrupt.zip");
+        using var hold = new FileStream(zip, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        Assert.SkipUnless(CannotBeOpened(zip), "A second open of a file held with FileShare.None succeeds here.");
+        var o = new StringWriter();
+        var e = new StringWriter();
+
+        var code = Program.Run(command == "analyze" ? ["analyze", dir] : ["diff", dir, dir], o, e);
+
+        Assert.True(code == 3, $"exit {code}; out: {o}; err: {e}");
+        Assert.Contains(e.ToString().Replace("\r", "").Split('\n'), l => l.StartsWith("error: " + zip, StringComparison.Ordinal));
+    }
+
+    private static bool CannotBeOpened(string path)
+    {
+        try
+        {
+            using var f = File.OpenRead(path);
+            return false;
+        }
+        catch (IOException)
+        {
+            return true;
+        }
+    }
+
     [Fact]
     public void A_Swedish_culture_does_not_reach_the_messages()
     {
         Assert.SkipUnless(CultureAvailable("sv-SE"), "The sv-SE culture is not available here.");
+        // DefaultThreadCurrentCulture is process-wide while xunit runs other classes in parallel; the window is short and Program.Run sets the invariant culture on its own thread.
         var old = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture, CultureInfo.DefaultThreadCurrentCulture, CultureInfo.DefaultThreadCurrentUICulture);
         try
         {

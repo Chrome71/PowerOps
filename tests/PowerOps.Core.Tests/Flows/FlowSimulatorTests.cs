@@ -967,6 +967,9 @@ public class FlowSimulatorTests
     [Theory]
     [InlineData("""{"C":{"type":"Compose","inputs":"@json('\"\\ud800\"')","runAfter":{}}}""", "C", "json() cannot read its argument")]
     [InlineData("""{"C":{"type":"ParseJson","inputs":{"content":"{\"a\":\"\\ud800\"}"},"runAfter":{}}}""", "C", "The content is not valid JSON")]
+    // A real lone surrogate made at run time (the escaped text above never makes one): JsonNode.Parse(string) throws ArgumentException on it.
+    [InlineData("""{"C":{"type":"Compose","inputs":"@json(concat('\"',substring('😀',0,1),'\"'))","runAfter":{}}}""", "C", "json() cannot read its argument")]
+    [InlineData("""{"C":{"type":"ParseJson","inputs":{"content":"@concat('\"',substring('😀',0,1),'\"')"},"runAfter":{}}}""", "C", "The content is not valid JSON")]
     public void A_lone_surrogate_in_json_text_fails_the_action_without_throwing(string actions, string action, string message)
     {
         var run = Run(actions);

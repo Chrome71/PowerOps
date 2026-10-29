@@ -171,9 +171,9 @@ public static class SolutionDiff
             // GUID that can change on a re-save without a real edit, so it is dropped first (the analyzer's flow parser skips it too).
             return JsonNode.DeepEquals(WithoutOperationMetadataIds(JsonNode.Parse(a)), WithoutOperationMetadataIds(JsonNode.Parse(b)));
         }
-        catch (Exception e) when (e is JsonException or ArgumentException)
+        catch (Exception e) when (e is JsonException or ArgumentException or InvalidOperationException)
         {
-            return false; // not JSON (or duplicate keys): the raw text differs
+            return false; // not JSON (or duplicate keys, or a key with a lone surrogate): the raw text differs
         }
     }
 

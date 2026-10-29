@@ -189,6 +189,16 @@ public class SolutionDiffTests
     }
 
     [Fact]
+    public void A_flow_definition_with_a_lone_surrogate_key_is_compared_as_raw_text()
+    {
+        // The key parses, but removing operationMetadataId from its object throws InvalidOperationException.
+        var a = S(f => f.Add(B.Flow() with { ClientData = """{"\ud800":1}""" }));
+
+        Assert.Empty(Diff(a, S(f => f.Add(B.Flow() with { ClientData = """{"\ud800":1}""" }))));
+        Assert.Equal(["Changed workflow 11111111-1111-1111-1111-111111111111 [Flow]: definition changed"], Diff(a, S(f => f.Add(B.Flow() with { ClientData = """{"\ud800":2}""" }))));
+    }
+
+    [Fact]
     public void Adding_or_removing_a_connection_reference_carries_its_risk()
     {
         var a = B.Empty();

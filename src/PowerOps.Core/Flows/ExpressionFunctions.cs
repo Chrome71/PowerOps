@@ -106,7 +106,7 @@ public static class ExpressionFunctions
     };
 
     /// <summary>Parses JSON text and rejects a duplicate property at once: a JsonObject would find it only when first read, as an ArgumentException.</summary>
-    /// <exception cref="JsonException">The text is not valid JSON, is nested deeper than 64 levels, has a duplicate property or holds a string with a lone surrogate.</exception>
+    /// <exception cref="JsonException">The text is not valid JSON, is nested deeper than 64 levels, has a duplicate property or holds a string with a lone surrogate, escaped in the text or a real one in the string.</exception>
     internal static JsonNode? ParseJson(string text)
     {
         try
@@ -115,9 +115,10 @@ public static class ExpressionFunctions
             CheckText(node);
             return node;
         }
-        catch (InvalidOperationException e)
+        catch (Exception e) when (e is InvalidOperationException or ArgumentException)
         {
             // A string with a lone surrogate (`"\ud800"`) parses; reading it throws, in the duplicate check for a key and in the nodes for a value. Read them all now.
+            // A real lone surrogate in the text (`substring('😀',0,1)`) is an ArgumentException from the parse itself.
             throw new JsonException(e.Message, e);
         }
     }

@@ -59,7 +59,7 @@ public sealed record AnalysisResult(IReadOnlyList<SolutionResult> Solutions)
         {
             return Analyzer.Run(solution);
         }
-        catch (Exception e) when (e is InvalidDataException or InvalidOperationException or ArgumentException)
+        catch (InvalidDataException e)
         {
             throw new InvalidDataException($"{path}: {e.Message}", e);
         }
