@@ -48,7 +48,7 @@ echo "exit-code=$code" >> "$GITHUB_OUTPUT"
 
 if [ -s "$report" ]; then
   # A fence one backtick longer than the longest run in the report (at least three) cannot be closed by the report.
-  longest="$( (grep -o '`\+' "$report" || true) | awk '{ if (length($0) > m) m = length($0) } END { print m + 0 }')"
+  longest="$( (grep -oE '`+' "$report" || true) | awk '{ if (length($0) > m) m = length($0) } END { print m + 0 }')"
   width=3
   if [ "$longest" -ge 3 ]; then width=$((longest + 1)); fi
   fence="$(printf '%*s' "$width" '' | tr ' ' '`')"

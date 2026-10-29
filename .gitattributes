@@ -1,0 +1,2 @@
+# A Windows checkout with core.autocrlf would give the shell scripts CRLF, which bash cannot run.
+*.sh text eol=lf

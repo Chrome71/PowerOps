@@ -73,4 +73,14 @@ public sealed class WorkflowTests
     {
         Assert.Empty(Map(Load(".github", "workflows", "release.yml")["permissions"]));
     }
+
+    [Fact]
+    public void Shell_scripts_stay_LF_and_no_action_script_greps_with_a_GNU_only_escape()
+    {
+        Assert.Contains("*.sh text eol=lf", File.ReadAllLines(Path.Combine(Golden.RepoRoot, ".gitattributes")).Select(l => l.Trim()));
+        var grepLines = Directory.GetFiles(Path.Combine(Golden.RepoRoot, "action"), "*.sh").SelectMany(File.ReadAllLines).Where(l => l.Contains("grep "));
+
+        Assert.NotEmpty(grepLines);
+        Assert.All(grepLines, l => Assert.DoesNotContain("\\+", l));
+    }
 }
