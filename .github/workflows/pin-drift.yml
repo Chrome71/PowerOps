@@ -1,0 +1,22 @@
+name: Pin drift
+
+# A warning, never a check: it runs after a merge (and by hand), not on pull requests, so it cannot block one.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pin-drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Warn when the PowerOps pins in the docs are stale
+        run: bash .github/scripts/pin-drift.sh
