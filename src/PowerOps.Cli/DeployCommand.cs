@@ -407,7 +407,7 @@ public static class DeployCommand
         var command = new Command("gate", "A PreToolUse hook for Microsoft's import tools: reads the hook's JSON on stdin and exits 0 for a call that is not an import or is the plan's first import, 2 for any other call (the reason is on stderr).") { planFile };
         // Not SettingsCommand.Guard: the gate exits only 0 or 2, whatever happens, because a hook blocks only on exit 2.
         // Shadows the recursive help option: help would print to stdout and exit 0, which lets every call through.
-        var help = new Option<bool>("-h", "--help", "-?") { Hidden = true };
+        var help = new Option<bool>("-h", "/h", "--help", "-?", "/?") { Hidden = true };
         command.Options.Add(help);
         command.SetAction(parse => RunGate(parse.GetValue(help) ? "-h" : parse.GetValue(planFile)!, error, input, deadline, read));
         return command;

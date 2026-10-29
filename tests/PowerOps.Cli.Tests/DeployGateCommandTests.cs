@@ -551,6 +551,8 @@ public class DeployGateCommandTests : DeployTestBase
     [InlineData("-h")]
     [InlineData("--help")]
     [InlineData("-?")]
+    [InlineData("/?")]
+    [InlineData("/h")]
     public void A_plan_file_argument_that_starts_with_a_dash_or_asks_for_help_blocks_everything(string argument)
     {
         var (o, e) = (new StringWriter(), new StringWriter());

@@ -292,6 +292,10 @@ public class ImportCallTests
             { "pac pcf push --publisher-prefix pub", "pac pcf push imports a solution that no plan holds" },
             { "pac application install --application-name x --environment " + Env, "pac application install installs an application that no plan holds" },
             { "pac code push --environment " + Env, "pac code push pushes an app that no plan holds" },
+            { $"pac catalog install --environment {Env} --catalog-item-id x", "pac catalog install installs a catalog item that no plan holds" },
+            { $"pac app-management install-application-package --environment {Env} --unique-name x", "pac app-management install-application-package installs an application package that no plan holds" },
+            { "sh -c 'pac catalog install --catalog-item-id x'", CantRead },
+            { "bash -c \"pac app-management install-application-package --unique-name x\"", CantRead },
             { "sh -c \"pac pcf push\"", CantRead },
             { "sh -c 'pac application install --application-name x'", CantRead },
             { "bash -c \"pac code push\"", CantRead },
@@ -416,13 +420,17 @@ public class ImportCallTests
     [InlineData("--environment", "https://plan-env@other.crm.dynamics.com", EnvLine)]
     [InlineData("--environment", "https://x.crm.dynamics.com:444", EnvLine)]
     [InlineData("--environment", "https://x.crm.dynamics.com/path", EnvLine)]
-    [InlineData("--path", "/tmp/z.zip --force-overwrite", "--path must not hold a space or control character, or start with '-'")]
-    [InlineData("--path", "/tmp/z.zip\t--force-overwrite", "--path must not hold a space or control character, or start with '-'")]
-    [InlineData("--path", "-/tmp/z.zip", "--path must not hold a space or control character, or start with '-'")]
-    [InlineData("--path", "/tmp/z.zip\n", "--path must not hold a space or control character, or start with '-'")]
-    [InlineData("--settings-file", "/tmp/s.json\n--force-overwrite", "--settings-file must not hold a space or control character, or start with '-'")]
-    [InlineData("--settings-file", "/tmp/s.json\t--force-overwrite", "--settings-file must not hold a space or control character, or start with '-'")]
-    [InlineData("--settings-file", "--force-overwrite", "--settings-file must not hold a space or control character, or start with '-'")]
+    [InlineData("--path", "/tmp/z.zip --force-overwrite", "--path must hold only letters, digits and / \\ : . _ - ~, and not start with '-'")]
+    [InlineData("--path", "/tmp/z.zip\t--force-overwrite", "--path must hold only letters, digits and / \\ : . _ - ~, and not start with '-'")]
+    [InlineData("--path", "-/tmp/z.zip", "--path must hold only letters, digits and / \\ : . _ - ~, and not start with '-'")]
+    [InlineData("--path", "/tmp/z.zip\n", "--path must hold only letters, digits and / \\ : . _ - ~, and not start with '-'")]
+    [InlineData("--settings-file", "/tmp/s.json\n--force-overwrite", "--settings-file must hold only letters, digits and / \\ : . _ - ~, and not start with '-'")]
+    [InlineData("--settings-file", "/tmp/s.json\t--force-overwrite", "--settings-file must hold only letters, digits and / \\ : . _ - ~, and not start with '-'")]
+    [InlineData("--settings-file", "--force-overwrite", "--settings-file must hold only letters, digits and / \\ : . _ - ~, and not start with '-'")]
+    [InlineData("--path", "/tmp/z.zip;touch${IFS}/tmp/pwn", "--path must hold only letters, digits and / \\ : . _ - ~, and not start with '-'")]
+    [InlineData("--path", "/tmp/$(id).zip", "--path must hold only letters, digits and / \\ : . _ - ~, and not start with '-'")]
+    [InlineData("--path", "/tmp/z.zip\"--force-overwrite", "--path must hold only letters, digits and / \\ : . _ - ~, and not start with '-'")]
+    [InlineData("--settings-file", "/tmp/s'.json", "--settings-file must hold only letters, digits and / \\ : . _ - ~, and not start with '-'")]
     [InlineData("--force-overwrite", "true", "the gate doesn't read --force-overwrite")]
     [InlineData("-p", "x", "the gate doesn't read -p")]
     [InlineData("--path", "./solutions/x.zip", $"--path {PathHint}")]
@@ -434,6 +442,17 @@ public class ImportCallTests
         input[key] = value;
 
         Assert.Contains(line, Blocked(Mcp(input)).Lines);
+    }
+
+    [Theory]
+    [InlineData(@"C:\Users\RUNNER~1\AppData\Local\Temp\Seed_1_0_0_1-managed.zip")]
+    [InlineData("/home/zoë/Résumé/Seed.zip")]
+    public void An_mcp_path_of_letters_digits_and_path_signs_passes_the_character_check(string path)
+    {
+        var input = McpInput();
+        input["--path"] = path;
+
+        Assert.DoesNotContain((Mcp(input) as ImportRead.Blocked)?.Lines ?? [], l => l.Contains("must hold only", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -526,6 +545,8 @@ public class ImportCallTests
     [InlineData("pac pcf push --publisher-prefix pub")]
     [InlineData("pac application install --application-name x")]
     [InlineData("pac code push")]
+    [InlineData("pac catalog install --catalog-item-id x")]
+    [InlineData("pac app-management install-application-package --unique-name x")]
     [InlineData("pac solution import --path /x.zip")]
     [InlineData("Import-CrmSolution -InFile x.zip")]
     [InlineData("& 'C:\\Tools\\pac.exe' auth list")]
@@ -548,7 +569,7 @@ public class ImportCallTests
     [Fact]
     public void The_new_always_blocked_routes_ask_for_the_plan_not_a_rewrite()
     {
-        foreach (var command in new[] { "pac pcf push", "pac application install --application-name x", "pac code push" })
+        foreach (var command in new[] { "pac pcf push", "pac application install --application-name x", "pac code push", "pac catalog install --catalog-item-id x", "pac app-management install-application-package --unique-name x" })
         {
             Assert.False(Blocked(Bash(command)).Unreadable);
         }

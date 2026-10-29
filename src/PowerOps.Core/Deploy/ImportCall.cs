@@ -25,13 +25,15 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
     private const string RoutePcf = "pac pcf push imports a solution that no plan holds";
     private const string RouteApplication = "pac application install installs an application that no plan holds";
     private const string RouteCode = "pac code push pushes an app that no plan holds";
+    private const string RouteCatalog = "pac catalog install installs a catalog item that no plan holds";
+    private const string RouteAppPackage = "pac app-management install-application-package installs an application package that no plan holds";
 
     private const string CantRead = "the command holds an import that the gate can't read";
     private const string Stray = "the command has a word the gate doesn't read";
     private const string PathHint = "must be a literal absolute path (no $, backtick, escape, ~ or wildcard)";
     private const string AnsiC = "the command has a $'...' word with an escape, which the gate can't read";
 
-    private static readonly string[] Routes = [RouteModelApps, RoutePowerPages, RoutePipeline, RouteTemplate, RoutePackage, RouteUpgrade, RoutePcf, RouteApplication, RouteCode];
+    private static readonly string[] Routes = [RouteModelApps, RoutePowerPages, RoutePipeline, RouteTemplate, RoutePackage, RouteUpgrade, RoutePcf, RouteApplication, RouteCode, RouteCatalog, RouteAppPackage];
 
     private static readonly Dictionary<string, string> Canonical = new(StringComparer.Ordinal)
     {
@@ -57,7 +59,7 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
 
     private sealed record Given(string Value, bool Literal);
 
-    [GeneratedRegex($"solution{Gap}import|solution{Gap}upgrade|pipeline{Gap}deploy|package{Gap}deploy|solution-settings\\.js|import-template-solution|encode-solution-file|ImportSolution|StageAndUpgrade|DeployPackageAsync|RetryFailedDeploymentAsync|(?<!\\w)(?:pcf{Gap}push|application{Gap}install|code{Gap}push)|Import-CrmSolution", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex($"solution{Gap}import|solution{Gap}upgrade|pipeline{Gap}deploy|package{Gap}deploy|solution-settings\\.js|import-template-solution|encode-solution-file|ImportSolution|StageAndUpgrade|DeployPackageAsync|RetryFailedDeploymentAsync|(?<!\\w)(?:pcf{Gap}push|application{Gap}install|code{Gap}push|catalog{Gap}install)|install-application-package|Import-CrmSolution", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex Markers();
 
     // A $'...' word holding a backslash: its escapes (\x70, \160, \u0070) can spell any text.
@@ -189,10 +191,11 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
             {
                 lines.Add($"{name} must be \"true\" or \"false\"");
             }
-            else if (name is "--path" or "--settings-file" && (property.Value.GetString()!.StartsWith('-') || property.Value.GetString()!.Any(c => char.IsWhiteSpace(c) || char.IsControl(c))))
+            else if (name is "--path" or "--settings-file" && (property.Value.GetString()!.StartsWith('-') || !property.Value.GetString()!.All(c => char.IsLetterOrDigit(c) || c is '/' or '\\' or ':' or '.' or '_' or '-' or '~')))
             {
-                // A free-form string could carry another pac flag; in the shell form the tokenizer has made each one a word.
-                lines.Add($"{name} must not hold a space or control character, or start with '-'");
+                // A free-form string could carry another pac flag, quotes or shell syntax if pac's server builds a command line from it.
+                // ~ is for Windows short names (RUNNER~1); the path is fully qualified, so it can't lead.
+                lines.Add($"{name} must hold only letters, digits and / \\ : . _ - ~, and not start with '-'");
             }
             else
             {
@@ -261,6 +264,12 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
                         break;
                     case "code push":
                         lines.Add(RouteCode);
+                        break;
+                    case "catalog install":
+                        lines.Add(RouteCatalog);
+                        break;
+                    case "app-management install-application-package":
+                        lines.Add(RouteAppPackage);
                         break;
                     default:
                         // An option before the subcommand must not hide an import.
