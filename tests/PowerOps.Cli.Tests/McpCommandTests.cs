@@ -49,7 +49,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         var serverToClient = new Pipe();
         _server = McpServer.Create(new StreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream()), options);
         _run = _server.RunAsync();
-        _client = await McpClient.CreateAsync(new StreamClientTransport(clientToServer.Writer.AsStream(), serverToClient.Reader.AsStream()));
+        _client = await McpClient.CreateAsync(new StreamClientTransport(clientToServer.Writer.AsStream(), serverToClient.Reader.AsStream()), new McpClientOptions { DiscoverProbeTimeout = NoProbeTimeout });
     }
 
     public async ValueTask DisposeAsync()
@@ -836,6 +836,9 @@ public sealed class McpCommandTests : IAsyncLifetime
     private const string OtherName = "Other Name";
     private static readonly TimeSpan Wait = TimeSpan.FromSeconds(20);
 
+    // The server here answers server/discover, but a loaded runner can take longer than the SDK's 5 s probe timeout, and the client then falls back to initialize, which a pinned 2026-07-28 refuses.
+    private static readonly TimeSpan NoProbeTimeout = Timeout.InfiniteTimeSpan;
+
     private static readonly string[] Revisions = ["2026-07-28", "2025-06-18"];
 
     private readonly ConcurrentQueue<string[]> _imports = [];
@@ -907,7 +910,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         var run = server.RunAsync();
         var client = await McpClient.CreateAsync(
             new StreamClientTransport(clientToServer.Writer.AsStream(), serverToClient.Reader.AsStream()),
-            new McpClientOptions { ProtocolVersion = revision, Capabilities = elicitation is null ? null : new ClientCapabilities { Elicitation = elicitation }, Handlers = new McpClientHandlers { ElicitationHandler = forms.Handle } },
+            new McpClientOptions { ProtocolVersion = revision, DiscoverProbeTimeout = NoProbeTimeout, Capabilities = elicitation is null ? null : new ClientCapabilities { Elicitation = elicitation }, Handlers = new McpClientHandlers { ElicitationHandler = forms.Handle } },
             cancellationToken: TestContext.Current.CancellationToken);
         return new Pair(server, run, client, ran);
     }
@@ -1412,7 +1415,9 @@ public sealed class McpCommandTests : IAsyncLifetime
             var inner = options.Handlers.CallToolHandler!;
             options.Handlers.CallToolHandler = async (context, token) =>
             {
-                Token.TrySetResult(token);
+                // Registered while the SDK's token source is alive (it disposes it once the handler returns). Not disposed here:
+                // the handler can return inside Cancel(), before this callback's turn, and disposing it then would drop it.
+                _ = token.Register(() => Cancelled.Release());
                 try
                 {
                     return await inner(context, token);
@@ -1432,8 +1437,8 @@ public sealed class McpCommandTests : IAsyncLifetime
         // Released each time a tools/call handler returns.
         public SemaphoreSlim Done { get; } = new(0);
 
-        // The token of the first tools/call handler.
-        public TaskCompletionSource<CancellationToken> Token { get; } = new();
+        // Released each time a tools/call handler's token is cancelled.
+        public SemaphoreSlim Cancelled { get; } = new(0);
 
         public Task Send(JsonNode message) => _writer.WriteLineAsync(message.ToJsonString().AsMemory(), TestContext.Current.CancellationToken);
 
@@ -1515,8 +1520,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Equal("elicitation/create", (string)form["method"]!);
 
         await raw.Send(JsonNode.Parse("""{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":2,"reason":"test"}}""")!);
-        var token = await raw.Token.Task.WaitAsync(Wait, TestContext.Current.CancellationToken);
-        Assert.True(token.WaitHandle.WaitOne(Wait), "the handler's token was never cancelled");
+        Assert.True(await raw.Cancelled.WaitAsync(Wait, TestContext.Current.CancellationToken), "the handler's token was never cancelled");
         await raw.Send(new JsonObject
         {
             ["jsonrpc"] = "2.0",
