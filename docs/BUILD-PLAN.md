@@ -445,6 +445,21 @@ This starts once M1 passes locally.
 - Never touch a work tenant unless you say so.
 - Tenant URLs and IDs live only in environment variables or gitignored files.
 
+### Windows and macOS
+
+For a person with a Windows or macOS machine (M32, [plan](plans/m32-platforms/plan.md)). Nobody had one on 2026-10-28, so this has not been run. It reads and writes no tenant: the only `pac` call is `pac auth list`, which reads the local profile store. Every client session uses a new config folder, deleted afterwards.
+
+0. Have the .NET 10 SDK (`global.json`), git, Claude Code, Codex and `pac`. Write down their versions, the operating system's version and architecture, and the shell.
+1. Install from a clone with the lines in the README's Install section, run as written in the shell you use (on Windows PowerShell 7, and Windows PowerShell 5.1 if you have it; on macOS zsh). Write down what you had to change. Whether the block runs in Windows PowerShell 5.1 is open: it chains two commands with `&&`, which PowerShell implements from version 7.
+2. Open a new shell and run the bare `powerops --version`. Then run `Get-Command powerops` (PowerShell), `where.exe powerops` (cmd) or `command -v powerops` (macOS). Expected: the version, and a path in the dotnet tools folder.
+3. In the clone, run `powerops analyze tests/fixtures`. Expected: exit 0, and a last line equal to the last line of `tests/golden/analyze-fixtures.txt` (`11 solutions, 0 errors, 36 warnings` when this was written).
+4. Claude Code, with `CLAUDE_CONFIG_DIR` pointing to a new empty folder: `claude plugin marketplace add <the clone>`, `claude plugin install powerops@powerops`, `claude plugin details powerops` (three skills and one MCP server), and `claude mcp list` from the new shell (`plugin:powerops:powerops` connected). Then start `claude` in the clone and run `/mcp`: the server lists 12 tools. To avoid a new sign-in, load the plugin with `--plugin-dir plugins/claude` as M20 did.
+5. Codex, with `CODEX_HOME` pointing to a new empty folder outside the system temp folder: `codex plugin marketplace add <the clone>`, `codex plugin add powerops@powerops`, `codex mcp get powerops --json` (enabled, `tool_timeout_sec` 3600.0), then `codex login`, `codex` in the clone, and `/mcp`: `powerops` with 12 tools. Then `codex logout`.
+6. The 12 names are those in `tests/golden/mcp-tools.txt`. Optionally ask each agent to call `analyze` on the absolute path of `tests/fixtures` (a `C:\` path on Windows): its result matches step 3. Do not call `plan_facts`, `drift` against an environment, `deploy_plan` or `deploy_apply`: they read a tenant. Never set `apply`.
+7. Run `pac auth list`. Expected: exit 0, and the profiles you know are there, or none. Do not sign in. If `pac` is not installed, write that down.
+
+Record the run in the verification record as a line "M32 (date)": the system and versions, each step as passed, failed or changed, and what you had to change. Leave out machine names, user names, paths outside the clone and tenant data. Each point that passed is then removed from the not-verified marks (README, `docs/USE-WITH-AGENTS.md`, FOUNDATION §8), and each failure becomes a finding.
+
 ## Build order (tasks for `/implement-feature`)
 
 1. `test:` migrate to xunit.v3 + Microsoft.Testing.Platform, add the golden-file helper
