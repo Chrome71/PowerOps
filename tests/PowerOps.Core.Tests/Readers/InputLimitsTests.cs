@@ -309,7 +309,7 @@ public class InputLimitsTests(ITestOutputHelper log)
     public void Discovery_refuses_an_over_cap_zip_instead_of_skipping_it()
     {
         using var t = new TempFolder();
-        File.Copy(Zip64Declaring(t, 100_001), Path.Combine(t.Path, "x.zip"));
+        File.Move(Zip64Declaring(t, 100_001), Path.Combine(t.Path, "x.zip")); // one zip in the folder, so the enumeration order can't matter
 
         var ex = Assert.Throws<InvalidDataException>(() => SolutionDiscovery.Find(t.Path));
 
