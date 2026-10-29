@@ -389,6 +389,22 @@ public class DriftLiveReaderTests
         Assert.Empty(f.WebCalls);
     }
 
+    [Theory]
+    [InlineData("https://contoso&calc.crm.dynamics.com")]
+    [InlineData("https://contoso\".crm.dynamics.com")]
+    [InlineData("https://contoso.crm.dynamics.com/&calc")]
+    [InlineData("http://contoso.crm.dynamics.com")]
+    public void A_url_with_cmd_metacharacters_never_reaches_az(string url)
+    {
+        var f = new LiveFakes();
+
+        var e = Assert.Throws<DriftReadException>(() => f.Reader.Token(url));
+
+        Assert.Equal(2, e.ExitCode);
+        Assert.Empty(f.AzCalls);
+        Assert.DoesNotContain(url, e.Message);
+    }
+
     [Fact]
     public void Az_not_found()
     {

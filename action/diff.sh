@@ -25,6 +25,10 @@ base="$(mktemp -d "$RUNNER_TEMP/powerops-base.XXXXXX")"
 git worktree add --detach "$base" "$parent" || code=$?
 if [ "$code" -ne 0 ]; then fail "worktree" "$code"; fi
 
-dotnet "$PO_DLL" diff "$base/$PO_PATH" "$PO_PATH" --format markdown --out "$PO_COMMENT" || code=$?
+stderr="$(mktemp)"
+trap 'rm -f "$stderr"' EXIT
+dotnet "$PO_DLL" diff "$base/$PO_PATH" "$PO_PATH" --format markdown --out "$PO_COMMENT" 2>"$stderr" || code=$?
+# A solution can put any text in a name, and a log line that starts with :: is a workflow command, so only powerops' own lines reach the log.
+grep -E '^(error|note):' "$stderr" || true
 # Exit 0 (same) and 1 (different) are results; anything else is a failure.
 if [ "$code" -ne 0 ] && [ "$code" -ne 1 ]; then fail "diff" "$code"; fi

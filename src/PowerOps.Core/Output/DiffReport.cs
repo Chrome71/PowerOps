@@ -100,24 +100,29 @@ public static class DiffReport
 
     private static string Label(Change c) => c.Name is null ? c.Key : $"{c.Name} ({c.Key})";
 
-    // Escapes first, then caps the escaped length; a surrogate pair or an escape sequence is never split.
+    // Escapes first, then caps the escaped length; a surrogate pair or a backslash escape is never split.
     private static string Escape(string? text)
     {
-        var result = new StringBuilder();
-        for (var i = 0; i < (text?.Length ?? 0); i++)
+        var escaped = MarkdownReport.Escape(text);
+        if (escaped.Length <= MaxCell)
         {
-            var unit = char.IsHighSurrogate(text![i]) && i + 1 < text.Length ? text.Substring(i, 2) : text[i].ToString();
-            var escaped = MarkdownReport.Escape(unit);
-            if (result.Length + escaped.Length > MaxCell)
-            {
-                return result.Append('…').ToString();
-            }
-
-            result.Append(escaped);
-            i += unit.Length - 1;
+            return escaped;
         }
 
-        return result.ToString();
+        var cut = 0;
+        while (cut < escaped.Length)
+        {
+            var pair = cut + 1 < escaped.Length && (char.IsHighSurrogate(escaped[cut]) || (escaped[cut] == '\\' && MarkdownReport.Specials.Contains(escaped[cut + 1])));
+            var size = pair ? 2 : 1;
+            if (cut + size > MaxCell)
+            {
+                break;
+            }
+
+            cut += size;
+        }
+
+        return escaped[..cut] + "…";
     }
 
     private sealed record Doc(int SchemaVersion, Sol Old, Sol New, IReadOnlyList<Item> Changes, Counts Summary);

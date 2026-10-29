@@ -7,6 +7,7 @@ namespace PowerOps.Core.Readers;
 public sealed class LoadContext
 {
     private readonly Func<ReadBudget> _newBudget;
+    private readonly List<string> _skippedLinks = [];
     private readonly Dictionary<string, YamlRoot> _roots = new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
     public LoadContext()
@@ -16,12 +17,17 @@ public sealed class LoadContext
 
     internal LoadContext(Func<ReadBudget> newBudget) => _newBudget = newBudget;
 
+    /// <summary>The links found inside the folders loaded so far (as forward-slash paths). They are never followed, so what they point to was not read; the commands print one note for each.</summary>
+    public IReadOnlyList<string> SkippedLinks => _skippedLinks;
+
+    internal ICollection<string> SkippedLinkSink => _skippedLinks;
+
     internal YamlRoot RootFor(string folder)
     {
         var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
         if (!_roots.TryGetValue(full, out var root))
         {
-            _roots[full] = root = new YamlRoot(full, _newBudget());
+            _roots[full] = root = new YamlRoot(full, _newBudget(), _skippedLinks);
         }
 
         return root;

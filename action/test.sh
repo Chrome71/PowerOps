@@ -13,8 +13,8 @@ trap 'rm -f "$report" "$json" "$stderr"' EXIT
 code=0
 dotnet "$PO_DLL" test "$PO_PATH" --tests "$PO_TESTS" --format markdown --out "$report" 2>"$stderr" || code=$?
 # A pull request, also from a fork, controls the test files, and a log line that starts with :: is a workflow command.
-# So only powerops' own error: lines reach the log; it keeps each message on its line.
-grep '^error:' "$stderr" || true
+# So only powerops' own error: and note: lines reach the log; it keeps each message on its line.
+grep -E '^(error|note):' "$stderr" || true
 echo "exit-code=$code" >> "$GITHUB_OUTPUT"
 
 case "$code" in

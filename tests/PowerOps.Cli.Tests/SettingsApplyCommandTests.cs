@@ -191,7 +191,7 @@ public class SettingsApplyCommandTests : IDisposable
         var r = Run(Pac(import: () => new PacResult(true, false, 1, "pac out text\n", "pac err text\n")), "settings", "apply", SeedZip(), "--settings", Valid, "--apply", "--target", "Contoso Dev", "--format", "json");
 
         Assert.Equal(3, r.Code);
-        Assert.Equal("environment: Contoso Dev\npac out text\npac err text\n", r.Err);
+        Assert.Equal("environment: Contoso Dev\n  | pac out text\n  | pac err text\n", r.Err);
         Assert.DoesNotContain("pac out text", r.Out);
         Assert.DoesNotContain("pac err text", r.Out);
         var root = JsonDocument.Parse(r.Out).RootElement;
@@ -199,6 +199,19 @@ public class SettingsApplyCommandTests : IDisposable
         Assert.Equal("failed", root.GetProperty("steps")[3].GetProperty("status").GetString());
         Assert.Equal("skipped", root.GetProperty("steps")[4].GetProperty("status").GetString());
         Assert.Equal(3, r.Calls.Count); // org who, one read, the import, and no read after it
+    }
+
+    [Fact]
+    public void A_failed_imports_pac_text_is_prefixed_so_no_line_is_a_workflow_command()
+    {
+        var r = Run(Pac(import: () => new PacResult(true, false, 1, "::error::from pac\n", "::set-output name=x::y\r\nerror: fake\n")), "settings", "apply", SeedZip(), "--settings", Valid, "--apply", "--target", "Contoso Dev");
+
+        Assert.Equal(3, r.Code);
+        var lines = r.Err.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.TrimEnd('\r')).Where(l => l != "environment: Contoso Dev").ToList();
+        Assert.Contains("  | ::error::from pac", lines);
+        Assert.Contains("  | ::set-output name=x::y", lines);
+        Assert.Contains("  | error: fake", lines);
+        Assert.All(lines, l => Assert.StartsWith("  | ", l));
     }
 
     [Fact]

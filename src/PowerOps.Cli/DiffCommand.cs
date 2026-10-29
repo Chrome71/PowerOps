@@ -30,7 +30,7 @@ public static class DiffCommand
             var p = paths[i];
             if (!File.Exists(p) && !Directory.Exists(p))
             {
-                error.WriteLine($"error: path not found: {p}");
+                error.WriteLine($"error: path not found: {TextReport.Clean(p)}");
                 return 2;
             }
 
@@ -48,7 +48,7 @@ public static class DiffCommand
 
             if (found.Count > 1)
             {
-                error.WriteLine($"error: {p} holds {found.Count} solutions; pass one of them: {string.Join(", ", found)}");
+                error.WriteLine($"error: {TextReport.Clean(p)} holds {found.Count} solutions; pass one of them: {string.Join(", ", found.Select(TextReport.Clean))}");
                 return 2;
             }
 
@@ -60,7 +60,9 @@ public static class DiffCommand
 
         try
         {
-            var result = SolutionDiff.Compare(SolutionLoader.Load(paths[0]), SolutionLoader.Load(paths[1]));
+            var context = new LoadContext();
+            var result = SolutionDiff.Compare(SolutionLoader.Load(paths[0], context), SolutionLoader.Load(paths[1], context));
+            TextReport.WriteNotes(context.SkippedLinks, error);
             var report = new StringWriter();
             if (format == "json")
             {

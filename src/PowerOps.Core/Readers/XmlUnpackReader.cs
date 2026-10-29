@@ -7,7 +7,8 @@ public static class XmlUnpackReader
 {
     public static Solution Read(string folder) => Read(folder, new ReadBudget());
 
-    internal static Solution Read(string folder, ReadBudget budget)
+    /// <param name="skippedLinks">Receives the path of each link inside the folder, which is not followed.</param>
+    internal static Solution Read(string folder, ReadBudget budget, ICollection<string>? skippedLinks = null)
     {
         var root = Path.GetFullPath(folder);
         if (!Directory.Exists(root))
@@ -16,9 +17,11 @@ public static class XmlUnpackReader
         }
 
         // Symlinks are never followed, and .git, node_modules, bin and obj are neither listed nor counted.
-        var paths = budget.LimitFiles(SolutionDiscovery.EnumerateFiles(root), folder)
+        var links = new List<string>();
+        var paths = budget.LimitFiles(SolutionDiscovery.EnumerateFiles(root, links), folder)
             .Select(f => Path.GetRelativePath(root, f).Replace('\\', '/'))
             .ToList();
+        links.ForEach(l => skippedLinks?.Add(Path.Combine(folder, Path.GetRelativePath(root, l)).Replace('\\', '/')));
 
         return SolutionParser.Parse(new SolutionFiles(
             paths,

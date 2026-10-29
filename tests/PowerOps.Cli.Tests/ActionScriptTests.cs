@@ -4,7 +4,7 @@ using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
 
-// Runs action/plan.sh, action/apply.sh, action/diff.sh, action/comment.sh and action/test.sh with bash, against stub `gh` and `dotnet` programs
+// Runs action/plan.sh, action/apply.sh, action/diff.sh, action/comment.sh, action/test.sh, action/powerops.sh, action/annotate.sh and action/summary.sh with bash, against stub `gh` and `dotnet` programs
 // that come first on PATH. Skipped on Windows and where bash (or jq or git, which a test needs) is not found.
 public sealed class ActionScriptTests : IDisposable
 {
@@ -251,6 +251,123 @@ public sealed class ActionScriptTests : IDisposable
         Assert.Empty(run.DotnetCalls);
     }
 
+    [Theory]
+    [InlineData("push", "false")]
+    [InlineData("workflow_dispatch", "false")]
+    [InlineData("merge_group", "false")]
+    [InlineData("pull_request", "false")]
+    public void Apply_runs_on_push_workflow_dispatch_merge_group_and_a_same_repository_pull_request(string eventName, string fork)
+    {
+        var run = RunApply(exit: 0, fork: fork, eventName: eventName);
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal("exit-code=0\n", run.Output);
+        Assert.Single(run.DotnetCalls);
+    }
+
+    [Theory]
+    [InlineData("workflow_run", "false")]
+    [InlineData("issue_comment", "false")]
+    [InlineData("pull_request_review_comment", "false")]
+    [InlineData("pull_request_target", "false")]
+    [InlineData("pull_request", "true")]
+    [InlineData("schedule", "false")]
+    [InlineData("", "false")]
+    public void Apply_refuses_every_other_event(string eventName, string fork)
+    {
+        var run = RunApply(exit: 0, fork: fork, eventName: eventName);
+
+        Assert.Equal(0, run.Code);
+        Assert.StartsWith("::error::plan-file is supported only on push, workflow_dispatch, merge_group and same-repository pull_request events", run.Out);
+        Assert.Equal("exit-code=2\n", run.Output);
+        Assert.Empty(run.DotnetCalls);
+    }
+
+    // ---- powerops.sh, annotate.sh and summary.sh ----
+
+    [Fact]
+    public void Powerops_passes_stdout_and_the_exit_code_and_logs_only_error_and_note_lines_of_stderr()
+    {
+        Require("bash");
+        var temp = NewDir("powerops");
+        WriteStub(temp, "dotnet", DotnetStub);
+        File.WriteAllText(Path.Combine(temp, "stdout.txt"), "the report\n");
+        File.WriteAllText(Path.Combine(temp, "stderr.txt"), "error: a\n::error::forged\nnote: b\n  ::add-mask::z\nwarning: c\n");
+
+        var run = Run("powerops.sh", temp, temp, new() { ["PO_DLL"] = "powerops.dll", ["STUB_EXIT"] = "3" }, stdin: null, args: ["analyze", "sol"]);
+
+        Assert.Equal(3, run.Code);
+        Assert.Equal("the report\n", run.Out);
+        Assert.Equal("error: a\nnote: b\n", run.Err);
+        Assert.Equal("powerops.dll analyze sol", Assert.Single(run.DotnetCalls));
+    }
+
+    private const string AnnotateJson = """
+        {
+          "solutions": [
+            { "path": ".", "findings": [
+              { "ruleId": "PO011", "severity": "warning", "file": "Workflows/a,b:c.json", "message": "sets ::error:: 100% off\nsecond line\r\nthird" } ] },
+            { "path": "sol", "findings": [ { "ruleId": "PO002", "severity": "error", "file": "Other/Customizations.xml", "message": "m" } ] },
+            { "path": "dist/Demo.zip", "findings": [ { "ruleId": "PO003", "severity": "error", "file": "Workflows/f.json", "message": "z" } ] }
+          ]
+        }
+        """;
+
+    [Fact]
+    public void Annotate_escapes_percent_line_breaks_and_the_property_separators()
+    {
+        Require("bash", "jq");
+        var temp = NewDir("annotate");
+
+        var run = Run("annotate.sh", temp, temp, [], stdin: AnnotateJson);
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal(
+            "::warning file=Workflows/a%2Cb%3Ac.json,title=PO011::sets ::error:: 100%25 off%0Asecond line%0D%0Athird\n" +
+            "::error file=sol/Other/Customizations.xml,title=PO002::m\n" +
+            "::error file=dist/Demo.zip,title=PO003::z\n",
+            run.Out);
+    }
+
+    [Fact]
+    public void Summary_under_the_limit_is_appended_unchanged()
+    {
+        Require("bash");
+        var temp = NewDir("summary");
+        var summary = Path.Combine(temp, "summary.md");
+        var report = "## PowerOps analyze\n\n" + new string('x', 1_048_576 - 22) + "\n"; // exactly 1 MiB
+        Assert.Equal(1_048_576, report.Length);
+
+        var run = Run("summary.sh", temp, temp, new() { ["GITHUB_STEP_SUMMARY"] = summary }, stdin: report);
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal(report, File.ReadAllText(summary));
+    }
+
+    [Fact]
+    public void Summary_over_the_limit_is_cut_at_a_line_end_with_a_last_line_that_says_how_much()
+    {
+        Require("bash");
+        var temp = NewDir("summary");
+        var summary = Path.Combine(temp, "summary.md");
+        var report = "## PowerOps analyze\n\n" + string.Concat(Enumerable.Range(0, 30_000).Select(i => $"| row {i} | {new string('é', 20)} |\n"));
+        var total = System.Text.Encoding.UTF8.GetByteCount(report);
+        Assert.True(total > 1_048_576);
+
+        var run = Run("summary.sh", temp, temp, new() { ["GITHUB_STEP_SUMMARY"] = summary }, stdin: report);
+
+        Assert.Equal(0, run.Code);
+        var written = File.ReadAllBytes(summary);
+        Assert.True(written.Length <= 1_048_576, $"{written.Length} bytes");
+        var text = System.Text.Encoding.UTF8.GetString(written);
+        var lines = text.Split('\n');
+        var kept = text[..text.LastIndexOf("\n\n_The report", StringComparison.Ordinal)];
+        var shown = System.Text.Encoding.UTF8.GetByteCount(kept) + 1;
+        Assert.Equal($"_The report was cut to fit the 1 MiB job summary limit: {shown} of {total} bytes are shown._", lines[^2]);
+        Assert.StartsWith(report[..20], text, StringComparison.Ordinal);
+        Assert.EndsWith(" |\n\n_The report was cut to fit the 1 MiB job summary limit: " + $"{shown} of {total} bytes are shown._\n", text, StringComparison.Ordinal);
+    }
+
     // ---- test.sh ----
 
     // A passed test; a failed one in a sub folder whose name needs escaping, with a passed assertion, a failed one whose actual
@@ -379,6 +496,14 @@ public sealed class ActionScriptTests : IDisposable
     }
 
     [Fact]
+    public void Test_logs_the_note_lines_of_stderr_too()
+    {
+        var run = RunTest(exit: 0, stderr: "note: sol/Other/x.xml: a link\n::error::y\n");
+
+        Assert.Equal("note: sol/Other/x.xml: a link\n", run.Out);
+    }
+
+    [Fact]
     public void Test_with_a_json_report_that_does_not_parse_gives_a_warning_and_exits_0()
     {
         var run = RunTest(exit: 1, json: "not json");
@@ -452,10 +577,25 @@ public sealed class ActionScriptTests : IDisposable
         Assert.DoesNotContain("secret", File.ReadAllText(run.Comment));
     }
 
+    [Fact]
+    public void Diff_logs_only_error_and_note_lines_of_stderr_so_a_name_cannot_add_a_workflow_command()
+    {
+        SkipUnless("git");
+        var clone = MakeMergeClone();
+
+        var run = RunDiff(clone, exit: 1, stderr: "note: sol/Other/x.xml: a link\n::error::forged\n  ::add-mask::z\nerror: b\n");
+
+        Assert.Equal(0, run.Code);
+        var logged = run.Out.Split('\n').Where(l => l.StartsWith("note:", StringComparison.Ordinal) || l.StartsWith("error:", StringComparison.Ordinal) || l.Contains("::", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(["note: sol/Other/x.xml: a link", "error: b"], logged);
+    }
+
     // ---- helpers ----
 
     private sealed record Result(int Code, string Out, string Folder, string Temp, string Comment, string Summary, string Output, string Posted)
     {
+        public string Err { get; init; } = "";
+
         public string[] GhCalls => ReadLines(Path.Combine(Temp, "gh.log"));
 
         public string[] DotnetCalls => ReadLines(Path.Combine(Temp, "dotnet.log"));
@@ -727,10 +867,15 @@ public sealed class ActionScriptTests : IDisposable
         (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
             .Any(dir => File.Exists(Path.Combine(dir, program)));
 
-    private Result Run(string script, string temp, string workDir, Dictionary<string, string> env)
+    private Result Run(string script, string temp, string workDir, Dictionary<string, string> env, string? stdin = null, string[]? args = null)
     {
-        var start = new ProcessStartInfo("bash") { WorkingDirectory = workDir, RedirectStandardOutput = true, RedirectStandardError = true };
+        var start = new ProcessStartInfo("bash") { WorkingDirectory = workDir, RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = stdin is not null };
         start.ArgumentList.Add(Path.Combine(Scripts, script));
+        foreach (var arg in args ?? [])
+        {
+            start.ArgumentList.Add(arg);
+        }
+
         start.Environment["PATH"] = Path.Combine(temp, "bin") + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH");
         start.Environment["STUB_DIR"] = temp;
         foreach (var (key, value) in env)
@@ -738,13 +883,33 @@ public sealed class ActionScriptTests : IDisposable
             start.Environment[key] = value;
         }
 
-        var result = Execute(start);
-        return new Result(result.Code, result.Out, "", temp, "", "", "", "");
+        var result = Execute(start, stdin);
+        return new Result(result.Code, result.Out, "", temp, "", "", "", "") { Err = result.Err };
     }
 
-    private static (int Code, string Out, string Err) Execute(ProcessStartInfo start)
+    private static (int Code, string Out, string Err) Execute(ProcessStartInfo start, string? stdin = null)
     {
         using var process = Process.Start(start)!;
+        if (stdin is not null)
+        {
+            // The input can be larger than the pipe buffer, so write it while the output is read.
+            var write = Task.Run(() =>
+            {
+                process.StandardInput.Write(stdin);
+                process.StandardInput.Close();
+            });
+            var stdoutEarly = process.StandardOutput.ReadToEndAsync();
+            var stderrEarly = process.StandardError.ReadToEndAsync();
+            write.GetAwaiter().GetResult();
+            if (!process.WaitForExit(TimeSpan.FromSeconds(60)))
+            {
+                process.Kill(entireProcessTree: true);
+                throw new TimeoutException(start.FileName + " did not finish.");
+            }
+
+            return (process.ExitCode, stdoutEarly.GetAwaiter().GetResult(), stderrEarly.GetAwaiter().GetResult());
+        }
+
         var stdout = process.StandardOutput.ReadToEndAsync();
         var stderr = process.StandardError.ReadToEndAsync();
         if (!process.WaitForExit(TimeSpan.FromSeconds(60)))

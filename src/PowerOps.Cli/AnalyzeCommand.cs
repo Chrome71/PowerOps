@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Text;
 
 using PowerOps.Core.Output;
+using PowerOps.Core.Readers;
 
 namespace PowerOps.Cli;
 
@@ -117,13 +118,15 @@ public static class AnalyzeCommand
 
         try
         {
-            var result = AnalysisResult.Run(paths, Directory.GetCurrentDirectory());
+            var context = new LoadContext();
+            var result = AnalysisResult.Run(paths, Directory.GetCurrentDirectory(), context);
             if (result.Solutions.Count == 0)
             {
                 error.WriteLine($"error: no solutions found under {string.Join(", ", paths)}. To analyze a YAML layout, point at the folder that holds solutions/.");
                 return UsageError;
             }
 
+            TextReport.WriteNotes(context.SkippedLinks, error);
             return emit(baseline?.Apply(result) ?? result);
         }
         catch (Exception ex)

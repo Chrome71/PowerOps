@@ -106,8 +106,18 @@ internal sealed class DriftLiveReader(
     }
 
     // The token is taken out of az's stdout at once; on failure only stderr is forwarded, because stdout is the token on success.
-    private string Token(string url)
+    // On Windows az.cmd runs through cmd.exe, where .NET's quoting is no escape, so the URL is checked again here, next to the call.
+    internal string Token(string url)
     {
+        try
+        {
+            DriftParsers.EnvironmentUrl(url);
+        }
+        catch (InvalidDataException)
+        {
+            throw new DriftReadException("the environment URL is not an https URL of a host name; no token was requested.", exitCode: 2);
+        }
+
         var result = az(["account", "get-access-token", "--resource", url, "--query", "accessToken", "-o", "tsv"], Timeout);
         if (!result.Started)
         {

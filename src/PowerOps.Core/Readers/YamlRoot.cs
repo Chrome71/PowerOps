@@ -11,7 +11,7 @@ internal sealed class YamlRoot
     private readonly Dictionary<string, string> _cache = new(StringComparer.Ordinal);
     private readonly Dictionary<string, XElement> _parsed = new(StringComparer.Ordinal);
 
-    public YamlRoot(string folder, ReadBudget? budget = null)
+    public YamlRoot(string folder, ReadBudget? budget = null, ICollection<string>? skippedLinks = null)
     {
         Folder = Path.GetFullPath(folder);
         Budget = budget ?? new ReadBudget();
@@ -21,12 +21,15 @@ internal sealed class YamlRoot
         }
 
         // Symlinks are never followed, and .git, node_modules, bin and obj are neither listed nor counted.
-        foreach (var p in Budget.LimitFiles(SolutionDiscovery.EnumerateFiles(Folder), folder)
+        var links = new List<string>();
+        foreach (var p in Budget.LimitFiles(SolutionDiscovery.EnumerateFiles(Folder, links), folder)
             .Select(f => Path.GetRelativePath(Folder, f).Replace('\\', '/'))
             .Order(StringComparer.Ordinal))
         {
             Paths.TryAdd(p, p);
         }
+
+        links.ForEach(l => skippedLinks?.Add(System.IO.Path.Combine(folder, System.IO.Path.GetRelativePath(Folder, l)).Replace('\\', '/')));
     }
 
     public ReadBudget Budget { get; }
