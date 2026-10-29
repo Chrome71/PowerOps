@@ -137,6 +137,95 @@ public class WritePathsTests : IDisposable
         Assert.Equal(before, File.ReadAllBytes(zip));
     }
 
+    // dl -> sub/deep. A ".." after the link is the link target's parent (sub) on Unix and the lexical parent (the top) on Windows.
+    private void DeepLink()
+    {
+        Directory.CreateDirectory(Path.Combine(_temp, "sub", "deep"));
+        Links.Create(Path.Combine(_temp, "dl"), Path.Combine("sub", "deep"), folder: true);
+    }
+
+    // The reviewer's repro: the target is resolved once, so the file that is checked is the file that is written.
+    [Fact]
+    public void Out_through_a_link_and_dotdot_is_written_where_the_OS_takes_it_and_never_over_the_other_file()
+    {
+        DeepLink();
+        var zip = ZipOf(V2, "in.zip");
+        var before = File.ReadAllBytes(zip);
+        var expected = Run("settings", "generate", zip).Out;
+        var target = Path.Combine(_temp, "dl", "..", "in.zip");
+
+        var (code, output, error) = Run("settings", "generate", zip, "--out", target);
+
+        Assert.Equal("", output);
+        if (OperatingSystem.IsWindows())
+        {
+            // Lexical: the top in.zip, which is the input.
+            Assert.Equal(2, code);
+            Assert.Equal($"error: {target}: {SafeWrite.InputReason}", Assert.Single(Lines(error)));
+        }
+        else
+        {
+            Assert.Equal(0, code);
+            Assert.Equal("", error);
+            Assert.Equal(expected, File.ReadAllText(Path.Combine(_temp, "sub", "in.zip")));
+        }
+
+        Assert.Equal(before, File.ReadAllBytes(zip));
+    }
+
+    [Fact]
+    public void Out_through_a_link_and_dotdot_over_an_input_is_refused_where_the_OS_takes_it()
+    {
+        DeepLink();
+        var zip = Path.Combine(_temp, "sub", "in.zip");
+        SolutionZip.Create(V2, zip);
+        var before = File.ReadAllBytes(zip);
+        var expected = Run("settings", "generate", zip).Out;
+        var target = Path.Combine(_temp, "dl", "..", "in.zip");
+
+        var (code, output, error) = Run("settings", "generate", zip, "--out", target);
+
+        Assert.Equal("", output);
+        if (OperatingSystem.IsWindows())
+        {
+            // Lexical: the top in.zip, not the input.
+            Assert.Equal(0, code);
+            Assert.Equal(expected, File.ReadAllText(Path.Combine(_temp, "in.zip")));
+        }
+        else
+        {
+            Assert.Equal(2, code);
+            Assert.Equal($"error: {target}: {SafeWrite.InputReason}", Assert.Single(Lines(error)));
+        }
+
+        Assert.Equal(before, File.ReadAllBytes(zip));
+    }
+
+    [Fact]
+    public void Out_through_more_than_40_links_or_a_link_loop_exits_2_and_writes_nothing()
+    {
+        var real = Directory.CreateDirectory(Path.Combine(_temp, "realdir")).FullName;
+        Links.Create(Path.Combine(_temp, "l0"), real, folder: true);
+        for (var i = 1; i <= 40; i++)
+        {
+            Links.Create(Path.Combine(_temp, $"l{i}"), Path.Combine(_temp, $"l{i - 1}"), folder: true);
+        }
+
+        Links.Create(Path.Combine(_temp, "loop"), "loop", folder: true);
+
+        foreach (var folder in new[] { "l40", "loop" })
+        {
+            var target = Path.Combine(_temp, folder, "out.json");
+
+            var (code, output, error) = Run("settings", "generate", V2, "--out", target);
+
+            Assert.Equal(2, code);
+            Assert.Equal("", output);
+            Assert.Equal($"error: {target}: {SafeWrite.LoopReason}", Assert.Single(Lines(error)));
+            Assert.Empty(Directory.GetFileSystemEntries(real));
+        }
+    }
+
     // On Linux /dev/fd is a link to /proc/self/fd, so /dev/fd/1 is a link: only the typed names /dev/stdout and /dev/stderr are exempt.
     [Fact]
     public void Out_dev_fd_1_is_a_link_and_refused_with_exit_2()
@@ -377,6 +466,8 @@ public class WritePathsTests : IDisposable
     public void Skills_install_refuses_a_link_on_the_way_with_exit_2_and_writes_nothing_outside_the_repo(string link, string spelling)
     {
         var (repo, outside) = (Repo, Outside);
+        var relative = Path.GetRelativePath(Environment.CurrentDirectory, repo);
+        Assert.SkipWhen(spelling is "dot-dot" or "dot-slash" && Path.IsPathRooted(relative), "The temp folder is on another drive than the current folder.");
         var skill = FirstSkill.Split('/')[0];
         string refused;
         switch (link)
@@ -413,8 +504,8 @@ public class WritePathsTests : IDisposable
 
         var given = spelling switch
         {
-            "dot-dot" => Path.GetRelativePath(Environment.CurrentDirectory, repo),
-            "dot-slash" => "." + Path.DirectorySeparatorChar + Path.GetRelativePath(Environment.CurrentDirectory, repo),
+            "dot-dot" => relative,
+            "dot-slash" => "." + Path.DirectorySeparatorChar + relative,
             "trailing" => repo + Path.DirectorySeparatorChar,
             _ => repo,
         };

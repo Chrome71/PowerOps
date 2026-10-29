@@ -19,14 +19,19 @@ public static class SafeWrite
     public const string InputReason = "is an input of this command; it is not overwritten.";
     public const string EmptyReason = "is empty; name a file.";
     public const string FolderReason = "is a folder; name a file in it.";
+    public const string LoopReason = "has a link loop or more than 40 links on the way; nothing is written.";
 
     private static readonly UTF8Encoding Utf8 = new(false);
 
     /// <summary>The refusal for writing <paramref name="path"/>, or null. Opens and creates nothing, so every command calls it first, before it does its work.</summary>
     /// <param name="inputs">The files the user named as inputs; <paramref name="path"/> may not be one of them.</param>
     /// <param name="root">When set, no folder below it on the way to <paramref name="path"/> may be a link (<paramref name="root"/> itself is the user's).</param>
-    public static WriteRefusal? Refusal(string path, IEnumerable<string> inputs, string? root = null)
+    public static WriteRefusal? Refusal(string path, IEnumerable<string> inputs, string? root = null) => Check(path, inputs, root, out _);
+
+    // full is the one path to open when the result is null: the target resolved through every link on the way, with no "." or ".." left, so the kernel opens the entry that was checked.
+    private static WriteRefusal? Check(string path, IEnumerable<string> inputs, string? root, out string full)
     {
+        full = path;
         if (path.Length == 0)
         {
             return new WriteRefusal(path, EmptyReason);
@@ -37,44 +42,57 @@ public static class SafeWrite
             return null;
         }
 
-        if (new FileInfo(path).LinkTarget is not null)
+        if (Resolve(path) is not { } resolved)
+        {
+            return new WriteRefusal(path, LoopReason);
+        }
+
+        full = resolved;
+        if (new FileInfo(full).LinkTarget is not null)
         {
             return new WriteRefusal(path, LinkReason);
         }
 
         // After the link check, so a link to a folder is still named a link.
-        if (Directory.Exists(path))
+        if (Directory.Exists(full))
         {
             return new WriteRefusal(path, FolderReason);
         }
 
-        var full = Path.GetFullPath(path);
         if (root is not null)
         {
-            var top = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
-            var folders = new List<string>();
-            for (var dir = Path.GetDirectoryName(full); dir is not null && dir.Length > top.Length && dir.StartsWith(top, PathComparison); dir = Path.GetDirectoryName(dir))
+            // The user's own strings, so the kernel resolves any ".." in root the way Resolve does. The shallowest link is the one to name: nothing below it means anything.
+            var dir = root;
+            foreach (var part in Parts(Path.GetRelativePath(root, path)).SkipLast(1))
             {
-                folders.Add(dir);
-            }
-
-            // The shallowest link is the one to name: nothing below it means anything.
-            foreach (var dir in Enumerable.Reverse(folders))
-            {
-                if (new DirectoryInfo(dir).LinkTarget is not null)
+                dir = Path.Combine(dir, part);
+                if (new FileInfo(dir).LinkTarget is not null)
                 {
                     return new WriteRefusal(dir, LinkReason);
                 }
             }
         }
 
-        // shortcut: both sides are resolved through every link on the way, but 8.3 names, \\?\ paths and Unicode normalization are not seen, and a link swapped in after this check needs write access to the folder. Hard links need no check: the move replaces the directory entry.
-        var real = new Lazy<string?>(() => RealPath(path));
-        return inputs.Any(input => real.Value is { } target && RealPath(input) is { } other && string.Equals(target, other, PathComparison)) ? new WriteRefusal(path, InputReason) : null;
+        // shortcut: target and inputs are resolved through every link on the way, but 8.3 names, \\?\ paths and Unicode normalization are not seen, and a link swapped in after this check needs write access to the folder. Hard links need no check: the move replaces the directory entry.
+        // An input that cannot be resolved (a loop, more than 40 links) fails closed: it might be the target, and a refusal is exit 2 where a throw would be exit 3.
+        foreach (var input in inputs)
+        {
+            if (RealPath(input, followLast: true) is not { } other)
+            {
+                return new WriteRefusal(input, LoopReason);
+            }
+
+            if (string.Equals(full, other, PathComparison))
+            {
+                return new WriteRefusal(path, InputReason);
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Writes <paramref name="text"/> as UTF-8 without a byte order mark.</summary>
-    /// <exception cref="InvalidDataException">The target changed since <see cref="Refusal"/> (a race), or is a regular file directly under /dev; the message starts with the path.</exception>
+    /// <exception cref="InvalidDataException">The target changed since <see cref="Refusal"/> (a race); the message starts with the path.</exception>
     /// <exception cref="IOException">As <see cref="File.WriteAllText(string, string)"/>; the message names the target, never the temp file.</exception>
     public static void WriteText(string path, string text, IEnumerable<string> inputs, string? root = null) => WriteText(path, text, inputs, root, null);
 
@@ -88,12 +106,11 @@ public static class SafeWrite
             return;
         }
 
-        if (Refusal(path, inputs, root) is { } refusal)
+        if (Check(path, inputs, root, out var full) is { } refusal)
         {
             throw new InvalidDataException(refusal.Text);
         }
 
-        var full = Path.GetFullPath(path);
         SafeFileHandle? handle = null;
         try
         {
@@ -108,6 +125,15 @@ public static class SafeWrite
         {
             using (handle)
             {
+                // A file straight in /dev is a device: macOS devfs answers the length probe for /dev/null as if it were a regular file, and a folder of devices holds no regular files. Write it in place, with no probe.
+                if (IsDirectlyUnderDev(full))
+                {
+                    using var device = new FileStream(handle, FileAccess.Write, 1);
+                    device.Write(bytes);
+                    device.Flush();
+                    return;
+                }
+
                 // A device or a pipe cannot be given its own length (observed on Linux; read from the runtime source on Windows): write it in place on this handle.
                 // An IOException on anything else (a regular file on a filesystem that refuses it) is rethrown: written in place it would keep a stale tail.
                 try
@@ -126,11 +152,6 @@ public static class SafeWrite
                     stream.Flush();
                     return;
                 }
-            }
-
-            if (IsDirectlyUnderDev(full))
-            {
-                throw new InvalidDataException($"{path}: a regular file in /dev is not replaced.");
             }
 
             if (!OperatingSystem.IsWindows())
@@ -200,8 +221,17 @@ public static class SafeWrite
         {
             // A typed name and a device are written in place, with no temp file.
             // shortcut: a pipe outside /dev in a folder that takes no new file is refused too, though it would be written in place; probe it on its own handle if that is ever needed.
-            var full = Path.GetFullPath(path);
-            if (IsTypedName(path) || IsInDev(full))
+            if (IsTypedName(path))
+            {
+                return true;
+            }
+
+            if (Resolve(path) is not { } full)
+            {
+                return false;
+            }
+
+            if (IsInDev(full))
             {
                 return true;
             }
@@ -233,9 +263,13 @@ public static class SafeWrite
 
     private static StringComparison PathComparison => OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
 
-    // Resolves path one component at a time through every link on the way, like realpath(3); null when it cannot (a link loop, an unreadable folder).
-    // On Unix the start is not GetFullPath, which would collapse ".." before a link is followed: after a link, ".." is the link target's parent.
-    private static string? RealPath(string path)
+    // A write target: the last name is kept as it is, so a link there is seen by the caller and never followed.
+    private static string? Resolve(string path) => RealPath(path, followLast: false);
+
+    // Resolves path one component at a time through every link on the way, like realpath(3); null when it cannot (a link loop, more than 40 links, an unreadable folder).
+    // On Unix the start is not GetFullPath, which would collapse ".." before a link is followed: after a link, ".." is the link target's parent. On Windows Win32 collapses ".." itself, so GetFullPath is the same view.
+    // The result has no link in its folders and no "." or "..", so opening it opens the entry that was checked.
+    private static string? RealPath(string path, bool followLast)
     {
         try
         {
@@ -257,6 +291,12 @@ public static class SafeWrite
                 }
 
                 var next = Path.Combine(current, name);
+                if (!followLast && rest.Count == 0)
+                {
+                    current = next;
+                    continue;
+                }
+
                 if (new FileInfo(next).LinkTarget is not { } link)
                 {
                     current = next;
@@ -268,7 +308,14 @@ public static class SafeWrite
                     return null;
                 }
 
-                if (Path.IsPathRooted(link))
+                if (OperatingSystem.IsWindows())
+                {
+                    // A target such as "\\foo" or "C:foo" keeps its drive.
+                    var abs = Path.GetFullPath(link, current);
+                    current = Path.GetPathRoot(abs)!;
+                    link = abs[current.Length..];
+                }
+                else if (Path.IsPathRooted(link))
                 {
                     current = Path.GetPathRoot(link)!;
                     link = link[current.Length..];

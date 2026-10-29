@@ -185,6 +185,7 @@ public static class DriftCommand
                 {
                     SafeWrite.LinkReason => $"error: --env {i + 1} would be saved to a symbolic link; nothing was saved",
                     SafeWrite.FolderReason => $"error: --env {i + 1} would be saved to a folder; nothing was saved",
+                    SafeWrite.LoopReason => $"error: --env {i + 1} would be saved through a link loop or more than 40 links; nothing was saved",
                     _ => $"error: --env {i + 1} would be saved over a snapshot file given as an --env; nothing was saved",
                 });
                 return UsageError;

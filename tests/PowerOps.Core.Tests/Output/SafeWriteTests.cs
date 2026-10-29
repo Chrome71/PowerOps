@@ -249,7 +249,8 @@ public class SafeWriteTests : IDisposable
         Assert.Equal(new WriteRefusal(path, SafeWrite.InputReason), SafeWrite.Refusal(path, [input]));
     }
 
-    // The same file spelled through a link on the way: the kernel's view of the root, a link to the folder itself, and a link followed by a physical "..".
+    // The same file spelled through a link on the way: the kernel's view of the root, a link to the folder itself, and a link followed by "..".
+    // On Unix ".." after a link is the link target's parent, so "dotdot" reaches sub/in.zip; Windows collapses it lexically, so it reaches the top in.zip, which is not the input.
     [Theory]
     [InlineData("proc-root")]
     [InlineData("self")]
@@ -259,6 +260,7 @@ public class SafeWriteTests : IDisposable
         Assert.SkipWhen(kind == "proc-root" && !OperatingSystem.IsLinux(), "Linux only.");
         var input = Put("in.zip", "zip bytes");
         string target;
+        var refused = true;
         switch (kind)
         {
             case "proc-root":
@@ -273,11 +275,84 @@ public class SafeWriteTests : IDisposable
                 input = Put(System.IO.Path.Combine("sub", "in.zip"), "zip bytes");
                 Links.Create(Path_("x"), System.IO.Path.Combine("sub", "deep"), folder: true);
                 target = Path_(System.IO.Path.Combine("x", "..", "in.zip"));
+                refused = !OperatingSystem.IsWindows();
                 break;
         }
 
-        Assert.Equal(new WriteRefusal(target, SafeWrite.InputReason), SafeWrite.Refusal(target, [input]));
+        Assert.Equal(refused ? new WriteRefusal(target, SafeWrite.InputReason) : null, SafeWrite.Refusal(target, [input]));
         Assert.Equal("zip bytes", File.ReadAllText(input));
+    }
+
+    // dl -> sub/deep, with a file in sub and one at the top.
+    private string DeepLink()
+    {
+        Directory.CreateDirectory(Path_(System.IO.Path.Combine("sub", "deep")));
+        Links.Create(Path_("dl"), System.IO.Path.Combine("sub", "deep"), folder: true);
+        return Path_("dl");
+    }
+
+    [Fact]
+    public void A_dotdot_after_a_link_is_written_where_the_OS_takes_it()
+    {
+        var target = System.IO.Path.Combine(DeepLink(), "..", "x.json");
+
+        SafeWrite.WriteText(target, "new", []);
+
+        // Unix: the link target's parent, sub. Windows: lexical, the top.
+        var (written, other) = OperatingSystem.IsWindows() ? (Path_("x.json"), Path_(System.IO.Path.Combine("sub", "x.json"))) : (Path_(System.IO.Path.Combine("sub", "x.json")), Path_("x.json"));
+        Assert.Equal("new", File.ReadAllText(written));
+        Assert.False(File.Exists(other));
+        Assert.Empty(Temps(_temp));
+        Assert.Empty(Temps(Path_("sub")));
+    }
+
+    [Fact]
+    public void A_link_as_the_last_name_reached_through_dotdot_is_the_link_that_the_OS_finds()
+    {
+        var target = System.IO.Path.Combine(DeepLink(), "..", "lnk");
+        var victim = Put("victim.txt", "victim");
+        Links.Create(Path_(System.IO.Path.Combine("sub", "lnk")), victim);
+
+        // Windows takes ".." lexically, to a top "lnk" that does not exist.
+        Assert.Equal(OperatingSystem.IsWindows() ? null : new WriteRefusal(target, SafeWrite.LinkReason), SafeWrite.Refusal(target, []));
+        Assert.Equal("victim", File.ReadAllText(victim));
+    }
+
+    [Fact]
+    public void A_chain_of_more_than_40_links_and_a_loop_on_the_way_are_refused_as_a_loop()
+    {
+        var real = Directory.CreateDirectory(Path_("real")).FullName;
+        Links.Create(Path_("l0"), real, folder: true);
+        for (var i = 1; i <= 40; i++)
+        {
+            Links.Create(Path_($"l{i}"), Path_($"l{i - 1}"), folder: true);
+        }
+
+        Links.Create(Path_("loop"), "loop", folder: true);
+        var chain = System.IO.Path.Combine(Path_("l40"), "out.json");
+        var loop = System.IO.Path.Combine(Path_("loop"), "out.json");
+
+        Assert.Equal(new WriteRefusal(chain, SafeWrite.LoopReason), SafeWrite.Refusal(chain, []));
+        Assert.Equal(new WriteRefusal(loop, SafeWrite.LoopReason), SafeWrite.Refusal(loop, []));
+        Assert.Null(SafeWrite.Refusal(System.IO.Path.Combine(Path_("l39"), "out.json"), []));
+        Assert.Throws<InvalidDataException>(() => SafeWrite.WriteText(chain, "new", []));
+        Assert.Empty(Directory.GetFileSystemEntries(real));
+        Assert.False(SafeWrite.CanCreateBeside(chain));
+    }
+
+    // The input is resolved with the same cap, on every OS: past it the answer is a refusal, not "no match".
+    [Fact]
+    public void An_input_that_is_a_chain_of_more_than_40_links_is_refused_as_a_loop()
+    {
+        var victim = Put("victim.txt", "victim");
+        Links.Create(Path_("f0"), victim);
+        for (var i = 1; i <= 40; i++)
+        {
+            Links.Create(Path_($"f{i}"), Path_($"f{i - 1}"));
+        }
+
+        Assert.Equal(new WriteRefusal(Path_("f40"), SafeWrite.LoopReason), SafeWrite.Refusal(Path_("out.json"), [Path_("f40")]));
+        Assert.Null(SafeWrite.Refusal(Path_("out.json"), [Path_("f39")]));
     }
 
     [Fact]
@@ -313,7 +388,7 @@ public class SafeWriteTests : IDisposable
     }
 
     [Fact]
-    public void An_input_that_is_a_link_loop_is_no_match_and_the_write_goes_ahead()
+    public void An_input_that_is_a_link_loop_is_refused_as_a_loop_and_nothing_is_written()
     {
         var path = Path_("out.json");
         var a = Path_("a.zip");
@@ -321,9 +396,11 @@ public class SafeWriteTests : IDisposable
         Links.Create(a, b);
         Links.Create(b, a);
 
-        SafeWrite.WriteText(path, "new", [a]);
-
-        Assert.Equal("new", File.ReadAllText(path));
+        Assert.Equal(new WriteRefusal(a, SafeWrite.LoopReason), SafeWrite.Refusal(path, [a]));
+        var error = Assert.Throws<InvalidDataException>(() => SafeWrite.WriteText(path, "new", [a]));
+        Assert.Equal($"{a}: {SafeWrite.LoopReason}", error.Message);
+        Assert.False(File.Exists(path));
+        Assert.Empty(Temps(_temp));
     }
 
     [Fact]
