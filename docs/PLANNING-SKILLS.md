@@ -77,7 +77,7 @@ Header fields are left out of the hash, so status changes never invalidate a sig
 - **`pac env list` in `plan facts`**: removed. The design already says other environments are never offered unless the user names them, so the route question asks the user.
 - **One copy and a link**: removed. Install writes real copies only.
 - **Install-time model ID pinning**: removed, see [Review](#review).
-- **Editing `AGENTS.md` by default**: now opt-in (`--agents-md`).
+- **Editing `AGENTS.md`**: removed. Install writes only the skill folders and never edits `AGENTS.md`.
 - **Two hashes, a versioned facts schema, an ownership manifest, a release-versioned "top model" map**: not adopted. One body hash recorded in two places shows whether the review or the sign-off is stale, and the rest is machinery with no user-visible gain yet.
 
 ## Skills
@@ -259,9 +259,9 @@ When `available` is false, the skill says what `reason` and `fix` say (for examp
 | GitHub Copilot | `.github/skills/`, `.claude/skills/` or `.agents/skills/` | `ask_user` | **Autopilot answers `ask_user` itself**, so the planning skill stops under autopilot (principle 5) |
 | Chat-only (web) | none | numbered text | User pastes the instructions and switches models by hand. Manual, with no gate |
 
-**Supported in v0.4.0:** Claude Code and Codex. Gemini CLI and Copilot are **provisional, untested**: the skills should work there, but no verification run has been done.
+**Supported:** Claude Code and Codex. Gemini CLI and Copilot are **provisional, untested**: the skills should work there, but no verification run has been done.
 
-**Install.** `powerops skills install` writes `.agents/skills/powerops-*/` (Codex, Gemini, Copilot and most other agents) and `.claude/skills/powerops-*/` (Claude Code). Agents that read both folders may list a skill twice, so it writes only the folders for the agents it detects. It writes real copies, never links. Running it again is safe; it refuses to overwrite skill files that differ from the shipped ones unless `--force` is given. With `--agents-md`, agents without skills support get a short marked block in `AGENTS.md` that points at `docs/plans/` and states the gate.
+**Install.** `powerops skills install` writes `.agents/skills/powerops-*/` (Codex, Gemini, Copilot and most other agents) and `.claude/skills/powerops-*/` (Claude Code). Agents that read both folders may list a skill twice, so it writes only the folders for the agents it detects. It writes real copies, never links. Running it again is safe; it refuses to overwrite skill files that differ from the shipped ones unless `--force` is given. It never edits `AGENTS.md`.
 
 **Portability.**
 
@@ -292,7 +292,7 @@ Rule: copy nothing that is not clearly MIT or Apache-2.0 at file level. Adapting
 - A skill cannot open a new session or force a choice UI. The file-based status is the real gate.
 - The gate guards against mistakes and drift, not against an agent that ignores its instructions. The pull-request review is the backstop.
 - Model selection is best effort. Where an agent cannot switch models or fork a context, `review.md` records what actually ran, and the user may be asked to open a new session.
-- Only Claude Code and Codex are supported in v0.4.0. Gemini CLI and Copilot are provisional, untested.
+- Only Claude Code and Codex are supported. Gemini CLI and Copilot are provisional, untested.
 - Codex's question tool is off outside Plan mode by default, so Codex users mostly get the numbered-text fallback.
 - Question **quality** cannot be proven in CI, but the protocol's **shape** can: a scripted smoke test with a simulated user (as in the prototype test) checks round size, option order, `decisions.md` logging and the stop behaviour. It costs model credits, so it runs as a weekly scheduled job, not in per-build CI (see Decisions).
 - HTML mockups are visual sketches, not canvas app source. Generating `.pa.yaml` from a plan is out of scope for the first version.

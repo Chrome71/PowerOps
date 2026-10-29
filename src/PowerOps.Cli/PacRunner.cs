@@ -12,7 +12,13 @@ public sealed class PacRunner(string executable = "pac", TimeSpan? timeout = nul
 
     public PacResult Run(IReadOnlyList<string> args)
     {
-        var info = new ProcessStartInfo(executable)
+        var file = Resolve(executable, Environment.GetEnvironmentVariable("PATH"), OperatingSystem.IsWindows(), Environment.GetEnvironmentVariable("PATHEXT"));
+        if (file is null)
+        {
+            return new PacResult(false, false, 0, "");
+        }
+
+        var info = new ProcessStartInfo(file)
         {
             UseShellExecute = false,
             RedirectStandardInput = true,
@@ -55,6 +61,34 @@ public sealed class PacRunner(string executable = "pac", TimeSpan? timeout = nul
             return new PacResult(true, false, process.ExitCode, stdout.Result, stderr.Result);
         }
     }
+
+    // Returns null when a bare name is not found. A bare name is looked up in PATH's absolute entries only: .NET checks the current folder first on Unix, so a cloned repo could plant its own pac.
+    internal static string? Resolve(string name, string? path, bool windows, string? pathExt)
+    {
+        if (name.Contains(Path.DirectorySeparatorChar) || name.Contains(Path.AltDirectorySeparatorChar))
+        {
+            return name;
+        }
+
+        var names = windows && Path.GetExtension(name).Length == 0
+            ? (string.IsNullOrEmpty(pathExt) ? ".COM;.EXE;.BAT;.CMD" : pathExt).Split(';', StringSplitOptions.RemoveEmptyEntries).Select(ext => name + ext)
+            : [name];
+        foreach (var dir in (path ?? "").Split(Path.PathSeparator).Where(Path.IsPathFullyQualified))
+        {
+            foreach (var candidate in names.Select(n => Path.Combine(dir, n)))
+            {
+                if (File.Exists(candidate) && (windows || IsExecutable(candidate)))
+                {
+                    return candidate;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsExecutable(string file) =>
+        OperatingSystem.IsWindows() || (File.GetUnixFileMode(file) & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) != 0;
 
     private TimeSpan Remaining(Stopwatch clock) => _timeout > clock.Elapsed ? _timeout - clock.Elapsed : TimeSpan.Zero;
 }

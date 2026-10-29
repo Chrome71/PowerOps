@@ -54,7 +54,8 @@ public static class Program
     public static int Run(string[] args, TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot>? driftLive = null,
         Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? deployTarget = null)
     {
-        var parse = Root(output, error, pac, driftLive, deployTarget).Parse(args);
+        // No response files: `@file` is an ordinary argument, so a file cannot supply options.
+        var parse = Root(output, error, pac, driftLive, deployTarget).Parse(args, new ParserConfiguration { ResponseFileTokenReplacer = null });
         if (parse.Errors.Count > 0)
         {
             // System.CommandLine returns 1 for parse errors; usage errors are 2 here.
