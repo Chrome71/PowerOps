@@ -463,6 +463,7 @@ public static partial class McpCommand
         return code;
     }
 
+    // Not SafeWrite: `save` must refuse a file or link that exists, which CreateNew does and SafeWrite (it replaces a file) does not.
     private static bool TrySave(string path, string text)
     {
         FileStream stream;
