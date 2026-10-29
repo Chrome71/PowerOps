@@ -38,6 +38,9 @@ public sealed class WorkflowTests
         var restore = run.IndexOf("dotnet restore --locked-mode");
 
         Assert.True(restore >= 0 && restore < run.FindIndex(r => r?.StartsWith("dotnet format", StringComparison.Ordinal) == true));
+        var vulnerable = Text(Steps("ci.yml", "package").Single(s => Text(s, "name") == "Fail on a vulnerable package"), "run")!;
+        Assert.Contains("--vulnerable --include-transitive", vulnerable);
+        Assert.Contains("jq -e", vulnerable);
         Assert.Contains("-p:RestoreLockedMode=true", Steps("release.yml", "publish").Select(s => Text(s, "run")).Single(r => r?.StartsWith("dotnet pack", StringComparison.Ordinal) == true));
     }
 }
