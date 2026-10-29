@@ -42,7 +42,7 @@ public class RulesCommandTests
         var (_, output, _) = Run("rules", "--json");
         using var doc = JsonDocument.Parse(output);
         var ids = doc.RootElement.GetProperty("rules").EnumerateArray().Select(r => r.GetProperty("id").GetString()!).Order(StringComparer.Ordinal).ToList();
-        var docs = Directory.GetFiles(Path.Combine(Golden.RepoRoot, "docs", "rules"), "*.md").Select(f => Path.GetFileNameWithoutExtension(f)).Order(StringComparer.Ordinal).ToList();
+        var docs = Directory.GetFiles(Path.Combine(Golden.RepoRoot, "docs", "rules"), "*.md").Where(f => Path.GetFileName(f) != "README.md").Select(f => Path.GetFileNameWithoutExtension(f)).Order(StringComparer.Ordinal).ToList();
 
         Assert.Equal(docs, ids);
     }

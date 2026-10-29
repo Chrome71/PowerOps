@@ -47,7 +47,7 @@ Every recipe ends with the same checks, so run them last: `dotnet build`, `dotne
 3. Create `src/PowerOps.Core/Rules/POxxx<Name>.cs`: `public sealed class` implementing `IRule` (`Id`, `Severity`, `Title`, `Fix`, `Evaluate(Solution)`; see `PO011FlowOff.cs`). `Fix` is one imperative plain sentence, with no Markdown and no URL. Each `Finding` is `(RuleId, Severity, Message, File, Component)`.
 4. Register it in `Analyzer.Rules` in `src/PowerOps.Core/Rules/Analyzer.cs`.
 5. Create `docs/rules/POxxx.md` with the same sections as the other pages, in this order: the `# POxxx: <Title>` heading, `Severity:`, `## What it finds`, `## Why it matters`, `## How to fix`, `## Sources`, `## Suppress` (copy the Suppress text from `PO011.md`). The Sources section is one line: `Sources: [Page title](https://learn.microsoft.com/<path>). verified: yyyy-MM-dd`, with the date you checked the page. State only what the linked pages support; say where a behavior comes from observed exports instead.
-6. Add a row to the rule table in `README.md`. If a fixture should trigger it, see "Add a fixture".
+6. Add a row to the rule table in `docs/rules/README.md`. If a fixture should trigger it, see "Add a fixture".
 7. Update goldens (see "Update goldens" below). `RuleDocsTests` and `RulesCommandTests` fail if the docs page, its Sources line or the rule list is missing.
 
 ### Add a reader
@@ -56,7 +56,7 @@ Every recipe ends with the same checks, so run them last: `dotnet build`, `dotne
 2. Readers turn files into the `Solution` record (`src/PowerOps.Core/Model/Solution.cs`). `XmlUnpackReader` (unpacked folders) and `ZipReader` (exported zips) only list and open files, then call `SolutionParser.Parse(SolutionFiles)` in `src/PowerOps.Core/Readers/`. A new input layout is a new reader class that builds a `SolutionFiles` (path list, read function, manifest path, customizations path) the same way; a new kind of component is a new parse step in `SolutionParser.cs` plus a new field on `Solution`.
 3. Wire the reader into `SolutionLoader.Load` and `SolutionDiscovery.Find` so `powerops analyze` finds it. Keep reads capped through `ReadBudget` and never follow symlinks or paths outside the solution (zip-slip).
 4. Errors must be `InvalidDataException` whose message starts with the path (see `SolutionLoaderTests`).
-5. Update goldens if findings change, and the `README.md` text if the supported layouts change.
+5. Update goldens if findings change, and the `analyze` text in `docs/COMMANDS.md` if the supported layouts change.
 
 ### Add a command
 
@@ -65,7 +65,7 @@ Every recipe ends with the same checks, so run them last: `dotnet build`, `dotne
 3. Put report-building logic in `src/PowerOps.Core/Output/`, so the command stays thin and Core tests cover it.
 4. If the command prints JSON: add `schemaVersion` first using `JsonOutput.SchemaVersion` (`src/PowerOps.Core/Output/JsonOutput.cs`), create `docs/schemas/<name>.schema.json`, add a row to `docs/schemas/README.md`, add a `(prefix, schema)` entry to `Map` in `tests/PowerOps.Cli.Tests/OutputSchemaTests.cs`, and check a golden of the output with `Golden.Verify(output, "<name>.json")`. `OutputSchemaTests` validates every `tests/golden/*.json` against its schema and fails for a golden or a schema without a match.
 5. Tests: add `tests/PowerOps.Cli.Tests/<Name>CommandTests.cs` that calls `Program.Run(args, outWriter, errWriter)` and checks the exit code, output and golden (see `RulesCommandTests.cs`).
-6. Add the command to the `README.md` usage block, and update goldens.
+6. Add the command to the usage block in `docs/COMMANDS.md` with a section for it, and a row to the command table in `README.md`, and update goldens.
 
 ### Add a fixture
 
