@@ -2,7 +2,7 @@
 
 **One line:** agent skills, shipped with PowerOps, that turn a vague Power Platform idea into a reviewed, signed-off plan before any code or solution change is made.
 
-Status: design, 2026-10-19, revised the same day after a prototype test, a survey of existing skills and an independent design review. Build starts after M2 ([BUILD-PLAN.md](BUILD-PLAN.md), milestone M3).
+Status: design, 2026-10-19, revised the same day after a prototype test, a survey of existing skills and an independent design review. Built as milestone M3 ([BUILD-PLAN.md](BUILD-PLAN.md)).
 
 ## Why
 
@@ -181,7 +181,7 @@ A route choice approves nothing, and a bare "approve" approves the draft only (A
   | Agent | How the review runs |
   |---|---|
   | Claude Code | a Claude-specific copy of the skill generated at install, with `context: fork`, `background: false` and the tier alias `opus` |
-  | Codex | the skill starts a subagent with no chat history (`spawn_agent` without forked turns), so the session model runs; verified in the v0.4.0 manual run |
+  | Codex | the skill starts a subagent with no chat history (`spawn_agent` without forked turns), so the session model runs; verified in M3's manual run |
   | Gemini CLI | a subagent in `.gemini/agents/` with the model left unset, so the session model runs |
   | Others, or an agent that cannot fork | the skill tells the user to open a new session and run `powerops-review-plan <name>` there |
 
@@ -269,7 +269,7 @@ When `available` is false, the skill says what `reason` and `fix` say (for examp
 - Descriptions stay short, with the trigger first. Codex reserves about 2% of the context window for the skill list, and Claude Code truncates descriptions at 1,536 characters.
 - The Claude Code and Codex plugins (`plugins/claude/` and `plugins/codex/`, listed by `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json`) hold generated copies: the Claude Code copies as `skills install` writes them to `.claude/skills/`, the Codex copies unchanged. A test keeps them equal to the shipped files. For a team, `skills install` stays the default.
 - The repo layout `skills/<name>/SKILL.md` also lets people install with `npx skills add`. That CLI has telemetry on by default, which the docs will say.
-- CI validates the skills with `skills-ref validate` from [agentskills](https://github.com/agentskills/agentskills) (Apache-2.0).
+- No workflow runs `skills-ref` from [agentskills](https://github.com/agentskills/agentskills). `SkillsCommandTests` checks the front matter of every shipped skill against the portable fields, and `PluginManifestTests` checks that the plugin copies equal the shipped skills.
 
 ## Reuse
 
@@ -282,7 +282,7 @@ Rule: copy nothing that is not clearly MIT or Apache-2.0 at file level. Adapting
 | obra/superpowers | MIT | Borrow per-agent tool-map reference files and the no-history review dispatch |
 | microsoft/power-platform-skills | MIT | Reference and recommend installing alongside; learn from `plan-alm`'s status writer and gate. Don't use its installer (telemetry) or per-skill `model: opus` |
 | github/spec-kit | MIT | Reference only in v1; use its `clarify` taxonomy as a checklist for question order |
-| agentskills/agentskills | Apache-2.0 | Use `skills-ref` in CI |
+| agentskills/agentskills | Apache-2.0 | Considered for CI, not used: `SkillsCommandTests` and `PluginManifestTests` check the skills |
 | anthropics/skills | no repo-wide licence; some skills source-available | Do not copy |
 | openai/skills | no repo-wide licence; deprecated | Do not copy |
 | awesome-claude-code (CC BY-NC-ND), spec-workflow-mcp (GPL-3.0), pilot-shell (proprietary) | — | Do not copy |
@@ -300,7 +300,7 @@ Rule: copy nothing that is not clearly MIT or Apache-2.0 at file level. Adapting
 ## Decisions (2026-10-19, maintainer)
 
 1. **Smoke test schedule.** The simulated-user smoke test runs as a weekly scheduled job on the maintainer's model credentials, stored as CI secrets. It does not run in per-build CI. A manual run before each release is still allowed.
-2. **v0.4.0 scope.** v0.4.0 ships with Claude Code and Codex supported. Gemini CLI and Copilot are marked provisional, untested.
+2. **M3 scope.** M3 ships with Claude Code and Codex supported. Gemini CLI and Copilot are marked provisional, untested.
 3. **Sign-off by hand.** A sign-off written without the tool (no `powerops` on PATH, or skills installed through `npx skills add`) fails `plan status` with the hint "run `powerops plan sign-off`". There is no warn-only mode.
 
 ## Open questions
@@ -308,6 +308,6 @@ Rule: copy nothing that is not clearly MIT or Apache-2.0 at file level. Adapting
 1. Can a read-only `pac` query return the publisher prefix (`pac env fetch` on the publisher table)? If not, the prefix stays a question.
 2. Do all four agents ignore front matter fields they don't know? Unverified; until then the shared `SKILL.md` stays portable-only.
 3. Should `powerops plan status` also link a plan to the `analyze` results of the solution it produced?
-4. spec-kit compatibility: not in v1. A later `powerops plan export --spec-kit` is possible if people ask.
+4. spec-kit compatibility: not in v1. A later export command for spec-kit is possible if people ask.
 
 Evidence for this revision: a prototype test of `powerops-plan` (six scripted conversations in Claude Code and Codex), a survey of 28 skill repos, and an independent design review.

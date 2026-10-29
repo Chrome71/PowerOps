@@ -5,7 +5,12 @@ PowerOps is an open-source .NET 10 CLI toolkit for Microsoft Power Platform: ana
 ## Layout
 
 - `src/PowerOps.Cli/`: the `powerops` command-line tool
-- `tests/PowerOps.Cli.Tests/`: xUnit tests
+- `src/PowerOps.Core/`: the library under it: readers, rules, the simulator and the report builders
+- `tests/PowerOps.Cli.Tests/`: xUnit tests of the commands
+- `tests/PowerOps.Core.Tests/`: xUnit tests of the library
+- `tests/Shared/`: helpers both test projects use (`Golden`, `SolutionZip`)
+- `skills/`: the planning skills (`SKILL.md` files)
+- `action/`: the scripts the composite GitHub Action (`action.yml`) runs
 - `docs/`: plan and roadmap
 - `plugins/`: the Claude Code and Codex plugins that `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json` list. Their `skills/` folders are generated copies of `skills/` (see "Update goldens")
 
@@ -24,10 +29,13 @@ dotnet pack src/PowerOps.Cli -c Release -o artifacts
 ## Rules
 
 - Offline first: commands work on exported or unpacked solutions, with no tenant, wherever possible (the live reads of `drift` are the exception).
-- Read-only by default. Anything that writes to a tenant or to files outside the output path needs an explicit flag.
+- Read-only by default. Anything that writes to a tenant or to files outside the output path needs an explicit flag. The exceptions are the commands whose job is to write: `baseline` writes `powerops-baseline.json` in the current folder unless `--out` says otherwise, `plan sign-off` edits the plan it is given, and `skills install` writes the skill folders.
 - Never run `powerops settings apply --apply` or `powerops deploy apply --apply`, or call the MCP tool `deploy_apply` with `apply: true`, unless the user said yes to that environment in this session. Ask in chat first; the tool's form, where the user types the environment's name, is where they confirm.
 - Machine-readable output: stable JSON or SARIF (Markdown for PR comments), and meaningful exit codes.
-- Call `pac` as a subprocess. Do not reimplement it. Pass arguments as a list, never through a shell string. Reads that `pac` prints in no documented format go through the Dataverse Web API, with a token from `az` run the same way.
+- Call `pac` as a subprocess. Do not reimplement it. Pass arguments as a list, never through a shell string. The one exception is Windows, where `az` is `az.cmd`: `cmd.exe` parses its arguments, and .NET's quoting is no escape there. The only variable argument is the environment URL, which is checked against the pattern for a documented Dataverse host (letters, digits, `.` and `-`) when it is read and again right before the `az` call. Reads that `pac` prints in no documented format go through the Dataverse Web API, with a token from `az` run the same way. The reads that parse `pac`'s text or JSON are these exceptions, each chosen in a plan, with where its format was observed:
+  - `pac org who` (`plan facts`, `settings apply`, and `drift` and `deploy` for `--env` and `--target`): the `Friendly Name:`, `Org URL:` and `Environment ID:` lines. Decision 15 in [docs/BUILD-PLAN.md](docs/BUILD-PLAN.md) keeps it so that `--env` takes what `pac` takes. The format was observed in `tests/fixtures/pac/org-who.txt` and `tests/fixtures/pac/drift/capture/`.
+  - `pac solution list` (`plan facts`): the Unique Name, Version and Managed columns of its table, from the M3 design in [docs/PLANNING-SKILLS.md](docs/PLANNING-SKILLS.md) (BUILD-PLAN M3). No capture of it is kept; the sample in `tests/PowerOps.Cli.Tests/PlanFactsTests.cs` is the only record of the layout.
+  - `pac power-automate list-cloud-flows --json` (`settings apply`): the `workflowId` and `stateCode` fields, chosen as Q4 of the [M7 live plan](docs/plans/m7-settings-live/decisions.md) because the command is preview with no documented fields. The format was observed in `tests/fixtures/pac/list-cloud-flows-*.json`.
 - Make the smallest change that fully solves the task. No unrequested features, options or dependencies.
 - New logic comes with tests.
 - Keep `dotnet format --verify-no-changes` clean.

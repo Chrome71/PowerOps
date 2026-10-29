@@ -1,6 +1,6 @@
 # Contributing to PowerOps
 
-Thanks for helping out. Phases 0 and 1 of the [roadmap](docs/FOUNDATION.md) need no Power Platform tenant, so you can build, test and contribute with just the .NET SDK.
+Thanks for helping out. Every test is offline: none contacts a Power Platform tenant, and none needs `pac` or `az`, so you can build, test and contribute with just the .NET SDK. The [roadmap](docs/FOUNDATION.md) lists the commands that do read a tenant when you run them yourself.
 
 ## Prerequisites
 
@@ -14,6 +14,12 @@ dotnet test
 dotnet format            # fix formatting
 dotnet format --verify-no-changes   # what CI runs
 ```
+
+Some tests skip themselves instead of failing:
+
+- `PackedToolTests` packs and installs the real tool, which is slow. Set `POWEROPS_SKIP_E2E=1` to skip it.
+- The tests of the scripts under `action/` and `docs/examples/` need `bash`, and some need `jq` or `git` too. They skip on Windows and when a program is not on `PATH`.
+- A few tests skip where the file system has no symbolic links or no line breaks in file names, or where a culture is not installed.
 
 ## Commits
 

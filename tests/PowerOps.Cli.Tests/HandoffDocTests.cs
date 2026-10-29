@@ -15,14 +15,14 @@ public partial class HandoffDocTests
     [GeneratedRegex(@"^(\d+)\. \*\*")]
     private static partial Regex Step();
 
-    private static List<string[]> WordLists(string text) =>
+    internal static List<string[]> WordLists(string text) =>
         [.. Mention().Matches(text).Select(m => m.Groups[1].Value.Trim().Split(' ')).DistinctBy(w => string.Join(' ', w))];
 
     private static string Page() => File.ReadAllText(Path.Combine(Golden.RepoRoot, "docs", "HANDOFF.md"));
 
     // The words up to and including the first one that is not a subcommand, all of them when they stop at a command
     // that still has subcommands, or null when they reach a command.
-    private static string? Unknown(IReadOnlyList<string> words)
+    internal static string? Unknown(IReadOnlyList<string> words)
     {
         Command current = Program.Root(TextWriter.Null, TextWriter.Null, (_, _) => throw new InvalidOperationException("no pac call"));
         for (var i = 0; i < words.Count && current.Subcommands.Count > 0; i++)
