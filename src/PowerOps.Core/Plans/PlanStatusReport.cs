@@ -17,17 +17,20 @@ public static class PlanStatusReport
     {
         foreach (var p in plans)
         {
+            // File names come from the folder being checked; Clean keeps a name with a line break from starting a line of its own.
             writer.WriteLine(p.Malformed
-                ? $"{p.Path}: malformed header"
-                : $"{p.Path}: {p.Status}, review {p.Review}, {Plural(p.OpenQuestions, "open question")}");
+                ? $"{Clean(p.Path)}: malformed header"
+                : p.Status is null
+                    ? $"{Clean(p.Path)}: plan.md not read"
+                    : $"{Clean(p.Path)}: {p.Status}, review {p.Review}, {Plural(p.OpenQuestions, "open question")}");
             foreach (var v in p.Violations)
             {
-                writer.WriteLine($"  error: {v}");
+                writer.WriteLine($"  error: {Clean(v)}");
             }
 
             foreach (var w in p.Warnings)
             {
-                writer.WriteLine($"  warning: {w}");
+                writer.WriteLine($"  warning: {Clean(w)}");
             }
         }
 
@@ -57,6 +60,8 @@ public static class PlanStatusReport
         };
         writer.Write(JsonSerializer.Serialize(doc, Options) + "\n");
     }
+
+    private static string Clean(string text) => Output.TextReport.Clean(text);
 
     private static string Plural(int n, string noun) => $"{n} {noun}{(n == 1 ? "" : "s")}";
 }

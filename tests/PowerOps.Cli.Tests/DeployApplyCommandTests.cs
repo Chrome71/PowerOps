@@ -716,6 +716,32 @@ public class DeployApplyCommandTests : IDisposable
         Assert.Equal("", r.Err.Replace("environment: Contoso Test\n", "").Replace("importing 1 A (A.zip)\nimported A\n", ""));
     }
 
+    // M26: the re-read before an import is capped like the first read, so a file swapped for an endless one is "changed", not an out-of-memory crash.
+    [Theory]
+    [InlineData("zip", "B.zip changed after the re-plan read it")]
+    [InlineData("settings", "B.settings.json changed after the re-plan read it")]
+    public void A_file_swapped_for_a_link_to_dev_zero_between_the_re_plan_and_its_import_counts_as_changed(string file, string message)
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "No /dev/zero; creating a link needs privileges on Windows.");
+        Chain();
+        File.WriteAllText(Path.Combine(Folder, "B.settings.json"), "{}");
+        MakePlan(new FakeTarget());
+        var path = Path.Combine(Folder, file == "zip" ? "B.zip" : "B.settings.json");
+        var pac = new FakePac
+        {
+            During = n =>
+            {
+                File.Delete(path);
+                File.CreateSymbolicLink(path, "/dev/zero");
+            },
+        };
+
+        var r = Apply(new FakeTarget(), pac, "--apply", "--format", "json");
+
+        Assert.Equal(3, r.Code);
+        Assert.StartsWith(message, (string?)Json(r)["message"]);
+    }
+
     // ---- the flows after the imports ---------------------------------------------------------------------------
 
     [Fact]

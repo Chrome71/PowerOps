@@ -25,4 +25,7 @@ public interface IExpressionContext
     string UtcNow();
 
     string Guid();
+
+    /// <summary>Counts characters a function copied (2 bytes each) against the run's memory budget; throws <see cref="UnsupportedException"/> when it is passed.</summary>
+    void ChargeCopy(long characters);
 }

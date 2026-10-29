@@ -79,10 +79,15 @@ public static class SettingsCommand
             }
 
             var loaded = SolutionLoader.Load(path);
+            if (ReadSettings(file, error) is not { } text)
+            {
+                return InternalError;
+            }
+
             IReadOnlyList<SettingsProblem> problems;
             try
             {
-                problems = DeploymentSettings.Validate(loaded, File.ReadAllText(file));
+                problems = DeploymentSettings.Validate(loaded, text);
             }
             catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
             {
@@ -102,6 +107,20 @@ public static class SettingsCommand
             return problems.Count > 0 ? 1 : 0;
         }));
         return command;
+    }
+
+    // The settings file, capped at 1 MB as deploy's settings files are; null after an error line that starts with the path.
+    private static string? ReadSettings(string file, TextWriter error)
+    {
+        try
+        {
+            return BoundedRead.ReadAllText(file, 1024 * 1024);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            error.WriteLine($"error: {TextReport.Clean(ex is InvalidDataException ? ex.Message : $"{file}: {ex.Message}")}");
+            return null;
+        }
     }
 
     private static Command Apply(TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac)
@@ -153,10 +172,15 @@ public static class SettingsCommand
             }
 
             var loaded = SolutionLoader.Load(path);
+            if (ReadSettings(file, error) is not { } text)
+            {
+                return InternalError;
+            }
+
             IReadOnlyList<SettingsProblem> problems;
             try
             {
-                problems = DeploymentSettings.Validate(loaded, File.ReadAllText(file));
+                problems = DeploymentSettings.Validate(loaded, text);
             }
             catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
             {

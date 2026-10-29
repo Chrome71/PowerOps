@@ -124,6 +124,7 @@ public static class DeploymentSettings
     {
         var result = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
         var duplicates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var first = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (!root.TryGetProperty(array, out var items))
         {
             return result;
@@ -147,10 +148,16 @@ public static class DeploymentSettings
                 throw new InvalidDataException($"{array}[{i}].{nameProperty} must be a string");
             }
 
-            if (!result.TryAdd(name.GetString()!, item.Clone()) && duplicates.Add(name.GetString()!))
+            var text = name.GetString()!;
+            if (result.TryAdd(text, item.Clone()))
             {
-                problems.Add(new("duplicate", type, result.Keys.First(k => Same(k, name.GetString()!)), "listed more than once in the settings file"));
+                first[text] = text;
             }
+            else if (duplicates.Add(text))
+            {
+                problems.Add(new("duplicate", type, first[text], "listed more than once in the settings file"));
+            }
+
             i++;
         }
 

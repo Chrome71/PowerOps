@@ -39,15 +39,7 @@ public sealed record FlowTestFile(
     };
 
     /// <exception cref="InvalidDataException">The file is over 4 MB, or <see cref="Parse"/> rejects it; the message starts with the path.</exception>
-    public static FlowTestFile Load(string path)
-    {
-        if (new FileInfo(path).Length > MaxBytes)
-        {
-            throw new InvalidDataException($"{path}: the file is larger than 4 MB.");
-        }
-
-        return Parse(File.ReadAllText(path), path);
-    }
+    public static FlowTestFile Load(string path) => Parse(BoundedRead.ReadAllText(path, MaxBytes), path);
 
     /// <summary>Reads and checks a test file. Any unknown property, wrong type or rule broken throws; <c>docs/schemas/flow-test.schema.json</c> describes the same format.</summary>
     /// <exception cref="InvalidDataException">The message starts with <paramref name="path"/>.</exception>

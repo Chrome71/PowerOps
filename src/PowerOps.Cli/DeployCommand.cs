@@ -122,14 +122,24 @@ public static class DeployCommand
     {
         try
         {
-            var info = new FileInfo(planFile);
-            if (info.LinkTarget is not null || info.Length > MaxSettingsBytes)
+            if (new FileInfo(planFile).LinkTarget is not null)
             {
-                error.WriteLine(info.LinkTarget is not null ? "error: the plan file is a symbolic link; symbolic links are not read" : "error: the plan file is larger than 1 MB");
+                error.WriteLine("error: the plan file is a symbolic link; symbolic links are not read");
                 return null;
             }
 
-            return DeployPlanFile.Read(File.ReadAllText(planFile), tool);
+            string text;
+            try
+            {
+                text = BoundedRead.ReadAllText(planFile, MaxSettingsBytes);
+            }
+            catch (InvalidDataException)
+            {
+                error.WriteLine("error: the plan file is larger than 1 MB");
+                return null;
+            }
+
+            return DeployPlanFile.Read(text, tool);
         }
         catch (InvalidDataException ex)
         {
@@ -327,7 +337,7 @@ public static class DeployCommand
             var input = plan.Inputs.Zips.First(z => z.Zip == step.Zip);
             var zip = Path.Combine(folder, step.Zip);
             var settings = step.Settings is null ? null : Path.Combine(folder, step.Settings);
-            var changed = Changed(zip, input.ZipSha256) ? step.Zip : settings is not null && Changed(settings, input.SettingsSha256) ? step.Settings : null;
+            var changed = Changed(zip, input.ZipSha256, BoundedRead.MaxZipBytes) ? step.Zip : settings is not null && Changed(settings, input.SettingsSha256, MaxSettingsBytes) ? step.Settings : null;
             if (changed is not null)
             {
                 return $"{changed} changed after the re-plan read it, so it was not imported.";
@@ -359,14 +369,14 @@ public static class DeployCommand
         }
     }
 
-    // True when the file's SHA-256 is not `expected`, or it cannot be read.
-    private static bool Changed(string path, string? expected)
+    // True when the file's SHA-256 is not `expected`, or it cannot be read, or it is now over the cap the first read had.
+    private static bool Changed(string path, string? expected, long maxBytes)
     {
         try
         {
-            return DeployPlan.Sha256Hex(File.ReadAllBytes(path)) != expected;
+            return DeployPlan.Sha256Hex(BoundedRead.ReadAllBytes(path, maxBytes)) != expected;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {
             return true;
         }
@@ -506,7 +516,7 @@ public static class DeployCommand
     {
         try
         {
-            var bytes = File.ReadAllBytes(path);
+            var bytes = BoundedRead.ReadAllBytes(path, BoundedRead.MaxZipBytes);
             var solution = SolutionLoader.Load(path);
             var settingsName = System.IO.Path.GetFileNameWithoutExtension(name) + SettingsSuffix;
             var settingsPath = System.IO.Path.Combine(folder, settingsName);
@@ -515,13 +525,17 @@ public static class DeployCommand
                 return new DeployZip(name, DeployPlan.Sha256Hex(bytes), solution, null, null, null);
             }
 
-            if (new FileInfo(settingsPath).Length > MaxSettingsBytes)
+            byte[] settings;
+            try
+            {
+                settings = BoundedRead.ReadAllBytes(settingsPath, MaxSettingsBytes);
+            }
+            catch (InvalidDataException)
             {
                 error.WriteLine($"error: {Clean(settingsName)}: the settings file is larger than 1 MB");
                 return null;
             }
 
-            var settings = File.ReadAllBytes(settingsPath);
             using var reader = new StreamReader(new MemoryStream(settings));
             return new DeployZip(name, DeployPlan.Sha256Hex(bytes), solution, settingsName, DeployPlan.Sha256Hex(settings), reader.ReadToEnd());
         }

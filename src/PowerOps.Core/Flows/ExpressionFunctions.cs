@@ -34,10 +34,10 @@ public static class ExpressionFunctions
         ["result"] = (a, c) => c.Result(Str("result", Count("result", a, 1)[0])),
 
         // String
-        ["concat"] = (a, _) => Concat(Count("concat", a, 2, int.MaxValue)),
+        ["concat"] = (a, c) => Concat(Count("concat", a, 2, int.MaxValue), c),
         ["substring"] = (a, _) => Substring(Count("substring", a, 2, 3)),
-        ["replace"] = (a, _) => Replace(Count("replace", a, 3)),
-        ["split"] = (a, _) => Split(Count("split", a, 2)),
+        ["replace"] = (a, c) => Replace(Count("replace", a, 3), c),
+        ["split"] = (a, c) => Split(Count("split", a, 2), c),
         ["toLower"] = (a, _) => JsonValue.Create(Str("toLower", Count("toLower", a, 1)[0]).ToLowerInvariant()),
         ["trim"] = (a, _) => JsonValue.Create(Str("trim", Count("trim", a, 1)[0]).Trim()),
         ["guid"] = (a, c) => a.Length > 0 ? throw new UnsupportedException("guid() with a format argument is not supported.") : JsonValue.Create(c.Guid()),
@@ -60,8 +60,8 @@ public static class ExpressionFunctions
         ["not"] = (a, _) => JsonValue.Create(!Bool("not", Count("not", a, 1)[0])),
 
         // Conversion
-        ["json"] = (a, _) => Json(Count("json", a, 1)[0]),
-        ["string"] = (a, _) => Concat(Count("string", a, 1)),
+        ["json"] = (a, c) => Json(Count("json", a, 1)[0], c),
+        ["string"] = (a, c) => Concat(Count("string", a, 1), c),
         ["decodeBase64"] = (a, _) => DecodeBase64(Str("decodeBase64", Count("decodeBase64", a, 1)[0])),
         ["createArray"] = (a, _) => new JsonArray(Count("createArray", a, 1, int.MaxValue).Select(x => x?.DeepClone()).ToArray()),
 
@@ -206,10 +206,12 @@ public static class ExpressionFunctions
         return JsonValue.Create(text.Substring((int)start, (int)length));
     }
 
-    private static JsonNode? Concat(JsonNode?[] a)
+    private static JsonNode? Concat(JsonNode?[] a, IExpressionContext context)
     {
         var parts = a.Select(Expression.ToText).ToArray();
-        CheckLength(parts.Sum(p => (long)p.Length));
+        var length = parts.Sum(p => (long)p.Length);
+        CheckLength(length);
+        context.ChargeCopy(length);
         return JsonValue.Create(string.Concat(parts));
     }
 
@@ -225,7 +227,7 @@ public static class ExpressionFunctions
         return count;
     }
 
-    private static JsonNode? Replace(JsonNode?[] a)
+    private static JsonNode? Replace(JsonNode?[] a, IExpressionContext context)
     {
         var oldText = Str("replace", a[1]);
         if (oldText.Length == 0)
@@ -235,11 +237,13 @@ public static class ExpressionFunctions
 
         var text = Str("replace", a[0]);
         var newText = Str("replace", a[2]);
-        CheckLength(text.Length + (CountMatches(text, oldText) * (newText.Length - oldText.Length)));
+        var length = text.Length + (CountMatches(text, oldText) * (newText.Length - oldText.Length));
+        CheckLength(length);
+        context.ChargeCopy(length);
         return JsonValue.Create(text.Replace(oldText, newText, StringComparison.Ordinal));
     }
 
-    private static JsonNode? Split(JsonNode?[] a)
+    private static JsonNode? Split(JsonNode?[] a, IExpressionContext context)
     {
         var text = Str("split", a[0]);
         var separator = Str("split", a[1]);
@@ -248,6 +252,7 @@ public static class ExpressionFunctions
             throw new UnsupportedException("split() would give more parts than a run can record.");
         }
 
+        context.ChargeCopy(text.Length);
         return new JsonArray(text.Split(separator, StringSplitOptions.None).Select(part => (JsonNode?)JsonValue.Create(part)).ToArray());
     }
 
@@ -284,16 +289,18 @@ public static class ExpressionFunctions
         _ => throw new ExpressionException($"length() expects a string or an array, got {Describe(a)}."),
     };
 
-    private static JsonNode? Json(JsonNode? a)
+    private static JsonNode? Json(JsonNode? a, IExpressionContext context)
     {
         if (a is null)
         {
             return new JsonObject(); // Learn: a null string gives an empty object
         }
 
+        var text = Str("json", a);
+        context.ChargeCopy(text.Length);
         try
         {
-            return ParseJson(Str("json", a));
+            return ParseJson(text);
         }
         catch (JsonException e)
         {

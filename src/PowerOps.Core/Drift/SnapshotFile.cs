@@ -2,6 +2,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
+using PowerOps.Core.Readers;
 using PowerOps.Core.Settings;
 
 namespace PowerOps.Core.Drift;
@@ -39,10 +40,21 @@ public static partial class SnapshotFile
     }
 
     /// <exception cref="InvalidDataException">The file is over 1 MB or <see cref="Read"/> rejects it; the message never names the path.</exception>
-    public static Snapshot Load(string path) =>
-        new FileInfo(path).Length > MaxBytes
-            ? throw new InvalidDataException($"a snapshot file is at most {MaxBytes} bytes")
-            : Read(File.ReadAllText(path));
+    public static Snapshot Load(string path)
+    {
+        string text;
+        try
+        {
+            text = BoundedRead.ReadAllText(path, MaxBytes);
+        }
+        catch (InvalidDataException)
+        {
+            // BoundedRead's message names the path; a snapshot's never does.
+            throw new InvalidDataException($"a snapshot file is at most {MaxBytes} bytes");
+        }
+
+        return Read(text);
+    }
 
     /// <exception cref="InvalidDataException">The text is not a snapshot file of this schema version.</exception>
     public static Snapshot Read(string json)

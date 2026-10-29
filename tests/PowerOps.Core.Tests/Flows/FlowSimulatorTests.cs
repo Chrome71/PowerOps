@@ -502,6 +502,107 @@ public class FlowSimulatorTests
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), watch.Elapsed.ToString());
     }
 
+    // C-2. The probe shapes of the plan: a Foreach over N trigger items that reads triggerBody() each time (35 s at 40,000 items, over 100 s at 200,000),
+    // and 20,000 appends of 1,000 characters (25 s and 1.1 GB).
+    [Fact]
+    public void A_Foreach_over_200000_trigger_items_that_reads_the_trigger_each_time_stops_at_the_call_limit_within_10_seconds()
+    {
+        var items = string.Join(',', Enumerable.Repeat("1", 200_000));
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        var run = Run(
+            """{"Loop":{"type":"Foreach","foreach":"@triggerBody()?['items']","actions":{"C":{"type":"Compose","inputs":"@length(triggerBody()?['items'])","runAfter":{}}},"runAfter":{}}}""",
+            In("{\"body\":{\"items\":[" + items + "]}}"));
+
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), watch.Elapsed.ToString());
+        Assert.Equal(FlowRunOutcome.Unsupported, run.Outcome);
+        Assert.Contains("more than 100000 action calls", run.Message);
+    }
+
+    // The copies made inside expressions count against the same budget: the probes ran 57 s (string) and over 90 s (json of string) before.
+    // 30 s, not 10: the macOS arm64 runner took up to 14 s under the full suite's load (5 s locally).
+    [Theory]
+    [InlineData("@length(string(triggerBody()))")]
+    [InlineData("@length(json(string(triggerBody())))")]
+    [InlineData("@length(replace(string(triggerBody()), '1', '22'))")]
+    [InlineData("@length(split(string(triggerBody()), ','))")]
+    public void A_Foreach_over_200000_trigger_items_that_copies_the_trigger_in_an_expression_hits_the_copy_budget_within_30_seconds(string expression)
+    {
+        var items = string.Join(',', Enumerable.Repeat("1", 200_000));
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        var run = Run(
+            "{\"Loop\":{\"type\":\"Foreach\",\"foreach\":\"@triggerBody()?['items']\",\"actions\":{\"C\":{\"type\":\"Compose\",\"inputs\":\"" + expression + "\",\"runAfter\":{}}},\"runAfter\":{}}}",
+            In("{\"body\":{\"items\":[" + items + "]}}"));
+
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(30), watch.Elapsed.ToString());
+        Assert.Equal(FlowRunOutcome.Unsupported, run.Outcome);
+        Assert.Contains("pass 256 MB", run.Message);
+    }
+
+    [Fact]
+    public void Twenty_thousand_appends_of_1000_characters_hit_the_copy_budget_within_10_seconds()
+    {
+        var items = string.Join(',', Enumerable.Repeat("1", 20_000));
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        var run = Run(
+            "{\"Init\":" + Var("s", "string", "\"\"") + ",\"Loop\":{\"type\":\"Foreach\",\"foreach\":\"@triggerBody()?['items']\",\"runAfter\":" + After("Init")
+            + ",\"actions\":{\"Add\":{\"type\":\"AppendToStringVariable\",\"inputs\":{\"name\":\"s\",\"value\":\"" + new string('x', 1000) + "\"},\"runAfter\":{}}}}}",
+            In("{\"body\":{\"items\":[" + items + "]}}"));
+
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), watch.Elapsed.ToString());
+        Assert.Equal(FlowRunOutcome.Unsupported, run.Outcome);
+        Assert.StartsWith("Action 'Add': the run's recorded and copied values pass 256 MB", run.Message);
+    }
+
+    [Fact]
+    public void Appends_that_copy_less_than_the_budget_still_finish()
+    {
+        var run = Run(
+            "{\"Init\":" + Var("s", "string", "\"\"") + ",\"Loop\":{\"type\":\"Foreach\",\"foreach\":\"@triggerBody()?['items']\",\"runAfter\":" + After("Init")
+            + ",\"actions\":{\"Add\":{\"type\":\"AppendToStringVariable\",\"inputs\":{\"name\":\"s\",\"value\":\"" + new string('x', 100) + "\"},\"runAfter\":{}}}}}",
+            In("{\"body\":{\"items\":[" + string.Join(',', Enumerable.Repeat("1", 500)) + "]}}"));
+
+        Assert.Equal(FlowRunOutcome.Finished, run.Outcome);
+        Assert.Equal(50_000, ((string?)run.Variables["s"])!.Length);
+    }
+
+    [Fact]
+    public void Reading_the_trigger_the_workflow_and_a_parameter_without_a_clone_leaves_the_inputs_alone_and_unshared()
+    {
+        var trigger = J("""{"body":{"k":[1,2]},"headers":{}}""");
+        var workflow = J("""{"name":"w"}""");
+        var given = J("""{"g":[1]}""");
+        var inputs = new FlowRunInputs(trigger, new Dictionary<string, IReadOnlyList<FlowMock>>(), new Dictionary<string, JsonNode?> { ["p"] = given, ["q"] = null }, null, null, workflow);
+
+        var run = Run(
+            "{\"A\":" + Compose("\"@triggerOutputs()\"") + ",\"B\":" + Compose("\"@triggerBody()\"", After("A")) + ",\"C\":" + Compose("\"@workflow()\"", After("B"))
+            + ",\"D\":" + Compose("\"@parameters('p')\"", After("C")) + ",\"E\":" + Compose("\"@parameters('d')\"", After("D"))
+            + ",\"F\":" + Compose("\"@createArray(triggerBody(), if(true, workflow(), 1))\"", After("E")) + "}",
+            inputs,
+            parameters: """{"p":{"type":"Object"},"q":{"type":"Object"},"d":{"type":"Object","defaultValue":{"x":1}}}""");
+
+        Assert.Equal(FlowRunOutcome.Finished, run.Outcome);
+        foreach (var name in new[] { "A", "B", "C", "D", "E", "F" })
+        {
+            var call = run.Calls[name][0];
+            Assert.Equal("Succeeded", call.Status);
+            Assert.NotSame(trigger, call.Inputs);
+            Assert.NotSame(call.Inputs, call.Outputs);
+            Assert.Null(call.Inputs?.Parent);
+            (call.Inputs as JsonObject)?.Add("added", 1);
+            (call.Outputs as JsonObject)?.Add("added", 1);
+        }
+
+        Same("""{"body":{"k":[1,2]},"headers":{}}""", trigger);
+        Same("""{"name":"w"}""", workflow);
+        Same("""{"g":[1]}""", given);
+        Assert.Null(trigger.Parent);
+        Assert.Null(workflow.Parent);
+        Assert.Null(given.Parent);
+    }
+
     [Fact]
     public void A_replace_that_would_give_a_string_over_the_concat_limit_is_unsupported_without_building_it()
     {
