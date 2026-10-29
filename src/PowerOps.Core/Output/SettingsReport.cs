@@ -26,7 +26,7 @@ public static class SettingsReport
         writer.Write(Count(problems.Count) + "\n");
     }
 
-    internal static string Line(SettingsProblem p) => $"{p.Kind} {p.ComponentType} {p.Name}: {p.Message}\n";
+    internal static string Line(SettingsProblem p) => $"{TextReport.Clean(p.Kind)} {TextReport.Clean(p.ComponentType)} {TextReport.Clean(p.Name)}: {TextReport.Clean(p.Message)}\n";
 
     internal static string Count(int n) => n switch { 0 => "no problems", 1 => "1 problem", _ => $"{n} problems" };
 

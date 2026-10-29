@@ -37,22 +37,22 @@ public static class TestCommand
         var tests = testsFolder ?? path;
         if (!File.Exists(path) && !Directory.Exists(path))
         {
-            error.WriteLine($"error: path not found: {path}");
+            error.WriteLine($"error: path not found: {TextReport.Clean(path)}");
             return 2;
         }
 
         if (!Directory.Exists(tests))
         {
             error.WriteLine(File.Exists(tests)
-                ? $"error: the tests location is a file: {tests}. Pass a folder with --tests (a zip path needs it)."
-                : $"error: tests folder not found: {tests}");
+                ? $"error: the tests location is a file: {TextReport.Clean(tests)}. Pass a folder with --tests (a zip path needs it)."
+                : $"error: tests folder not found: {TextReport.Clean(tests)}");
             return 2;
         }
 
         var testFiles = FlowTestFiles.Find(tests);
         if (testFiles.Count == 0)
         {
-            error.WriteLine($"error: no *.flowtest.json files found under {tests}");
+            error.WriteLine($"error: no *.flowtest.json files found under {TextReport.Clean(tests)}");
             return 2;
         }
 
@@ -69,7 +69,7 @@ public static class TestCommand
 
         if (solutionPaths.Count == 0)
         {
-            error.WriteLine($"error: no solutions found under {path}. To test a YAML layout, point at the folder that holds solutions/.");
+            error.WriteLine($"error: no solutions found under \"{TextReport.Clean(path)}\". To test a YAML layout, point at the folder that holds solutions/.");
             return 2;
         }
 

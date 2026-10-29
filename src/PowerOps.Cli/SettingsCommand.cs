@@ -80,7 +80,7 @@ public static class SettingsCommand
 
             if (!File.Exists(file))
             {
-                error.WriteLine($"error: settings file not found: {file}");
+                error.WriteLine($"error: settings file not found: {TextReport.Clean(file)}");
                 return UsageError;
             }
 
@@ -155,13 +155,13 @@ public static class SettingsCommand
 
             if (Directory.Exists(path))
             {
-                error.WriteLine($"error: settings apply takes an exported solution zip, not a folder: {path}");
+                error.WriteLine($"error: settings apply takes an exported solution zip, not a folder: {TextReport.Clean(path)}");
                 return UsageError;
             }
 
             if (!File.Exists(file))
             {
-                error.WriteLine($"error: settings file not found: {file}");
+                error.WriteLine($"error: settings file not found: {TextReport.Clean(file)}");
                 return UsageError;
             }
 
@@ -356,7 +356,7 @@ public static class SettingsCommand
             return false;
         }
 
-        error.WriteLine($"error: path not found: {path}");
+        error.WriteLine($"error: path not found: {TextReport.Clean(path)}");
         return true;
     }
 

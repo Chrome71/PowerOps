@@ -431,10 +431,27 @@ public static class DeployCommand
         var command = new Command("gate", "A PreToolUse hook for Microsoft's import tools: reads the hook's JSON on stdin and exits 0 for a call that is not an import or is the plan's first import, 2 for any other call (the reason is on stderr).") { planFile };
         // Not SettingsCommand.Guard: the gate exits only 0 or 2, whatever happens, because a hook blocks only on exit 2.
         // Shadows the recursive help option: help would print to stdout and exit 0, which lets every call through.
-        var help = new Option<bool>("-h", "/h", "--help", "-?", "/?") { Hidden = true };
+        var help = new Option<bool>(GateHelpAliases[0], GateHelpAliases[1..]) { Hidden = true };
         command.Options.Add(help);
         command.SetAction(parse => RunGate(parse.GetValue(help) ? "-h" : parse.GetValue(planFile)!, error, input, deadline, read));
         return command;
+    }
+
+    internal static readonly string[] GateHelpAliases = ["-h", "/h", "--help", "-?", "/?"];
+
+    // The gate has no help: help would exit 0 and let the call through. Exits 2 even if stderr fails.
+    internal static int GateNoHelp(TextWriter error)
+    {
+        try
+        {
+            error.WriteLine("error: deploy gate has no help: it is a hook, and help would exit 0 and let the call through; see docs/COMMANDS.md#deploy-gate");
+        }
+        catch (Exception)
+        {
+            // Nothing is left to report to: a stderr that fails still blocks.
+        }
+
+        return UsageError;
     }
 
     private static int RunGate(
@@ -442,6 +459,11 @@ public static class DeployCommand
     {
         try
         {
+            if (planFile == GateHelpAliases[0])
+            {
+                return GateNoHelp(error);
+            }
+
             if (planFile.StartsWith('-'))
             {
                 // Without this a mistyped option would be taken as the plan file.

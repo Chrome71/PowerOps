@@ -82,7 +82,7 @@ public class OutputHygieneCommandTests : IDisposable
         var (code, _, err) = Run("analyze", root);
 
         Assert.Equal(2, code);
-        Assert.Equal("error: no solutions found under " + root + ". To analyze a YAML layout, point at the folder that holds solutions/.", Lines(err).Single());
+        Assert.Equal("error: no solutions found under \"" + root + "\". To analyze a YAML layout, point at the folder that holds solutions/.", Lines(err).Single());
     }
 
     [Fact]
@@ -132,5 +132,64 @@ public class OutputHygieneCommandTests : IDisposable
         Assert.StartsWith("error: ", line);
         Assert.DoesNotContain(Lines(err), l => l.StartsWith("::"));
         Assert.Equal("victim", File.ReadAllText(victim));
+    }
+
+    // M33 S-1: a value from the input must not add a line or an escape sequence to a text report or an error line.
+    private const string Hostile = "demo\n::warning::FORGED\u001b[31mRED";
+
+    private static void AssertClean(string text)
+    {
+        Assert.DoesNotContain('\u001b', text);
+        Assert.DoesNotContain(Lines(text), l => l.StartsWith("::", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Settings_validate_prints_a_hostile_logical_name_on_one_clean_line()
+    {
+        var settings = Path.Combine(_temp, "hostile.settings.json");
+        File.WriteAllText(settings, new System.Text.Json.Nodes.JsonObject
+        {
+            ["EnvironmentVariables"] = new System.Text.Json.Nodes.JsonArray(),
+            ["ConnectionReferences"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject
+            {
+                ["LogicalName"] = Hostile,
+                ["ConnectionId"] = "fake-connection-id",
+                ["ConnectorId"] = "/providers/Microsoft.PowerApps/apis/shared_example",
+            }),
+        }.ToJsonString());
+
+        var (code, output, _) = Run("settings", "validate", Path.Combine(Seed, "v1"), "--settings", settings);
+
+        Assert.Equal(1, code);
+        Assert.Contains("FORGED", output);
+        AssertClean(output);
+    }
+
+    [Fact]
+    public void Analyze_prints_a_path_with_a_line_break_and_an_escape_on_one_clean_error_line()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "A line break is not valid in a Windows file name.");
+
+        var (code, _, err) = Run("analyze", Path.Combine(_temp, Hostile));
+
+        Assert.Equal(2, code);
+        Assert.StartsWith("error: path not found: ", Assert.Single(Lines(err)));
+        AssertClean(err);
+    }
+
+    // M33 F-3: the path is quoted, so `.` does not read as the end of the sentence.
+    [Fact]
+    public void Analyze_and_test_quote_the_folder_in_the_no_solutions_error()
+    {
+        var empty = Directory.CreateDirectory(Path.Combine(_temp, "empty")).FullName;
+        var tests = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "flowtests", "seed");
+
+        var analyze = Run("analyze", empty);
+        var test = Run("test", empty, "--tests", tests);
+
+        Assert.Equal(2, analyze.Code);
+        Assert.Equal($"error: no solutions found under \"{empty}\". To analyze a YAML layout, point at the folder that holds solutions/.", Lines(analyze.Err).Single());
+        Assert.Equal(2, test.Code);
+        Assert.Equal($"error: no solutions found under \"{empty}\". To test a YAML layout, point at the folder that holds solutions/.", Lines(test.Err).Single());
     }
 }

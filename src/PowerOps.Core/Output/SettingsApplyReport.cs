@@ -31,7 +31,7 @@ public static class SettingsApplyReport
     };
 
     /// <summary>The target line, which an <c>--apply</c> run prints before the import starts.</summary>
-    public static string Header(string environment) => $"environment: {environment}\n";
+    public static string Header(string environment) => $"environment: {TextReport.Clean(environment)}\n";
 
     /// <summary>The target line (unless <paramref name="header"/> is false or there is no target), managed, the import command, the validate problems, one line per step and per flow, and a summary line; "\n" line endings.</summary>
     public static void WriteText(ApplyResult r, TextWriter writer, bool header = true)
@@ -42,7 +42,7 @@ public static class SettingsApplyReport
         }
 
         writer.Write($"managed: {(r.Managed ? "true" : "false")}\n");
-        writer.Write($"command: pac {string.Join(" ", r.ImportArguments.Select(a => a.Contains(' ') ? $"\"{a}\"" : a))}\n");
+        writer.Write($"command: pac {string.Join(" ", r.ImportArguments.Select(a => a.Contains(' ') ? $"\"{TextReport.Clean(a)}\"" : TextReport.Clean(a)))}\n");
         foreach (var p in r.Problems)
         {
             writer.Write(SettingsReport.Line(p));
@@ -50,12 +50,12 @@ public static class SettingsApplyReport
 
         foreach (var s in r.Steps)
         {
-            writer.Write($"{s.Name}: {s.Status}\n");
+            writer.Write($"{TextReport.Clean(s.Name)}: {TextReport.Clean(s.Status)}\n");
         }
 
         foreach (var f in r.Flows)
         {
-            writer.Write($"flow {f.Name}: {f.StateAfter ?? (f.Exists ? $"exists, {f.StateBefore}" : $"new, expected {f.ExpectedState}")}\n");
+            writer.Write($"flow {TextReport.Clean(f.Name)}: {TextReport.Clean(f.StateAfter ?? (f.Exists ? $"exists, {f.StateBefore}" : $"new, expected {f.ExpectedState}"))}\n");
         }
 
         writer.Write(Summary(r) + "\n");
@@ -83,7 +83,7 @@ public static class SettingsApplyReport
     {
         if (r.Message is { } message)
         {
-            return message;
+            return TextReport.Clean(message);
         }
 
         if (r.Problems.Count > 0)

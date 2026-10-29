@@ -93,14 +93,14 @@ public static class AnalyzeCommand
         {
             if (!File.Exists(p) && !Directory.Exists(p))
             {
-                error.WriteLine($"error: path not found: {p}");
+                error.WriteLine($"error: path not found: {TextReport.Clean(p)}");
                 return UsageError;
             }
         }
 
         if (baselineFile is not null && !File.Exists(baselineFile))
         {
-            error.WriteLine($"error: baseline file not found: {baselineFile}");
+            error.WriteLine($"error: baseline file not found: {TextReport.Clean(baselineFile)}");
             return UsageError;
         }
 
@@ -147,7 +147,7 @@ public static class AnalyzeCommand
             var result = AnalysisResult.RunFound(found, Directory.GetCurrentDirectory(), context);
             if (result.Solutions.Count == 0)
             {
-                error.WriteLine($"error: no solutions found under {string.Join(", ", paths)}. To analyze a YAML layout, point at the folder that holds solutions/.");
+                error.WriteLine($"error: no solutions found under {string.Join(", ", paths.Select(p => $"\"{TextReport.Clean(p)}\""))}. To analyze a YAML layout, point at the folder that holds solutions/.");
                 return UsageError;
             }
 
