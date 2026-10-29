@@ -77,13 +77,15 @@ public static class DeployCommand
             problems.Add("--target is required");
         }
 
+        // The zips and settings files of the folder, listed before the refusals and before the target read; a report written into the folder is not one of them.
+        var inputs = FolderInputs(folder);
         foreach (var (name, value) in new[] { ("--save", save), ("--out", outFile) })
         {
             if (value is not null && Directory.Exists(value))
             {
                 problems.Add($"{name} names an existing folder, not a file");
             }
-            else if (value is not null && SafeWrite.Refusal(value, []) is { } refusal)
+            else if (value is not null && SafeWrite.Refusal(value, inputs) is { } refusal)
             {
                 problems.Add($"{name} {refusal.Reason}");
             }
@@ -114,12 +116,12 @@ public static class DeployCommand
         {
             var json = new StringWriter();
             DeployPlanReport.WriteJson(result, AnalyzeCommand.ToolVersion(), json);
-            SafeWrite.WriteText(save, json.ToString(), []);
+            SafeWrite.WriteText(save, json.ToString(), inputs);
         }
 
         if (outFile is not null)
         {
-            SafeWrite.WriteText(outFile, report.ToString(), []);
+            SafeWrite.WriteText(outFile, report.ToString(), inputs);
         }
         else
         {
@@ -262,12 +264,15 @@ public static class DeployCommand
     {
         // The --target value, the environment id and every folder path are never printed.
         var problems = new List<string>();
+        // The plan file and the zips and settings files beside it, which DryRun reads.
+        // A plan file that does not exist is a usage problem below; its folder is not read (GetFullPath throws on an empty path).
+        string[] inputs = File.Exists(planFile) ? [planFile, .. FolderInputs(Path.GetDirectoryName(Path.GetFullPath(planFile)) ?? "")] : [];
         PlanFileProblems(planFile, target, problems);
         if (outFile is not null && Directory.Exists(outFile))
         {
             problems.Add("--out names an existing folder, not a file");
         }
-        else if (outFile is not null && SafeWrite.Refusal(outFile, [planFile]) is { } refusal)
+        else if (outFile is not null && SafeWrite.Refusal(outFile, inputs) is { } refusal)
         {
             // Before any import: the report is written after them, and a refusal then would lose the report of an import that ran.
             problems.Add($"--out {refusal.Reason}");
@@ -299,7 +304,7 @@ public static class DeployCommand
 
             if (outFile is not null)
             {
-                SafeWrite.WriteText(outFile, report.ToString(), [planFile]);
+                SafeWrite.WriteText(outFile, report.ToString(), inputs);
             }
             else
             {
@@ -332,11 +337,11 @@ public static class DeployCommand
         progress.Write(SettingsApplyReport.Header(Clean(plan.Target)));
         var state = new Dictionary<int, string>();
         int? pacExit = null;
-        string? failure = null;
+        (string Text, bool TimedOut)? failure = null;
         foreach (var step in imports)
         {
             failure = Import(step);
-            state[step.Order] = failure is null ? ImportStatus.Ok : ImportStatus.Failed;
+            state[step.Order] = failure is null ? ImportStatus.Ok : failure.Value.TimedOut ? ImportStatus.Unknown : ImportStatus.Failed;
             if (failure is not null)
             {
                 break;
@@ -352,8 +357,10 @@ public static class DeployCommand
         if (failure is not null)
         {
             var did = imports.Where(i => state.GetValueOrDefault(i.Order) == ImportStatus.Ok).Select(i => i.Solution).ToList();
-            var after = did.Count == 0 ? "Nothing was imported." : $"Imported: {string.Join(", ", did)}.";
-            return Finish(InternalError, plan.Target, reviewed.Hash, ApplyStatus.Failed, $"{failure} There is no rollback. {after}", Done(), []);
+            var after = failure.Value.TimedOut
+                ? did.Count == 0 ? "No import before it finished." : $"Imported before it: {string.Join(", ", did)}."
+                : did.Count == 0 ? "Nothing was imported." : $"Imported: {string.Join(", ", did)}.";
+            return Finish(InternalError, plan.Target, reviewed.Hash, ApplyStatus.Failed, $"{failure.Value.Text} There is no rollback. {after}", Done(), []);
         }
 
         if (flowRefs.Count == 0)
@@ -381,8 +388,8 @@ public static class DeployCommand
         var flows = DeployApply.FlowsAfter(flowRefs, second.Solutions);
         return Finish(flows.AsExpected ? 0 : 1, plan.Target, reviewed.Hash, ApplyStatus.Imported, null, Done(), flows.Flows);
 
-        // The failure message of one import, or null when it went through; hashes both files again first.
-        string? Import(ImportStep step)
+        // The failure message of one import (and whether it timed out), or null when it went through; hashes both files again first.
+        (string Text, bool TimedOut)? Import(ImportStep step)
         {
             var input = plan.Inputs.Zips.First(z => z.Zip == step.Zip);
             var zip = Path.Combine(folder, step.Zip);
@@ -390,7 +397,7 @@ public static class DeployCommand
             var changed = Changed(zip, input.ZipSha256, BoundedRead.MaxZipBytes) ? step.Zip : settings is not null && Changed(settings, input.SettingsSha256, MaxSettingsBytes) ? step.Settings : null;
             if (changed is not null)
             {
-                return $"{changed} changed after the re-plan read it, so it was not imported.";
+                return ($"{changed} changed after the re-plan read it, so it was not imported.", false);
             }
 
             progress.WriteLine($"importing {step.Order} {Clean(step.Solution)} ({Clean(step.Zip)})");
@@ -398,12 +405,12 @@ public static class DeployCommand
             var result = pac(SettingsCommand.ImportArguments(now.Target.Id.ToString("D"), zip, settings, step.StageAndUpgrade), SettingsCommand.ImportTimeout);
             if (!result.Started)
             {
-                return "pac was not found on PATH.";
+                return ("pac was not found on PATH.", false);
             }
 
             if (result.TimedOut)
             {
-                return SettingsCommand.ImportTimedOut;
+                return (SettingsCommand.ImportTimedOut, true);
             }
 
             if (result.ExitCode != 0)
@@ -411,7 +418,7 @@ public static class DeployCommand
                 Forward(error, result.Stdout);
                 Forward(error, result.Stderr);
                 pacExit = result.ExitCode;
-                return $"The import failed (pac exit code {result.ExitCode}); pac's output is on stderr.";
+                return ($"The import failed (pac exit code {result.ExitCode}); pac's output is on stderr.", false);
             }
 
             progress.WriteLine($"imported {Clean(step.Solution)}");
@@ -425,10 +432,27 @@ public static class DeployCommand
         var command = new Command("gate", "A PreToolUse hook for Microsoft's import tools: reads the hook's JSON on stdin and exits 0 for a call that is not an import or is the plan's first import, 2 for any other call (the reason is on stderr).") { planFile };
         // Not SettingsCommand.Guard: the gate exits only 0 or 2, whatever happens, because a hook blocks only on exit 2.
         // Shadows the recursive help option: help would print to stdout and exit 0, which lets every call through.
-        var help = new Option<bool>("-h", "/h", "--help", "-?", "/?") { Hidden = true };
+        var help = new Option<bool>(GateHelpAliases[0], GateHelpAliases[1..]) { Hidden = true };
         command.Options.Add(help);
         command.SetAction(parse => RunGate(parse.GetValue(help) ? "-h" : parse.GetValue(planFile)!, error, input, deadline, read));
         return command;
+    }
+
+    internal static readonly string[] GateHelpAliases = ["-h", "/h", "--help", "-?", "/?"];
+
+    // The gate has no help: help would exit 0 and let the call through. Exits 2 even if stderr fails.
+    internal static int GateNoHelp(TextWriter error)
+    {
+        try
+        {
+            error.WriteLine("error: deploy gate has no help: it is a hook, and help would exit 0 and let the call through; see docs/COMMANDS.md#deploy-gate");
+        }
+        catch (Exception)
+        {
+            // Nothing is left to report to: a stderr that fails still blocks.
+        }
+
+        return UsageError;
     }
 
     private static int RunGate(
@@ -436,6 +460,11 @@ public static class DeployCommand
     {
         try
         {
+            if (planFile == GateHelpAliases[0])
+            {
+                return GateNoHelp(error);
+            }
+
             if (planFile.StartsWith('-'))
             {
                 // Without this a mistyped option would be taken as the plan file.
@@ -720,6 +749,11 @@ public static class DeployCommand
 
         return new Prepared(result, loaded, got);
     }
+
+    // The zips and settings files directly in the folder, as ListZips picks them; none when it is not a folder.
+    private static string[] FolderInputs(string folder) => !Directory.Exists(folder)
+        ? []
+        : [.. Directory.EnumerateFiles(folder).Where(f => f.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) || f.EndsWith(SettingsSuffix, StringComparison.OrdinalIgnoreCase))];
 
     // The folder's zips in ordinal order; problems are added for every file name, case or link that breaks the rules.
     private static List<(string Name, string Path)> ListZips(string folder, List<string> problems)

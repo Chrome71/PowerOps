@@ -25,7 +25,7 @@ public static class SkillsCommand
             var root = parse.GetValue(path)!;
             if (!Directory.Exists(root))
             {
-                error.WriteLine($"error: path not found: {root}");
+                error.WriteLine($"error: path not found: {TextReport.Clean(root)}");
                 return UsageError;
             }
 
@@ -126,7 +126,7 @@ public static class SkillsCommand
         var conflicts = plan.Where(p => p.State == "conflict").ToList();
         if (conflicts.Count > 0)
         {
-            conflicts.ForEach(c => error.WriteLine($"error: {Display(c.File, baseDir)} differs from the shipped skill; rerun with --force to overwrite"));
+            conflicts.ForEach(c => error.WriteLine($"error: {TextReport.Clean(Display(c.File, baseDir))} differs from the shipped skill; rerun with --force to overwrite"));
             return 1;
         }
 

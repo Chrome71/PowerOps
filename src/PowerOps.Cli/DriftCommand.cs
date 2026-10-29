@@ -126,7 +126,7 @@ public static class DriftCommand
 
         if (snapshots.All(s => !s.Installed))
         {
-            error.WriteLine($"error: solution `{solution}` is not installed in any environment");
+            error.WriteLine($"error: solution `{TextReport.Clean(solution)}` is not installed in any environment");
             return UsageError;
         }
 

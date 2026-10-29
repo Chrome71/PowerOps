@@ -288,6 +288,41 @@ public class DeployCommandTests : IDisposable
         Assert.All(zips, z => Assert.Equal(z.Value, File.ReadAllBytes(z.Key)));
     }
 
+    // M33 U-2: the zips and settings files of the folder are inputs; the refusal comes before the target is read.
+    [Theory]
+    [InlineData("--save", "PowerOpsSeed.zip")]
+    [InlineData("--save", "PowerOpsSeed.settings.json")]
+    [InlineData("--out", "PowerOpsSeed.zip")]
+    [InlineData("--out", "PowerOpsSeed.settings.json")]
+    public void Save_or_out_over_a_zip_or_settings_file_of_the_folder_exits_2_and_leaves_the_file(string option, string name)
+    {
+        SeedZip(Folder);
+        var input = Path.Combine(Folder, name);
+        var before = File.ReadAllBytes(input);
+
+        var fake = new FakeTarget();
+        var r = Plan(fake, option, input);
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal($"error: {option} is an input of this command; it is not overwritten.\n", r.Err);
+        Assert.Equal("", r.Out);
+        Assert.Empty(fake.Calls);
+        Assert.Equal(before, File.ReadAllBytes(input));
+    }
+
+    [Fact]
+    public void Save_and_out_into_the_folder_are_still_written()
+    {
+        SeedZip(Folder);
+        var (save, outFile) = (Path.Combine(Folder, "powerops-plan.json"), Path.Combine(Folder, "report.txt"));
+
+        var r = Plan(SeedTarget(), "--format", "json", "--save", save, "--out", outFile);
+
+        Assert.Equal(0, r.Code);
+        Assert.True(File.Exists(save));
+        Assert.True(File.Exists(outFile));
+    }
+
     [Fact]
     public void Save_run_again_replaces_its_own_file()
     {

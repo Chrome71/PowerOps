@@ -27,7 +27,7 @@ With Microsoft's power-platform-skills or Dataverse-skills installed too, their 
 
 ## MCP server
 
-`powerops mcp` is a Model Context Protocol server over stdio for Claude Code, Codex and other agents. Its tools run the [commands](COMMANDS.md) in-process and return what the command prints: its JSON, which follows its schema in [docs/schemas/](schemas/), or for `baseline` and `settings_generate` the file's text.
+`powerops mcp` is a Model Context Protocol server over stdio for Claude Code, Codex and other agents. Its tools run the [commands](COMMANDS.md) in-process and return what the command prints: its JSON, which follows its schema in [docs/schemas/](schemas/), or for `baseline` and `settings_generate` the file's text. A second text block, when there is one, holds PowerOps's own `error:` lines, then its `note:` and `warning:` lines (for example a link inside a solution that was not read); the text `pac`, `az` and the Web API print never reaches the agent.
 
 - `analyze`, `rules`, `baseline`, `diff`, `test`, `settings_generate`, `settings_validate` and `plan_status` read only files. `baseline` and `settings_generate` return the file's text instead of writing it.
 - `plan_facts`, `drift` (for an environment, not a snapshot file), `deploy_plan` and `deploy_apply` read a tenant through `pac` and `az`, as the commands do, so both must be signed in.

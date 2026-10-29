@@ -27,6 +27,33 @@ public class ProgramTests
         Assert.Equal(expected, output.Trim());
     }
 
+    // M33 F-4: no arguments at all prints the root help on stderr, then the error line; stdout stays empty.
+    [Fact]
+    public void A_bare_powerops_prints_the_help_then_the_error_line_on_stderr_and_exits_2()
+    {
+        var (o, e) = (new StringWriter(), new StringWriter());
+
+        var code = Program.Run([], o, e);
+
+        Assert.Equal(2, code);
+        Assert.Equal("", o.ToString());
+        var lines = e.ToString().ReplaceLineEndings("\n").TrimEnd('\n').Split('\n');
+        Assert.Contains(lines, l => l.StartsWith("Usage:", StringComparison.Ordinal));
+        Assert.Equal("error: Required command was not provided.", lines[^1]);
+    }
+
+    // Any other parse error keeps the one error line.
+    [Fact]
+    public void Another_parse_error_prints_no_help()
+    {
+        var (o, e) = (new StringWriter(), new StringWriter());
+
+        var code = Program.Run(["--bogus"], o, e);
+
+        Assert.Equal(2, code);
+        Assert.DoesNotContain("Usage:", e.ToString());
+    }
+
     // `deploy gate` as a hook runs it: the built assembly as a child process with the hook input on stdin.
     private static (int Code, string Out, string Err) Gate(string stdin, string planFile)
     {

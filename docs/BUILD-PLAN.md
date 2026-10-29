@@ -395,6 +395,19 @@ Item 46 is M21's, in the Phase 5 list. M21 took decision 39, after Phase 6's, so
 56. `docs:` M31: the docs fixes, SECURITY.md, FOUNDATION §8 and `DocsDriftTests` (built 2026-10-28, [plan](plans/phase6-hardening/plan.md))
 57. `ci:` M32: its quick plan, then the Windows and macOS CI checks and the runbook, written and marked not verified (built 2026-10-28, [plan](plans/m32-platforms/plan.md))
 
+## M33: fixes from the review of 2026-10-29
+
+An independent review of `main` at `df04828` (2026-10-29, two reviewers who agreed every finding) found 13 issues: 3 medium (F-1 doc pins from before Phase 6, S-2 the planning skills reading tenant facts before an environment is named, U-1 the CI quick start analyzing PowerOps's own fixtures) and 10 low, none high. The user asked on 2026-10-29 to fix all 13. The [plan](plans/m33-review-fixes/plan.md) lists each finding with its change and test; its `decisions.md` reverses M28's Q2 (the files a scan found count as inputs of a write).
+
+| Milestone | Release | Scope | Done when |
+|---|---|---|---|
+| **M33. Review fixes** | none (fixes and docs) | <ul><li>Planned 2026-10-29 ([plan](plans/m33-review-fixes/plan.md))</li><li>F-1: every PowerOps pin in the docs at one commit after the fixes, and a warning job on push to `main` when `src`, `action` or the Action's build files changed after the pin</li><li>S-2: `plan facts` only after the user names the environment; U-1: the CI snippet clones outside the checkout and names a path</li><li>S-1, U-2, X-1, X-2, X-3, F-2 to F-6 as the plan's Data table says</li></ul> | <ul><li>Each finding fixed, with a test that fails without the fix where the plan names one, and its review evidence re-run and gone</li><li>The fix PR and the pin PR green on Linux, Windows and macOS and merged; the warning job warns after the first and is quiet after the second</li></ul> |
+
+### Build order, M33 (continues the list below)
+
+58. `fix:` M33: the plan, then the 13 fixes (planned 2026-10-29, [plan](plans/m33-review-fixes/plan.md))
+59. `docs:` M33: every PowerOps pin moved to the merge commit of item 58, and the plan marked done
+
 ## Testing
 
 | Layer | What | Runs |

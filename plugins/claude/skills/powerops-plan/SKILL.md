@@ -33,14 +33,17 @@ Never answer your own questions. After you ask, end your turn and wait.
 
 ## 3. Environment facts
 
-Run `powerops plan facts` once. Never run `pac` yourself.
+Never run `pac` yourself. Read environment facts only for an environment the user names.
 
-- Output with `"available": true` lists the target environment and the existing solutions (names, versions, managed flag). Use it to answer questions instead of asking them.
-- If `available` is false, tell the user the `reason` and the `fix` in your next message, in one line. Do not run the fix. Add a line to Assumptions in `plan.md` that environment facts were not available. Carry on.
-- The facts do not contain the publisher prefix. Take it from the repo if a solution there shows it. Otherwise ask.
-- Offer the facts' environment as the target in a question. Write `environment:` in the header only after the user confirms it.
-- Never write any other environment's name in a plan file. Refer to the others by role (Dev, Test, Prod). Never offer other environments as targets unless the user names them.
-- In `decisions.md`, write "the environment found by plan facts" instead of its name.
+1. Ask which environment the plan targets and whether `pac` is signed in to it. End your turn and wait.
+2. Run `powerops plan facts` once, and only after the user has named the environment and said `pac` is signed in to it.
+3. Output with `"available": true` lists the environment `pac` is signed in to and the existing solutions (names, versions, managed flag). If that environment is not the one the user named, say only that they differ. Use none of the facts, and write that environment's name nowhere: not in a plan file, and not repeated in chat. Otherwise use the facts to answer questions instead of asking them.
+4. If `available` is false, tell the user the `reason` and the `fix` in your next message, in one line. Do not run the fix. Add a line to Assumptions in `plan.md` that environment facts were not available. Carry on.
+5. If the user names no environment, or `pac` is not signed in to it, do not run `powerops plan facts`. Plan from the repo and add a line to Assumptions in `plan.md` that environment facts were not read. Carry on.
+6. The facts do not contain the publisher prefix. Take it from the repo if a solution there shows it. Otherwise ask.
+7. Write `environment:` in the header only after the user confirms the environment.
+8. Never write any other environment's name in a plan file. Refer to the others by role (Dev, Test, Prod). Never offer other environments as targets unless the user names them.
+9. In `decisions.md`, write "the environment found by plan facts" instead of its name.
 
 ## 4. Tenant data
 
@@ -144,8 +147,9 @@ After each round, judge engagement from the answers. Mostly one-word or option-n
 5. Set `status: approved` in the header.
 6. Recommend a review in a fresh context with the `powerops-review-plan` skill, and start it as follows:
    - Claude Code: invoke the `powerops-review-plan` skill. Its installed copy runs in a forked context on the top model.
-   - Codex and other agents that can start a subagent with no chat history: start one that runs `powerops-review-plan` with only the plan name.
+   - Codex and other agents that can start a subagent with no chat history: start one that runs `powerops-review-plan` with the plan name.
    - Otherwise tell the user to open a new session and run `powerops-review-plan <name>` there. Then wait.
+   - In the first two cases, add to the request that the user confirmed in this session that `pac` is signed in to the plan's `environment:`, but only if they did. Otherwise add nothing: the reviewer then reads no environment facts.
 7. If the user prefers to continue in this session, run the review here. The review then records `fresh-context: no`.
 
 An approved draft may still have open questions. The review and the sign-off both show the count.
@@ -154,9 +158,9 @@ An approved draft may still have open questions. The review and the sign-off bot
 
 Use this when the user asks to build without a signed-off plan, or `powerops-implement` hands over. Write no code and change no solution.
 
-1. Draft `plan.md` from the request, the repo and `powerops plan facts`. Put every guess under Assumptions. The status stays `draft`. Set `depth: quick`.
+1. Draft `plan.md` from the request and the repo. No environment is named here, so read no environment facts. Put every guess under Assumptions. The status stays `draft`. Set `depth: quick`.
 2. Ask one question: the route. Use the numbered format of a round question (section 6): two or three options, each with its trade-off in a few words, recommended first, then "In your own words". Example: unmanaged in Dev, then managed to Test and Prod through pipelines.
-3. Ask the publisher prefix too, only if neither the facts nor the repo supply it. Ask nothing else. Leave `environment: null` and note the assumed target in Assumptions.
+3. Ask the publisher prefix too, only if the repo does not supply it. Ask nothing else. Leave `environment: null` and note the assumed target in Assumptions.
 4. Log the route in `decisions.md` as a normal question.
 5. Show one lettered menu:
    - **A** approve the draft, then review and sign-off as usual (section 7, from step 3).

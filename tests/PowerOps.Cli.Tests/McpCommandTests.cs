@@ -932,6 +932,53 @@ public sealed class McpCommandTests : IAsyncLifetime
     }
 
     [Fact]
+    public void Note_and_warning_lines_are_kept_after_the_output_and_forwarded_text_is_not()
+    {
+        var result = McpCommand.Result(0, "{}", "note: x\n  | note: forwarded\nwarning: y\nsomething else\n");
+
+        Assert.False(result.IsError);
+        Assert.Equal(["{}", "note: x\nwarning: y"], result.Content.Select(c => ((TextContentBlock)c).Text));
+    }
+
+    [Fact]
+    public void Error_lines_come_before_note_lines_and_a_note_alone_still_gets_the_generic_error()
+    {
+        Assert.Equal(["error: e\nnote: n"], Result(2, "", "note: n\nerror: e\n"));
+        Assert.Equal(["error: the command failed (exit code 3)\nnote: x"], Result(3, "", "note: x"));
+        Assert.True(McpCommand.Result(3, "", "note: x").IsError);
+
+        static string[] Result(int code, string stdout, string stderr) => [.. McpCommand.Result(code, stdout, stderr).Content.Select(c => ((TextContentBlock)c).Text)];
+    }
+
+    [Fact]
+    public async Task Analyze_returns_the_note_for_a_link_inside_the_solution()
+    {
+        var sol = Path.Combine(_temp, "linked");
+        Directory.CreateDirectory(sol);
+        foreach (var file in Directory.EnumerateFiles(V1, "*", SearchOption.AllDirectories))
+        {
+            var to = Path.Combine(sol, Path.GetRelativePath(V1, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+            File.Copy(file, to);
+        }
+
+        try
+        {
+            File.CreateSymbolicLink(Path.Combine(sol, "Link.txt"), Path.Combine(sol, "Other", "Solution.xml"));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Assert.Skip("Symbolic links are not available here.");
+        }
+
+        var result = await Call("analyze", new() { ["paths"] = new[] { sol } });
+
+        Assert.Equal(2, result.Content.Count);
+        // The note names the link with "/" on every OS.
+        Assert.Equal($"note: {sol.Replace('\\', '/')}/Link.txt: a link inside the solution, not followed and not read", Text(result, 1));
+    }
+
+    [Fact]
     public void Exit_one_with_a_report_is_not_an_error_and_a_code_beyond_three_is()
     {
         Assert.False(McpCommand.Result(1, "{}", "").IsError);

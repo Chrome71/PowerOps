@@ -48,6 +48,7 @@ public class DeployApplyCommandTests : DeployTestBase
     [InlineData("out-is-a-folder")]
     [InlineData("out-directory-missing")]
     [InlineData("no-plan-file-argument")]
+    [InlineData("empty-plan-file")]
     public void A_usage_error_exits_2_before_anything_is_read_or_run(string problem)
     {
         SeedZip(Folder);
@@ -63,6 +64,9 @@ public class DeployApplyCommandTests : DeployTestBase
                 break;
             case "plan-file-is-a-folder":
                 args = ["deploy", "apply", Out, "--target", TargetValue];
+                break;
+            case "empty-plan-file":
+                args = ["deploy", "apply", "", "--target", TargetValue];
                 break;
             case "out-is-a-folder":
                 args = [.. args, "--out", Out];
@@ -80,6 +84,7 @@ public class DeployApplyCommandTests : DeployTestBase
 
         Assert.Equal(2, r.Code);
         Assert.StartsWith("error: ", r.Err);
+        Assert.DoesNotContain("Exception", r.Err);
         Assert.Equal("", r.Out);
         Assert.Equal(0, fake.Calls);
         Assert.Empty(pac.Calls);
@@ -120,6 +125,41 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Empty(pac.Calls);
         Assert.Equal("victim", File.ReadAllText(victim));
         Assert.All(files, f => Assert.Equal(f.Value, File.ReadAllBytes(f.Key)));
+    }
+
+    // M33 U-2: the zips and settings files beside the plan file are inputs too.
+    [Theory]
+    [InlineData("PowerOpsSeed.zip")]
+    [InlineData("PowerOpsSeed.settings.json")]
+    public void An_out_over_a_zip_or_settings_file_of_the_plan_folder_exits_2_before_any_import_and_leaves_the_file(string name)
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var input = Path.Combine(Folder, name);
+        var before = File.ReadAllBytes(input);
+        var (fake, pac) = (SeedTarget(), new FakePac());
+
+        var r = Apply(fake, pac, "--apply", "--out", input);
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal("error: --out is an input of this command; it is not overwritten.\n", r.Err);
+        Assert.Equal("", r.Out);
+        Assert.Equal(0, fake.Calls);
+        Assert.Empty(pac.Calls);
+        Assert.Equal(before, File.ReadAllBytes(input));
+    }
+
+    [Fact]
+    public void An_out_into_the_plan_folder_is_still_written()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var outFile = Path.Combine(Folder, "apply.txt");
+
+        var r = Apply(SeedTarget(), new FakePac(), "--out", outFile);
+
+        Assert.Equal(0, r.Code);
+        Assert.True(File.Exists(outFile));
     }
 
     // The report file exists and is writable, but replacing it needs a temp file in its folder.
@@ -653,6 +693,8 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Contains("  | secret pac text\n", r.Err);
     }
 
+    private const string TimeoutText = "The import timed out after 60 minutes. It may still be running in the environment: check the solution's import history there before running again.";
+
     [Fact]
     public void A_timed_out_import_exits_3_with_the_timeout_text_and_forwards_nothing()
     {
@@ -664,8 +706,45 @@ public class DeployApplyCommandTests : DeployTestBase
 
         Assert.Equal(3, r.Code);
         Assert.Equal("", r.Err);
-        Assert.Contains("failed: The import timed out after 60 minutes. It may still be running in the environment: check the solution's import history there before running again.", r.Out);
-        Assert.Contains("PowerOpsSeed (PowerOpsSeed.zip): upgrade, failed\n", r.Out);
+        Assert.Contains($"failed: {TimeoutText} There is no rollback. No import before it finished.\n", r.Out);
+        Assert.Contains("PowerOpsSeed (PowerOpsSeed.zip): upgrade, unknown\n", r.Out);
+    }
+
+    [Fact]
+    public void A_timeout_on_the_first_zip_leaves_its_row_unknown_the_rest_not_run_and_says_no_import_finished()
+    {
+        Chain();
+        MakePlan(new FakeTarget());
+        var pac = new FakePac { Answer = n => n == 0 ? new PacResult(true, true, 0, "") : null };
+
+        var r = Apply(new FakeTarget(), pac, "--apply", "--format", "json");
+
+        Assert.Equal(3, r.Code);
+        Assert.Single(pac.Calls);
+        var doc = Json(r);
+        Assert.Equal("failed", (string?)doc["status"]);
+        Assert.Equal(["A:unknown", "B:not-run", "C:not-run"], Statuses(doc));
+        Assert.Equal($"{TimeoutText} There is no rollback. No import before it finished.", (string?)doc["message"]);
+        Assert.DoesNotContain("Nothing was imported", (string?)doc["message"]);
+        Assert.Null(doc["solutions"]![0]!["pacExitCode"]);
+    }
+
+    [Fact]
+    public void A_timeout_on_the_second_zip_names_the_imports_before_it()
+    {
+        Chain();
+        MakePlan(new FakeTarget());
+        var pac = new FakePac { Answer = n => n == 1 ? new PacResult(true, true, 0, "") : null };
+
+        var r = Apply(new FakeTarget(), pac, "--apply", "--format", "json");
+
+        Assert.Equal(3, r.Code);
+        var doc = Json(r);
+        Assert.Equal(["A:ok", "B:unknown", "C:not-run"], Statuses(doc));
+        Assert.Equal($"{TimeoutText} There is no rollback. Imported before it: A.", (string?)doc["message"]);
+
+        var text = Apply(new FakeTarget(), new FakePac { Answer = n => n == 1 ? new PacResult(true, true, 0, "") : null }, "--apply");
+        Assert.Contains("1 A (A.zip): install, ok\n2 B (B.zip): install, unknown\n3 C (C.zip): install, not-run\n", text.Out);
     }
 
     [Fact]
@@ -961,5 +1040,18 @@ public class DeployApplyCommandTests : DeployTestBase
 
         Assert.Equal(3, r.Code);
         Golden.Verify(Scrub(r.Out), "deploy-apply-failed.json");
+    }
+
+    [Fact]
+    public void A_timed_out_import_matches_the_golden()
+    {
+        Chain();
+        MakePlan(new FakeTarget());
+        var pac = new FakePac { Answer = n => n == 1 ? new PacResult(true, true, 0, "") : null };
+
+        var r = Apply(new FakeTarget(), pac, "--apply", "--format", "json");
+
+        Assert.Equal(3, r.Code);
+        Golden.Verify(Scrub(r.Out), "deploy-apply-timeout.json");
     }
 }

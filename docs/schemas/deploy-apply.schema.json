@@ -13,7 +13,7 @@
     "hash": { "type": "string", "pattern": "^([0-9a-f]{64})?$", "description": "The reviewed plan file's hash, never the new plan's. Empty when the plan file was made by another powerops version." },
     "status": {
       "enum": ["refused", "planned", "imported", "failed"],
-      "description": "refused: nothing was imported (exit 1), because the plan file is blocked or from another version, the new plan's hash differs, or the new plan is blocked. planned: a dry run (exit 0). imported: the imports ran; see message and flows for exit 1 and 3. failed: an import failed, timed out, pac was not found, or a file changed before its import (exit 3); there is no rollback."
+      "description": "refused: nothing was imported (exit 1), because the plan file is blocked or from another version, the new plan's hash differs, or the new plan is blocked. planned: a dry run (exit 0). imported: the imports ran; see message and flows for exit 1 and 3. failed: an import failed, pac was not found, or a file changed before its import, or an import timed out, which leaves its row unknown (exit 3); there is no rollback."
     },
     "message": { "type": ["string", "null"], "description": "Why a run stopped, or null. For a failure it says there is no rollback and names the imported solutions; after good imports, a second read that failed starts with 'The imports succeeded.'." },
     "solutions": {
@@ -28,8 +28,8 @@
           "zip": { "type": "string", "description": "The zip's file name, without a folder." },
           "action": { "enum": ["install", "upgrade", "skip"], "description": "The new plan's action; a skip imports nothing." },
           "import": {
-            "enum": ["ok", "failed", "not-run", "planned", "skipped"],
-            "description": "ok: imported. failed: pac failed or timed out, or a file changed before its import. not-run: nothing was imported for it (the run stopped first or was refused). planned: a dry run would import it. skipped: its action is skip (not in a refusal, where every row is not-run)."
+            "enum": ["ok", "failed", "unknown", "not-run", "planned", "skipped"],
+            "description": "ok: imported. failed: pac failed, pac was not found, or a file changed before its import. unknown: the import timed out; it may have finished or still be running in the environment, so check the solution's import history. not-run: nothing was imported for it (the run stopped first or was refused). planned: a dry run would import it. skipped: its action is skip (not in a refusal, where every row is not-run)."
           },
           "pacExitCode": { "type": ["integer", "null"], "description": "pac's exit code when it failed; null otherwise, also for a timeout or a changed file." }
         }

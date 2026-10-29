@@ -85,7 +85,7 @@ Fork pull requests get no secrets, so every job skips them.
 `deploy apply` plans again against Test and refuses (exit 1, nothing imported) if the new plan's hash differs from the reviewed one. The message names the first input that differs. Causes when nothing was meant to change:
 
 - A secret that differs between `test-plan` and `test`, or that was rotated after the plan.
-- The settings script, or the `Chrome71/PowerOps` ref, changed in the PR after the plan ran. The plan file's `tool` must equal the version that applies it, and two builds of one release cannot be told apart, so pin the action to one commit SHA and use the same SHA in both jobs.
+- The settings script, or the `Chrome71/PowerOps` ref, changed in the PR after the plan ran. The plan file's `tool` must equal the version that applies it, and two builds of one release cannot be told apart, so pin the action to one commit SHA (the example pins `main` as of 2026-10-29; pin the newest commit of `main` when you copy it) and use the same SHA in both jobs.
 - A platform update of a dependency solution in Test (each dependency's version is part of the hash).
 - A change made in Test since the plan.
 

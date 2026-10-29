@@ -459,6 +459,20 @@ public sealed class ActionScriptTests : IDisposable
     }
 
     [Fact]
+    public void Test_report_over_the_summary_limit_is_cut_with_the_last_line()
+    {
+        var report = "## Flow tests\n\n" + string.Concat(Enumerable.Range(0, 30_000).Select(i => $"| row {i} | {new string('x', 40)} |\n"));
+        Assert.True(report.Length > 1_048_576);
+
+        var run = RunTest(exit: 0, markdown: report);
+
+        Assert.Equal(0, run.Code);
+        var written = File.ReadAllBytes(run.Summary);
+        Assert.True(written.Length <= 1_048_576, $"{written.Length} bytes");
+        Assert.Matches(@"\n_The report was cut to fit the 1 MiB job summary limit: \d+ of \d+ bytes are shown\._\n$", File.ReadAllText(run.Summary));
+    }
+
+    [Fact]
     public void Test_with_exit_1_annotates_each_test_file_that_did_not_pass()
     {
         var run = RunTest(exit: 1);
@@ -793,12 +807,12 @@ public sealed class ActionScriptTests : IDisposable
         return run with { Summary = summary, Output = ReadOrEmpty(output) };
     }
 
-    private Result RunTest(int exit, string tests = "flowtests", string json = TestJson, bool noOut = false, string? jsonExit = null, string? stderr = null)
+    private Result RunTest(int exit, string tests = "flowtests", string json = TestJson, bool noOut = false, string? jsonExit = null, string? stderr = null, string markdown = "## Flow tests\n\nthe report\n")
     {
         Tools.Require("bash", "jq");
         var temp = NewDir("test");
         WriteStub(temp, "dotnet", DotnetStub);
-        File.WriteAllText(Path.Combine(temp, "markdown.md"), "## Flow tests\n\nthe report\n");
+        File.WriteAllText(Path.Combine(temp, "markdown.md"), markdown);
         File.WriteAllText(Path.Combine(temp, "report.json"), json);
         if (stderr is not null)
         {

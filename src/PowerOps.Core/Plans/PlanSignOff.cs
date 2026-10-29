@@ -43,7 +43,7 @@ public static class PlanSignOff
 
         if (errors.Count > 0)
         {
-            return new SignOffResult(1, [], errors.Select(e => $"error: {e}").ToList());
+            return new SignOffResult(1, [], errors.Select(e => $"error: {TextReport.Clean(e)}").ToList());
         }
 
         var hash = doc.BodyHash!;
@@ -85,5 +85,5 @@ public static class PlanSignOff
         return new SignOffResult(0, [$"signed off {PlanChecker.Display(folder, baseDir)} (sha256 {hash[..12]}…)"], warnings.Select(w => $"warning: {w}").ToList());
     }
 
-    private static SignOffResult Fail(int code, string message) => new(code, [], [$"error: {message}"]);
+    private static SignOffResult Fail(int code, string message) => new(code, [], [$"error: {TextReport.Clean(message)}"]);
 }

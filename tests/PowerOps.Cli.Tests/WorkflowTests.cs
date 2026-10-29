@@ -46,7 +46,7 @@ public sealed class WorkflowTests
         Assert.Contains("-p:RestoreLockedMode=true", Steps("release.yml", "publish").Select(s => Text(s, "run")).Single(r => r?.StartsWith("dotnet pack", StringComparison.Ordinal) == true));
     }
 
-    public static TheoryData<string> Workflows => ["ci.yml", "release.yml", "skills-smoke.yml"];
+    public static TheoryData<string> Workflows => ["ci.yml", "release.yml", "skills-smoke.yml", "pin-drift.yml"];
 
     private static List<Dictionary<object, object>> AllSteps(string workflow) =>
         [.. Map(Load(".github", "workflows", workflow)["jobs"]).Values.SelectMany(job => ((List<object>)Map(job)["steps"]).Select(Map))];
@@ -157,5 +157,183 @@ public sealed class WorkflowTests
     public void The_ci_workflow_turns_test_telemetry_off()
     {
         Assert.Equal("1", (string)Map(Load(".github", "workflows", "ci.yml")["env"])["TESTINGPLATFORM_TELEMETRY_OPTOUT"]);
+    }
+
+    [Fact]
+    public void The_pin_drift_workflow_runs_on_main_pushes_only_and_has_a_name_unlike_the_required_checks()
+    {
+        var workflow = Load(".github", "workflows", "pin-drift.yml");
+        var on = Map(workflow["on"]);
+        var jobs = Map(workflow["jobs"]);
+        var checkout = AllSteps("pin-drift.yml").Single(s => Text(s, "uses")?.StartsWith("actions/checkout@", StringComparison.Ordinal) == true);
+
+        Assert.Equal(["push", "workflow_dispatch"], on.Keys.Cast<string>().Order());
+        Assert.Equal(["main"], ((List<object>)Map(on["push"])["branches"]).Cast<string>());
+        Assert.Equal(["pin-drift"], jobs.Keys.Cast<string>());
+        Assert.Equal(new Dictionary<string, string> { ["contents"] = "read" }, Permissions(workflow));
+        Assert.Equal(Text(AllSteps("ci.yml").First(s => Text(s, "uses")?.StartsWith("actions/checkout@", StringComparison.Ordinal) == true), "uses"), Text(checkout, "uses"));
+        Assert.Equal("0", (string)Map(checkout["with"])["fetch-depth"]);
+    }
+
+    private static string Git(string dir, params string[] args)
+    {
+        var start = new ProcessStartInfo("git") { WorkingDirectory = dir, RedirectStandardOutput = true };
+        foreach (var a in new[] { "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false" }.Concat(args))
+        {
+            start.ArgumentList.Add(a);
+        }
+
+        using var process = Process.Start(start)!;
+        var stdout = process.StandardOutput.ReadToEnd().Trim();
+        process.WaitForExit();
+        Assert.Equal(0, process.ExitCode);
+        return stdout;
+    }
+
+    // Writes the files, commits them and returns the new commit.
+    private static string Commit(string dir, string message, params (string Path, string Text)[] files)
+    {
+        foreach (var (path, text) in files)
+        {
+            var full = Path.Combine(dir, path);
+            Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+            File.WriteAllText(full, text);
+        }
+
+        Git(dir, "add", "-A");
+        Git(dir, "commit", "-q", "-m", message);
+        return Git(dir, "rev-parse", "HEAD");
+    }
+
+    private static (string Readme, string Action) Pins(string readme, string action) =>
+        ($"```sh\ngit -C \"$po/PowerOps\" checkout {readme} # main\n```\n", $"- uses: Chrome71/PowerOps@{action} # main\n");
+
+    // Runs pin-drift.sh in a fresh repo that `arrange` fills (it returns the README's pin and the action docs' pin); returns the exit code, stdout and the job summary.
+    private static (int Exit, string Stdout, string Summary) PinDrift(Func<string, (string Readme, string Action)> arrange)
+    {
+        Tools.Require("bash", "git");
+        var dir = Directory.CreateTempSubdirectory("powerops-pin-drift-").FullName;
+        try
+        {
+            Git(dir, "init", "-q");
+            var summary = Path.Combine(Directory.CreateTempSubdirectory("powerops-pin-summary-").FullName, "summary.md");
+            var (readme, action) = arrange(dir);
+            Commit(dir, "docs: pins", ("README.md", readme), ("docs/GITHUB-ACTION.md", action));
+            return Run(dir, summary);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    private static (int Exit, string Stdout, string Summary) Run(string dir, string summary)
+    {
+        var start = new ProcessStartInfo(Tools.Bash) { WorkingDirectory = dir, RedirectStandardOutput = true };
+        start.ArgumentList.Add(Path.Combine(Golden.RepoRoot, ".github", "scripts", "pin-drift.sh"));
+        start.Environment["GITHUB_STEP_SUMMARY"] = summary;
+
+        using var process = Process.Start(start)!;
+        var stdout = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+        return (process.ExitCode, stdout, File.Exists(summary) ? File.ReadAllText(summary) : "");
+    }
+
+    private static void Warns(string expected, (int Exit, string Stdout, string Summary) run)
+    {
+        Assert.Equal(0, run.Exit);
+        Assert.Contains("::warning::", run.Stdout);
+        Assert.Contains(expected, run.Stdout);
+        Assert.Contains(expected, run.Summary);
+    }
+
+    [Fact]
+    public void The_pin_drift_script_is_quiet_when_every_pin_is_one_ancestor_and_only_docs_changed_since()
+    {
+        var run = PinDrift(dir =>
+        {
+            var pin = Commit(dir, "feat: code", ("src/a.cs", "a"));
+            Commit(dir, "docs: later", ("docs/x.md", "x"));
+            return Pins(pin, pin);
+        });
+
+        Assert.Equal(0, run.Exit);
+        Assert.Equal("", run.Stdout);
+        Assert.Equal("", run.Summary);
+    }
+
+    [Fact]
+    public void The_pin_drift_script_warns_and_names_a_later_commit_under_src()
+    {
+        var run = PinDrift(dir =>
+        {
+            var pin = Commit(dir, "feat: code", ("src/a.cs", "a"));
+            Commit(dir, "fix: later change under src", ("src/a.cs", "b"));
+            Commit(dir, "docs: later", ("docs/x.md", "x"));
+            return Pins(pin, pin);
+        });
+
+        Warns("1 commit(s) behind", run);
+        Warns("fix: later change under src", run);
+        Assert.DoesNotContain("docs: later", run.Stdout);
+    }
+
+    [Fact]
+    public void The_pin_drift_script_does_not_let_a_commit_subject_start_a_workflow_command()
+    {
+        var run = PinDrift(dir =>
+        {
+            var pin = Commit(dir, "feat: code", ("src/a.cs", "a"));
+            Commit(dir, "feat: x\r::error::INJECTED", ("src/a.cs", "b"));
+            return Pins(pin, pin);
+        });
+
+        Warns("1 commit(s) behind", run);
+        foreach (var text in new[] { run.Stdout, run.Summary })
+        {
+            Assert.DoesNotContain(text.Split('\r', '\n'), line => line.StartsWith("::error::", StringComparison.Ordinal));
+        }
+
+        Assert.Contains(run.Stdout.Split('\n'), line => line.StartsWith("::warning::", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_pin_drift_script_warns_when_the_pins_differ()
+    {
+        var run = PinDrift(dir =>
+        {
+            var first = Commit(dir, "feat: one", ("docs/x.md", "1"));
+            var second = Commit(dir, "feat: two", ("docs/x.md", "2"));
+            return Pins(first, second);
+        });
+
+        Warns("name different commits", run);
+    }
+
+    [Fact]
+    public void The_pin_drift_script_warns_when_a_pin_is_not_an_ancestor_of_head()
+    {
+        var run = PinDrift(dir =>
+        {
+            Commit(dir, "feat: base", ("docs/x.md", "1"));
+            Git(dir, "checkout", "-q", "-b", "side");
+            var side = Commit(dir, "feat: side", ("docs/x.md", "2"));
+            Git(dir, "checkout", "-q", "-");
+            return Pins(side, side);
+        });
+
+        Warns("is not an ancestor of HEAD", run);
+    }
+
+    [Fact]
+    public void The_pin_drift_script_warns_when_it_finds_no_pin()
+    {
+        var run = PinDrift(dir =>
+        {
+            Commit(dir, "feat: base", ("docs/x.md", "1"));
+            return ("nothing\n", "nothing\n");
+        });
+
+        Warns("no PowerOps pin found", run);
     }
 }

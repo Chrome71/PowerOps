@@ -18,7 +18,9 @@ Read only these:
 
 - `docs/plans/<name>/plan.md`, `decisions.md` and `mockups/` if present
 - the repo, for solutions, publishers and existing patterns
-- the output of `powerops plan facts` (never run `pac` yourself)
+- the output of `powerops plan facts`, only if your request says the user confirmed, in that session, that `pac` is signed in to the plan's `environment:` (never run `pac` yourself)
+
+Without that confirmation, do not run `powerops plan facts`: review from the repo and write in `review.md`, under the header lines, that environment facts were not read.
 
 Do not read the planning chat. If it is in your context, say so in `fresh-context` below.
 
@@ -32,7 +34,7 @@ Do not read the planning chat. If it is in your context, say so in `fresh-contex
 
 Check the plan for each item. Report a gap, a risk or an unanswered area as a finding.
 
-1. Solution boundaries and publisher prefix: one clear solution per deployable unit, a named publisher and prefix, no overlap with solutions from `plan facts`.
+1. Solution boundaries and publisher prefix: one clear solution per deployable unit, a named publisher and prefix, no overlap with solutions from `plan facts` (only if you read the facts).
 2. Connection references and environment variables instead of hard-coded values (URLs, IDs, mailboxes, connection names).
 3. Premium connector and licence impact: which connectors and tables need which licence, and who pays.
 4. DLP fit: the connectors used must be allowed together. If nobody checked, say so.

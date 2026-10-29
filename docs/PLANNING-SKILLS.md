@@ -84,7 +84,7 @@ Header fields are left out of the hash, so status changes never invalidate a sig
 
 | Skill | Does | Writes |
 |---|---|---|
-| `powerops-plan` | Refines the idea through question rounds, reads environment facts, drafts the plan, runs the fast path, and writes HTML mockups | `plan.md`, `decisions.md`, `mockups/*.html` |
+| `powerops-plan` | Refines the idea through question rounds, reads environment facts only for an environment the user names, drafts the plan, runs the fast path, and writes HTML mockups | `plan.md`, `decisions.md`, `mockups/*.html` |
 | `powerops-review-plan` | Reviews an approved draft in a fresh context on the top model, against a Power Platform checklist. Never asks the user | `review.md` |
 | `powerops-implement` | Checks the gate (`powerops plan status`: status `signed-off` and the hash matches). With no signed-off plan it hands over to `powerops-plan` in fast-path mode; with one, it implements step by step and runs `powerops analyze` and `powerops test` at the end | code and solution changes |
 
@@ -152,7 +152,7 @@ Question order: outcome and users, then data, then automation, then environments
 
 An approved draft may still have open questions. The review and the sign-off both see the count.
 
-Facts the environment can answer (the target environment, existing solutions) are read, not asked.
+Facts the environment can answer (existing solutions) are read, not asked, but only for an environment the user named and confirmed `pac` is signed in to (see Environment facts below). Without one, the plan rests on the repo and says so in Assumptions.
 
 ### Depth and versions
 
@@ -163,8 +163,8 @@ Facts the environment can answer (the target environment, existing solutions) ar
 
 If the user asks to implement without a signed-off plan:
 
-1. `powerops-plan` drafts `plan.md` from the request, the repo and `powerops plan facts`. Every guess goes under Assumptions, and `status` stays `draft`.
-2. It asks one question: the route, with two or three options and the trade-offs, recommended first. It may ask one more, the publisher prefix, when `plan facts` cannot supply it. It asks nothing else.
+1. `powerops-plan` drafts `plan.md` from the request and the repo. It reads no environment facts here, because no environment is named. Every guess goes under Assumptions, and `status` stays `draft`.
+2. It asks one question: the route, with two or three options and the trade-offs, recommended first. It may ask one more, the publisher prefix, when the repo does not supply it. It asks nothing else.
 3. Then it shows one lettered menu:
    - **A** approve the draft (then review and sign-off as usual)
    - **B** approve, skip the review and sign off now (recorded as `review: skipped`; the Assumptions list stands in for the coverage confirmation)
@@ -174,7 +174,7 @@ A route choice approves nothing, and a bare "approve" approves the draft only (A
 
 ## Review
 
-- **Fresh context.** The parent session dispatches the reviewer and does any talking to the user. The reviewer reads only the plan files, the repo and `plan facts`, never the planning chat.
+- **Fresh context.** The parent session dispatches the reviewer and does any talking to the user. The reviewer reads only the plan files and the repo, never the planning chat. It runs `plan facts` only when its request says the user confirmed, in that session, that `pac` is signed in to the plan's `environment:`; otherwise it says in `review.md` that facts were not read.
 - **Never asks the user.** Subagents usually run without a person to answer; findings go into `review.md` instead.
 - **Top model of the same provider.** "Top model" means the most capable model the agent offers for the provider of the current session. Users often have one provider only. No model ID is written into a committed file:
 
@@ -201,7 +201,7 @@ A route choice approves nothing, and a bare "approve" approves the draft only (A
 
 ## Pairing with `pac` and `powerops`
 
-**Environment facts.** `powerops plan facts` runs two read-only `pac` commands itself and prints names only, as JSON. Plain `pac` output carries tenant IDs, emails and every environment name, and the agent should never see those. The code lives in `PowerOps.Cli` (a `PacRunner`), and skills never run `pac` directly.
+**Environment facts.** `powerops plan facts` runs two read-only `pac` commands itself and prints names only, as JSON. Plain `pac` output carries tenant IDs, emails and every environment name, and the agent should never see those. `powerops-plan` asks which environment the plan targets and runs `plan facts` only after the user names it and says `pac` is signed in to it; facts that name another environment are not used or written, and without a named environment the plan rests on the repo with an Assumptions line. The code lives in `PowerOps.Cli` (a `PacRunner`), and skills never run `pac` directly.
 
 | Fact | Source | Notes |
 |---|---|---|

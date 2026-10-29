@@ -541,22 +541,40 @@ public class DeployGateCommandTests : DeployTestBase
 
     // ---- 6c. the arguments --------------------------------------------------------------------------------------
 
-    [Theory]
-    [InlineData("-x")]
-    [InlineData("-h")]
-    [InlineData("--help")]
-    [InlineData("-?")]
-    [InlineData("/?")]
-    [InlineData("/h")]
-    public void A_plan_file_argument_that_starts_with_a_dash_or_asks_for_help_blocks_everything(string argument)
+    [Fact]
+    public void A_plan_file_argument_that_starts_with_a_dash_blocks_everything()
     {
         var (o, e) = (new StringWriter(), new StringWriter());
 
-        var code = Program.Run(["deploy", "gate", argument], o, e, new FakePac().Run, null, (t, s, d) => throw new InvalidOperationException(), () => new MemoryStream(Hook("Bash", new JsonObject { ["command"] = "git status" })));
+        var code = Program.Run(["deploy", "gate", "-x"], o, e, new FakePac().Run, null, (t, s, d) => throw new InvalidOperationException(), () => new MemoryStream(Hook("Bash", new JsonObject { ["command"] = "git status" })));
 
         Assert.Equal(2, code);
         Assert.Equal("", o.ToString());
-        Assert.Contains(argument is "-x" ? $"{Prefix}the plan file must not start with '-'\n{ImportGuidance}\n" : "error: ", e.ToString().ReplaceLineEndings("\n"));
+        Assert.Equal($"{Prefix}the plan file must not start with '-'\n{ImportGuidance}\n", e.ToString().ReplaceLineEndings("\n"));
+    }
+
+    // M33 F-2: help would print to stdout and exit 0, which lets the call through, so the gate has no help: one error line, exit 2, with or without a plan file.
+    [Theory]
+    [InlineData("-h", false)]
+    [InlineData("--help", false)]
+    [InlineData("-?", false)]
+    [InlineData("/?", false)]
+    [InlineData("/h", false)]
+    [InlineData("-h", true)]
+    [InlineData("--help", true)]
+    [InlineData("-?", true)]
+    [InlineData("/?", true)]
+    [InlineData("/h", true)]
+    public void The_gate_has_no_help_and_blocks(string alias, bool withPlanFile)
+    {
+        var (o, e) = (new StringWriter(), new StringWriter());
+        string[] args = withPlanFile ? ["deploy", "gate", PlanFile, alias] : ["deploy", "gate", alias];
+
+        var code = Program.Run(args, o, e, new FakePac().Run, null, (t, s, d) => throw new InvalidOperationException(), () => new MemoryStream(Hook("Bash", new JsonObject { ["command"] = "git status" })));
+
+        Assert.Equal(2, code);
+        Assert.Equal("", o.ToString());
+        Assert.Equal("error: deploy gate has no help: it is a hook, and help would exit 0 and let the call through; see docs/COMMANDS.md#deploy-gate\n", e.ToString().ReplaceLineEndings("\n"));
     }
 
     // ---- 7. exit codes -----------------------------------------------------------------------------------------

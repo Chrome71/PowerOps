@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "tool": "<tool>",
+  "applied": true,
+  "target": "Contoso Test",
+  "hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "status": "failed",
+  "message": "The import timed out after 60 minutes. It may still be running in the environment: check the solution's import history there before running again. There is no rollback. Imported before it: A.",
+  "solutions": [
+    {
+      "order": 1,
+      "solution": "A",
+      "zip": "A.zip",
+      "action": "install",
+      "import": "ok",
+      "pacExitCode": null
+    },
+    {
+      "order": 2,
+      "solution": "B",
+      "zip": "B.zip",
+      "action": "install",
+      "import": "unknown",
+      "pacExitCode": null
+    },
+    {
+      "order": 3,
+      "solution": "C",
+      "zip": "C.zip",
+      "action": "install",
+      "import": "not-run",
+      "pacExitCode": null
+    }
+  ],
+  "flows": []
+}

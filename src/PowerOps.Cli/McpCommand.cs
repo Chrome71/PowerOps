@@ -140,12 +140,16 @@ public static partial class McpCommand
     };
 
     // Exit code 0 and 1 are reports; 2, 3 and anything else are errors, and so is a 1 that printed nothing
-    // (System.CommandLine's own exception handler returns 1). Only powerops' own error lines are passed on:
-    // forwarded pac, az and Dataverse text can hold an environment URL or an account name.
+    // (System.CommandLine's own exception handler returns 1). Only powerops' own stderr lines are passed on: those that start
+    // with "error:", then those that start with "note:" (a link that was not read) or "warning:", so an agent knows what was skipped.
+    // Forwarded pac, az and Dataverse text can hold an environment URL or an account name; DeployCommand.Forward always writes it
+    // as "  | <line>", which none of these prefixes match.
     internal static CallToolResult Result(int code, string stdout, string stderr)
     {
         var failed = code is not (0 or 1) || (code == 1 && stdout.Length == 0);
-        var errors = stderr.Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.StartsWith("error:", StringComparison.Ordinal)).ToList();
+        var lines = stderr.Split('\n').Select(l => l.TrimEnd('\r')).ToList();
+        var errors = lines.Where(l => l.StartsWith("error:", StringComparison.Ordinal)).ToList();
+        var notes = lines.Where(l => l.StartsWith("note:", StringComparison.Ordinal) || l.StartsWith("warning:", StringComparison.Ordinal)).ToList();
         if (failed && errors.Count == 0)
         {
             errors.Add($"error: the command failed (exit code {code})");
@@ -157,6 +161,7 @@ public static partial class McpCommand
             content.Add(new TextContentBlock { Text = stdout });
         }
 
+        errors.AddRange(notes);
         if (errors.Count > 0)
         {
             content.Add(new TextContentBlock { Text = string.Join("\n", errors) });
@@ -195,7 +200,7 @@ public static partial class McpCommand
                 (_, o, e, _) => Cli(["rules", "--json"], o, e)),
             new("baseline", "Record the current analyze findings of solution folders or zips as a baseline for analyze's `baseline` input. Read-only: returns the baseline file's text (a file format with its own `version`, no schema) and writes nothing.",
                 [new("paths", Kind.Paths, true, PathsText, 1)],
-                (v, o, e, _) => AnalyzeCommand.Run(v.List("paths"), null, null, e, r =>
+                (v, o, e, _) => AnalyzeCommand.Run(v.List("paths"), null, null, e, (r, _) =>
                 {
                     Baseline.Write(r, o);
                     return 0;

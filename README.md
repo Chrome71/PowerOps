@@ -18,6 +18,14 @@ powerops --version
 
 `--source` makes the install use only `artifacts`. Leave it out and the install looks the name `PowerOps` up on nuget.org, where it is not registered, so it could install whatever package someone registers under it.
 
+Update: uninstall, then pack and install again. Every build is version 0.0.0 and `--version` cannot tell two builds apart, so installing or updating over the installed tool keeps the old build. Run this as its own command, not chained to the install: uninstalling fails when the tool is not installed.
+
+```sh
+dotnet tool uninstall --global PowerOps
+dotnet pack src/PowerOps.Cli -c Release -o artifacts &&
+  dotnet tool install --global --source artifacts PowerOps
+```
+
 CI builds and tests PowerOps on Linux, Windows and macOS, but nobody has run it by hand on Windows or macOS yet; [what is not verified there](docs/FOUNDATION.md#8-research-topics-still-open).
 
 ## Quick start
@@ -31,11 +39,12 @@ powerops analyze
 In any CI system that has the .NET 10 SDK, build PowerOps from a clone, then one command writes a SARIF report and fails the build on errors:
 
 ```sh
-git clone https://github.com/Chrome71/PowerOps.git
-git -C PowerOps checkout b4abce4cb00421c7017076de7b53e53a7ce063c7 # main on 2026-10-28; pin the newest commit of main
-dotnet pack PowerOps/src/PowerOps.Cli -c Release -o PowerOps/artifacts
-dotnet tool install --global --source PowerOps/artifacts PowerOps
-powerops analyze --format sarif --out powerops.sarif
+po="$(mktemp -d)"
+git clone https://github.com/Chrome71/PowerOps.git "$po/PowerOps"
+git -C "$po/PowerOps" checkout df04828b945dbd2b8d3ee10361668a100ed72d90 # main on 2026-10-29; pin the newest commit of main
+dotnet pack "$po/PowerOps/src/PowerOps.Cli" -c Release -o "$po/PowerOps/artifacts"
+dotnet tool install --global --source "$po/PowerOps/artifacts" PowerOps
+powerops analyze solutions --format sarif --out powerops.sarif # solutions: the folder that holds your solutions
 ```
 
 On GitHub Actions, use the action: it writes a job summary and annotations, and uploads the findings to code scanning. The workflow, the merge gate for flow tests and the pull request comment are in [GitHub Action](docs/GITHUB-ACTION.md).

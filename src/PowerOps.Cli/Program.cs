@@ -77,6 +77,18 @@ public static class Program
             var parse = Root(output, error, pac, driftLive, deployTarget, input, approvedHash).Parse(args, new ParserConfiguration { ResponseFileTokenReplacer = null });
             if (parse.Errors.Count > 0)
             {
+                // A hook must not see exit 0 from help, and without a plan file the missing argument is a parse error before the gate runs.
+                if (parse.CommandResult.Command.Name == "gate" && args.Intersect(DeployCommand.GateHelpAliases).Any())
+                {
+                    return DeployCommand.GateNoHelp(error);
+                }
+
+                // A bare `powerops`: the help first, so the person sees what to type.
+                if (args.Length == 0)
+                {
+                    Root(error, error, pac, driftLive, deployTarget, input, approvedHash).Parse(["--help"]).Invoke(new InvocationConfiguration { Output = error, Error = error });
+                }
+
                 // System.CommandLine returns 1 for parse errors; usage errors are 2 here.
                 foreach (var e in parse.Errors)
                 {

@@ -29,13 +29,13 @@ public static class PlanCommand
             var root = parse.GetValue(path)!;
             if (!File.Exists(root) && !Directory.Exists(root))
             {
-                error.WriteLine($"error: path not found: {root}");
+                error.WriteLine($"error: path not found: {TextReport.Clean(root)}");
                 return UsageError;
             }
 
             if (NotPlanFile(root))
             {
-                error.WriteLine($"error: not a plan file: {root}");
+                error.WriteLine($"error: not a plan file: {TextReport.Clean(root)}");
                 return UsageError;
             }
 
@@ -69,7 +69,7 @@ public static class PlanCommand
         {
             if (NotPlanFile(parse.GetValue(plan)!))
             {
-                error.WriteLine($"error: not a plan file: {parse.GetValue(plan)}");
+                error.WriteLine($"error: not a plan file: {TextReport.Clean(parse.GetValue(plan))}");
                 return UsageError;
             }
 
