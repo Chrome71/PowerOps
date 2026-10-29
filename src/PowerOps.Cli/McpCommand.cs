@@ -66,9 +66,6 @@ public static partial class McpCommand
     // FileStream throws NotSupportedException for these on Windows; refused on every OS.
     private static readonly string[] DeviceNames = ["CON", "PRN", "AUX", "NUL", .. Enumerable.Range(0, 10).SelectMany(i => new[] { "COM" + i, "LPT" + i })];
 
-    // On Windows \\host\share and \\.\ open another host, which can send the user's NTLM credentials; on Unix // is /, so nothing is lost.
-    internal static bool IsNetworkPath(string value) => value.StartsWith(@"\\", StringComparison.Ordinal) || value.StartsWith("//", StringComparison.Ordinal);
-
     public static Command Create(TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot> driftLive,
         Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget)
     {
@@ -248,7 +245,7 @@ public static partial class McpCommand
                 (v, o, e, ct) => DeployPlan(v, o, e, Cli, ct),
                 WritePlan,
                 CheckSave),
-            new("deploy_apply", "Promote a reviewed plan file from deploy_plan's `save` with this tool, not with an import tool: it plans again against the target and returns the JSON of `powerops deploy apply --format json` (docs/schemas/deploy-apply.schema.json), as a dry run that imports nothing unless `apply` is true. With `apply: true` it imports the zips in plan order through pac only after the user types the target's name into the server's confirmation form, and refuses when anything changed since the plan.",
+            new("deploy_apply", "Promote a reviewed plan file from deploy_plan's `save` with this tool, not with an import tool: it plans again against the target and returns the JSON of `powerops deploy apply --format json` (docs/schemas/deploy-apply.schema.json), as a dry run that imports nothing unless `apply` is true. With `apply: true` it imports the zips in plan order through pac only after the user types the target's name into the server's confirmation form, and refuses when anything changed since the plan. Use it only on an environment the user named in the session.",
                 [
                     new("planFile", Kind.Path, true, "Absolute path of a plan file saved by deploy_plan's save; the zips and settings files are read from its folder."),
                     new("target", Kind.Text, true, "The environment the plan was made for: an id or URL (as pac --environment)."),
@@ -564,7 +561,9 @@ public static partial class McpCommand
         arguments ??= new Dictionary<string, JsonElement>();
         foreach (var name in arguments.Keys.Where(k => tool.Fields.All(f => f.Name != k)))
         {
-            problems.Add($"error: {TextReport.Clean(name)}: unknown field");
+            // A key of any length is cut to 64 characters, not inside a surrogate pair, so the reply stays within the caps.
+            var cut = name.Length <= 64 ? name.Length : char.IsHighSurrogate(name[63]) ? 63 : 64;
+            problems.Add($"error: {TextReport.Clean(name[..cut])}: unknown field");
         }
 
         var values = new Dictionary<string, object>();
@@ -639,9 +638,9 @@ public static partial class McpCommand
             {
                 problems.Add($"error: {label}: a value that starts with - or @ is refused");
             }
-            else if ((field.IsPath || field.Local) && IsNetworkPath(value))
+            else if ((field.IsPath || field.Local) && ImportCall.IsNetworkPath(value))
             {
-                problems.Add($"error: {label}: a network or device path (starting with \\\\ or //) is refused");
+                problems.Add($"error: {label}: a network or device path (starting with two \\ or / characters) is refused");
             }
             else
             {

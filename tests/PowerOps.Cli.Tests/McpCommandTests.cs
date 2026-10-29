@@ -212,7 +212,7 @@ public sealed class McpCommandTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Drift_deploy_plan_and_plan_facts_say_to_use_them_only_on_an_environment_the_user_named()
+    public async Task Drift_deploy_plan_deploy_apply_and_plan_facts_say_to_use_them_only_on_an_environment_the_user_named()
     {
         const string named = "Use it only on an environment the user named in the session.";
         const string signedIn = "It reads the environment pac is signed in to; use it only when that is an environment the user named in the session.";
@@ -220,9 +220,9 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         foreach (var tool in tools)
         {
-            Assert.Equal(tool.Name is "drift" or "deploy_plan", tool.Description!.EndsWith(" " + named, StringComparison.Ordinal));
+            Assert.Equal(tool.Name is "drift" or "deploy_plan" or "deploy_apply", tool.Description!.EndsWith(" " + named, StringComparison.Ordinal));
             Assert.Equal(tool.Name == "plan_facts", tool.Description.EndsWith(" " + signedIn, StringComparison.Ordinal));
-            Assert.Equal(tool.Name is "drift" or "deploy_plan", tool.Description.Contains(named, StringComparison.Ordinal));
+            Assert.Equal(tool.Name is "drift" or "deploy_plan" or "deploy_apply", tool.Description.Contains(named, StringComparison.Ordinal));
             Assert.Equal(tool.Name == "plan_facts", tool.Description.Contains(signedIn, StringComparison.Ordinal));
         }
     }
@@ -427,6 +427,21 @@ public sealed class McpCommandTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task An_unknown_field_is_named_by_its_first_64_characters_at_most()
+    {
+        var plain = new string('k', 100_000);
+        var paired = new string('k', 63) + "\U0001F600" + new string('k', 100);
+        foreach (var (key, echoed) in new[] { (plain, plain[..64]), (paired, paired[..63]) })
+        {
+            var result = await Call("rules", new() { [key] = 1 });
+
+            Assert.True(result.IsError);
+            Assert.Equal($"error: {echoed}: unknown field", Text(result));
+            Assert.True(Text(result).Length <= 7 + 64 + 15);
+        }
+    }
+
+    [Fact]
     public async Task A_relative_path_is_refused()
     {
         await Refused("diff", new() { ["old"] = "old.zip", ["new"] = V2 }, "error: old: must be an absolute path");
@@ -478,27 +493,19 @@ public sealed class McpCommandTests : IAsyncLifetime
         await Assert.ThrowsAsync<McpProtocolException>(async () => await Call("nope"));
     }
 
-    [Theory]
-    [InlineData(@"\\host\share\x", true)]
-    [InlineData("//host/share/x", true)]
-    [InlineData(@"\\.\pipe\x", true)]
-    [InlineData(@"\\?\C:\x", true)]
-    [InlineData("/tmp/x", false)]
-    [InlineData(@"C:\x", false)]
-    public void A_network_or_device_path_is_recognised(string value, bool expected)
-    {
-        Assert.Equal(expected, McpCommand.IsNetworkPath(value));
-    }
-
     // 5, with fakes
 
     [Theory]
     [InlineData(@"\\host\share\x")]
     [InlineData("//host/share/x")]
+    [InlineData(@"/\host\share\x")]
+    [InlineData(@"\/host/share/x")]
+    [InlineData(@"\\?\C:\x")]
+    [InlineData(@"\\.\pipe\x")]
     public async Task A_network_path_is_refused_as_a_path_and_as_an_env_entry_and_nothing_runs(string path)
     {
-        await Refused("analyze", new() { ["paths"] = new[] { path } }, @"error: paths 1: a network or device path (starting with \\ or //) is refused");
-        await Refused("drift", new() { ["solution"] = "S", ["envs"] = new[] { path, DevFile } }, @"error: envs 1: a network or device path (starting with \\ or //) is refused");
+        await Refused("analyze", new() { ["paths"] = new[] { path } }, @"error: paths 1: a network or device path (starting with two \ or / characters) is refused");
+        await Refused("drift", new() { ["solution"] = "S", ["envs"] = new[] { path, DevFile } }, @"error: envs 1: a network or device path (starting with two \ or / characters) is refused");
 
         Assert.Equal(0, _fakes.Total);
     }
@@ -1375,12 +1382,14 @@ public sealed class McpCommandTests : IAsyncLifetime
     {
         var (_, planFile) = SavedPlan();
         var (inImport, release) = (new SemaphoreSlim(0), new ManualResetEventSlim());
+        var finished = 0;
         ImportFakes();
         _fakes.PacBehavior = args =>
         {
             _imports.Enqueue([.. args]);
             inImport.Release();
             release.Wait(Wait, TestContext.Current.CancellationToken);
+            Interlocked.Exchange(ref finished, 1);
             return Ok("imported\n");
         };
         await using var pair = await Connect(_fakes, "2026-07-28", new Forms(_ => Accepted(TargetName)));
@@ -1391,8 +1400,10 @@ public sealed class McpCommandTests : IAsyncLifetime
         await pair.Input.CompleteAsync();
 
         Assert.NotSame(pair.Run, await Task.WhenAny(pair.Run, Task.Delay(500, TestContext.Current.CancellationToken)));
+        Assert.Equal(0, Volatile.Read(ref finished));
         release.Set();
         await pair.Run.WaitAsync(Wait, TestContext.Current.CancellationToken);
+        Assert.Equal(1, Volatile.Read(ref finished));
         Assert.Single(_imports);
     }
 
@@ -1775,7 +1786,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         await Refused("deploy_apply", ApplyArgs("plan.json"), "error: planFile: must be an absolute path");
         await Refused("deploy_apply", ApplyArgs("-plan.json"), "error: planFile: a value that starts with - or @ is refused");
         await Refused("deploy_apply", ApplyArgs("@" + response), "error: planFile: a value that starts with - or @ is refused");
-        await Refused("deploy_apply", ApplyArgs(@"\\host\share\x"), @"error: planFile: a network or device path (starting with \\ or //) is refused");
+        await Refused("deploy_apply", ApplyArgs(@"\\host\share\x"), @"error: planFile: a network or device path (starting with two \ or / characters) is refused");
         await Refused("deploy_apply", new() { ["planFile"] = planFile, ["target"] = "@" + response }, "error: target: a value that starts with - or @ is refused");
         await Refused("deploy_apply", new() { ["planFile"] = planFile, ["target"] = Secret, ["apply"] = "true" }, "error: apply: must be true or false");
         await Refused("deploy_apply", new() { ["planFile"] = planFile, ["target"] = Secret, ["extra"] = 1 }, "error: extra: unknown field");
