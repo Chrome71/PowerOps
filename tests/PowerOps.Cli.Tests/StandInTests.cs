@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 
 using PowerOps.Tests.Shared;
@@ -29,7 +30,18 @@ public sealed class StandInTests : IDisposable
         foreach (var name in new[] { "pac", "az" })
         {
             var path = Path.Combine(_folder, name);
-            File.WriteAllText(path, "#!/bin/sh\nprintf '%s\\n' \"$@\"\n");
+            // This process never opens an executable for writing (a fork in a parallel test would then fail to start it with ETXTBSY): cp writes it.
+            var text = path + ".txt";
+            File.WriteAllText(text, "#!/bin/sh\nprintf '%s\\n' \"$@\"\n");
+            var start = new ProcessStartInfo("/bin/cp");
+            start.ArgumentList.Add(text);
+            start.ArgumentList.Add(path);
+            using (var cp = Process.Start(start)!)
+            {
+                cp.WaitForExit();
+                Assert.Equal(0, cp.ExitCode);
+            }
+
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
     }

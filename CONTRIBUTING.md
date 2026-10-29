@@ -23,9 +23,12 @@ Some tests skip themselves instead of failing:
 
 ## Lock files
 
-Every project has a `packages.lock.json`. After you add or change a `PackageReference`, run `dotnet restore --force-evaluate` and commit the lock files. CI and the Action restore in locked mode, so a stale lock file fails with NU1004. Dependabot may leave the lock file of a project that gets the package only through a `ProjectReference` unchanged (here PowerOps.Cli, through PowerOps.Core, and both test projects) ([dependabot-core#13950](https://github.com/dependabot/dependabot-core/issues/13950)), so such a PR fails CI with NU1004 until someone runs `dotnet restore --force-evaluate` on its branch and commits.
+PowerOps.Cli and PowerOps.Core, the projects the Action builds, each have a `packages.lock.json`; the test projects have none. After you add or change a `PackageReference`, run `dotnet restore --force-evaluate` and commit the lock files. CI and the Action restore in locked mode, so a stale lock file fails with NU1004. A Dependabot NuGet PR needs `dotnet restore --force-evaluate` run on its branch and the lock files committed before it can merge, because Dependabot may leave a lock file stale (for example PowerOps.Cli's when the bump is in PowerOps.Core) ([dependabot-core#13950](https://github.com/dependabot/dependabot-core/issues/13950)).
 
 CI also fails on a package with a known vulnerability, direct or transitive; a local build only warns (NU1901 to NU1904 stay warnings, see `Directory.Build.props`).
+
+- The step cannot tell a clean result from a source with no vulnerability data (nuget.org has it, and a network failure fails the step).
+- There is no allow-list. When an advisory is on a transitive package and no update of the package that brings it in fixes it, pin the transitive package by hand with a direct `PackageReference` to a fixed version.
 
 ## Commits
 

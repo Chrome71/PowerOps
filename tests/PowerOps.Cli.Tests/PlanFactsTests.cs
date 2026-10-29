@@ -98,19 +98,14 @@ public class PlanFactsTests
     private static PacResult RunScript(string body, TimeSpan timeout, out TimeSpan elapsed)
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "Needs a POSIX shell.");
-        var posix = !OperatingSystem.IsWindows(); // lets the platform analyzer see the guard
         var dir = Directory.CreateTempSubdirectory("powerops-pac-").FullName;
         try
         {
             var script = Path.Combine(dir, "pac.sh");
             File.WriteAllText(script, "#!/bin/sh\n" + body + "\n");
-            if (posix)
-            {
-                File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            }
-
             var clock = System.Diagnostics.Stopwatch.StartNew();
-            var result = new PacRunner(script, timeout).Run([]);
+            // Through the shell: starting a file this process just wrote can fail with ETXTBSY while a parallel test forks.
+            var result = new PacRunner("/bin/sh", timeout).Run([script]);
             elapsed = clock.Elapsed;
             return result;
         }

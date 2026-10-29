@@ -11,6 +11,11 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- The Action builds this project from source in consumers' jobs, and locked mode checks each package's content hash; the test projects have no lock file because of dependabot-core#13950. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="ModelContextProtocol.Core" Version="2.3.0" />
     <PackageReference Include="System.CommandLine" Version="2.0.14" />

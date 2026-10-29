@@ -46,12 +46,12 @@ jobs:
         with:
           global-json-file: global.json
       - run: dotnet restore --locked-mode
-      # dotnet list package exits 0 even when it finds a vulnerable package, so jq decides.
+      # dotnet list package exits 0 even when it finds a vulnerable package, so the script reads the JSON.
       - name: Fail on a vulnerable package
         shell: bash
         run: |
           dotnet list package --vulnerable --include-transitive --format json --no-restore > vulnerable.json
-          jq -e '[.projects[].frameworks[]? | .topLevelPackages[]?, .transitivePackages[]? | select(.vulnerabilities)] == []' vulnerable.json > /dev/null || { cat vulnerable.json; exit 1; }
+          bash .github/scripts/vulnerable.sh vulnerable.json
       - run: dotnet format --verify-no-changes --no-restore
       - run: dotnet pack src/PowerOps.Cli -c Release -o artifacts --no-restore
       - name: Smoke test the packed tool

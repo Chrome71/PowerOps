@@ -30,7 +30,8 @@ public class LicenceTests
             .ToList();
 
         Assert.NotEmpty(packages);
-        Assert.Empty(Problems(packages));
+        var problems = Problems(packages);
+        Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
     }
 
     [Fact]

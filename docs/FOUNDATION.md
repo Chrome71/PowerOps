@@ -57,7 +57,7 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
   - Done: private vulnerability reporting, which SECURITY.md points reporters to.
   - Done: Conventional Commits with release-please.
   - Done: actions pinned by full SHA, and the repository setting that requires it. Tokens are `contents: read` in `ci.yml` and `skills-smoke.yml`; `release.yml` starts from no permissions and sets them per job. Every job has a timeout, and no checkout keeps its token in the git config (M29).
-  - Done: lock files for every project, restored in locked mode in CI and in the Action's build; a CI step that fails on a package with a known vulnerability; a licence test that allows only MIT and Apache-2.0 (M29).
+  - Done: lock files for PowerOps.Cli and PowerOps.Core, the projects the Action builds, restored in locked mode in CI and in the Action's build; a CI step that fails on a package with a known vulnerability; a licence test that allows only MIT and Apache-2.0 (M29).
   - Done: Dependabot version updates (NuGet, GitHub Actions and the Playwright example's npm packages, with `chore(deps)` titles) and Dependabot alerts. Not done, by the maintainer's choice: Dependabot security updates stay off.
   - Done: secret scanning with push protection, and CodeQL default setup for C# and GitHub Actions.
   - Done: a ruleset on `main` (a pull request, the six CI checks required, no force push, no deletion; the repository admin role can bypass it so release-please's PRs, which start no CI, can merge) and a ruleset on `v*` tags (no update, no deletion).

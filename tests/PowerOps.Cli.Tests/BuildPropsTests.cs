@@ -17,14 +17,20 @@ public class BuildPropsTests
     }
 
     [Fact]
-    public void Every_project_has_a_lock_file_for_the_locked_mode_restore()
+    public void Only_the_shipped_projects_have_a_lock_file_for_the_locked_mode_restore()
     {
-        var props = XDocument.Load(Path.Combine(Golden.RepoRoot, "Directory.Build.props"));
-        Assert.Equal("true", props.Descendants("RestorePackagesWithLockFile").Single().Value);
+        Assert.Empty(XDocument.Load(Path.Combine(Golden.RepoRoot, "Directory.Build.props")).Descendants("RestorePackagesWithLockFile"));
 
-        foreach (var (folder, project) in new[] { ("src", "PowerOps.Cli"), ("src", "PowerOps.Core"), ("tests", "PowerOps.Cli.Tests"), ("tests", "PowerOps.Core.Tests") })
+        foreach (var project in new[] { "PowerOps.Cli", "PowerOps.Core" })
         {
-            Assert.True(File.Exists(Path.Combine(Golden.RepoRoot, folder, project, "packages.lock.json")), project);
+            var folder = Path.Combine(Golden.RepoRoot, "src", project);
+            Assert.Equal("true", XDocument.Load(Path.Combine(folder, project + ".csproj")).Descendants("RestorePackagesWithLockFile").Single().Value);
+            Assert.True(File.Exists(Path.Combine(folder, "packages.lock.json")), project);
+        }
+
+        foreach (var project in new[] { "PowerOps.Cli.Tests", "PowerOps.Core.Tests" })
+        {
+            Assert.False(File.Exists(Path.Combine(Golden.RepoRoot, "tests", project, "packages.lock.json")), project);
         }
     }
 }

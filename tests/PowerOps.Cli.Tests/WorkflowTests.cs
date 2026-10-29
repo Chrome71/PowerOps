@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 using PowerOps.Tests.Shared;
 
 using YamlDotNet.Serialization;
@@ -40,7 +42,7 @@ public sealed class WorkflowTests
         Assert.True(restore >= 0 && restore < run.FindIndex(r => r?.StartsWith("dotnet format", StringComparison.Ordinal) == true));
         var vulnerable = Text(Steps("ci.yml", "package").Single(s => Text(s, "name") == "Fail on a vulnerable package"), "run")!;
         Assert.Contains("--vulnerable --include-transitive", vulnerable);
-        Assert.Contains("jq -e", vulnerable);
+        Assert.Contains("bash .github/scripts/vulnerable.sh vulnerable.json", vulnerable);
         Assert.Contains("-p:RestoreLockedMode=true", Steps("release.yml", "publish").Select(s => Text(s, "run")).Single(r => r?.StartsWith("dotnet pack", StringComparison.Ordinal) == true));
     }
 
@@ -72,6 +74,56 @@ public sealed class WorkflowTests
     public void The_release_workflow_starts_with_no_permissions()
     {
         Assert.Empty(Map(Load(".github", "workflows", "release.yml")["permissions"]));
+    }
+
+    [Fact]
+    public void The_release_jobs_have_exactly_the_permissions_they_need()
+    {
+        var jobs = Map(Load(".github", "workflows", "release.yml")["jobs"]);
+
+        Assert.Equal(new Dictionary<string, string> { ["contents"] = "write", ["issues"] = "write", ["pull-requests"] = "write" }, Permissions(jobs["release-please"]));
+        Assert.Equal(new Dictionary<string, string> { ["contents"] = "read", ["id-token"] = "write", ["attestations"] = "write" }, Permissions(jobs["publish"]));
+    }
+
+    private static Dictionary<string, string> Permissions(object job) =>
+        Map(Map(job)["permissions"]).ToDictionary(p => (string)p.Key, p => (string)p.Value);
+
+    private const string Direct = """{"version":1,"parameters":"--vulnerable --include-transitive","sources":["https://api.nuget.org/v3/index.json"],"projects":[{"path":"a.csproj","frameworks":[{"framework":"net10.0","topLevelPackages":[{"id":"System.Text.Json","requestedVersion":"8.0.0","resolvedVersion":"8.0.0","vulnerabilities":[{"severity":"High","advisoryurl":"https://github.com/advisories/GHSA-hh2w-p6rv-4g7w"}]}]}]}]}""";
+
+    private const string Transitive = """{"version":1,"parameters":"--vulnerable --include-transitive","sources":["https://api.nuget.org/v3/index.json"],"projects":[{"path":"a.csproj","frameworks":[{"framework":"net10.0","transitivePackages":[{"id":"System.Text.Json","resolvedVersion":"8.0.0","vulnerabilities":[{"severity":"High","advisoryurl":"https://github.com/advisories/GHSA-hh2w-p6rv-4g7w"}]}]}]}]}""";
+
+    private const string Clean = """{"version":1,"parameters":"--vulnerable --include-transitive","sources":["https://api.nuget.org/v3/index.json"],"projects":[{"path":"a.csproj","frameworks":[{"framework":"net10.0","topLevelPackages":[{"id":"YamlDotNet","requestedVersion":"18.1.0","resolvedVersion":"18.1.0"}],"transitivePackages":[{"id":"System.Memory","resolvedVersion":"4.6.0"}]}]},{"path":"b.csproj"}]}""";
+
+    private const string RestoreFailure = """{"version":1,"problems":[{"text":"Restore failed.","level":"error"}]}""";
+
+    [Theory]
+    [InlineData(Direct, 1)]
+    [InlineData(Transitive, 1)]
+    [InlineData(Clean, 0)]
+    [InlineData(RestoreFailure, 1)]
+    public void The_vulnerable_package_script_fails_on_a_vulnerability_and_on_output_it_cannot_read(string json, int exitCode)
+    {
+        Tools.Require("bash", "jq");
+        var dir = Directory.CreateTempSubdirectory("powerops-vulnerable-").FullName;
+        try
+        {
+            var file = Path.Combine(dir, "vulnerable.json");
+            File.WriteAllText(file, json);
+            var start = new ProcessStartInfo(Tools.Bash) { RedirectStandardOutput = true };
+            start.ArgumentList.Add(Path.Combine(Golden.RepoRoot, ".github", "scripts", "vulnerable.sh"));
+            start.ArgumentList.Add(file);
+
+            using var process = Process.Start(start)!;
+            var stdout = process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+
+            Assert.Equal(exitCode, process.ExitCode);
+            Assert.Equal(exitCode == 1 ? json : "", stdout);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 
     [Fact]
