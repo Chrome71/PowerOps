@@ -227,11 +227,11 @@ public static partial class McpCommand
             new("plan_status", "Check the planning documents (docs/plans/*/plan.md) under a path: header, sign-off hash, review and tenant data. " + Json + "plan status --json` (docs/schemas/plan-status.schema.json).",
                 [new("path", Kind.Path, true, "Absolute path of a repo folder, a plan folder or a plan.md.")],
                 (v, o, e, _) => Cli(["plan", "status", "--json", "--", v.Text("path")], o, e)),
-            new("plan_facts", "Read the name of pac's current environment and its solutions (unique name, version, managed) through pac. " + Json + "plan facts` (docs/schemas/plan-facts.schema.json).",
+            new("plan_facts", "Read the name of pac's current environment and its solutions (unique name, version, managed) through pac. " + Json + "plan facts` (docs/schemas/plan-facts.schema.json). It reads the environment pac is signed in to; use it only when that is an environment the user named in the session.",
                 [],
                 (_, o, e, _) => Cli(["plan", "facts"], o, e),
                 ReadTenant),
-            new("drift", "Compare one solution across environments, read through pac, az and the Dataverse Web API, or across saved snapshot files: version, components, layers, variables, references and flows. " + Json + "drift --format json` (docs/schemas/drift.schema.json).",
+            new("drift", "Compare one solution across environments, read through pac, az and the Dataverse Web API, or across saved snapshot files: version, components, layers, variables, references and flows. " + Json + "drift --format json` (docs/schemas/drift.schema.json). Use it only on an environment the user named in the session.",
                 [
                     new("solution", Kind.Text, true, "The solution's unique name."),
                     new("envs", Kind.Texts, true, "At least two: an entry ending in .json is the absolute path of a snapshot file; any other is an environment id, URL or name (as pac --environment).", 2, true),
@@ -239,7 +239,7 @@ public static partial class McpCommand
                 (v, o, e, _) => Cli(["drift", "--solution", v.Text("solution"), .. v.List("envs").SelectMany(env => new[] { "--env", env }), "--format", "json"], o, e),
                 ReadTenant,
                 CheckEnvs),
-            new("deploy_plan", "Say what importing the solution zips in a folder into a target environment would do, reading the target through pac, az and the Dataverse Web API; returns the JSON of `powerops deploy plan --format json` (docs/schemas/deploy-plan.schema.json). It writes only when `save` names a new file, which gets that JSON in the folder; promote a reviewed plan with deploy_apply, not with an import tool.",
+            new("deploy_plan", "Say what importing the solution zips in a folder into a target environment would do, reading the target through pac, az and the Dataverse Web API; returns the JSON of `powerops deploy plan --format json` (docs/schemas/deploy-plan.schema.json). It writes only when `save` names a new file, which gets that JSON in the folder; promote a reviewed plan with deploy_apply, not with an import tool. Use it only on an environment the user named in the session.",
                 [
                     new("folder", Kind.Path, true, "Absolute path of a folder of exported solution zips, each with an optional <zip name>.settings.json beside it."),
                     new("target", Kind.Text, true, "The environment to plan against: an id or URL (as pac --environment)."),

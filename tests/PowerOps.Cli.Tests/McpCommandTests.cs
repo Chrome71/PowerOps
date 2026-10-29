@@ -211,6 +211,22 @@ public sealed class McpCommandTests : IAsyncLifetime
         Golden.Verify(JsonSerializer.Serialize(tools, new JsonSerializerOptions(McpJsonUtilities.DefaultOptions) { WriteIndented = true }), "mcp-tools.txt");
     }
 
+    [Fact]
+    public async Task Drift_deploy_plan_and_plan_facts_say_to_use_them_only_on_an_environment_the_user_named()
+    {
+        const string named = "Use it only on an environment the user named in the session.";
+        const string signedIn = "It reads the environment pac is signed in to; use it only when that is an environment the user named in the session.";
+        var tools = (await _client.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken)).Select(t => t.ProtocolTool).ToList();
+
+        foreach (var tool in tools)
+        {
+            Assert.Equal(tool.Name is "drift" or "deploy_plan", tool.Description!.EndsWith(" " + named, StringComparison.Ordinal));
+            Assert.Equal(tool.Name == "plan_facts", tool.Description.EndsWith(" " + signedIn, StringComparison.Ordinal));
+            Assert.Equal(tool.Name is "drift" or "deploy_plan", tool.Description.Contains(named, StringComparison.Ordinal));
+            Assert.Equal(tool.Name == "plan_facts", tool.Description.Contains(signedIn, StringComparison.Ordinal));
+        }
+    }
+
     // 2
 
     [Theory]

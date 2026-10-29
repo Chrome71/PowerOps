@@ -203,7 +203,7 @@
   },
   {
     "name": "plan_facts",
-    "description": "Read the name of pac\u0027s current environment and its solutions (unique name, version, managed) through pac. Read-only; returns the JSON of \u0060powerops plan facts\u0060 (docs/schemas/plan-facts.schema.json).",
+    "description": "Read the name of pac\u0027s current environment and its solutions (unique name, version, managed) through pac. Read-only; returns the JSON of \u0060powerops plan facts\u0060 (docs/schemas/plan-facts.schema.json). It reads the environment pac is signed in to; use it only when that is an environment the user named in the session.",
     "inputSchema": {
       "type": "object",
       "properties": {},
@@ -218,7 +218,7 @@
   },
   {
     "name": "drift",
-    "description": "Compare one solution across environments, read through pac, az and the Dataverse Web API, or across saved snapshot files: version, components, layers, variables, references and flows. Read-only; returns the JSON of \u0060powerops drift --format json\u0060 (docs/schemas/drift.schema.json).",
+    "description": "Compare one solution across environments, read through pac, az and the Dataverse Web API, or across saved snapshot files: version, components, layers, variables, references and flows. Read-only; returns the JSON of \u0060powerops drift --format json\u0060 (docs/schemas/drift.schema.json). Use it only on an environment the user named in the session.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -250,7 +250,7 @@
   },
   {
     "name": "deploy_plan",
-    "description": "Say what importing the solution zips in a folder into a target environment would do, reading the target through pac, az and the Dataverse Web API; returns the JSON of \u0060powerops deploy plan --format json\u0060 (docs/schemas/deploy-plan.schema.json). It writes only when \u0060save\u0060 names a new file, which gets that JSON in the folder; promote a reviewed plan with deploy_apply, not with an import tool.",
+    "description": "Say what importing the solution zips in a folder into a target environment would do, reading the target through pac, az and the Dataverse Web API; returns the JSON of \u0060powerops deploy plan --format json\u0060 (docs/schemas/deploy-plan.schema.json). It writes only when \u0060save\u0060 names a new file, which gets that JSON in the folder; promote a reviewed plan with deploy_apply, not with an import tool. Use it only on an environment the user named in the session.",
     "inputSchema": {
       "type": "object",
       "properties": {
