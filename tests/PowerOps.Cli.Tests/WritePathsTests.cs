@@ -121,6 +121,71 @@ public class WritePathsTests : IDisposable
         Assert.Equal(before, File.ReadAllBytes(input));
     }
 
+    // M33 U-2: a file a scan found in a folder counts as an input, though the user named only the folder.
+    private (string Scan, string Zip, string Tests) ScanFolder()
+    {
+        var scan = Directory.CreateDirectory(Path.Combine(_temp, "scan")).FullName;
+        var zip = Path.Combine(scan, "found.zip");
+        SolutionZip.Create(V2, zip);
+        var tests = Directory.CreateDirectory(Path.Combine(_temp, "tests")).FullName;
+        foreach (var f in Directory.EnumerateFiles(SeedTests, "*.flowtest.json"))
+        {
+            File.Copy(f, Path.Combine(tests, Path.GetFileName(f)));
+        }
+
+        return (scan, zip, tests);
+    }
+
+    private static string[] FoundArgs(string kind, string scan, string tests, string outFile) =>
+        kind switch
+        {
+            "analyze" => ["analyze", scan, "--out", outFile],
+            "baseline" => ["baseline", scan, "--out", outFile],
+            "diff old" => ["diff", scan, V1, "--out", outFile],
+            "diff new" => ["diff", V1, scan, "--out", outFile],
+            _ => ["test", scan, "--tests", tests, "--out", outFile],
+        };
+
+    [Theory]
+    [InlineData("analyze")]
+    [InlineData("baseline")]
+    [InlineData("diff old")]
+    [InlineData("diff new")]
+    [InlineData("test zip")]
+    [InlineData("test flowtest")]
+    public void Out_over_a_file_the_scan_found_is_refused_with_exit_2_and_the_file_is_not_touched(string kind)
+    {
+        var (scan, zip, tests) = ScanFolder();
+        var victim = kind == "test flowtest" ? Directory.GetFiles(tests).Order().First() : zip;
+        var before = File.ReadAllBytes(victim);
+
+        var (code, output, error) = Run(FoundArgs(kind.StartsWith("test") ? "test" : kind, scan, tests, victim));
+
+        Assert.Equal(2, code);
+        Assert.Equal("", output);
+        Assert.Equal($"error: {victim}: {SafeWrite.InputReason}", Assert.Single(Lines(error)));
+        Assert.Equal(before, File.ReadAllBytes(victim));
+        Assert.Equal([zip], Directory.GetFiles(scan));
+    }
+
+    [Theory]
+    [InlineData("analyze")]
+    [InlineData("baseline")]
+    [InlineData("diff old")]
+    [InlineData("diff new")]
+    [InlineData("test")]
+    public void Out_into_the_scanned_folder_is_still_written(string kind)
+    {
+        var (scan, _, tests) = ScanFolder();
+        var report = Path.Combine(scan, "report.txt");
+
+        var (code, _, error) = Run(FoundArgs(kind, scan, tests, report));
+
+        Assert.True(code is 0 or 1, error);
+        Assert.True(File.Exists(report));
+        Assert.DoesNotContain(SafeWrite.InputReason, error);
+    }
+
     // The reviewer's repro: a link to the input's own folder, then the input's name under it.
     [Fact]
     public void Out_over_an_input_through_a_link_to_its_folder_is_refused_with_exit_2_and_the_input_is_not_touched()

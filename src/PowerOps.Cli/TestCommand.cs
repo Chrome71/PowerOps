@@ -49,12 +49,6 @@ public static class TestCommand
             return 2;
         }
 
-        if (outFile is not null && SafeWrite.Refusal(outFile, [path]) is { } refusal)
-        {
-            error.WriteLine($"error: {refusal.Text}");
-            return 2;
-        }
-
         var testFiles = FlowTestFiles.Find(tests);
         if (testFiles.Count == 0)
         {
@@ -76,6 +70,14 @@ public static class TestCommand
         if (solutionPaths.Count == 0)
         {
             error.WriteLine($"error: no solutions found under {path}. To test a YAML layout, point at the folder that holds solutions/.");
+            return 2;
+        }
+
+        // The files found count as inputs too; listed above, so the refusal still comes before the work.
+        string[] inputs = [path, .. testFiles, .. solutionPaths];
+        if (outFile is not null && SafeWrite.Refusal(outFile, inputs) is { } refusal)
+        {
+            error.WriteLine($"error: {refusal.Text}");
             return 2;
         }
 
@@ -109,7 +111,7 @@ public static class TestCommand
             }
             else
             {
-                SafeWrite.WriteText(outFile, report.ToString(), [path]);
+                SafeWrite.WriteText(outFile, report.ToString(), inputs);
             }
 
             return results.All(r => r.Outcome == FlowTestOutcome.Passed) ? 0 : 1;

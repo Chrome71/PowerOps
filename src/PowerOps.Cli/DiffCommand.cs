@@ -57,7 +57,7 @@ public static class DiffCommand
             }
         }
 
-        if (outFile is not null && SafeWrite.Refusal(outFile, [oldPath, newPath]) is { } refusal)
+        if (outFile is not null && SafeWrite.Refusal(outFile, [oldPath, newPath, .. paths]) is { } refusal)
         {
             error.WriteLine($"error: {refusal.Text}");
             return 2;
@@ -88,7 +88,7 @@ public static class DiffCommand
             }
             else
             {
-                SafeWrite.WriteText(outFile, report.ToString(), [oldPath, newPath]);
+                SafeWrite.WriteText(outFile, report.ToString(), [oldPath, newPath, .. paths]);
             }
 
             return result.Changes.Count > 0 ? 1 : 0;

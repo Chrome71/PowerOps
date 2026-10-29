@@ -29,25 +29,26 @@ public sealed record AnalysisResult(IReadOnlyList<SolutionResult> Solutions)
     private int Count(Severity severity) => Solutions.Sum(s => s.Findings.Count(f => f.Severity == severity));
 
     /// <summary>Discovers, loads and analyzes every solution under <paramref name="paths"/>; display paths are relative to <paramref name="baseDir"/> when underneath it.</summary>
-    public static AnalysisResult Run(IEnumerable<string> paths, string baseDir, LoadContext? context = null)
+    public static AnalysisResult Run(IEnumerable<string> paths, string baseDir, LoadContext? context = null) =>
+        RunFound(paths.SelectMany(p => SolutionDiscovery.Find(p)), baseDir, context);
+
+    /// <summary>As <see cref="Run"/>, for solutions already found with <see cref="SolutionDiscovery.Find"/>, so a caller that needs the list first walks the folders once.</summary>
+    public static AnalysisResult RunFound(IEnumerable<string> found, string baseDir, LoadContext? context = null)
     {
         var seen = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
         var results = new List<SolutionResult>();
         context ??= new LoadContext();
-        foreach (var root in paths)
+        foreach (var path in found)
         {
-            foreach (var found in SolutionDiscovery.Find(root))
+            if (!seen.Add(System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(path))))
             {
-                if (!seen.Add(System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(found))))
-                {
-                    continue;
-                }
-
-                var solution = SolutionLoader.Load(found, context);
-                // A YAML solution is reported as its root: finding files are relative to it.
-                var shown = YamlReader.IsSolutionYml(found) ? YamlReader.RootFolder(found) : found;
-                results.Add(new SolutionResult(DisplayPath(shown, baseDir), solution, Analyze(solution, found)));
+                continue;
             }
+
+            var solution = SolutionLoader.Load(path, context);
+            // A YAML solution is reported as its root: finding files are relative to it.
+            var shown = YamlReader.IsSolutionYml(path) ? YamlReader.RootFolder(path) : path;
+            results.Add(new SolutionResult(DisplayPath(shown, baseDir), solution, Analyze(solution, path)));
         }
 
         return new AnalysisResult(results);

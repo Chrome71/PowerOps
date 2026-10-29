@@ -77,13 +77,15 @@ public static class DeployCommand
             problems.Add("--target is required");
         }
 
+        // The zips and settings files of the folder, listed before the refusals and before the target read; a report written into the folder is not one of them.
+        var inputs = FolderInputs(folder);
         foreach (var (name, value) in new[] { ("--save", save), ("--out", outFile) })
         {
             if (value is not null && Directory.Exists(value))
             {
                 problems.Add($"{name} names an existing folder, not a file");
             }
-            else if (value is not null && SafeWrite.Refusal(value, []) is { } refusal)
+            else if (value is not null && SafeWrite.Refusal(value, inputs) is { } refusal)
             {
                 problems.Add($"{name} {refusal.Reason}");
             }
@@ -114,12 +116,12 @@ public static class DeployCommand
         {
             var json = new StringWriter();
             DeployPlanReport.WriteJson(result, AnalyzeCommand.ToolVersion(), json);
-            SafeWrite.WriteText(save, json.ToString(), []);
+            SafeWrite.WriteText(save, json.ToString(), inputs);
         }
 
         if (outFile is not null)
         {
-            SafeWrite.WriteText(outFile, report.ToString(), []);
+            SafeWrite.WriteText(outFile, report.ToString(), inputs);
         }
         else
         {
@@ -262,12 +264,14 @@ public static class DeployCommand
     {
         // The --target value, the environment id and every folder path are never printed.
         var problems = new List<string>();
+        // The plan file and the zips and settings files beside it, which DryRun reads.
+        string[] inputs = [planFile, .. FolderInputs(Path.GetDirectoryName(Path.GetFullPath(planFile)) ?? "")];
         PlanFileProblems(planFile, target, problems);
         if (outFile is not null && Directory.Exists(outFile))
         {
             problems.Add("--out names an existing folder, not a file");
         }
-        else if (outFile is not null && SafeWrite.Refusal(outFile, [planFile]) is { } refusal)
+        else if (outFile is not null && SafeWrite.Refusal(outFile, inputs) is { } refusal)
         {
             // Before any import: the report is written after them, and a refusal then would lose the report of an import that ran.
             problems.Add($"--out {refusal.Reason}");
@@ -299,7 +303,7 @@ public static class DeployCommand
 
             if (outFile is not null)
             {
-                SafeWrite.WriteText(outFile, report.ToString(), [planFile]);
+                SafeWrite.WriteText(outFile, report.ToString(), inputs);
             }
             else
             {
@@ -722,6 +726,11 @@ public static class DeployCommand
 
         return new Prepared(result, loaded, got);
     }
+
+    // The zips and settings files directly in the folder, as ListZips picks them; none when it is not a folder.
+    private static string[] FolderInputs(string folder) => !Directory.Exists(folder)
+        ? []
+        : [.. Directory.EnumerateFiles(folder).Where(f => f.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) || f.EndsWith(SettingsSuffix, StringComparison.OrdinalIgnoreCase))];
 
     // The folder's zips in ordinal order; problems are added for every file name, case or link that breaks the rules.
     private static List<(string Name, string Path)> ListZips(string folder, List<string> problems)

@@ -122,6 +122,41 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.All(files, f => Assert.Equal(f.Value, File.ReadAllBytes(f.Key)));
     }
 
+    // M33 U-2: the zips and settings files beside the plan file are inputs too.
+    [Theory]
+    [InlineData("PowerOpsSeed.zip")]
+    [InlineData("PowerOpsSeed.settings.json")]
+    public void An_out_over_a_zip_or_settings_file_of_the_plan_folder_exits_2_before_any_import_and_leaves_the_file(string name)
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var input = Path.Combine(Folder, name);
+        var before = File.ReadAllBytes(input);
+        var (fake, pac) = (SeedTarget(), new FakePac());
+
+        var r = Apply(fake, pac, "--apply", "--out", input);
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal("error: --out is an input of this command; it is not overwritten.\n", r.Err);
+        Assert.Equal("", r.Out);
+        Assert.Equal(0, fake.Calls);
+        Assert.Empty(pac.Calls);
+        Assert.Equal(before, File.ReadAllBytes(input));
+    }
+
+    [Fact]
+    public void An_out_into_the_plan_folder_is_still_written()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var outFile = Path.Combine(Folder, "apply.txt");
+
+        var r = Apply(SeedTarget(), new FakePac(), "--out", outFile);
+
+        Assert.Equal(0, r.Code);
+        Assert.True(File.Exists(outFile));
+    }
+
     // The report file exists and is writable, but replacing it needs a temp file in its folder.
     [Fact]
     [UnsupportedOSPlatform("windows")]

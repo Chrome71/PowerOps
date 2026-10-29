@@ -23,11 +23,11 @@ public static class BaselineCommand
         command.SetAction(parse =>
         {
             var file = parse.GetValue(outFile)!;
-            return AnalyzeCommand.Run(parse.GetValue(paths)!, null, file, error, result =>
+            return AnalyzeCommand.Run(parse.GetValue(paths)!, null, file, error, (result, inputs) =>
             {
                 var json = new StringWriter();
                 Baseline.Write(result, json);
-                SafeWrite.WriteText(file, json.ToString(), parse.GetValue(paths)!.Where(File.Exists));
+                SafeWrite.WriteText(file, json.ToString(), inputs);
                 return 0;
             });
         });
