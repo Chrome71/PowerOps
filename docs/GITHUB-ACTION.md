@@ -1,8 +1,8 @@
 # GitHub Action
 
-The PowerOps action analyzes solutions in a GitHub Actions workflow. It can also run flow tests as a merge gate, and post a pull request comment with a deploy plan or a diff.
+The PowerOps action analyzes solutions in a GitHub Actions workflow. It can also run flow tests as a [merge gate](#merge-gate-flow-tests) and post a [pull request comment](#pull-request-comment) with a deploy plan or a diff.
 
-On GitHub Actions, use the action. It writes a job summary and annotations, and uploads the findings to code scanning:
+The analysis writes a job summary and annotations, and uploads the findings to code scanning:
 
 ```yaml
 permissions:

@@ -11,7 +11,8 @@ It finds what would break a solution's import or a run, compares two versions of
 PowerOps is not on NuGet yet. Install it from a clone (needs the .NET 10 SDK):
 
 ```sh
-dotnet pack src/PowerOps.Cli -c Release -o artifacts && dotnet tool install --global --source artifacts PowerOps
+dotnet pack src/PowerOps.Cli -c Release -o artifacts &&
+  dotnet tool install --global --source artifacts PowerOps
 powerops --version
 ```
 
@@ -41,24 +42,24 @@ On GitHub Actions, use the action: it writes a job summary and annotations, and 
 
 | Command | What it does |
 |---|---|
-| [`analyze`](docs/COMMANDS.md#analyze-and-baseline) | Checks solutions (unpacked folders, exported zips, the YAML layout) against the [rules](docs/rules/README.md); offline and read-only |
-| [`baseline`](docs/COMMANDS.md#analyze-and-baseline) | Accepts today's findings, so `analyze --baseline` reports only findings that are not in the baseline |
+| [`analyze`](docs/COMMANDS.md#analyze-and-baseline) | Finds what would break a solution's import or a run ([rules](docs/rules/README.md)) |
+| [`baseline`](docs/COMMANDS.md#analyze-and-baseline) | Accepts today's findings, so `analyze` reports only new ones |
 | [`rules`](docs/COMMANDS.md#rules) | Lists every rule with its severity, title and fix |
-| [`diff`](docs/COMMANDS.md#diff) | Compares two versions of a solution component by component; offline and read-only |
-| [`test`](docs/FLOW-TESTS.md) | Runs flow tests against the cloud flows, with mocked connector actions; offline and read-only |
+| [`diff`](docs/COMMANDS.md#diff) | Compares two versions of a solution, component by component |
+| [`test`](docs/FLOW-TESTS.md) | Runs flow tests with mocked connector actions |
 | [`settings generate`](docs/COMMANDS.md#settings-generate-and-settings-validate) | Writes `pac` deployment settings with empty values to fill in |
-| [`settings validate`](docs/COMMANDS.md#settings-generate-and-settings-validate) | Reports missing or extra entries, empty connection ids and values in a settings file |
-| [`settings apply`](docs/COMMANDS.md#settings-apply) | Imports a solution zip with its settings file through `pac`, then checks the flows are on; a dry run without `--apply` |
-| [`drift`](docs/COMMANDS.md#drift) | Compares one solution across environments or saved snapshot files; only reads |
-| [`deploy plan`](docs/COMMANDS.md#deploy-plan) | Says what importing the solution zips in a folder would do to the target; reads the target only |
-| [`deploy apply`](docs/COMMANDS.md#deploy-apply) | Plans again against the target, refuses if that differs from the reviewed plan, then imports through `pac`; a dry run without `--apply` |
-| [`plan status`](docs/COMMANDS.md#plan-and-skills) | Checks every plan in `docs/plans/`; offline and read-only |
+| [`settings validate`](docs/COMMANDS.md#settings-generate-and-settings-validate) | Finds missing, extra and empty entries in a settings file |
+| [`settings apply`](docs/COMMANDS.md#settings-apply) | Imports a zip with a settings file and checks the flows are on |
+| [`drift`](docs/COMMANDS.md#drift) | Compares one solution across environments or saved snapshots |
+| [`deploy plan`](docs/COMMANDS.md#deploy-plan) | Says what importing solution zips would do to an environment |
+| [`deploy apply`](docs/COMMANDS.md#deploy-apply) | Imports a reviewed plan; refuses if the target or files changed |
+| [`plan status`](docs/COMMANDS.md#plan-and-skills) | Checks every plan under `docs/plans/` |
 | [`plan sign-off`](docs/COMMANDS.md#plan-and-skills) | Writes the status, date and body hash into a plan's header |
-| [`plan facts`](docs/COMMANDS.md#plan-and-skills) | Prints environment and solution names as JSON; needs `pac` signed in |
+| [`plan facts`](docs/COMMANDS.md#plan-and-skills) | Prints environment and solution names as JSON |
 | [`skills install`](docs/COMMANDS.md#plan-and-skills) | Copies the planning skills into the repo |
-| [`mcp`](docs/COMMANDS.md#mcp) | Runs an MCP server over stdio whose tools run these commands |
+| [`mcp`](docs/COMMANDS.md#mcp) | Runs an MCP server whose tools run these commands |
 
-`settings apply`, `drift`, `deploy plan`, `deploy apply` and `plan facts` read an environment, so `pac` must be signed in, and `az` too for `drift` and `deploy` (`drift` can also compare saved snapshot files offline). The others work offline on files. Only `settings apply --apply` and `deploy apply --apply` write to an environment.
+`settings apply`, `drift`, `deploy plan`, `deploy apply` and `plan facts` read an environment, so `pac` must be signed in, and `az` too for `drift` and `deploy` (`drift` can also compare saved snapshot files offline). The others work offline on files. Only `settings apply --apply` and `deploy apply --apply` write to an environment; without `--apply` they are dry runs.
 
 Every option, output format and exit code is in the [command reference](docs/COMMANDS.md).
 
