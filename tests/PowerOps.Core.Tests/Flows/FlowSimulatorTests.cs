@@ -520,12 +520,13 @@ public class FlowSimulatorTests
     }
 
     // The copies made inside expressions count against the same budget: the probes ran 57 s (string) and over 90 s (json of string) before.
+    // 30 s, not 10: the macOS arm64 runner took up to 14 s under the full suite's load (5 s locally).
     [Theory]
     [InlineData("@length(string(triggerBody()))")]
     [InlineData("@length(json(string(triggerBody())))")]
     [InlineData("@length(replace(string(triggerBody()), '1', '22'))")]
     [InlineData("@length(split(string(triggerBody()), ','))")]
-    public void A_Foreach_over_200000_trigger_items_that_copies_the_trigger_in_an_expression_hits_the_copy_budget_within_10_seconds(string expression)
+    public void A_Foreach_over_200000_trigger_items_that_copies_the_trigger_in_an_expression_hits_the_copy_budget_within_30_seconds(string expression)
     {
         var items = string.Join(',', Enumerable.Repeat("1", 200_000));
         var watch = System.Diagnostics.Stopwatch.StartNew();
@@ -534,7 +535,7 @@ public class FlowSimulatorTests
             "{\"Loop\":{\"type\":\"Foreach\",\"foreach\":\"@triggerBody()?['items']\",\"actions\":{\"C\":{\"type\":\"Compose\",\"inputs\":\"" + expression + "\",\"runAfter\":{}}},\"runAfter\":{}}}",
             In("{\"body\":{\"items\":[" + items + "]}}"));
 
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), watch.Elapsed.ToString());
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(30), watch.Elapsed.ToString());
         Assert.Equal(FlowRunOutcome.Unsupported, run.Outcome);
         Assert.Contains("pass 256 MB", run.Message);
     }
