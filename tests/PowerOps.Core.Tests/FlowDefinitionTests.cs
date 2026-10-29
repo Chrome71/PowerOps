@@ -123,6 +123,21 @@ public class FlowDefinitionTests
         Assert.Single(flow.StringLiterals);
     }
 
+    [Fact]
+    public void A_duplicate_key_is_refused_so_the_first_copy_cannot_hide_a_hit()
+    {
+        var e = Assert.Throws<InvalidDataException>(() => FlowDefinition.Parse(
+            """{"properties":{"definition":{"actions":{"A":{"inputs":"https://org1.crm.dynamics.com/api"}}},"definition":{"actions":{}}}}"""));
+
+        Assert.StartsWith("Flow definition is not valid JSON", e.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_lone_surrogate_in_a_literal_is_invalid_json_not_an_InvalidOperationException()
+    {
+        Assert.Throws<InvalidDataException>(() => FlowDefinition.Parse(Flow("{}", """{"actions":{"A":{"inputs":"\ud800"}}}""")));
+    }
+
     [Theory]
     [InlineData("{not json")]
     [InlineData("[]")]

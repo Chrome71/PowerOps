@@ -106,8 +106,45 @@ public static class ExpressionFunctions
     };
 
     /// <summary>Parses JSON text and rejects a duplicate property at once: a JsonObject would find it only when first read, as an ArgumentException.</summary>
-    /// <exception cref="JsonException">The text is not valid JSON, is nested deeper than 64 levels or has a duplicate property.</exception>
-    internal static JsonNode? ParseJson(string text) => JsonNode.Parse(text, null, new JsonDocumentOptions { AllowDuplicateProperties = false });
+    /// <exception cref="JsonException">The text is not valid JSON, is nested deeper than 64 levels, has a duplicate property or holds a string with a lone surrogate.</exception>
+    internal static JsonNode? ParseJson(string text)
+    {
+        try
+        {
+            var node = JsonNode.Parse(text, null, new JsonDocumentOptions { AllowDuplicateProperties = false });
+            CheckText(node);
+            return node;
+        }
+        catch (InvalidOperationException e)
+        {
+            // A string with a lone surrogate (`"\ud800"`) parses; reading it throws, in the duplicate check for a key and in the nodes for a value. Read them all now.
+            throw new JsonException(e.Message, e);
+        }
+    }
+
+    private static void CheckText(JsonNode? node)
+    {
+        switch (node)
+        {
+            case JsonObject o:
+                foreach (var (_, value) in o)
+                {
+                    CheckText(value);
+                }
+
+                break;
+            case JsonArray a:
+                foreach (var item in a)
+                {
+                    CheckText(item);
+                }
+
+                break;
+            case JsonValue v when v.GetValueKind() == JsonValueKind.String:
+                _ = v.GetValue<string>();
+                break;
+        }
+    }
 
     internal static bool TryLong(JsonNode? node, out long value)
     {

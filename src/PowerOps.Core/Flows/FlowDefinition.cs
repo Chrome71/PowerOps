@@ -49,7 +49,7 @@ public sealed partial record FlowDefinition(
         try
         {
             // Parse takes raw strings, so a BOM that a stream reader would have removed can still be present.
-            using var doc = JsonDocument.Parse(clientDataJson.TrimStart('\uFEFF'), new JsonDocumentOptions { MaxDepth = 256 });
+            using var doc = JsonDocument.Parse(clientDataJson.TrimStart('\uFEFF'), new JsonDocumentOptions { MaxDepth = 256, AllowDuplicateProperties = false });
             if (doc.RootElement.ValueKind != JsonValueKind.Object)
             {
                 throw new InvalidDataException("Flow definition JSON is not an object.");
@@ -116,7 +116,8 @@ public sealed partial record FlowDefinition(
 
             return new FlowDefinition(connections, envVars, children.Distinct().ToList(), literals, triggers);
         }
-        catch (JsonException ex)
+        // InvalidOperationException: GetString on a string with a lone surrogate.
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
         {
             throw new InvalidDataException("Flow definition is not valid JSON: " + ex.Message, ex);
         }

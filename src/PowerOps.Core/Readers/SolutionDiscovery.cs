@@ -118,6 +118,26 @@ public static class SolutionDiscovery
         }
         catch (Exception e) when (e is InvalidDataException or IOException or UnauthorizedAccessException)
         {
+            // Only a file that starts with the zip signature is a zip that failed; a Git LFS pointer or an empty placeholder named *.zip is skipped.
+            if (StartsWithZipSignature(zipPath))
+            {
+                throw new InvalidDataException($"{zipPath}: cannot be opened as a zip: {e.Message}", e);
+            }
+
+            return false;
+        }
+    }
+
+    private static bool StartsWithZipSignature(string path)
+    {
+        try
+        {
+            using var file = File.OpenRead(path);
+            Span<byte> head = stackalloc byte[2];
+            return file.ReadAtLeast(head, 2, throwOnEndOfStream: false) == 2 && head[0] == (byte)'P' && head[1] == (byte)'K';
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
             return false;
         }
     }

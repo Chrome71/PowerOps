@@ -204,6 +204,19 @@ public class ZipReaderTests
 
     internal const string Xxe = "<?xml version=\"1.0\"?><!DOCTYPE x [<!ENTITY e SYSTEM \"file:///etc/passwd\">]><ImportExportXml><SolutionManifest><UniqueName>&e;</UniqueName></SolutionManifest></ImportExportXml>";
 
+    [Theory]
+    [InlineData("Other/Solution.xml", "Other/solution.xml")]
+    [InlineData("Other/a.xml", "Other/a.xml")]
+    [InlineData("A\\b.xml", "a/B.xml")]
+    public void Duplicate_entry_names_are_refused_even_when_they_differ_only_in_case(string first, string second)
+    {
+        using var t = Zip(out var zip, ("solution.xml", SolutionXml.Manifest()), (first, "x"), (second, "y"));
+
+        var e = Assert.Throws<InvalidDataException>(() => SolutionLoader.Load(zip));
+
+        Assert.StartsWith(zip + ":", e.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Loader_and_discovery_handle_zips()
     {
