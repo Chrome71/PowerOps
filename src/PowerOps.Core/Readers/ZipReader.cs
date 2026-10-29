@@ -21,6 +21,7 @@ public static class ZipReader
         }
 
         var entries = new Dictionary<string, ZipArchiveEntry>(StringComparer.Ordinal);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in zip.Entries)
         {
             var name = entry.FullName.Replace('\\', '/');
@@ -29,7 +30,13 @@ public static class ZipReader
                 continue; // directories, rooted and `..` entries (zip-slip) are never read
             }
 
-            entries.TryAdd(name, entry);
+            // Two entries with one name, or names that differ only in case, may be read differently by the import than here.
+            if (!seen.Add(name))
+            {
+                throw new InvalidDataException($"{zipPath}: {name} is listed more than once (names are compared without case).");
+            }
+
+            entries.Add(name, entry);
         }
 
         return SolutionParser.Parse(new SolutionFiles(

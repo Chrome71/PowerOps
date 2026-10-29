@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Globalization;
 using System.Text;
 
 using PowerOps.Core.Deploy;
@@ -11,9 +12,22 @@ public static class Program
 {
     public static int Main(string[] args)
     {
-        Console.OutputEncoding = new UTF8Encoding(false);
+        UseInvariantCulture();
+        try
+        {
+            Console.OutputEncoding = new UTF8Encoding(false);
+        }
+        catch (IOException)
+        {
+            // On Windows this throws when no console is attached, for example an MCP server a GUI client started.
+        }
+
         return Run(args, Console.Out, Console.Error);
     }
+
+    // Messages must not depend on the machine's culture ("index -1" is "index U+2212 1" under sv-SE). Main and Run both call this: the MCP handlers and the tests enter at Run.
+    internal static void UseInvariantCulture() =>
+        CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.DefaultThreadCurrentCulture = CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 
     // Output and error writers are injectable so tests can capture them.
     public static int Run(string[] args, TextWriter output, TextWriter error) =>
@@ -54,19 +68,29 @@ public static class Program
     public static int Run(string[] args, TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot>? driftLive = null,
         Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? deployTarget = null)
     {
-        // No response files: `@file` is an ordinary argument, so a file cannot supply options.
-        var parse = Root(output, error, pac, driftLive, deployTarget).Parse(args, new ParserConfiguration { ResponseFileTokenReplacer = null });
-        if (parse.Errors.Count > 0)
+        UseInvariantCulture();
+        try
         {
-            // System.CommandLine returns 1 for parse errors; usage errors are 2 here.
-            foreach (var e in parse.Errors)
+            // No response files: `@file` is an ordinary argument, so a file cannot supply options.
+            var parse = Root(output, error, pac, driftLive, deployTarget).Parse(args, new ParserConfiguration { ResponseFileTokenReplacer = null });
+            if (parse.Errors.Count > 0)
             {
-                error.WriteLine($"error: {TextReport.Clean(e.Message)}");
+                // System.CommandLine returns 1 for parse errors; usage errors are 2 here.
+                foreach (var e in parse.Errors)
+                {
+                    error.WriteLine($"error: {TextReport.Clean(e.Message)}");
+                }
+
+                return 2;
             }
 
-            return 2;
+            // Its default handler would exit 1 ("findings") for an exception a command did not catch.
+            return parse.Invoke(new InvocationConfiguration { Output = output, Error = error, EnableDefaultExceptionHandler = false });
         }
-
-        return parse.Invoke(new InvocationConfiguration { Output = output, Error = error });
+        catch (Exception ex)
+        {
+            error.WriteLine(Environment.GetEnvironmentVariable("POWEROPS_DEBUG") == "1" ? ex.ToString() : $"error: {TextReport.Clean(ex.Message)}");
+            return 3;
+        }
     }
 }

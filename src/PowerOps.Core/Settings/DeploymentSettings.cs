@@ -38,6 +38,19 @@ public static class DeploymentSettings
     /// <exception cref="InvalidDataException">The text is not JSON or has the wrong shape; the message is the reason, without a path.</exception>
     public static IReadOnlyList<SettingsProblem> Validate(Solution solution, string settingsJson)
     {
+        try
+        {
+            return Check(solution, settingsJson);
+        }
+        catch (InvalidOperationException e)
+        {
+            // A string with a lone surrogate parses, then GetString throws.
+            throw new InvalidDataException(e.Message, e);
+        }
+    }
+
+    private static IReadOnlyList<SettingsProblem> Check(Solution solution, string settingsJson)
+    {
         JsonDocument doc;
         try
         {

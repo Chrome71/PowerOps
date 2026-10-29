@@ -61,6 +61,11 @@ public sealed class Baseline
         {
             throw new InvalidDataException($"{path} is not valid JSON: {ex.Message}", ex);
         }
+        catch (InvalidOperationException ex)
+        {
+            // A string with a lone surrogate parses, then GetString throws.
+            throw new InvalidDataException($"{path}: {ex.Message}", ex);
+        }
     }
 
     /// <summary>Writes every finding of <paramref name="result"/> as a baseline (sorted, duplicates collapsed, "\n" line endings, trailing newline).</summary>

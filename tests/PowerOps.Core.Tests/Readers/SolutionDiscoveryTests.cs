@@ -113,13 +113,28 @@ public class SolutionDiscoveryTests
     }
 
     [Fact]
-    public void Finds_upper_case_zip_and_skips_non_solution_and_corrupt_zips()
+    public void Finds_upper_case_zip_and_skips_zips_without_a_solution_and_files_that_are_not_zips()
     {
-        using var t = new TempFolder().Write("corrupt.zip", "this is not a zip");
+        // A Git LFS pointer and an empty placeholder are named *.zip but do not start with the zip signature.
+        using var t = new TempFolder().Write("lfs.zip", "version https://git-lfs.github.com/spec/v1\noid sha256:" + new string('a', 64) + "\nsize 12345\n").Write("empty.zip", "");
         CreateZip(Path.Combine(t.Path, "SOL.ZIP"), "solution.xml");
         CreateZip(Path.Combine(t.Path, "other.zip"), "readme.txt");
 
         Assert.Equal([Path.Combine(t.Path, "SOL.ZIP")], SolutionDiscovery.Find(t.Path));
+    }
+
+    [Fact]
+    public void A_zip_that_starts_with_the_signature_and_cannot_be_opened_is_an_error_naming_it()
+    {
+        using var t = new TempFolder().Write("good/Other/Solution.xml", "x");
+        var zip = Path.Combine(t.Path, "corrupt.zip");
+        CreateZip(Path.Combine(t.Path, "whole.zip"), "solution.xml");
+        File.WriteAllBytes(zip, File.ReadAllBytes(Path.Combine(t.Path, "whole.zip"))[..30]); // "PK", then the central directory is missing
+        File.Delete(Path.Combine(t.Path, "whole.zip"));
+
+        var e = Assert.Throws<InvalidDataException>(() => SolutionDiscovery.Find(t.Path));
+
+        Assert.StartsWith(zip + ":", e.Message, StringComparison.Ordinal);
     }
 
     private static void CreateZip(string path, string entry)

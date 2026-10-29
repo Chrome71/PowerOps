@@ -101,14 +101,19 @@ public static class SolutionDiscovery
 
     private static bool HasRootSolutionXml(string zipPath)
     {
-        // Over-cap zips are refused, not skipped, like a zip named on the command line; other trouble just means "not a solution".
+        // Over-cap zips are refused, not skipped, like a zip named on the command line. So is a file that cannot be opened or read;
+        // only one that vanished during the scan is skipped. A file that is readable but not a zip is skipped below.
         try
         {
             ZipGuard.Check(zipPath, DefaultBudget);
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException)
         {
             return false;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new InvalidDataException($"{zipPath}: cannot be read: {e.Message}", e);
         }
 
         try
@@ -117,6 +122,26 @@ public static class SolutionDiscovery
             return zip.Entries.Any(e => e.FullName.Equals("solution.xml", StringComparison.OrdinalIgnoreCase));
         }
         catch (Exception e) when (e is InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            // Only a file that starts with the zip signature is a zip that failed; a Git LFS pointer or an empty placeholder named *.zip is skipped.
+            if (StartsWithZipSignature(zipPath))
+            {
+                throw new InvalidDataException($"{zipPath}: cannot be opened as a zip: {e.Message}", e);
+            }
+
+            return false;
+        }
+    }
+
+    private static bool StartsWithZipSignature(string path)
+    {
+        try
+        {
+            using var file = File.OpenRead(path);
+            Span<byte> head = stackalloc byte[2];
+            return file.ReadAtLeast(head, 2, throwOnEndOfStream: false) == 2 && head[0] == (byte)'P' && head[1] == (byte)'K';
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             return false;
         }

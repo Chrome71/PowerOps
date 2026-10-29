@@ -59,6 +59,19 @@ public static partial class SnapshotFile
     /// <exception cref="InvalidDataException">The text is not a snapshot file of this schema version.</exception>
     public static Snapshot Read(string json)
     {
+        try
+        {
+            return Check(json);
+        }
+        catch (InvalidOperationException e)
+        {
+            // A string with a lone surrogate parses, then GetString throws.
+            throw new InvalidDataException($"not a snapshot file: {e.Message}", e);
+        }
+    }
+
+    private static Snapshot Check(string json)
+    {
         JsonDocument doc;
         try
         {

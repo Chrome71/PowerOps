@@ -107,6 +107,8 @@ public class FlowTestTests
     [InlineData("""{"flow":"F","utcNow":1,"assertions":[{"kind":"runStatus","equals":"Succeeded"}]}""")]
     [InlineData("""{"flow":"F","guid":true,"assertions":[{"kind":"runStatus","equals":"Succeeded"}]}""")]
     [InlineData("""{"flow":"F","workflow":"w","assertions":[{"kind":"runStatus","equals":"Succeeded"}]}""")]
+    [InlineData("""{"flow":"F","trigger":{"body":{"a":"\ud800"}},"assertions":[{"kind":"runStatus","equals":"Succeeded"}]}""")]
+    [InlineData("""{"flow":"F","trigger":{"body":{"\ud800":1}},"assertions":[{"kind":"runStatus","equals":"Succeeded"}]}""")]
     [InlineData("""{"flow":"F","assertions":{}}""")]
     [InlineData("""{"flow":"F","assertions":[1]}""")]
     [InlineData("""{"flow":"F","assertions":[{"equals":"Succeeded"}]}""")]

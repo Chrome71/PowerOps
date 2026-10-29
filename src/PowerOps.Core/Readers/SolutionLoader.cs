@@ -20,7 +20,8 @@ public static class SolutionLoader
         {
             throw;
         }
-        catch (Exception e) when (e is InvalidDataException or IOException or UnauthorizedAccessException)
+        // InvalidOperationException and ArgumentException: a lone surrogate or a control character in the text of a file.
+        catch (Exception e) when (e is InvalidDataException or IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
         {
             throw new InvalidDataException($"{path}: {e.Message}", e);
         }
