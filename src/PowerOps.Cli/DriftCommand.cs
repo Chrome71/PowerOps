@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.Text;
 
 using PowerOps.Core.Drift;
 using PowerOps.Core.Output;
@@ -131,7 +130,7 @@ public static class DriftCommand
             return UsageError;
         }
 
-        if (saveDir is not null && Save(saveDir, solution!, liveAt, snapshots, error) is { } failed)
+        if (saveDir is not null && Save(saveDir, solution!, liveAt, snapshots, envs.Where(IsSnapshotPath).ToList(), error) is { } failed)
         {
             return failed;
         }
@@ -165,7 +164,7 @@ public static class DriftCommand
     }
 
     // Returns an exit code when nothing was saved, else null.
-    private static int? Save(string dir, string solution, List<int> liveAt, Snapshot[] snapshots, TextWriter error)
+    private static int? Save(string dir, string solution, List<int> liveAt, Snapshot[] snapshots, List<string> inputs, TextWriter error)
     {
         var names = liveAt.ToDictionary(i => i, i => FileName(solution, snapshots[i].Environment));
         var seen = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -178,10 +177,21 @@ public static class DriftCommand
             }
         }
 
+        foreach (var (i, name) in names)
+        {
+            if (SafeWrite.Refusal(Path.Combine(dir, name), inputs) is { } refusal)
+            {
+                error.WriteLine(refusal.Reason == SafeWrite.LinkReason
+                    ? $"error: --env {i + 1} would be saved to a symbolic link; nothing was saved"
+                    : $"error: --env {i + 1} would be saved over a snapshot file given as an --env; nothing was saved");
+                return UsageError;
+            }
+        }
+
         Directory.CreateDirectory(dir);
         foreach (var (i, name) in names)
         {
-            File.WriteAllText(Path.Combine(dir, name), SnapshotFile.Write(snapshots[i]), new UTF8Encoding(false));
+            SafeWrite.WriteText(Path.Combine(dir, name), SnapshotFile.Write(snapshots[i]), inputs);
         }
 
         return null;

@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text;
 
+using PowerOps.Core.Output;
+
 namespace PowerOps.Core.Plans;
 
 /// <summary>Exit code plus what to print: <see cref="Out"/> to stdout, <see cref="Err"/> to stderr.</summary>
@@ -79,7 +81,7 @@ public static class PlanSignOff
             sb.Append(doc.Lines[i]);
         }
 
-        File.WriteAllText(file, sb.ToString(), new UTF8Encoding(false));
+        SafeWrite.WriteText(file, sb.ToString(), []);
         return new SignOffResult(0, [$"signed off {PlanChecker.Display(folder, baseDir)} (sha256 {hash[..12]}…)"], warnings.Select(w => $"warning: {w}").ToList());
     }
 

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.Versioning;
 
 using PowerOps.Core.Drift;
 using PowerOps.Core.Output;
@@ -240,5 +241,175 @@ public class WritePathsTests : IDisposable
         Assert.Equal($"error: {report}: {SafeWrite.LinkReason}", Assert.Single(Lines(error)));
         Assert.Equal("victim", File.ReadAllText(victim));
         Assert.Equal(victim, new FileInfo(report).LinkTarget);
+    }
+
+    // ---- drift --save -------------------------------------------------------------------------------------------
+
+    private static Snapshot Named(string environment) => SnapshotFile.Load(DevFile) with { Environment = environment };
+
+    [Fact]
+    public void Save_into_a_folder_with_a_link_at_a_file_name_it_would_write_exits_2_and_saves_nothing()
+    {
+        var victim = Put("victim.txt", "victim");
+        var save = Directory.CreateDirectory(Path.Combine(_temp, "saved")).FullName;
+        var link = Path.Combine(save, "PowerOpsSeed.Beta.json");
+        Links.Create(link, victim);
+
+        var (code, output, error) = Run(
+            (_, value) => Named(value == "a" ? "Alpha" : "Beta"),
+            "drift", "--solution", "PowerOpsSeed", "--env", "a", "--env", "b", "--save", save);
+
+        Assert.Equal(2, code);
+        Assert.Equal("", output);
+        Assert.Equal("error: --env 2 would be saved to a symbolic link; nothing was saved", Assert.Single(Lines(error)));
+        Assert.Equal("victim", File.ReadAllText(victim));
+        Assert.Equal([link], Directory.GetFileSystemEntries(save));
+    }
+
+    [Fact]
+    public void Save_over_an_env_snapshot_file_exits_2_and_leaves_the_file()
+    {
+        var save = Directory.CreateDirectory(Path.Combine(_temp, "saved")).FullName;
+        var snapshot = Path.Combine(save, "PowerOpsSeed.Alpha.json");
+        File.Copy(DevFile, snapshot);
+        var before = File.ReadAllBytes(snapshot);
+
+        var (code, output, error) = Run(
+            (_, _) => Named("Alpha"),
+            "drift", "--solution", "PowerOpsSeed", "--env", snapshot, "--env", "b", "--save", save);
+
+        Assert.Equal(2, code);
+        Assert.Equal("", output);
+        Assert.Equal("error: --env 2 would be saved over a snapshot file given as an --env; nothing was saved", Assert.Single(Lines(error)));
+        Assert.Equal(before, File.ReadAllBytes(snapshot));
+    }
+
+    // ---- skills install -------------------------------------------------------------------------------------------
+
+    private string Repo => Directory.CreateDirectory(Path.Combine(_temp, "repo")).FullName;
+
+    private string Outside => Directory.CreateDirectory(Path.Combine(_temp, "outside")).FullName;
+
+    private static string FirstSkill => SkillsCommandShipped().Keys.First();
+
+    private static IReadOnlyDictionary<string, string> SkillsCommandShipped() => SkillsCommand.Shipped();
+
+    // Each row plants a link on the way (or at a file) that leads outside the repo; the repo folder is given in different spellings.
+    [Theory]
+    [InlineData("claude", "plain")]
+    [InlineData("claude/skills", "plain")]
+    [InlineData("skill folder", "plain")]
+    [InlineData("SKILL.md", "plain")]
+    [InlineData("agents unchanged", "plain")]
+    [InlineData("claude", "dot-dot")]
+    [InlineData("claude", "dot-slash")]
+    [InlineData("claude", "trailing")]
+    public void Skills_install_refuses_a_link_on_the_way_with_exit_2_and_writes_nothing_outside_the_repo(string link, string spelling)
+    {
+        var (repo, outside) = (Repo, Outside);
+        var skill = FirstSkill.Split('/')[0];
+        string refused;
+        switch (link)
+        {
+            case "claude":
+                Links.Create(Path.Combine(repo, ".claude"), outside, folder: true);
+                refused = Path.Combine(repo, ".claude");
+                break;
+            case "claude/skills":
+                Directory.CreateDirectory(Path.Combine(repo, ".claude"));
+                Links.Create(Path.Combine(repo, ".claude", "skills"), outside, folder: true);
+                refused = Path.Combine(repo, ".claude", "skills");
+                break;
+            case "skill folder":
+                Directory.CreateDirectory(Path.Combine(repo, ".claude", "skills"));
+                Links.Create(Path.Combine(repo, ".claude", "skills", skill), outside, folder: true);
+                refused = Path.Combine(repo, ".claude", "skills", skill);
+                break;
+            case "SKILL.md":
+                var victim = Put("victim.txt", "victim");
+                Directory.CreateDirectory(Path.Combine(repo, ".claude", "skills", skill));
+                Links.Create(Path.Combine(repo, ".claude", "skills", FirstSkill.Replace('/', Path.DirectorySeparatorChar)), victim);
+                refused = Path.Combine(repo, ".claude", "skills", FirstSkill.Replace('/', Path.DirectorySeparatorChar));
+                break;
+            case "agents unchanged":
+                Assert.Equal(0, Run("skills", "install", repo, "--agent", "claude").Code);
+                Directory.CreateDirectory(Path.Combine(repo, ".agents"));
+                Links.Create(Path.Combine(repo, ".agents", "skills"), Path.Combine(repo, ".claude", "skills"), folder: true);
+                refused = Path.Combine(repo, ".agents", "skills");
+                break;
+            default:
+                throw new InvalidOperationException(link);
+        }
+
+        var given = spelling switch
+        {
+            "dot-dot" => Path.GetRelativePath(Environment.CurrentDirectory, repo),
+            "dot-slash" => "." + Path.DirectorySeparatorChar + Path.GetRelativePath(Environment.CurrentDirectory, repo),
+            "trailing" => repo + Path.DirectorySeparatorChar,
+            _ => repo,
+        };
+        var before = Directory.GetFileSystemEntries(repo, "*", SearchOption.AllDirectories).Order().ToArray();
+
+        var (code, output, error) = Run("skills", "install", given);
+
+        Assert.Equal(2, code);
+        Assert.Equal("", output);
+        Assert.All(Lines(error), l => Assert.Equal($"error: {refused.Replace('\\', '/')}: {SafeWrite.LinkReason}", l));
+        Assert.Empty(Directory.GetFileSystemEntries(outside));
+        Assert.Equal(before, Directory.GetFileSystemEntries(repo, "*", SearchOption.AllDirectories).Order().ToArray());
+    }
+
+    [Fact]
+    public void Skills_install_into_a_repo_folder_that_is_itself_a_link_is_allowed()
+    {
+        var real = Directory.CreateDirectory(Path.Combine(_temp, "real")).FullName;
+        var link = Path.Combine(_temp, "repo-link");
+        Links.Create(link, real, folder: true);
+
+        var (code, _, error) = Run("skills", "install", link, "--agent", "claude");
+
+        Assert.Equal(0, code);
+        Assert.Equal("", error);
+        Assert.True(File.Exists(Path.Combine(real, ".claude", "skills", FirstSkill.Replace('/', Path.DirectorySeparatorChar))));
+    }
+
+    // ---- plan sign-off --------------------------------------------------------------------------------------------
+
+    private const string Approved = "---\nstatus: approved\nreview: skipped\n---\n# Plan\n";
+
+    private string PlanFolder() => Directory.CreateDirectory(Path.Combine(_temp, "docs", "plans", "site-visits")).FullName;
+
+    [Fact]
+    public void Plan_sign_off_through_a_linked_plan_md_still_exits_3_and_leaves_the_file_behind_it()
+    {
+        var victim = Put("victim.md", Approved);
+        var folder = PlanFolder();
+        Links.Create(Path.Combine(folder, "plan.md"), victim);
+
+        var (code, output, error) = Run("plan", "sign-off", folder);
+
+        Assert.Equal(3, code);
+        Assert.Equal("", output);
+        Assert.Contains("symbolic links are not read.", error);
+        Assert.Equal(Approved, File.ReadAllText(victim));
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void Plan_sign_off_keeps_the_file_mode_and_leaves_no_temp_file()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Unix modes.");
+        var folder = PlanFolder();
+        var plan = Path.Combine(folder, "plan.md");
+        File.WriteAllText(plan, Approved);
+        File.SetUnixFileMode(plan, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead);
+
+        var (code, output, _) = Run("plan", "sign-off", folder);
+
+        Assert.Equal(0, code);
+        Assert.StartsWith("signed off ", output);
+        Assert.Contains("status: signed-off", File.ReadAllText(plan));
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead, File.GetUnixFileMode(plan));
+        Assert.Empty(Directory.GetFiles(folder, ".powerops-*.tmp"));
     }
 }

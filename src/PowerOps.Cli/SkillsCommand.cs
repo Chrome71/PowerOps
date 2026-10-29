@@ -1,6 +1,8 @@
 using System.CommandLine;
 using System.Text;
 
+using PowerOps.Core.Output;
+
 namespace PowerOps.Cli;
 
 // Installs the planning skills embedded from the repo-root skills/ folder.
@@ -92,6 +94,20 @@ public static class SkillsCommand
             targets.Add((Path.Combine(root, ".agents", "skills"), false));
         }
 
+        // A link at a file or on the way down from the repo folder is refused before anything is read through it.
+        var baseDir = Directory.GetCurrentDirectory();
+        var refusals = targets
+            .SelectMany(t => Shipped().Keys.Select(rel => SafeWrite.Refusal(Path.Combine(t.Dir, rel), [], root)))
+            .OfType<WriteRefusal>()
+            .Select(r => $"error: {TextReport.Clean(Display(r.Path, baseDir))}: {r.Reason}")
+            .Distinct()
+            .ToList();
+        if (refusals.Count > 0)
+        {
+            refusals.ForEach(error.WriteLine);
+            return UsageError;
+        }
+
         // Plan every file first, so a conflict writes nothing.
         var plan = new List<(string File, string Content, string State)>();
         foreach (var (dir, isClaude) in targets)
@@ -108,7 +124,6 @@ public static class SkillsCommand
             }
         }
 
-        var baseDir = Directory.GetCurrentDirectory();
         var directories = plan.Where(p => p.State == "directory").ToList();
         if (directories.Count > 0)
         {
@@ -128,7 +143,7 @@ public static class SkillsCommand
             if (state != "unchanged")
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-                File.WriteAllText(file, content, new UTF8Encoding(false));
+                SafeWrite.WriteText(file, content, [], root);
             }
 
             output.WriteLine($"{state} {Display(file, baseDir)}");
