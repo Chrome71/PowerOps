@@ -55,13 +55,14 @@ On GitHub Actions, use the action: it writes a job summary and annotations, and 
 | [`drift`](docs/COMMANDS.md#drift) | Compares one solution across environments or saved snapshots |
 | [`deploy plan`](docs/COMMANDS.md#deploy-plan) | Says what importing solution zips would do to an environment |
 | [`deploy apply`](docs/COMMANDS.md#deploy-apply) | Imports a reviewed plan; refuses if the target or files changed |
+| [`deploy gate`](docs/COMMANDS.md#deploy-gate) | A hook check before Microsoft's import tools: allows only the plan's first import |
 | [`plan status`](docs/COMMANDS.md#plan-and-skills) | Checks every plan under `docs/plans/` |
 | [`plan sign-off`](docs/COMMANDS.md#plan-and-skills) | Writes the status, date and body hash into a plan's header |
 | [`plan facts`](docs/COMMANDS.md#plan-and-skills) | Prints environment and solution names as JSON |
 | [`skills install`](docs/COMMANDS.md#plan-and-skills) | Copies the planning skills into the repo |
 | [`mcp`](docs/COMMANDS.md#mcp) | Runs an MCP server whose tools run these commands |
 
-`settings apply`, `drift`, `deploy plan`, `deploy apply` and `plan facts` read an environment, so `pac` must be signed in, and `az` too for `drift` and `deploy` (`drift` can also compare saved snapshot files offline). The others work offline on files. Only `settings apply --apply` and `deploy apply --apply` write to an environment; without `--apply` they are dry runs.
+`settings apply`, `drift`, `deploy plan`, `deploy apply`, `deploy gate` and `plan facts` read an environment, so `pac` must be signed in, and `az` too for `drift` and `deploy` (`drift` can also compare saved snapshot files offline). The others work offline on files. Only `settings apply --apply` and `deploy apply --apply` write to an environment; without `--apply` they are dry runs.
 
 Every option, output format and exit code is in the [command reference](docs/COMMANDS.md).
 

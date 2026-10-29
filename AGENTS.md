@@ -68,7 +68,7 @@ Every recipe ends with the same checks, so run them last: `dotnet build`, `dotne
 
 ### Add a command
 
-1. Create `src/PowerOps.Cli/<Name>Command.cs`: `public static class <Name>Command` with `Create(TextWriter output, ...)` returning a `System.CommandLine` `Command` with `SetAction` (see `RulesCommand.cs`). Return the exit code: `0` ok, `1` findings or violations, `2` usage error, `3` unreadable input or internal error. Writes happen only behind an explicit flag.
+1. Create `src/PowerOps.Cli/<Name>Command.cs`: `public static class <Name>Command` with `Create(TextWriter output, ...)` returning a `System.CommandLine` `Command` with `SetAction` (see `RulesCommand.cs`). Return the exit code: `0` ok, `1` findings or violations, `2` usage error, `3` unreadable input or internal error. A command that a hook runs exits only `0` or `2`, because a hook blocks only on `2` (decision 39 in [docs/BUILD-PLAN.md](docs/BUILD-PLAN.md)). Writes happen only behind an explicit flag.
 2. Register it in `src/PowerOps.Cli/Program.cs` with `root.Subcommands.Add(<Name>Command.Create(...))`.
 3. Put report-building logic in `src/PowerOps.Core/Output/`, so the command stays thin and Core tests cover it.
 4. If the command prints JSON: add `schemaVersion` first using `JsonOutput.SchemaVersion` (`src/PowerOps.Core/Output/JsonOutput.cs`), create `docs/schemas/<name>.schema.json`, add a row to `docs/schemas/README.md`, add a `(prefix, schema)` entry to `Map` in `tests/PowerOps.Cli.Tests/OutputSchemaTests.cs`, and check a golden of the output with `Golden.Verify(output, "<name>.json")`. `OutputSchemaTests` validates every `tests/golden/*.json` against its schema and fails for a golden or a schema without a match.

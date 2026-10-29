@@ -13,115 +13,9 @@ namespace PowerOps.Cli.Tests;
 public sealed class DeployApplyCollection;
 
 [Collection("deploy apply")]
-public class DeployApplyCommandTests : IDisposable
+public class DeployApplyCommandTests : DeployTestBase
 {
-    private const string TargetValue = "https://secret-host-7f3a.crm.dynamics.com/";
-    private static readonly Guid TargetId = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
-    private static readonly string TargetIdText = TargetId.ToString();
-
-    private static readonly string Seed = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "powerops-seed", "v1");
-    private static readonly string ValidSettings = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "settings", "powerops-seed-v1.valid.json");
-    private static readonly string TestSnapshot = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "drift", "seed-test.json");
-
-    private readonly string _root = Directory.CreateTempSubdirectory("powerops-apply-").FullName;
-
-    public void Dispose()
-    {
-        Directory.Delete(_root, recursive: true);
-        GC.SuppressFinalize(this);
-    }
-
-    private string Folder => Dir("folder");
-
-    private string Stage => Dir("stage");
-
-    private string Out => Dir("out");
-
-    private string PlanFile => Path.Combine(Folder, "powerops-plan.json");
-
-    private string Scratch(string prefix) => Dir($"{prefix}-{Guid.NewGuid():N}");
-
-    private string Dir(string name) => Directory.CreateDirectory(Path.Combine(_root, name)).FullName;
-
-    // ---- fakes -------------------------------------------------------------------------------------------------
-
-    private sealed class FakeTarget
-    {
-        public Dictionary<string, Snapshot> Snaps { get; init; } = new(StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>What the second and later reads return; null for the same as the first.</summary>
-        public Dictionary<string, Snapshot>? After { get; init; }
-
-        public Dictionary<string, string?> Deps { get; init; } = [];
-
-        public Exception? Fail { get; init; }
-
-        public Exception? FailAfter { get; init; }
-
-        public string Name { get; init; } = "Contoso Test";
-
-        public int Calls { get; private set; }
-
-        public List<string[]> Solutions { get; } = [];
-
-        public DeployTarget Read(string target, IReadOnlyList<string> solutions, IReadOnlyList<string> dependencies)
-        {
-            Calls++;
-            Solutions.Add([target, .. solutions]);
-            if (Fail is not null || (Calls > 1 && FailAfter is not null))
-            {
-                throw (Calls > 1 ? FailAfter : null) ?? Fail!;
-            }
-
-            var snaps = Calls > 1 && After is not null ? After : Snaps;
-            return new DeployTarget(
-                Name, TargetId,
-                [.. solutions.Select(s => snaps.TryGetValue(s, out var snap) ? snap : new Snapshot(Name, s, false, null, null, true, [], [], [], []))],
-                dependencies.ToDictionary(d => d, d => Deps.GetValueOrDefault(d)));
-        }
-    }
-
-    private sealed class FakePac
-    {
-        public List<string[]> Calls { get; } = [];
-
-        public List<TimeSpan> Timeouts { get; } = [];
-
-        /// <summary>Answers import number n (from 0); null means success.</summary>
-        public Func<int, PacResult?>? Answer { get; init; }
-
-        /// <summary>Runs while import number n is in flight, before pac answers.</summary>
-        public Action<int>? During { get; init; }
-
-        public PacResult Run(IReadOnlyList<string> args, TimeSpan timeout)
-        {
-            Assert.Equal(["solution", "import"], args.Take(2));
-            Calls.Add([.. args]);
-            Timeouts.Add(timeout);
-            var n = Calls.Count - 1;
-            During?.Invoke(n);
-            return Answer?.Invoke(n) ?? new PacResult(true, false, 0, "imported\n");
-        }
-    }
-
-    private sealed record Outcome(int Code, string Out, string Err);
-
-    private static Outcome Run(FakeTarget fake, FakePac pac, params string[] args)
-    {
-        var (o, e) = (new StringWriter(), new StringWriter());
-        var code = Program.Run(args, o, e, pac.Run, null, fake.Read);
-        return new Outcome(code, o.ToString().ReplaceLineEndings("\n"), e.ToString().ReplaceLineEndings("\n"));
-    }
-
     private Outcome Apply(FakeTarget fake, FakePac pac, params string[] extra) => Run(fake, pac, ["deploy", "apply", PlanFile, "--target", TargetValue, .. extra]);
-
-    // Writes the plan file with `deploy plan --save`, as the action does, beside the zips.
-    private string MakePlan(FakeTarget? fake = null)
-    {
-        var r = Run(fake ?? SeedTarget(), new FakePac(), "deploy", "plan", Folder, "--target", TargetValue, "--save", PlanFile);
-        Assert.True(r.Code is 0 or 1, r.Err);
-        return PlanFile;
-    }
 
     private static JsonObject Json(Outcome r) => JsonNode.Parse(r.Out)!.AsObject();
 
@@ -134,68 +28,12 @@ public class DeployApplyCommandTests : IDisposable
         File.WriteAllText(PlanFile, doc.ToJsonString());
     }
 
-    // ---- inputs ------------------------------------------------------------------------------------------------
-
-    private static string Manifest(string name, string version, bool managed, params string[] requires) =>
-        $"""
-        <ImportExportXml><SolutionManifest>
-          <UniqueName>{name}</UniqueName><Version>{version}</Version><Managed>{(managed ? 1 : 0)}</Managed>
-          <Publisher><UniqueName>pub</UniqueName><CustomizationPrefix>pub</CustomizationPrefix></Publisher>
-          <MissingDependencies>{string.Concat(requires.Select(r => $"<MissingDependency><Required type=\"1\" schemaName=\"x\" solution=\"{r}\" /><Dependent type=\"29\" id=\"{{AA}}\" /></MissingDependency>"))}</MissingDependencies>
-        </SolutionManifest></ImportExportXml>
-        """;
-
-    private string SmallZip(string folder, string name, string version = "1.0.0.0", bool managed = true, string[]? requires = null, string? unique = null, params (string Path, string Text)[] files)
-    {
-        var dir = Scratch("small");
-        Directory.CreateDirectory(Path.Combine(dir, "Other"));
-        File.WriteAllText(Path.Combine(dir, "Other", "Solution.xml"), Manifest(unique ?? name, version, managed, requires ?? []));
-        foreach (var (path, text) in files)
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(dir, path))!);
-            File.WriteAllText(Path.Combine(dir, path), text);
-        }
-
-        var zip = Path.Combine(folder, name + ".zip");
-        SolutionZip.Create(dir, zip);
-        return zip;
-    }
-
-    private void SeedZip(string folder, bool settings = true, string? settingsText = null)
-    {
-        var dir = Path.Combine(Scratch("seed"), "v1");
-        foreach (var f in Directory.EnumerateFiles(Seed, "*", SearchOption.AllDirectories))
-        {
-            var to = Path.Combine(dir, Path.GetRelativePath(Seed, f));
-            Directory.CreateDirectory(Path.GetDirectoryName(to)!);
-            File.Copy(f, to);
-        }
-
-        var xml = Path.Combine(dir, "Other", "Solution.xml");
-        File.WriteAllText(xml, File.ReadAllText(xml).Replace("<Managed>0</Managed>", "<Managed>1</Managed>").Replace("<Version>1.0.0.0</Version>", "<Version>1.0.0.1</Version>"));
-        SolutionZip.Create(dir, Path.Combine(folder, "PowerOpsSeed.zip"));
-        if (settings)
-        {
-            File.WriteAllText(Path.Combine(folder, "PowerOpsSeed.settings.json"), settingsText ?? File.ReadAllText(ValidSettings));
-        }
-    }
-
     private static Snapshot Installed(string name, string version, bool managed = true) => new("Contoso Test", name, true, version, managed, true, [], [], [], []);
-
-    private static FakeTarget SeedTarget() => new() { Snaps = { ["PowerOpsSeed"] = SnapshotFile.Load(TestSnapshot) } };
 
     private static Dictionary<string, Snapshot> SeedAfter(string state)
     {
         var snap = SnapshotFile.Load(TestSnapshot);
         return new(StringComparer.OrdinalIgnoreCase) { ["PowerOpsSeed"] = snap with { Flows = [.. snap.Flows.Select(f => f with { State = state })] } };
-    }
-
-    // A chain A <- B <- C of managed zips (imported in that order), no settings files.
-    private void Chain()
-    {
-        SmallZip(Folder, "A");
-        SmallZip(Folder, "B", requires: ["A (1.0)"]);
-        SmallZip(Folder, "C", requires: ["B (1.0)"]);
     }
 
     private string SeedImportPath(string name) => Path.Combine(Path.GetFullPath(Folder), name);

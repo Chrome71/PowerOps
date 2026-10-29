@@ -22,7 +22,8 @@ public static class Program
             // On Windows this throws when no console is attached, for example an MCP server a GUI client started.
         }
 
-        return Run(args, Console.Out, Console.Error);
+        // The gate reads its hook input from stdin; a run from a terminal gets none, so it does not wait on the keyboard.
+        return Run(args, Console.Out, Console.Error, DefaultPac, input: () => Console.IsInputRedirected ? Console.OpenStandardInput() : null);
     }
 
     // Messages must not depend on the machine's culture ("index -1" is "index U+2212 1" under sv-SE). Main and Run both call this: the MCP handlers and the tests enter at Run.
@@ -30,12 +31,13 @@ public static class Program
         CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = CultureInfo.DefaultThreadCurrentCulture = CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 
     // Output and error writers are injectable so tests can capture them.
-    public static int Run(string[] args, TextWriter output, TextWriter error) =>
-        Run(args, output, error, (pacArgs, timeout) => new PacRunner(timeout: timeout).Run(pacArgs));
+    public static int Run(string[] args, TextWriter output, TextWriter error) => Run(args, output, error, DefaultPac);
+
+    private static PacResult DefaultPac(IReadOnlyList<string> pacArgs, TimeSpan timeout) => new PacRunner(timeout: timeout).Run(pacArgs);
 
     // The command tree; tests read it too (HandoffDocTests checks the commands a page names).
     internal static RootCommand Root(TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot>? driftLive = null,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? deployTarget = null)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? deployTarget = null, Func<Stream?>? input = null)
     {
         // The live reader (az runner, HttpClient) is built only when a run has a live --env.
         var reader = new Lazy<DriftLiveReader>(() => new DriftLiveReader(
@@ -58,7 +60,7 @@ public static class Program
         root.Subcommands.Add(SettingsCommand.Create(output, error, pac));
         root.Subcommands.Add(DriftCommand.Create(output, error, driftLive));
 
-        root.Subcommands.Add(DeployCommand.Create(output, error, pac, deployTarget));
+        root.Subcommands.Add(DeployCommand.Create(output, error, pac, deployTarget, input));
         root.Subcommands.Add(McpCommand.Create(error, pac, driftLive, deployTarget));
 
         return root;
@@ -66,13 +68,13 @@ public static class Program
 
     // The pac runner is injectable so tests of `settings apply` never call a real pac; so are the live reads of `drift` and `deploy plan`.
     public static int Run(string[] args, TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot>? driftLive = null,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? deployTarget = null)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? deployTarget = null, Func<Stream?>? input = null)
     {
         UseInvariantCulture();
         try
         {
             // No response files: `@file` is an ordinary argument, so a file cannot supply options.
-            var parse = Root(output, error, pac, driftLive, deployTarget).Parse(args, new ParserConfiguration { ResponseFileTokenReplacer = null });
+            var parse = Root(output, error, pac, driftLive, deployTarget, input).Parse(args, new ParserConfiguration { ResponseFileTokenReplacer = null });
             if (parse.Errors.Count > 0)
             {
                 // System.CommandLine returns 1 for parse errors; usage errors are 2 here.
