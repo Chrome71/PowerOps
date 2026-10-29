@@ -72,7 +72,7 @@ Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform
 | Phase | Deliverable | Done when |
 |---|---|---|
 | **0. Foundation** | Repo scaffolding, CI (build, test, lint), release pipeline, docs skeleton, fixture solutions | `dotnet tool install` of a first release that prints `--version`, published from CI (no release exists yet) |
-| **1. Offline analysis and diff** | `analyze` (14 rules, SARIF, baseline), `diff` (Markdown output), GitHub Action that comments on PRs | Running it on a real exported solution finds real issues, and the PR comment is readable |
+| **1. Offline analysis and diff** | `analyze` (rules, SARIF, baseline), `diff` (Markdown output), GitHub Action that comments on PRs | Running it on a real exported solution finds real issues, and the PR comment is readable |
 | **1b. Planning skills** | `plan`, `review-plan` and `implement` skills for Claude Code, Codex and other agents; `powerops skills install`; `powerops plan facts` (names-only environment facts); `powerops plan status` | A vague idea becomes a reviewed, signed-off plan, and CI fails if a plan was signed off by hand or edited after sign-off |
 | **1c. Agent base** | Versioned JSON output with schemas; fix hints on every finding; `powerops rules --json`; plan `depth` and `supersedes`; AGENTS.md recipes; dated sources in rule docs | An agent adds a rule from the recipe alone, and every JSON output validates against its schema |
 | **2. Settings and connections** | `settings generate/validate/apply`, and a check after import that the flows are on (`pac` can't turn one on) | Replaces a hand-written `deploymentsettings.json` workflow end to end |

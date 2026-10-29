@@ -19,7 +19,7 @@ Some tests skip themselves instead of failing:
 
 - `PackedToolTests` packs and installs the real tool, which is slow. Set `POWEROPS_SKIP_E2E=1` to skip it.
 - The tests of the scripts under `action/` and `docs/examples/` need `bash`, and some need `jq` or `git` too. They skip on Windows and when a program is not on `PATH`.
-- A few tests skip where the file system has no symbolic links or no line breaks in file names, or where a culture is not installed.
+- A few tests skip where the file system has no symbolic links or no line breaks in file names, or where a culture is not installed, and a few others skip on Windows or where a file lock does not apply.
 
 ## Commits
 

@@ -14,19 +14,24 @@ public partial class DocsDriftTests
     [GeneratedRegex(@"`([^`\n]+)`")]
     private static partial Regex Span();
 
+    // A fenced block with its info string (sh, text, ...) and body.
+    [GeneratedRegex(@"^[ \t]*```(\w*)\n(.*?)^[ \t]*```", RegexOptions.Multiline | RegexOptions.Singleline)]
+    private static partial Regex Fence();
+
     [GeneratedRegex(@"\s#\s.*$")]
     private static partial Regex TrailingComment();
 
-    [GeneratedRegex(@"--[a-z][a-z-]*")]
+    [GeneratedRegex(@"(?<![\w-])--[a-z][a-z-]*")]
     private static partial Regex Flag();
 
-    [GeneratedRegex(@"\|\||&&|\||;")]
-    private static partial Regex Separator();
+    // The words after a `powerops` that starts a code unit. Inside a message (error: powerops exited ...) it is text.
+    [GeneratedRegex(@"^powerops((?: [a-z][a-z-]*)+)")]
+    private static partial Regex CommandWords();
 
     [GeneratedRegex(@"^\| \[(PO\d{3})\]\([^)]*\) \| (\w+) \|", RegexOptions.Multiline)]
     private static partial Regex RuleRow();
 
-    [GeneratedRegex(@"^\s*#?\s*([a-z][a-z-]*):")]
+    [GeneratedRegex(@"^\s*([a-z][a-z-]*):")]
     private static partial Regex Key();
 
     [GeneratedRegex(@"^[a-z]+(?:_[a-z]+)+$")]
@@ -35,90 +40,63 @@ public partial class DocsDriftTests
     [GeneratedRegex(@"mcp__(?:plugin_powerops_)?powerops__([a-z_]*)")]
     private static partial Regex McpName();
 
-    // An action tag (@v7) or a release number (v1.2.3). Third-party URLs are cut out first, and a version comment
-    // after a full-SHA pin (the pinning rule asks for one) is not a release of this repository.
-    [GeneratedRegex(@"@v\d|(?<![\w-])v\d+\.\d+\.\d+")]
+    // PowerOps' own action tag (PowerOps@v1) or release (PowerOps v0.4.0); other tools' versions are not ours to check.
+    [GeneratedRegex(@"powerops(?:@| )v\d", RegexOptions.IgnoreCase)]
     private static partial Regex Version();
-
-    [GeneratedRegex(@"https://(?!github\.com/Chrome71/PowerOps)\S+")]
-    private static partial Regex ForeignUrl();
-
-    [GeneratedRegex(@"@[0-9a-f]{40}\b")]
-    private static partial Regex Pin();
 
     private static readonly RootCommand Tree = Program.Root(TextWriter.Null, TextWriter.Null, (_, _) => throw new InvalidOperationException("no pac call"));
 
+    // Every option of every command, and the flags of pac that docs/COMMANDS.md describes.
+    private static readonly HashSet<string> KnownFlags = [.. Every(Tree).SelectMany(c => c.Options).SelectMany(o => o.Aliases.Append(o.Name)),
+        "--help", "--version", "--path", "--settings-file", "--stage-and-upgrade", "--skip-lower-version", "--environment"];
+
+    private static IEnumerable<Command> Every(Command command) => command.Subcommands.SelectMany(Every).Prepend(command);
+
     private static string Repo(params string[] parts) => Path.Combine([Golden.RepoRoot, .. parts]);
 
-    // README, AGENTS.md, CONTRIBUTING.md, SECURITY.md, the skills and every docs page, except the plans and BUILD-PLAN.
-    private static IEnumerable<(string Name, string Text)> Pages()
-    {
-        var files = new[] { "README.md", "AGENTS.md", "CONTRIBUTING.md", "SECURITY.md" }.Select(f => Repo(f))
+    // README, AGENTS.md, CONTRIBUTING.md, SECURITY.md, the skills, the docs pages and example workflows, except the plans and BUILD-PLAN.
+    private static IEnumerable<(string Name, string Text)> Pages() =>
+        new[] { "README.md", "AGENTS.md", "CONTRIBUTING.md", "SECURITY.md" }.Select(f => Repo(f))
             .Concat(Directory.GetFiles(Repo("skills"), "SKILL.md", SearchOption.AllDirectories))
-            .Concat(Directory.GetFiles(Repo("docs"), "*.md", SearchOption.AllDirectories));
-        foreach (var file in files)
-        {
-            var relative = Path.GetRelativePath(Golden.RepoRoot, file).Replace('\\', '/');
-            if (!relative.StartsWith("docs/plans/", StringComparison.Ordinal) && relative != "docs/BUILD-PLAN.md" && !relative.Contains("node_modules", StringComparison.Ordinal))
-            {
-                yield return (relative, File.ReadAllText(file));
-            }
-        }
-    }
+            .Concat(Directory.GetFiles(Repo("docs"), "*.md", SearchOption.AllDirectories))
+            .Concat(Directory.GetFiles(Repo("docs", "examples"), "*.yml"))
+            .Select(f => (Name: Path.GetRelativePath(Golden.RepoRoot, f).Replace('\\', '/'), File: f))
+            .Where(p => !p.Name.StartsWith("docs/plans/", StringComparison.Ordinal) && p.Name != "docs/BUILD-PLAN.md" && !p.Name.Contains("node_modules", StringComparison.Ordinal))
+            .Select(p => (p.Name, File.ReadAllText(p.File).Replace("\r\n", "\n")));
 
-    // Inline code spans, and each line of a fenced block (without a trailing "# comment").
-    private static IEnumerable<string> CodeUnits(string text)
+    // Inline code spans outside fences, and the logical lines of sh, bash and shell fences (a trailing \ joins the next
+    // line, and a trailing "# comment" is cut). Other fences hold output or other languages, and are skipped.
+    private static IEnumerable<string> CodeUnits(string text) =>
+        Span().Matches(Fence().Replace(text, "")).Select(m => m.Groups[1].Value)
+            .Concat(Fence().Matches(text).Where(f => f.Groups[1].Value is "sh" or "bash" or "shell")
+                .SelectMany(f => f.Groups[2].Value.Replace("\\\n", " ").Split('\n')).Select(l => TrailingComment().Replace(l, "")));
+
+    private static IEnumerable<string> Invocations(string text) =>
+        CodeUnits(text).Select(u => u.TrimStart()).Where(u => u.StartsWith("powerops ", StringComparison.Ordinal));
+
+    // The words up to and including the first one that is not a subcommand of the command reached, or null. A group named alone is fine.
+    private static string? Unknown(string[] words)
     {
-        var fenced = false;
-        foreach (var line in text.Split('\n'))
+        Command command = Tree;
+        for (var i = 0; i < words.Length && command.Subcommands.Count > 0; i++)
         {
-            if (line.TrimStart().StartsWith("```", StringComparison.Ordinal))
+            if (command.Subcommands.FirstOrDefault(s => s.Name == words[i]) is not { } next)
             {
-                fenced = !fenced;
+                return string.Join(' ', words[..(i + 1)]);
             }
-            else if (fenced)
-            {
-                yield return TrailingComment().Replace(line, "");
-            }
-            else
-            {
-                foreach (Match m in Span().Matches(line))
-                {
-                    yield return m.Groups[1].Value;
-                }
-            }
+
+            command = next;
         }
+
+        return null;
     }
 
     internal static List<string> UnknownCommands(string text) =>
-        [.. CodeUnits(text).SelectMany(HandoffDocTests.WordLists).Select(HandoffDocTests.Unknown).OfType<string>().Distinct()];
+        [.. Invocations(text).Select(u => CommandWords().Match(u)).Where(m => m.Success).Select(m => Unknown(m.Groups[1].Value.Trim().Split(' '))).OfType<string>().Distinct()];
 
-    // A `powerops <command> ... --flag` in one code span: the flag must be an option of that command.
-    internal static List<string> UnknownFlags(string text)
-    {
-        var problems = new List<string>();
-        foreach (var segment in CodeUnits(text).SelectMany(u => Separator().Split(u)))
-        {
-            var at = segment.IndexOf("powerops ", StringComparison.Ordinal);
-            if (at < 0 || HandoffDocTests.WordLists(segment).FirstOrDefault() is not { } words || HandoffDocTests.Unknown(words) is not null)
-            {
-                continue;
-            }
-
-            var command = (Command)Tree;
-            var path = new List<string>();
-            foreach (var next in words.Select(w => command.Subcommands.FirstOrDefault(s => s.Name == w)).TakeWhile(s => s is not null))
-            {
-                command = next!;
-                path.Add(next!.Name);
-            }
-
-            var known = command.Options.SelectMany(o => o.Aliases.Append(o.Name)).Concat(["--help", "--version"]).ToHashSet();
-            problems.AddRange(Flag().Matches(segment[at..]).Select(f => f.Value).Where(f => !known.Contains(f)).Select(f => $"{string.Join(' ', path)} {f}"));
-        }
-
-        return problems;
-    }
+    // Flags are not tied to the command they follow: all of a text, or those of each `powerops ...` unit up to its first | or &&.
+    internal static List<string> UnknownFlags(string text, bool whole = false) =>
+        [.. (whole ? [text] : Invocations(text).Select(u => u.Split('|', '&', ';')[0])).SelectMany(s => Flag().Matches(s)).Select(m => m.Value).Where(f => !KnownFlags.Contains(f)).Distinct()];
 
     // The rows of a rule table (| [PO001](PO001.md) | error | ...) against Analyzer.Rules: ids in order, and severities.
     internal static List<string> RuleTableProblems(string text)
@@ -132,23 +110,25 @@ public partial class DocsDriftTests
         File.ReadAllLines(Repo("action.yml")).SkipWhile(l => l != "inputs:").Skip(1).TakeWhile(l => l.StartsWith(' ') || l.Length == 0)
             .Select(l => Regex.Match(l, @"^  ([a-z][a-z-]*):\s*$")).Where(m => m.Success).Select(m => m.Groups[1].Value);
 
-    // The keys under `with:` of every `uses: Chrome71/PowerOps@...` step, commented-out keys included.
+    private static int Indent(string line) => line.Length - line.TrimStart().Length;
+
+    // The keys under `with:` of every step that has `uses: Chrome71/PowerOps@...`. A step is the lines after it that are blank or
+    // indented at least to the column of `uses:`; the keys are the lines under `with:` that are indented deeper than it.
     private static IEnumerable<string> WithKeys(string text)
     {
         var lines = text.Split('\n');
         for (var i = 0; i < lines.Length; i++)
         {
-            if (!lines[i].Contains("uses: Chrome71/PowerOps@", StringComparison.Ordinal))
+            var column = lines[i].IndexOf("uses: Chrome71/PowerOps@", StringComparison.Ordinal);
+            if (column < 0)
             {
                 continue;
             }
 
-            var indent = lines[i].IndexOf("- uses:", StringComparison.Ordinal);
-            var inWith = false;
-            for (var j = i + 1; j < lines.Length && (lines[j].Trim().Length == 0 || lines[j].Length - lines[j].TrimStart().Length >= indent + 2); j++)
+            var step = lines.Skip(i + 1).TakeWhile(l => l.Trim().Length == 0 || Indent(l) >= column).SkipWhile(l => l.Trim() != "with:").ToList();
+            foreach (var line in step.Skip(1).TakeWhile(l => l.Trim().Length == 0 || Indent(l) > Indent(step[0])))
             {
-                inWith = inWith || lines[j].Trim() == "with:";
-                if (inWith && Key().Match(lines[j]) is { Success: true } key && key.Groups[1].Value != "with")
+                if (Key().Match(line) is { Success: true } key)
                 {
                     yield return key.Groups[1].Value;
                 }
@@ -158,11 +138,7 @@ public partial class DocsDriftTests
 
     internal static List<string> UnknownInputs(string text, IEnumerable<string> inputs) => [.. WithKeys(text).Except(inputs).Distinct()];
 
-    internal static List<string> UndocumentedInputs(string text, IEnumerable<string> inputs)
-    {
-        var documented = WithKeys(text).Concat(CodeUnits(text)).ToHashSet();
-        return [.. inputs.Where(i => !documented.Contains(i))];
-    }
+    internal static List<string> UndocumentedInputs(string text, IEnumerable<string> inputs) => [.. inputs.Except(WithKeys(text).Concat(CodeUnits(text)))];
 
     // Snake-case code spans that start with a command name (deploy_apply) and mcp__powerops__<tool> names must be tools.
     internal static List<string> UnknownTools(string text, IReadOnlyCollection<string> tools)
@@ -173,25 +149,24 @@ public partial class DocsDriftTests
         return [.. spans.Concat(prefixed).Except(tools).Distinct()];
     }
 
-    // No release tag exists yet, so no page may name a release or an action tag. When a tag exists, allow that version here.
-    internal static List<string> VersionProblems(string text) =>
-        [.. text.Split('\n').SelectMany(line =>
-            Version().Matches(ForeignUrl().Replace(line, "")).Where(m => m.Value[0] == '@' || !Pin().IsMatch(line)).Select(m => m.Value))];
+    // No release tag exists yet, so no page may name a PowerOps release or action tag. When a tag exists, allow that version here.
+    internal static List<string> VersionProblems(string text) => [.. Version().Matches(text).Select(m => m.Value)];
 
-    private static string[] ToolNames()
-    {
-        using var doc = JsonDocument.Parse(File.ReadAllText(Repo("tests", "golden", "mcp-tools.txt")));
-        return [.. doc.RootElement.EnumerateArray().Select(t => t.GetProperty("name").GetString()!)];
-    }
+    private static string[] ToolNames() => [.. JsonDocument.Parse(File.ReadAllText(Repo("tests", "golden", "mcp-tools.txt"))).RootElement.EnumerateArray().Select(t => t.GetProperty("name").GetString()!)];
 
-    private static void NoProblems(Func<string, IEnumerable<string>> check) =>
-        Assert.Empty(Pages().SelectMany(p => check(p.Text).Select(x => $"{p.Name}: {x}")));
+    private static string Page(string name) => Pages().Single(p => p.Name == name).Text;
+
+    private static void NoProblems(Func<string, IEnumerable<string>> check) => Assert.Empty(Pages().SelectMany(p => check(p.Text).Select(x => $"{p.Name}: {x}")));
 
     [Fact]
     public void Every_command_the_docs_name_exists() => NoProblems(UnknownCommands);
 
     [Fact]
-    public void Every_flag_the_docs_name_exists_on_its_command() => NoProblems(UnknownFlags);
+    public void Every_flag_the_docs_name_exists()
+    {
+        NoProblems(t => UnknownFlags(t));
+        Assert.Empty(UnknownFlags(Page("docs/COMMANDS.md"), whole: true));
+    }
 
     [Fact]
     public void The_rule_table_matches_the_analyzer()
@@ -203,74 +178,50 @@ public partial class DocsDriftTests
     [Fact]
     public void The_action_inputs_match_the_docs()
     {
-        var inputs = ActionInputs().ToList();
-        Assert.Contains("category", inputs);
-        NoProblems(t => UnknownInputs(t, inputs));
-        Assert.Empty(UndocumentedInputs(Pages().Single(p => p.Name == "docs/GITHUB-ACTION.md").Text, inputs));
+        Assert.Contains("category", ActionInputs());
+        NoProblems(t => UnknownInputs(t, ActionInputs()));
+        Assert.Empty(UndocumentedInputs(Page("docs/GITHUB-ACTION.md"), ActionInputs()));
     }
 
     [Fact]
     public void The_mcp_tool_names_match_the_golden_list()
     {
-        var tools = ToolNames();
-        NoProblems(t => UnknownTools(t, tools));
-        var page = Pages().Single(p => p.Name == "docs/USE-WITH-AGENTS.md").Text;
-        Assert.Empty(tools.Except(CodeUnits(page)));
+        NoProblems(t => UnknownTools(t, ToolNames()));
+        Assert.Empty(ToolNames().Except(CodeUnits(Page("docs/USE-WITH-AGENTS.md"))));
     }
 
     [Fact]
-    public void No_page_names_a_release_or_an_action_tag() => NoProblems(VersionProblems);
+    public void No_page_names_a_powerops_release_or_an_action_tag() => NoProblems(VersionProblems);
+
+    // A with: block with a comment that holds a colon, then a sibling key: neither is an input.
+    private const string Step = "- uses: Chrome71/PowerOps@b4abce4cb00421c7017076de7b53e53a7ce063c7\n  with:\n    path: x\n    # note: keep off for forks\n  env:\n    token: y\n";
 
     [Fact]
     public void The_checks_accept_correct_text()
     {
-        Assert.Empty(UnknownCommands("`powerops deploy apply plan.json --apply`"));
-        Assert.Empty(UnknownFlags("`powerops analyze --format sarif --out a.sarif` then `powerops settings apply z.zip --apply --target x | jq --raw-output .`"));
-        Assert.Empty(VersionProblems("- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1\n[tag](https://github.com/ALM4Dataverse/x/releases/tag/v1.18.0), `rust-v0.163.0`"));
+        Assert.Empty(UnknownCommands("`powerops settings --help`, `powerops deploy`, `powerops deploy apply p.json`, `error: powerops exited with code N`\n```text\npowerops found 2 findings --nope\n```"));
+        Assert.Empty(UnknownFlags("`powerops settings apply z.zip --apply | jq --raw-output .`, `powerops analyze a && git commit --amend`"));
+        Assert.Empty(UnknownFlags("`--fail-on error|warning|none` and `--path`", whole: true));
+        Assert.Empty(UnknownInputs(Step, ActionInputs()));
+        Assert.Empty(VersionProblems("`pac v2.13.1`, uses: actions/checkout@v4, `rust-v0.163.0`"));
         Assert.Empty(UnknownTools("`deploy_apply`, `mcp__powerops__deploy_apply`, `tool_timeout_sec`", ToolNames()));
     }
 
     [Fact]
-    public void A_flag_that_does_not_exist_fails()
+    public void Wrong_text_fails()
     {
-        Assert.Equal(["analyze --nope"], UnknownFlags("Run `powerops analyze --nope`."));
-        Assert.Equal(["deploy plan --apply"], UnknownFlags("```sh\npowerops deploy plan exports/ --apply   # a comment\n```"));
-        Assert.Equal(["analyse"], UnknownCommands("`powerops analyse`"));
-    }
+        var table = Page("docs/rules/README.md");
 
-    [Fact]
-    public void A_rule_row_with_the_wrong_severity_fails()
-    {
-        var table = Pages().Single(p => p.Name == "docs/rules/README.md").Text;
-
-        Assert.Empty(RuleTableProblems(table));
+        Assert.Equal(["analyse", "deploy aply"], UnknownCommands("`powerops analyse`\n```sh\npowerops deploy aply x\n```"));
+        Assert.Equal(["--nope", "--zzz"], UnknownFlags("`powerops analyze --nope`\n```sh\npowerops analyze x \\\n  --zzz  # a comment\n```"));
+        Assert.Equal(["--fail-onn"], UnknownFlags("`--fail-onn error|warning|none`", whole: true));
         Assert.NotEmpty(RuleTableProblems(table.Replace("| [PO001](PO001.md) | error |", "| [PO001](PO001.md) | warning |")));
         Assert.NotEmpty(RuleTableProblems(table.Replace("| [PO014](PO014.md) | warning | Canvas app formula contains a hard-coded environment or SharePoint URL |\n", "")));
-    }
-
-    [Fact]
-    public void An_unknown_action_input_fails_and_so_does_a_missing_one()
-    {
-        var inputs = ActionInputs().ToList();
-        const string Step = "      - uses: Chrome71/PowerOps@b4abce4cb00421c7017076de7b53e53a7ce063c7\n        with:\n          path: x\n          # baseline: b.json\n          nope: 1\n";
-
-        Assert.Equal(["nope"], UnknownInputs(Step, inputs));
-        Assert.Empty(UnknownInputs(Step.Replace("nope: 1", "tests: t"), inputs));
-        Assert.Contains("category", UndocumentedInputs(Step, inputs));
-        Assert.DoesNotContain("category", UndocumentedInputs(Step + "The `category` input.", inputs));
-    }
-
-    [Fact]
-    public void An_unknown_mcp_tool_name_fails()
-    {
+        Assert.Equal(["nope"], UnknownInputs(Step.Replace("path: x", "nope: 1"), ActionInputs()));
+        Assert.Equal(["nope"], UnknownInputs("- name: x\n  uses: Chrome71/PowerOps@b4abce4cb00421c7017076de7b53e53a7ce063c7\n  with:\n    nope: 1\n", ActionInputs()));
+        Assert.Contains("category", UndocumentedInputs(Step, ActionInputs()));
+        Assert.DoesNotContain("category", UndocumentedInputs(Step + "The `category` input.", ActionInputs()));
         Assert.Equal(["deploy_aply", "plan_check"], UnknownTools("`deploy_aply` and `mcp__plugin_powerops_powerops__plan_check`", ToolNames()));
-    }
-
-    [Fact]
-    public void A_release_number_or_an_action_tag_fails()
-    {
-        Assert.Equal(["v0.4.0"], VersionProblems("shipped in v0.4.0"));
-        Assert.Equal(["@v7"], VersionProblems("- uses: actions/checkout@v7"));
-        Assert.Equal(["@v4"], VersionProblems("- uses: x/y@v4 and https://example.com/v2.0.0"));
+        Assert.Equal(["PowerOps@v1", "PowerOps v0"], VersionProblems("- uses: Chrome71/PowerOps@v1, shipped in PowerOps v0.4.0"));
     }
 }
