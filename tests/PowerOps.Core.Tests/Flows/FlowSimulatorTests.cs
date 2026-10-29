@@ -519,6 +519,26 @@ public class FlowSimulatorTests
         Assert.Contains("more than 100000 action calls", run.Message);
     }
 
+    // The copies made inside expressions count against the same budget: the probes ran 57 s (string) and over 90 s (json of string) before.
+    [Theory]
+    [InlineData("@length(string(triggerBody()))")]
+    [InlineData("@length(json(string(triggerBody())))")]
+    [InlineData("@length(replace(string(triggerBody()), '1', '22'))")]
+    [InlineData("@length(split(string(triggerBody()), ','))")]
+    public void A_Foreach_over_200000_trigger_items_that_copies_the_trigger_in_an_expression_hits_the_copy_budget_within_10_seconds(string expression)
+    {
+        var items = string.Join(',', Enumerable.Repeat("1", 200_000));
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        var run = Run(
+            "{\"Loop\":{\"type\":\"Foreach\",\"foreach\":\"@triggerBody()?['items']\",\"actions\":{\"C\":{\"type\":\"Compose\",\"inputs\":\"" + expression + "\",\"runAfter\":{}}},\"runAfter\":{}}}",
+            In("{\"body\":{\"items\":[" + items + "]}}"));
+
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), watch.Elapsed.ToString());
+        Assert.Equal(FlowRunOutcome.Unsupported, run.Outcome);
+        Assert.Contains("pass 256 MB", run.Message);
+    }
+
     [Fact]
     public void Twenty_thousand_appends_of_1000_characters_hit_the_copy_budget_within_10_seconds()
     {

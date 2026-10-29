@@ -5,9 +5,17 @@ namespace PowerOps.Core.Readers;
 /// <summary>Reads a whole file but counts the bytes actually read, so a special file (<c>/dev/zero</c>, whose <c>FileInfo.Length</c> is 0) or a file that grows can't pass a size check.</summary>
 public static class BoundedRead
 {
-    /// <exception cref="InvalidDataException">The file is longer than <paramref name="maxBytes"/>; the message starts with the path. Reading stops one byte past the cap.</exception>
+    /// <summary>The largest solution zip PowerOps reads; Learn limits a solution file to 95 MB, and the zip is read whole to hash it.</summary>
+    public const long MaxZipBytes = 100L * 1024 * 1024;
+
+    /// <exception cref="InvalidDataException">The file is longer than <paramref name="maxBytes"/>; the message starts with the path. A regular file over the cap is refused without being read; a special file is read up to one byte past it.</exception>
     public static byte[] ReadAllBytes(string path, long maxBytes)
     {
+        if (new FileInfo(path) is { Exists: true } info && info.Length > maxBytes)
+        {
+            throw new InvalidDataException($"{path}: larger than {Describe(maxBytes)}.");
+        }
+
         using var stream = File.OpenRead(path);
         using var buffer = new MemoryStream();
         var chunk = new byte[81_920];
@@ -32,5 +40,5 @@ public static class BoundedRead
         return reader.ReadToEnd();
     }
 
-    private static string Describe(long bytes) => bytes % (1024 * 1024) == 0 ? $"{bytes / (1024 * 1024)} MB" : $"{bytes} bytes";
+    private static string Describe(long bytes) => bytes % (1024 * 1024) == 0 ? $"{bytes / (1024 * 1024)} MB" : bytes == 1 ? "1 byte" : $"{bytes} bytes";
 }

@@ -29,7 +29,26 @@ public class BoundedReadTests
         var e = Assert.Throws<InvalidDataException>(() => BoundedRead.ReadAllBytes(Path.Combine(t.Path, "a.txt"), 0));
         Assert.EndsWith(": larger than 0 MB.", e.Message);
         e = Assert.Throws<InvalidDataException>(() => BoundedRead.ReadAllBytes(Path.Combine(t.Path, "a.txt"), 1));
-        Assert.EndsWith(": larger than 1 bytes.", e.Message);
+        Assert.EndsWith(": larger than 1 byte.", e.Message);
+    }
+
+    [Fact]
+    public void A_regular_file_over_the_cap_is_refused_from_its_length_without_being_read()
+    {
+        using var t = new TempFolder();
+        var path = Path.Combine(t.Path, "sparse.bin");
+        const long Cap = 4L * 1024 * 1024 * 1024;
+        using (var f = File.Create(path))
+        {
+            f.SetLength(Cap + 1); // sparse: reading it would pass 2 GB of a MemoryStream
+        }
+
+        var watch = Stopwatch.StartNew();
+
+        var e = Assert.Throws<InvalidDataException>(() => BoundedRead.ReadAllBytes(path, Cap));
+
+        Assert.Equal($"{path}: larger than 4096 MB.", e.Message);
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(1), watch.Elapsed.ToString());
     }
 
     [Fact]

@@ -42,14 +42,30 @@ public sealed class PlanSettingsLimitsTests : IDisposable
         ["R-7 plan status: binary file under 1 MB is skipped with a warning"] = t => t.Binary("small.bin", 1000).Status(0, "out", "  warning: {p}/small.bin: a binary file, not read"),
         ["R-7 plan status: a 2 MB image passes"] = t => t.Binary("mockup.png", 2 * MB).Status(0, "out", "  warning: {p}/mockup.png: larger than 1 MB, not read"),
         ["R-7 plan status: plan.md of exactly 1 MB"] = t => t.PlanOfLength(MB).Status(0, "out", PlanOk),
-        ["R-7 plan status: plan.md of 1 MB and a byte"] = t => t.PlanOfLength(MB + 1).Status(3, "err", "error: {P}" + Path.DirectorySeparatorChar + "plan.md: larger than 1 MB."),
-        ["R-7 plan status: plan.md is a link to /dev/zero"] = t => t.PlanLink("/dev/zero").Status(3, "err", "error: {P}" + Path.DirectorySeparatorChar + "plan.md: " + SymbolicLink),
-        ["R-7 plan status: plan.md is a link to a file outside the folder"] = t => t.PlanLink(t.Outside("plan.md", "---\nstatus: draft\nreview: pending\n---\n")).Status(3, "err", "error: {P}" + Path.DirectorySeparatorChar + "plan.md: " + SymbolicLink),
+        ["R-7 plan status: plan.md of 1 MB and a byte"] = t => t.PlanOfLength(MB + 1).Status(1, "out", "  error: {p}/plan.md: larger than 1 MB."),
+        ["R-7 plan status: plan.md is a link to /dev/zero"] = t => t.PlanLink("/dev/zero").Status(1, "out", "  error: {p}/plan.md: " + SymbolicLink),
+        ["R-7 plan status: plan.md is a link to a file outside the folder"] = t => t.PlanLink(t.Outside("plan.md", "---\nstatus: draft\nreview: pending\n---\n")).Status(1, "out", "  error: {p}/plan.md: " + SymbolicLink),
         ["R-7 plan status: review.md is a link to /dev/zero"] = t => t.Link("review.md", "/dev/zero").Status(0, "out", "  warning: {p}/review.md: a symbolic link, not read"),
         ["R-7 plan sign-off: file of 1 MB and a byte is skipped with a warning"] = t => t.Pad("big.txt", MB + 1).SignOff(0, "err", "warning: {p}/big.txt: larger than 1 MB, not read"),
         ["R-7 plan sign-off: link to /dev/zero is skipped"] = t => t.Link("zero.txt", "/dev/zero").SignOff(0, "out", "signed off "),
         ["R-7 plan sign-off: plan.md is a link to /dev/zero"] = t => t.PlanLink("/dev/zero").SignOff(3, "err", "error: {P}" + Path.DirectorySeparatorChar + "plan.md: " + SymbolicLink),
         ["R-7 plan sign-off: plan.md of 1 MB and a byte"] = t => t.PlanOfLength(MB + 1).SignOff(3, "err", "error: {P}" + Path.DirectorySeparatorChar + "plan.md: larger than 1 MB."),
+
+        // Review of M26: text that is not UTF-8, links above the plan folders, one bad plan.md, names with line breaks
+        ["R-7 plan status: a UTF-16 file with a byte order mark holding a URL is scanned"] = t => t.Utf16("note.txt", "see https://contoso.example/x").Status(1, "out", "  error: {p}/note.txt:1: looks like a URL"),
+        ["R-7 plan status: a PNG-like file with NULs and no byte order mark is skipped with a warning"] = t => t.PngLike("mockup.png").Status(0, "out", "  warning: {p}/mockup.png: a binary file, not read"),
+        ["R-7 plan status: link at docs/plans is refused"] = t => t.PlansLink().Status(3, "err", "error: {T}docs" + Path.DirectorySeparatorChar + "plans: " + SymbolicLink),
+        ["R-7 plan status: link at docs is refused"] = t => t.DocsLink().Status(3, "err", "error: {T}docs: " + SymbolicLink),
+        ["R-7 plan status: link at the root argument is refused"] = t => t.RootLink(),
+        ["R-7 plan sign-off: link at the plan folder argument is refused"] = t => t.PlanFolderArgLink(),
+        ["R-7 plan status: a plan folder that is a link is skipped with a warning"] = t => t.LinkedPlanFolder().Status(0, "err", "warning: {p}: a symbolic link, not read"),
+        ["R-7 plan status: a bad plan.md is that plan's violation"] = t => t.PlanOfLength(MB + 1).GoodPlan("y").Status(1, "out", "  error: {p}/plan.md: larger than 1 MB."),
+        ["R-7 plan status: the other plan is still checked after a bad plan.md"] = t => t.PlanOfLength(MB + 1).GoodPlan("y").Status(1, "out", "2 plans, 1 violation, 0 warnings"),
+        ["R-7 plan status: a plan.md that is a link is that plan's violation and the other plan is checked"] = t => t.PlanLink("/dev/zero").GoodPlan("y").Status(1, "out", "{T}docs/plans/y: approved, review skipped"),
+        ["R-7 plan status: newline in a file name cannot start a line (violation)"] = t => t.Pad("a\n::warning::injected", 20, "http://a ").Status(1, "out", "  error: {p}/a ::warning::injected:1: looks like a URL"),
+        ["R-7 plan status: newline in a file name cannot start a line (warning)"] = t => t.Binary("b\n::warning::injected", 10).Status(0, "out", "  warning: {p}/b ::warning::injected: a binary file, not read"),
+        ["R-7 plan sign-off: newline in a file name cannot start a line (warning)"] = t => t.Binary("b\n::warning::injected", 10).SignOff(0, "err", "warning: {p}/b ::warning::injected: a binary file, not read"),
+        ["R-7 plan sign-off: newline in a file name cannot start a line (error)"] = t => t.Pad("a\n::warning::injected", 20, "http://a ").SignOff(1, "err", "error: {p}/a ::warning::injected:1: looks like a URL"),
 
         // R-10: settings, baseline, snapshot and deploy files
         ["R-10 settings validate: /dev/zero as the settings file"] = t => t.Validate("/dev/zero", 3, "err", "error: /dev/zero: larger than 1 MB."),
@@ -81,7 +97,7 @@ public sealed class PlanSettingsLimitsTests : IDisposable
     [MemberData(nameof(Names))]
     public void Hostile_input_gives_its_exit_code_in_time_with_the_expected_path_prefixed_line(string name)
     {
-        Assert.SkipWhen(OperatingSystem.IsWindows() && (name.Contains("link", StringComparison.Ordinal) || name.Contains("/dev/zero", StringComparison.Ordinal)), "Links and /dev/zero are Unix; creating a link needs privileges on Windows.");
+        Assert.SkipWhen(OperatingSystem.IsWindows() && (name.Contains("link", StringComparison.Ordinal) || name.Contains("/dev/zero", StringComparison.Ordinal) || name.Contains("newline", StringComparison.Ordinal)), "Links, /dev/zero and a line break in a file name are Unix; creating a link needs privileges on Windows.");
         var c = Cases[name](this);
         var o = new StringWriter();
         var e = new StringWriter();
@@ -96,6 +112,7 @@ public sealed class PlanSettingsLimitsTests : IDisposable
         var prefix = c.Prefix.Replace("{P}", PlanDir, StringComparison.Ordinal).Replace("{p}", PlanDir.Replace('\\', '/'), StringComparison.Ordinal).Replace("{T}", _temp + Path.DirectorySeparatorChar, StringComparison.Ordinal);
         Assert.Contains(lines, l => l.StartsWith(prefix, StringComparison.Ordinal));
         Assert.All(lines, l => Assert.True(l.Length < 600, $"a line of {l.Length} characters"));
+        Assert.DoesNotContain(lines, l => l.StartsWith("::", StringComparison.Ordinal));
     }
 
     // ---- the command each case ends in -------------------------------------------------------------------------
@@ -233,6 +250,73 @@ public sealed class PlanSettingsLimitsTests : IDisposable
         Directory.CreateSymbolicLink(Path.Combine(PlanDir, "a"), Path.Combine(PlanDir, "b"));
         Directory.CreateSymbolicLink(Path.Combine(PlanDir, "b"), Path.Combine(PlanDir, "a"));
         File.CreateSymbolicLink(Path.Combine(PlanDir, "self.txt"), Path.Combine(PlanDir, "self.txt"));
+        return this;
+    }
+
+    private PlanSettingsLimitsTests Utf16(string name, string text)
+    {
+        System.IO.File.WriteAllText(Path.Combine(Plan().PlanDir, name), text, Encoding.Unicode); // Encoding.Unicode writes the byte order mark
+        return this;
+    }
+
+    // The start of a PNG and a URL, then NULs, as an image has.
+    private PlanSettingsLimitsTests PngLike(string name)
+    {
+        byte[] bytes = [0x89, (byte)'P', (byte)'N', (byte)'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0x0D, .. Encoding.ASCII.GetBytes("http://a.example"), 0, 0, 0];
+        System.IO.File.WriteAllBytes(Path.Combine(Plan().PlanDir, name), bytes);
+        return this;
+    }
+
+    private PlanSettingsLimitsTests GoodPlan(string name)
+    {
+        var dir = Directory.CreateDirectory(Path.Combine(_temp, "docs", "plans", name)).FullName;
+        System.IO.File.WriteAllText(Path.Combine(dir, "plan.md"), "---\nstatus: approved\nreview: skipped\n---\n# Plan\n");
+        return this;
+    }
+
+    // A repo outside the temp folder with a plan x that holds a URL; returns its folder.
+    private string OutsideRepo()
+    {
+        var repo = Directory.CreateDirectory(Path.Combine(_temp, "outside", Guid.NewGuid().ToString("N"))).FullName;
+        var plan = Directory.CreateDirectory(Path.Combine(repo, "docs", "plans", "x")).FullName;
+        System.IO.File.WriteAllText(Path.Combine(plan, "plan.md"), "---\nstatus: approved\nreview: skipped\n---\n# Plan\n");
+        System.IO.File.WriteAllText(Path.Combine(plan, "note.txt"), "see https://contoso.example/x");
+        return repo;
+    }
+
+    private PlanSettingsLimitsTests PlansLink()
+    {
+        Directory.CreateDirectory(Path.Combine(_temp, "docs"));
+        Directory.CreateSymbolicLink(Path.Combine(_temp, "docs", "plans"), Path.Combine(OutsideRepo(), "docs", "plans"));
+        return this;
+    }
+
+    private PlanSettingsLimitsTests DocsLink()
+    {
+        Directory.CreateSymbolicLink(Path.Combine(_temp, "docs"), Path.Combine(OutsideRepo(), "docs"));
+        return this;
+    }
+
+    // The root argument itself is a link to a repo.
+    private Case RootLink()
+    {
+        var root = Path.Combine(_temp, "root");
+        Directory.CreateSymbolicLink(root, OutsideRepo());
+        return new(["plan", "status", root], 3, "err", "error: {T}root: " + SymbolicLink);
+    }
+
+    // The plan folder argument of sign-off is a link.
+    private Case PlanFolderArgLink()
+    {
+        var link = Path.Combine(_temp, "planlink");
+        Directory.CreateSymbolicLink(link, Path.Combine(OutsideRepo(), "docs", "plans", "x"));
+        return new(["plan", "sign-off", link], 3, "err", "error: {T}planlink: " + SymbolicLink);
+    }
+
+    private PlanSettingsLimitsTests LinkedPlanFolder()
+    {
+        Directory.CreateDirectory(Path.Combine(_temp, "docs", "plans"));
+        Directory.CreateSymbolicLink(PlanDir, Path.Combine(OutsideRepo(), "docs", "plans", "x"));
         return this;
     }
 

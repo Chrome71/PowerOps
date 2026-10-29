@@ -35,6 +35,10 @@ public class ExpressionTests
             _ => throw new ExpressionException($"No outputs for '{action}'."),
         };
 
+        public void ChargeCopy(long characters)
+        {
+        }
+
         public JsonNode? TriggerOutputs() => Trigger;
 
         public JsonNode? Variable(string name) => name switch

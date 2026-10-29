@@ -40,7 +40,9 @@ public static class PlanCommand
             }
 
             var baseDir = Directory.GetCurrentDirectory();
-            var plans = PlanChecker.Discover(root).Select(f => PlanChecker.Check(f, baseDir)).ToList();
+            var skipped = new List<string>();
+            var plans = PlanChecker.Discover(root, skipped).Select(f => PlanChecker.Check(f, baseDir)).ToList();
+            skipped.ForEach(f => error.WriteLine($"warning: {TextReport.Clean(PlanChecker.Display(f, baseDir))}: a symbolic link, not read"));
             if (parse.GetValue(json))
             {
                 PlanStatusReport.WriteJson(plans, output);
@@ -72,8 +74,8 @@ public static class PlanCommand
             }
 
             var result = PlanSignOff.Run(parse.GetValue(plan)!, Directory.GetCurrentDirectory(), DateOnly.FromDateTime(DateTime.Now));
-            result.Out.ToList().ForEach(output.WriteLine);
-            result.Err.ToList().ForEach(error.WriteLine);
+            result.Out.ToList().ForEach(l => output.WriteLine(TextReport.Clean(l)));
+            result.Err.ToList().ForEach(l => error.WriteLine(TextReport.Clean(l)));
             return result.ExitCode;
         }));
         return command;

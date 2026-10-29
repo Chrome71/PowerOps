@@ -36,8 +36,10 @@ public static partial class PlanChecker
     };
 
     /// <summary>The plan.md for a plan file or a folder holding one; null if there is none.</summary>
+    /// <exception cref="InvalidDataException">The path is a link; the message starts with the path.</exception>
     public static string? ResolvePlanFile(string path)
     {
+        RefuseLink(path);
         if (File.Exists(path))
         {
             return path;
@@ -47,31 +49,69 @@ public static partial class PlanChecker
         return Directory.Exists(path) && File.Exists(file) ? file : null;
     }
 
-    /// <summary>The plan files under <paramref name="path"/>: the path itself, a plan.md in it, or every docs/plans/*/plan.md (ordinal order).</summary>
-    public static IReadOnlyList<string> Discover(string path)
+    /// <summary>The plan files under <paramref name="path"/>: the path itself, a plan.md in it, or every docs/plans/*/plan.md (ordinal order). A plan folder that is a link is left out and added to <paramref name="skippedLinks"/>.</summary>
+    /// <exception cref="InvalidDataException"><paramref name="path"/>, its docs folder or its docs/plans folder is a link; the message starts with that path.</exception>
+    public static IReadOnlyList<string> Discover(string path, ICollection<string>? skippedLinks = null)
     {
         if (ResolvePlanFile(path) is { } single)
         {
             return [single];
         }
 
-        var plans = System.IO.Path.Combine(path, "docs", "plans");
+        var docs = System.IO.Path.Combine(path, "docs");
+        RefuseLink(docs);
+        var plans = System.IO.Path.Combine(docs, "plans");
+        RefuseLink(plans);
         if (!Directory.Exists(plans))
         {
             return [];
         }
 
-        return Directory.EnumerateDirectories(plans, "*", new EnumerationOptions { AttributesToSkip = FileAttributes.ReparsePoint, IgnoreInaccessible = true })
-            .Select(d => System.IO.Path.Combine(d, "plan.md"))
-            .Where(File.Exists)
-            .Order(StringComparer.Ordinal)
-            .ToList();
+        var found = new List<string>();
+        foreach (var folder in Directory.EnumerateDirectories(plans, "*", new EnumerationOptions { IgnoreInaccessible = true }))
+        {
+            var plan = System.IO.Path.Combine(folder, "plan.md");
+            if (!File.Exists(plan))
+            {
+                continue;
+            }
+
+            if (new DirectoryInfo(folder).LinkTarget is not null)
+            {
+                skippedLinks?.Add(folder);
+            }
+            else
+            {
+                found.Add(plan);
+            }
+        }
+
+        return [.. found.Order(StringComparer.Ordinal)];
+    }
+
+    // Links are never followed: a link can point at a device or at a folder outside the repo, and its files' names and line numbers would be printed.
+    private static void RefuseLink(string path)
+    {
+        if (new FileInfo(path).LinkTarget is not null)
+        {
+            throw new InvalidDataException($"{path}: is a symbolic link; symbolic links are not read.");
+        }
     }
 
     public static PlanReport Check(string planFile, string baseDir)
     {
         var folder = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(planFile))!;
-        var doc = PlanDocument.Parse(ReadPlan(planFile));
+        PlanDocument doc;
+        try
+        {
+            doc = PlanDocument.Parse(ReadPlan(planFile));
+        }
+        catch (InvalidDataException ex)
+        {
+            // One unreadable plan.md is that plan's violation; the other plans are still checked.
+            return new PlanReport(Display(folder, baseDir), null, null, null, null, null, null, 0, null, false, [ex.Message.Replace(planFile, Display(planFile, baseDir), StringComparison.Ordinal)], []);
+        }
+
         var violations = new List<string>();
         var warnings = new List<string>();
         var reviewFile = System.IO.Path.Combine(folder, "review.md");
@@ -159,16 +199,17 @@ public static partial class PlanChecker
 
     /// <summary>The text of a plan.md (also read by sign-off). A link is refused: it can point outside the folder, or at a device.</summary>
     /// <exception cref="InvalidDataException">The file is a link or over 1 MB; the message starts with the path.</exception>
-    internal static string ReadPlan(string planFile) =>
-        new FileInfo(planFile).LinkTarget is not null
-            ? throw new InvalidDataException($"{planFile}: is a symbolic link; symbolic links are not read.")
-            : BoundedRead.ReadAllText(planFile, MaxFileBytes);
+    internal static string ReadPlan(string planFile)
+    {
+        RefuseLink(planFile);
+        return BoundedRead.ReadAllText(planFile, MaxFileBytes);
+    }
 
     /// <summary>The text of a file in a plan folder, or null with a warning when it is a link, binary or over 1 MB.</summary>
     private static string? ReadScannable(string file, string baseDir, ICollection<string> warnings)
     {
         string? skipped = null;
-        byte[] bytes = [];
+        string? text = null;
         if (new FileInfo(file).LinkTarget is not null)
         {
             skipped = "a symbolic link";
@@ -177,8 +218,12 @@ public static partial class PlanChecker
         {
             try
             {
-                bytes = BoundedRead.ReadAllBytes(file, MaxFileBytes);
-                skipped = Array.IndexOf(bytes, (byte)0, 0, Math.Min(bytes.Length, 8192)) >= 0 ? "a binary file" : null;
+                // Decoded by byte order mark first (UTF-16 text is full of NULs); a NUL left in the text means a binary file.
+                text = BoundedRead.ReadAllText(file, MaxFileBytes);
+                if (text.AsSpan(0, Math.Min(text.Length, 8192)).Contains('\0'))
+                {
+                    skipped = "a binary file";
+                }
             }
             catch (InvalidDataException)
             {
@@ -197,8 +242,7 @@ public static partial class PlanChecker
             return null;
         }
 
-        using var reader = new StreamReader(new MemoryStream(bytes));
-        return reader.ReadToEnd();
+        return text;
     }
 
     private static IEnumerable<string> Lines(string text)
@@ -241,7 +285,7 @@ public static partial class PlanChecker
     }
 
     /// <summary>Relative to <paramref name="baseDir"/> when underneath it, otherwise the full path; forward slashes.</summary>
-    internal static string Display(string path, string baseDir)
+    public static string Display(string path, string baseDir)
     {
         var rel = System.IO.Path.GetRelativePath(baseDir, path);
         var under = !System.IO.Path.IsPathRooted(rel) && rel != ".." && !rel.StartsWith(".." + System.IO.Path.DirectorySeparatorChar, StringComparison.Ordinal);

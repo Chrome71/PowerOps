@@ -14,7 +14,6 @@ public static class DeployCommand
     private const int UsageError = 2;
     private const int InternalError = 3;
     private const long MaxSettingsBytes = 1024 * 1024;
-    private const long MaxZipBytes = 100L * 1024 * 1024; // Learn limits a solution file to 95 MB; the zip is read whole to hash it
     private const string SettingsSuffix = ".settings.json";
 
     /// <param name="pac">Runs pac; <c>deploy apply</c> uses it for the imports only.</param>
@@ -338,7 +337,7 @@ public static class DeployCommand
             var input = plan.Inputs.Zips.First(z => z.Zip == step.Zip);
             var zip = Path.Combine(folder, step.Zip);
             var settings = step.Settings is null ? null : Path.Combine(folder, step.Settings);
-            var changed = Changed(zip, input.ZipSha256) ? step.Zip : settings is not null && Changed(settings, input.SettingsSha256) ? step.Settings : null;
+            var changed = Changed(zip, input.ZipSha256, BoundedRead.MaxZipBytes) ? step.Zip : settings is not null && Changed(settings, input.SettingsSha256, MaxSettingsBytes) ? step.Settings : null;
             if (changed is not null)
             {
                 return $"{changed} changed after the re-plan read it, so it was not imported.";
@@ -370,14 +369,14 @@ public static class DeployCommand
         }
     }
 
-    // True when the file's SHA-256 is not `expected`, or it cannot be read.
-    private static bool Changed(string path, string? expected)
+    // True when the file's SHA-256 is not `expected`, or it cannot be read, or it is now over the cap the first read had.
+    private static bool Changed(string path, string? expected, long maxBytes)
     {
         try
         {
-            return DeployPlan.Sha256Hex(File.ReadAllBytes(path)) != expected;
+            return DeployPlan.Sha256Hex(BoundedRead.ReadAllBytes(path, maxBytes)) != expected;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {
             return true;
         }
@@ -517,7 +516,7 @@ public static class DeployCommand
     {
         try
         {
-            var bytes = BoundedRead.ReadAllBytes(path, MaxZipBytes);
+            var bytes = BoundedRead.ReadAllBytes(path, BoundedRead.MaxZipBytes);
             var solution = SolutionLoader.Load(path);
             var settingsName = System.IO.Path.GetFileNameWithoutExtension(name) + SettingsSuffix;
             var settingsPath = System.IO.Path.Combine(folder, settingsName);

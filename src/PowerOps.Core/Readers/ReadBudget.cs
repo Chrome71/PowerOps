@@ -7,7 +7,7 @@ internal sealed class ReadBudget(
     long maxNodes = 15_000_000,
     int maxEntries = 100_000,
     int maxFiles = 100_000,
-    long maxZipBytes = 100L * 1024 * 1024)
+    long maxZipBytes = BoundedRead.MaxZipBytes)
 {
     private long _remaining = maxTotalBytes;
     private long _nodesLeft = maxNodes;

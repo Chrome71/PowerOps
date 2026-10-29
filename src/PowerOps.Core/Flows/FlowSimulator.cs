@@ -327,8 +327,8 @@ public static class FlowSimulator
             }
         }
 
-        /// <summary>Adds bytes copied by an operation (2 a character) to the run's total, so a loop of appends can't copy without limit.</summary>
-        private void ChargeCopy(long characters)
+        /// <summary>Adds bytes copied by an operation (2 a character) to the run's total, so a loop of appends or of string functions can't copy without limit.</summary>
+        public void ChargeCopy(long characters)
         {
             _bytes += 2 * characters;
             CheckBudget();
