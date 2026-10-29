@@ -1,0 +1,31 @@
+# Decisions: m33-review-fixes
+
+## Round 1
+
+### Q1. How does `deploy apply` report an import that timed out?
+1. The timed-out solution's `import` is a new value `unknown`; `status` stays `failed`, exit 3; the message says the outcome is unknown and to check the import history, then names what was imported before it (recommended)
+2. A new top-level `status` value `unknown` as well
+3. Only the message changes
+Answer: 1. The review asked for three states: not attempted (`not-run`), confirmed (`ok`, `failed`) and outcome unknown. The row of the solution is where the outcome is unknown, and the run as a whole did fail (exit 3, no rollback), so `status: failed` stays true. A new top-level value would make every consumer handle a fourth run state for one row's doubt. Option 3 leaves `import: failed` on an import that may have succeeded. The value is added to the schema enum without a new `schemaVersion`: nothing has been released, so no consumer exists. `settings apply` already prints the timeout text without "Nothing was imported" and its step enum has no per-solution row, so it is not changed.
+
+### Q2. Which files count as inputs when a command writes a report?
+1. Reverse M28 Q2 for every command that reads files it found: `analyze` and `baseline` (the zips found), `diff` (the solution each folder resolved to), `test` (flow test files and solution paths), `deploy plan` (zips and settings files) and `deploy apply --out` (the zips and settings files of the plan's folder), as well as the files named (recommended)
+2. Only `test` and `deploy plan`, as the review named
+3. Also every file a reader opens inside an unpacked solution folder
+Answer: 1. The user asked on 2026-10-29 to fix every review finding, and U-2 reverses M28 Q2, whose option 2 named `analyze`, `diff`, `test` and `deploy plan`; leaving one of them on the old answer would keep the hole for that command. The fresh review showed that `diff` resolves a folder through `SolutionDiscovery.Find` (DiffCommand.cs:32-54) and that `deploy apply` reads the plan folder's zips (R1, R18), so both are in. Each command lists its files offline before its refusal, so the refusal still exits 2 before the work and before any tenant read (R2). Option 3 needs the list of files a reader opened before the work runs, which no reader gives; the residual (naming `Other/Solution.xml` of a scanned folder as `--out`) goes under Assumptions. A report written into the scanned folder still works, because the folder is not a file input: the Action's `--save` writes `powerops-plan.json`, which is neither a zip nor a settings file.
+
+### Q3. When do the planning skills read environment facts?
+1. `powerops-plan` asks which environment the plan targets and whether `pac` is signed in to it, and runs `plan facts` only after the user names it and says yes; facts that name another environment are not used or written. The fast path never runs it. `powerops-review-plan` runs it only when its parent passes the user's confirmation from that session; otherwise it reviews from repo evidence (recommended)
+2. Neither skill runs `plan facts`; the user pastes the facts
+Answer: 1. It is the rule in docs/COMMANDS.md:121 and the MCP `plan_facts` description: the user names the environment before the read, not after (R5). The reviewer is a fresh subagent with no conversation of its own, so the header's `environment:` alone is not an environment named in its session; its parent, which talked to the user, passes the confirmation. The fast path asks only the route and leaves `environment: null`, so it has nothing named to read (R6). Option 2 drops a useful read that is safe once the environment is named.
+
+## Log
+
+- 2026-10-29: plan started from the review report of 2026-10-29 at the request of the session that ran the review, to fix all 13 findings
+- read on 2026-10-29: the review report and both reviewers' notes; AGENTS.md; BUILD-PLAN's Phase 6 rows and the M28 and M32 plans (layout); every source line the report names
+- depth: quick
+- approved 2026-10-29 by the building session under the user's delegation of 2026-10-22 (autonomous milestone mode)
+- the user's scope, relayed 2026-10-29 by the reviewer session: "All 13, Opus signs off" (the master session confirmed from both transcripts that it was the later of two answers)
+- fresh review (powerops-reviewer, Sonnet, fresh context) 2026-10-29: 0 High, 8 Medium, 10 Low (R1 to R18); all fixed in `plan.md` and this file (see `review.md`). Q2 now covers `diff` and `deploy apply` and lists files before the refusal; Q3 asks for the environment before the read and keeps the reviewer to repo evidence unless its parent passes the confirmation. The reviewer tried F-6's update lines on SDK 10.0.113 (`install` and `update --source` keep the old 0.0.0 build; `uninstall` then `install` takes the new one)
+- the same reviewer re-read the fixed plan 2026-10-29: R1 to R8 resolved, no new High or Medium; four new Low (R19 to R22), three fixed and one accepted under Assumptions
+- signed off 2026-10-29 by the building session (Opus), as the user chose ("All 13, Opus signs off"): no High or Medium finding is open
