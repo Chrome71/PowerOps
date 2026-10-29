@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <!-- The Action builds this project from source in consumers' jobs, and locked mode checks each package's content hash; the test projects have no lock file because of dependabot-core#13950. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="PowerOps.Core.Tests" />
     <InternalsVisibleTo Include="PowerOps.Cli.Tests" />

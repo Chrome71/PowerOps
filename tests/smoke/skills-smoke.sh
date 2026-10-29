@@ -21,7 +21,7 @@ failures=0
 fail() { echo "FAIL [$scenario]: $*"; failures=$((failures + 1)); }
 
 # Build the CLI once and put a `powerops` wrapper on PATH for the agent.
-dotnet build "$repo_root/src/PowerOps.Cli" -c Release -o "$work/bin" --nologo -v quiet >"$work/build.log" 2>&1 ||
+dotnet build "$repo_root/src/PowerOps.Cli" -c Release -p:RestoreLockedMode=true -o "$work/bin" --nologo -v quiet >"$work/build.log" 2>&1 ||
   { cat "$work/build.log"; exit 1; }
 mkdir -p "$work/path"
 printf '#!/bin/sh\nexec dotnet "%s/bin/powerops.dll" "$@"\n' "$work" >"$work/path/powerops"

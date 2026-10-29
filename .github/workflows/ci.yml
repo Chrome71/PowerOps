@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+# Microsoft.Testing.Platform (xunit.v3) sends telemetry unless this is 1.
+env:
+  TESTINGPLATFORM_TELEMETRY_OPTOUT: '1'
+
 jobs:
   build:
     strategy:
@@ -15,12 +19,17 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
-      - run: dotnet build -c Release
+      - run: dotnet build -c Release -p:RestoreLockedMode=true
+      - name: The Action's build, in locked mode
+        run: dotnet build src/PowerOps.Cli -c Release -p:RestoreLockedMode=true
       - run: dotnet test -c Release --no-build
         env:
           POWEROPS_REQUIRE_TOOLS: ${{ runner.os != 'Windows' && '1' || '' }}
@@ -28,13 +37,23 @@ jobs:
   package:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
-      - run: dotnet format --verify-no-changes
-      - run: dotnet pack src/PowerOps.Cli -c Release -o artifacts
+      - run: dotnet restore --locked-mode
+      # dotnet list package exits 0 even when it finds a vulnerable package, so the script reads the JSON.
+      - name: Fail on a vulnerable package
+        shell: bash
+        run: |
+          dotnet list package --vulnerable --include-transitive --format json --no-restore > vulnerable.json
+          bash .github/scripts/vulnerable.sh vulnerable.json
+      - run: dotnet format --verify-no-changes --no-restore
+      - run: dotnet pack src/PowerOps.Cli -c Release -o artifacts --no-restore
       - name: Smoke test the packed tool
         run: |
           dotnet tool install --tool-path ./tool --source ./artifacts PowerOps --prerelease
@@ -43,8 +62,11 @@ jobs:
 
   action:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./
         with:
           path: tests/fixtures/powerops-seed/v2
@@ -55,11 +77,14 @@ jobs:
   # Type-checks and lists the Playwright starter; running it needs a person's sign-in (docs/examples/playwright/README.md).
   playwright-example:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: docs/examples/playwright
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24

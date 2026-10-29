@@ -96,4 +96,10 @@ public sealed class ActionYmlTests
         Assert.Equal("${{ github.event.pull_request.head.repo.full_name }}", env["PO_HEAD_REPO"]);
         Assert.DoesNotContain("PO_FORK", env.Keys.Cast<string>());
     }
+
+    [Fact]
+    public void The_build_restores_in_locked_mode()
+    {
+        Assert.Equal("dotnet build src/PowerOps.Cli -c Release -p:RestoreLockedMode=true", Text(Steps().Single(s => Text(s, "name") == "Build PowerOps"), "run"));
+    }
 }

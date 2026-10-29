@@ -19,7 +19,7 @@ steps:
       # tests: flowtests     # *.flowtest.json files to run; see "Merge gate: flow tests"
 ```
 
-No release is tagged yet, so these snippets pin a commit of `main` (the action builds PowerOps from source). Replace it with the full SHA of the newest commit of `main`. Pull requests from forks cannot upload SARIF (their token has no `security-events` permission); they still get the job summary and the annotations. The `category` input (default `powerops`) is the code scanning category of the SARIF upload; set it to tell several analyses in one repository apart.
+No release is tagged yet, so these snippets pin a commit of `main` (the action builds PowerOps from source, in locked mode: a package that differs from the committed `packages.lock.json` files fails the build). Replace it with the full SHA of the newest commit of `main`. Pull requests from forks cannot upload SARIF (their token has no `security-events` permission); they still get the job summary and the annotations. The `category` input (default `powerops`) is the code scanning category of the SARIF upload; set it to tell several analyses in one repository apart.
 
 The log of the analysis, flow test and diff steps keeps only powerops' own `error:` and `note:` lines (a `note:` names a link inside a solution that was not followed or read); other text, which a solution could fill, stays out of the log. When the analysis exits with code 3 or more without an `error:` line (a crash, a missing .NET), its log gets `error: powerops exited with code N`.
 

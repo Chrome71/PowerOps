@@ -4,6 +4,8 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
     ignore:
       # 9.x is under the OSMF EULA (see #22); patches on 8.0 stay allowed.
       - dependency-name: "JsonSchema.Net"
@@ -12,3 +14,11 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+  - package-ecosystem: npm
+    directory: "/docs/examples/playwright"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"

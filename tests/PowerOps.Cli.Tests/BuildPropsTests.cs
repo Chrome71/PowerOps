@@ -15,4 +15,22 @@ public class BuildPropsTests
         Assert.Equal("true", props.Descendants("TreatWarningsAsErrors").Single().Value);
         Assert.All(new[] { "NU1900", "NU1901", "NU1902", "NU1903", "NU1904", "NU1905" }, c => Assert.Contains(c, codes));
     }
+
+    [Fact]
+    public void Only_the_shipped_projects_have_a_lock_file_for_the_locked_mode_restore()
+    {
+        Assert.Empty(XDocument.Load(Path.Combine(Golden.RepoRoot, "Directory.Build.props")).Descendants("RestorePackagesWithLockFile"));
+
+        foreach (var project in new[] { "PowerOps.Cli", "PowerOps.Core" })
+        {
+            var folder = Path.Combine(Golden.RepoRoot, "src", project);
+            Assert.Equal("true", XDocument.Load(Path.Combine(folder, project + ".csproj")).Descendants("RestorePackagesWithLockFile").Single().Value);
+            Assert.True(File.Exists(Path.Combine(folder, "packages.lock.json")), project);
+        }
+
+        foreach (var project in new[] { "PowerOps.Cli.Tests", "PowerOps.Core.Tests" })
+        {
+            Assert.False(File.Exists(Path.Combine(Golden.RepoRoot, "tests", project, "packages.lock.json")), project);
+        }
+    }
 }
