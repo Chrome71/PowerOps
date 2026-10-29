@@ -191,7 +191,7 @@ public class SettingsApplyCommandTests : IDisposable
         var r = Run(Pac(import: () => new PacResult(true, false, 1, "pac out text\n", "pac err text\n")), "settings", "apply", SeedZip(), "--settings", Valid, "--apply", "--target", "Contoso Dev", "--format", "json");
 
         Assert.Equal(3, r.Code);
-        Assert.Equal("environment: Contoso Dev\n  | pac out text\n  | pac err text\n", r.Err);
+        Assert.Equal("environment: Contoso Dev\n  | pac out text\n  | pac err text\n", r.Err.ReplaceLineEndings("\n"));
         Assert.DoesNotContain("pac out text", r.Out);
         Assert.DoesNotContain("pac err text", r.Out);
         var root = JsonDocument.Parse(r.Out).RootElement;
