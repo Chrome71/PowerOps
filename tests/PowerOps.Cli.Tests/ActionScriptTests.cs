@@ -293,7 +293,7 @@ public sealed class ActionScriptTests : IDisposable
     [Fact]
     public void Powerops_passes_stdout_and_the_exit_code_and_logs_only_error_and_note_lines_of_stderr()
     {
-        Require("bash");
+        Tools.Require("bash");
         var temp = NewDir("powerops");
         WriteStub(temp, "dotnet", DotnetStub);
         File.WriteAllText(Path.Combine(temp, "stdout.txt"), "the report\n");
@@ -310,7 +310,7 @@ public sealed class ActionScriptTests : IDisposable
     [Fact]
     public void Powerops_names_an_exit_of_3_or_more_that_printed_no_error_line()
     {
-        Require("bash");
+        Tools.Require("bash");
         var temp = NewDir("powerops");
         WriteStub(temp, "dotnet", DotnetStub);
         File.WriteAllText(Path.Combine(temp, "stderr.txt"), "You must install .NET to run this application.\n");
@@ -329,7 +329,7 @@ public sealed class ActionScriptTests : IDisposable
     [InlineData("", 0)]
     public void Powerops_adds_no_line_when_stderr_has_an_error_line_or_the_exit_is_below_3(string stderr, int exit)
     {
-        Require("bash");
+        Tools.Require("bash");
         var temp = NewDir("powerops");
         WriteStub(temp, "dotnet", DotnetStub);
         File.WriteAllText(Path.Combine(temp, "stderr.txt"), stderr);
@@ -354,7 +354,7 @@ public sealed class ActionScriptTests : IDisposable
     [Fact]
     public void Annotate_escapes_percent_line_breaks_and_the_property_separators()
     {
-        Require("bash", "jq");
+        Tools.Require("bash", "jq");
         var temp = NewDir("annotate");
 
         var run = Run("annotate.sh", temp, temp, [], stdin: AnnotateJson);
@@ -370,7 +370,7 @@ public sealed class ActionScriptTests : IDisposable
     [Fact]
     public void Summary_under_the_limit_is_appended_unchanged()
     {
-        Require("bash");
+        Tools.Require("bash");
         var temp = NewDir("summary");
         var summary = Path.Combine(temp, "summary.md");
         var report = "## PowerOps analyze\n\n" + new string('x', 1_048_576 - 22) + "\n"; // exactly 1 MiB
@@ -385,7 +385,7 @@ public sealed class ActionScriptTests : IDisposable
     [Fact]
     public void Summary_over_the_limit_is_cut_at_a_line_end_with_a_last_line_that_says_how_much()
     {
-        Require("bash");
+        Tools.Require("bash");
         var temp = NewDir("summary");
         var summary = Path.Combine(temp, "summary.md");
         var report = "## PowerOps analyze\n\n" + string.Concat(Enumerable.Range(0, 30_000).Select(i => $"| row {i} | {new string('é', 20)} |\n"));
@@ -409,7 +409,7 @@ public sealed class ActionScriptTests : IDisposable
     [Fact]
     public void Summary_with_one_line_over_the_limit_keeps_the_start_of_it_as_valid_UTF8()
     {
-        Require("bash");
+        Tools.Require("bash");
         var temp = NewDir("summary");
         var summary = Path.Combine(temp, "summary.md");
         var report = new string('\u20AC', 349_525) + "ab"; // 3 bytes each: 1 MiB + 1 byte on one line, and the cut falls inside a character
@@ -579,7 +579,7 @@ public sealed class ActionScriptTests : IDisposable
     [Fact]
     public void Diff_compares_the_first_parent_with_the_work_tree()
     {
-        SkipUnless("git");
+        Tools.RequireAnywhere("git");
         var clone = MakeMergeClone();
 
         var run = RunDiff(clone, exit: 1);
@@ -597,7 +597,7 @@ public sealed class ActionScriptTests : IDisposable
     [Fact]
     public void Diff_without_a_parent_writes_the_fixed_text()
     {
-        SkipUnless("git");
+        Tools.RequireAnywhere("git");
         var repo = Path.Combine(_root, "single");
         Git(_root, "init", "-q", "-b", "main", repo);
         File.WriteAllText(Path.Combine(repo, "a.txt"), "a");
@@ -613,7 +613,7 @@ public sealed class ActionScriptTests : IDisposable
     [Fact]
     public void Diff_with_a_failed_fetch_writes_the_fixed_text()
     {
-        SkipUnless("git");
+        Tools.RequireAnywhere("git");
         var clone = MakeMergeClone();
         Git(clone, "remote", "set-url", "origin", "file://" + Path.Combine(_root, "missing"));
 
@@ -627,7 +627,7 @@ public sealed class ActionScriptTests : IDisposable
     [Fact]
     public void Diff_with_exit_3_writes_the_fixed_text_without_the_tool_text()
     {
-        SkipUnless("git");
+        Tools.RequireAnywhere("git");
         var clone = MakeMergeClone();
 
         var run = RunDiff(clone, exit: 3, stderr: "secret tool text");
@@ -640,7 +640,7 @@ public sealed class ActionScriptTests : IDisposable
     [Fact]
     public void Diff_logs_only_error_and_note_lines_of_stderr_so_a_name_cannot_add_a_workflow_command()
     {
-        SkipUnless("git");
+        Tools.RequireAnywhere("git");
         var clone = MakeMergeClone();
 
         var run = RunDiff(clone, exit: 1, stderr: "note: sol/Other/x.xml: a link\n::error::forged\n  ::add-mask::z\nerror: b\n");
@@ -706,7 +706,7 @@ public sealed class ActionScriptTests : IDisposable
 
     private Result RunComment(string list, string? markdown = "## PowerOps diff\n\nbody\n", string fork = "false", string ghExit = "0", string ghFailOn = "")
     {
-        Require("bash", "jq");
+        Tools.Require("bash", "jq");
         var temp = NewDir("comment");
         WriteStub(temp, "gh", GhStub);
         File.WriteAllText(Path.Combine(temp, "list.json"), list);
@@ -733,7 +733,7 @@ public sealed class ActionScriptTests : IDisposable
 
     private Result RunPlan(int exit, bool save, string? stderr = null, bool debug = false, string? folder = null)
     {
-        Require("bash");
+        Tools.Require("bash");
         var temp = NewDir("plan");
         WriteStub(temp, "dotnet", DotnetStub);
         File.WriteAllText(Path.Combine(temp, "markdown.md"), "## PowerOps deploy plan\n\nthe plan\n");
@@ -763,7 +763,7 @@ public sealed class ActionScriptTests : IDisposable
 
     private Result RunApply(int exit, string? stderr = null, bool debug = false, string apply = "true", string target = "Contoso Test", string? headRepo = "contoso/widgets", string eventName = "pull_request", string report = "the report\n")
     {
-        Require("bash");
+        Tools.Require("bash");
         var temp = NewDir("apply");
         WriteStub(temp, "dotnet", DotnetStub);
         File.WriteAllText(Path.Combine(temp, "stdout.txt"), report);
@@ -798,7 +798,7 @@ public sealed class ActionScriptTests : IDisposable
 
     private Result RunTest(int exit, string tests = "flowtests", string json = TestJson, bool noOut = false, string? jsonExit = null, string? stderr = null)
     {
-        Require("bash", "jq");
+        Tools.Require("bash", "jq");
         var temp = NewDir("test");
         WriteStub(temp, "dotnet", DotnetStub);
         File.WriteAllText(Path.Combine(temp, "markdown.md"), "## Flow tests\n\nthe report\n");
@@ -827,7 +827,7 @@ public sealed class ActionScriptTests : IDisposable
 
     private Result RunDiff(string workDir, int exit, string? stderr = null)
     {
-        Require("bash", "git");
+        Tools.Require("bash", "git");
         var temp = NewDir("diff");
         WriteStub(temp, "dotnet", DotnetStub);
         File.WriteAllText(Path.Combine(temp, "markdown.md"), "## PowerOps diff\n\nthe diff\n");
@@ -918,24 +918,9 @@ public sealed class ActionScriptTests : IDisposable
 
     private static string ReadOrEmpty(string path) => File.Exists(path) ? File.ReadAllText(path) : "";
 
-    private static void Require(params string[] programs)
-    {
-        Assert.SkipWhen(OperatingSystem.IsWindows(), "The scripts need bash.");
-        foreach (var program in programs)
-        {
-            Assert.SkipWhen(!OnPath(program), program + " is not on PATH.");
-        }
-    }
-
-    private static void SkipUnless(string program) => Assert.SkipWhen(!OnPath(program), program + " is not on PATH.");
-
-    private static bool OnPath(string program) =>
-        (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
-            .Any(dir => File.Exists(Path.Combine(dir, program)));
-
     private Result Run(string script, string temp, string workDir, Dictionary<string, string> env, string? stdin = null, string[]? args = null)
     {
-        var start = new ProcessStartInfo("bash") { WorkingDirectory = workDir, RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = stdin is not null };
+        var start = new ProcessStartInfo(Tools.Bash) { WorkingDirectory = workDir, RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = stdin is not null };
         start.ArgumentList.Add(Path.Combine(Scripts, script));
         foreach (var arg in args ?? [])
         {
