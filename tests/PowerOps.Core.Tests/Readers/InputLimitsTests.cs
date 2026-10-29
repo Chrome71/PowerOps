@@ -26,20 +26,22 @@ public class InputLimitsTests(ITestOutputHelper log)
         var n = 0;
         while (reader.Read())
         {
-            n++;
+            n += 1 + reader.AttributeCount;
         }
 
         return n;
     }
 
-    private static string Flat(int elements) => "<ImportExportXml>" + string.Concat(Enumerable.Repeat("<a/>", elements)) + "</ImportExportXml>";
+    // Three nodes in eight bytes (start tag, text, end tag), the densest layout that fits the 50 MB file cap at 15 million nodes.
+    private static string Dense(int elements) => "<ImportExportXml>" + string.Concat(Enumerable.Repeat("<a>x</a>", elements)) + "</ImportExportXml>";
 
     [Fact]
     public void Defaults_are_pinned()
     {
         var budget = new ReadBudget();
 
-        Assert.Equal(5_000_000, budget.MaxNodes);
+        Assert.Equal(15_000_000, budget.MaxNodes);
+        Assert.Equal(100L * 1024 * 1024, budget.MaxZipBytes);
         Assert.Equal(100_000, budget.MaxEntries);
         Assert.Equal(100_000, budget.MaxFiles);
         Assert.Equal(100_000, SolutionDiscovery.MaxFolders);
@@ -167,19 +169,35 @@ public class InputLimitsTests(ITestOutputHelper log)
     }
 
     [Fact]
-    public void Five_million_and_one_nodes_in_a_file_are_refused_by_the_default_budget()
+    public void Fifteen_million_and_one_nodes_in_a_file_are_refused_by_the_default_budget()
     {
         using var t = new TempFolder()
             .Write("Other/Solution.xml", SolutionXml.Manifest())
-            .Write("Other/Customizations.xml", Flat(5_000_000));
+            .Write("Other/Customizations.xml", Dense(5_000_000));
 
         var sw = Stopwatch.StartNew();
         var ex = Assert.Throws<InvalidDataException>(() => SolutionLoader.Load(t.Path));
 
-        log.WriteLine($"R-4: 5,000,002 nodes refused in {sw.ElapsedMilliseconds} ms");
+        log.WriteLine($"R-4: 15,000,0xx nodes refused in {sw.ElapsedMilliseconds} ms");
         Assert.StartsWith(t.Path, ex.Message);
         Assert.Contains("Customizations.xml", ex.Message);
+        Assert.Contains("XML nodes", ex.Message);
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"took {sw.Elapsed}");
+    }
+
+    [Fact]
+    public void Attributes_count_as_nodes()
+    {
+        var attributes = string.Join(' ', Enumerable.Range(0, 20).Select(i => $"b{i}=\"\""));
+        using var t = new TempFolder()
+            .Write("Other/Solution.xml", SolutionXml.Manifest())
+            .Write("Other/Customizations.xml", $"<ImportExportXml><a {attributes}/></ImportExportXml>");
+        var total = CountNodes(SolutionXml.Manifest()) + CountNodes(SolutionXml.Customizations($"<a {attributes}/>"));
+
+        XmlUnpackReader.Read(t.Path, new ReadBudget(maxNodes: total));
+        var ex = Assert.Throws<InvalidDataException>(() => XmlUnpackReader.Read(t.Path, new ReadBudget(maxNodes: total - 1)));
+
+        Assert.Contains("Customizations.xml", ex.Message);
     }
 
     // R-4 (b): zip entries
@@ -200,6 +218,124 @@ public class InputLimitsTests(ITestOutputHelper log)
         }
 
         return path;
+    }
+
+    // A zip that is only a Zip64 end-of-central-directory record, its locator and a classic record that points to them.
+    private static string Zip64Declaring(TempFolder t, ulong entries)
+    {
+        var bytes = new byte[56 + 20 + 22];
+        BitConverter.GetBytes(0x06064b50u).CopyTo(bytes, 0);
+        BitConverter.GetBytes(44UL).CopyTo(bytes, 4);
+        BitConverter.GetBytes(entries).CopyTo(bytes, 24);
+        BitConverter.GetBytes(entries).CopyTo(bytes, 32);
+        BitConverter.GetBytes(0x07064b50u).CopyTo(bytes, 56);
+        BitConverter.GetBytes(0UL).CopyTo(bytes, 56 + 8);
+        BitConverter.GetBytes(1u).CopyTo(bytes, 56 + 16);
+        BitConverter.GetBytes(0x06054b50u).CopyTo(bytes, 76);
+        BitConverter.GetBytes(ushort.MaxValue).CopyTo(bytes, 76 + 8);
+        BitConverter.GetBytes(ushort.MaxValue).CopyTo(bytes, 76 + 10);
+        BitConverter.GetBytes(uint.MaxValue).CopyTo(bytes, 76 + 12);
+        BitConverter.GetBytes(uint.MaxValue).CopyTo(bytes, 76 + 16);
+        var path = Path.Combine(t.Path, "z64.zip");
+        File.WriteAllBytes(path, bytes);
+        return path;
+    }
+
+    [Fact]
+    public void Zip_of_100001_entries_is_refused_before_it_is_opened_and_allocates_under_20_MB()
+    {
+        using var t = new TempFolder();
+        var zip = ZipWithEntries(t, 100_001);
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var ex = Assert.Throws<InvalidDataException>(() => ZipReader.Read(zip));
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        log.WriteLine($"M-1: 100,001 entries refused, {allocated / 1024} KB allocated");
+        Assert.StartsWith(zip, ex.Message);
+        Assert.True(allocated < 20L * 1024 * 1024, $"allocated {allocated / (1024 * 1024)} MB");
+    }
+
+    [Fact]
+    public void Zip_of_100000_entries_is_still_read()
+    {
+        using var t = new TempFolder();
+
+        var solution = ZipReader.Read(ZipWithEntries(t, 100_000));
+
+        Assert.Equal("Demo", solution.UniqueName);
+    }
+
+    [Fact]
+    public void Zip_longer_than_100_MB_is_refused_without_being_opened()
+    {
+        using var t = new TempFolder();
+        var path = Path.Combine(t.Path, "big.zip");
+        using (var f = File.Create(path))
+        {
+            f.SetLength(100L * 1024 * 1024 + 1);
+        }
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var ex = Assert.Throws<InvalidDataException>(() => ZipReader.Read(path));
+
+        Assert.StartsWith(path, ex.Message);
+        Assert.Contains("100 MB", ex.Message);
+        Assert.True(GC.GetAllocatedBytesForCurrentThread() - before < 1024 * 1024);
+    }
+
+    [Fact]
+    public void Zip64_count_over_the_cap_is_refused_and_at_the_cap_passes_the_guard()
+    {
+        using var t = new TempFolder();
+        var over = Zip64Declaring(t, 100_001);
+
+        var ex = Assert.Throws<InvalidDataException>(() => ZipGuard.Check(over, new ReadBudget()));
+        ZipGuard.Check(Zip64Declaring(t, 100_000), new ReadBudget());
+
+        Assert.StartsWith(over, ex.Message);
+        Assert.Contains("entries", ex.Message);
+    }
+
+    [Fact]
+    public void Zip_without_a_central_directory_record_is_left_to_ZipFile()
+    {
+        using var t = new TempFolder().Write("junk.zip", "not a zip");
+
+        Assert.Throws<InvalidDataException>(() => ZipReader.Read(Path.Combine(t.Path, "junk.zip")));
+    }
+
+    [Fact]
+    public void Discovery_refuses_an_over_cap_zip_instead_of_skipping_it()
+    {
+        using var t = new TempFolder();
+        File.Copy(Zip64Declaring(t, 100_001), Path.Combine(t.Path, "x.zip"));
+
+        var ex = Assert.Throws<InvalidDataException>(() => SolutionDiscovery.Find(t.Path));
+
+        Assert.StartsWith(Path.Combine(t.Path, "x.zip"), ex.Message);
+    }
+
+    [Fact]
+    public void Discovery_refuses_a_zip_longer_than_100_MB()
+    {
+        using var t = new TempFolder();
+        using (var f = File.Create(Path.Combine(t.Path, "big.zip")))
+        {
+            f.SetLength(100L * 1024 * 1024 + 1);
+        }
+
+        var ex = Assert.Throws<InvalidDataException>(() => SolutionDiscovery.Find(t.Path));
+
+        Assert.StartsWith(Path.Combine(t.Path, "big.zip"), ex.Message);
+    }
+
+    [Fact]
+    public void Discovery_still_skips_a_broken_zip()
+    {
+        using var t = new TempFolder().Write("junk.zip", "not a zip");
+
+        Assert.Empty(SolutionDiscovery.Find(t.Path));
     }
 
     [Fact]
@@ -228,6 +364,26 @@ public class InputLimitsTests(ITestOutputHelper log)
         var ex = Assert.Throws<InvalidDataException>(() => XmlUnpackReader.Read(t.Path, new ReadBudget(maxFiles: 2)));
 
         Assert.StartsWith(t.Path, ex.Message);
+    }
+
+    [Fact]
+    public void Git_and_other_skipped_folders_do_not_count_toward_the_file_cap()
+    {
+        using var t = new TempFolder()
+            .Write("Other/Solution.xml", SolutionXml.Manifest())
+            .Write(".git/a", "").Write(".git/objects/b", "").Write("node_modules/c", "").Write("bin/d", "").Write("obj/e", "");
+
+        XmlUnpackReader.Read(t.Path, new ReadBudget(maxFiles: 1));
+    }
+
+    [Fact]
+    public void Yaml_root_skips_git_and_does_not_count_its_files()
+    {
+        using var t = new TempFolder().Write("a.txt", "").Write(".git/x", "").Write(".git/y", "");
+
+        var root = new YamlRoot(t.Path, new ReadBudget(maxFiles: 1));
+
+        Assert.Equal(["a.txt"], root.Paths.Keys);
     }
 
     [Fact]

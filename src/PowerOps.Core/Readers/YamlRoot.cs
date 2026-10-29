@@ -8,9 +8,6 @@ namespace PowerOps.Core.Readers;
 /// </summary>
 internal sealed class YamlRoot
 {
-    // Symlinks are never followed: a root must not read files outside its folder.
-    private static readonly EnumerationOptions Options = new() { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint };
-
     private readonly Dictionary<string, string> _cache = new(StringComparer.Ordinal);
     private readonly Dictionary<string, XElement> _parsed = new(StringComparer.Ordinal);
 
@@ -23,7 +20,8 @@ internal sealed class YamlRoot
             throw new InvalidDataException($"{folder}: folder not found.");
         }
 
-        foreach (var p in Budget.LimitFiles(Directory.EnumerateFiles(Folder, "*", Options), folder)
+        // Symlinks are never followed, and .git, node_modules, bin and obj are neither listed nor counted.
+        foreach (var p in Budget.LimitFiles(SolutionDiscovery.EnumerateFiles(Folder), folder)
             .Select(f => Path.GetRelativePath(Folder, f).Replace('\\', '/'))
             .Order(StringComparer.Ordinal))
         {

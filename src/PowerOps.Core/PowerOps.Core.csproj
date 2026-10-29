@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="PowerOps.Core.Tests" />
+    <InternalsVisibleTo Include="PowerOps.Cli.Tests" />
   </ItemGroup>
 
   <ItemGroup>

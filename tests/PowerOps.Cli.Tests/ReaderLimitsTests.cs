@@ -5,9 +5,10 @@ using System.Text;
 namespace PowerOps.Cli.Tests;
 
 /// <summary>
-/// M25's hostile-input theory: each audit probe (R-1 to R-4) and an input one past a cap, through the real command.
-/// Only the node and zip-entry caps can be passed at their real size here (100,001 files or folders is slow to build);
-/// the file and folder caps are proven with small injected caps in PowerOps.Core.Tests.
+/// M25's hostile-input theory through the real command: the canvas-metadata depth probe (R-2) and an input one past the node and zip-entry caps.
+/// Those can be passed at their real size here (100,001 files or folders is slow to build); the file and folder caps are proven with
+/// small injected caps, the folder cap at command level in <see cref="FolderCapCommandTests"/> and the rest in PowerOps.Core.Tests.
+/// R-1 and R-3 pass without their fixes at this level; PowerOps.Core.Tests proves them.
 /// </summary>
 public sealed class ReaderLimitsTests : IDisposable
 {
@@ -21,13 +22,11 @@ public sealed class ReaderLimitsTests : IDisposable
 
     private static readonly Dictionary<string, (Build Build, int Exit)> Cases = new()
     {
-        ["R-1 analyze: flow 240 deep, 100-character keys, 40,000 leaves"] = (t => t.Analyze(t.Folder("flow", ("Workflows/F.data.xml", FlowWorkflow), ("Workflows/F.json", DeepFlow(40_000)))), 0),
         ["R-2 analyze: canvas meta 100,000 deep"] = (t => t.Analyze(t.Folder("meta", ("CanvasApps/app_1.meta.xml", Deep(100_000)))), 3),
         ["R-2 diff: canvas meta 100,000 deep"] = (t => t.Diff(t.Folder("meta", ("CanvasApps/app_1.meta.xml", Deep(100_000)))), 3),
         ["R-2 analyze: canvas meta 202 deep, one past the limit"] = (t => t.Analyze(t.Folder("meta", ("CanvasApps/app_1.meta.xml", Deep(202)))), 3),
-        ["R-3 analyze: environment variable default of 80,003 characters"] = (t => t.Analyze(t.Folder("env", ("environmentvariabledefinitions/demo_A/environmentvariabledefinition.xml", EnvVar("a@" + string.Concat(Enumerable.Repeat(".a", 40_000)) + "@")))), 0),
-        ["R-4 analyze: 5,000,002 XML nodes"] = (t => t.Analyze(t.Folder("nodes", ("Other/Customizations.xml", Flat(5_000_000)))), 3),
-        ["R-4 diff: 5,000,002 XML nodes"] = (t => t.Diff(t.Folder("nodes", ("Other/Customizations.xml", Flat(5_000_000)))), 3),
+        ["R-4 analyze: 15,000,002 XML nodes"] = (t => t.Analyze(t.Folder("nodes", ("Other/Customizations.xml", Dense(5_000_000)))), 3),
+        ["R-4 diff: 15,000,002 XML nodes"] = (t => t.Diff(t.Folder("nodes", ("Other/Customizations.xml", Dense(5_000_000)))), 3),
         ["R-4 analyze: zip with 100,001 entries"] = (t => t.Analyze(t.ZipWith(100_001)), 3),
         ["R-4 diff: zip with 100,001 entries"] = (t => t.Diff(t.ZipWith(100_001)), 3),
     };
@@ -97,24 +96,8 @@ public sealed class ReaderLimitsTests : IDisposable
         return (path, path);
     }
 
-    private const string FlowWorkflow = "<Workflow WorkflowId=\"{AA-11}\" Name=\"F\"><JsonFileName>/Workflows/F.json</JsonFileName><Category>5</Category><StateCode>1</StateCode></Workflow>";
-
-    private static string DeepFlow(int leaves)
-    {
-        var json = new StringBuilder("{\"properties\":{\"definition\":");
-        for (var i = 0; i < 240; i++)
-        {
-            json.Append("{\"").Append('k', 100).Append("\":");
-        }
-
-        json.Append('[').Append(string.Join(',', Enumerable.Repeat("\"a\"", leaves))).Append(']').Append('}', 240).Append("}}");
-        return json.ToString();
-    }
-
     private static string Deep(int depth) => string.Concat(Enumerable.Repeat("<a>", depth)) + string.Concat(Enumerable.Repeat("</a>", depth));
 
-    private static string Flat(int elements) => "<ImportExportXml>" + string.Concat(Enumerable.Repeat("<a/>", elements)) + "</ImportExportXml>";
-
-    private static string EnvVar(string defaultValue) =>
-        $"<environmentvariabledefinition schemaname=\"demo_A\"><type>100000000</type><defaultvalue>{defaultValue}</defaultvalue></environmentvariabledefinition>";
+    // Three nodes in eight bytes, so 15 million nodes fit under the 50 MB file cap.
+    private static string Dense(int elements) => "<ImportExportXml>" + string.Concat(Enumerable.Repeat("<a>x</a>", elements)) + "</ImportExportXml>";
 }

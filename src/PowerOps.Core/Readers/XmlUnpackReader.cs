@@ -5,9 +5,6 @@ namespace PowerOps.Core.Readers;
 /// <summary>Reads a solution unpacked by `pac solution unpack` (XML layout, `Other/Solution.xml`).</summary>
 public static class XmlUnpackReader
 {
-    // Symlinks are never followed: an unpacked solution must not read files outside its folder.
-    private static readonly EnumerationOptions Options = new() { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint };
-
     public static Solution Read(string folder) => Read(folder, new ReadBudget());
 
     internal static Solution Read(string folder, ReadBudget budget)
@@ -18,7 +15,8 @@ public static class XmlUnpackReader
             throw new InvalidDataException($"{folder}: folder not found.");
         }
 
-        var paths = budget.LimitFiles(Directory.EnumerateFiles(root, "*", Options), folder)
+        // Symlinks are never followed, and .git, node_modules, bin and obj are neither listed nor counted.
+        var paths = budget.LimitFiles(SolutionDiscovery.EnumerateFiles(root), folder)
             .Select(f => Path.GetRelativePath(root, f).Replace('\\', '/'))
             .ToList();
 

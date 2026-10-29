@@ -4,9 +4,10 @@ namespace PowerOps.Core.Readers;
 internal sealed class ReadBudget(
     long maxTotalBytes = 256L * 1024 * 1024,
     long maxFileBytes = 50L * 1024 * 1024,
-    long maxNodes = 5_000_000,
+    long maxNodes = 15_000_000,
     int maxEntries = 100_000,
-    int maxFiles = 100_000)
+    int maxFiles = 100_000,
+    long maxZipBytes = 100L * 1024 * 1024)
 {
     private long _remaining = maxTotalBytes;
     private long _nodesLeft = maxNodes;
@@ -21,10 +22,12 @@ internal sealed class ReadBudget(
 
     public int MaxFiles { get; } = maxFiles;
 
-    /// <summary>Counts one XML node against the solution's budget.</summary>
-    public void CountNode(string name)
+    public long MaxZipBytes { get; } = maxZipBytes;
+
+    /// <summary>Counts <paramref name="count"/> XML nodes (an element's attributes count as one each) against the solution's budget.</summary>
+    public void CountNode(string name, int count = 1)
     {
-        if (--_nodesLeft < 0)
+        if ((_nodesLeft -= count) < 0)
         {
             throw new InvalidDataException($"{name}: solution has more than {MaxNodes} XML nodes.");
         }

@@ -11,9 +11,10 @@ public static class ZipReader
 
     internal static Solution Read(string zipPath, ReadBudget budget)
     {
+        ZipGuard.Check(zipPath, budget);
         using var zip = ZipFile.OpenRead(zipPath);
 
-        // ZipFile.OpenRead has already read the whole central directory, so this protects what comes after, not the open itself.
+        // The guard checks the declared count; this catches a central directory that holds more than it declared.
         if (zip.Entries.Count > budget.MaxEntries)
         {
             throw new InvalidDataException($"{zipPath}: more than {budget.MaxEntries} entries.");

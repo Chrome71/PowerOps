@@ -15,7 +15,10 @@ public static class SolutionDiscovery
         MatchCasing = MatchCasing.CaseInsensitive,
     };
 
-    public const int MaxFolders = 100_000;
+    // Not const so tests can inject a small cap; only they change it.
+    internal static int MaxFolders = 100_000;
+
+    private static readonly ReadBudget DefaultBudget = new();
 
     public static IReadOnlyList<string> Find(string path) => Find(path, MaxFolders);
 
@@ -77,8 +80,37 @@ public static class SolutionDiscovery
         found.AddRange(Directory.EnumerateFiles(dir, "*.zip", Options).Where(HasRootSolutionXml));
     }
 
+    /// <summary>The files under <paramref name="folder"/>, without descending into <see cref="Skipped"/> folders or following symlinks.</summary>
+    internal static IEnumerable<string> EnumerateFiles(string folder)
+    {
+        var pending = new Stack<string>();
+        pending.Push(folder);
+        while (pending.TryPop(out var dir))
+        {
+            foreach (var file in Directory.EnumerateFiles(dir, "*", Options))
+            {
+                yield return file;
+            }
+
+            foreach (var sub in Directory.EnumerateDirectories(dir, "*", Options).Where(d => !Skipped.Contains(Path.GetFileName(d))))
+            {
+                pending.Push(sub);
+            }
+        }
+    }
+
     private static bool HasRootSolutionXml(string zipPath)
     {
+        // Over-cap zips are refused, not skipped, like a zip named on the command line; other trouble just means "not a solution".
+        try
+        {
+            ZipGuard.Check(zipPath, DefaultBudget);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+
         try
         {
             using var zip = ZipFile.OpenRead(zipPath);

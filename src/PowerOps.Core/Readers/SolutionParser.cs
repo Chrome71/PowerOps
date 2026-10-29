@@ -261,7 +261,8 @@ internal static partial class SolutionParser
                 throw new InvalidDataException($"{path}: XML is nested deeper than {MaxXmlDepth} levels.");
             }
 
-            budget.CountNode(path);
+            // Attributes are not nodes to Read(), but XDocument.Load keeps each one.
+            budget.CountNode(path, 1 + scan.AttributeCount);
         }
     }
 
