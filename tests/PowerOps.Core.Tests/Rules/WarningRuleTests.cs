@@ -194,17 +194,6 @@ public class WarningRuleTests
     }
 
     [Theory]
-    [InlineData("https://contoso.crm.dynamics.com/", "URL")]
-    [InlineData("7d3f6f42-0a1b-4c2d-9e8f-123456789abc", "GUID")]
-    [InlineData("a@contoso.com", "email address")]
-    public void PO007_fires_for_environment_specific_default(string value, string kind)
-    {
-        var s = B.Empty() with { EnvironmentVariables = [B.Env("demo_a", def: value)] };
-
-        Assert.Contains(kind, Assert.Single(Run(new PO007EnvironmentSpecificDefaultValue(), s)).Message);
-    }
-
-    [Theory]
     [InlineData("https://contoso.crm.dynamics.com/", "a URL")]
     [InlineData("11111111-2222-3333-4444-555555555555", "a GUID")]
     [InlineData("someone@example.com", "an email address")]

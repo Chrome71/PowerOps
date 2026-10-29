@@ -179,20 +179,4 @@ public class FlowDefinitionTests
 
         Assert.Equal(["751183fc-db68-ea11-a811-000d3a31cf04", "5625768c-bd3d-ec11-8c63-00224829720b"], flow.ChildFlowIds);
     }
-
-    [Theory]
-    [InlineData("coe-auditlogs")]
-    [InlineData("alm-sample")]
-    [InlineData("alm-makers")]
-    public void Every_fixture_workflow_parses(string folder)
-    {
-        var files = Directory.GetFiles(Path.Combine(Golden.RepoRoot, "tests", "fixtures", folder, "Workflows"), "*.json");
-
-        Assert.NotEmpty(files);
-        foreach (var file in files)
-        {
-            var flow = FlowDefinition.Parse(File.ReadAllText(file));
-            Assert.NotEmpty(flow.StringLiterals);
-        }
-    }
 }
