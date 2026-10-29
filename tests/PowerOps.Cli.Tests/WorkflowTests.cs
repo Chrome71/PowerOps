@@ -98,4 +98,10 @@ public sealed class WorkflowTests
         Assert.Equal("JsonSchema.Net", Text(ignore, "dependency-name"));
         Assert.Equal(["version-update:semver-major", "version-update:semver-minor"], ((List<object>)ignore["update-types"]).Cast<string>());
     }
+
+    [Fact]
+    public void The_ci_workflow_turns_test_telemetry_off()
+    {
+        Assert.Equal("1", (string)Map(Load(".github", "workflows", "ci.yml")["env"])["TESTINGPLATFORM_TELEMETRY_OPTOUT"]);
+    }
 }

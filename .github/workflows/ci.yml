@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+# Microsoft.Testing.Platform (xunit.v3) sends telemetry unless this is 1.
+env:
+  TESTINGPLATFORM_TELEMETRY_OPTOUT: '1'
+
 jobs:
   build:
     strategy:
