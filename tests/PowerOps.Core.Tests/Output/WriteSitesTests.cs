@@ -7,10 +7,10 @@ namespace PowerOps.Core.Tests.Output;
 // M28: every file PowerOps writes goes through SafeWrite, so a new call that can write, anywhere in src, fails here until it is routed through SafeWrite or listed below with its reason.
 public class WriteSitesTests
 {
-    // shortcut: this is a text scan, not symbol-based, so a write API it does not list slips past it; if one does, switch to Microsoft.CodeAnalysis.BannedApiAnalyzers.
-    // Over the whole text, so a call split over two lines is still seen. \b after Open keeps File.OpenRead and File.OpenText (reads) out, \bFileMode keeps UnixFileMode out, \bFile\. keeps SnapshotFile.Write out.
+    // shortcut: this is a text scan, not symbol-based, so a write API it does not list slips past it (FileInfo and DirectoryInfo are counted by type name, and only CopyTo, MoveTo, OpenWrite, CreateText and AppendText are seen as their member calls); if one does, switch to Microsoft.CodeAnalysis.BannedApiAnalyzers.
+    // Over the whole text, so a call split over two lines is still seen. \b after Open keeps File.OpenRead and File.OpenText (reads) out, \bFileMode keeps UnixFileMode out, \bFile\. keeps SnapshotFile.Write out. A `using` alias of anything in System.IO (`using F = System.IO.File;`) is seen as the alias line. File.Delete is left out on purpose: the MCP rollback deletes.
     private static readonly Regex Writes = new(
-        @"\bFile\.(Write\w*|Append\w*|Create\w*|Open|OpenWrite|OpenHandle|Copy|Move|Replace)\b|\bFileMode\.\w+|\bFileAccess\.(Write|ReadWrite)\b|\bnew\s+FileStream\s*\(|\bStreamWriter\b|\bExtractTo\w*|\bXmlWriter\.Create\b|\bDirectory\.(CreateDirectory|Move|CreateTempSubdirectory)\b|\bFileInfo\b|\bZipFile\.(Create\w*|Open)\b|\bZipArchive\b|\busing\s+static\s+System\.IO\b|\bFile\.Set\w+|\bPath\.GetTempFileName\b",
+        @"\bFile\.(Write\w*|Append\w*|Create\w*|Open|OpenWrite|OpenHandle|Copy|Move|Replace)\b|\bFileMode\.\w+|\bFileAccess\.(Write|ReadWrite)\b|\bnew\s+FileStream\s*\(|\bStreamWriter\b|\bExtractTo\w*|\bXmlWriter\.Create\b|\bDirectory\.(CreateDirectory|Move|CreateTempSubdirectory|CreateSymbolicLink|Delete)\b|\bFileInfo\b|\bDirectoryInfo\b|\.(CopyTo|MoveTo|OpenWrite|CreateText|AppendText)\s*\(|\bZipFile\.(Create\w*|Open)\b|\bZipArchive\b|\busing\s+(static\s+System\.IO|\w+\s*=\s*System\.IO)\b|\bFile\.Set\w+|\bPath\.GetTempFileName\b",
         RegexOptions.CultureInvariant);
 
     // "<path>: <match>" -> how many times. A match that is in src and not here, or here and not in src, fails the first test.
@@ -46,6 +46,10 @@ public class WriteSitesTests
         ["src/PowerOps.Core/Plans/PlanChecker.cs: FileInfo"] = 2,
         ["src/PowerOps.Cli/DeployCommand.cs: FileInfo"] = 3,
         ["src/PowerOps.Core/Output/SafeWrite.cs: FileInfo"] = 3,
+
+        // DirectoryInfo: reads only. The folder walk of SolutionDiscovery and a LinkTarget check in PlanChecker.
+        ["src/PowerOps.Core/Readers/SolutionDiscovery.cs: DirectoryInfo"] = 2,
+        ["src/PowerOps.Core/Plans/PlanChecker.cs: DirectoryInfo"] = 1,
 
         // SafeWrite gives the temp file the mode of the file it replaces.
         ["src/PowerOps.Core/Output/SafeWrite.cs: File.SetUnixFileMode"] = 1,
@@ -110,6 +114,14 @@ public class WriteSitesTests
             "File.SetAttributes(path, FileAttributes.Hidden);",
             "File.SetUnixFileMode(path, mode);",
             "var t = Path.GetTempFileName();",
+            "using F = System.IO.File;",
+            "using IO = System.IO;",
+            "new DirectoryInfo(p).Create();",
+            "new DirectoryInfo(p).MoveTo(to);",
+            "info.CopyTo(to);",
+            "info.MoveTo(to);",
+            "Directory.CreateSymbolicLink(link, target);",
+            "Directory.Delete(folder, true);",
         ];
         string[] reads =
         [

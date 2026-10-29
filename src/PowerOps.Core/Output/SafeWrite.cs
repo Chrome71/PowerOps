@@ -267,13 +267,13 @@ public static class SafeWrite
     private static string? Resolve(string path) => RealPath(path, followLast: false);
 
     // Resolves path one component at a time through every link on the way, like realpath(3); null when it cannot (a link loop, more than 40 links, an unreadable folder).
-    // On Unix the start is not GetFullPath, which would collapse ".." before a link is followed: after a link, ".." is the link target's parent. On Windows Win32 collapses ".." itself, so GetFullPath is the same view.
+    // The start is GetFullPath, which collapses ".." lexically before any link is followed, because that is the path .NET opens for this spelling on every OS (File.*, FileStream, Directory.* and the link check all call it): "dl/../x" is x beside dl even when dl is a link, where a shell would take the link target's parent. So the check, the write, the folders a command creates on the way and the readers of an input all name the same file. A ".." inside a link's target is taken against the folder resolved so far, as the kernel does.
     // The result has no link in its folders and no "." or "..", so opening it opens the entry that was checked.
     private static string? RealPath(string path, bool followLast)
     {
         try
         {
-            var start = OperatingSystem.IsWindows() ? Path.GetFullPath(path) : Path.Combine(Directory.GetCurrentDirectory(), path);
+            var start = Path.GetFullPath(path);
             var current = Path.GetPathRoot(start)!;
             var rest = new Stack<string>(Enumerable.Reverse(Parts(start[current.Length..])));
             for (var hops = 0; rest.Count > 0;)

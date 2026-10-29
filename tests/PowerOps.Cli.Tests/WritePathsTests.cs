@@ -137,44 +137,33 @@ public class WritePathsTests : IDisposable
         Assert.Equal(before, File.ReadAllBytes(zip));
     }
 
-    // dl -> sub/deep. A ".." after the link is the link target's parent (sub) on Unix and the lexical parent (the top) on Windows.
+    // dl -> sub/deep. A ".." after the link is collapsed first, as .NET opens every path on every OS: dl/../in.zip is the top in.zip, where a shell would take sub/in.zip.
     private void DeepLink()
     {
         Directory.CreateDirectory(Path.Combine(_temp, "sub", "deep"));
         Links.Create(Path.Combine(_temp, "dl"), Path.Combine("sub", "deep"), folder: true);
     }
 
-    // The reviewer's repro: the target is resolved once, so the file that is checked is the file that is written.
+    // The first review's repro: the target names the input the way the reader opened it, so it is refused.
     [Fact]
-    public void Out_through_a_link_and_dotdot_is_written_where_the_OS_takes_it_and_never_over_the_other_file()
+    public void Out_through_a_link_and_dotdot_over_the_input_is_refused_on_every_OS()
     {
         DeepLink();
         var zip = ZipOf(V2, "in.zip");
         var before = File.ReadAllBytes(zip);
-        var expected = Run("settings", "generate", zip).Out;
         var target = Path.Combine(_temp, "dl", "..", "in.zip");
 
         var (code, output, error) = Run("settings", "generate", zip, "--out", target);
 
+        Assert.Equal(2, code);
         Assert.Equal("", output);
-        if (OperatingSystem.IsWindows())
-        {
-            // Lexical: the top in.zip, which is the input.
-            Assert.Equal(2, code);
-            Assert.Equal($"error: {target}: {SafeWrite.InputReason}", Assert.Single(Lines(error)));
-        }
-        else
-        {
-            Assert.Equal(0, code);
-            Assert.Equal("", error);
-            Assert.Equal(expected, File.ReadAllText(Path.Combine(_temp, "sub", "in.zip")));
-        }
-
+        Assert.Equal($"error: {target}: {SafeWrite.InputReason}", Assert.Single(Lines(error)));
         Assert.Equal(before, File.ReadAllBytes(zip));
+        Assert.False(File.Exists(Path.Combine(_temp, "sub", "in.zip")));
     }
 
     [Fact]
-    public void Out_through_a_link_and_dotdot_over_an_input_is_refused_where_the_OS_takes_it()
+    public void Out_through_a_link_and_dotdot_lands_beside_the_link_as_NET_opens_it()
     {
         DeepLink();
         var zip = Path.Combine(_temp, "sub", "in.zip");
@@ -185,19 +174,27 @@ public class WritePathsTests : IDisposable
 
         var (code, output, error) = Run("settings", "generate", zip, "--out", target);
 
+        Assert.Equal(0, code);
         Assert.Equal("", output);
-        if (OperatingSystem.IsWindows())
-        {
-            // Lexical: the top in.zip, not the input.
-            Assert.Equal(0, code);
-            Assert.Equal(expected, File.ReadAllText(Path.Combine(_temp, "in.zip")));
-        }
-        else
-        {
-            Assert.Equal(2, code);
-            Assert.Equal($"error: {target}: {SafeWrite.InputReason}", Assert.Single(Lines(error)));
-        }
+        Assert.Equal("", error);
+        Assert.Equal(expected, File.ReadAllText(Path.Combine(_temp, "in.zip")));
+        Assert.Equal(before, File.ReadAllBytes(zip));
+    }
 
+    // The second review's finding 1: the reader opened the top in.zip for this spelling, so the input check must see the same file.
+    [Fact]
+    public void An_input_spelled_through_a_link_and_dotdot_is_the_file_the_reader_opened_so_out_over_it_is_refused()
+    {
+        DeepLink();
+        var zip = ZipOf(V2, "in.zip");
+        var before = File.ReadAllBytes(zip);
+        var input = Path.Combine(_temp, "dl", "..", "in.zip");
+
+        var (code, output, error) = Run("settings", "generate", input, "--out", zip);
+
+        Assert.Equal(2, code);
+        Assert.Equal("", output);
+        Assert.Equal($"error: {zip}: {SafeWrite.InputReason}", Assert.Single(Lines(error)));
         Assert.Equal(before, File.ReadAllBytes(zip));
     }
 
@@ -425,6 +422,24 @@ public class WritePathsTests : IDisposable
         Assert.Equal([folder], Directory.GetFileSystemEntries(save));
     }
 
+    // The folder is made and the files are written under the same convention, so nothing lands in the link's target.
+    [Fact]
+    public void Save_through_a_link_and_dotdot_makes_the_folder_beside_the_link_as_NET_opens_it()
+    {
+        DeepLink();
+        var save = Path.Combine(_temp, "dl", "..", "snaps");
+
+        var (code, _, error) = Run(
+            (_, value) => Named(value == "a" ? "Alpha" : "Beta"),
+            "drift", "--solution", "PowerOpsSeed", "--env", "a", "--env", "b", "--save", save);
+
+        Assert.Equal(0, code);
+        Assert.Equal("", error);
+        Assert.True(File.Exists(Path.Combine(_temp, "snaps", "PowerOpsSeed.Alpha.json")));
+        Assert.Equal([Path.Combine(_temp, "sub", "deep")], Directory.GetFileSystemEntries(Path.Combine(_temp, "sub")));
+        Assert.Empty(Directory.GetFileSystemEntries(Path.Combine(_temp, "sub", "deep")));
+    }
+
     [Fact]
     public void Save_over_an_env_snapshot_file_exits_2_and_leaves_the_file()
     {
@@ -534,11 +549,48 @@ public class WritePathsTests : IDisposable
         Assert.True(File.Exists(Path.Combine(real, ".claude", "skills", FirstSkill.Replace('/', Path.DirectorySeparatorChar))));
     }
 
+    // The second review's finding 3: with dl a link out of the repo, dl/.. is the repo folder for the folders made and the files written alike.
+    [Fact]
+    public void Skills_install_through_a_link_and_dotdot_writes_beside_the_link_and_nothing_in_its_target()
+    {
+        Directory.CreateDirectory(Path.Combine(_temp, "sub", "deep"));
+        var repo = Directory.CreateDirectory(Path.Combine(_temp, "sk")).FullName;
+        Links.Create(Path.Combine(repo, "dl"), Path.Combine("..", "sub", "deep"), folder: true);
+
+        var (code, _, error) = Run("skills", "install", Path.Combine(repo, "dl", ".."), "--agent", "claude");
+
+        Assert.Equal(0, code);
+        Assert.Equal("", error);
+        Assert.True(File.Exists(Path.Combine(repo, ".claude", "skills", FirstSkill.Replace('/', Path.DirectorySeparatorChar))));
+        Assert.Equal([Path.Combine(_temp, "sub", "deep")], Directory.GetFileSystemEntries(Path.Combine(_temp, "sub")));
+        Assert.Empty(Directory.GetFileSystemEntries(Path.Combine(_temp, "sub", "deep")));
+    }
+
     // ---- plan sign-off --------------------------------------------------------------------------------------------
 
     private const string Approved = "---\nstatus: approved\nreview: skipped\n---\n# Plan\n";
 
     private string PlanFolder() => Directory.CreateDirectory(Path.Combine(_temp, "docs", "plans", "site-visits")).FullName;
+
+    // The second review's finding 2: the plan that was read is the plan that is written, and the draft behind the link is untouched.
+    [Fact]
+    public void Plan_sign_off_through_a_link_and_dotdot_writes_the_plan_it_read()
+    {
+        const string draft = "---\nstatus: draft\nreview: skipped\n---\n# Draft\n";
+        DeepLink();
+        var plan = Path.Combine(PlanFolder(), "plan.md");
+        File.WriteAllText(plan, Approved);
+        var other = Path.Combine(Directory.CreateDirectory(Path.Combine(_temp, "sub", "docs", "plans", "site-visits")).FullName, "plan.md");
+        File.WriteAllText(other, draft);
+
+        var (code, output, error) = Run("plan", "sign-off", Path.Combine(_temp, "dl", "..", "docs", "plans", "site-visits"));
+
+        Assert.Equal(0, code);
+        Assert.Equal("", error);
+        Assert.StartsWith("signed off ", output);
+        Assert.Contains("status: signed-off", File.ReadAllText(plan));
+        Assert.Equal(draft, File.ReadAllText(other));
+    }
 
     [Fact]
     public void Plan_sign_off_through_a_linked_plan_md_still_exits_3_and_leaves_the_file_behind_it()
