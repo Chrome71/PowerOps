@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs `powerops test` for the action. Inputs come only from the environment:
 # PO_DLL, PO_PATH, PO_TESTS, GITHUB_OUTPUT, GITHUB_STEP_SUMMARY and GITHUB_WORKSPACE.
-# It writes the report to the job summary and, on exit 1, one error annotation per test file that did not pass.
+# It writes the report to the job summary (through summary.sh, which keeps it under the 1 MiB limit) and, on exit 1, one error annotation per test file that did not pass.
 # It records the exit code in the step output and always exits 0; the last step of the action fails the job.
 set -euo pipefail
 
@@ -20,7 +20,7 @@ echo "exit-code=$code" >> "$GITHUB_OUTPUT"
 case "$code" in
   0 | 1)
     if [ -s "$report" ]; then
-      cat "$report" >> "$GITHUB_STEP_SUMMARY"
+      bash "$(dirname "${BASH_SOURCE[0]}")/summary.sh" < "$report"
     else
       echo "::warning::powerops test wrote no report (exit code $code)"
     fi
