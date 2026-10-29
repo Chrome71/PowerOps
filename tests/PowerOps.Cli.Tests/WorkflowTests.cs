@@ -43,4 +43,34 @@ public sealed class WorkflowTests
         Assert.Contains("jq -e", vulnerable);
         Assert.Contains("-p:RestoreLockedMode=true", Steps("release.yml", "publish").Select(s => Text(s, "run")).Single(r => r?.StartsWith("dotnet pack", StringComparison.Ordinal) == true));
     }
+
+    public static TheoryData<string> Workflows => ["ci.yml", "release.yml", "skills-smoke.yml"];
+
+    private static List<Dictionary<object, object>> AllSteps(string workflow) =>
+        [.. Map(Load(".github", "workflows", workflow)["jobs"]).Values.SelectMany(job => ((List<object>)Map(job)["steps"]).Select(Map))];
+
+    [Theory]
+    [MemberData(nameof(Workflows))]
+    public void Every_job_has_a_timeout_and_every_checkout_keeps_the_token_out_of_git_config(string workflow)
+    {
+        var jobs = Map(Load(".github", "workflows", workflow)["jobs"]);
+        var checkouts = AllSteps(workflow).Where(s => Text(s, "uses")?.StartsWith("actions/checkout@", StringComparison.Ordinal) == true).ToList();
+
+        Assert.All(jobs, job => Assert.True(Map(job.Value).ContainsKey("timeout-minutes"), $"{job.Key}"));
+        Assert.NotEmpty(checkouts);
+        Assert.All(checkouts, s => Assert.Equal("false", (string)Map(s["with"])["persist-credentials"]));
+    }
+
+    [Theory]
+    [MemberData(nameof(Workflows))]
+    public void No_run_text_holds_an_expression(string workflow)
+    {
+        Assert.All(AllSteps(workflow), s => Assert.DoesNotContain("${{", Text(s, "run") ?? ""));
+    }
+
+    [Fact]
+    public void The_release_workflow_starts_with_no_permissions()
+    {
+        Assert.Empty(Map(Load(".github", "workflows", "release.yml")["permissions"]));
+    }
 }
