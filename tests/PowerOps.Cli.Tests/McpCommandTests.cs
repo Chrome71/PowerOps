@@ -611,6 +611,15 @@ public sealed class McpCommandTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_drift_env_with_a_path_separator_that_is_not_a_url_or_a_file_is_a_tool_error_and_nothing_is_read()
+    {
+        await Refused("drift", new() { ["solution"] = "PowerOpsSeed", ["envs"] = new[] { DevFile, "bad/emptydir" } },
+            "error: --env 2: not a snapshot file or an environment; a value with a path separator must be a URL or an existing file");
+
+        Assert.Equal(0, _fakes.Total);
+    }
+
+    [Fact]
     public async Task The_same_calls_with_clean_values_reach_the_fakes_once()
     {
         _fakes.LiveBehavior = DriftFakes().LiveBehavior;

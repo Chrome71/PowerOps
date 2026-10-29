@@ -159,6 +159,44 @@ public class DriftCommandTests : IDisposable
         Assert.Equal("error: --env 2: no snapshot file at that path\n", r.Err);
     }
 
+    private const string NotAFileOrEnvironment = "error: --env 2: not a snapshot file or an environment; a value with a path separator must be a URL or an existing file\n";
+
+    [Theory]
+    [InlineData("bad/emptydir")]
+    [InlineData("bad\\emptydir")]
+    [InlineData("./x")]
+    [InlineData("<existing folder>")]
+    public void A_value_with_a_path_separator_that_is_not_a_url_or_an_existing_file_exits_2_and_reads_no_tenant(string value)
+    {
+        var env = value == "<existing folder>" ? _dir : value;
+
+        var r = Run(Pair(Dev, Twin), Args("a", env));
+
+        Assert.Equal(2, r.Code);
+        Assert.Empty(r.Calls);
+        Assert.Equal(NotAFileOrEnvironment, r.Err);
+    }
+
+    [Fact]
+    public void A_url_is_not_refused_for_its_slashes()
+    {
+        var r = Run(new Dictionary<string, Snapshot> { ["a"] = Dev, [Url] = Twin }, Args("a", Url));
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal(["PowerOpsSeed|a", $"PowerOpsSeed|{Url}"], r.Calls);
+    }
+
+    [Fact]
+    public void An_existing_file_without_a_json_name_is_not_refused_for_its_path()
+    {
+        var file = Write("snapshot.txt", SnapshotFile.Write(Dev));
+
+        var r = Run(null, Args(file, DevFile));
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal("", r.Err);
+    }
+
     [Fact]
     public void Save_on_a_file_or_with_only_snapshot_inputs_exits_2()
     {
