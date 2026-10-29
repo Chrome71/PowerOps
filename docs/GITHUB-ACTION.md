@@ -11,7 +11,7 @@ permissions:
 
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-  - uses: Chrome71/PowerOps@df04828b945dbd2b8d3ee10361668a100ed72d90 # main on 2026-10-29; pin the newest commit of main
+  - uses: Chrome71/PowerOps@391a6e07420c816526e218eebc4fc92a905c153a # main on 2026-10-29; pin the newest commit of main
     with:
       path: solutions        # default: .
       fail-on: error         # error | warning | none
@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: Chrome71/PowerOps@df04828b945dbd2b8d3ee10361668a100ed72d90 # main on 2026-10-29; pin the newest commit of main
+      - uses: Chrome71/PowerOps@391a6e07420c816526e218eebc4fc92a905c153a # main on 2026-10-29; pin the newest commit of main
         with:
           path: solutions
           tests: flowtests
@@ -152,7 +152,7 @@ jobs:
             exit 1
           fi
 
-      - uses: Chrome71/PowerOps@df04828b945dbd2b8d3ee10361668a100ed72d90 # main on 2026-10-29; pin the newest commit of main
+      - uses: Chrome71/PowerOps@391a6e07420c816526e218eebc4fc92a905c153a # main on 2026-10-29; pin the newest commit of main
         with:
           path: solutions/ContosoApp        # the unpacked solution: analyzed, and diffed on a fork PR
           tests: flowtests                  # flow tests of that solution, also on a fork PR

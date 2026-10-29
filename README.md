@@ -41,7 +41,7 @@ In any CI system that has the .NET 10 SDK, build PowerOps from a clone, then one
 ```sh
 po="$(mktemp -d)"
 git clone https://github.com/Chrome71/PowerOps.git "$po/PowerOps"
-git -C "$po/PowerOps" checkout df04828b945dbd2b8d3ee10361668a100ed72d90 # main on 2026-10-29; pin the newest commit of main
+git -C "$po/PowerOps" checkout 391a6e07420c816526e218eebc4fc92a905c153a # main on 2026-10-29; pin the newest commit of main
 dotnet pack "$po/PowerOps/src/PowerOps.Cli" -c Release -o "$po/PowerOps/artifacts"
 dotnet tool install --global --source "$po/PowerOps/artifacts" PowerOps
 powerops analyze solutions --format sarif --out powerops.sarif # solutions: the folder that holds your solutions
