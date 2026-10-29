@@ -375,12 +375,17 @@ public class ImportCallTests
 
         Assert.Contains($"--path {PathHint}", Blocked(Bash($"pac solution import --path /c/work/x.zip --environment {Env}")).Lines);
         Assert.Contains($"--path {PathHint}", Blocked(Bash($"pac solution import --path C:\\work\\x.zip --environment {Env}")).Lines);
-        foreach (var path in new[] { @"\\host\share\x.zip", @"\\?\C:\x.zip", @"\\.\CON" })
+        foreach (var path in new[] { @"\\host\share\x.zip", @"\\.\CON" })
         {
             var input = McpInput();
             input["--path"] = path;
             Assert.Contains("--path must not be a network or device path", Blocked(Mcp(input)).Lines);
         }
+
+        // The ? of the \\?\ prefix is outside the MCP path characters, so that check blocks it first.
+        var prefixed = McpInput();
+        prefixed["--path"] = @"\\?\C:\x.zip";
+        Assert.Contains(Blocked(Mcp(prefixed)).Lines, l => l.StartsWith("--path must hold only letters", StringComparison.Ordinal));
     }
 
     [Fact]
