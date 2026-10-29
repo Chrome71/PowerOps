@@ -994,9 +994,14 @@ public sealed class McpCommandTests : IAsyncLifetime
     // For a call that must not send a form: if it does, the test fails on what it sees instead of waiting for an answer.
     private static Forms NoFormExpected() => new(_ => new ElicitResult { Action = "cancel" });
 
-    private sealed class Pair(McpServer server, Task run, McpClient client, ConcurrentQueue<string[]> ran) : IAsyncDisposable
+    private sealed class Pair(McpServer server, Task run, McpClient client, ConcurrentQueue<string[]> ran, PipeWriter input) : IAsyncDisposable
     {
         public McpClient Client => client;
+
+        // The server's run, and the client's end of its input: completing the writer is what a client that closes stdin does.
+        public Task Run => run;
+
+        public PipeWriter Input => input;
 
         // Every argument list the server passed to Program.Run.
         public ConcurrentQueue<string[]> Ran => ran;
@@ -1029,7 +1034,7 @@ public sealed class McpCommandTests : IAsyncLifetime
             new StreamClientTransport(clientToServer.Writer.AsStream(), serverToClient.Reader.AsStream()),
             new McpClientOptions { ProtocolVersion = revision, DiscoverProbeTimeout = NoProbeTimeout, Capabilities = elicitation is null ? null : new ClientCapabilities { Elicitation = elicitation }, Handlers = new McpClientHandlers { ElicitationHandler = forms.Handle } },
             cancellationToken: TestContext.Current.CancellationToken);
-        return new Pair(server, run, client, ran);
+        return new Pair(server, run, client, ran, clientToServer.Writer);
     }
 
     private static Task<CallToolResult> Apply(Pair pair, Dictionary<string, object?> arguments) => pair.Client.CallToolAsync("deploy_apply", arguments, cancellationToken: TestContext.Current.CancellationToken).AsTask();
@@ -1362,6 +1367,33 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Contains("the plan is not the one that was approved", (string)JsonNode.Parse(Text(result))!["message"]!);
         Assert.Equal(0, _fakes.Pacs);
         Assert.Empty(_imports);
+    }
+
+    // S-8: this pins what SDK 2.3.0 does when the client closes the server's input during an import; it is not a fix.
+    [Fact]
+    public async Task A_server_whose_input_closes_during_an_import_finishes_the_import_then_exits()
+    {
+        var (_, planFile) = SavedPlan();
+        var (inImport, release) = (new SemaphoreSlim(0), new ManualResetEventSlim());
+        ImportFakes();
+        _fakes.PacBehavior = args =>
+        {
+            _imports.Enqueue([.. args]);
+            inImport.Release();
+            release.Wait(Wait, TestContext.Current.CancellationToken);
+            return Ok("imported\n");
+        };
+        await using var pair = await Connect(_fakes, "2026-07-28", new Forms(_ => Accepted(TargetName)));
+        var call = Apply(pair, ApplyArgs(planFile));
+        _ = call.ContinueWith(static t => t.Exception, TaskScheduler.Default);
+        Assert.True(await inImport.WaitAsync(Wait, TestContext.Current.CancellationToken), "the import never started");
+
+        await pair.Input.CompleteAsync();
+
+        Assert.NotSame(pair.Run, await Task.WhenAny(pair.Run, Task.Delay(500, TestContext.Current.CancellationToken)));
+        release.Set();
+        await pair.Run.WaitAsync(Wait, TestContext.Current.CancellationToken);
+        Assert.Single(_imports);
     }
 
     // 7
