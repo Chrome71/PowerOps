@@ -16,10 +16,19 @@ public static class DeployCommand
     private const long MaxSettingsBytes = 1024 * 1024;
     private const string SettingsSuffix = ".settings.json";
 
+    /// <summary>Half of both clients' default hook timeout of 600 seconds.</summary>
+    internal static readonly TimeSpan GateDeadline = TimeSpan.FromSeconds(300);
+
+    private const string ReadingGuidance = "The call was blocked. If it is an import, write it as one plain pac solution import command with literal absolute paths and the environment's id or https URL. If it only mentions an import, reword it.";
+    private const string ImportGuidance = "The import was blocked. To import a reviewed plan, run powerops deploy apply <plan file> --target <environment id or URL> --apply after the user's yes to that environment. Do not retry this import another way.";
+
     /// <param name="pac">Runs pac; <c>deploy apply</c> uses it for the imports only.</param>
     /// <param name="target">Reads the target: the <c>--target</c> value, the solution names of the folder and the dependency names not in it. Throws <see cref="DriftReadException"/>.</param>
+    /// <param name="input">Opens the hook input of <c>deploy gate</c> (stdin); null when there is none. Only the gate calls it.</param>
+    /// <param name="deadline">How long <c>deploy gate</c> may check before it blocks; a test seam, <see cref="GateDeadline"/> in production.</param>
     public static Command Create(
-        TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> target)
+        TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> target,
+        Func<Stream?>? input = null, TimeSpan? deadline = null)
     {
         var folder = new Argument<string>("folder") { Description = "A folder of exported solution zips, each with an optional <zip name>.settings.json beside it." };
         var targetOption = new Option<string?>("--target") { Description = "The environment to plan against (an id or URL, as pac --environment). Never printed." };
@@ -33,7 +42,7 @@ public static class DeployCommand
         };
         plan.SetAction(parse => SettingsCommand.Guard(error, () =>
             Run(parse.GetValue(folder)!, parse.GetValue(targetOption), parse.GetValue(save), parse.GetValue(format)!, parse.GetValue(outFile), output, error, target)));
-        return new Command("deploy", "Plan a deployment of solution zips, and import a reviewed plan.") { plan, Apply(output, error, pac, target) };
+        return new Command("deploy", "Plan a deployment of solution zips, and import a reviewed plan.") { plan, Apply(output, error, pac, target), Gate(error, input ?? (() => null), deadline ?? GateDeadline, target) };
     }
 
     private static Command Apply(
@@ -153,12 +162,8 @@ public static class DeployCommand
         }
     }
 
-    private static int Apply(
-        string planFile, string? target, bool apply, string format, string? outFile, TextWriter output, TextWriter error,
-        Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
+    private static void PlanFileProblems(string planFile, string? target, List<string> problems)
     {
-        // The --target value, the environment id and every folder path are never printed.
-        var problems = new List<string>();
         if (string.IsNullOrWhiteSpace(target))
         {
             problems.Add("--target is required");
@@ -168,7 +173,87 @@ public static class DeployCommand
         {
             problems.Add("the plan file does not exist");
         }
+    }
 
+    private static List<AppliedSolution> Rows(DeployPlanResult plan, Func<PlannedSolution, string> import) =>
+        [.. plan.Solutions.Select(s => new AppliedSolution(s.Order, s.Solution, s.Zip, s.Action, import(s), null))];
+
+    /// <summary>What the dry run of <c>deploy apply</c> found when nothing stops the import: the plan against the target now, and the imports and flows it holds.</summary>
+    private sealed record Ready(string Folder, ReviewedPlan Reviewed, Prepared Now, IReadOnlyList<ImportStep> Imports, IReadOnlyList<FlowRef> FlowRefs);
+
+    /// <summary>How the dry run stopped: the exit code and, when <paramref name="Name"/> is not null, the report that <c>deploy apply</c> writes for it. With a null name only error lines were written.</summary>
+    private sealed record Stopped(int Code, string? Name = null, string Hash = "", string Status = "", string? Message = null, IReadOnlyList<AppliedSolution>? Solutions = null);
+
+    // The dry run of `deploy apply`, from the plan file read to the imports: one copy for `deploy apply` and `deploy gate`.
+    // `problems` holds the usage problems found so far; error lines go to `error`.
+    private static (Ready? Ready, Stopped? Stop) DryRun(
+        string planFile, string? target, List<string> problems, string tool, TextWriter error,
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
+    {
+        if (problems.Count > 0)
+        {
+            problems.ForEach(p => error.WriteLine($"error: {p}"));
+            return (null, new Stopped(UsageError));
+        }
+
+        var folder = Path.GetDirectoryName(Path.GetFullPath(planFile))!;
+        if (ReadPlanFile(planFile, tool, error) is not { } reviewedRead)
+        {
+            return (null, new Stopped(InternalError));
+        }
+
+        // A file of another version has no fields to trust, so its report has no target and no hash.
+        if (reviewedRead.Plan is not { } reviewed)
+        {
+            return (null, new Stopped(1, "", "", ApplyStatus.Refused, reviewedRead.Refusal, []));
+        }
+
+        if (reviewed.Blocked)
+        {
+            return (null, new Stopped(1, reviewed.Target, reviewed.Hash, ApplyStatus.Refused, "a blocked plan is never applied", []));
+        }
+
+        if (Prepare(folder, target, [], error, read, out var code) is not { } now)
+        {
+            return (null, new Stopped(code));
+        }
+
+        var plan = now.Plan;
+        if (!string.Equals(plan.Target, reviewed.Target, StringComparison.Ordinal))
+        {
+            error.WriteLine($"error: the plan was made for {Clean(reviewed.Target)}, --target is {Clean(plan.Target)}; nothing was imported");
+            return (null, new Stopped(UsageError));
+        }
+
+        if (plan.Hash != reviewed.Hash)
+        {
+            var why = DeployApply.ChangedInput(reviewed.Inputs, plan.Inputs) ?? DeployApply.InputsEqualMessage;
+            return (null, new Stopped(1, plan.Target, reviewed.Hash, ApplyStatus.Refused, $"{why}; nothing was imported. Plan again and review the new plan.", Rows(plan, _ => ImportStatus.NotRun)));
+        }
+
+        if (plan.Blocked)
+        {
+            return (null, new Stopped(1, plan.Target, reviewed.Hash, ApplyStatus.Refused, "the plan is blocked now; nothing was imported. Plan again.", Rows(plan, _ => ImportStatus.NotRun)));
+        }
+
+        try
+        {
+            return (new Ready(folder, reviewed, now, DeployApply.Imports(plan, now.Zips), DeployApply.FlowIds(plan, now.Zips)), null);
+        }
+        catch (InvalidDataException ex)
+        {
+            error.WriteLine($"error: {Clean(ex.Message)}");
+            return (null, new Stopped(InternalError));
+        }
+    }
+
+    private static int Apply(
+        string planFile, string? target, bool apply, string format, string? outFile, TextWriter output, TextWriter error,
+        Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
+    {
+        // The --target value, the environment id and every folder path are never printed.
+        var problems = new List<string>();
+        PlanFileProblems(planFile, target, problems);
         if (outFile is not null && Directory.Exists(outFile))
         {
             problems.Add("--out names an existing folder, not a file");
@@ -178,14 +263,7 @@ public static class DeployCommand
             problems.Add("the folder of --out does not exist");
         }
 
-        if (problems.Count > 0)
-        {
-            problems.ForEach(p => error.WriteLine($"error: {p}"));
-            return UsageError;
-        }
-
         var tool = AnalyzeCommand.ToolVersion();
-        var folder = Path.GetDirectoryName(Path.GetFullPath(planFile))!;
         var progress = format == "json" ? error : output;
 
         int Finish(int code, string name, string hash, string status, string? message, IReadOnlyList<AppliedSolution> solutions, IReadOnlyList<AppliedFlow> flows)
@@ -213,60 +291,14 @@ public static class DeployCommand
             return code;
         }
 
-        if (ReadPlanFile(planFile, tool, error) is not { } reviewedRead)
+        var (ready, stop) = DryRun(planFile, target, problems, tool, error, read);
+        if (stop is not null)
         {
-            return InternalError;
+            return stop.Name is null ? stop.Code : Finish(stop.Code, stop.Name, stop.Hash, stop.Status, stop.Message, stop.Solutions!, []);
         }
 
-        // A file of another version has no fields to trust, so its report has no target and no hash.
-        if (reviewedRead.Plan is not { } reviewed)
-        {
-            return Finish(1, "", "", ApplyStatus.Refused, reviewedRead.Refusal, [], []);
-        }
-
-        if (reviewed.Blocked)
-        {
-            return Finish(1, reviewed.Target, reviewed.Hash, ApplyStatus.Refused, "a blocked plan is never applied", [], []);
-        }
-
-        if (Prepare(folder, target, [], error, read, out var code) is not { } now)
-        {
-            return code;
-        }
-
+        var (folder, reviewed, now, imports, flowRefs) = ready!;
         var plan = now.Plan;
-        if (!string.Equals(plan.Target, reviewed.Target, StringComparison.Ordinal))
-        {
-            error.WriteLine($"error: the plan was made for {Clean(reviewed.Target)}, --target is {Clean(plan.Target)}; nothing was imported");
-            return UsageError;
-        }
-
-        List<AppliedSolution> Rows(Func<PlannedSolution, string> import) =>
-            [.. plan.Solutions.Select(s => new AppliedSolution(s.Order, s.Solution, s.Zip, s.Action, import(s), null))];
-
-        if (plan.Hash != reviewed.Hash)
-        {
-            var why = DeployApply.ChangedInput(reviewed.Inputs, plan.Inputs) ?? DeployApply.InputsEqualMessage;
-            return Finish(1, plan.Target, reviewed.Hash, ApplyStatus.Refused, $"{why}; nothing was imported. Plan again and review the new plan.", Rows(_ => ImportStatus.NotRun), []);
-        }
-
-        if (plan.Blocked)
-        {
-            return Finish(1, plan.Target, reviewed.Hash, ApplyStatus.Refused, "the plan is blocked now; nothing was imported. Plan again.", Rows(_ => ImportStatus.NotRun), []);
-        }
-
-        IReadOnlyList<ImportStep> imports;
-        IReadOnlyList<FlowRef> flowRefs;
-        try
-        {
-            imports = DeployApply.Imports(plan, now.Zips);
-            flowRefs = DeployApply.FlowIds(plan, now.Zips);
-        }
-        catch (InvalidDataException ex)
-        {
-            error.WriteLine($"error: {Clean(ex.Message)}");
-            return InternalError;
-        }
 
         var planned = flowRefs.Select(f => new AppliedFlow(f.Solution, f.Flow.Name, f.Flow.ExpectedState, null)).ToList();
         if (!apply)
@@ -276,7 +308,7 @@ public static class DeployCommand
                 progress.WriteLine($"would run: pac {string.Join(' ', SettingsCommand.ImportArguments(SettingsCommand.EnvironmentPlaceholder, step.Zip, step.Settings, step.StageAndUpgrade).Select(Clean))}");
             }
 
-            return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Planned, null, Rows(s => s.Action == PlanAction.Skip ? ImportStatus.Skipped : ImportStatus.Planned), planned);
+            return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Planned, null, Rows(plan, s => s.Action == PlanAction.Skip ? ImportStatus.Skipped : ImportStatus.Planned), planned);
         }
 
         progress.Write(SettingsApplyReport.Header(Clean(plan.Target)));
@@ -369,18 +401,219 @@ public static class DeployCommand
         }
     }
 
-    // True when the file's SHA-256 is not `expected`, or it cannot be read, or it is now over the cap the first read had.
-    private static bool Changed(string path, string? expected, long maxBytes)
+    private static Command Gate(TextWriter error, Func<Stream?> input, TimeSpan deadline, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
+    {
+        var planFile = new Argument<string>("plan-file") { Description = "The plan file written by deploy plan --save that the hook trusts." };
+        var command = new Command("gate", "A PreToolUse hook for Microsoft's import tools: reads the hook's JSON on stdin and exits 0 for a call that is not an import or is the plan's first import, 2 for any other call (the reason is on stderr).") { planFile };
+        // Not SettingsCommand.Guard: the gate exits only 0 or 2, whatever happens, because a hook blocks only on exit 2.
+        // Shadows the recursive help option: help would print to stdout and exit 0, which lets every call through.
+        var help = new Option<bool>("-h", "/h", "--help", "-?", "/?") { Hidden = true };
+        command.Options.Add(help);
+        command.SetAction(parse => RunGate(parse.GetValue(help) ? "-h" : parse.GetValue(planFile)!, error, input, deadline, read));
+        return command;
+    }
+
+    private static int RunGate(
+        string planFile, TextWriter error, Func<Stream?> input, TimeSpan deadline, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
     {
         try
         {
-            return DeployPlan.Sha256Hex(BoundedRead.ReadAllBytes(path, maxBytes)) != expected;
+            if (planFile.StartsWith('-'))
+            {
+                // Without this a mistyped option would be taken as the plan file.
+                GateBlocked(error, ["the plan file must not start with '-'"], false);
+                return UsageError;
+            }
+
+            // The check runs on its own task and writes to its own buffer, so past the deadline its late output is dropped.
+            var report = new StringWriter();
+            var check = Task.Run(() => GateCheck(planFile, input, report, read));
+            if (!check.Wait(deadline))
+            {
+                error.WriteLine($"error: deploy gate: the check took longer than {(int)deadline.TotalSeconds} seconds");
+                error.WriteLine(ImportGuidance);
+                return UsageError;
+            }
+
+            error.Write(report.ToString());
+            return check.Result;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        catch (Exception ex)
         {
-            return true;
+            try
+            {
+                GateBlocked(error, [$"internal error ({ex.GetType().Name})"], false);
+            }
+            catch (Exception)
+            {
+                // Nothing is left to report to: a stderr that fails still blocks.
+            }
+
+            return UsageError;
         }
     }
+
+    private static int GateCheck(
+        string planFile, Func<Stream?> input, TextWriter report, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
+    {
+        try
+        {
+            return GateDecide(planFile, input, report, read);
+        }
+        catch (Exception ex)
+        {
+            return GateBlocked(report, [$"internal error ({ex.GetType().Name})"], false);
+        }
+    }
+
+    // Every block says why on stderr and ends with one guidance line; Codex lets the call through on exit 2 with no stderr.
+    private static int GateBlocked(TextWriter report, IEnumerable<string> lines, bool unreadable)
+    {
+        foreach (var line in lines)
+        {
+            report.WriteLine($"error: deploy gate: {line}");
+        }
+
+        report.WriteLine(unreadable ? ReadingGuidance : ImportGuidance);
+        return UsageError;
+    }
+
+    private static int GateDecide(
+        string planFile, Func<Stream?> input, TextWriter report, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
+    {
+        using var stdin = input();
+        if (stdin is null)
+        {
+            return GateBlocked(report, ["the hook input is read from stdin"], true);
+        }
+
+        var buffer = new MemoryStream();
+        var chunk = new byte[81_920];
+        int got;
+        while (buffer.Length <= ImportCall.MaxInputBytes && (got = stdin.Read(chunk, 0, (int)Math.Min(chunk.Length, ImportCall.MaxInputBytes + 1 - buffer.Length))) > 0)
+        {
+            buffer.Write(chunk, 0, got);
+        }
+
+        switch (ImportCall.Read(buffer.ToArray()))
+        {
+            case ImportRead.NotImport:
+                return 0;
+            case ImportRead.Blocked blocked:
+                return GateBlocked(report, blocked.Lines, blocked.Unreadable);
+            case ImportRead.Check { Call: var call }:
+                return GateCheckCall(call, planFile, report, read);
+            default:
+                throw new InvalidOperationException("unknown import reading");
+        }
+    }
+
+    private static int GateCheckCall(ImportCall call, string planFile, TextWriter report, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
+    {
+        // The call's files are opened only to hash them.
+        var zipHash = HashRegularFile(call.Zip, BoundedRead.MaxZipBytes);
+        var settingsHash = call.Settings is null ? null : HashRegularFile(call.Settings, MaxSettingsBytes);
+        var missing = new[] { (call.Zip, zipHash), (call.Settings!, settingsHash) }
+            .Where(f => f.Item1 is not null && f.Item2 is null)
+            .Select(f => $"{ImportCall.Printable(Path.GetFileName(f.Item1))} does not exist, is a symbolic link, is not a file, or can't be read")
+            .ToList();
+        if (missing.Count > 0)
+        {
+            return GateBlocked(report, missing, false);
+        }
+
+        var problems = new List<string>();
+        PlanFileProblems(planFile, call.Environment, problems);
+        var (ready, stop) = DryRun(planFile, call.Environment, problems, AnalyzeCommand.ToolVersion(), report, read);
+        if (stop is not null)
+        {
+            return GateBlocked(report, [$"the dry run did not pass{(stop.Message is null ? "" : ": " + Clean(stop.Message))}"], false);
+        }
+
+        var plan = ready!.Now.Plan;
+        if (ready.Imports.Count == 0)
+        {
+            return GateBlocked(report, ["the plan imports nothing"], false);
+        }
+
+        // The plan file's solutions are not covered by its hash, so the first step comes from the fresh plan.
+        var first = ready.Imports[0];
+        var firstInput = plan.Inputs.Zips.First(z => z.Zip == first.Zip);
+        if (zipHash != firstInput.ZipSha256)
+        {
+            var other = plan.Inputs.Zips.FirstOrDefault(z => z.ZipSha256 == zipHash)?.Zip;
+            return GateBlocked(report, [other is null
+                ? $"{ImportCall.Printable(Path.GetFileName(call.Zip))} is not a zip of the plan"
+                : plan.Solutions.Any(s => s.Zip == other && s.Action == PlanAction.Skip) ? $"the plan skips {Clean(other)}" : $"the plan imports {Clean(first.Zip)} first"], false);
+        }
+
+        var lines = new List<string>();
+        if (first.Settings is not null && call.Settings is null)
+        {
+            lines.Add($"the plan imports {Clean(first.Zip)} with {Clean(first.Settings)}");
+        }
+        else if (first.Settings is not null && settingsHash != firstInput.SettingsSha256)
+        {
+            lines.Add($"the plan imports {Clean(first.Zip)} with a different settings file");
+        }
+        else if (first.Settings is null && call.Settings is not null)
+        {
+            lines.Add($"the plan imports {Clean(first.Zip)} with no settings file");
+        }
+
+        if (call.StageAndUpgrade != first.StageAndUpgrade)
+        {
+            lines.Add($"the plan {(first.StageAndUpgrade ? "stages and upgrades" : "doesn't stage and upgrade")} {Clean(first.Zip)}");
+        }
+
+        if (lines.Count > 0)
+        {
+            return GateBlocked(report, lines, false);
+        }
+
+        // The dry run can take minutes of live reads: the files the call names must still be the bytes that were checked.
+        var swapped = new[] { (call.Zip, zipHash, BoundedRead.MaxZipBytes), (call.Settings, settingsHash, MaxSettingsBytes) }
+            .Where(f => f.Item1 is not null && HashRegularFile(f.Item1, f.Item3) != f.Item2)
+            .Select(f => $"{ImportCall.Printable(Path.GetFileName(f.Item1!))} changed while the gate checked it")
+            .ToList();
+        return swapped.Count == 0 ? 0 : GateBlocked(report, swapped, false);
+    }
+
+    // The SHA-256 of a regular file, or null when it does not exist, is a symbolic link, is not a seekable file (a FIFO), is over the cap or cannot be read.
+    // The bytes read must equal the length it reports and be followed by the end of the file, so a device such as /dev/zero (seekable, length 0) is refused too.
+    private static string? HashRegularFile(string path, long maxBytes)
+    {
+        try
+        {
+            if (new FileInfo(path).LinkTarget is not null)
+            {
+                return null;
+            }
+
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            if (!stream.CanSeek || stream.Length > maxBytes)
+            {
+                return null;
+            }
+
+            var bytes = new byte[stream.Length];
+            var got = 0;
+            int read;
+            while (got < bytes.Length && (read = stream.Read(bytes, got, bytes.Length - got)) > 0)
+            {
+                got += read;
+            }
+
+            return got == bytes.Length && stream.ReadByte() < 0 ? DeployPlan.Sha256Hex(bytes) : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    // True when the file's SHA-256 is not `expected`, or it cannot be read, or it is now over the cap the first read had.
+    private static bool Changed(string path, string? expected, long maxBytes) => HashRegularFile(path, maxBytes) is not { } hash || hash != expected;
 
     // Another tool's text goes to stderr with every line prefixed, so no line can start with "error:" or "::".
     internal static void Forward(TextWriter error, string? text)

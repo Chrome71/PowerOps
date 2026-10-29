@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
 using PowerOps.Tests.Shared;
@@ -18,7 +19,15 @@ public partial class HandoffDocTests
     internal static List<string[]> WordLists(string text) =>
         [.. Mention().Matches(text).Select(m => m.Groups[1].Value.Trim().Split(' ')).DistinctBy(w => string.Join(' ', w))];
 
-    private static string Page() => File.ReadAllText(Path.Combine(Golden.RepoRoot, "docs", "HANDOFF.md"));
+    private static string Page() => File.ReadAllText(Path.Combine(Golden.RepoRoot, "docs", "HANDOFF.md")).Replace("\r\n", "\n");
+
+    // The PreToolUse groups of the page's one JSON block, the Claude Code hooks.
+    private static JsonArray HookGroups()
+    {
+        var page = Page();
+        var start = page.IndexOf("```json\n", StringComparison.Ordinal) + "```json\n".Length;
+        return JsonNode.Parse(page[start..page.IndexOf("```", start, StringComparison.Ordinal)])!["hooks"]!["PreToolUse"]!.AsArray();
+    }
 
     // The words up to and including the first one that is not a subcommand, all of them when they stop at a command
     // that still has subcommands, or null when they reach a command.
@@ -76,6 +85,26 @@ public partial class HandoffDocTests
 
         var misspelled = WordLists(Page().Replace("deploy apply", "deploy aply"));
         Assert.Contains("deploy aply", misspelled.Select(Unknown));
+    }
+
+    [Fact]
+    public void The_hooks_run_the_gate_and_block_when_it_fails()
+    {
+        var groups = HookGroups();
+
+        Assert.Equal(["mcp__pac-cli__solution_import", "Bash", "Monitor", "PowerShell"], groups.Select(g => (string?)g!["matcher"]));
+        foreach (var hook in groups.SelectMany(g => g!["hooks"]!.AsArray()))
+        {
+            Assert.Equal("powerops deploy gate \"$CLAUDE_PROJECT_DIR/deploy/powerops-plan.json\" || exit 2", (string?)hook!["command"]);
+            Assert.Equal("block", (string?)hook["onFailure"]);
+            Assert.Equal(600, (int?)hook["timeout"]);
+        }
+    }
+
+    [Fact]
+    public void No_hook_filters_with_grep()
+    {
+        Assert.DoesNotContain("grep", string.Join('\n', HookGroups().SelectMany(g => g!["hooks"]!.AsArray()).Select(h => (string)h!["command"]!)), StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Text.Json.Nodes;
 
 namespace PowerOps.Cli.Tests;
 
@@ -24,6 +25,67 @@ public class ProgramTests
         var expected = cliAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion;
         Assert.Equal(0, process.ExitCode);
         Assert.Equal(expected, output.Trim());
+    }
+
+    // `deploy gate` as a hook runs it: the built assembly as a child process with the hook input on stdin.
+    private static (int Code, string Out, string Err) Gate(string stdin, string planFile)
+    {
+        var startInfo = new ProcessStartInfo("dotnet")
+        {
+            ArgumentList = { typeof(Program).Assembly.Location, "deploy", "gate", planFile },
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+
+        using var process = Process.Start(startInfo)!;
+        process.StandardInput.Write(stdin);
+        process.StandardInput.Close();
+        var error = process.StandardError.ReadToEndAsync();
+        var output = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+        return (process.ExitCode, output, error.Result.ReplaceLineEndings("\n"));
+    }
+
+    private static string Hook(string command) => new JsonObject { ["tool_name"] = "Bash", ["tool_input"] = new JsonObject { ["command"] = command } }.ToJsonString();
+
+    [Fact]
+    public void The_gate_allows_a_call_that_is_not_an_import_with_no_output()
+    {
+        Assert.Equal((0, "", ""), Gate(Hook("git status"), "no-such-plan.json"));
+    }
+
+    [Fact]
+    public void The_gate_blocks_an_import_whose_plan_file_is_missing_with_the_dry_runs_line_and_the_guidance()
+    {
+        var dir = Directory.CreateTempSubdirectory("powerops-gate-").FullName;
+        try
+        {
+            var zip = Path.Combine(dir, "Seed.zip");
+            File.WriteAllText(zip, "not a real zip");
+
+            var (code, output, error) = Gate(Hook($"pac solution import --path '{zip}' --environment 00000000-0000-0000-0000-000000000001"), Path.Combine(dir, "powerops-plan.json"));
+
+            Assert.Equal(2, code);
+            Assert.Equal("", output);
+            Assert.Contains("error: the plan file does not exist\n", error);
+            Assert.EndsWith("Do not retry this import another way.\n", error);
+            Assert.DoesNotContain(dir, error);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void The_gate_blocks_empty_stdin()
+    {
+        var (code, output, error) = Gate("", "no-such-plan.json");
+
+        Assert.Equal(2, code);
+        Assert.Equal("", output);
+        Assert.StartsWith("error: deploy gate: the hook input is not JSON\n", error);
     }
 
     [Fact]

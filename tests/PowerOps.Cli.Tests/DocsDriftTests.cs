@@ -48,7 +48,7 @@ public partial class DocsDriftTests
 
     // Every option of every command, and the flags of pac that docs/COMMANDS.md describes.
     private static readonly HashSet<string> KnownFlags = [.. Every(Tree).SelectMany(c => c.Options).SelectMany(o => o.Aliases.Append(o.Name)),
-        "--help", "--version", "--path", "--settings-file", "--stage-and-upgrade", "--skip-lower-version", "--environment"];
+        "--help", "--version", "--path", "--settings-file", "--stage-and-upgrade", "--skip-lower-version", "--environment", "--async", "--max-async-wait-time"];
 
     private static IEnumerable<Command> Every(Command command) => command.Subcommands.SelectMany(Every).Prepend(command);
 
