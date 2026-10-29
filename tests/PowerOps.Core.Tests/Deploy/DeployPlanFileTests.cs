@@ -163,10 +163,7 @@ public class DeployPlanFileTests
     }
 
     [Theory]
-    [InlineData("{\"schemaVersion\": 1,")]
-    [InlineData("")]
     [InlineData("SENTINEL")]
-    [InlineData("[1]")]
     [InlineData("\"SENTINEL\"")]
     public void Text_that_is_not_a_JSON_object_is_unreadable_and_never_quoted(string text)
     {

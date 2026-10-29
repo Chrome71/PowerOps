@@ -184,7 +184,8 @@ public class OutputSchemaTests
     public void An_invalid_flow_test_is_rejected_by_both_the_schema_and_the_parser(string text)
     {
         Assert.NotEqual("", Errors(Load("flow-test.schema.json"), JsonNode.Parse(text)!));
-        Assert.Throws<InvalidDataException>(() => FlowTestFile.Parse(text, "x.flowtest.json"));
+        var e = Assert.Throws<InvalidDataException>(() => FlowTestFile.Parse(text, "x.flowtest.json"));
+        Assert.StartsWith("x.flowtest.json:", e.Message);
     }
 
     [Fact]

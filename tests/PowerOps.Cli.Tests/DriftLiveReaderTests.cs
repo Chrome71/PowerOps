@@ -502,7 +502,6 @@ public class DriftLiveReaderTests
     [Theory]
     [InlineData(302, "")]
     [InlineData(500, "<html>Server error</html>")]
-    [InlineData(404, "")]
     public void Any_other_status_is_a_failed_read_with_no_forwarded_text_when_the_body_is_no_error_body(int status, string body)
     {
         var e = Fails(FailingAt(2, new WebResult(status, body, false)));

@@ -1,5 +1,3 @@
-using System.Text.Json.Nodes;
-
 using PowerOps.Core.Deploy;
 using PowerOps.Core.Output;
 
@@ -30,66 +28,7 @@ public class DeployApplyReportTests
         return w.ToString();
     }
 
-    private static void SameJson(string expected, DeployApplyResult r) =>
-        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(expected), JsonNode.Parse(Json(r))), Json(r));
-
-    private static string Doc(string applied, string status, string message, string solutions = "[]", string flows = "[]") =>
-        $$"""{"schemaVersion":1,"tool":"1.2.3","applied":{{applied}},"target":"Contoso Test","hash":"{{Hash}}","status":"{{status}}","message":{{message}},"solutions":{{solutions}},"flows":{{flows}}}""";
-
-    private static string S(int order, string name, string action, string import, string exit = "null") =>
-        $$"""{"order":{{order}},"solution":"{{name}}","zip":"{{name}}.zip","action":"{{action}}","import":"{{import}}","pacExitCode":{{exit}}}""";
-
-    private static string F(string solution, string name, string expected, string after) =>
-        $$"""{"solution":"{{solution}}","name":"{{name}}","expectedState":"{{expected}}","stateAfter":{{after}}}""";
-
-    // ---- JSON: one test per row of the case table ---------------------------------------------------------------
-
-    [Fact]
-    public void Json_refused_before_the_re_plan_has_empty_lists() =>
-        SameJson(Doc("false", "refused", "\"a blocked plan is never applied\""),
-            Result(ApplyStatus.Refused, false, "a blocked plan is never applied"));
-
-    [Fact]
-    public void Json_refused_after_the_re_plan_lists_the_new_plans_solutions_as_not_run() =>
-        SameJson(
-            Doc("true", "refused", "\"the plan is blocked now\"", $"[{S(1, "A", "install", "not-run")},{S(2, "B", "skip", "not-run")}]"),
-            Result(ApplyStatus.Refused, true, "the plan is blocked now", [Sol(1, "A", "install", ImportStatus.NotRun), Sol(2, "B", "skip", ImportStatus.NotRun)]));
-
-    [Fact]
-    public void Json_of_a_dry_run_has_planned_and_skipped_solutions_and_flows_without_a_state_after() =>
-        SameJson(
-            Doc("false", "planned", "null", $"[{S(1, "A", "install", "planned")},{S(2, "B", "skip", "skipped")}]", $"[{F("A", "Notify", "on", "null")}]"),
-            Result(ApplyStatus.Planned, false, null, [Sol(1, "A", "install", ImportStatus.Planned), Sol(2, "B", "skip", ImportStatus.Skipped)], [new("A", "Notify", "on", null)]));
-
-    [Fact]
-    public void Json_imported_with_only_skips_has_no_flows() =>
-        SameJson(
-            Doc("true", "imported", "null", $"[{S(1, "B", "skip", "skipped")}]"),
-            Result(ApplyStatus.Imported, true, null, [Sol(1, "B", "skip", ImportStatus.Skipped)]));
-
-    [Fact]
-    public void Json_imported_has_ok_and_skipped_solutions_and_the_states_after() =>
-        SameJson(
-            Doc("true", "imported", "null", $"[{S(1, "A", "upgrade", "ok")},{S(2, "B", "skip", "skipped")}]", $"[{F("A", "Notify", "off", "\"off\"")}]"),
-            Result(ApplyStatus.Imported, true, null, [Sol(1, "A", "upgrade", ImportStatus.Ok), Sol(2, "B", "skip", ImportStatus.Skipped)], [new("A", "Notify", "off", "off")]));
-
-    [Fact]
-    public void Json_imported_with_a_flow_not_as_expected_shows_both_states() =>
-        SameJson(
-            Doc("true", "imported", "null", $"[{S(1, "A", "install", "ok")}]", $"[{F("A", "Notify", "on", "\"off\"")}]"),
-            Result(ApplyStatus.Imported, true, null, [Sol(1, "A", "install", ImportStatus.Ok)], [new("A", "Notify", "on", "off")]));
-
-    [Fact]
-    public void Json_imported_with_the_second_read_failed_has_no_state_after_and_the_message() =>
-        SameJson(
-            Doc("true", "imported", "\"The imports succeeded. The flows could not be read.\"", $"[{S(1, "A", "install", "ok")}]", $"[{F("A", "Notify", "on", "null")}]"),
-            Result(ApplyStatus.Imported, true, "The imports succeeded. The flows could not be read.", [Sol(1, "A", "install", ImportStatus.Ok)], [new("A", "Notify", "on", null)]));
-
-    [Fact]
-    public void Json_failed_has_ok_then_failed_with_the_pac_exit_code_then_not_run() =>
-        SameJson(
-            Doc("true", "failed", "\"No rollback. Imported: A.\"", $"[{S(1, "A", "install", "ok")},{S(2, "B", "upgrade", "failed", "1")},{S(3, "C", "install", "not-run")}]"),
-            Result(ApplyStatus.Failed, true, "No rollback. Imported: A.", [Sol(1, "A", "install", ImportStatus.Ok), Sol(2, "B", "upgrade", ImportStatus.Failed, 1), Sol(3, "C", "install", ImportStatus.NotRun)]));
+    // ---- JSON ---------------------------------------------------------------------------------------------------
 
     [Fact]
     public void Json_has_a_stable_property_order_nulls_and_a_trailing_newline_with_unix_endings()

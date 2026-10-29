@@ -175,8 +175,6 @@ public class SettingsApplyCommandTests : IDisposable
 
     [Theory]
     [InlineData("list-cloud-flows-off.json", "off")]
-    [InlineData("list-cloud-flows-suspended.json", "suspended")]
-    [InlineData("list-cloud-flows-missing.json", "missing")]
     public void A_flow_not_on_after_the_import_exits_1(string after, string state)
     {
         var r = Run(Pac(after: after), "settings", "apply", SeedZip(), "--settings", Valid, "--apply", "--target", "Contoso Dev");

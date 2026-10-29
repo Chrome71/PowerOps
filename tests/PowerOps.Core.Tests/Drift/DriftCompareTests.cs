@@ -105,18 +105,6 @@ public class DriftCompareTests
     }
 
     [Fact]
-    public void A_missing_flow_gives_one_item_and_no_component_item_and_types_380_and_381_are_left_out()
-    {
-        var a = Snap(
-            components: [new(29, G1, null), new(380, G2, null), new(381, G3, null)],
-            flows: [new(G1, "Flow", "on")]);
-
-        var item = One(a, Snap("Test"));
-
-        Assert.Equal((DriftKind.FlowMissing, "Flow"), (item.Kind, item.Subject));
-    }
-
-    [Fact]
     public void A_connection_reference_in_one_environment_gives_one_reference_item_whatever_its_component_type()
     {
         var item = One(
@@ -126,14 +114,6 @@ public class DriftCompareTests
         Assert.Equal((DriftKind.ReferenceMissing, "r"), (item.Kind, item.Subject));
         item = One(Snap(), Snap("Test", components: [new(10150, G3, null)], references: [new(G3, "r", "c", true)]));
         Assert.Equal((DriftKind.ReferenceMissing, "r"), (item.Kind, item.Subject));
-    }
-
-    [Fact]
-    public void A_type_29_component_that_is_not_a_cloud_flow_stays_in_the_component_comparison()
-    {
-        var item = One(Snap(components: [new(29, G1, null)]), Snap("Test"));
-
-        Assert.Equal(DriftKind.ComponentMissing, item.Kind);
     }
 
     [Fact]

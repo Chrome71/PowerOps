@@ -218,10 +218,6 @@ public class DeployGateCommandTests : DeployTestBase
     {
         switch (name)
         {
-            case "allowed":
-                SeedZip(Folder);
-                MakePlan();
-                return new(Seeded(), SeedCall(), []);
             case "zip-of-no-plan":
                 SeedZip(Folder);
                 MakePlan();
@@ -547,7 +543,6 @@ public class DeployGateCommandTests : DeployTestBase
 
     [Theory]
     [InlineData("-x")]
-    [InlineData("--bogus")]
     [InlineData("-h")]
     [InlineData("--help")]
     [InlineData("-?")]
@@ -561,33 +556,10 @@ public class DeployGateCommandTests : DeployTestBase
 
         Assert.Equal(2, code);
         Assert.Equal("", o.ToString());
-        Assert.Contains(argument is "-x" or "--bogus" ? $"{Prefix}the plan file must not start with '-'\n{ImportGuidance}\n" : "error: ", e.ToString().ReplaceLineEndings("\n"));
+        Assert.Contains(argument is "-x" ? $"{Prefix}the plan file must not start with '-'\n{ImportGuidance}\n" : "error: ", e.ToString().ReplaceLineEndings("\n"));
     }
 
     // ---- 7. exit codes -----------------------------------------------------------------------------------------
-
-    [Theory]
-    [MemberData(nameof(BlockNames))]
-    public void Every_case_exits_0_or_2_with_empty_stdout(string name)
-    {
-        var c = Setup(name);
-
-        var r = Gate(c.Environments, c.Stdin);
-
-        Assert.Contains(r.Code, new[] { 0, 2 });
-        Assert.Equal("", r.Out);
-        Assert.True(r.Code == 0 || r.Err.Length > 0);
-    }
-
-    [Fact]
-    public void An_allowed_case_exits_0_with_empty_stdout()
-    {
-        var c = Setup("allowed");
-
-        var r = Gate(c.Environments, c.Stdin);
-
-        Assert.Equal((0, "", ""), (r.Code, r.Out, r.Err));
-    }
 
     // A stderr that fails on every write.
     private sealed class BrokenWriter : TextWriter

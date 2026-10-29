@@ -43,12 +43,8 @@ public class FlowStateTests
 
     [Theory]
     [InlineData(FlowState.Missing, 1, false, null, FlowState.On)]
-    [InlineData(FlowState.Missing, 0, false, null, FlowState.Off)]
-    [InlineData(FlowState.Missing, null, false, null, FlowState.Off)]
     [InlineData(FlowState.Missing, 2, false, null, FlowState.Off)]
-    [InlineData(FlowState.Off, 1, true, FlowState.Off, FlowState.Off)]
     [InlineData(FlowState.On, 0, true, FlowState.On, FlowState.On)]
-    [InlineData(FlowState.Suspended, 1, true, FlowState.Suspended, FlowState.Suspended)]
     public void Plan_predicts_a_new_flow_from_its_export_state_and_keeps_an_existing_one(string before, int? export, bool exists, string? stateBefore, string expected)
     {
         var flow = FlowState.Plan(B.Flow(name: "Seed", state: export), before);

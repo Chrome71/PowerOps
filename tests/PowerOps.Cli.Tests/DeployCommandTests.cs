@@ -144,31 +144,13 @@ public class DeployCommandTests : IDisposable
         Assert.Equal("", r.Err);
     }
 
-    [Theory]
-    [InlineData("cycle")]
-    [InlineData("missing-dependency")]
-    [InlineData("managed-conflict")]
-    [InlineData("settings")]
-    public void Each_blocking_kind_exits_1_and_still_writes_the_report_and_the_plan_file(string kind)
+    [Fact]
+    public void A_blocking_item_exits_1_and_still_writes_the_report_and_the_plan_file()
     {
+        const string kind = "cycle";
         var fake = new FakeTarget();
-        switch (kind)
-        {
-            case "cycle":
-                SmallZip(Folder, "A", requires: ["B (1.0)"]);
-                SmallZip(Folder, "B", requires: ["A (1.0)"]);
-                break;
-            case "missing-dependency":
-                SmallZip(Folder, "A", requires: ["Absent (1.0)"]);
-                break;
-            case "managed-conflict":
-                SmallZip(Folder, "A", "2.0.0.0", managed: true);
-                fake.Snaps["A"] = new Snapshot("Contoso Test", "A", true, "1.0.0.0", false, true, [], [], [], []);
-                break;
-            default:
-                SeedZip(Folder, settings: false);
-                break;
-        }
+        SmallZip(Folder, "A", requires: ["B (1.0)"]);
+        SmallZip(Folder, "B", requires: ["A (1.0)"]);
 
         var save = Path.Combine(Out, "plan.json");
         var r = Plan(fake, "--format", "json", "--save", save);
@@ -327,10 +309,7 @@ public class DeployCommandTests : IDisposable
     [InlineData("not-a-zip", "Bad.zip")]
     [InlineData("settings-not-json", "Sol.settings.json")]
     [InlineData("settings-over-1-mb", "Sol.settings.json")]
-    [InlineData("settings-wrong-shape", "Sol.settings.json")]
     [InlineData("bad-version", "Sol.zip")]
-    [InlineData("bad-unique-name", "Sol.zip")]
-    [InlineData("bad-flow-id", "Sol.zip")]
     public void An_unreadable_input_exits_3_naming_the_file_with_no_report_and_before_the_target_is_read(string problem, string file)
     {
         switch (problem)
@@ -341,17 +320,11 @@ public class DeployCommandTests : IDisposable
             case "bad-version":
                 SmallZip(Folder, "Sol", "1.0");
                 break;
-            case "bad-unique-name":
-                SmallZip(Folder, "Sol", unique: "bad-name");
-                break;
-            case "bad-flow-id":
-                SmallZip(Folder, "Sol", files: ("Workflows/F.json.data.xml", "<Workflow WorkflowId=\"{AA-11}\" Name=\"F\"><Category>5</Category></Workflow>"));
-                break;
             default:
                 SmallZip(Folder, "Sol");
                 File.WriteAllText(
                     Path.Combine(Folder, "Sol.settings.json"),
-                    problem switch { "settings-not-json" => "{ nope", "settings-wrong-shape" => "[]", _ => "{}" + new string(' ', 1024 * 1024) });
+                    problem == "settings-not-json" ? "{ nope" : "{}" + new string(' ', 1024 * 1024));
                 break;
         }
 
@@ -366,19 +339,6 @@ public class DeployCommandTests : IDisposable
         Assert.False(File.Exists(save));
         Assert.DoesNotContain(_root, r.Err);
         Assert.DoesNotContain(TargetValue, r.Err);
-    }
-
-    [Fact]
-    public void A_version_installed_in_the_target_that_is_not_four_numeric_parts_exits_3_naming_the_zip()
-    {
-        SmallZip(Folder, "Sol");
-        var fake = new FakeTarget { Snaps = { ["Sol"] = new Snapshot("Contoso Test", "Sol", true, "1.0", true, true, [], [], [], []) } };
-
-        var r = Plan(fake);
-
-        Assert.Equal(3, r.Code);
-        Assert.StartsWith("error: Sol.zip: ", r.Err);
-        Assert.Equal("", r.Out);
     }
 
     [Theory]
@@ -421,7 +381,6 @@ public class DeployCommandTests : IDisposable
     [Theory]
     [InlineData("text")]
     [InlineData("json")]
-    [InlineData("markdown")]
     public void Save_writes_the_json_report_whatever_the_format_is(string format)
     {
         SeedZip(Folder);

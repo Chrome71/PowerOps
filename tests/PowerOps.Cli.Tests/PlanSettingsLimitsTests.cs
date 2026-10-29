@@ -20,7 +20,7 @@ public sealed class PlanSettingsLimitsTests : IDisposable
     private readonly string _temp = Directory.CreateTempSubdirectory("powerops-limits26-").FullName;
 
     // A case builds its input under a temp folder (the helpers return the test, so a case reads as a chain) and ends in the command to run.
-    // Stream is where the expected line is ("err" or "out"); some line of it must start with Prefix, in which {P} is the plan folder as a path
+    // Stream is where the expected line is ("err" or "out"); some line of it must start with Prefix (each line of Prefix, when it holds several), in which {P} is the plan folder as a path
     // (as an error prints it) and {p} the same with forward slashes (as plan status prints a path in a warning); {T} is the temp folder with a trailing separator.
     private sealed record Case(string[] Args, int Exit, string Stream, string Prefix);
 
@@ -42,7 +42,6 @@ public sealed class PlanSettingsLimitsTests : IDisposable
         ["R-7 plan status: binary file under 1 MB is skipped with a warning"] = t => t.Binary("small.bin", 1000).Status(0, "out", "  warning: {p}/small.bin: a binary file, not read"),
         ["R-7 plan status: a 2 MB image passes"] = t => t.Binary("mockup.png", 2 * MB).Status(0, "out", "  warning: {p}/mockup.png: larger than 1 MB, not read"),
         ["R-7 plan status: plan.md of exactly 1 MB"] = t => t.PlanOfLength(MB).Status(0, "out", PlanOk),
-        ["R-7 plan status: plan.md of 1 MB and a byte"] = t => t.PlanOfLength(MB + 1).Status(1, "out", "  error: {p}/plan.md: larger than 1 MB."),
         ["R-7 plan status: plan.md is a link to /dev/zero"] = t => t.PlanLink("/dev/zero").Status(1, "out", "  error: {p}/plan.md: " + SymbolicLink),
         ["R-7 plan status: plan.md is a link to a file outside the folder"] = t => t.PlanLink(t.Outside("plan.md", "---\nstatus: draft\nreview: pending\n---\n")).Status(1, "out", "  error: {p}/plan.md: " + SymbolicLink),
         ["R-7 plan status: review.md is a link to /dev/zero"] = t => t.Link("review.md", "/dev/zero").Status(0, "out", "  warning: {p}/review.md: a symbolic link, not read"),
@@ -59,8 +58,7 @@ public sealed class PlanSettingsLimitsTests : IDisposable
         ["R-7 plan status: link at the root argument is refused"] = t => t.RootLink(),
         ["R-7 plan sign-off: link at the plan folder argument is refused"] = t => t.PlanFolderArgLink(),
         ["R-7 plan status: a plan folder that is a link is skipped with a warning"] = t => t.LinkedPlanFolder().Status(0, "err", "warning: {p}: a symbolic link, not read"),
-        ["R-7 plan status: a bad plan.md is that plan's violation"] = t => t.PlanOfLength(MB + 1).GoodPlan("y").Status(1, "out", "  error: {p}/plan.md: larger than 1 MB."),
-        ["R-7 plan status: the other plan is still checked after a bad plan.md"] = t => t.PlanOfLength(MB + 1).GoodPlan("y").Status(1, "out", "2 plans, 1 violation, 0 warnings"),
+        ["R-7 plan status: a bad plan.md is that plan's violation and the other plan is still checked"] = t => t.PlanOfLength(MB + 1).GoodPlan("y").Status(1, "out", "  error: {p}/plan.md: larger than 1 MB.\n2 plans, 1 violation, 0 warnings"),
         ["R-7 plan status: a plan.md that is a link is that plan's violation and the other plan is checked"] = t => t.PlanLink("/dev/zero").GoodPlan("y").Status(1, "out", "{T}docs/plans/y: approved, review skipped"),
         ["R-7 plan status: newline in a file name cannot start a line (violation)"] = t => t.Pad("a\n::warning::injected", 20, "http://a ").Status(1, "out", "  error: {p}/a ::warning::injected:1: looks like a URL"),
         ["R-7 plan status: newline in a file name cannot start a line (warning)"] = t => t.Binary("b\n::warning::injected", 10).Status(0, "out", "  warning: {p}/b ::warning::injected: a binary file, not read"),
@@ -110,7 +108,7 @@ public sealed class PlanSettingsLimitsTests : IDisposable
         var lines = (c.Stream == "err" ? e : o).ToString().Replace("\r", "").Split('\n');
         Assert.Equal(c.Exit, code);
         var prefix = c.Prefix.Replace("{P}", PlanDir, StringComparison.Ordinal).Replace("{p}", PlanDir.Replace('\\', '/'), StringComparison.Ordinal).Replace("{T}", _temp + Path.DirectorySeparatorChar, StringComparison.Ordinal);
-        Assert.Contains(lines, l => l.StartsWith(prefix, StringComparison.Ordinal));
+        Assert.All(prefix.Split('\n'), expected => Assert.Contains(lines, l => l.StartsWith(expected, StringComparison.Ordinal)));
         Assert.All(lines, l => Assert.True(l.Length < 600, $"a line of {l.Length} characters"));
         Assert.DoesNotContain(lines, l => l.StartsWith("::", StringComparison.Ordinal));
     }

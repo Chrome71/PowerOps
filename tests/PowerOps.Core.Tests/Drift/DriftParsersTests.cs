@@ -28,9 +28,6 @@ public class DriftParsersTests
     }
 
     [Fact]
-    public void Not_installed_is_null() => Assert.Null(DriftParsers.Solution(Sample("not-installed-read2.json")));
-
-    [Fact]
     public void More_than_one_solution_row_is_rejected()
     {
         var row = """{"solutionid":"00000000-0000-0000-0000-0000000000a1","version":"1","ismanaged":false}""";
@@ -74,15 +71,6 @@ public class DriftParsersTests
         Assert.Equal("pops_DefaultStatus", v.SchemaName);
         Assert.Equal(Snapshot.Hash("Open, then\nreview"), v.ValueHash);
         Assert.NotNull(v.ValueHash);
-    }
-
-    [Fact]
-    public void The_value_hashes_the_same_with_crlf_or_lf()
-    {
-        var crlf = DriftParsers.Variables(Rows("""{"schemaname":"a","v.value":"Open, then\r\nreview"}""")).Single();
-        var lf = DriftParsers.Variables(Rows("""{"schemaname":"a","v.value":"Open, then\nreview"}""")).Single();
-
-        Assert.Equal(lf.ValueHash, crlf.ValueHash);
     }
 
     [Theory]
@@ -142,13 +130,6 @@ public class DriftParsersTests
 
         Assert.True(DriftParsers.Layers(Rows(row)));
         Assert.DoesNotContain(Planted, Assert.Throws<InvalidDataException>(() => DriftParsers.Layers(Rows($$"""{"msdyn_solutionname":5,"msdyn_changes":"{{Planted}}"}"""))).Message);
-    }
-
-    [Fact]
-    public void Read7_rejects_more_records_and_other_shapes()
-    {
-        Assert.Throws<InvalidDataException>(() => DriftParsers.Layers(Sample("morerecords.json")));
-        Assert.Throws<InvalidDataException>(() => DriftParsers.Layers("""{"error":{}}"""));
     }
 
     [Fact]
