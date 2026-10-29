@@ -88,37 +88,23 @@ public partial class HandoffDocTests
     }
 
     [Fact]
-    public void The_hooks_only_run_the_dry_run_and_block_when_it_fails()
+    public void The_hooks_run_the_gate_and_block_when_it_fails()
     {
         var groups = HookGroups();
 
-        Assert.Equal(["mcp__pac-cli__solution_import", "Bash"], groups.Select(g => (string?)g!["matcher"]));
+        Assert.Equal(["mcp__pac-cli__solution_import", "Bash", "PowerShell"], groups.Select(g => (string?)g!["matcher"]));
         foreach (var hook in groups.SelectMany(g => g!["hooks"]!.AsArray()))
         {
-            var command = (string)hook!["command"]!;
-            Assert.Contains("powerops deploy apply ", command, StringComparison.Ordinal);
-            Assert.DoesNotContain("--apply", command, StringComparison.Ordinal);
-            Assert.EndsWith(">&2 || exit 2", command, StringComparison.Ordinal);
+            Assert.Equal("powerops deploy gate \"$(git rev-parse --show-toplevel)/deploy/powerops-plan.json\" || exit 2", (string?)hook!["command"]);
             Assert.Equal("block", (string?)hook["onFailure"]);
+            Assert.Equal(600, (int?)hook["timeout"]);
         }
     }
 
-    [Theory]
-    [InlineData("pac solution import \\\n  --path ./solutions/Contoso.zip --environment <url> --async", true)]
-    [InlineData("node \"${PLUGIN_ROOT}/scripts/solution-settings.js\" import --env '<url>' --package 'a.zip' --settings 's.json'", true)]
-    [InlineData("node \"${PLUGIN_ROOT}/scripts/encode-solution-file.js\" --zipPath \"a.zip\"", true)]
-    [InlineData("curl -X POST <url>/api/data/v9.2/ImportSolutionAsync", true)]
-    [InlineData("pac pipeline deploy --environment <url> --solutionName Contoso", true)]
-    [InlineData("<url>/api/data/v9.0/DeployPackageAsync", true)]
-    [InlineData("node \"${PLUGIN_ROOT}/scripts/solution-settings.js\" template --env '<url>' --solution Contoso --out 's.json'", false)]
-    [InlineData("powerops deploy apply deploy/powerops-plan.json --target <test> --apply", false)]
-    public void The_shell_hook_checks_the_imports_of_Microsofts_skills_only(string command, bool checks)
+    [Fact]
+    public void No_hook_filters_with_grep()
     {
-        var hook = (string)HookGroups()[1]!["hooks"]![0]!["command"]!;
-        var pattern = Regex.Match(hook, "^grep -qE '([^']+)' \\|\\| exit 0; ").Groups[1].Value;
-
-        Assert.NotEmpty(pattern);
-        Assert.Equal(checks, Regex.IsMatch(command, pattern));
+        Assert.DoesNotContain("grep", string.Join('\n', HookGroups().SelectMany(g => g!["hooks"]!.AsArray()).Select(h => (string)h!["command"]!)), StringComparison.Ordinal);
     }
 
     [Fact]
