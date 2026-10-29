@@ -19,7 +19,7 @@ public partial class HandoffDocTests
     internal static List<string[]> WordLists(string text) =>
         [.. Mention().Matches(text).Select(m => m.Groups[1].Value.Trim().Split(' ')).DistinctBy(w => string.Join(' ', w))];
 
-    private static string Page() => File.ReadAllText(Path.Combine(Golden.RepoRoot, "docs", "HANDOFF.md"));
+    private static string Page() => File.ReadAllText(Path.Combine(Golden.RepoRoot, "docs", "HANDOFF.md")).Replace("\r\n", "\n");
 
     // The PreToolUse groups of the page's one JSON block, the Claude Code hooks.
     private static JsonArray HookGroups()
@@ -92,10 +92,10 @@ public partial class HandoffDocTests
     {
         var groups = HookGroups();
 
-        Assert.Equal(["mcp__pac-cli__solution_import", "Bash", "PowerShell"], groups.Select(g => (string?)g!["matcher"]));
+        Assert.Equal(["mcp__pac-cli__solution_import", "Bash", "Monitor", "PowerShell"], groups.Select(g => (string?)g!["matcher"]));
         foreach (var hook in groups.SelectMany(g => g!["hooks"]!.AsArray()))
         {
-            Assert.Equal("powerops deploy gate \"$(git rev-parse --show-toplevel)/deploy/powerops-plan.json\" || exit 2", (string?)hook!["command"]);
+            Assert.Equal("powerops deploy gate \"$CLAUDE_PROJECT_DIR/deploy/powerops-plan.json\" || exit 2", (string?)hook!["command"]);
             Assert.Equal("block", (string?)hook["onFailure"]);
             Assert.Equal(600, (int?)hook["timeout"]);
         }
