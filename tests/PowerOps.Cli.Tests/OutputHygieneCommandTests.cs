@@ -114,4 +114,23 @@ public class OutputHygieneCommandTests : IDisposable
         Assert.StartsWith("error: ", line);
         Assert.Contains("a ::error::forged", line);
     }
+
+    // M28: the refusal names the target, and a link name is as hostile as a solution's.
+    [Fact]
+    public void A_refused_out_with_a_line_break_in_its_name_prints_one_clean_error_line()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "A line break is not valid in a Windows file name.");
+        var victim = Path.Combine(_temp, "victim.txt");
+        File.WriteAllText(victim, "victim");
+        var link = Path.Combine(_temp, "x\n::error::bad.json");
+        Links.Create(link, victim);
+
+        var (code, _, err) = Run("analyze", Path.Combine(Seed, "v1"), "--out", link);
+
+        Assert.Equal(2, code);
+        var line = Assert.Single(Lines(err));
+        Assert.StartsWith("error: ", line);
+        Assert.DoesNotContain(Lines(err), l => l.StartsWith("::"));
+        Assert.Equal("victim", File.ReadAllText(victim));
+    }
 }

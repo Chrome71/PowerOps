@@ -6,7 +6,11 @@ using Microsoft.Win32.SafeHandles;
 namespace PowerOps.Core.Output;
 
 /// <summary>Why <see cref="SafeWrite.Refusal"/> will not let a file be written; <see cref="Path"/> is the target, or the folder on the way that is a link.</summary>
-public sealed record WriteRefusal(string Path, string Reason);
+public sealed record WriteRefusal(string Path, string Reason)
+{
+    /// <summary>The line to print after <c>error: </c>, with the path made safe for a terminal and a CI log.</summary>
+    public string Text => $"{TextReport.Clean(Path)}: {Reason}";
+}
 
 /// <summary>The one place PowerOps writes a file: never through a link, never over a file the command was given as an input, and a regular file is replaced through a temp file in its folder instead of being cut off in place. The read-side twin is <see cref="Readers.BoundedRead"/>.</summary>
 public static class SafeWrite
@@ -72,7 +76,7 @@ public static class SafeWrite
 
         if (Refusal(path, inputs, root) is { } refusal)
         {
-            throw new InvalidDataException($"{refusal.Path}: {refusal.Reason}");
+            throw new InvalidDataException(refusal.Text);
         }
 
         var full = Path.GetFullPath(path);

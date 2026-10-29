@@ -61,6 +61,12 @@ public static class DriftCommand
             }
         }
 
+        if (outFile is not null && SafeWrite.Refusal(outFile, envs.Where(IsSnapshotPath)) is { } refusal)
+        {
+            // Named by the option, as the --env values are.
+            problems.Add($"--out {refusal.Reason}");
+        }
+
         if (saveDir is not null && File.Exists(saveDir))
         {
             problems.Add("--save names an existing file, not a folder");
@@ -148,7 +154,7 @@ public static class DriftCommand
 
         if (outFile is not null)
         {
-            File.WriteAllText(outFile, report.ToString(), new UTF8Encoding(false));
+            SafeWrite.WriteText(outFile, report.ToString(), envs.Where(IsSnapshotPath));
         }
         else
         {

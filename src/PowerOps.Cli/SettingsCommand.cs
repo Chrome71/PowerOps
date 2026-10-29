@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.Text;
 
 using PowerOps.Core.Model;
 using PowerOps.Core.Output;
@@ -41,10 +40,17 @@ public static class SettingsCommand
                 return UsageError;
             }
 
-            var json = DeploymentSettings.Generate(SolutionLoader.Load(path));
-            if (parse.GetValue(outFile) is { } file)
+            var file = parse.GetValue(outFile);
+            if (file is not null && SafeWrite.Refusal(file, [path]) is { } refusal)
             {
-                File.WriteAllText(file, json, new UTF8Encoding(false));
+                error.WriteLine($"error: {refusal.Text}");
+                return UsageError;
+            }
+
+            var json = DeploymentSettings.Generate(SolutionLoader.Load(path));
+            if (file is not null)
+            {
+                SafeWrite.WriteText(file, json, [path]);
             }
             else
             {

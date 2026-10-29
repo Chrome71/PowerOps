@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.Text;
 
 using PowerOps.Core.Output;
 
@@ -24,11 +23,11 @@ public static class BaselineCommand
         command.SetAction(parse =>
         {
             var file = parse.GetValue(outFile)!;
-            return AnalyzeCommand.Run(parse.GetValue(paths)!, null, error, result =>
+            return AnalyzeCommand.Run(parse.GetValue(paths)!, null, file, error, result =>
             {
                 var json = new StringWriter();
                 Baseline.Write(result, json);
-                File.WriteAllText(file, json.ToString(), new UTF8Encoding(false));
+                SafeWrite.WriteText(file, json.ToString(), parse.GetValue(paths)!.Where(File.Exists));
                 return 0;
             });
         });

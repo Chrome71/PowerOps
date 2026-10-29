@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.Text;
 
 using PowerOps.Core.Diff;
 using PowerOps.Core.Output;
@@ -58,6 +57,12 @@ public static class DiffCommand
             }
         }
 
+        if (outFile is not null && SafeWrite.Refusal(outFile, [oldPath, newPath]) is { } refusal)
+        {
+            error.WriteLine($"error: {refusal.Text}");
+            return 2;
+        }
+
         try
         {
             var context = new LoadContext();
@@ -83,7 +88,7 @@ public static class DiffCommand
             }
             else
             {
-                File.WriteAllText(outFile, report.ToString(), new UTF8Encoding(false));
+                SafeWrite.WriteText(outFile, report.ToString(), [oldPath, newPath]);
             }
 
             return result.Changes.Count > 0 ? 1 : 0;
