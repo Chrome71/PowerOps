@@ -1,5 +1,5 @@
 ---
-status: signed-off
+status: done
 review: done
 signed-off: 2026-10-29
 signed-off-hash: 1a2f4515500349139027d6fec306d40f50ffafa81fb19a19d5ff20e09b2f46cf
