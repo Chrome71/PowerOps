@@ -11,6 +11,11 @@ public class ErrorLineHolesTests
     // shortcut: a text scan of single-line `$"error: ..."` literals (also `$"  error: ..."`), not symbol-based; a raw or multi-line literal is not seen. Upgrade to an analyzer if one slips by.
     private static readonly Regex Start = new(@"\$""\s*error: ", RegexOptions.CultureInvariant);
 
+    private static readonly Regex CleanStart = new(@"^\{\s*(TextReport\.)?Clean\(", RegexOptions.CultureInvariant);
+
+    // After the call: an optional alignment (",-10") and format (":N0"), then the closing brace.
+    private static readonly Regex Suffix = new(@"^\s*(,\s*-?\d+\s*)?(:[^}]*)?\}$", RegexOptions.CultureInvariant);
+
     // "<file>: <hole text>". Only holes that are numbers, fixed text, or text another place in src has already cleaned.
     private static readonly HashSet<string> Allowed =
     [
@@ -35,6 +40,12 @@ public class ErrorLineHolesTests
         // A list of usage problems, each fixed text or cleaned where it was added.
         "src/PowerOps.Cli/DeployCommand.cs: {p}",
         "src/PowerOps.Cli/DriftCommand.cs: {p}",
+
+        // Not one Clean call, but every part that comes from input is cleaned inside the expression.
+        "src/PowerOps.Cli/DiffCommand.cs: {string.Join(\", \", found.Select(TextReport.Clean))}",   // each joined path is cleaned by the method group
+        "src/PowerOps.Cli/AnalyzeCommand.cs: {string.Join(\", \", paths.Select(p => $\"\\\"{TextReport.Clean(p)}\\\"\"))}",   // each joined path is cleaned; the quotes are fixed text
+        "src/PowerOps.Cli/DeployCommand.cs: {string.Join(\" and \", g.Select(z => Clean(z.File)))}",   // each joined file is cleaned
+        "src/PowerOps.Cli/DriftCommand.cs: {(ex is InvalidDataException ? TextReport.Clean(ex.Message) : \"the snapshot file could not be read\")}",   // one branch cleaned, the other fixed text
 
         // A SafeWrite refusal: the path in it is cleaned by SafeWrite.Refusal (see SafeWrite.cs).
         "src/PowerOps.Cli/AnalyzeCommand.cs: {refusal.Text}",
@@ -91,7 +102,38 @@ public class ErrorLineHolesTests
         }
     }
 
-    private static bool Wrapped(string file, string hole) => hole.Contains("Clean", StringComparison.Ordinal) || Allowed.Contains($"{file}: {hole}");
+    // A hole is cleaned only when the whole expression is one `Clean(...)` or `TextReport.Clean(...)` call: the call's closing parenthesis must be followed by nothing but an alignment or format suffix.
+    // shortcut: parentheses are counted outside "..." strings only; a ")" in a char literal inside the call would confuse it. Upgrade to a syntax tree if one appears.
+    private static bool CleanCall(string hole)
+    {
+        var start = CleanStart.Match(hole);
+        if (!start.Success)
+        {
+            return false;
+        }
+
+        var depth = 1;
+        var inString = false;
+        for (var i = start.Length; i < hole.Length; i++)
+        {
+            if (hole[i] == '"' && hole[i - 1] != '\\')
+            {
+                inString = !inString;
+            }
+            else if (!inString && hole[i] == '(')
+            {
+                depth++;
+            }
+            else if (!inString && hole[i] == ')' && --depth == 0)
+            {
+                return Suffix.IsMatch(hole[(i + 1)..]);
+            }
+        }
+
+        return false;
+    }
+
+    private static bool Wrapped(string file, string hole) => CleanCall(hole) || Allowed.Contains($"{file}: {hole}");
 
     [Fact]
     public void Every_hole_in_an_error_line_in_src_is_cleaned_or_listed()
@@ -115,5 +157,31 @@ public class ErrorLineHolesTests
         Assert.Equal(["{(a ? \"b\" : c)}"], Holes("$\"error: {(a ? \"b\" : c)} {{literal}}\"").ToArray());
         Assert.True(Wrapped("a.cs", "{Clean(a.B)}"));
         Assert.False(Wrapped("a.cs", "{path}"));
+    }
+
+    [Theory]
+    [InlineData("{Clean(x)}")]
+    [InlineData("{TextReport.Clean(a + b)}")]
+    [InlineData("{TextReport.Clean(Display(r.Path, baseDir))}")]
+    [InlineData("{TextReport.Clean(\"(\" + x)}")]
+    [InlineData("{TextReport.Clean(x),-12}")]
+    [InlineData("{TextReport.Clean(x):N0}")]
+    public void A_hole_that_is_one_clean_call_passes(string hole)
+    {
+        Assert.True(Wrapped("a.cs", hole));
+    }
+
+    [Theory]
+    [InlineData("{TextReport.Clean(prefix) + rawPath}")]
+    [InlineData("{rawPath + TextReport.Clean(x)}")]
+    [InlineData("{Cleanup(rawPath)}")]
+    [InlineData("{TextReport.Clean(a) ?? rawPath}")]
+    [InlineData("{TextReport.Clean(a)}{rawPath}")]
+    [InlineData("{TextReport.Clean(a) ? rawPath : b}")]
+    [InlineData("{TextReport.Clean(a")]
+    [InlineData("{x.Clean(a)}")]
+    public void A_hole_that_is_not_one_clean_call_is_rejected(string hole)
+    {
+        Assert.False(Wrapped("a.cs", hole));
     }
 }
