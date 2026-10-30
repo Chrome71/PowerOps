@@ -69,6 +69,7 @@ public partial class PlanFactsSkillTests
         Assert.DoesNotContain("Leave `environment: null` and note", text);
         Assert.Contains("Leave `environment: null` unless the request names an environment", text);
         Assert.Contains("even when the request names an environment: the fast path is offline", text);
+        Assert.Contains("friendly name", text);
     }
 
     [Fact]

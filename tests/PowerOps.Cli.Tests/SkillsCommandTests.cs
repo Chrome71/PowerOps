@@ -301,6 +301,8 @@ public partial class SkillsCommandTests : IDisposable
             "Give the skill the plan's `environment` and its `Solution and publisher`",
             "Stop and report when a tool can't create or save inside that solution",
             "Do not change the preferred solution",
+            "ask the user to name the Dev environment",
+            "don't redo a step",
         ];
 
         Assert.All(wording, s => Assert.Contains(s, text));

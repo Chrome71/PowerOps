@@ -163,7 +163,7 @@ Facts the environment can answer (existing solutions) are read, not asked, but o
 
 If the user asks to implement without a signed-off plan:
 
-1. `powerops-plan` drafts `plan.md` from the request and the repo. It reads no environment facts here, even when the request names an environment: the fast path is offline. It leaves `environment: null` unless the request names an environment; then it records that name, which counts as the user's confirmation, and logs it in `decisions.md`. Every guess goes under Assumptions, and `status` stays `draft`.
+1. `powerops-plan` drafts `plan.md` from the request and the repo. It reads no environment facts here, even when the request names an environment: the fast path is offline. It leaves `environment: null` unless the request names an environment by its friendly name; then it records that name, which counts as the user's confirmation, and writes "the environment named in the request" in `decisions.md`. A URL or an id stays out of the plan, so it leaves `environment: null` for those. Every guess goes under Assumptions, and `status` stays `draft`.
 2. It asks one question: the route, with two or three options and the trade-offs, recommended first. It may ask one more, the publisher prefix, when the repo does not supply it. It asks nothing else.
 3. Then it shows one lettered menu:
    - **A** approve the draft (then review and sign-off as usual)

@@ -160,7 +160,7 @@ Use this when the user asks to build without a signed-off plan, or `powerops-imp
 
 1. Draft `plan.md` from the request and the repo. Read no environment facts here, even when the request names an environment: the fast path is offline. Put every guess under Assumptions. The status stays `draft`. Set `depth: quick`.
 2. Ask one question: the route. Use the numbered format of a round question (section 6): two or three options, each with its trade-off in a few words, recommended first, then "In your own words". Example: unmanaged in Dev, then managed to Test and Prod through pipelines.
-3. Ask the publisher prefix too, only if the repo does not supply it. Ask nothing else. Leave `environment: null` unless the request names an environment; then record that name, and log it in `decisions.md`. Either way, note the assumed target in Assumptions.
+3. Ask the publisher prefix too, only if the repo does not supply it. Ask nothing else. Leave `environment: null` unless the request names an environment by its friendly name; then record that name, and write "the environment named in the request" in `decisions.md`. A URL or an id stays out of the plan, so leave `environment: null` for those. Either way, note the assumed target in Assumptions.
 4. Log the route in `decisions.md` as a normal question.
 5. Show one lettered menu:
    - **A** approve the draft, then review and sign-off as usual (section 7, from step 3).

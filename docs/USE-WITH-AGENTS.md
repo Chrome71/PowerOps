@@ -31,7 +31,7 @@ With Microsoft's power-platform-skills or Dataverse-skills installed too, their 
 
 - `analyze`, `rules`, `baseline`, `diff`, `test`, `settings_generate`, `settings_validate` and `plan_status` read only files. `baseline` and `settings_generate` return the file's text instead of writing it.
 - `plan_facts`, `drift` (for an environment, not a snapshot file), `deploy_plan` and `deploy_apply` read a tenant through `pac` and `az`, as the commands do, so both must be signed in.
-- `drift` needs at least two `envs`. Making a first snapshot from one environment (`powerops drift --env <env> --save <dir>`) is CLI-only: the tool has no save input.
+- `drift` needs at least two `envs`. Making a first snapshot from one environment (`powerops drift --solution <name> --env <env> --save <dir>`) is CLI-only: the tool has no save input.
 - Two tools write. `deploy_plan` writes its plan file into the deploy folder when `save` names a new file, never over an existing one. `deploy_apply` is a dry run unless the call sets `apply: true`. Then the server plans again, and only when that passes shows a form with the plan's target, hash and zips; it imports only after the user types the target's name there. A decline, a cancel or another name imports nothing, and a client that can't show the form gets a refusal and the CLI command to run.
 
 Every path must be absolute and local (no `\\host` or `//host` paths), and a value that starts with `-` or `@` is refused.
