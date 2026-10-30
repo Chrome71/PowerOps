@@ -42,6 +42,8 @@ public partial class PlanFactsSkillTests
         return text[start..end];
     }
 
+    private static string Swap(string text, string with) => ReadsNoFacts().Replace(text, with);
+
     private static bool ReadsNoEnvironmentFacts(string section) =>
         !section.Contains("plan facts") && ReadsNoFacts().IsMatch(section) && !ReadsFacts().IsMatch(section);
 
@@ -60,14 +62,24 @@ public partial class PlanFactsSkillTests
     }
 
     [Fact]
+    public void The_fast_path_takes_an_environment_the_request_names_instead_of_always_leaving_it_null()
+    {
+        var text = FastPath(Skill("powerops-plan"));
+
+        Assert.DoesNotContain("Leave `environment: null` and note", text);
+        Assert.Contains("Leave `environment: null` unless the request names an environment", text);
+        Assert.Contains("even when the request names an environment: the fast path is offline", text);
+    }
+
+    [Fact]
     public void The_fast_path_check_fails_on_a_path_that_reads_facts()
     {
         var text = FastPath(Skill("powerops-plan"));
 
-        Assert.False(ReadsNoEnvironmentFacts(text.Replace("read no environment facts", "read environment facts")));
-        Assert.False(ReadsNoEnvironmentFacts(text.Replace("read no environment facts", "read the environment facts")));
-        Assert.False(ReadsNoEnvironmentFacts(text.Replace("read no environment facts", "run `powerops plan facts`")));
-        Assert.False(ReadsNoEnvironmentFacts(text.Replace("read no environment facts", "carry on")));
+        Assert.False(ReadsNoEnvironmentFacts(Swap(text, "read environment facts")));
+        Assert.False(ReadsNoEnvironmentFacts(Swap(text, "read the environment facts")));
+        Assert.False(ReadsNoEnvironmentFacts(Swap(text, "run `powerops plan facts`")));
+        Assert.False(ReadsNoEnvironmentFacts(Swap(text, "carry on")));
     }
 
     [Fact]

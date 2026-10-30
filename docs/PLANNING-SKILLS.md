@@ -51,7 +51,7 @@ idea ──► draft ──(user: B approve)──► approved ──(agent fork
                                                           │
                                                    powerops-implement: gate = status signed-off AND hash matches
                                                           ▼
-                                                     implementing ──► done   (`powerops analyze` ran, or "not verified")
+                                                     implementing ──► done   (`powerops analyze` ran, or "not verified"; live checks passed, or the user accepted each gap)
 
 Body edited after sign-off ──► `powerops plan status` exits 1: "changed since sign-off"; fix = user re-signs, or revert
 ```
@@ -63,7 +63,7 @@ Body edited after sign-off ──► `powerops plan status` exits 1: "changed si
 | approved | approved, `review: done` | `powerops-review-plan`, in a fresh context on the top model, dispatched by the parent session | `review.md` with its header; findings numbered R1, R2... |
 | approved | signed-off | `powerops-plan` sign-off step: shows the open-question count, unresolved findings and the `review.md` header lines, asks once with lettered options, then runs `powerops plan sign-off <plan>` | `status`, `signed-off`, `signed-off-hash`; `review: skipped` if there is no `review.md` and the user chose to skip |
 | signed-off | implementing | `powerops-implement`, after the gate passes | `status` only |
-| implementing | done | `powerops-implement`, after the steps and the final `analyze` and `test` | `status` only; progress lives in commit messages, not in `plan.md` |
+| implementing | done | `powerops-implement`, after the steps, the final `analyze` and `test` and the live checks of the saved version in Dev, or the user accepting each remaining gap by name | `status` only; progress lives in commit messages, not in `plan.md` |
 | any | draft | `powerops-plan`, when the user asks for more rounds or edits the plan | `status` |
 
 Header fields are left out of the hash, so status changes never invalidate a sign-off; edits to the body do. The state is visible in the files and checkable in CI.
@@ -86,7 +86,7 @@ Header fields are left out of the hash, so status changes never invalidate a sig
 |---|---|---|
 | `powerops-plan` | Refines the idea through question rounds, reads environment facts only for an environment the user names, drafts the plan, runs the fast path, and writes HTML mockups | `plan.md`, `decisions.md`, `mockups/*.html` |
 | `powerops-review-plan` | Reviews an approved draft in a fresh context on the top model, against a Power Platform checklist. Never asks the user | `review.md` |
-| `powerops-implement` | Checks the gate (`powerops plan status`: status `signed-off` and the hash matches). With no signed-off plan it hands over to `powerops-plan` in fast-path mode; with one, it implements step by step and runs `powerops analyze` and `powerops test` at the end | code and solution changes |
+| `powerops-implement` | Checks the gate (`powerops plan status`: status `signed-off` and the hash matches). With no signed-off plan it hands over to `powerops-plan` in fast-path mode; with one, it implements step by step, runs `powerops analyze` and `powerops test` at the end, and checks the final saved version live in Dev (a flow's real trigger, a fresh load of a published canvas app, each component's solution) before it sets `done` | code and solution changes |
 
 - `powerops-plan` owns the fast path and mockups, because both are planning; `powerops-implement` only holds the gate.
 - The `powerops-plan` description must also match requests for a mockup, screen, wireframe or prototype of a Power Platform app. In the prototype test, "mock it up" did not trigger the skill.
@@ -163,7 +163,7 @@ Facts the environment can answer (existing solutions) are read, not asked, but o
 
 If the user asks to implement without a signed-off plan:
 
-1. `powerops-plan` drafts `plan.md` from the request and the repo. It reads no environment facts here, because no environment is named. Every guess goes under Assumptions, and `status` stays `draft`.
+1. `powerops-plan` drafts `plan.md` from the request and the repo. It reads no environment facts here, even when the request names an environment: the fast path is offline. It leaves `environment: null` unless the request names an environment; then it records that name, which counts as the user's confirmation, and logs it in `decisions.md`. Every guess goes under Assumptions, and `status` stays `draft`.
 2. It asks one question: the route, with two or three options and the trade-offs, recommended first. It may ask one more, the publisher prefix, when the repo does not supply it. It asks nothing else.
 3. Then it shows one lettered menu:
    - **A** approve the draft (then review and sign-off as usual)
@@ -195,7 +195,7 @@ A route choice approves nothing, and a bare "approve" approves the draft only (A
   - managed vs unmanaged
   - data volume and delegation limits
   - security roles
-  - testability
+  - testability: can each step be checked, is there a way to test before Prod, and does each form have a way out (cancel, back, a failed save)
   - unanswered areas and the open-questions count
 - **Output:** `review.md`: the three header lines, then findings by severity, numbered R1, R2... The user resolves or accepts each one before sign-off. Skipping the review is allowed only as an explicit choice at sign-off, and it is recorded as `review: skipped`.
 

@@ -41,7 +41,7 @@ Never run `pac` yourself. Read environment facts only for an environment the use
 4. If `available` is false, tell the user the `reason` and the `fix` in your next message, in one line. Do not run the fix. Add a line to Assumptions in `plan.md` that environment facts were not available. Carry on.
 5. If the user names no environment, or `pac` is not signed in to it, do not run `powerops plan facts`. Plan from the repo and add a line to Assumptions in `plan.md` that environment facts were not read. Carry on.
 6. The facts do not contain the publisher prefix. Take it from the repo if a solution there shows it. Otherwise ask.
-7. Write `environment:` in the header only after the user confirms the environment.
+7. Write `environment:` in the header only after the user confirms the environment. In the fast path (section 8), a request that names the environment counts as that confirmation.
 8. Never write any other environment's name in a plan file. Refer to the others by role (Dev, Test, Prod). Never offer other environments as targets unless the user names them.
 9. In `decisions.md`, write "the environment found by plan facts" instead of its name.
 
@@ -158,9 +158,9 @@ An approved draft may still have open questions. The review and the sign-off bot
 
 Use this when the user asks to build without a signed-off plan, or `powerops-implement` hands over. Write no code and change no solution.
 
-1. Draft `plan.md` from the request and the repo. No environment is named here, so read no environment facts. Put every guess under Assumptions. The status stays `draft`. Set `depth: quick`.
+1. Draft `plan.md` from the request and the repo. Read no environment facts here, even when the request names an environment: the fast path is offline. Put every guess under Assumptions. The status stays `draft`. Set `depth: quick`.
 2. Ask one question: the route. Use the numbered format of a round question (section 6): two or three options, each with its trade-off in a few words, recommended first, then "In your own words". Example: unmanaged in Dev, then managed to Test and Prod through pipelines.
-3. Ask the publisher prefix too, only if the repo does not supply it. Ask nothing else. Leave `environment: null` and note the assumed target in Assumptions.
+3. Ask the publisher prefix too, only if the repo does not supply it. Ask nothing else. Leave `environment: null` unless the request names an environment; then record that name, and log it in `decisions.md`. Either way, note the assumed target in Assumptions.
 4. Log the route in `decisions.md` as a normal question.
 5. Show one lettered menu:
    - **A** approve the draft, then review and sign-off as usual (section 7, from step 3).
