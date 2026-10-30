@@ -265,36 +265,65 @@ public sealed class WorkflowTests
     [Fact]
     public void The_pin_drift_script_warns_and_names_a_later_commit_under_src()
     {
+        var later = "";
+        var docs = "";
         var run = PinDrift(dir =>
         {
             var pin = Commit(dir, "feat: code", ("src/a.cs", "a"));
-            Commit(dir, "fix: later change under src", ("src/a.cs", "b"));
-            Commit(dir, "docs: later", ("docs/x.md", "x"));
+            later = Commit(dir, "fix: later change under src", ("src/a.cs", "b"));
+            docs = Commit(dir, "docs: later", ("docs/x.md", "x"));
             return Pins(pin, pin);
         });
 
         Warns("1 commit(s) behind", run);
-        Warns("fix: later change under src", run);
-        Assert.DoesNotContain("docs: later", run.Stdout);
+        Warns(later[..7], run);
+        Assert.DoesNotContain(docs[..7], run.Stdout);
+        Assert.DoesNotContain("fix: later change under src", run.Stdout);
     }
 
     [Fact]
     public void The_pin_drift_script_does_not_let_a_commit_subject_start_a_workflow_command()
     {
+        var later = "";
         var run = PinDrift(dir =>
         {
             var pin = Commit(dir, "feat: code", ("src/a.cs", "a"));
-            Commit(dir, "feat: x\r::error::INJECTED", ("src/a.cs", "b"));
+            later = Commit(dir, "feat: x\r::error::INJECTED", ("src/a.cs", "b"));
             return Pins(pin, pin);
         });
 
         Warns("1 commit(s) behind", run);
+        Warns(later[..7], run);
         foreach (var text in new[] { run.Stdout, run.Summary })
         {
+            Assert.DoesNotContain("INJECTED", text);
             Assert.DoesNotContain(text.Split('\r', '\n'), line => line.StartsWith("::error::", StringComparison.Ordinal));
         }
 
         Assert.Contains(run.Stdout.Split('\n'), line => line.StartsWith("::warning::", StringComparison.Ordinal));
+    }
+
+    // A subject is untrusted: the warning and the Markdown summary may carry only hashes, numbers and the script's own text.
+    [Fact]
+    public void The_pin_drift_script_prints_no_commit_subject_so_it_adds_no_markdown_or_encoded_control()
+    {
+        var later = "";
+        var run = PinDrift(dir =>
+        {
+            var pin = Commit(dir, "feat: code", ("src/a.cs", "a"));
+            later = Commit(dir, "fix: [trusted update](https://example.invalid/update) ![badge](https://example.invalid/image) %0Aforged second line", ("src/a.cs", "b"));
+            return Pins(pin, pin);
+        });
+
+        Warns("1 commit(s) behind", run);
+        Warns(later[..7], run);
+        foreach (var text in new[] { run.Stdout, run.Summary })
+        {
+            foreach (var forbidden in new[] { "[trusted", "](", "![", "%0A", "example.invalid", "forged" })
+            {
+                Assert.DoesNotContain(forbidden, text);
+            }
+        }
     }
 
     [Fact]

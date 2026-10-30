@@ -41,8 +41,8 @@ for pin in $pins; do
   count="$(git rev-list --count "$pin..HEAD" -- $paths)"
   if [ "$count" -gt 0 ]; then
     # shellcheck disable=SC2086
-    # A subject is untrusted: drop control characters (a CR would start a new workflow command), keeping the newline paste joins on.
-    list="$(git log --oneline -n 10 "$pin..HEAD" -- $paths | tr -d '\000-\011\013-\037\177' | paste -sd ';' -)"
-    warn "The PowerOps pin $short is $count commit(s) behind on the files the Action builds from (src, action, action.yml, skills, global.json, Directory.Build.props): $list. Pin the newest commit of main."
+    # Hashes only: a commit subject is untrusted (Markdown for the summary, a literal %0A for the runner), so no subject is printed.
+    list="$(git log --format=%h -n 10 "$pin..HEAD" -- $paths | paste -sd ' ' -)"
+    warn "The PowerOps pin $short is $count commit(s) behind on the files the Action builds from (src, action, action.yml, skills, global.json, Directory.Build.props), newest first: $list. Pin the newest commit of main."
   fi
 done
