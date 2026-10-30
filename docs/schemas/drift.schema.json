@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/drift.schema.json",
   "title": "powerops drift --format json",
-  "description": "The JSON written by 'powerops drift --format json': one solution compared across two or more environments, each compared with the first. It never holds an environment id or URL, a connection id, an environment variable value or hash, or pac's output text. Environment friendly names are included, so keep the report in private places.",
+  "description": "The JSON written by 'powerops drift --format json': one solution compared across two or more environments, each compared with the first, or one environment read for `--save`. It never holds an environment id or URL, a connection id, an environment variable value or hash, or pac's output text. Environment friendly names are included, so keep the report in private places.",
   "type": "object",
   "required": ["schemaVersion", "solution", "drift", "environments", "items"],
   "properties": {
@@ -11,7 +11,7 @@
     "drift": { "type": "boolean", "description": "True when any item is drift (exit code 1)." },
     "environments": {
       "type": "array",
-      "minItems": 2,
+      "minItems": 1,
       "description": "The --env values in order.",
       "items": {
         "type": "object",
