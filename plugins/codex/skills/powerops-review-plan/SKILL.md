@@ -39,7 +39,7 @@ Check the plan for each item. Report a gap, a risk or an unanswered area as a fi
 6. Managed or unmanaged: right for each environment.
 7. Data volume and delegation limits: row counts, filters and sorts that may not delegate.
 8. Security roles: who can read, write and administer, and whether the plan names roles.
-9. Testability: can each step in `Steps` be checked, and is there a way to test before Prod.
+9. Testability: can each step in `Steps` be checked, is there a way to test before Prod, and does each form have a way out (cancel, back, a failed save).
 10. Unanswered areas and the open-question count: areas never asked (see the `## Log` in `decisions.md`), items under `Open questions` and `Questions for your admin`.
 
 If the plan or `decisions.md` contains a URL, GUID, email or person's name, report it as a finding. Do not repeat the value.

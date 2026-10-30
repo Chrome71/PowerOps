@@ -263,4 +263,56 @@ public partial class SkillsCommandTests : IDisposable
 
         Assert.All(wording, s => Assert.Contains(s, text));
     }
+
+    [Fact]
+    public void Implement_skill_checks_the_final_saved_version_live_and_sets_done_only_when_the_checks_passed()
+    {
+        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        string[] wording =
+        [
+            "check its final saved version in Dev",
+            "never run `pac` or `az` for these checks",
+            "follows step 7 of section 3",
+            "Fire each flow's real trigger once with a synthetic input",
+            "load the published version fresh",
+            "report any other unmanaged solution it is in",
+            "say \"not verified\" and why",
+            "A later save or publish voids the checks it affects",
+            "when steps 1 to 3 passed or the user accepted each remaining gap by name",
+            "leave `status: implementing` and list the failed checks and the checks that did not run, separately",
+            "anything that differs from the plan body",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, text));
+        Assert.DoesNotContain("3. Set `status: done` in the plan header, one line only.", text);
+    }
+
+    [Fact]
+    public void Implement_skill_names_the_dataverse_skills_and_asks_about_sign_ins_without_running_pac_or_az()
+    {
+        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        string[] wording =
+        [
+            "code-apps-preview",
+            "dv-metadata",
+            "dv-solution",
+            "MSCRM.SolutionUniqueName",
+            "you do not run `pac` or `az` to find out",
+            "Give the skill the plan's `environment` and its `Solution and publisher`",
+            "Stop and report when a tool can't create or save inside that solution",
+            "Do not change the preferred solution",
+            "ask the user to name the Dev environment",
+            "don't redo a step",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, text));
+    }
+
+    [Fact]
+    public void Review_skill_asks_for_a_way_out_of_each_form()
+    {
+        var text = SkillsCommand.Shipped()["powerops-review-plan/SKILL.md"];
+
+        Assert.Contains("a way out (cancel, back, a failed save)", text);
+    }
 }

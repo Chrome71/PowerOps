@@ -282,7 +282,7 @@
   },
   {
     "name": "deploy_apply",
-    "description": "Promote a reviewed plan file from deploy_plan\u0027s \u0060save\u0060 with this tool, not with an import tool: it plans again against the target and returns the JSON of \u0060powerops deploy apply --format json\u0060 (docs/schemas/deploy-apply.schema.json), as a dry run that imports nothing unless \u0060apply\u0060 is true. With \u0060apply: true\u0060 it imports the zips in plan order through pac only after the user types the target\u0027s name into the server\u0027s confirmation form, and refuses when anything changed since the plan. Use it only on an environment the user named in the session.",
+    "description": "Promote a reviewed plan file from deploy_plan\u0027s \u0060save\u0060 with this tool, not with an import tool: it plans again against the target and returns the JSON of \u0060powerops deploy apply --format json\u0060 (docs/schemas/deploy-apply.schema.json), as a dry run that imports nothing unless \u0060apply\u0060 is true. With \u0060apply: true\u0060 it imports the zips in plan order through pac only after the user types the target\u0027s name into the server\u0027s confirmation form, and refuses when an input of the plan changed (a zip, a settings file, the target environment, its solution state or a dependency\u0027s version). Use it only on an environment the user named in the session.",
     "inputSchema": {
       "type": "object",
       "properties": {

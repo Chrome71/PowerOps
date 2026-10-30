@@ -14,7 +14,7 @@ public static class DriftCommand
     public static Command Create(TextWriter output, TextWriter error, Func<string, string, Snapshot> live)
     {
         var solution = new Option<string?>("--solution") { Description = "The solution's unique name (required)." };
-        var env = new Option<string[]>("--env") { Description = "An environment, or a snapshot file (.json). Give at least two.", AllowMultipleArgumentsPerToken = false };
+        var env = new Option<string[]>("--env") { Description = "An environment, or a snapshot file (.json). Give at least two, or one live environment with --save.", AllowMultipleArgumentsPerToken = false };
         var save = new Option<string?>("--save") { Description = "Write one snapshot file per live environment into this folder." };
         var format = new Option<string>("--format") { Description = "Report format.", DefaultValueFactory = _ => "text" };
         format.AcceptOnlyFromAmong("text", "json", "markdown");
@@ -42,9 +42,9 @@ public static class DriftCommand
             problems.Add("--solution is required and must be a solution unique name (letters, digits and underscores)");
         }
 
-        if (envs.Length < 2)
+        if (envs.Length < 2 && saveDir is null)
         {
-            problems.Add("give at least two --env");
+            problems.Add("give at least two --env, or one with --save");
         }
 
         for (var i = 0; i < envs.Length; i++)

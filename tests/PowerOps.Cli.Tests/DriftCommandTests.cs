@@ -358,6 +358,83 @@ public class DriftCommandTests : IDisposable
         Assert.Equal(liveRun.Out, offline.Out);
     }
 
+    private string OneEnvSave => Path.Combine(_dir, "saved");
+
+    [Fact]
+    public void One_live_env_with_save_writes_the_file_and_reports_one_environment()
+    {
+        var r = Run(new Dictionary<string, Snapshot> { ["a"] = Dev }, [.. Args("a"), "--save", OneEnvSave, "--format", "json"]);
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal("", r.Err);
+        Assert.Equal(["PowerOpsSeed|a"], r.Calls);
+        Assert.Equal(SnapshotFile.Write(Dev), File.ReadAllText(Path.Combine(OneEnvSave, "PowerOpsSeed.Contoso Dev.json")));
+        Golden.Verify(r.Out, "drift-one-env.json");
+    }
+
+    [Theory]
+    [InlineData("layer")]
+    [InlineData("unbound")]
+    public void One_live_env_with_save_and_an_own_problem_writes_the_file_and_exits_1(string problem)
+    {
+        var snapshot = problem == "layer"
+            ? Test
+            : Dev with { References = [.. Dev.References, new SnapshotReference(Guid.NewGuid(), "po_unbound", "/providers/Microsoft.PowerApps/apis/shared_x", false)] };
+
+        var r = Run(new Dictionary<string, Snapshot> { ["a"] = snapshot }, [.. Args("a"), "--save", OneEnvSave]);
+
+        Assert.Equal(1, r.Code);
+        Assert.Equal("", r.Err);
+        Assert.Contains(problem == "layer" ? "unmanaged-layer" : "reference-unbound", r.Out);
+        Assert.Single(Directory.GetFiles(OneEnvSave));
+    }
+
+    [Fact]
+    public void One_env_without_save_exits_2_with_the_new_message()
+    {
+        var r = Run(Pair(Dev, Twin), Args("a"));
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal("error: give at least two --env, or one with --save\n", r.Err);
+        Assert.Empty(r.Calls);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Save_with_no_live_env_gives_only_the_save_message(bool oneSnapshot)
+    {
+        var r = Run(null, ["drift", "--solution", "PowerOpsSeed", .. oneSnapshot ? new[] { "--env", DevFile } : [], "--save", OneEnvSave]);
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal("error: --save needs at least one live --env; snapshot files are not saved again\n", r.Err);
+        Assert.False(Directory.Exists(OneEnvSave));
+    }
+
+    [Fact]
+    public void One_live_env_with_save_where_the_solution_is_not_installed_exits_2_and_saves_nothing()
+    {
+        var none = new Snapshot("Contoso Dev", "PowerOpsSeed", false, null, null, true, [], [], [], []);
+
+        var r = Run(new Dictionary<string, Snapshot> { ["a"] = none }, [.. Args("a"), "--save", OneEnvSave]);
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal("error: solution `PowerOpsSeed` is not installed in any environment\n", r.Err);
+        Assert.False(Directory.Exists(OneEnvSave));
+    }
+
+    [Fact]
+    public void A_file_saved_from_one_env_is_a_snapshot_input_to_a_later_two_env_run()
+    {
+        Run(new Dictionary<string, Snapshot> { ["a"] = Dev }, [.. Args("a"), "--save", OneEnvSave]);
+
+        var r = Run(null, Args(Path.Combine(OneEnvSave, "PowerOpsSeed.Contoso Dev.json"), TestFile));
+
+        Assert.Equal(1, r.Code);
+        Assert.Equal("", r.Err);
+        Assert.Equal(Run(null, Args(DevFile, TestFile)).Out, r.Out);
+    }
+
     [Fact]
     public void Out_writes_the_report_to_the_file_and_nothing_to_stdout()
     {
