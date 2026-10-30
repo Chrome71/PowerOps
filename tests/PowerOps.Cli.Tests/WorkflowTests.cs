@@ -212,18 +212,18 @@ public sealed class WorkflowTests
     private static (int Exit, string Stdout, string Summary) PinDrift(Func<string, (string Readme, string Action)> arrange)
     {
         Tools.Require("bash", "git");
-        var dir = Directory.CreateTempSubdirectory("powerops-pin-drift-").FullName;
+        var root = Directory.CreateTempSubdirectory("powerops-pin-drift-").FullName;
         try
         {
+            var dir = Directory.CreateDirectory(Path.Combine(root, "repo")).FullName;
             Git(dir, "init", "-q");
-            var summary = Path.Combine(Directory.CreateTempSubdirectory("powerops-pin-summary-").FullName, "summary.md");
             var (readme, action) = arrange(dir);
             Commit(dir, "docs: pins", ("README.md", readme), ("docs/GITHUB-ACTION.md", action));
-            return Run(dir, summary);
+            return Run(dir, Path.Combine(root, "summary.md"));
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            Directory.Delete(root, recursive: true);
         }
     }
 
