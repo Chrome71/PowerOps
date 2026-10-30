@@ -53,7 +53,7 @@ public static class DeployCommand
         var format = new Option<string>("--format") { Description = "Report format.", DefaultValueFactory = _ => "text" };
         format.AcceptOnlyFromAmong("text", "json");
         var outFile = new Option<string?>("--out") { Description = "Write the report here instead of stdout." };
-        var command = new Command("apply", "Plan again against the target, refuse when anything changed since the reviewed plan, then import the zips in plan order through pac (only with --apply).")
+        var command = new Command("apply", "Plan again against the target, refuse when an input of the plan changed since the review (a zip, a settings file, the target environment, its solution state or a dependency's version), then import the zips in plan order through pac (only with --apply).")
         {
             planFile, targetOption, apply, format, outFile,
         };
