@@ -94,7 +94,7 @@ Studio's behaviour under Canvas Authoring, from this one app:
 - **Crash:** two compiles that brought in the whole screen with its gallery blanked the Studio page, with `Cannot read properties of null (reading 'owner')` in `gallery.js`, and `compile_canvas` reported success both times. What was compiled was lost, and the app reopened on its last save. The screen without the gallery, followed by the gallery alone, didn't crash, and neither did a later compile with the gallery in place. The cause isn't known.
 - **Save:** after a compile, Save stays greyed out and the status reads "All changes are saved" with an older time, so the compile isn't saved. A reload then lost the gallery. The building session trusted that status and reported the gallery as saved; the agent's own read after the reload showed it wasn't. An autosave caught one compile after about 2 minutes and missed another in 3. Changing a property in Studio and undoing it turned Save on, and that Save stored the compile.
 - **Canvas:** after a compile, the modern controls showed as empty blocks in a row until a reload, which drew them correctly.
-- **Terms:** on the seventh load of the app, a dialog asked to accept the Coauthoring preview terms. Learn doesn't describe it, or what declining does.
+- **Terms:** on the seventh load of the app, a dialog asked to accept the Coauthoring preview terms. Learn doesn't describe it, or what declining does, and its "See terms" link opened a "Page cannot be found" page.
 
 ## Decisions
 
