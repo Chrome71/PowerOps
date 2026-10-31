@@ -9,5 +9,6 @@
 
 | Position | Environment | Kind | Subject | Drift | Expected | Actual |
 |---|---|---|---|---|---|---|
+| 1 | Contoso Dev | also-in-solution | Stamp work item status | no |  | ContosoOther |
 | 2 | Contoso Test | managed | PowerOpsSeed | no | unmanaged | managed |
 | 2 | Contoso Test | unmanaged-layer | Stamp work item status | yes |  |  |

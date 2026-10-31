@@ -5,7 +5,7 @@ using PowerOps.Core.Settings;
 
 namespace PowerOps.Core.Drift;
 
-/// <summary>Parses the Dataverse Web API's OData JSON (<c>{"value":[...]}</c>) of the drift reads 2 to 7. Properties not needed (<c>@odata.*</c>, primary keys, lookups) are ignored. Every rejection is an <see cref="InvalidDataException"/> whose message never quotes the input.</summary>
+/// <summary>Parses the Dataverse Web API's OData JSON (<c>{"value":[...]}</c>) of the drift reads 2 to 8. Properties not needed (<c>@odata.*</c>, primary keys, lookups) are ignored. Every rejection is an <see cref="InvalidDataException"/> whose message never quotes the input.</summary>
 public static partial class DriftParsers
 {
     [GeneratedRegex(@"\Ahttps://[A-Za-z0-9.-]+/?\z", RegexOptions.IgnoreCase)]
@@ -66,6 +66,10 @@ public static partial class DriftParsers
         var rows = Rows(json);
         return rows.Count > 0 ? rows.Any(r => OptionalText(r, "msdyn_solutionname") == "Active") : throw Bad("no layer rows");
     }
+
+    /// <summary>Read 8: the components in another solution, one row for each component and solution. The solution's unique name is the aliased column <c>s.uniquename</c>.</summary>
+    public static IReadOnlyList<SnapshotAlsoIn> OtherSolutions(string json) =>
+        Unique(Rows(json).Select(r => new SnapshotAlsoIn(Int(r, "componenttype"), Id(r, "objectid"), Text(r, "s.uniquename"))).ToList(), a => $"{a.Type}/{a.Id}/{a.Solution}", StringComparer.Ordinal);
 
     /// <summary>The <c>error.message</c> of the documented error body <c>{"error":{"code","message"}}</c>, or null for anything else. Never throws.</summary>
     public static string? ErrorMessage(string body)

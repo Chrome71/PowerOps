@@ -6,13 +6,14 @@ using PowerOps.Core.Drift;
 
 namespace PowerOps.Cli;
 
-/// <summary>Reads one solution in one live environment: <c>pac org who</c> for the name and URL, <c>az</c> for a token, then the Web API for reads 2 to 7. Nothing here formats a <see cref="PacResult"/> or puts the token, the URL or the <c>--env</c> value in a message.</summary>
+/// <summary>Reads one solution in one live environment: <c>pac org who</c> for the name and URL, <c>az</c> for a token, then the Web API for reads 2 to 8 (read 8 only for <c>drift</c>, not for a deploy target). Nothing here formats a <see cref="PacResult"/> or puts the token, the URL or the <c>--env</c> value in a message.</summary>
 internal sealed class DriftLiveReader(
     Func<IReadOnlyList<string>, TimeSpan, PacResult> pac,
     Func<IReadOnlyList<string>, TimeSpan, PacResult> az,
     Func<Uri, string, TimeSpan, WebResult> web)
 {
     private const int MaxLayerReads = 50;
+    private const int OtherSolutionsBatch = 50;
     private const long MaxBody = 16 * 1024 * 1024;
     private const string SignInHint = "Sign in with az login, and check that the account can read that environment.";
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
@@ -22,7 +23,7 @@ internal sealed class DriftLiveReader(
     public Snapshot Read(string solution, string env)
     {
         var (name, url, _) = Who(env);
-        return ReadSolution(name, url, Token(url), solution);
+        return ReadSolution(name, url, Token(url), solution, otherSolutions: true);
     }
 
     /// <summary>Reads a deploy target: one <c>pac org who</c> and one token, then every solution in full and each dependency by its <c>solution</c> row only (version, or null when not installed).</summary>
@@ -35,7 +36,7 @@ internal sealed class DriftLiveReader(
         }
 
         var token = Token(url);
-        var snapshots = solutions.Select(s => ReadSolution(name, url, token, s)).ToList();
+        var snapshots = solutions.Select(s => ReadSolution(name, url, token, s, otherSolutions: false)).ToList();
         var versions = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (var d in dependencies)
         {
@@ -45,7 +46,7 @@ internal sealed class DriftLiveReader(
         return new DeployTarget(name, id, snapshots, versions);
     }
 
-    private Snapshot ReadSolution(string name, string url, string token, string solution)
+    private Snapshot ReadSolution(string name, string url, string token, string solution, bool otherSolutions)
     {
         var found = Read(url, token, "solution", "solutions", DriftQueries.Solution(solution), DriftParsers.Solution);
         if (found is not { } sol)
@@ -58,6 +59,14 @@ internal sealed class DriftLiveReader(
         var variables = Read(url, token, "environmentvariabledefinition", "environmentvariabledefinitions", DriftQueries.Variables(sol.Id), DriftParsers.Variables);
         var references = Read(url, token, "connectionreference", "connectionreferences", DriftQueries.References(sol.Id), DriftParsers.References);
 
+        // Read 8 costs one read per 50 distinct component ids, and none for no components; read 3's one page of at most 5,000 rows holds it to 100.
+        // It matches on id alone, so a row of another type is a different component and is dropped.
+        var alsoIn = otherSolutions
+            ? [.. components.Select(c => c.Id).Distinct().Chunk(OtherSolutionsBatch).SelectMany(ids =>
+                Read(url, token, "solutioncomponent (other solutions)", "solutioncomponents", DriftQueries.OtherSolutions(sol.Id, ids), DriftParsers.OtherSolutions))
+                .Where(a => components.Contains((a.Type, a.Id)))]
+            : (IReadOnlyList<SnapshotAlsoIn>?)null;
+
         // The layer table takes one component per query, so a managed solution costs one read per mapped component.
         var referenceIds = references.Select(r => r.Id).ToHashSet();
         var named = components.Select(c => (c.Type, c.Id, Name: referenceIds.Contains(c.Id) ? DriftQueries.ReferenceLayerName : DriftQueries.LayerName(c.Type))).ToList();
@@ -67,7 +76,7 @@ internal sealed class DriftLiveReader(
                 sol.Managed && layersRead && c.Name is not null
                     ? Read(url, token, "msdyn_componentlayer", "msdyn_componentlayers", DriftQueries.Layers(c.Id, c.Name), DriftParsers.Layers)
                     : null))],
-            variables, references, flows));
+            variables, references, flows, alsoIn));
     }
 
     private (string Name, string Url, string? EnvironmentId) Who(string env)

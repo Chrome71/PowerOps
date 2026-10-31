@@ -46,6 +46,11 @@ internal static class Capture
                 return env == "test" ? LiveFakes.Ok(Layers(state, url)) : throw new Xunit.Sdk.XunitException("the unmanaged Dev must not be asked for layers");
             }
 
+            if (LiveFakes.IsOtherSolutions(url))
+            {
+                return LiveFakes.Ok(env == "dev" ? Read("dev-read8.json") : LiveFakes.NoRows);
+            }
+
             var read = LiveFakes.EntitySet(url) switch
             {
                 "solutions" => 2,
@@ -80,6 +85,7 @@ public class DriftCaptureTests
         Assert.All(s.References, r => Assert.True(r.Bound));
         Assert.Equal(new SnapshotFlow(Guid.Parse(FlowId), "Stamp work item status", "on"), s.Flows.Single());
         Assert.DoesNotContain(f.WebCalls, c => c.Url.AbsolutePath.EndsWith("msdyn_componentlayers"));
+        Assert.Equal(new SnapshotAlsoIn(29, Guid.Parse(FlowId), "ContosoOther"), Assert.Single(s.AlsoIn!));
     }
 
     [Fact]

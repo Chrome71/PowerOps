@@ -204,6 +204,20 @@
               "defaultConfiguration": {
                 "level": "warning"
               }
+            },
+            {
+              "id": "PO015",
+              "name": "CreateTriggerWithFilterColumns",
+              "shortDescription": {
+                "text": "Dataverse row-created trigger has filter columns"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO015.md",
+              "help": {
+                "text": "Clear the trigger's filter columns, or change its change type to Create or Update."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              }
             }
           ]
         }

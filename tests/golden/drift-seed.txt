@@ -1,5 +1,6 @@
 1 Contoso Dev: 1.0.0.0, unmanaged
 2 Contoso Test: 1.0.0.0, managed
+1 Contoso Dev: also-in-solution Stamp work item status: ContosoOther (info)
 2 Contoso Test: managed PowerOpsSeed: unmanaged -> managed (info)
 2 Contoso Test: unmanaged-layer Stamp work item status
 1 drift item

@@ -40,3 +40,6 @@ PO013 error  Root component has no source folder in the YAML layout
 PO014 warning Canvas app formula contains a hard-coded environment or SharePoint site URL
   fix: Remove the URL where the platform can use the current environment, otherwise read it from an environment variable whose value is set per environment at deployment.
   https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO014.md
+PO015 error  Dataverse row-created trigger has filter columns
+  fix: Clear the trigger's filter columns, or change its change type to Create or Update.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO015.md

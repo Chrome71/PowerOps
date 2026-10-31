@@ -8,6 +8,7 @@ namespace PowerOps.Core.Drift;
 /// <param name="Solution">The solution's unique name.</param>
 /// <param name="Installed">False when the solution is not in the environment; the other fields are then null or empty.</param>
 /// <param name="LayersRead">False only when the layer read was dropped for a managed solution; true when layers were read or no read was needed.</param>
+/// <param name="AlsoIn">The solution's components that sit in another unmanaged, visible solution, from the live read of <c>drift</c> only; null when that read was not made. Never written to a snapshot file.</param>
 public sealed record Snapshot(
     string Environment,
     string Solution,
@@ -18,7 +19,8 @@ public sealed record Snapshot(
     IReadOnlyList<SnapshotComponent> Components,
     IReadOnlyList<SnapshotVariable> Variables,
     IReadOnlyList<SnapshotReference> References,
-    IReadOnlyList<SnapshotFlow> Flows)
+    IReadOnlyList<SnapshotFlow> Flows,
+    IReadOnlyList<SnapshotAlsoIn>? AlsoIn = null)
 {
     /// <summary>The SHA-256 of <paramref name="value"/>'s UTF-8 bytes after "\r\n" becomes "\n", in lowercase hex; null for no value or an empty one.</summary>
     public static string? Hash(string? value) =>
@@ -27,6 +29,9 @@ public sealed record Snapshot(
 
 /// <summary>A solution component: its <c>componenttype</c> number and <c>objectid</c>. <paramref name="UnmanagedLayer"/> is null when layers were not read or the solution is unmanaged.</summary>
 public sealed record SnapshotComponent(int Type, Guid Id, bool? UnmanagedLayer);
+
+/// <summary>A component of the solution that is also in the solution with unique name <paramref name="Solution"/>.</summary>
+public sealed record SnapshotAlsoIn(int Type, Guid Id, string Solution);
 
 /// <summary>An environment variable: its schema name and <see cref="Snapshot.Hash"/> of its current value.</summary>
 public sealed record SnapshotVariable(string SchemaName, string? ValueHash);

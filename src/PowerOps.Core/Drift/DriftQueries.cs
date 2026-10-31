@@ -12,6 +12,8 @@ public static partial class DriftQueries
     private const string ReferencesText = """<fetch><entity name="connectionreference"><attribute name="connectionreferenceid" /><attribute name="connectionreferencelogicalname" /><attribute name="connectorid" /><attribute name="connectionid" /><link-entity name="solutioncomponent" from="objectid" to="connectionreferenceid" link-type="inner"><filter><condition attribute="solutionid" operator="eq" value="{solutionId}" /></filter></link-entity></entity></fetch>""";
     private const string LayersText = """<fetch><entity name="msdyn_componentlayer"><attribute name="msdyn_componentid" /><attribute name="msdyn_solutionname" /><attribute name="msdyn_order" /><filter><condition attribute="msdyn_componentid" operator="eq" value="{componentIds}" /><condition attribute="msdyn_solutioncomponentname" operator="eq" value="{componentName}" /></filter></entity></fetch>""";
 
+    private const string OtherSolutionsText = """<fetch><entity name="solutioncomponent"><attribute name="componenttype" /><attribute name="objectid" /><filter><condition attribute="objectid" operator="in">{componentValues}</condition><condition attribute="solutionid" operator="ne" value="{solutionId}" /><condition attribute="rootsolutioncomponentid" operator="null" /></filter><link-entity name="solution" from="solutionid" to="solutionid" link-type="inner" alias="s"><attribute name="uniquename" /><filter><condition attribute="ismanaged" operator="eq" value="0" /><condition attribute="isvisible" operator="eq" value="1" /><condition attribute="uniquename" operator="ne" value="Default" /><condition attribute="friendlyname" operator="not-in"><value>Common Data Service Default Solution</value><value>Common Data Services Default Solution</value></condition></filter></link-entity></entity></fetch>""";
+
     /// <summary>The layer table's component name for connection references, whatever their <c>componenttype</c> number.</summary>
     public const string ReferenceLayerName = "connectionreference";
 
@@ -41,6 +43,10 @@ public static partial class DriftQueries
     public static string Variables(Guid solutionId) => Fill(VariablesText, solutionId);
 
     public static string References(Guid solutionId) => Fill(ReferencesText, solutionId);
+
+    /// <summary>Read 8: the root rows of the given components in other unmanaged, visible solutions than <paramref name="solutionId"/>, without the default solution. One read takes a batch of ids (50 in <c>drift</c>).</summary>
+    public static string OtherSolutions(Guid solutionId, IEnumerable<Guid> componentIds) =>
+        Fill(OtherSolutionsText.Replace("{componentValues}", string.Concat(componentIds.Select(i => $"<value>{i:D}</value>"))), solutionId);
 
     /// <summary>Read 7, for one component: the layer table accepts one id and its component name per query (the batched and the nameless queries return no rows).</summary>
     /// <exception cref="ArgumentException"><paramref name="componentName"/> fails <see cref="IsValidName"/>.</exception>

@@ -109,6 +109,27 @@ public class DriftParsersTests
     public void A_missing_or_invalid_connectionreferenceid_is_rejected(string id) =>
         Assert.Throws<InvalidDataException>(() => DriftParsers.References(Rows($$"""{{{id}}"connectionreferencelogicalname":"r","connectorid":"c"}""")));
 
+    [Fact]
+    public void Read8_parses_the_capture_and_reads_the_aliased_solution_name() =>
+        Assert.Equal(new SnapshotAlsoIn(29, Guid.Parse(FlowId), "ContosoOther"), Assert.Single(DriftParsers.OtherSolutions(Cap("dev-read8.json"))));
+
+    [Fact]
+    public void Read8_refuses_a_duplicate_of_type_id_and_solution_but_not_another_solution_or_type()
+    {
+        static string Row(int type, string solution) => $$"""{"componenttype":{{type}},"objectid":"{{FlowId}}","s.uniquename":"{{solution}}"}""";
+
+        Assert.Throws<InvalidDataException>(() => DriftParsers.OtherSolutions(Rows(Row(29, "A"), Row(29, "A"))));
+        Assert.Equal(3, DriftParsers.OtherSolutions(Rows(Row(29, "A"), Row(29, "B"), Row(1, "A"))).Count);
+        Assert.Empty(DriftParsers.OtherSolutions(Rows()));
+    }
+
+    [Fact]
+    public void Read8_refuses_more_records_and_a_missing_solution_name()
+    {
+        Assert.Contains("more than one page", Assert.Throws<InvalidDataException>(() => DriftParsers.OtherSolutions(Sample("morerecords.json"))).Message);
+        Assert.Throws<InvalidDataException>(() => DriftParsers.OtherSolutions(Rows($$"""{"componenttype":29,"objectid":"{{FlowId}}"}""")));
+    }
+
     private static string Layer(string solution, int order) => $$"""{"msdyn_componentid":"{{FlowId}}","msdyn_solutionname":"{{solution}}","msdyn_order":{{order}}}""";
 
     [Fact]

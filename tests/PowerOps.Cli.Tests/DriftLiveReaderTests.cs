@@ -57,9 +57,19 @@ internal sealed class LiveFakes
     // The component id in a layer request's FetchXML.
     public static string LayerId(Uri url) => Uri.UnescapeDataString(url.Query).Split("msdyn_componentid\" operator=\"eq\" value=\"")[1][..36];
 
-    // The sample response for a request: dev or test by host, read 2 to 6 by entity set; a clean layer for read 7.
+    // Read 8 goes to the same entity set as read 3; only its query has an "in" condition.
+    public static bool IsOtherSolutions(Uri url) => EntitySet(url) == "solutioncomponents" && Uri.UnescapeDataString(url.Query).Contains("operator=\"in\"", StringComparison.Ordinal);
+
+    public const string NoRows = """{"value":[]}""";
+
+    // The sample response for a request: dev or test by host, read 2 to 6 by entity set; a clean layer for read 7, no other solutions for read 8.
     public static string Sample(Uri url)
     {
+        if (IsOtherSolutions(url))
+        {
+            return NoRows;
+        }
+
         if (EntitySet(url) == "msdyn_componentlayers")
         {
             return LayerBody(false);
@@ -135,7 +145,8 @@ public class DriftLiveReaderTests
     // Reads of a managed solution whose components are given; layers come from the fake (active for the ids in the set).
     private static LiveFakes ManagedWith(IEnumerable<(int Type, string Id)> rows, params string[] activeIds) => new()
     {
-        WebFn = url => EntitySetIs(url, "solutioncomponents") ? LiveFakes.Ok(ComponentsBody(rows))
+        WebFn = url => LiveFakes.IsOtherSolutions(url) ? LiveFakes.Ok(LiveFakes.NoRows)
+            : EntitySetIs(url, "solutioncomponents") ? LiveFakes.Ok(ComponentsBody(rows))
             : EntitySetIs(url, "msdyn_componentlayers") ? LiveFakes.Ok(LiveFakes.LayerBody(activeIds.Contains(LiveFakes.LayerId(url))))
             : LiveFakes.Ok(LiveFakes.Sample(url)),
     };
@@ -196,7 +207,8 @@ public class DriftLiveReaderTests
         var refId = Id(0xd3);
         var f = new LiveFakes
         {
-            WebFn = url => EntitySetIs(url, "solutioncomponents") ? LiveFakes.Ok(ComponentsBody([(10164, refId), (1, Id(1))]))
+            WebFn = url => LiveFakes.IsOtherSolutions(url) ? LiveFakes.Ok(LiveFakes.NoRows)
+                : EntitySetIs(url, "solutioncomponents") ? LiveFakes.Ok(ComponentsBody([(10164, refId), (1, Id(1))]))
                 : EntitySetIs(url, "connectionreferences") ? LiveFakes.Ok(LiveFakes.Sample(url))
                 : EntitySetIs(url, "msdyn_componentlayers") ? LiveFakes.Ok(LiveFakes.LayerBody(LiveFakes.LayerId(url) == refId))
                 : LiveFakes.Ok(LiveFakes.Sample(url)),
@@ -284,7 +296,7 @@ public class DriftLiveReaderTests
     {
         var f = new LiveFakes
         {
-            WebFn = url => LiveFakes.EntitySet(url) == "solutioncomponents"
+            WebFn = url => LiveFakes.EntitySet(url) == "solutioncomponents" && !LiveFakes.IsOtherSolutions(url)
                 ? LiveFakes.Ok("""{"value":[{"componenttype":380,"objectid":"00000000-0000-0000-0000-0000000000d2"},{"componenttype":1,"objectid":"00000000-0000-0000-0000-0000000000d1"}]}""")
                 : LiveFakes.Ok(LiveFakes.Sample(url)),
         };
@@ -301,7 +313,7 @@ public class DriftLiveReaderTests
 
         Assert.Equal(["org", "who", "--environment", Env], Assert.Single(f.PacCalls));
         Assert.Equal(["account", "get-access-token", "--resource", "https://contoso-dev.crm.dynamics.com", "--query", "accessToken", "-o", "tsv"], Assert.Single(f.AzCalls));
-        Assert.Equal(5, f.WebCalls.Count);
+        Assert.Equal(6, f.WebCalls.Count);
         Assert.All(f.WebCalls, c => Assert.Equal(LiveFakes.Token, c.Token));
         Assert.DoesNotContain(f.PacCalls.Concat(f.AzCalls).SelectMany(a => a), a => a.Contains(LiveFakes.Token));
         Assert.All(f.WebCalls, c => Assert.DoesNotContain(LiveFakes.Token, c.Url.OriginalString));
@@ -315,7 +327,8 @@ public class DriftLiveReaderTests
 
         f.Reader.Read(Solution, Env);
 
-        Assert.Equal(Reads.Select(r => r.Set), f.WebCalls.Select(c => LiveFakes.EntitySet(c.Url)));
+        Assert.Equal(Reads.Select(r => r.Set).Append("solutioncomponents"), f.WebCalls.Select(c => LiveFakes.EntitySet(c.Url)));
+        Assert.True(LiveFakes.IsOtherSolutions(f.WebCalls[5].Url));
         string[] xml = [DriftQueries.Solution(Solution), DriftQueries.Components(id), DriftQueries.Flows(id), DriftQueries.Variables(id), DriftQueries.References(id)];
         for (var i = 0; i < 5; i++)
         {
@@ -323,6 +336,115 @@ public class DriftLiveReaderTests
             Assert.StartsWith($"https://contoso-dev.crm.dynamics.com/api/data/v9.2/{Reads[i].Set}?fetchXml=", url);
             Assert.DoesNotContain("//", url["https://".Length..]);
             Assert.EndsWith(Uri.EscapeDataString(xml[i]), url);
+        }
+
+        var ids = new[] { Id(0xd1), FlowId, Id(0xd2) }.Select(Guid.Parse);
+        Assert.Equal($"https://contoso-dev.crm.dynamics.com/api/data/v9.2/solutioncomponents?fetchXml={Uri.EscapeDataString(DriftQueries.OtherSolutions(id, ids))}", f.WebCalls[5].Url.OriginalString);
+    }
+
+    // ---- read 8: the components that are also in another solution ----
+
+    private static IEnumerable<string> RequestedIds(Uri url) =>
+        System.Text.RegularExpressions.Regex.Matches(Uri.UnescapeDataString(url.Query), "<value>([0-9a-f-]{36})</value>").Select(m => m.Groups[1].Value);
+
+    // Every id of a read 8 request is answered with one row naming "Other"; read 3 answers n flows' components of type 1.
+    private static LiveFakes WithComponents(int n) => new()
+    {
+        WebFn = url => LiveFakes.IsOtherSolutions(url)
+            ? LiveFakes.Ok($$"""{"value":[{{string.Join(",", RequestedIds(url).Select(i => $$"""{"componenttype":1,"objectid":"{{i}}","s.uniquename":"Other"}"""))}}]}""")
+            : EntitySetIs(url, "solutioncomponents") ? LiveFakes.Ok(ComponentsBody(Enumerable.Range(1, n).Select(k => (1, Id(k)))))
+            : LiveFakes.Ok(LiveFakes.Sample(url)),
+    };
+
+    public static TheoryData<int, int[]> Batches() => new()
+    {
+        { 0, [] },
+        { 1, [1] },
+        { 50, [50] },
+        { 51, [50, 1] },
+    };
+
+    [Theory]
+    [MemberData(nameof(Batches))]
+    public void Read_8_is_made_once_per_fifty_component_ids_and_not_at_all_for_none(int components, int[] sizes)
+    {
+        var f = WithComponents(components);
+
+        var s = f.Reader.Read(Solution, Env);
+
+        var calls = f.WebCalls.Where(c => LiveFakes.IsOtherSolutions(c.Url)).ToList();
+        Assert.Equal(sizes, calls.Select(c => RequestedIds(c.Url).Count()));
+        Assert.Equal(components, s.AlsoIn!.Count);
+        Assert.All(s.AlsoIn!, a => Assert.Equal("Other", a.Solution));
+        Assert.Equal(5 + sizes.Length, f.WebCalls.Count);
+    }
+
+    [Fact]
+    public void Read_8_sends_each_id_once_whatever_its_type_and_names_the_solution_in_its_query()
+    {
+        var f = new LiveFakes
+        {
+            WebFn = url => LiveFakes.IsOtherSolutions(url) ? LiveFakes.Ok(LiveFakes.NoRows)
+                : EntitySetIs(url, "solutioncomponents") ? LiveFakes.Ok(ComponentsBody([(1, Id(1)), (29, Id(1)), (29, Id(2))]))
+                : LiveFakes.Ok(LiveFakes.Sample(url)),
+        };
+
+        f.Reader.Read(Solution, Env);
+
+        var call = Assert.Single(f.WebCalls, c => LiveFakes.IsOtherSolutions(c.Url));
+        Assert.Equal([Id(1), Id(2)], RequestedIds(call.Url));
+        Assert.Contains("solutionid\" operator=\"ne\" value=\"00000000-0000-0000-0000-0000000000a1\"", Uri.UnescapeDataString(call.Url.Query), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Read_8_drops_a_row_with_the_components_id_and_another_type()
+    {
+        var f = new LiveFakes
+        {
+            WebFn = url => LiveFakes.IsOtherSolutions(url)
+                ? LiveFakes.Ok($$"""{"value":[{"componenttype":29,"objectid":"{{Id(1)}}","s.uniquename":"Other"},{"componenttype":1,"objectid":"{{Id(1)}}","s.uniquename":"Other"}]}""")
+                : EntitySetIs(url, "solutioncomponents") ? LiveFakes.Ok(ComponentsBody([(1, Id(1))]))
+                : LiveFakes.Ok(LiveFakes.Sample(url)),
+        };
+
+        var s = f.Reader.Read(Solution, Env);
+
+        Assert.Equal(1, Assert.Single(s.AlsoIn!).Type);
+    }
+
+    [Fact]
+    public void A_managed_solution_gets_read_8_too_and_its_layer_reads_stay_as_they_were()
+    {
+        var f = new LiveFakes();
+
+        var s = f.Reader.Read(Solution, TestEnv);
+
+        Assert.Empty(s.AlsoIn!);
+        Assert.Equal(1, f.WebCalls.Count(c => LiveFakes.IsOtherSolutions(c.Url)));
+        Assert.Equal(3, LayerCalls(f).Count);
+    }
+
+    [Fact]
+    public void A_failed_read_8_names_its_own_table_and_exits_3_like_the_others()
+    {
+        WebResult[] broken = [new(0, "", true), new(0, "", false, "transport error"), new(403, """{"error":{"code":"1","message":"No access"}}""", false), LiveFakes.Ok("""{"value":[{"componenttype":1}]}""")];
+        string[] expected =
+        [
+            "the Web API read of `solutioncomponent (other solutions)` timed out after 30 s.",
+            "the Web API read of `solutioncomponent (other solutions)` failed (transport error).",
+            "the Web API read of `solutioncomponent (other solutions)` failed (HTTP 403). Sign in with az login, and check that the account can read that environment.",
+            "the Web API read of `solutioncomponent (other solutions)` returned output powerops cannot read: unexpected Web API output: a required property is missing",
+        ];
+
+        for (var i = 0; i < broken.Length; i++)
+        {
+            var result = broken[i];
+            var f = new LiveFakes { WebFn = url => LiveFakes.IsOtherSolutions(url) ? result : LiveFakes.Ok(LiveFakes.Sample(url)) };
+
+            var e = Fails(f);
+
+            Assert.Equal(expected[i], e.Message);
+            Assert.Equal(3, e.ExitCode);
         }
     }
 
@@ -553,6 +675,8 @@ public class DriftLiveReaderTests
         Assert.All(f.WebCalls, c => Assert.Equal(LiveFakes.Token, c.Token));
         Assert.Equal(["solutions", "solutioncomponents", "workflows", "environmentvariabledefinitions", "connectionreferences"], f.WebCalls.Take(5).Select(c => LiveFakes.EntitySet(c.Url)));
         Assert.Equal(["solutions", "solutions"], f.WebCalls.TakeLast(2).Select(c => LiveFakes.EntitySet(c.Url)));
+        Assert.DoesNotContain(f.WebCalls, c => LiveFakes.IsOtherSolutions(c.Url));
+        Assert.All(t.Solutions, s => Assert.Null(s.AlsoIn));
         Assert.Equal(("Contoso Test", Guid.Parse("00000000-0000-0000-0000-00000000000c")), (t.Name, t.Id));
         Assert.Equal([Solution, "OtherSolution"], t.Solutions.Select(s => s.Solution));
         Assert.All(t.Solutions, s => Assert.True(s.Installed && s.LayersRead));

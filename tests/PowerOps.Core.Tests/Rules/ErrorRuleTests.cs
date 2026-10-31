@@ -195,6 +195,57 @@ public class ErrorRuleTests
         Assert.Empty(Run(new PO013RootComponentWithoutSourceFolder(), s));
     }
 
+    [Theory]
+    [InlineData(1, "demo_status")]
+    [InlineData("1", "demo_status,demo_note")]
+    public void PO015_fires_for_create_trigger_with_filter_columns(object message, string filter)
+    {
+        var s = B.Empty() with { Workflows = [B.Flow(name: "Cre", triggers: B.RowTrigger(message, filter))] };
+
+        var f = Assert.Single(Run(new PO015CreateTriggerWithFilterColumns(), s));
+
+        Assert.Equal("When_a_row", f.Component);
+        Assert.Equal(Severity.Error, f.Severity);
+        Assert.Equal("Flow 'Cre' has filter columns on a create-only trigger of 'demo_item'; in observed runs such a flow never started.", f.Message);
+    }
+
+    [Theory]
+    [InlineData(1, null)]
+    [InlineData(1, "")]
+    [InlineData(1, "  ")]
+    [InlineData(2, "demo_status")]
+    [InlineData(3, "demo_status")]
+    [InlineData(4, "demo_status")]
+    [InlineData(5, "demo_status")]
+    [InlineData(6, "demo_status")]
+    [InlineData(7, "demo_status")]
+    public void PO015_quiet_for_other_change_types_or_no_filter(object message, string? filter)
+    {
+        var s = B.Empty() with { Workflows = [B.Flow(triggers: B.RowTrigger(message, filter))] };
+
+        Assert.Empty(Run(new PO015CreateTriggerWithFilterColumns(), s));
+    }
+
+    [Fact]
+    public void PO015_quiet_for_another_operation()
+    {
+        var trigger = new Dictionary<string, object>
+        {
+            ["Other"] = new
+            {
+                type = "OpenApiConnectionWebhook",
+                inputs = new
+                {
+                    host = new { operationId = "OtherTrigger" },
+                    parameters = new Dictionary<string, object> { ["subscriptionRequest/message"] = 1, ["subscriptionRequest/entityname"] = "demo_item", ["subscriptionRequest/filteringattributes"] = "demo_status" },
+                },
+            },
+        };
+        var s = B.Empty() with { Workflows = [B.Flow(triggers: trigger)] };
+
+        Assert.Empty(Run(new PO015CreateTriggerWithFilterColumns(), s));
+    }
+
     [Fact]
     public void Analyzer_sorts_findings_ordinally_by_rule_then_component_message_file()
     {
