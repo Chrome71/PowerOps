@@ -64,11 +64,12 @@ public static class PlanKind
     public const string UnmanagedLayer = "unmanaged-layer";
     public const string LayersNotRead = "layers-not-read";
     public const string ComponentsNotChecked = "components-not-checked";
+    public const string SameVersionDiffers = "same-version-differs";
 
     /// <summary>All kinds in report order.</summary>
     public static readonly string[] Order =
     [
-        Cycle, MissingDependency, DependencyNotChecked, ManagedConflict, Settings, Deletes, UnmanagedLayer, LayersNotRead, ComponentsNotChecked,
+        Cycle, MissingDependency, DependencyNotChecked, ManagedConflict, Settings, Deletes, UnmanagedLayer, LayersNotRead, ComponentsNotChecked, SameVersionDiffers,
     ];
 
     internal static string SeverityOf(string kind) => kind switch
@@ -86,7 +87,7 @@ public static class DeployPlan
     private const int TableType = 1;
     private const int CanvasAppType = 300;
 
-    private sealed record Entry(DeployZip Zip, Snapshot Snap, string Action, (string[] Names, string[] NotChecked) Deps, IReadOnlyList<(Workflow Flow, Guid Id)> Flows);
+    private sealed record Entry(DeployZip Zip, Snapshot Snap, string Action, (string[] Names, string[] NotChecked) Deps, IReadOnlyList<(Workflow Flow, Guid Id)> Flows, bool SameVersion);
 
     /// <summary>"Name (1.0.2.77)" becomes "Name"; null for no value or a blank one.</summary>
     public static string? RequiredSolution(string? attribute)
@@ -187,6 +188,11 @@ public static class DeployPlan
                 AddUpgrade(e, Add);
             }
 
+            if (e.SameVersion)
+            {
+                AddSameVersion(e, Add);
+            }
+
             solutions.Add(new PlannedSolution(
                 i + 1, name, zip.File, zip.SettingsFile, zip.Solution.Version, zip.Solution.Managed, e.Action,
                 snap.Installed ? new InstalledState(snap.Version!, snap.Managed == true, snap.LayersRead) : null,
@@ -215,16 +221,19 @@ public static class DeployPlan
         var version = ParseVersion(solution.Version) ?? throw Bad(zip, "the version is not four numeric parts");
         var snap = SnapshotOf(zip, target);
         var action = PlanAction.Install;
+        var same = false;
         if (snap.Installed)
         {
             var installed = ParseVersion(snap.Version) ?? throw Bad(zip, "the version installed in the target is not four numeric parts");
-            action = Compare(version, installed) > 0 ? PlanAction.Upgrade : PlanAction.Skip;
+            var order = Compare(version, installed);
+            action = order > 0 ? PlanAction.Upgrade : PlanAction.Skip;
+            same = order == 0;
         }
 
         var flows = FlowState.CloudFlows(solution)
             .Select(f => (Flow: f, Id: Guid.TryParse(f.Id, out var id) ? id : throw Bad(zip, "a cloud flow's id is not a GUID")))
             .ToList();
-        return new Entry(zip, snap, action, Dependencies(solution), flows);
+        return new Entry(zip, snap, action, Dependencies(solution), flows, same);
     }
 
     private static void AddSettings(Entry e, Action<string, string, string> add)
@@ -243,6 +252,38 @@ public static class DeployPlan
         {
             add(PlanKind.Settings, p.Name, $"{p.ComponentType} {p.Kind}: {p.Message}");
         }
+    }
+
+    // A snapshot holds no flow definition, so only which components exist can compare.
+    private static void AddSameVersion(Entry e, Action<string, string, string> add)
+    {
+        var (solution, snap) = (e.Zip.Solution, e.Snap);
+
+        void Differ(IEnumerable<string> zipOnly, IEnumerable<string> targetOnly, string noun)
+        {
+            foreach (var subject in zipOnly)
+            {
+                add(PlanKind.SameVersionDiffers, subject, $"The zip has this {noun} and the target's solution does not, and the plan skips the zip because the versions are equal.");
+            }
+
+            foreach (var subject in targetOnly)
+            {
+                add(PlanKind.SameVersionDiffers, subject, $"The target's solution has this {noun} and the zip does not, and the plan skips the zip because the versions are equal.");
+            }
+        }
+
+        Differ(
+            e.Flows.ExceptBy(snap.Flows.Select(f => f.Id), f => f.Id).Select(f => f.Flow.Name),
+            snap.Flows.ExceptBy(e.Flows.Select(f => f.Id), f => f.Id).Select(f => f.Name),
+            "cloud flow");
+        Differ(
+            solution.EnvironmentVariables.Select(v => v.SchemaName).Except(snap.Variables.Select(v => v.SchemaName), StringComparer.OrdinalIgnoreCase),
+            snap.Variables.Select(v => v.SchemaName).Except(solution.EnvironmentVariables.Select(v => v.SchemaName), StringComparer.OrdinalIgnoreCase),
+            "environment variable");
+        Differ(
+            solution.ConnectionReferences.Select(r => r.LogicalName).Except(snap.References.Select(r => r.LogicalName), StringComparer.OrdinalIgnoreCase),
+            snap.References.Select(r => r.LogicalName).Except(solution.ConnectionReferences.Select(r => r.LogicalName), StringComparer.OrdinalIgnoreCase),
+            "connection reference");
     }
 
     private static void AddUpgrade(Entry e, Action<string, string, string> add)

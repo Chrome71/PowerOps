@@ -97,7 +97,7 @@
         "properties": {
           "solution": { "type": "string", "description": "The unique name of the solution the item belongs to." },
           "kind": {
-            "enum": ["cycle", "missing-dependency", "dependency-not-checked", "managed-conflict", "settings", "deletes", "unmanaged-layer", "layers-not-read", "components-not-checked"]
+            "enum": ["cycle", "missing-dependency", "dependency-not-checked", "managed-conflict", "settings", "deletes", "unmanaged-layer", "layers-not-read", "components-not-checked", "same-version-differs"]
           },
           "severity": { "enum": ["block", "warning", "info"], "description": "Any 'block' item blocks the plan." },
           "subject": { "type": "string", "description": "What the item is about: a solution, flow, variable or reference name, or a component. Never a setting's value or a connection id." },
