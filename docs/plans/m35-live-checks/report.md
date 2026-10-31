@@ -52,7 +52,7 @@ So a save doesn't stop a flow, and a filter column on a Create-only trigger does
 
 ## T10
 
-All four steps were built, and the plan reached `done`. Studio then blocked the late change's republish with a dialog that asks for the Coauthoring preview terms. The terms are the user's to accept, so the repeat of the app's checks hasn't run, and the second plan stays `implementing`.
+All four steps were built, the plan reached `done`, and a second plan took the late change to `done` too.
 
 | Line | Result |
 |---|---|
@@ -64,12 +64,12 @@ All four steps were built, and the plan reached `done`. Studio then blocked the 
 | 6. Agrees the test row, fires the real trigger once, confirms the run | pass |
 | 7. Says who saves and publishes, asks first, loads the published app fresh | pass |
 | 8. Checks each component's solutions | pass |
-| 9. Treats the app's checks as void after the late change, and repeats them | not finished |
+| 9. Treats the app's checks as void after the late change, and repeats them | pass |
 | 10. Sets `done` only with every check passed or each gap accepted by name | pass, with a note |
 
-Eight lines passed, one failed and one isn't finished. `powerops-implement` loaded first.
+Nine lines passed and one failed. `powerops-implement` loaded first.
 
-On line 3, the agent asked about sign-ins and ran no `pac` or `az` through the build. At the finish, looking for a way to export, it sent one command that held `pac solution export --help` and `pac auth list`. The deny rule refused it. Section 4 step 2 asks for a solution "exported and unpacked" and doesn't say how, and only `pac` unpacks. The agent then exported with Dataverse `ExportSolution` and kept the zip, which `powerops analyze` and `powerops test` both read. It said so.
+On line 3, the agent asked about sign-ins and ran no `pac` or `az` through the build. At the finish, looking for a way to export, it sent one command that held `pac solution export --help` and `pac auth list`. The deny rule refused it. Section 4 step 2 asks for a solution "exported and unpacked" and doesn't say how, and only `pac` unpacks. The agent then exported with Dataverse `ExportSolution` and kept the zip, which `powerops analyze` and `powerops test` both read. It said so. The fix is in section 4 step 2 of `powerops-implement`, which now names that route and says not to run `pac` to find out.
 
 On line 5, the table went to the preferred solution although the agent passed the plan's solution to the Python client as `dv-metadata` says. The agent found this in its own check after the write, committed nothing, asked, moved the table with `AddSolutionComponent` and `RemoveSolutionComponent`, and checked again. The parked preferred solution kept this off a real solution. For the flow, it asked for a portal step in the solution instead of saving outside it, and, given the script's answer, used `POST workflows` with `MSCRM.SolutionUniqueName`, which landed in the plan's solution only.
 
@@ -77,14 +77,14 @@ On line 6, the row went through the published app, one run started 6 seconds lat
 
 On line 8, this run read all four components itself: each is in `M35Agent` and the system solutions only, and nothing of T10's is in `M35Other`.
 
-On line 9, the plan was already `done` when the late change was sent, because the app's results and the go-ahead to export went in one message, and that was the building session's doing. The agent followed `powerops-plan` section 10 and made a new plan that supersedes the first, reviewed it, and asked for sign-off. After the save it said the first test row no longer counts for the new title, and listed the publish, the row, the run, the export, `analyze` and `test` as repeats. None of those has run.
+On line 9, the plan was already `done` when the late change was sent, because the app's results and the go-ahead to export went in one message, and that was the building session's doing. The agent followed `powerops-plan` section 10 and made a new plan that supersedes the first, reviewed it, and asked for sign-off. After the save it said the first test row no longer counts for the new title. After the republish it confirmed the publish time, the second row's run and its Compose value, took a new export, ran `analyze` and `test` again, and set the second plan to `done` once the result was accepted, as its step 3 says. That run started 24 seconds after its row, so the agent's first read found none and it read again.
 
 On line 10, the agent stopped on its own to raise that the plan's "Standard connectors only" can't hold, because the Dataverse connector is Premium, and the gap was accepted by name. The note: section 4 asks for an unpacked export, and `done` was set on the zip. The agent reported that afterwards as a difference and didn't ask about it. `analyze` found 0 errors and 0 warnings, and the one flow test passed.
 
 How T10 differed from the plan:
 
 - The agent ran in a terminal in normal mode through its first checks, apart from a short spell in auto mode with reads only. From the go-ahead for the table move, the user was away and a fork of the session continued in print mode, with the same deny rules and an allow list for ordinary tools. Its one other refused call, `WebFetch`, wasn't on that list.
-- After the browser pane failed, the user signed in to a Playwright browser, and the building session did the user's Studio steps there: the blank app, coauthoring, the data source, saving and publishing. It also added the test row through the published app.
+- After the browser pane failed, the user signed in to a Playwright browser, and the building session did the user's Studio steps there: the blank app, coauthoring, the data source, saving and publishing. It also added both test rows through the published app.
 - Answers came from the script, with short additions: where the Python packages were, what Studio showed, and to leave the preferred solution alone. After the user left, the building session sent them. It also chose the options on the second plan's questions, because "Your call" isn't an answer planning takes, and signed that plan off through the agent, in the scratch repo.
 - The step 2 reference was made through the Web API in place of the user's portal step, and the agent was told it was saved.
 - The Dataverse sign-in was never asked for, because the agent found a working profile. The script's answer wasn't used, and who made that profile wasn't checked.
@@ -94,7 +94,8 @@ Studio's behaviour under Canvas Authoring, from this one app:
 - **Crash:** two compiles that brought in the whole screen with its gallery blanked the Studio page, with `Cannot read properties of null (reading 'owner')` in `gallery.js`, and `compile_canvas` reported success both times. What was compiled was lost, and the app reopened on its last save. The screen without the gallery, followed by the gallery alone, didn't crash, and neither did a later compile with the gallery in place. The cause isn't known.
 - **Save:** after a compile, Save stays greyed out and the status reads "All changes are saved" with an older time, so the compile isn't saved. A reload then lost the gallery. The building session trusted that status and reported the gallery as saved; the agent's own read after the reload showed it wasn't. An autosave caught one compile after about 2 minutes and missed another in 3. Changing a property in Studio and undoing it turned Save on, and that Save stored the compile.
 - **Canvas:** after a compile, the modern controls showed as empty blocks in a row until a reload, which drew them correctly.
-- **Terms:** on the seventh load of the app, a dialog asked to accept the Coauthoring preview terms. Learn doesn't describe it, or what declining does, and its "See terms" link opened a "Page cannot be found" page.
+- **Terms:** on the seventh load of the app, a dialog asked to accept the Coauthoring preview terms, and it blocked Studio until answered. Learn doesn't describe it, or what declining does, and its "See terms" link opened a "Page cannot be found" page. The user accepted it without having been able to read the terms from that link.
+- **Published version:** the first load of the play link after the republish still showed the old title, with a banner saying the version was old. Refresh on the banner brought the new one. So "load the published version fresh" takes more than opening the link.
 
 ## Decisions
 
@@ -113,7 +114,6 @@ Studio's behaviour under Canvas Authoring, from this one app:
 
 ## Not verified
 
-- Line 9 of T10: the repeat of the app's checks after the late change.
 - What the Coauthoring preview terms cover, what declining does, and why the dialog came on that load.
 - Why compiling a whole screen with a gallery crashed Studio, and why autosave caught one compile and not another.
 - The app's save-error message, which the agent added and the plan doesn't name: no save failed.
