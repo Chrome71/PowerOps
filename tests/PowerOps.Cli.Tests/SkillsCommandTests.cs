@@ -309,6 +309,25 @@ public partial class SkillsCommandTests : IDisposable
     }
 
     [Fact]
+    public void Implement_skill_warns_about_studio_saves_the_gallery_crash_table_membership_and_the_old_version_banner()
+    {
+        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        string[] wording =
+        [
+            "A Canvas Authoring compile isn't a save",
+            "look at the saved time. If it didn't move, change a property and undo it to turn Save on, save, or ask the user to, and confirm that the time moved. Reload only after that, never to check a compile that isn't saved yet",
+            "In one run, two compiles of a whole screen with its gallery crashed Studio while the tool reported success; the screen first with the gallery alone after it didn't. The cause isn't known",
+            "modern controls also showed as empty blocks after a compile until a reload",
+            "In one run, the Python client's table create put the table in the preferred solution although `solution=` was passed. Check each table's membership, and ask before moving one",
+            "Run the check and the commit as separate commands, so a failed check can't be committed",
+            "If the published app shows an old-version banner, select Refresh on it",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, text));
+        Assert.DoesNotContain("because", text[text.IndexOf("two compiles of a whole screen", StringComparison.Ordinal)..][..300]);
+    }
+
+    [Fact]
     public void Review_skill_asks_for_a_way_out_of_each_form()
     {
         var text = SkillsCommand.Shipped()["powerops-review-plan/SKILL.md"];
