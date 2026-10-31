@@ -98,6 +98,13 @@
       "title": "Canvas app formula contains a hard-coded environment or SharePoint site URL",
       "fix": "Remove the URL where the platform can use the current environment, otherwise read it from an environment variable whose value is set per environment at deployment.",
       "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO014.md"
+    },
+    {
+      "id": "PO015",
+      "severity": "error",
+      "title": "Dataverse row-created trigger has filter columns",
+      "fix": "Clear the trigger's filter columns, or change its change type to Create or Update.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO015.md"
     }
   ]
 }
