@@ -425,6 +425,19 @@ An agent ran PowerOps on Windows 11 with Microsoft's skills up to `deploy plan` 
 60. `fix:` M34: the plan, then the 11 fixes (built 2026-10-30, #66, [plan](plans/m34-windows-handover/plan.md))
 61. `docs:` M34: every PowerOps pin moved to the merge commit of item 60 (`248c832`), and the plan marked done (2026-10-30)
 
+## M36: findings of the M35 tenant run
+
+The [M35 report](plans/m35-live-checks/report.md) decided two things, and its Studio work showed a few more. The [plan](plans/m36-live-findings/plan.md) builds them: a new error rule for a Dataverse trigger that is Create only and has filter columns, a caveat on PO012's page, a `drift` notice for a component that is also in another solution, and warnings in `powerops-implement`.
+
+| Milestone | Release | Scope | Done when |
+|---|---|---|---|
+| **M36. M35 run findings** | v0.21.0 | <ul><li>Planned 2026-10-31 ([plan](plans/m36-live-findings/plan.md)). PO015, PO012's caveat, the `also-in-solution` kind of `drift`, and the warnings, as the plan's Data table says</li></ul> | <ul><li>Each change made as its row says, with the tests the plan names</li><li>The built `drift` run once on the test objects, read-only, or that line marked not verified</li><li>The PR and the pin PR green on Linux, Windows and macOS and merged</li></ul> |
+
+### Build order, M36 (continues the list below)
+
+62. `feat:` M36: the plan, then the four changes ([plan](plans/m36-live-findings/plan.md))
+63. `docs:` M36: every PowerOps pin moved to the merge commit of item 62, and the plan marked done
+
 ## Testing
 
 | Layer | What | Runs |
