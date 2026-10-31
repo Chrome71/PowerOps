@@ -259,7 +259,7 @@ public partial class SkillsCommandTests : IDisposable
     public void Implement_skill_writes_the_flow_tests_with_fake_values_and_runs_them_before_the_pull_request()
     {
         var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
-        string[] wording = ["Before you open a pull request, for each cloud flow the plan adds or changes, write or update its tests once the solution is exported and unpacked into the repo", "Use fake values in triggers and mocks", "Run `powerops test", "never delete or weaken a test"];
+        string[] wording = ["Before you open a pull request, for each cloud flow the plan adds or changes, write or update its tests once the solution is exported and unpacked into the repo", "use what the user told you about `pac`; do not run `pac` to find out", "keep the zip, which `powerops analyze` and `powerops test` both read", "Use fake values in triggers and mocks", "Run `powerops test", "never delete or weaken a test"];
 
         Assert.All(wording, s => Assert.Contains(s, text));
     }
