@@ -641,6 +641,24 @@ public class DeployApplyCommandTests : DeployTestBase
     }
 
     [Fact]
+    public void A_saved_plan_with_a_same_version_item_still_applies_as_a_skip_in_a_dry_run()
+    {
+        SmallZip(Folder, "Kept");
+        var target = new FakeTarget { Snaps = { ["Kept"] = Installed("Kept", "1.0.0.0") with { Variables = [new("demo_Gone", null)] } } };
+        MakePlan(target);
+        Assert.Contains("same-version-differs", File.ReadAllText(PlanFile));
+        var pac = new FakePac();
+
+        var r = Apply(target, pac, "--format", "json");
+
+        Assert.Equal(0, r.Code);
+        var doc = Json(r);
+        Assert.Equal("planned", (string?)doc["status"]);
+        Assert.Equal(["Kept:skipped"], Statuses(doc));
+        Assert.Empty(pac.Calls);
+    }
+
+    [Fact]
     public void An_apply_prints_the_target_line_and_one_line_before_and_after_each_import_then_the_report()
     {
         Chain();
