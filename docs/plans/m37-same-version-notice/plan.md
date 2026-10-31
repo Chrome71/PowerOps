@@ -1,5 +1,5 @@
 ---
-status: implementing
+status: done
 review: done
 signed-off: 2026-10-31
 signed-off-hash: 9b4d129997bca952878726f4e6ed678766c1eecf8bae0a06e1b3910a57255e0e

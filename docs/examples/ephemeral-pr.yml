@@ -146,14 +146,14 @@ jobs:
 
       # Pin this action to one commit SHA and use the same SHA in both calls: the plan file's `tool` (the powerops version) must match.
       # The plan of an empty environment holds only installs, so there is no PR comment. The analysis gates the zips (fail-on: error).
-      - uses: Chrome71/PowerOps@4c4cfa1c563a83c5de5c15f7153ba2259871b223 # main on 2026-10-31; pin the newest commit of main
+      - uses: Chrome71/PowerOps@155b9445663f147d036bd577db88a30db6070024 # main on 2026-10-31; pin the newest commit of main
         with:
           path: deploy
           upload-sarif: 'false'
           deploy-folder: deploy
           target: ${{ steps.find.outputs.url }}
 
-      - uses: Chrome71/PowerOps@4c4cfa1c563a83c5de5c15f7153ba2259871b223 # main on 2026-10-31; pin the newest commit of main
+      - uses: Chrome71/PowerOps@155b9445663f147d036bd577db88a30db6070024 # main on 2026-10-31; pin the newest commit of main
         with:
           path: deploy
           upload-sarif: 'false'
