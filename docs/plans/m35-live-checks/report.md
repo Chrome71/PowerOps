@@ -89,11 +89,11 @@ How T10 differed from the plan:
 - `dv-metadata` tells agents to pass `solution=` or the `MSCRM.SolutionName` header. T4 showed the header does nothing. The client's table create sends `SolutionUniqueName` as a query parameter, and the table landed in the preferred solution. Its relationship calls do send `MSCRM.SolutionUniqueName`.
 - The preferred solution can be read from `usersettings`, as `_preferredsolution_value`. Only setting it needs the maker portal.
 - Device code sign-in fails where security defaults are on (`AADSTS530035`). `pac` and `az` signed in with the browser.
-- The maker portal's sign-in can't be renewed in the desktop app's browser pane once its tokens expire, because its popup is blocked (`popup_window_error`). Use a normal browser for long Studio work.
+- The maker portal looped on "Sign in required" in the desktop app's browser pane once its tokens expired. Its silent renewal failed with `AADSTS160021` (the session it asked for doesn't exist), and its fallback popup was blocked (`popup_window_error`). A page opened directly showed the account as remembered, with no live session. Use a normal browser for long Studio work.
 
 ## Not verified
 
 - The Canvas and flow steps of `powerops-implement`, lines 6, 7, 9 and 10 of T10.
 - Why a Create-only filter stops the flow on the service's side. `callbackregistrations` showed the difference, but nothing shows the cause.
-- Why the portal's silent token renewal failed in the browser pane.
+- Why the browser pane lost its Microsoft session, or whether a passkey sign-in there ever left one.
 - Whether any of this holds on a managed solution, in a production environment, or on a Delete-only trigger.
