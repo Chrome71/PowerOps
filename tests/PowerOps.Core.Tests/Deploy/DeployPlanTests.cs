@@ -214,7 +214,7 @@ public class DeployPlanTests
             Workflows = [B.Flow(FlowId.ToString())],
         };
 
-        var skipped = Plan(withProblems with { Version = "1.0.0.0" }, Snap("App"));
+        var skipped = Plan(withProblems with { Version = "0.9.0.0" }, Snap("App"));
         var upgraded = Plan(withProblems, Snap("App"));
 
         Assert.Empty(skipped.Items);
@@ -512,13 +512,162 @@ public class DeployPlanTests
         Assert.Equal([new PlannedFlow("F", "suspended", false, null, "off")], flows);
     }
 
+    // ---- same version differs ----------------------------------------------------------------------------------
+
+    private const string ZipHas = "The zip has this {0} and the target's solution does not, and the plan skips the zip because the versions are equal.";
+    private const string TargetHas = "The target's solution has this {0} and the zip does not, and the plan skips the zip because the versions are equal.";
+
+    private static (string Subject, string Message)[] Differences(DeployPlanResult r) =>
+        [.. Of(r, PlanKind.SameVersionDiffers).Select(i => (i.Subject, i.Message))];
+
+    [Fact]
+    public void A_flow_only_the_zip_has_or_only_the_target_has_is_an_information_item_for_a_same_version_skip()
+    {
+        var zipOnly = Plan(Sol("App") with { Workflows = [B.Flow(FlowId.ToString(), "Notify")] }, Snap("App"));
+        var targetOnly = Plan(Sol("App"), Snap("App", flows: [new(FlowId, "Notify", "on")]));
+
+        var item = One(zipOnly, PlanKind.SameVersionDiffers);
+        Assert.Equal(("App", PlanSeverity.Info, "Notify", string.Format(ZipHas, "cloud flow")), (item.Solution, item.Severity, item.Subject, item.Message));
+        Assert.Equal([("Notify", string.Format(TargetHas, "cloud flow"))], Differences(targetOnly));
+        Assert.Equal(PlanAction.Skip, zipOnly.Solutions[0].Action);
+    }
+
+    [Fact]
+    public void A_variable_only_one_side_has_gives_an_item_for_that_side()
+    {
+        var zipOnly = Plan(Sol("App") with { EnvironmentVariables = [B.Env("demo_Zip")] }, Snap("App"));
+        var targetOnly = Plan(Sol("App"), Snap("App", variables: [new("demo_Target", null)]));
+
+        Assert.Equal([("demo_Zip", string.Format(ZipHas, "environment variable"))], Differences(zipOnly));
+        Assert.Equal([("demo_Target", string.Format(TargetHas, "environment variable"))], Differences(targetOnly));
+    }
+
+    [Fact]
+    public void A_connection_reference_only_one_side_has_gives_an_item_for_that_side()
+    {
+        var zipOnly = Plan(Sol("App") with { ConnectionReferences = [B.Ref("demo_zip")] }, Snap("App"));
+        var targetOnly = Plan(Sol("App"), Snap("App", references: [new(G1, "demo_target", "c", true)]));
+
+        Assert.Equal([("demo_zip", string.Format(ZipHas, "connection reference"))], Differences(zipOnly));
+        Assert.Equal([("demo_target", string.Format(TargetHas, "connection reference"))], Differences(targetOnly));
+    }
+
+    [Fact]
+    public void Names_that_differ_only_by_case_and_a_flow_id_in_upper_case_give_no_item()
+    {
+        var zip = Sol("App") with
+        {
+            Workflows = [B.Flow(FlowId.ToString().ToUpperInvariant(), "Notify")],
+            EnvironmentVariables = [B.Env("DEMO_VAR")],
+            ConnectionReferences = [B.Ref("DEMO_REF")],
+        };
+        var snap = Snap("App", variables: [new("demo_var", null)], references: [new(G1, "demo_ref", "c", true)], flows: [new(FlowId, "Notify", "on")]);
+
+        Assert.Empty(Plan(zip, snap).Items);
+    }
+
+    [Fact]
+    public void A_flow_re_created_under_the_same_name_gives_the_zips_item_then_the_targets()
+    {
+        var zip = Sol("App") with { Workflows = [B.Flow(FlowId.ToString(), "Notify")] };
+        var snap = Snap("App", flows: [new(G1, "Notify", "on")]);
+
+        Assert.Equal([("Notify", string.Format(ZipHas, "cloud flow")), ("Notify", string.Format(TargetHas, "cloud flow"))], Differences(Plan(zip, snap)));
+    }
+
+    [Fact]
+    public void Items_sort_after_the_other_kinds_and_keep_flows_variables_references_order_for_a_tie()
+    {
+        var zip = Sol("App", managed: true) with
+        {
+            Workflows = [B.Flow(FlowId.ToString(), "Same")],
+            EnvironmentVariables = [B.Env("same")],
+            ConnectionReferences = [B.Ref("same")],
+        };
+        var snap = Snap("App", managed: false, variables: [new("other", null)], references: [new(G1, "other", "c", true)], flows: [new(G2, "Same", "on")]);
+
+        var r = Plan(zip, snap);
+
+        Assert.Equal(
+            [PlanKind.ManagedConflict, .. Enumerable.Repeat(PlanKind.SameVersionDiffers, 6)],
+            r.Items.Select(i => i.Kind));
+        // Subjects sort ordinally; a tie keeps the order the items were added in.
+        Assert.Equal(
+            [
+                ("Same", string.Format(ZipHas, "cloud flow")), ("Same", string.Format(TargetHas, "cloud flow")),
+                ("other", string.Format(TargetHas, "environment variable")), ("other", string.Format(TargetHas, "connection reference")),
+                ("same", string.Format(ZipHas, "environment variable")), ("same", string.Format(ZipHas, "connection reference")),
+            ],
+            Differences(r));
+    }
+
+    [Fact]
+    public void Equal_contents_a_lower_version_an_upgrade_and_an_install_give_no_item()
+    {
+        var zip = Sol("App") with { EnvironmentVariables = [B.Env("demo_Zip")] };
+        var snap = Snap("App", variables: [new("demo_Target", null)]);
+
+        Assert.Empty(Of(Plan(Sol("App"), Snap("App")), PlanKind.SameVersionDiffers));
+        Assert.Empty(Of(Plan(zip with { Version = "0.9.0.0" }, snap), PlanKind.SameVersionDiffers));
+        Assert.Empty(Of(Plan(zip with { Version = "2.0.0.0", Managed = true }, snap), PlanKind.SameVersionDiffers));
+        Assert.Empty(Of(Plan(zip), PlanKind.SameVersionDiffers));
+    }
+
+    [Fact]
+    public void Equal_numeric_versions_in_another_spelling_count_as_the_same_version()
+    {
+        var r = Plan(Sol("App", "1.0.0.00") with { EnvironmentVariables = [B.Env("demo_Zip")] }, Snap("App", "1.0.0.0"));
+
+        Assert.Equal(PlanAction.Skip, r.Solutions[0].Action);
+        Assert.Single(Of(r, PlanKind.SameVersionDiffers));
+    }
+
+    [Fact]
+    public void A_classic_workflow_in_the_zip_gives_no_item()
+    {
+        var r = Plan(Sol("App") with { Workflows = [B.Flow(FlowId.ToString(), "Classic", category: 0)] }, Snap("App"));
+
+        Assert.Empty(r.Items);
+    }
+
+    [Fact]
+    public void A_same_version_skip_gives_only_these_items_with_no_settings_dependency_or_flow_output()
+    {
+        var zip = Sol("App", deps: Dep("Lib (1.0)")) with
+        {
+            ConnectionReferences = [B.Ref("demo_ref")],
+            Workflows = [B.Flow(FlowId.ToString())],
+        };
+
+        var r = Plan(zip, Snap("App"));
+
+        Assert.NotEmpty(r.Items);
+        Assert.All(r.Items, i => Assert.Equal(PlanKind.SameVersionDiffers, i.Kind));
+        Assert.Empty(r.Solutions[0].Flows);
+        Assert.False(r.Blocked);
+    }
+
+    [Fact]
+    public void The_new_item_changes_neither_the_hash_text_nor_the_hash()
+    {
+        DeployZip[] zips = [Zip(Sol("App") with { EnvironmentVariables = [B.Env("demo_Zip")] })];
+        var target = Target(zips, [Snap("App")]);
+
+        var r = DeployPlan.Build(zips, target);
+
+        Assert.NotEmpty(Of(r, PlanKind.SameVersionDiffers));
+        var text = DeployPlan.HashText(zips, target);
+        Assert.Equal(Hash(text), r.Hash);
+        Assert.DoesNotContain("same-version-differs", text);
+    }
+
     // ---- items order -------------------------------------------------------------------------------------------
 
     [Fact]
     public void Kinds_are_in_the_documented_order()
     {
         Assert.Equal(
-            ["cycle", "missing-dependency", "dependency-not-checked", "managed-conflict", "settings", "deletes", "unmanaged-layer", "layers-not-read", "components-not-checked"],
+            ["cycle", "missing-dependency", "dependency-not-checked", "managed-conflict", "settings", "deletes", "unmanaged-layer", "layers-not-read", "components-not-checked", "same-version-differs"],
             PlanKind.Order);
         Assert.Equal(["install", "upgrade", "skip"], new[] { PlanAction.Install, PlanAction.Upgrade, PlanAction.Skip });
         Assert.Equal(["block", "warning", "info"], new[] { PlanSeverity.Block, PlanSeverity.Warning, PlanSeverity.Info });

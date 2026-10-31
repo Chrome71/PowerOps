@@ -570,6 +570,21 @@ public class DeployCommandTests : IDisposable
     }
 
     [Fact]
+    public void A_same_version_seed_skip_with_differences_matches_the_golden()
+    {
+        SeedZip(Folder);
+        var fake = new FakeTarget { Snaps = { ["PowerOpsSeed"] = SnapshotFile.Load(TestSnapshot) with { Version = "1.0.0.1" } } };
+
+        var r = Plan(fake, "--format", "json");
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal(
+            [("pops_SeedDataverse", "same-version-differs"), ("pops_sharedoffice365_6a2f1", "same-version-differs")],
+            Json(r)["items"]!.AsArray().Select(i => ((string?)i!["subject"], (string?)i["kind"])));
+        Golden.Verify(Scrub(r.Out), "deploy-plan-same-version.json");
+    }
+
+    [Fact]
     public void A_blocked_plan_matches_the_golden()
     {
         SmallZip(Folder, "CycleA", requires: ["CycleB (1.0)"]);
