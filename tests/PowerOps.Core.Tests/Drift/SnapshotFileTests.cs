@@ -17,7 +17,8 @@ public class SnapshotFileTests
 
     private static void AssertEqual(Snapshot e, Snapshot a)
     {
-        Assert.Equal(e with { Components = [], Variables = [], References = [], Flows = [] }, a with { Components = [], Variables = [], References = [], Flows = [] });
+        Assert.Equal(e with { Components = [], Variables = [], References = [], Flows = [], AlsoIn = null }, a with { Components = [], Variables = [], References = [], Flows = [], AlsoIn = null });
+        Assert.Equal(e.AlsoIn, a.AlsoIn);
         Assert.Equal(e.Components, a.Components);
         Assert.Equal(e.Variables, a.Variables);
         Assert.Equal(e.References, a.References);
@@ -48,6 +49,17 @@ public class SnapshotFileTests
             "  \"references\": [\n    {\n      \"id\": \"00000000-0000-0000-0000-000000000001\",\n      \"logicalName\": \"a_ref\",\n      \"connectorId\": \"/providers/x\",\n      \"bound\": true\n    }\n  ],\n" +
             "  \"flows\": [\n    {\n      \"id\": \"00000000-0000-0000-0000-000000000002\",\n      \"name\": \"Flow\",\n      \"state\": \"on\"\n    }\n  ]\n}\n",
             SnapshotFile.Write(Small()));
+
+    [Fact]
+    public void Write_leaves_the_components_in_other_solutions_out_and_sort_keeps_them()
+    {
+        var withAlsoIn = Small() with { AlsoIn = [new(29, Guid.Parse(IdB), "Other")] };
+
+        Assert.Equal(SnapshotFile.Write(Small()), SnapshotFile.Write(withAlsoIn));
+        Assert.DoesNotContain("Other", SnapshotFile.Write(withAlsoIn));
+        Assert.Null(SnapshotFile.Read(SnapshotFile.Write(withAlsoIn)).AlsoIn);
+        AssertEqual(withAlsoIn, SnapshotFile.Sort(withAlsoIn));
+    }
 
     [Fact]
     public void Round_trip_keeps_the_snapshot_and_a_null_version() =>

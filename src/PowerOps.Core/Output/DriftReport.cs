@@ -34,7 +34,9 @@ public static class DriftReport
 
         foreach (var x in items)
         {
-            var change = x.Expected is null && x.Actual is null ? "" : $": {TextReport.Clean(x.Expected)} -> {TextReport.Clean(x.Actual)}";
+            var change = x.Expected is null && x.Actual is null ? ""
+                : x.Expected is null ? $": {TextReport.Clean(x.Actual)}"
+                : $": {TextReport.Clean(x.Expected)} -> {TextReport.Clean(x.Actual)}";
             writer.Write($"{x.Position} {TextReport.Clean(x.Environment)}: {x.Kind} {TextReport.Clean(x.Subject)}{change}{(x.Drift ? "" : " (info)")}\n");
         }
 

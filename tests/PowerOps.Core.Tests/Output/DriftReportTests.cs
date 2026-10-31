@@ -49,6 +49,24 @@ public class DriftReportTests
     }
 
     [Fact]
+    public void An_item_with_only_an_actual_value_prints_it_after_a_colon_in_text_and_carries_it_in_json_and_markdown()
+    {
+        Snapshot[] envs = [Snap("Dev", "1") with { AlsoIn = [new(29, Guid.Parse("00000000-0000-0000-0000-000000000001"), "Other|x")] }];
+        var items = DriftCompare.Compare(envs);
+        string Write(Action<string, IReadOnlyList<Snapshot>, IReadOnlyList<string>, IReadOnlyList<DriftItem>, TextWriter> f)
+        {
+            var w = new StringWriter();
+            f("demo", envs, ["live"], items, w);
+            return w.ToString();
+        }
+
+        Assert.Equal("1 Dev: 1, managed\n1 Dev: also-in-solution 29 00000000-0000-0000-0000-000000000001: Other|x (info)\nno drift\n", Write(DriftReport.WriteText));
+        Assert.Contains("\"kind\": \"also-in-solution\"", Write(DriftReport.WriteJson));
+        Assert.Contains("\"drift\": false,\n      \"expected\": null,\n      \"actual\": \"Other|x\"", Write(DriftReport.WriteJson));
+        Assert.Contains("| 1 | Dev | also-in-solution | 29 00000000-0000-0000-0000-000000000001 | no |  | Other\\|x |", Write(DriftReport.WriteMarkdown));
+    }
+
+    [Fact]
     public void Json_has_a_stable_shape_with_nulls_written()
     {
         Assert.Equal(

@@ -29,7 +29,7 @@
     },
     "items": {
       "type": "array",
-      "description": "Sorted by position, then kind (in the order of the enum below), then subject.",
+      "description": "Sorted by position, then kind (in the order of the enum below), then subject, then actual.",
       "items": {
         "type": "object",
         "required": ["position", "environment", "kind", "subject", "drift", "expected", "actual"],
@@ -37,13 +37,13 @@
           "position": { "type": "integer", "minimum": 1 },
           "environment": { "type": "string", "description": "The environment's friendly name." },
           "kind": {
-            "enum": ["solution-missing", "version", "managed", "component-missing", "component-extra", "unmanaged-layer", "layers-not-read", "variable-missing", "variable-value", "reference-missing", "reference-connector", "reference-unbound", "flow-missing", "flow-state"],
-            "description": "managed and layers-not-read are information; every other kind is drift."
+            "enum": ["solution-missing", "version", "managed", "component-missing", "component-extra", "unmanaged-layer", "layers-not-read", "variable-missing", "variable-value", "reference-missing", "reference-connector", "reference-unbound", "flow-missing", "flow-state", "also-in-solution"],
+            "description": "managed, layers-not-read and also-in-solution are information; every other kind is drift."
           },
-          "subject": { "type": "string", "description": "The name of a flow, variable or reference, '<componenttype> <id>' for another component, or the solution name." },
+          "subject": { "type": "string", "description": "The name of a flow, variable or reference, '<componenttype> <id>' for another component, or the solution name. For also-in-solution, a flow's name or '<componenttype> <id>'." },
           "drift": { "type": "boolean" },
-          "expected": { "type": ["string", "null"], "description": "The first environment's value for version, managed, reference-connector and flow-state; else null." },
-          "actual": { "type": ["string", "null"], "description": "This environment's value for those kinds; else null." }
+          "expected": { "type": ["string", "null"], "description": "The first environment's value for version, managed, reference-connector and flow-state; else null (always null for also-in-solution)." },
+          "actual": { "type": ["string", "null"], "description": "This environment's value for those kinds; for also-in-solution, the unique name of the other solution that holds the component; else null." }
         }
       }
     }

@@ -10,8 +10,8 @@ public class DriftCompareTests
 
     private static Snapshot Snap(
         string name = "Dev", string version = "1.0.0.0", bool managed = false, bool layersRead = true, bool installed = true,
-        SnapshotComponent[]? components = null, SnapshotVariable[]? variables = null, SnapshotReference[]? references = null, SnapshotFlow[]? flows = null) =>
-        new(name, "demo", installed, installed ? version : null, installed ? managed : null, layersRead, components ?? [], variables ?? [], references ?? [], flows ?? []);
+        SnapshotComponent[]? components = null, SnapshotVariable[]? variables = null, SnapshotReference[]? references = null, SnapshotFlow[]? flows = null, SnapshotAlsoIn[]? alsoIn = null) =>
+        new(name, "demo", installed, installed ? version : null, installed ? managed : null, layersRead, components ?? [], variables ?? [], references ?? [], flows ?? [], alsoIn);
 
     private static IReadOnlyList<DriftItem> Run(params Snapshot[] s) => DriftCompare.Compare(s);
 
@@ -26,10 +26,46 @@ public class DriftCompareTests
     }
 
     [Fact]
-    public void Kinds_are_in_the_documented_order_and_only_managed_and_layers_not_read_are_information()
+    public void Kinds_are_in_the_documented_order_and_only_managed_layers_not_read_and_also_in_solution_are_information()
     {
-        Assert.Equal(14, DriftKind.Order.Length);
-        Assert.Equal(["managed", "layers-not-read"], DriftKind.Order.Where(k => !DriftKind.IsDrift(k)));
+        Assert.Equal(15, DriftKind.Order.Length);
+        Assert.Equal("also-in-solution", DriftKind.Order[^1]);
+        Assert.Equal(["managed", "layers-not-read", "also-in-solution"], DriftKind.Order.Where(k => !DriftKind.IsDrift(k)));
+    }
+
+    [Fact]
+    public void Also_in_solution_names_a_flow_by_its_name_a_component_by_type_and_id_and_is_not_drift()
+    {
+        var s = Snap(flows: [new(G1, "My flow", "on")], alsoIn: [new(29, G1, "Other"), new(1, G2, "Other")]);
+
+        var items = Run(s);
+
+        Assert.Equal([(DriftKind.AlsoInSolution, "1 " + G2.ToString("D")), (DriftKind.AlsoInSolution, "My flow")], items.Select(i => (i.Kind, i.Subject)));
+        Assert.All(items, i => Assert.Equal((1, "Dev", false, null, "Other"), (i.Position, i.Environment, i.Drift, i.Expected, i.Actual)));
+        Assert.False(PowerOps.Core.Output.DriftReport.HasDrift(items));
+    }
+
+    [Fact]
+    public void Also_in_solution_orders_by_the_other_solution_for_one_component_and_comes_after_the_other_kinds()
+    {
+        var s = Snap(references: [new(G3, "r", "c", false)], alsoIn: [new(29, G1, "Zeta"), new(29, G1, "Alpha"), new(29, G1, "alpha")]);
+
+        var items = Run(s);
+
+        Assert.Equal([DriftKind.ReferenceUnbound, DriftKind.AlsoInSolution, DriftKind.AlsoInSolution, DriftKind.AlsoInSolution], items.Select(i => i.Kind));
+        Assert.Equal(["Alpha", "Zeta", "alpha"], items.Skip(1).Select(i => i.Actual));
+    }
+
+    [Fact]
+    public void Also_in_solution_is_reported_in_each_environment_and_not_for_a_solution_that_is_not_installed()
+    {
+        var also = new[] { new SnapshotAlsoIn(1, G2, "Other") };
+
+        var items = Run(Snap(alsoIn: also), Snap("Test", alsoIn: also), Snap("Prod", installed: false, alsoIn: also));
+
+        Assert.Equal([(1, DriftKind.AlsoInSolution), (2, DriftKind.AlsoInSolution), (3, DriftKind.SolutionMissing)], items.Select(i => (i.Position, i.Kind)));
+        Assert.Empty(Run(Snap(alsoIn: [])));
+        Assert.Empty(Run(Snap()));
     }
 
     [Fact]

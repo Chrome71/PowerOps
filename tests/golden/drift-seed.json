@@ -24,6 +24,15 @@
   ],
   "items": [
     {
+      "position": 1,
+      "environment": "Contoso Dev",
+      "kind": "also-in-solution",
+      "subject": "Stamp work item status",
+      "drift": false,
+      "expected": null,
+      "actual": "ContosoOther"
+    },
+    {
       "position": 2,
       "environment": "Contoso Test",
       "kind": "managed",

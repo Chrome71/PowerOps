@@ -19,16 +19,18 @@ public static class DriftKind
     public const string ReferenceUnbound = "reference-unbound";
     public const string FlowMissing = "flow-missing";
     public const string FlowState = "flow-state";
+    public const string AlsoInSolution = "also-in-solution";
 
     /// <summary>All kinds in report order.</summary>
     public static readonly string[] Order =
     [
         SolutionMissing, Version, Managed, ComponentMissing, ComponentExtra, UnmanagedLayer, LayersNotRead,
         VariableMissing, VariableValue, ReferenceMissing, ReferenceConnector, ReferenceUnbound, FlowMissing, FlowState,
+        AlsoInSolution,
     ];
 
     /// <summary>Information kinds are shown but are not drift.</summary>
-    public static bool IsDrift(string kind) => kind is not (Managed or LayersNotRead);
+    public static bool IsDrift(string kind) => kind is not (Managed or LayersNotRead or AlsoInSolution);
 }
 
 public static class DriftCompare
@@ -62,6 +64,11 @@ public static class DriftCompare
                 {
                     Add(DriftKind.LayersNotRead, s.Solution);
                 }
+
+                foreach (var a in s.AlsoIn ?? [])
+                {
+                    Add(DriftKind.AlsoInSolution, flowNames.TryGetValue(a.Id, out var n) ? n : Component(a.Type, a.Id), null, a.Solution);
+                }
             }
 
             if (i > 0)
@@ -74,6 +81,7 @@ public static class DriftCompare
             .OrderBy(x => x.Position)
             .ThenBy(x => Array.IndexOf(DriftKind.Order, x.Kind))
             .ThenBy(x => x.Subject, StringComparer.Ordinal)
+            .ThenBy(x => x.Actual, StringComparer.Ordinal)
             .ToList();
     }
 

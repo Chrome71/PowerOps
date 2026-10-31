@@ -25,6 +25,15 @@ public class DriftQueriesTests
     }
 
     [Fact]
+    public void Other_solutions_query_equals_the_stored_one()
+    {
+        var ids = new[] { Id, Guid.Parse("00000000-0000-0000-0000-000000000002") };
+        var values = string.Concat(ids.Select(i => $"<value>{i:D}</value>"));
+
+        Assert.Equal(Stored("read8-other-solutions.xml").Replace("{componentValues}", values).Replace("{solutionId}", Id.ToString("D")), DriftQueries.OtherSolutions(Id, ids));
+    }
+
+    [Fact]
     public void Layer_query_equals_the_stored_one() =>
         Assert.Equal(Stored("read7-layers.xml").Replace("{componentIds}", Id.ToString("D")).Replace("{componentName}", "CanvasApp"), DriftQueries.Layers(Id, "CanvasApp"));
 
