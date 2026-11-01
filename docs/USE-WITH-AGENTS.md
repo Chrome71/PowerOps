@@ -19,6 +19,13 @@ claude plugin marketplace add Chrome71/PowerOps && claude plugin install powerop
 codex plugin marketplace add Chrome71/PowerOps && codex plugin add powerops@powerops         # Codex
 ```
 
+To update the plugin in Claude Code, uninstall and install it again, then restart Claude Code. `claude plugin update` changes nothing: `plugin.json` says version `0.0.0` in every build, and [Claude Code keeps the installed copy until that string changes](https://code.claude.com/docs/en/plugins/loading#versions-and-updates). Update the CLI as well ([Install](../README.md#install)), because the plugin's server is the `powerops` on PATH. Codex's `plugin.json` has the same version, and updating the plugin there has not been tested.
+
+```sh
+claude plugin uninstall powerops@powerops --scope user
+claude plugin install powerops@powerops --scope user
+```
+
 The plugin also starts the PowerOps MCP server: see [MCP server](#mcp-server).
 
 For a team, `powerops skills install` stays the default: the skills then live in the repo, so every contributor and CI sees the same gate. Use one or the other in a repo; with both, each skill is listed twice.
@@ -47,7 +54,7 @@ claude mcp add powerops -- powerops mcp   # Claude Code, local scope; --scope pr
 codex mcp add powerops -- powerops mcp    # Codex; then set env_vars and tool_timeout_sec (below)
 ```
 
-Use the plugin or your own entry. With both, and when your entry runs the same command, `powerops mcp`, Claude Code connects it once and prefers your own entry ([its docs](https://code.claude.com/docs/en/mcp#scope-hierarchy-and-precedence)), so the server runs as `powerops`, not as the plugin's `plugin:powerops:powerops`, and its tools are named `mcp__powerops__<tool>`. In Codex your own `[mcp_servers.powerops]` takes the place of the plugin's (seen with `codex mcp get` in Codex 0.163.0). What is not verified on Windows and macOS, including whether Claude Code and Codex start the plugin's `powerops` there, is listed in [FOUNDATION §8](FOUNDATION.md#8-research-topics-still-open).
+Use the plugin or your own entry. With both, and when your entry runs the same command, `powerops mcp`, Claude Code connects it once and prefers your own entry ([its docs](https://code.claude.com/docs/en/mcp#scope-hierarchy-and-precedence)), so the server runs as `powerops`, not as the plugin's `plugin:powerops:powerops`, and its tools are named `mcp__powerops__<tool>`. In Codex your own `[mcp_servers.powerops]` takes the place of the plugin's (seen with `codex mcp get` in Codex 0.163.0). What is not verified on Windows and macOS, including whether Claude Code and Codex start the plugin's `powerops` on macOS, is listed in [FOUNDATION §8](FOUNDATION.md#8-research-topics-still-open).
 
 **What asks first.** Claude Code asks before a tool call unless a permission rule allows it, such as `mcp__plugin_powerops_powerops__analyze` for the plugin's server or `mcp__powerops__analyze` for your own entry. Codex, in its default approval mode, asks before `deploy_plan` and `deploy_apply`. In the M20 run (Codex TUI 0.163.0 with app-server 0.165.0) it ran `analyze`, `diff`, `test` and `drift` on snapshot files without asking. Its code at `rust-v0.163.0` skips the question for every read-only tool, so `plan_facts`, and `drift` against an environment, which read a tenant, run without asking too (read in the code, not run). Don't allow `deploy_apply` in a rule: an agent asks you in chat before it sets `apply`, and the form is where you say yes.
 
