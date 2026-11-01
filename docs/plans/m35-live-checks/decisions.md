@@ -38,3 +38,4 @@ Answer: 1.
 - W-12: yes, with T8's read in `drift`'s live read, in a plan of its own
 - W-13: yes, a new error rule for filter columns on a Create-only trigger, and one caveat in PO012's advice
 - T10 line 3: fixed in section 4 step 2 of `powerops-implement`, which now names the export route and the zip fallback
+- cleanup, 2026-10-31: the user deleted the run's 13 remaining objects (the flows, the app, the connection references, the tables and then the solutions), and the preferred solution went back to the one it was on before the run. A read by name found none left, and no id the run recorded is still a solution component. The sign-in profile the run added is removed, and this plan is marked done
