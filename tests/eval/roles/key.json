@@ -21,7 +21,8 @@
     "pass": "verify",
     "point": "plan checklist",
     "severity": "Low",
-    "sentence": "Other/Solution.xml gives version 1.0.1.0, where Data and Steps say 1.1.0.0."
+    "sentence": "Other/Solution.xml gives version 1.0.1.0, where Data and Steps say 1.1.0.0.",
+    "baseline": "not-shown"
   },
   {
     "id": "F04",
@@ -29,7 +30,8 @@
     "pass": "verify",
     "point": "plan checklist",
     "severity": "Medium",
-    "sentence": "The flow posts 'Work item reassigned: <name>' where the plan says 'Reassigned: <name>', and the flow test written from the plan fails."
+    "sentence": "The flow posts 'Work item reassigned: <name>' where the plan says 'Reassigned: <name>', and the flow test written from the plan fails.",
+    "baseline": "shown"
   },
   {
     "id": "F05",
@@ -37,7 +39,8 @@
     "pass": "verify",
     "point": "plan checklist",
     "severity": "Medium",
-    "sentence": "The solution adds a second new flow, Log new work item, that no step of the plan builds."
+    "sentence": "The solution adds a second new flow, Log new work item, that no step of the plan builds.",
+    "baseline": "not-shown"
   },
   {
     "id": "F06",
@@ -45,7 +48,8 @@
     "pass": "verify",
     "point": "plan checklist",
     "severity": "Medium",
-    "sentence": "The flow Email daily work item summary is turned off (StateCode 0), where the plan says it is turned on in the export."
+    "sentence": "The flow Email daily work item summary is turned off (StateCode 0), where the plan says it is turned on in the export.",
+    "baseline": "shown"
   },
   {
     "id": "F07",
@@ -61,7 +65,8 @@
     "pass": "verify",
     "point": "plan checklist",
     "severity": "Medium",
-    "sentence": "The plan builds the role Work Item Team Lead (Data and step 2), but the solution has no such role."
+    "sentence": "The plan builds the role Work Item Team Lead (Data and step 2), but the solution has no such role.",
+    "baseline": "not-shown"
   },
   {
     "id": "F09",
@@ -85,7 +90,8 @@
     "pass": "security-solution",
     "point": "column security",
     "severity": "High",
-    "sentence": "In Entities/pops_WorkItem/Entity.xml the attribute pops_Notes has IsSecured 0, so the profile in FieldSecurityProfiles has no effect, where the plan says column security is on."
+    "sentence": "In Entities/pops_WorkItem/Entity.xml the attribute pops_Notes has IsSecured 0, so the profile in FieldSecurityProfiles has no effect, where the plan says column security is on.",
+    "baseline": "not-shown"
   },
   {
     "id": "F12",
@@ -117,7 +123,8 @@
     "pass": "verify",
     "point": "SE:09",
     "severity": "Medium",
-    "sentence": "Step 4 of the plan adds a flow test for the default status New, but flowtests holds only the test for Active."
+    "sentence": "Step 4 of the plan adds a flow test for the default status New, but flowtests holds only the test for Active.",
+    "baseline": "not-shown"
   },
   {
     "id": "F16",
@@ -141,7 +148,8 @@
     "pass": "security-solution",
     "point": "SE:08",
     "severity": "Medium",
-    "sentence": "In Entities/pops_WorkItem/Entity.xml the attribute pops_Notes has IsAuditEnabled 0, where the plan says auditing is on for the column."
+    "sentence": "In Entities/pops_WorkItem/Entity.xml the attribute pops_Notes has IsAuditEnabled 0, where the plan says auditing is on for the column.",
+    "baseline": "not-shown"
   },
   {
     "id": "F19",
@@ -205,7 +213,8 @@
     "pass": "security-solution",
     "point": "connection references",
     "severity": "Medium",
-    "sentence": "In the flow file Emaildailyworkitemsummary the Outlook entry names a connection (connection name) and not the connection reference pops_SeedOutlook that the plan requires."
+    "sentence": "In the flow file Emaildailyworkitemsummary the Outlook entry names a connection (connection name) and not the connection reference pops_SeedOutlook that the plan requires.",
+    "baseline": "shown"
   },
   {
     "id": "F27",
@@ -237,7 +246,8 @@
     "pass": "security-solution",
     "point": "secrets in environment variables",
     "severity": "High",
-    "sentence": "settings.json holds a literal token as the value of pops_OnCallBoardToken, where the plan says the file holds only a reference to the vault."
+    "sentence": "settings.json holds a literal token as the value of pops_OnCallBoardToken, where the plan says the file holds only a reference to the vault.",
+    "baseline": "not-shown"
   },
   {
     "id": "F31",
@@ -261,7 +271,8 @@
     "pass": "security-solution",
     "point": "security roles",
     "severity": "High",
-    "sentence": "Roles/WorkItemSupervisor.xml gives Delete, Assign and Share and sets every privilege at Global depth, where the plan allows Read, Write, Append and Append To at business unit depth."
+    "sentence": "Roles/WorkItemSupervisor.xml gives Delete, Assign and Share and sets every privilege at Global depth, where the plan allows Read, Write, Append and Append To at business unit depth.",
+    "baseline": "not-shown"
   },
   {
     "id": "F34",
@@ -285,7 +296,8 @@
     "pass": "security-solution",
     "point": "SE:04",
     "severity": "High",
-    "sentence": "The trigger of Announce reassigned work item has scope 4 (Organization), where the plan sets Business Unit so that the flow sees only the Operations business unit."
+    "sentence": "The trigger of Announce reassigned work item has scope 4 (Organization), where the plan sets Business Unit so that the flow sees only the Operations business unit.",
+    "baseline": "not-shown"
   },
   {
     "id": "F37",
