@@ -1,0 +1,29 @@
+$ powerops analyze solution/current
+solution/current: PowerOpsSeed 1.1.0.0 (publisher powerops, prefix pops)
+  no findings
+1 solution, 0 errors, 0 warnings
+exit code: 0
+
+$ powerops test solution/current --tests flowtests
+PASS escalate-stale-work-items.flowtest.json: Escalate stale work items
+PASS stamp-work-item-status-active.flowtest.json: Stamp work item status
+2 tests: 2 passed, 0 failed, 0 unmocked, 0 unsupported
+exit code: 0
+
+$ powerops diff solution/previous solution/current
+PowerOpsSeed 1.0.0.0 → PowerOpsSeed 1.1.0.0
+  changed solution version: 1.0.0.0 → 1.1.0.0
+  added rootComponent 20:00000000-0000-0000-0000-000000000a11
+  added rootComponent 29:00000000-0000-0000-0000-000000000f11
+  added rootComponent 29:00000000-0000-0000-0000-000000000f12
+  added environmentVariable pops_OnCallBoardToken [risk: environment-variable]
+  added environmentVariable pops_OnCallBoardUrl [risk: environment-variable]
+  added workflow Escalate stale work items (00000000-0000-0000-0000-000000000f11)
+  added workflow Log new work item (00000000-0000-0000-0000-000000000f12)
+8 changes (7 added, 0 removed, 1 changed)
+exit code: 1
+
+$ powerops settings validate solution/current --settings settings.json
+no problems
+exit code: 0
+

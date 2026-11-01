@@ -1,0 +1,27 @@
+$ powerops analyze solution/current
+solution/current: PowerOpsSeed 1.1.0.0 (publisher powerops, prefix pops)
+  warning PO005 Other/Customizations.xml: Connection reference 'pops_SeedOutlook' is not used by any flow or app.
+  warning PO011 Workflows/Emaildailyworkitemsummary-00000000-0000-0000-0000-000000000F41.json: Flow 'Email daily work item summary' is turned off.
+1 solution, 0 errors, 2 warnings
+exit code: 0
+
+$ powerops test solution/current --tests flowtests
+PASS email-daily-work-item-summary.flowtest.json: Email daily work item summary
+PASS stamp-work-item-status-active.flowtest.json: Stamp work item status
+2 tests: 2 passed, 0 failed, 0 unmocked, 0 unsupported
+exit code: 0
+
+$ powerops diff solution/previous solution/current
+PowerOpsSeed 1.0.0.0 → PowerOpsSeed 1.1.0.0
+  changed solution version: 1.0.0.0 → 1.1.0.0
+  added rootComponent 29:00000000-0000-0000-0000-000000000f41
+  added connectionReference pops_SeedOutlook [risk: connection-reference]
+  added environmentVariable pops_SummaryMailbox [risk: environment-variable]
+  added workflow Email daily work item summary (00000000-0000-0000-0000-000000000f41)
+5 changes (4 added, 0 removed, 1 changed)
+exit code: 1
+
+$ powerops settings validate solution/current --settings settings.json
+no problems
+exit code: 0
+

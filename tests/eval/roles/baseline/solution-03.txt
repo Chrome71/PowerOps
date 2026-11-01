@@ -1,0 +1,27 @@
+$ powerops analyze solution/current
+solution/current: PowerOpsSeed 1.0.1.0 (publisher powerops, prefix pops)
+  no findings
+1 solution, 0 errors, 0 warnings
+exit code: 0
+
+$ powerops test solution/current --tests flowtests
+FAIL announce-reassigned-work-item.flowtest.json: Announce reassigned work item
+  assertion 2, inputs of Post_message_in_the_channel at ["parameters","body/messageBody"]: expected "Reassigned: Pump check", got "Work item reassigned: Pump check"
+PASS stamp-work-item-status-active.flowtest.json: Stamp work item status
+2 tests: 1 passed, 1 failed, 0 unmocked, 0 unsupported
+exit code: 1
+
+$ powerops diff solution/previous solution/current
+PowerOpsSeed 1.0.0.0 → PowerOpsSeed 1.0.1.0
+  changed solution version: 1.0.0.0 → 1.0.1.0
+  added rootComponent 29:00000000-0000-0000-0000-000000000f31
+  added connectionReference pops_SeedTeams [risk: connection-reference]
+  added environmentVariable pops_SupervisorChannel [risk: environment-variable]
+  added workflow Announce reassigned work item (00000000-0000-0000-0000-000000000f31)
+5 changes (4 added, 0 removed, 1 changed)
+exit code: 1
+
+$ powerops settings validate solution/current --settings settings.json
+no problems
+exit code: 0
+
