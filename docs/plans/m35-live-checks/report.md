@@ -83,9 +83,9 @@ On line 10, the agent stopped on its own to raise that the plan's "Standard conn
 
 How T10 differed from the plan:
 
-- The agent ran in a terminal in normal mode through its first checks, apart from a short spell in auto mode with reads only. From the go-ahead for the table move, the user was away and a fork of the session continued in print mode, with the same deny rules and an allow list for ordinary tools. Its one other refused call, `WebFetch`, wasn't on that list.
+- The agent ran in a terminal in normal mode through its first checks, apart from a short spell in auto mode with reads only. From the go-ahead for the table move, a fork of the session continued in print mode, with the same deny rules and an allow list for ordinary tools. Its one other refused call, `WebFetch`, wasn't on that list.
 - After the browser pane failed, the user signed in to a Playwright browser, and the building session did the user's Studio steps there: the blank app, coauthoring, the data source, saving and publishing. It also added both test rows through the published app.
-- Answers came from the script, with short additions: where the Python packages were, what Studio showed, and to leave the preferred solution alone. After the user left, the building session sent them. It also chose the options on the second plan's questions, because "Your call" isn't an answer planning takes, and signed that plan off through the agent, in the scratch repo.
+- Answers came from the script, with short additions: where the Python packages were, what Studio showed, and to leave the preferred solution alone. In the fork, the building session sent them. It also chose the options on the second plan's questions, because "Your call" isn't an answer planning takes, and signed that plan off through the agent, in the scratch repo.
 - The step 2 reference was made through the Web API in place of the user's portal step, and the agent was told it was saved.
 - The Dataverse sign-in was never asked for, because the agent found a working profile. The script's answer wasn't used, and who made that profile wasn't checked.
 
@@ -99,7 +99,7 @@ Studio's behaviour under Canvas Authoring, from this one app:
 
 ## Decisions
 
-**W-12: yes.** PowerOps should report a component that is also in another solution, because a stray is otherwise invisible to `analyze`, `drift` and `get_flow_context`, and it can reach a real solution. The read is T8's, in `drift`'s live read, without the system solutions `Default`, `Active` and the Common Data Service Default Solution. It costs one read per 50 components. It needs its own plan, and T8's arithmetic is from a small solution read as a system administrator.
+**W-12: yes.** PowerOps should report a component that is also in another solution, because a stray is otherwise invisible to `analyze`, `drift` and `get_flow_context`, and it can reach a real solution. The read is T8's, in `drift`'s live read, without the system solutions `Default`, `Active` and the Common Data Service Default Solution. It costs one read per 50 components. It needs its own plan, and T8's arithmetic is from a small solution.
 
 **W-13: yes, and PO012's advice gains one caveat.** A new error rule finds a Dataverse trigger whose change type is Create only and which has filter columns, because the flow doesn't run, in the Windows run and in this one. Its page says this comes from observed runs, and that Learn doesn't describe it. PO012's "Set filter columns" stands for a change type that includes Update, with a caveat not to set them on a Create-only trigger. A Delete-only trigger wasn't tested.
 
@@ -109,7 +109,7 @@ Studio's behaviour under Canvas Authoring, from this one app:
 - The preferred solution can be read from `usersettings`, as `_preferredsolution_value`. Only setting it needs the maker portal.
 - FlowAgent's `preflight_flow` returned `block` for a flow whose connection reference was bound and Connected, saying the connection was missing. The flow turned on and ran.
 - One of the agent's commands checked the saved app and committed in the same line, so step 3 was committed although the check had failed. The agent saw this, and undid the commit before going on.
-- Device code sign-in fails where security defaults are on (`AADSTS530035`). `pac` and `az` signed in with the browser.
+- Device code sign-in can be blocked by a tenant's policy (`AADSTS530035`). `pac` and `az` signed in with the browser.
 - The maker portal looped on "Sign in required" in the desktop app's browser pane once its tokens expired. Its silent renewal failed with `AADSTS160021` (the session it asked for doesn't exist), and its fallback popup was blocked (`popup_window_error`). A page opened directly showed the account as remembered, with no live session. Use a normal browser for long Studio work.
 
 ## Not verified

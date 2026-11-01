@@ -1,4 +1,4 @@
-plan-hash: 41217aedc57f5ee5487f250a1778cf872922904c9b0cdd9a23d90fc5ab362294
+plan-hash: 431b7ba645abc4e5b40daedec574467a61a7d32fc9315046dc25d1a6470a733b
 model: claude-sonnet-5-5
 fresh-context: yes
 

@@ -28,7 +28,7 @@ Answer: Stop at the first failed step, no rollback; the report lists each step a
 3. In your own words
 Answer: `pac power-automate list-cloud-flows --json`, matched by workflow id; Preview with undocumented field names, so the build starts with one captured, scrubbed sample
 
-### Q5. Live done-when, in the developer test environment before 2026-12-15, with the user running every live step?
+### Q5. Live done-when, in the developer test environment, with the user running every live step?
 1. Dry run writes nothing; `--apply` imports the seed exported with its flow on and reports it on (exit 0); an import whose flow stays off reports it (exit 1) (recommended)
 2. The round-trip only; the flow-left-off case is covered offline with a fake pac
 3. In your own words
@@ -73,3 +73,4 @@ Answer: The report holds pac's exit code and a fixed hint; pac's own output goes
 - found while fixing R1: deleting an unmanaged solution leaves its components (Learn), so the live reset deletes the components too; the live zips are unmanaged because a managed export cannot be imported into the environment holding the unmanaged original
 - second fresh review (Sonnet) 2026-10-20: 0 High, 5 Medium, 7 Low; all twelve fixed in the plan text (no user decision needed: each fix follows Q1 to Q9); review now stale
 - third fresh review (Sonnet) 2026-10-20: 0 High, 3 Medium, 5 Low; all eight fixed in the plan text (no user decision needed); review.md plan-hash updated to the final body with a note, as for the offline M7 plan
+- 2026-11-01: personal and tenant facts removed from the plan body, with no decision changed; re-signed with `powerops plan sign-off`, and `review.md`'s `plan-hash` moved to the new body

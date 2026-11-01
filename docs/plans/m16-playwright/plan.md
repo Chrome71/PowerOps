@@ -1,8 +1,8 @@
 ---
 status: implementing
 review: done
-signed-off: 2026-10-27
-signed-off-hash: 6403382323c0941e34edf9085a6b8a691cec303b3a64b6fc89ae7572edcfc00b
+signed-off: 2026-11-01
+signed-off-hash: ce9d78e462e7b9f9ef0db3d1ef1c05a21becd0eede88df52c3a8160573fed782
 environment: null
 depth: quick
 supersedes: null
@@ -71,14 +71,14 @@ None. The apps are the seed's and M12's, unchanged.
 
 - The build: offline. CI runs the type check and the list on ubuntu.
 - The live check: Test only, after the user's yes in this session (Q3), asked after Step 2's commit. The ask names Test, the Chromium download (`npx playwright install chromium`, from Playwright's download host) and that the user signs in themselves. Test still holds `PowerOpsSeed` 1.0.0.1 and `PowerOpsM12Visits` 1.0.0.0, managed, from the M10 and M12 runs; nothing is imported or changed for this check.
-  1. The user gives the two links in chat. They go only into the environment of the commands this session runs, never into a file in the repo or the notes folder; they stay in the session transcript, which is not committed.
+  1. The user gives the two links in chat. They go only into the environment of the commands this session runs, never into a file in the repo; they stay in the session transcript, which is not committed.
   2. `npx playwright install chromium` in the example folder.
   3. This session starts `npx playwright open --save-storage=.auth/state.json <canvas link>` from the example folder, in a headed window on the user's machine. The user signs in and does the steps of the README's sign-in section; this session never types a credential, code or MFA answer. A licence prompt or a missing role instead of the app stops the check, recorded as "not run" with the reason.
   4. `npx playwright test`: both tests pass, exit 0.
   5. The `gridColumn` constant is changed to a label the view does not have: `npx playwright test` exits 1 with the model-driven test failed and the canvas test passed. Then the `canvasGallery` constant is changed to a name the app does not have: exit 1 with the canvas test failed and the model-driven test passed. After each run the committed file is restored with `git restore`.
   6. If the model-driven test lands on a sign-in page or an error with the single saved state while the canvas test passes, the starter switches to the samples' layout, one saved state per domain: two `playwright open` runs that save `.auth/canvas.json` and `.auth/model-driven.json`, and `test.use({ storageState })` in a `test.describe` per test, with the README's sign-in section and Credit changed to match. That change is committed as a fix and the live check runs again from step 3.
   7. Afterwards: `.auth/` is deleted, `test-results/` removed, and `git status --porcelain` shows neither. The result (pass or fail per run, exit codes, which form opened, Playwright 1.64.1, Chromium, the date) goes into `decisions.md` (Log) and the BUILD-PLAN verification record, with no URL, id, email or name.
-- Test expires about 2026-11-21 (one extension to about 2026-12-21). If the live check misses it, it is recorded as not run (decision 22, option C).
+- If the live check does not run before Test expires, it is recorded as not run (decision 22, option C).
 
 ## Solution and publisher
 
@@ -87,11 +87,10 @@ None new. The tests use, as installed in Test: `PowerOpsSeed` (canvas app "Work 
 ## Constraints
 
 - Licensing: dependencies Apache-2.0 or MIT only. Checked on 2026-10-27 in the installed `package.json` files: `@playwright/test`, `playwright`, `playwright-core` 1.64.1 Apache-2.0; `typescript` 6.0.3 Apache-2.0; `@types/node` 24.19.2 MIT; `undici-types` 7.24.6 MIT. The samples are MIT; the starter follows their patterns and copies no file. The browser that `npx playwright install` downloads is the user's download, not a repository dependency, and is never committed.
-- The person who signs in needs a Power Apps licence that covers Dataverse apps (theirs; CI is not involved), both apps shared with them, and Read on both tables and Create on `pops_sitevisit`. The maintainer's licence is a Power Apps Plan 2 trial whose end date nobody has checked (BUILD-PLAN Phase 4); a lapsed licence stops the live check (Environments and route, step 3).
+- The person who signs in needs a Power Apps licence that covers Dataverse apps (theirs; CI is not involved), both apps shared with them, and Read on both tables and Create on `pops_sitevisit`. A lapsed licence stops the live check (Environments and route, step 3).
 - No Dependabot entry for the example's npm packages: it is a starter with exact pins, re-pinned when copied. GitHub's dependency alerts still read its lockfile.
 - No secret: no password, certificate, token or client secret in any file, CI job or variable the starter reads. The storage state is a person's credential that stays local and gitignored (FOUNDATION §4).
 - The live tests run against Test only, and only read.
-- Deadline: Test expires about 2026-11-21.
 - Sources: Learn "Migrate from Power Apps Test Engine" (data-control-name selectors, the `fullscreen-app-host` frame, 60 s gallery waits, `CANVAS_APP_URL`) and the playwright-samples "Authentication guide" (password, certificate or Key Vault sign-in; a separate step for the model-driven domain), read 2026-10-27; the samples repository at `0b41791` (`packages/e2e-tests` canvas fixture, `playwright.config.ts`, `.env.example`; the toolkit's `navigateToGridView`, `navigateToFormView` and grid locators); Playwright 1.64.1's `open --help` and source (`--save-storage` writes on close, creates the folder, ignores a failed write). The Test Engine deprecation and removal date are from the BUILD-PLAN's Phase 4 research.
 - No new `powerops` code. If the starter needs a change in `powerops`, this session stops and reports it as its own task. No version or changelog edits; no push or PR from this session.
 

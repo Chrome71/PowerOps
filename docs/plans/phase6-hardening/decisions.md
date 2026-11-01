@@ -66,7 +66,7 @@ Answer: A milestone of the user's yes. The settings change the public repo's beh
 1. CI covers what a runner can (the resolver, a fake `pac.cmd` and `az.cmd` on Windows, the scripts under bash 3.2 on macOS); a manual runbook covers the clients and `pac` sign-in, run when the user has a machine, otherwise marked not verified (recommended)
 2. Block Phase 6 until the clients have been run by hand on both systems
 3. In your own words
-Answer: CI covers what a runner can, and a manual runbook covers the clients and `pac` sign-in. The user runs Linux, and a hosted runner can't sign in to the clients or `pac` without stored secrets, which FOUNDATION §4 rules out. The rest of Phase 6 doesn't depend on the manual run, so it doesn't block.
+Answer: CI covers what a runner can, and a manual runbook covers the clients and `pac` sign-in. A hosted runner can't sign in to the clients or `pac` without stored secrets, which FOUNDATION §4 rules out. The rest of Phase 6 doesn't depend on the manual run, so it doesn't block.
 
 ## Round 5
 
@@ -85,10 +85,10 @@ Answer: Name, in the rule, the reads the code already parses and the decisions t
 ## Log
 
 - 2026-10-28: plan started at the master session's request. The user asked for a phase that refines and secures what exists, with no new feature. Out of scope: M17 (on hold), M21 (another session), NuGet publishing, the rename
-- 2026-10-28: the audit: six read-only agents (Sonnet) on `b4abce4`: readers and file inputs, MCP inputs and subprocesses (`powerops-reviewer`), the Action and supply chain, correctness and exit codes, docs drift, and the open research items (`powerops-researcher`). The readers and correctness agents probed the built CLI with crafted inputs in a scratch folder outside the repo. A condensed copy of their reports, with the probe details, is in the side-session notes folder (`phase6-hardening-audit.md`), outside the repo
+- 2026-10-28: the audit: six read-only agents (Sonnet) on `b4abce4`: readers and file inputs, MCP inputs and subprocesses (`powerops-reviewer`), the Action and supply chain, correctness and exit codes, docs drift, and the open research items (`powerops-researcher`). The readers and correctness agents probed the built CLI with crafted inputs in a scratch folder outside the repo.
 - 2026-10-28: this session re-ran S-1 (a fake `pac` in the current folder ran before the one on PATH), R-1 (192 KB, 2,085 MB peak), R-5 (exit 1 with an unhandled exception), C-4 (exit 0) and C-7 (a response file read), with offline probes and fake executables only, and read D-2 and S-2 in the code. It also found that the correctness agent's claim of no SARIF schema test was wrong (`SarifReportTests` validates against SARIF 2.1.0)
 - 2026-10-28: two audit agents each ran one read-only `pac org who` by mistake: the MCP agent with `drift --env /h`, and the correctness agent with `drift --env bad/emptydir`, a value the CLI takes as a live environment (that is finding C-9). Both failed with exit 1. No `az` call, no other `pac` call and no write to a tenant were made
-- 2026-10-28: not run: the `/security-review` and `ponytail-audit` skills. The agents' briefs covered their checklists, and running them in this session would have repeated the audit
+- 2026-10-28: not run: two further audit skills. The agents' briefs covered their checklists, and running them in this session would have repeated the audit
 - 2026-10-28: the planning session answered Q1 to Q10 itself, under the user's delegation of 2026-10-22 (agents plan and sign off milestones), as the master session's brief asked
 - depth: quick -> standard (a phase plan over eleven milestones, with four rounds)
 - approved without: users (from FOUNDATION §2 and the audit, not a question round)
@@ -96,3 +96,4 @@ Answer: Name, in the rule, the reads the code already parses and the decisions t
 - fresh review (powerops-reviewer, Sonnet) 2026-10-28: 0 High, 11 Medium, 6 Low; all fixed in the plan text, `decisions.md` (Q11, Q12, and Q6 and Q8 amended) and the BUILD-PLAN section. The reviewer re-ran C-7, C-4 and R-5 offline and confirmed them, and found three wrong line references (R14), each checked again by this session in the code
 - signed off 2026-10-28 by this session under the user's delegation of 2026-10-22: after the fixes no High or Medium finding is open, which is the condition the user set for agents signing off plans themselves
 - 2026-10-28: M25 review fix: the node cap is 15 million, not the 5 million the plan names. Whitespace and end-element nodes count and the fixtures average 17.8 bytes per node, so 5 million is about 90 MB of XML, below the 256 MB byte cap, and a large real solution that read fine before could have exited 3; 256 MB / 17.8 is about 14.4 million, so nothing under the byte cap at fixture density reaches 15 million, and memory stays near 1.2 GB at about 78 bytes per node. Attributes now count as nodes too.
+- 2026-11-01: personal and tenant facts removed from the plan body, with no decision changed; re-signed with `powerops plan sign-off`, and `review.md`'s `plan-hash` moved to the new body

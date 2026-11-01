@@ -1,4 +1,4 @@
-plan-hash: 6403382323c0941e34edf9085a6b8a691cec303b3a64b6fc89ae7572edcfc00b
+plan-hash: ce9d78e462e7b9f9ef0db3d1ef1c05a21becd0eede88df52c3a8160573fed782
 model: claude-sonnet-5-5
 fresh-context: yes
 
@@ -28,7 +28,7 @@ No findings.
 
 #### R3. Licence and privileges of the signing-in person are not addressed
 - Area: 3 (licence) and 8 (security roles)
-- Finding: Both apps are Dataverse-backed, so the person needs a Power Apps licence (the maintainer's Plan 2 trial end date is unchecked), the apps shared with them, Read on the tables and Create on `pops_sitevisit` for the new-record form. The plan names none of it.
+- Finding: Both apps are Dataverse-backed, so the person needs a Power Apps licence, the apps shared with them, Read on the tables and Create on `pops_sitevisit` for the new-record form. The plan names none of it.
 - Suggested fix: One line each in Constraints and the README; a licence check before the live run, recorded as "not run, licence" if it fails.
 - Resolution: fixed (Constraints and the README's Setup bullet name the licence, sharing and roles; Environments and route step 3 stops on a licence prompt or missing role and records "not run" with the reason)
 

@@ -1,8 +1,8 @@
 ---
 status: done
 review: done
-signed-off: 2026-10-30
-signed-off-hash: 8f5bab650523165a1d95ecd438c264a87bfd4f66dc79d846bebb47a3f321cc6a
+signed-off: 2026-11-01
+signed-off-hash: c1accb5993b3711fbd1a7eb69b96e97412cd1f85198ee51d49ef3cb6995f2677
 environment: null
 depth: quick
 supersedes: null
@@ -40,12 +40,12 @@ Stage 0 touches no tenant. Stage 1 reads only. Stages 2 and 3 run in the order t
 
 ### Stage 0: the machine
 
-This Linux machine has to come close to the Windows run's versions. Other projects share these tools, so the user says yes first.
+The Linux machine has to come close to the Windows run's versions. The user says yes first.
 
 Record first, so there's a way back: the commits of the `power-platform-skills` and `dataverse-skills` checkouts, and the versions of both `pac` builds, `az`, Node and Python.
 
-- `python3 scripts/power-platform.py sync` in the Power Platform folder fast-forwards both checkouts, and FlowAgent with them. It also rewrites the Codex project config and the global router's catalogs, so every project on the machine sees the new skill text. It goes to the head of Microsoft's `main`, not to the Windows run's commit, so record what it installs. To go back, reset each checkout's branch to its recorded commit.
-- The `pac` on `PATH`, the .NET global tool that `powerops` calls, goes from 2.13.1 to 2.14.1. The copy in `.power-platform-runtime` (2.11.2) stays: the plan doesn't use it, and T10 denies its MCP server. The two builds share one auth-profile folder, and the newer build may rewrite it, so copy that folder first, to a private folder outside the repo, and delete the copy at cleanup. The user signs in after the update.
+- The sync of the Power Platform skills fast-forwards both checkouts, and FlowAgent with them. It goes to the head of Microsoft's `main`, not to the Windows run's commit, so record what it installs. To go back, reset each checkout's branch to its recorded commit.
+- The `pac` on `PATH`, the .NET global tool that `powerops` calls, goes from 2.13.1 to 2.14.1. The runtime copy (2.11.2) stays: the plan doesn't use it, and T10 denies its MCP server. The two builds share one auth-profile folder, and the newer build may rewrite it, so copy that folder first, to a private folder outside the repo, and delete the copy at cleanup. The user signs in after the update.
 - `az` stays at 2.90.0. PowerOps uses it only for a token, so record the difference from the run's 2.91.0.
 - PowerOps packed from `main` and installed with `--source artifacts`.
 - The Dataverse CLI and Python client stay uninstalled until T10 reports them missing.
@@ -180,7 +180,7 @@ The canvas app of T10. The user adds its data source, saves and publishes in Stu
 
 ## Environments and route
 
-One Dev environment, the one the Windows run used, named by the user in the session and never in this repo. No Test or Prod environment and no import (decisions Q4). The run uses this Linux machine (decisions Q1), so it's also the first evidence of these tools on Linux.
+One Dev environment, the one the Windows run used, named by the user in the session and never in this repo. No Test or Prod environment and no import (decisions Q4). The run uses a Linux machine (decisions Q1), so it's also the first evidence of these tools on Linux.
 
 ## Solution and publisher
 
@@ -201,9 +201,8 @@ One Dev environment, the one the Windows run used, named by the user in the sess
 ## Assumptions
 
 - If T6 and T7 show no join with the environment setting off, that says little, and the report says so.
-- Developer environments that aren't managed are suspended from 2026-12-15 (`docs/BUILD-PLAN.md` decision 3), so the run has to happen before then.
 - Learn says a component created outside a solution context goes to the maker's preferred solution, even when it's already in another unmanaged solution. T6 and T7 test whether that explains the reported event.
-- The signed-in account is a system administrator of the developer environment, which covers the reads and writes here, including callback registrations. The Dataverse connector is standard. The DLP policy wasn't checked; a save will say if it blocks.
+- The signed-in account's role covers the reads and writes here, including callback registrations. The Dataverse connector is standard. The DLP policy wasn't checked; a save will say if it blocks.
 - T8's call count for a large solution is arithmetic from a small one, so W-12's limits may still need a large solution.
 - Not tested: FlowAgent `create_flow` and `create-connection-reference.js`. T10's flow step reaches the first, and the second has no solution target in its source, so the skill already routes around it.
 

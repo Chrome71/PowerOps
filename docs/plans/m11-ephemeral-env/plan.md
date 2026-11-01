@@ -1,8 +1,8 @@
 ---
 status: done
 review: done
-signed-off: 2026-10-23
-signed-off-hash: a3e41bfad6fd209414a104f5ac9e886423d33e8660f26ae44069c3bf46624e40
+signed-off: 2026-11-01
+signed-off-hash: a9c5d020224adccbafcc8afa265382a97785eb4e750e5fdde006d59fa4f4622d
 environment: null
 depth: quick
 supersedes: null
@@ -19,7 +19,7 @@ The recipe works only for solutions without connection references: a new environ
 Done when:
 
 - Offline: `tests/PowerOps.Cli.Tests/EphemeralScriptTests.cs` runs the two scripts with stub `pac` and `gh` first on `PATH` (skipped on Windows and where `bash` or `jq` is missing, as `ActionScriptTests`) and checks every case under Steps; `tests/PowerOps.Cli.Tests/ExampleWorkflowTests.cs` (M10's) reads both workflows with YamlDotNet and checks the items under Steps. `dotnet build`, `dotnet test` and `dotnet format --verify-no-changes` are clean.
-- No live run. The master session decided on 2026-10-23 that no environment is created or deleted for M11, and the user's tenant has no Dataverse capacity for a sandbox (the reason decision 9 changed). The BUILD-PLAN M11 row is marked "built as docs, not verified", each of its live done-when items "not run" with this reason; decision 10 and build-order task 30 are edited to say the same; FOUNDATION section 8's open question on a service principal signing in to an environment it just created stays open, with a pointer here. The docs carry a "Not verified" table and the first comment line of both workflows says "not run end to end".
+- No live run. The master session decided on 2026-10-23 that no environment is created or deleted for M11, and no suitable environment was available (the reason decision 9 changed). The BUILD-PLAN M11 row is marked "built as docs, not verified", each of its live done-when items "not run" with this reason; decision 10 and build-order task 30 are edited to say the same; FOUNDATION section 8's open question on a service principal signing in to an environment it just created stays open, with a pointer here. The docs carry a "Not verified" table and the first comment line of both workflows says "not run end to end".
 
 ## Users
 
@@ -66,7 +66,7 @@ None.
 
 ## Environments and route
 
-- None touched. No environment is created or deleted for M11 (the master session, 2026-10-23); the user's tenant has no capacity for one.
+- None touched. No environment is created or deleted for M11 (the master session, 2026-10-23); no suitable environment was available.
 - Auth in the recipe: a dedicated Entra app used for nothing else, registered as a Power Platform management application by an admin signed in as a user (`pac admin application register --application-id`, Learn); it then acts like a Power Platform administrator in the whole tenant. Two federated credentials: the `ephemeral` GitHub environment's subject (PR runs, after an approval) and the default branch's (the sweep); the docs show how to read the subject form (name-based or immutable) as M10's README does.
 - The README section opens with the risk before any YAML: anyone who can run a workflow with that credential can create and delete any environment in the tenant, production included. Recommended: a tenant or region without production environments; the approval gate on `ephemeral`; a private repository; CODEOWNERS or a ruleset on `.github/workflows/`; secrets in the job are configuration, never credentials; a fork PR gets no token and is skipped. A safe first use: a throwaway repository, the sweep as a dry run, one PR.
 - Route of the docs: built on top of M10's branch after M10 is merged and rebased onto main; the README's M11 section follows M10's.

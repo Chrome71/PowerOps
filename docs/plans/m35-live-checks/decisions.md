@@ -3,8 +3,8 @@
 ## Round 1
 
 ### Q1. Which machine runs the tests?
-1. The Windows PC: its tools are current, Python and the Dataverse CLI are installed, and the failures were seen there (recommended)
-2. This Linux machine: the session can drive and check it directly, and it's the first Linux evidence, but `pac` and FlowAgent need updating and the Dataverse CLI and Python client need installing
+1. A Windows machine: its tools are current, Python and the Dataverse CLI are installed, and the failures were seen there (recommended)
+2. A Linux machine: the session can drive and check it directly, and it's the first Linux evidence, but `pac` and FlowAgent need updating and the Dataverse CLI and Python client need installing
 Answer: 2.
 
 ### Q2. Which environment?
@@ -39,3 +39,4 @@ Answer: 1.
 - W-13: yes, a new error rule for filter columns on a Create-only trigger, and one caveat in PO012's advice
 - T10 line 3: fixed in section 4 step 2 of `powerops-implement`, which now names the export route and the zip fallback
 - cleanup, 2026-10-31: the user deleted the run's 13 remaining objects (the flows, the app, the connection references, the tables and then the solutions), and the preferred solution went back to the one it was on before the run. A read by name found none left, and no id the run recorded is still a solution component. The sign-in profile the run added is removed, and this plan is marked done
+- 2026-11-01: personal and tenant facts removed from the plan body, with no decision changed; re-signed with `powerops plan sign-off`, and `review.md`'s `plan-hash` moved to the new body

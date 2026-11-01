@@ -1,8 +1,8 @@
 ---
 status: done
 review: done
-signed-off: 2026-10-31
-signed-off-hash: 2b6ecc02f9156221a47f02394b5d9e41b71c46efab6ef39802a9ccdc109dbadf
+signed-off: 2026-11-01
+signed-off-hash: c53d2506bb8e42634d0304c3fe62ddfe3437e232a585d9b5f464de19941816cb
 environment: null
 depth: quick
 supersedes: null
@@ -64,13 +64,13 @@ None created. The last check reads `M35Build`, and `M35Other` shows up in its re
 - PO012's `Fix` and message stay: the `Fix` is in five goldens, and the message is in baselines.
 - The snapshot file format, `DeployTarget`, `deploy plan` and its hash don't change. The MCP `drift` tool's description stays, and it gets the new kind through the same read.
 - Section and step numbers of `powerops-implement` stay, because `docs/BUILD-PLAN.md` refers to them.
-- `drift` takes its token from `az`'s active account and `pac`'s active profile. For the last check, this machine's existing sign-ins are selected with `az account set` and `pac auth select`, and both are restored straight after. No agent signs in. If the needed sign-in is gone, the line is marked not verified.
+- `drift` takes its token from `az`'s active account and `pac`'s active profile. For the last check, the existing sign-ins are selected with `az account set` and `pac auth select`, and both are restored straight after. No agent signs in. If the needed sign-in is gone, the line is marked not verified.
 - No tenant URL, id, user name or credential in the repo. The capture's ids and solution name are replaced with the fixture set's fake values.
 
 ## Assumptions
 
 - PO015 rests on two runs in one environment, one on Windows and one on Linux, with one kind of table row. Microsoft can change it, so the page says what was observed and when. An `Error` is right while the flow doesn't run.
-- The reads were made as a system administrator. The minimum role wasn't tested, as for the rest of `drift`.
+- The minimum role wasn't tested, as for the rest of `drift`.
 - The default solution has a generated unique name and a publisher prefix that Learn calls random, so it's filtered by friendly name, in the two spellings Learn uses. An environment that stores another name shows it as an `also-in-solution` item, which is noise and not a wrong result (decisions Q7).
 - A large solution wasn't tested, and T8's arithmetic is from a small one. Read 3 takes one page of at most 5,000 rows, so read 8 makes at most 100 calls (decisions Q9).
 - `schemaVersion` stays 1 with a new kind: nothing is released, so no consumer exists (as in M33 decisions Q1).

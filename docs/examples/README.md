@@ -224,7 +224,7 @@ It checks that the managed zips import into an empty managed environment and tha
 
 ## Not verified
 
-No environment was created or deleted for this recipe (decision of the master session, 2026-10-23; the maintainer's tenant has no capacity for a sandbox). Nothing below was run.
+No environment was created or deleted for this recipe (decision of the master session, 2026-10-23). Nothing below was run.
 
 | Step | What is assumed | Where it comes from | Status |
 |---|---|---|---|

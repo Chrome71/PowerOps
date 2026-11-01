@@ -1,4 +1,4 @@
-plan-hash: ff116fe30061e00d14c594db2e30a2bfe8f44e06f5885df6e28c30f2b03a3551
+plan-hash: 2a09db836fb4281687ea659f1d2b196ba72c5e9974a9d7ab809c12a65fb7b990
 model: claude-sonnet-5-5
 fresh-context: yes
 
@@ -18,10 +18,10 @@ No findings.
 
 ### Medium
 
-#### R1. The run's start line breaks in fish
+#### R1. The run's start line breaks in a shell that does not split words
 - Area: 9 (testability of the manual run)
-- Finding: Step 1 used `env PATH=<scratch>/tools:$PATH claude ...`. In fish, the user's Terminal shell, an unquoted `x:$PATH` expands to one word per PATH entry, so `env` gets many `PATH=` words and the client or `powerops` is not found; this machine's PATH also holds a folder with a space.
-- Suggested fix: Lines that work in fish and bash (quoted), a note that the sheet is for fish, and a `command -v powerops` check first.
+- Finding: Step 1 used `env PATH=<scratch>/tools:$PATH claude ...`. In a shell that does not split words, such as fish, an unquoted `x:$PATH` expands to one word per PATH entry, so `env` gets many `PATH=` words and the client or `powerops` is not found; a PATH folder with a space would break it too.
+- Suggested fix: Lines that work in bash and in a shell that does not split words (quoted), and a `command -v powerops` check first.
 - Resolution: fixed (the run starts two bash scripts with `bash <scratch>/run-claude.sh` and `run-codex.sh`, which set PATH, print `command -v powerops` and start the client; Setup 5 and run step 1)
 
 #### R2. The permission prompt and existing config can turn the run into a persistent allow or a pre-answered form

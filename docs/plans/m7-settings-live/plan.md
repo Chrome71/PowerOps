@@ -1,8 +1,8 @@
 ---
 status: done
 review: done
-signed-off: 2026-10-20
-signed-off-hash: 6b966fc580ee5e0ce4f9b2677939612b02eb42e2891802cb84b238b91bac2012
+signed-off: 2026-11-01
+signed-off-hash: fcea03e0cc1858d0ffa68eae8e0df18e03fe219888e1e0f65bab2847a3de99db
 environment: null
 depth: quick
 supersedes: null
@@ -19,7 +19,7 @@ How the live half meets the row, from Microsoft Learn (Sources under Constraints
 Done when:
 
 - Offline: the tests under Steps pass with a fake `pac` (no tenant), the JSON matches `docs/schemas/settings-apply.schema.json` and its goldens, and `dotnet build`, `dotnet test` and `dotnet format --verify-no-changes` are clean.
-- Live (BUILD-PLAN M7 done-when), run by the user in the developer test environment before it is suspended on 2026-12-15, in this order (Q5, Q8). Before items 2 and 4 the user removes the seed: the seed is unmanaged there, and deleting an unmanaged solution leaves its components, so the user deletes the solution and each of its components (flow, canvas app, table, environment variable, connection reference). The user keeps two exports of the seed made beforehand: one with its flow on, one with it off.
+- Live (BUILD-PLAN M7 done-when), run by the user in the developer test environment, in this order (Q5, Q8). Before items 2 and 4 the user removes the seed: the seed is unmanaged there, and deleting an unmanaged solution leaves its components, so the user deletes the solution and each of its components (flow, canvas app, table, environment variable, connection reference). The user keeps two exports of the seed made beforehand: one with its flow on, one with it off.
   1. With the seed removed, the dry run against the flow-on zip prints the target environment, `managed: false`, the `pac` command and the flow as `new`, expected `on`, and exits 0. `pac solution list` run by the user before and after shows the same solutions and versions.
   2. `--apply --target <name>` imports the flow-on zip with a real settings file kept outside the repo; the report shows the flow `new` and now `on` (the prediction of item 1), exit 0.
   3. Run again over the installed seed: the dry run reports the flow `exists` and `on`, and `--apply` reports its state unchanged (`on`), exit 0.
@@ -72,7 +72,7 @@ None. Command-line only. With `--apply` in text mode the first line is the targe
 
 - Target: the environment selected in the user's pac profile when the command runs, pinned for the run by its id and confirmed by `--target <name>` (Q7). The plan names no environment; `environment` stays null because `powerops plan facts` was not run (planning must not contact the tenant).
 - Route for the tool's use: it imports whatever zip it is given into the confirmed target. Learn's route (unmanaged in Dev, managed to Test and Prod) is the user's to follow; powerops shows `managed` in the dry run and does not enforce it. Who may run `--apply` against Test or Prod is an admin question below. Agents follow the README rule: dry run first, show the user the target line, run `--apply --target <name>` only after a yes, and never against an environment the user did not name.
-- Live verification: the user's developer test environment, before it is suspended on 2026-12-15. The user runs every live step (Q5) and enters all credentials; an agent runs the dry run only, and `--apply` only after the user says yes.
+- Live verification: the user's developer test environment. The user runs every live step (Q5) and enters all credentials; an agent runs the dry run only, and `--apply` only after the user says yes.
 - Auth: the pac profile only (Q1). powerops signs in to nothing itself.
 - Route of the code: the normal PR to main and the v0.8.0 release, as for the offline half.
 
@@ -91,7 +91,6 @@ None created. The live check imports the `PowerOpsSeed` solution (prefix `pops`)
 - Licensing: the seed flow uses the Dataverse connector, which is premium in Power Automate; a user needs a premium entitlement (or the flow a Process licence) to run it. Assumed covered by the developer environment's plan for the test (Q6).
 - DLP: a flow that breaks a data policy is suspended and does not run; powerops reports it as `suspended`, not as an import failure (Q6).
 - Activation caveat: a flow turns on only if the importing user owns or can use every connection in its connection references; otherwise it stays off (Learn names the error `ConnectionAuthorizationFailed`). After import, the importing user owns the components. powerops cannot create or share connections, so it reports such a flow as `off` and the README names the cause.
-- Deadline: live verification before 2026-12-15.
 - Sources, checked on Microsoft Learn on 2026-10-20 (`pac` 2.13.1 help read locally):
   - "pac solution" (learn.microsoft.com/power-platform/developer/cli/reference/solution): `import --settings-file`, `--environment`, `--activate-plugins` ("plug-ins and workflows", not documented for cloud flows), no exit codes documented.
   - "Pre-populate connection references and environment variables for automated deployments" (learn.microsoft.com/power-platform/alm/conn-ref-env-variables-build-tools): the settings file sets connection references and environment variables at import; connections must be owned by or shared with the connection reference owner.
@@ -130,4 +129,4 @@ None created. The live check imports the `PowerOpsSeed` solution (prefix `pops`)
 5. `test:` the JSON schema `docs/schemas/settings-apply.schema.json`, its README row, the `OutputSchemaTests` `Map` entry, and goldens `settings-apply-dry-run.txt`, `settings-apply-dry-run.json`, `settings-apply.json` (all on), `settings-apply-off.json` (a flow off and one suspended) and `settings-apply-import-failed.json`.
 6. `docs:` README usage block and a paragraph: dry run first, `--apply --target <name>` writes to the pac profile's current environment, the agent rule under Environments and route, the exit codes, the activation caveat, that a new flow off at export stays off and an existing flow keeps its state, that the import briefly cycles the flows, the one-hour run time, the import defaults (no overwrite of unmanaged customisations, no publish, no upgrade), that a user who cannot list flows sees `new` before and `missing` after, that a solution with a flow off at export always exits 1 (by design: the command checks that flows are on), that the flow check makes two `pac` reads per flow and a read slower than 30 seconds ends the run with exit 3, and that environment friendly names are not unique, so the user checks the pac profile (`pac auth list`) before saying yes to a target. Add the agent rule to `AGENTS.md` under Rules ("never run `powerops settings apply --apply` unless the user said yes to that environment in this session") and to the `powerops-implement` skill, which runs `powerops` commands. No technical gate beyond `--target` is added (Q7).
 7. Mark the M7 row in `docs/BUILD-PLAN.md` live half built when this merges, and update its line saying writes through `pac` wait until M7, plus any README sentence saying the CLI never writes through `pac`.
-8. Live check (user, before 2026-12-15, each run with the user's yes): the five live done-when items under Goal, in order. The user writes the results in the PR description by hand, with no tenant data and no `pac` output text. This also confirms the Assumptions marked as checked live.
+8. Live check (user, each run with the user's yes): the five live done-when items under Goal, in order. The user writes the results in the PR description by hand, with no tenant data and no `pac` output text. This also confirms the Assumptions marked as checked live.
