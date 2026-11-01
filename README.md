@@ -26,7 +26,7 @@ dotnet pack src/PowerOps.Cli -c Release -o artifacts &&
   dotnet tool install --global --source artifacts PowerOps
 ```
 
-CI builds and tests PowerOps on Linux, Windows and macOS. One live run on Windows has been reported, but the hand runbook hasn't been run on Windows or macOS yet; [what is not verified there](docs/FOUNDATION.md#8-research-topics-still-open).
+CI builds and tests PowerOps on Linux, Windows and macOS. The hand runbook has been run on Windows, but not on macOS yet; [what is not verified there](docs/FOUNDATION.md#8-research-topics-still-open).
 
 ## Quick start
 
