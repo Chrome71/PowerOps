@@ -1,8 +1,8 @@
 ---
 status: done
 review: done
-signed-off: 2026-10-28
-signed-off-hash: c5dc6865e35523d045704061b6e50db08183344c365ae4b8c2158276e3a3a4d7
+signed-off: 2026-11-01
+signed-off-hash: 317495ffcd9c5e1889f3c21eedfcf5d62b4821145c0f94ba37f0baf19bbfa31d
 environment: null
 depth: quick
 supersedes: null
@@ -88,7 +88,7 @@ On Linux and macOS they are `pac` and `az`, executable, each `#!/bin/sh` and `pr
 
 **Tests.** A skip cannot be seen from inside an xunit v3 test, so the tests assert on the verdict and on the message, never on a skip.
 
-- `ToolsTests`, macOS only (`Assert.SkipUnless(OperatingSystem.IsMacOS(), ...)`): `Tools.Bash -c 'echo ${BASH_VERSION}'` starts with `3.2.`. It asserts on `Tools.Bash`, the value every script test starts, not on a literal path. Its failing case is checked by running the same body, with the operating-system guard bypassed, against this machine's bash 5 before the commit: it must fail.
+- `ToolsTests`, macOS only (`Assert.SkipUnless(OperatingSystem.IsMacOS(), ...)`): `Tools.Bash -c 'echo ${BASH_VERSION}'` starts with `3.2.`. It asserts on `Tools.Bash`, the value every script test starts, not on a literal path. Its failing case is checked by running the same body, with the operating-system guard bypassed, against the local bash 5 before the commit: it must fail.
 - `ToolsTests`, every system:
   - `Missing` returns the name of a program that is not in a temp folder used as PATH, and null when the file is there;
   - `FailMessage` names the program and `POWEROPS_REQUIRE_TOOLS`.
@@ -113,7 +113,7 @@ The record goes in BUILD-PLAN's verification record as a line "M32 (date)": the 
 **The not-verified marks** (Step 5), until the runbook is run. One short paragraph in the README's Install section, one sentence in the "Register it" paragraph of the MCP section in `docs/USE-WITH-AGENTS.md` (which now holds the only Linux-only claims: the M20 run and Codex's environment), and one open item in FOUNDATION §8. Together they say:
 
 - CI builds and tests PowerOps on Linux, Windows and macOS; it runs the Action and example script tests under macOS's bash 3.2, and runs stand-in `pac` and `az` files, `.cmd` files on Windows, through `PacRunner`.
-- Nobody has run it by hand on Windows or macOS, because no such machine was available on 2026-10-28 (the user runs Linux). Not verified there:
+- Nobody has run it by hand on Windows or macOS, because no such machine was available on 2026-10-28. Not verified there:
   - the install from a clone and the bare `powerops` from a new shell;
   - Claude Code and Codex starting the plugin's `powerops`;
   - the real `az.cmd` and the real `pac`;
@@ -162,9 +162,9 @@ None.
 
 Each step's CI check is a difference between two runs, not a total. The run to subtract from is the one for the commit before the step (the previous step's push, or the PR's base `96908ed` on `claude/m31-docs-drift`, which has no CI run yet, so the first run of the PR is its own baseline). The Windows job's log shows no test names on success, so the per-system delta in the number of tests and of skipped tests is the evidence that the new tests ran where they should.
 
-1. `test:` `Tools` (`Bash`, `Missing`, `FailMessage`, `Require` moved out of the two copies), `ActionScriptTests` and `EphemeralScriptTests` start `Tools.Bash`, and the macOS-only version test. Check: on this machine the suite passes with the same counts plus the one new test (skipped); the version test's body fails when run against the local bash 5. CI delta: 1 test more on each system; skipped +1 on Linux and Windows, +0 on macOS (it ran, which is the check).
+1. `test:` `Tools` (`Bash`, `Missing`, `FailMessage`, `Require` moved out of the two copies), `ActionScriptTests` and `EphemeralScriptTests` start `Tools.Bash`, and the macOS-only version test. Check: locally the suite passes with the same counts plus the one new test (skipped); the version test's body fails when run against the local bash 5. CI delta: 1 test more on each system; skipped +1 on Linux and Windows, +0 on macOS (it ran, which is the check).
 2. `ci:` `Require` fails instead of skipping when `POWEROPS_REQUIRE_TOOLS` is `1`; the Linux and macOS test steps set it; `CONTRIBUTING.md` says so; the `Missing`, `FailMessage` and `ci.yml` tests. Check: here, `POWEROPS_REQUIRE_TOOLS=1 dotnet test` passes with the script tests running, and the same run with a PATH that lacks `jq` fails them instead of skipping; the `ci.yml` test fails when the line is removed; in the PR's Linux and macOS logs the test step's printed `env:` block shows `POWEROPS_REQUIRE_TOOLS: 1`. CI delta: 4 tests more on each system, skipped +0.
-3. `test:` `StandInTests` and `PlanFactsTests.SolutionList` made `internal`. Check: the two argument tests pass on this machine with the `.sh` stand-ins and the PATHEXT test skips. CI delta: 3 tests more on each system; skipped +1 on Linux and macOS (the PATHEXT test), +0 on Windows (all three ran).
+3. `test:` `StandInTests` and `PlanFactsTests.SolutionList` made `internal`. Check: the two argument tests pass locally with the `.sh` stand-ins and the PATHEXT test skips. CI delta: 3 tests more on each system; skipped +1 on Linux and macOS (the PATHEXT test), +0 on Windows (all three ran).
 4. `docs:` the "Windows and macOS" subsection of BUILD-PLAN's "Live testing runbook". Check: every command in it exists (`claude plugin`, `codex plugin`, `codex mcp get`, `pac auth list`), as in M13 and M20; the expected strings match `tests/golden/analyze-fixtures.txt` and `tests/golden/mcp-tools.txt`.
 5. `docs:` the not-verified marks in README, `docs/USE-WITH-AGENTS.md` and FOUNDATION §8. Check by hand: the link to the runbook's anchor resolves, and each mark matches the list under "The not-verified marks". `DocsDriftTests` must still pass, but it checks the commands and flags in code spans, not these sentences or that anchor.
 6. `docs:` mark M32 built in BUILD-PLAN: the M32 row (with a link to this plan), build-order item 57, the Phase 6 Status line, a verification-record line saying the CI checks passed and the runbook is not run (and why), and a note on the M23 row that the job names are unchanged. This plan's status.

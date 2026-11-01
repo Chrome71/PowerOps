@@ -1,4 +1,4 @@
-plan-hash: c5a78f6a56ee6a3421da14b5825edb1cc5c9aa83b281d33ca2dc75e2e1dc4669
+plan-hash: b9400b5462f2244b40d0601091b14cfbf1cb21a11d054b69242eed623dac2fe4
 model: claude-sonnet-5-5
 fresh-context: yes
 
@@ -86,7 +86,7 @@ Checklist items that do not apply: 1 (no solution or publisher is created; the p
 
 #### R12. One passing run each is a thin and machine-dependent sample
 - Area: 9. Testability
-- Finding: Case 4 tests a model's choice between skills, and the done-when needs one passing run per agent. The Assumptions say a user-scope router in Claude Code on this machine "only adds to what case 4 tests", unchecked. The weekly runner and other machines have none, so a local pass is not what CI would see; and a real router can load further skills, whose tool calls are denied by `--allowedTools` in these runs.
+- Finding: Case 4 tests a model's choice between skills, and the done-when needs one passing run per agent. The Assumptions say a user-scope router in a local Claude Code "only adds to what case 4 tests", unchecked. The weekly runner and other machines have none, so a local pass is not what CI would see; and a real router can load further skills, whose tool calls are denied by `--allowedTools` in these runs.
 - Suggested fix: In `decisions.md` record, per run, the agent versions and whether a user-scope router was loaded. If a run fails, record the reply before any rerun.
 - Resolution: fixed (Assumptions: `decisions.md` records each run's agent version, whether a user-scope router was present, and a failed reply before any rerun)
 

@@ -1,8 +1,8 @@
 ---
 status: done
 review: done
-signed-off: 2026-10-24
-signed-off-hash: c5a78f6a56ee6a3421da14b5825edb1cc5c9aa83b281d33ca2dc75e2e1dc4669
+signed-off: 2026-11-01
+signed-off-hash: b9400b5462f2244b40d0601091b14cfbf1cb21a11d054b69242eed623dac2fe4
 environment: null
 depth: quick
 supersedes: null
@@ -76,7 +76,7 @@ None created. The page uses a fake `ContosoApp`.
 - `powerops plan facts` was not run: M12 creates no solution, so there is nothing for facts to answer; `environment` stays null.
 - The Phase 3b conflict checks were redone for the page: one writer per flow (step 8 names the import paths without a plan check, and one tool writes the settings file), `pac` versions (Set up: tested with 2.13.1, the examples pin 2.14.1, older builds untested), sign-in state (the page's note), and unpack into XML only (step 3).
 - The install note is generic: it names no local workspace or script. It comes from a read of a local workspace whose sync script deletes and recreates `.claude/skills/` at its root (BUILD-PLAN Phase 3b basis); child projects keep their own `.claude/skills/`. The page also says to start the agent in the child project (where an agent started at the workspace root looks for skills was not checked).
-- In Claude Code on this machine a user-scope router skill is also loaded during the smoke runs; the weekly runner has none. `decisions.md` records, per run, the agent version and whether that router was present, and a failed run's reply before any rerun.
+- In a local Claude Code a user-scope router skill is also loaded during the smoke runs; the weekly runner has none. `decisions.md` records, per run, the agent version and whether that router was present, and a failed run's reply before any rerun.
 
 ## Open questions
 

@@ -1,8 +1,8 @@
 ---
 status: done
 review: done
-signed-off: 2026-10-29
-signed-off-hash: c298d1cec8db40d1ef28a6354ae5eada527b3bbe4ac006b4a05c7b8b22bba3e6
+signed-off: 2026-11-01
+signed-off-hash: 46489ceb6d28af93692950c5a12b12f951343e10ebf01e5b3265e0a650e9e763
 environment: null
 depth: quick
 supersedes: null
@@ -32,7 +32,7 @@ Done when:
 
 ## Data
 
-Evidence is marked observed (seen in this session, on this machine or in a source read) or inferred.
+Evidence is marked observed (seen in this session or in a source read) or inferred.
 
 **S-2: where the approved hash goes.** Observed in the code: `McpCommand.DeployApply` reads the plan file (`Read()`), shows the form with `plan.Hash`, reads the file again after the yes and compares its hash and target, and then calls `Exec(Args(true))`, which runs `deploy apply --apply` through `Program.Run`. That run reads the file a third time (`DeployCommand.DryRun`), re-plans against the target, and its only hash comparison is the file's `reviewed.Hash` against the re-plan's `plan.Hash`. A plan file and zips swapped as a consistent pair after the second read give a file hash equal to the re-plan's, so the comparison passes and the import runs. The hash is SHA-256 over the target environment id, the zip hashes, the settings hashes, the snapshot hashes and the dependencies (`DeployPlan`), so a changed zip or settings file changes it; the target's friendly name is not in it.
 

@@ -1,8 +1,8 @@
 ---
 status: done
 review: done
-signed-off: 2026-10-28
-signed-off-hash: ff116fe30061e00d14c594db2e30a2bfe8f44e06f5885df6e28c30f2b03a3551
+signed-off: 2026-11-01
+signed-off-hash: 2a09db836fb4281687ea659f1d2b196ba72c5e9974a9d7ab809c12a65fb7b990
 environment: null
 depth: quick
 supersedes: null
@@ -95,10 +95,10 @@ None. The clients' own approval prompts and form dialog are the only UI.
 2. Claude Code, installed as M13's was: with `CLAUDE_CONFIG_DIR` set to a new empty folder, `claude plugin marketplace add "<worktree>"`, `claude plugin install powerops@powerops`, `claude plugin details powerops` (observed on 2026-10-28: "MCP servers (1) powerops" beside the three skills), `claude mcp list` with the tool path on PATH ("plugin:powerops:powerops: powerops mcp - Connected"; without it, "Failed to connect") and `claude plugin validate --strict` on the repo root and `plugins/claude`. The interactive session can't use that folder without a new sign-in, so it loads the same plugin folder for one session with `--plugin-dir "<worktree>/plugins/claude"` on the user's own login (M13's session check did the same). It starts in the worktree, which Claude Code already trusts, so M19's stop at the folder-trust prompt doesn't recur. Nothing is installed in the user's Claude Code config; the session keeps its usual history.
 3. Codex has no session-only plugin flag, and its login lives in `CODEX_HOME`. So the run uses a throwaway `CODEX_HOME` outside the system temp folder (Codex warns about PATH aliases there, M13 review R2): `codex plugin marketplace add "<worktree>"`, `codex plugin add powerops@powerops`, and `codex mcp get powerops --json` shows the server with `tool_timeout_sec: 3600`. The user signs in there with `codex login` (they type it), and trusts the worktree when the TUI asks. Afterwards `codex logout` and the folder is deleted; the user's own `~/.codex` is not touched.
 4. The deploy folder for the tenant steps: a scratch folder with `PowerOpsSeed_managed.zip` 1.0.0.2 and its settings file, the files M9 and M10 used (kept outside the repo since then). Test held PowerOpsSeed 1.0.0.1 managed after M10, so the plan is an upgrade and `deploy_apply` gets as far as the form. `pac` and `az` are signed in as the user, as for M9's and M10's local runs; if either needs a sign-in, the user does it. Nothing here contacts the tenant before the user's yes.
-5. A prompt sheet in the scratch folder with the prompts below, the paths filled in, so the user copies each line. The Test URL goes in it only after the user's yes, and the sheet is deleted with the folder. Beside it, two bash scripts start the clients (`run-claude.sh`, `run-codex.sh`): each puts the tool path first on PATH, prints `command -v powerops`, which must be the scratch tool, and starts the client in the worktree. The user's Terminal runs fish, where an unquoted `x:$PATH` splits into one word per entry, so the run starts the scripts with `bash`, never a typed `env PATH=...` line.
+5. A prompt sheet in the scratch folder with the prompts below, the paths filled in, so the user copies each line. The Test URL goes in it only after the user's yes, and the sheet is deleted with the folder. Beside it, two bash scripts start the clients (`run-claude.sh`, `run-codex.sh`): each puts the tool path first on PATH, prints `command -v powerops`, which must be the scratch tool, and starts the client in the worktree. In a shell that does not split words, an unquoted `x:$PATH` expands to one word per entry, so the run starts the scripts with `bash`, never a typed `env PATH=...` line.
 6. Nothing answers a form or allows a tool in advance: this session checked on 2026-10-28 that the user's Claude Code settings (user, user-local and the worktree's local settings) hold no `hooks` and no `mcp__` rule, that no installed plugin declares an `Elicitation` hook, and that the user's Claude Code config has no own `powerops` server entry at any scope (so `--plugin-dir` is not hidden by a duplicate). The settings files' hashes are taken before the run and compared after it.
 
-**The run, by the user, in the Terminal panel** (this session asks once, with these steps, and waits). For each client, Claude Code first:
+**The run, by the user** (this session asks once, with these steps, and waits). For each client, Claude Code first:
 
 1. Start: `bash <scratch>/run-claude.sh`; for Codex `bash <scratch>/run-codex.sh`, which runs `codex login` first when the throwaway home has no login. On Codex's first start in that home, the user trusts the worktree, which gives the default mode (approvals on request); never full access or a `never` policy, which would decline the form unseen.
 2. `/mcp`: in Claude Code the server is `plugin:powerops:powerops`, connected, and its tools are `mcp__plugin_powerops_powerops__<tool>`; in Codex it is `powerops`, with 12 tools. Then the agent lists the tools (prompt 1).
@@ -108,7 +108,7 @@ None. The clients' own approval prompts and form dialog are the only UI.
 
 If the user says no to Test, or Test is gone, steps 4 and 5 are marked not verified (decision 28) and the offline steps still run. If a client doesn't show the form, or the decline doesn't reach the server, the result line it gives is recorded as observed, and nothing was imported either way (M19: every other path refuses).
 
-**Clean-up.** The settings files' hashes are compared with those taken before the run, and `git status` shows no new file. The tool path, the pack, the throwaway `CLAUDE_CONFIG_DIR` and `CODEX_HOME` (after `codex logout`, with Codex's log), the deploy folder with its plan files, the scripts, the prompt sheet and the Codex source checkout are deleted. The Terminal tabs are closed. The Claude Code session's transcript, in the user's own history, holds the Test URL and the plan's results: this session tells the user, and the user decides whether to delete it.
+**Clean-up.** The settings files' hashes are compared with those taken before the run, and `git status` shows no new file. The tool path, the pack, the throwaway `CLAUDE_CONFIG_DIR` and `CODEX_HOME` (after `codex logout`, with Codex's log), the deploy folder with its plan files, the scripts, the prompt sheet and the Codex source checkout are deleted. The Claude Code session's transcript, in the user's own history, holds the Test URL and the plan's results: this session tells the user, and the user decides whether to delete it.
 
 ## Solution and publisher
 
@@ -119,7 +119,6 @@ None.
 - No new package and no code under `src/`. Dependencies stay as they are (Apache-2.0 and MIT).
 - AGENTS.md: no `--apply`, and `deploy_apply` with `apply: true` only after the user's yes, with the user declining the form. This session never answers the form on its own. In the run, at the user's instruction, it sent the user's Decline (Claude Code) and Esc (Codex) through tmux with the field empty, and allowed each call once (amended 2026-10-28; `decisions.md` Log). Tenant work only after the user's yes in this session.
 - No version or changelog edits (the plugin manifests' `version` included); no push or pull request from this session. Conventional Commits, no attribution lines. No environment URL, id, email or user name in the repo, the plan or the record.
-- Deadline: Test expires about 2026-11-21.
 
 ## Assumptions
 

@@ -1,4 +1,4 @@
-plan-hash: 6b966fc580ee5e0ce4f9b2677939612b02eb42e2891802cb84b238b91bac2012
+plan-hash: fcea03e0cc1858d0ffa68eae8e0df18e03fe219888e1e0f65bab2847a3de99db
 model: claude-sonnet-5-5
 fresh-context: yes
 
@@ -58,7 +58,7 @@ No findings.
 
 #### R7. Step 1 is a live user step that gates the whole build, and the fallback for a missing `Environment ID:` line is not stated
 - Area: 9. Testability
-- Finding: Steps 2 to 7 need the captured samples, so an agent cannot start the build until the user has run `pac` against the developer environment. The Assumptions say the plan goes back to Q4 if `--json` or the id field is missing, but not what happens if `pac org who` prints no `Environment ID:` line on the real output (the existing fake has one, the plan only guesses the real format). The `--environment` pinning of Q7 depends on it. The 2026-12-15 deadline makes a late discovery costly.
+- Finding: Steps 2 to 7 need the captured samples, so an agent cannot start the build until the user has run `pac` against the developer environment. The Assumptions say the plan goes back to Q4 if `--json` or the id field is missing, but not what happens if `pac org who` prints no `Environment ID:` line on the real output (the existing fake has one, the plan only guesses the real format). The `--environment` pinning of Q7 depends on it.
 - Suggested fix: Say Step 1 is the first thing to do and may need the user's yes before the build session starts; add `Environment ID:` to the list of things that send the plan back (with the `--json` flag and the state field).
 - Resolution: fixed (a missing `Environment ID:` line sends the plan back to Q7 before Step 2)
 

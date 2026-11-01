@@ -1,8 +1,8 @@
 ---
 status: done
 review: done
-signed-off: 2026-10-28
-signed-off-hash: a5ed3a83f3ab36d9c2535f1b90d15f6136b63d1072d209cecad6387fd1dcb7f2
+signed-off: 2026-11-01
+signed-off-hash: 09926f1103a73e23c0aaf7e7856aeaf8e47358ee5ef8a17603acb4f00ed613e0
 environment: null
 depth: standard
 supersedes: null
@@ -308,7 +308,7 @@ None: no solution changes.
   No Phase 6 milestone changes the plan-file format.
 - Release PR 4 (release-please, 0.1.0) isn't merged during Phase 6 unless the user decides to publish. If it is merged, it publishes `PowerOps` and creates the first tag. Then I-1 becomes "keep the README's NuGet line", D-3's snippets can pin that tag's SHA, and the question of reserving the ID goes away.
 - The master session pushes, opens the PRs and merges; repo settings (M23) change only after the user's yes.
-- Deadlines: none from the platform. Phase 6 needs no tenant, so Test's expiry (about 2026-11-21) doesn't bind it.
+- Deadlines: none from the platform. Phase 6 needs no tenant, so Test's expiry doesn't bind it.
 
 ## Assumptions
 

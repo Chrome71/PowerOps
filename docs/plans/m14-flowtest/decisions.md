@@ -15,10 +15,10 @@ Answer: By the flow's display name or workflow id among the cloud flows of every
 Answer: Pick the conservative behaviour, list each choice in the plan ("Not on Learn"), and put each into item 34's capture flow so a real run checks it; keep `Table` unsupported, since Learn shows no exact CSV or HTML text. Option 2 would make most fixture flows untestable (the slash path `?['body/value']` alone is in nearly every one). `Table` leaves the BUILD-PLAN's supported list until the capture shows its text.
 
 ### Q3. Does item 34, the capture in Dev, run in this build?
-1. No: the build is offline; item 34 is planned for 2026-11-21 (at the latest 2026-12-15) and runs only after the user's yes to Dev in that session; the BUILD-PLAN records it as not run yet (recommended)
+1. No: the build is offline; item 34 is not scheduled and runs only after the user's yes to Dev in that session; the BUILD-PLAN records it as not run yet (recommended)
 2. Run it now under the delegation of 2026-10-22
 3. In your own words
-Answer: No: the build is offline; item 34 is planned for 2026-11-21 (at the latest 2026-12-15) and runs only after the user's yes to Dev in that session; the BUILD-PLAN records it as not run yet. The master session's brief says so, and decision 22 is still open with the user.
+Answer: No: the build is offline; item 34 is not scheduled and runs only after the user's yes to Dev in that session; the BUILD-PLAN records it as not run yet. The master session's brief says so, and decision 22 is still open with the user.
 
 ## Round 2
 
@@ -57,3 +57,4 @@ Answer: An `Inputs` list maps it to `*.flowtest.json`; every fixture test file i
 - 2026-10-25: review fixes committed (356d5a1): the four Medium and five Low findings above, plus two crash paths the fixer found (a number literal past the double range, duplicate JSON properties); 2021 tests pass; a memory bomb (a value that doubles in size each loop iteration) is not capped and is left as a known limit; the BUILD-PLAN M14 row, research basis, item 34 and verification record updated; status `implementing` until item 34 runs
 - 2026-10-25: a second code review (relayed by the master session, on 074aaf4) found 2 Medium and 4 Low; the plan body was amended for them (see review.md, third update note; the Until rule now follows Learn's Until loop considerations), status went back to `approved`, and the plan was signed off again by this session under the user's delegation
 - 2026-10-25: second review fixes committed (1b0c269); 2040 tests pass; the original memory probes now stop as `unsupported` (the 10 000-item Until at the 256 MB budget in 1.1 s with a 568 MB real peak; the `replace` blow-up at the string limit)
+- 2026-11-01: personal and tenant facts removed from the plan body, with no decision changed; re-signed with `powerops plan sign-off`, and `review.md`'s `plan-hash` moved to the new body

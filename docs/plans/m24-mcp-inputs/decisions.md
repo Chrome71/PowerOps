@@ -35,3 +35,4 @@ Answer: No. Learn does not say such a token works at another org, so the stop co
 - after the review, 2026-10-29: probed again, outside the repo, for R1: the revision is readable in a filter (`request.Context?.ProtocolVersion`, falling back to `context.Server.NegotiatedProtocolVersion`; both public in 2.3.0), and a stamped result carried `resultType` at 2026-07-28 and none at 2025-06-18, for a lone surrogate in a value, a key, a list item and `_meta` itself; read the Learn page "Access tokens in the Microsoft identity platform" for R4
 - approved (2026-10-29)
 - signed off 2026-10-29 by the building session under the user's delegation of 2026-10-22: after the fixes no High or Medium finding is open
+- 2026-11-01: personal and tenant facts removed from the plan body, with no decision changed; re-signed with `powerops plan sign-off`, and `review.md`'s `plan-hash` moved to the new body

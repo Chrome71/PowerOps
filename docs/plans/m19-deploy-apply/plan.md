@@ -1,8 +1,8 @@
 ---
 status: done
 review: done
-signed-off: 2026-10-28
-signed-off-hash: 90a5128883bf887838c71f02f8e873b095bc8a99f3b73916901ff7d85b380f13
+signed-off: 2026-11-01
+signed-off-hash: 5c44f49cd9ec1023a5662f84c9d21eecbda74e6f07c2828445276e9a897374c1
 environment: null
 depth: quick
 supersedes: null
@@ -144,7 +144,7 @@ None.
 - No new package: `ModelContextProtocol.Core` 2.3.0's `ElicitAsync`, `ClientCapabilities` and `McpClientOptions` cover the tool and the tests. Licensing as in M18 (Apache-2.0 and MIT).
 - AGENTS.md: never pass `--apply` without the user's yes to that environment in this session. Neither this session nor a test runs a live import.
 - No version or changelog edits; no push or pull request from this session. Conventional Commits, no attribution lines.
-- Deadline: M20's manual run needs Test, which expires about 2026-11-21.
+- Deadline: M20's manual run needs Test, before it expires.
 
 ## Assumptions
 

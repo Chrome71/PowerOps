@@ -56,10 +56,7 @@ Answer: Yes, with a fallback: if the YAML fixture is not committed by 2026-12-01
 Answer: Undo v2 by hand, and define parity as an explicit list of expected findings per version
 
 ### Q9. R10: Which licence covers Managed Environments in the test environment?
-1. Power Apps Premium
-2. Developer Plan only
-3. In your own words
-Answer: Developer Plan only
+Answer: the plan's Licensing line states the rule; what the account held is left out of this record
 
 ## Round 4
 
@@ -79,9 +76,10 @@ Answer: No preference; the recommended option applies: a 30-day premium trial st
 - review findings R1-R19 resolved in plan.md (2026-10-19); review now stale, plan body changed
 - second review (fresh context, Opus): R1-R11 resolved in plan.md (2026-10-19); no third review, by the user's choice
 - signed off by the user with powerops plan sign-off (2026-10-19)
-- licence line corrected after a read-only check of the account's licences (Power Apps Plan 2 Trial assigned); status back to approved for re-sign-off (2026-10-19)
+- licence line corrected after a read-only check of the account's licences; status back to approved for re-sign-off (2026-10-19)
 - signed off again by the user with powerops plan sign-off (2026-10-19)
 - third review (fresh context, Opus) replaced the stale one; R1-R5 accepted as build notes, plan body unchanged (2026-10-19)
 - user decision made in the master planning session (relayed 2026-10-20): PO006 and PO014 share one fix guidance, in order: no URL where the platform allows it (for example the Dataverse current-environment option); otherwise an environment variable set per environment through deployment settings or Pipelines, with a non-environment-specific default (PO007) and no shipped current value (PO008); canvas SharePoint data sources bound to environment variables; settings tables only for runtime values; never hard-coded. PO006's Fix and docs are aligned in M5. PO014 uses PO006's narrow URL patterns. Platform claims in the docs need a verified Sources line or are left out. Status back to approved for re-sign-off.
 - Step 1 done (2026-10-20): YAML fixture committed in "test: add the YAML layout fixture for PowerOpsSeed (M5 step 1)"; the fallback was not used. Disconnecting the solution and deleting the Azure DevOps repo (step 1.6) are not confirmed yet.
 - fourth review (fresh context, Opus) R1-R12 resolved in plan.md (2026-10-20): one plain `Fix` sentence shared by PO006 and PO014, with the ordered guidance in the docs pages only; for a formula URL, PO014.md points to reading the environment variable tables through the Dataverse connector, with the FAQ's premium-licence caveat; the settings-table clause is reworded to the FAQ's terms (relational configuration data goes to other tools); URL defaults stay empty (PO007), with PO002 named for required variables.
+- 2026-11-01: personal and tenant facts removed from the plan body, with no decision changed; re-signed with `powerops plan sign-off`, and `review.md`'s `plan-hash` moved to the new body

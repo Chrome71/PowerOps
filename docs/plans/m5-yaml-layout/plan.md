@@ -1,8 +1,8 @@
 ---
 status: done
 review: done
-signed-off: 2026-10-20
-signed-off-hash: db32eb80e407e0c718fd92dd6472ba4916b28a9ee4ec909b45ffa73ba27c87a8
+signed-off: 2026-11-01
+signed-off-hash: 57847f8b8b1ebb1bc39fc448df784c6e1b01ad1259c2352a967f6075d2af610d
 environment: PowerOps Test
 depth: quick
 supersedes: null
@@ -86,7 +86,7 @@ None. This is a command-line change. Text output is unchanged apart from the new
 - Offline first and read-only, as everywhere in PowerOps. `pac` is never called by the reader.
 - Smallest complete change. No new options or flags.
 - Dependencies: YamlDotNet may be added from M5 (BUILD-PLAN decision). Nothing else.
-- Licensing: the test environment is a managed developer environment. Managed Environments use rights aren't in the Power Apps Developer Plan: every user who runs apps or flows there needs Power Apps Premium or Power Automate Premium, and trial licences count for their 30 days (Learn: Managed Environments licensing, Developer Plan FAQ, read 2026-10-19). The maintainer's account holds Microsoft 365 E3, the Developer Plan and a Microsoft Power Apps Plan 2 Trial (the self-service 30-day premium trial, extendable twice to 90 days), read on 2026-10-19; only the trial covers Managed Environments. Its end date was not checked. Step 1 is done while that trial, or a new or extended premium trial, is active. Azure DevOps Basic access is free for the first five users. The GitHub connection (preview, needs Azure Key Vault) is not used.
+- Licensing: the test environment is a managed developer environment. Managed Environments use rights aren't in the Power Apps Developer Plan: every user who runs apps or flows there needs Power Apps Premium or Power Automate Premium, and trial licences count for their 30 days (Learn: Managed Environments licensing, Developer Plan FAQ, read 2026-10-19). Step 1 is done while a premium trial is active. Azure DevOps Basic access is free for the first five users. The GitHub connection (preview, needs Azure Key Vault) is not used.
 - Roles for Step 1: System Administrator in the environment, and Basic access plus Contributor on the Azure DevOps repo. The tool itself needs no roles or licences.
 - DLP: does not apply to the offline tool. The environment's DLP policy was not checked. Step 1 stops if a policy blocks the seed's connectors or the Git connection.
 - Fixtures: only MIT or Apache-2.0 third-party files, or files made for this project. No tenant URLs, environment IDs, names or emails.
@@ -102,7 +102,7 @@ None. This is a command-line change. Text output is unchanged apart from the new
 
 ## Assumptions
 
-- The test environment is a developer environment, and the maintainer enabled Managed Environments on it on 2026-10-19 (admin center shows Managed: Yes). The 2026-12-15 suspension applies to developer environments that aren't managed, so it no longer applies to this one. The fixture is committed, so M5 relies only on committed fixtures.
+- The fixture is committed, so M5 relies only on committed fixtures.
 - File shapes come from public Git integration exports read on 2026-10-19: a public MIT-licensed export for `solution.yml`, `rootcomponents.yml`, `missingdependencies.yml`, `solutioncomponents.yml`, `publisher.yml` and canvas apps; two unlicensed repos for flows, connection references and environment variables, read only and not copied.
 - `.pa.yaml` files exist only in the YAML layout. In the XML and zip layouts the canvas app is a binary `.msapp`, which M5 does not open.
 - The retired `.fx.yaml` format (in the `alm-sample` fixture) is not read.
@@ -118,7 +118,7 @@ None. This is a command-line change. Text output is unchanged apart from the new
 Every step that changes findings on `tests/fixtures` updates the goldens (AGENTS.md "Update goldens") in the same commit.
 
 1. `test:` Make the YAML fixture, by hand in the test environment. Done on 2026-10-20 (commit "test: add the YAML layout fixture for PowerOpsSeed (M5 step 1)"), apart from step 1.6's cleanup: disconnecting the solution and deleting the Azure DevOps repo are still open.
-   1. Check that a premium trial (the Power Apps Plan 2 Trial already assigned, or a new or extended one) is active and covers the days of Step 1.
+   1. Check that a premium trial is active and covers the days of Step 1.
    2. Create a private Azure DevOps repo, and bind `PowerOpsSeed` alone to it with a solution binding.
    3. Undo the v2 breakage by hand: remove the Compose step with the URL from the flow, and remove the spare connection reference `pops_SpareDataverse`. Commit: this is v1.
    4. Re-apply the breakage, and add a canvas formula with a fake site URL that has a `/sites/` path, for example a `Launch(...)` of the fake `contoso.sharepoint.com` site `ops` (path `/sites/ops`) in a button's `OnSelect`. Add no data source or connection. Commit: this is v2.

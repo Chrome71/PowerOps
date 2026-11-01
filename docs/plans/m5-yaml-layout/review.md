@@ -1,4 +1,4 @@
-plan-hash: db32eb80e407e0c718fd92dd6472ba4916b28a9ee4ec909b45ffa73ba27c87a8
+plan-hash: 57847f8b8b1ebb1bc39fc448df784c6e1b01ad1259c2352a967f6075d2af610d
 model: claude-opus-5-5
 fresh-context: yes
 

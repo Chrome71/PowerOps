@@ -6,7 +6,7 @@
 1. Yes: one manual run, one cancelled run, and the service principal question answered, as the BUILD-PLAN row's done-when says
 2. No: docs and an offline test only; the live done-when is recorded as not run, with the reason
 3. In your own words
-Answer: No (the master session, 2026-10-23): "docs only, with no live run. Don't create or delete any environment." The tenant also has no Dataverse capacity for a sandbox (the reason decision 9 changed on 2026-10-22).
+Answer: No (the master session, 2026-10-23): "docs only, with no live run. Don't create or delete any environment." No suitable environment was available either (the reason decision 9 changed on 2026-10-22).
 
 ### Q2. Which environment type does the recipe create?
 1. A repository variable, `Sandbox` by default, so a tenant that allows another type can use it (recommended)
@@ -29,3 +29,4 @@ Answer: A repository variable, `Sandbox` by default, so a tenant that allows ano
 - 2026-10-23: built (step 1); one deviation from the plan text, to follow M10's review fix: the PowerOps action is pinned like every other action, as `Chrome71/PowerOps@0000000000000000000000000000000000000000 # replace with the full commit SHA of the PowerOps release you use, the same in both jobs`, so the pinning test covers every action, PowerOps included, by a 40-character hex SHA with a comment
 - code review (Sonnet) 2026-10-24: no High, 2 Medium, 10 Low and 5 test gaps; all fixed
 - offline checks 2026-10-24 on the branch with M10 merged: 1321 tests pass, format clean, `bash -n` clean, leak scan of the diff clean (only the fake hosts in the tests); no live run (Q1); status done
+- 2026-11-01: personal and tenant facts removed from the plan body, with no decision changed; re-signed with `powerops plan sign-off`, and `review.md`'s `plan-hash` moved to the new body

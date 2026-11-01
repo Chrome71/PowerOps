@@ -1,8 +1,8 @@
 ---
 status: done
 review: done
-signed-off: 2026-10-27
-signed-off-hash: 41217aedc57f5ee5487f250a1778cf872922904c9b0cdd9a23d90fc5ab362294
+signed-off: 2026-11-01
+signed-off-hash: 431b7ba645abc4e5b40daedec574467a61a7d32fc9315046dc25d1a6470a733b
 environment: null
 depth: quick
 supersedes: null
@@ -117,7 +117,7 @@ None.
 - stdout carries only MCP messages (the MCP stdio transport).
 - No version or changelog edits; no push or pull request from this session. Commits use Conventional Commits with no attribution lines.
 - The SDK's licence file is moving from MIT to Apache-2.0 (Phase 5 research basis), both allowed. A Dependabot update of `ModelContextProtocol.Core` gets the licence check that JsonSchema.Net's did: the new version's nuspec licence and its net10.0 dependencies are read before it is merged.
-- Deadline: none for M18 itself; M20's manual run needs Test, which expires about 2026-11-21.
+- Deadline: none for M18 itself; M20's manual run needs Test, before it expires.
 
 ## Assumptions
 
