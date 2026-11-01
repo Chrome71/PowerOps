@@ -2,8 +2,7 @@
   "flow": "Escalate stale work items",
   "utcNow": "2026-11-01T06:00:00Z",
   "environmentVariables": {
-    "pops_OnCallBoardUrl": "https://board.contoso.example/api/escalations",
-    "pops_OnCallBoardToken": "test-token"
+    "pops_OnCallBoardUrl": "https://board.contoso.example/api/escalations"
   },
   "mocks": {
     "List_stale_work_items": {
@@ -19,6 +18,15 @@
               "pops_name": "Valve check"
             }
           ]
+        }
+      }
+    },
+    "GetSecret": {
+      "status": "Succeeded",
+      "outputs": {
+        "statusCode": 200,
+        "body": {
+          "EnvironmentVariableSecretValue": "test-token"
         }
       }
     },

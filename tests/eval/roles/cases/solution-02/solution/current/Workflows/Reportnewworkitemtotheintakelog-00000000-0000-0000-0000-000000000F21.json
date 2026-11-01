@@ -30,14 +30,6 @@
             "schemaName": "pops_IntakeLogUrl",
             "description": "The intake log's address for each environment"
           }
-        },
-        "Intake Log Token (pops_IntakeLogToken)": {
-          "defaultValue": "",
-          "type": "SecureString",
-          "metadata": {
-            "schemaName": "pops_IntakeLogToken",
-            "description": "Credential for the intake log"
-          }
         }
       },
       "triggers": {
@@ -62,18 +54,56 @@
         }
       },
       "actions": {
-        "Post_to_the_intake_log": {
+        "GetSecret": {
           "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "00000000-0000-0000-0000-000000000502"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_commondataserviceforapps",
+              "operationId": "PerformUnboundAction",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+            },
+            "parameters": {
+              "actionName": "RetrieveEnvironmentVariableSecretValue",
+              "item/EnvironmentVariableName": "pops_IntakeLogToken"
+            },
+            "authentication": "@parameters('$authentication')"
+          },
+          "runtimeConfiguration": {
+            "secureData": {
+              "properties": [
+                "outputs"
+              ]
+            }
+          }
+        },
+        "Post_to_the_intake_log": {
+          "runAfter": {
+            "GetSecret": [
+              "Succeeded"
+            ]
+          },
           "type": "Http",
           "inputs": {
             "method": "POST",
             "uri": "@parameters('Intake Log Url (pops_IntakeLogUrl)')",
             "headers": {
               "Content-Type": "application/json",
-              "Authorization": "@concat('Bearer ', parameters('Intake Log Token (pops_IntakeLogToken)'))"
+              "Authorization": "@concat('Bearer ', body('GetSecret')['EnvironmentVariableSecretValue'])"
             },
             "body": {
               "name": "@triggerOutputs()?['body/pops_name']"
+            }
+          },
+          "runtimeConfiguration": {
+            "secureData": {
+              "properties": [
+                "inputs",
+                "outputs"
+              ]
             }
           }
         }

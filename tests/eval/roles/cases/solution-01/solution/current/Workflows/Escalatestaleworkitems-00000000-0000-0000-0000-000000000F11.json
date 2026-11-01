@@ -30,14 +30,6 @@
             "schemaName": "pops_OnCallBoardUrl",
             "description": "Address of the on-call board for each environment"
           }
-        },
-        "On Call Board Token (pops_OnCallBoardToken)": {
-          "defaultValue": "",
-          "type": "SecureString",
-          "metadata": {
-            "schemaName": "pops_OnCallBoardToken",
-            "description": "Credential for the on-call board"
-          }
         }
       },
       "triggers": {
@@ -93,18 +85,56 @@
             ]
           },
           "actions": {
-            "Post_to_the_board": {
+            "GetSecret": {
               "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "00000000-0000-0000-0000-000000000504"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "PerformUnboundAction",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "actionName": "RetrieveEnvironmentVariableSecretValue",
+                  "item/EnvironmentVariableName": "pops_OnCallBoardToken"
+                },
+                "authentication": "@parameters('$authentication')"
+              },
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "outputs"
+                  ]
+                }
+              }
+            },
+            "Post_to_the_board": {
+              "runAfter": {
+                "GetSecret": [
+                  "Succeeded"
+                ]
+              },
               "type": "Http",
               "inputs": {
                 "method": "POST",
                 "uri": "@parameters('On Call Board Url (pops_OnCallBoardUrl)')",
                 "headers": {
                   "Content-Type": "application/json",
-                  "Authorization": "@concat('Bearer ', parameters('On Call Board Token (pops_OnCallBoardToken)'))"
+                  "Authorization": "@concat('Bearer ', body('GetSecret')['EnvironmentVariableSecretValue'])"
                 },
                 "body": {
                   "staleCount": "@length(body('List_stale_work_items')?['value'])"
+                }
+              },
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs",
+                    "outputs"
+                  ]
                 }
               }
             }
