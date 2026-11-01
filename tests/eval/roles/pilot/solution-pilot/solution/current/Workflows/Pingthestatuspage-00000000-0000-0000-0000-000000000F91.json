@@ -1,0 +1,85 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "pops_SeedDataverse"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "Status Page Url (pops_StatusPageUrl)": {
+          "defaultValue": "",
+          "type": "String",
+          "metadata": {
+            "schemaName": "pops_StatusPageUrl",
+            "description": "The status page's address for each environment"
+          }
+        },
+        "Status Page Token (pops_StatusPageToken)": {
+          "defaultValue": "",
+          "type": "SecureString",
+          "metadata": {
+            "schemaName": "pops_StatusPageToken",
+            "description": "Credential for the status page"
+          }
+        }
+      },
+      "triggers": {
+        "When_a_work_item_changes": {
+          "metadata": {
+            "operationMetadataId": "00000000-0000-0000-0000-000000000501"
+          },
+          "type": "OpenApiConnectionWebhook",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_commondataserviceforapps",
+              "operationId": "SubscribeWebhookTrigger",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+            },
+            "parameters": {
+              "subscriptionRequest/message": 1,
+              "subscriptionRequest/entityname": "pops_workitem",
+              "subscriptionRequest/scope": 4
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Post_to_the_status_page": {
+          "runAfter": {},
+          "type": "Http",
+          "inputs": {
+            "method": "POST",
+            "uri": "@parameters('Status Page Url (pops_StatusPageUrl)')",
+            "headers": {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer sp-0000-0000-0000-0000"
+            },
+            "body": {
+              "name": "@triggerOutputs()?['body/pops_name']"
+            }
+          }
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

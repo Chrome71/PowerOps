@@ -1,0 +1,19 @@
+[
+  {
+    "id": "X01",
+    "case": "plan-pilot",
+    "pass": "plan",
+    "point": "column security",
+    "severity": "High",
+    "sentence": "Constraints, Column security: the profile Adjusted Desk Needs gives Read on the dsk_Reason column to the Employees team, though Data classifies the table Restricted and only Facilities should read it."
+  },
+  {
+    "id": "X02",
+    "case": "solution-pilot",
+    "pass": "security-solution",
+    "point": "SE:07",
+    "severity": "High",
+    "sentence": "In the flow Ping the status page the Authorization header is a literal token, where the plan says the credential comes from pops_StatusPageToken and appears in no flow.",
+    "baseline": "not-shown"
+  }
+]

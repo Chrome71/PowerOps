@@ -1,0 +1,13 @@
+<environmentvariabledefinition schemaname="pops_StatusPageToken">
+  <description default="Credential for the status page, read from the vault">
+    <label description="Credential for the status page, read from the vault" languagecode="1033" />
+  </description>
+  <displayname default="Status Page Token">
+    <label description="Status Page Token" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000005</type>
+</environmentvariabledefinition>
