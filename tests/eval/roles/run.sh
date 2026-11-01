@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs one pass of the role evaluation on one case, with one client, in a fresh session, and keeps what happened.
 # It costs model quota, so it runs by hand, never per build. The set is described in docs/plans/m38-agent-team/plan.md.
-# Keep it bash 3.2 compatible (macOS): no ${x,,}, no mapfile, and guard empty arrays under set -u.
+# Keep it bash 3.2 compatible (macOS): no case-changing expansions, no array-reading builtins, and guard empty arrays under set -u.
 #
 # Usage: tests/eval/roles/run.sh claude|codex review-plan|security-plan|security-solution|verify <case folder>
 #        tests/eval/roles/run.sh --list <case folder>     (prints the files of the case, and starts nothing)

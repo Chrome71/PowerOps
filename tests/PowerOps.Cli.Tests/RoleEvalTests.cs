@@ -674,7 +674,7 @@ public sealed partial class RoleEvalTests
         Assert.Equal(0, Bash("-n", script).Code);
         var text = File.ReadAllText(script);
         Assert.Contains("set -euo pipefail", text);
-        Assert.DoesNotContain("eval ", text);
+        Assert.DoesNotMatch(@"(?m)(^|[;&|(])\s*eval\s", text); // the command, not the tests/eval folder
         Assert.DoesNotContain("mapfile", text);
 
         // A copy in a folder with a space, as a maintainer's repo path can have.
