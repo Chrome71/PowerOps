@@ -777,7 +777,8 @@ public sealed partial class RoleEvalTests
         Assert.NotEmpty(CountProblems(GoodKey, ["plan-01"], ["solution-01"], perCase: 1, flawedPlan: 1, flawedSolution: 1, security: 1, verify: null));
     }
 
-    private const string GoodSkill = """
+    // A raw string takes the source file's line endings, and a Windows checkout gives it CRLF.
+    private static readonly string GoodSkill = """
         ---
         name: powerops-verify
         description: Use to verify a built solution against its plan.
@@ -801,7 +802,7 @@ public sealed partial class RoleEvalTests
         fresh-context: yes|no
         state: ready|blocked|failed|dropped
         ```
-        """;
+        """.Replace("\r\n", "\n");
 
     [Fact]
     public void The_draft_checks_accept_a_good_skill()
