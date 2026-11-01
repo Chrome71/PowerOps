@@ -1,0 +1,42 @@
+{
+  "flow": "Report new work item to the intake log",
+  "trigger": {
+    "body": {
+      "pops_name": "Pump check",
+      "pops_workitemid": "00000000-0000-0000-0000-000000000004"
+    }
+  },
+  "environmentVariables": {
+    "pops_IntakeLogUrl": "https://intake.contoso.example/api/new-items",
+    "pops_IntakeLogToken": "test-token"
+  },
+  "mocks": {
+    "Post_to_the_intake_log": {
+      "status": "Succeeded"
+    }
+  },
+  "assertions": [
+    {
+      "kind": "runStatus",
+      "equals": "Succeeded"
+    },
+    {
+      "kind": "inputs",
+      "action": "Post_to_the_intake_log",
+      "path": [
+        "body",
+        "name"
+      ],
+      "equals": "Pump check"
+    },
+    {
+      "kind": "inputs",
+      "action": "Post_to_the_intake_log",
+      "path": [
+        "headers",
+        "Authorization"
+      ],
+      "equals": "Bearer test-token"
+    }
+  ]
+}

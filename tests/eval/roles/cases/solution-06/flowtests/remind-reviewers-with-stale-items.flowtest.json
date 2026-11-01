@@ -1,0 +1,52 @@
+{
+  "flow": "Remind reviewers of stale items",
+  "utcNow": "2026-11-02T07:00:00Z",
+  "environmentVariables": {
+    "pops_ReminderMailbox": "reviewers@example.invalid"
+  },
+  "mocks": {
+    "List_stale_work_items": {
+      "status": "Succeeded",
+      "outputs": {
+        "statusCode": 200,
+        "body": {
+          "value": [
+            {
+              "pops_name": "Pump check"
+            },
+            {
+              "pops_name": "Valve check"
+            }
+          ]
+        }
+      }
+    },
+    "Send_the_reminder": {
+      "status": "Succeeded"
+    }
+  },
+  "assertions": [
+    {
+      "kind": "runStatus",
+      "equals": "Succeeded"
+    },
+    {
+      "kind": "inputs",
+      "action": "Send_the_reminder",
+      "path": [
+        "parameters",
+        "emailMessage/To"
+      ],
+      "equals": "reviewers@example.invalid"
+    },
+    {
+      "kind": "inputs",
+      "action": "Send_the_reminder",
+      "path": [
+        "parameters",
+        "emailMessage/Subject"
+      ],
+      "equals": "Stale work items: 2"
+    }
+  ]
+}

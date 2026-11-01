@@ -1,0 +1,54 @@
+{
+  "flow": "Email daily work item summary",
+  "environmentVariables": {
+    "pops_SummaryMailbox": "teamlead@example.invalid"
+  },
+  "mocks": {
+    "List_open_work_items": {
+      "status": "Succeeded",
+      "outputs": {
+        "statusCode": 200,
+        "body": {
+          "value": [
+            {
+              "pops_name": "Pump check"
+            },
+            {
+              "pops_name": "Valve check"
+            },
+            {
+              "pops_name": "Hydrant check"
+            }
+          ]
+        }
+      }
+    },
+    "Send_the_summary": {
+      "status": "Succeeded"
+    }
+  },
+  "assertions": [
+    {
+      "kind": "runStatus",
+      "equals": "Succeeded"
+    },
+    {
+      "kind": "inputs",
+      "action": "Send_the_summary",
+      "path": [
+        "parameters",
+        "emailMessage/To"
+      ],
+      "equals": "teamlead@example.invalid"
+    },
+    {
+      "kind": "inputs",
+      "action": "Send_the_summary",
+      "path": [
+        "parameters",
+        "emailMessage/Subject"
+      ],
+      "equals": "Open work items: 3"
+    }
+  ]
+}

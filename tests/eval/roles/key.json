@@ -1,0 +1,314 @@
+[
+  {
+    "id": "F01",
+    "case": "plan-01",
+    "pass": "plan",
+    "point": "app users",
+    "severity": "High",
+    "sentence": "Constraints, App users: the telematics application user has System Administrator in Prod, though Automation 3 says it only creates readings and reads vehicles."
+  },
+  {
+    "id": "F02",
+    "case": "plan-10",
+    "pass": "plan",
+    "point": "plan checklist",
+    "severity": "Low",
+    "sentence": "Screens, Capture invoice: the form has a Submit button and no Cancel or Back."
+  },
+  {
+    "id": "F03",
+    "case": "solution-03",
+    "pass": "verify",
+    "point": "plan checklist",
+    "severity": "Low",
+    "sentence": "Other/Solution.xml gives version 1.0.1.0, where Data and Steps say 1.1.0.0."
+  },
+  {
+    "id": "F04",
+    "case": "solution-03",
+    "pass": "verify",
+    "point": "plan checklist",
+    "severity": "Medium",
+    "sentence": "The flow posts 'Work item reassigned: <name>' where the plan says 'Reassigned: <name>', and the flow test written from the plan fails."
+  },
+  {
+    "id": "F05",
+    "case": "solution-01",
+    "pass": "verify",
+    "point": "plan checklist",
+    "severity": "Medium",
+    "sentence": "The solution adds a second new flow, Log new work item, that no step of the plan builds."
+  },
+  {
+    "id": "F06",
+    "case": "solution-04",
+    "pass": "verify",
+    "point": "plan checklist",
+    "severity": "Medium",
+    "sentence": "The flow Email daily work item summary is turned off (StateCode 0), where the plan says it is turned on in the export."
+  },
+  {
+    "id": "F07",
+    "case": "plan-03",
+    "pass": "plan",
+    "point": "SE:08",
+    "severity": "Medium",
+    "sentence": "Constraints, Auditing and incidents: Dataverse auditing is off for all tables, including the one that holds bank account and national ID numbers, and nothing alerts on a failure except each flow's run history."
+  },
+  {
+    "id": "F08",
+    "case": "solution-04",
+    "pass": "verify",
+    "point": "plan checklist",
+    "severity": "Medium",
+    "sentence": "The plan builds the role Work Item Team Lead (Data and step 2), but the solution has no such role."
+  },
+  {
+    "id": "F09",
+    "case": "plan-05",
+    "pass": "plan",
+    "point": "SE:03",
+    "severity": "High",
+    "sentence": "Data: the table wtr_Finding is classified Internal, although Goal says the details of the network's faults are Restricted."
+  },
+  {
+    "id": "F10",
+    "case": "plan-05",
+    "pass": "plan",
+    "point": "sharing",
+    "severity": "Medium",
+    "sentence": "Constraints, Sharing: the canvas app is shared with Everyone and the Inspectors group is Co-owner, though Users lists 40 inspectors and 6 planners and no contractors."
+  },
+  {
+    "id": "F11",
+    "case": "solution-05",
+    "pass": "security-solution",
+    "point": "column security",
+    "severity": "High",
+    "sentence": "In Entities/pops_WorkItem/Entity.xml the attribute pops_Notes has IsSecured 0, so the profile in FieldSecurityProfiles has no effect, where the plan says column security is on."
+  },
+  {
+    "id": "F12",
+    "case": "plan-06",
+    "pass": "plan",
+    "point": "plan checklist",
+    "severity": "Medium",
+    "sentence": "Open questions: it is unsettled whether vol_Shift replaces an existing table, yet Data and step 2 of Steps build it as new."
+  },
+  {
+    "id": "F13",
+    "case": "plan-08",
+    "pass": "plan",
+    "point": "plan checklist",
+    "severity": "Medium",
+    "sentence": "Data and Automation name tables with the prefix cmp_, while Solution and publisher gives the prefix cpl."
+  },
+  {
+    "id": "F14",
+    "case": "plan-04",
+    "pass": "plan",
+    "point": "SE:06",
+    "severity": "High",
+    "sentence": "Automation 1 and Constraints, Encryption: the national ID number is protected by a base64 step in a flow, which is encoding and not encryption."
+  },
+  {
+    "id": "F15",
+    "case": "solution-05",
+    "pass": "verify",
+    "point": "SE:09",
+    "severity": "Medium",
+    "sentence": "Step 4 of the plan adds a flow test for the default status New, but flowtests holds only the test for Active."
+  },
+  {
+    "id": "F16",
+    "case": "plan-07",
+    "pass": "plan",
+    "point": "SE:04",
+    "severity": "Medium",
+    "sentence": "Constraints, Identity and segmentation: one service account owns the connection references in Dev, Test and Prod."
+  },
+  {
+    "id": "F17",
+    "case": "plan-04",
+    "pass": "plan",
+    "point": "plan checklist",
+    "severity": "Medium",
+    "sentence": "Environments and route: Prod stays unmanaged so that the web team can edit pages directly in Prod."
+  },
+  {
+    "id": "F18",
+    "case": "solution-05",
+    "pass": "security-solution",
+    "point": "SE:08",
+    "severity": "Medium",
+    "sentence": "In Entities/pops_WorkItem/Entity.xml the attribute pops_Notes has IsAuditEnabled 0, where the plan says auditing is on for the column."
+  },
+  {
+    "id": "F19",
+    "case": "plan-08",
+    "pass": "plan",
+    "point": "security roles",
+    "severity": "High",
+    "sentence": "Constraints, Security roles: Handler can delete complaints at organisation level, which conflicts with the six-year record-keeping rule in Goal and Data."
+  },
+  {
+    "id": "F20",
+    "case": "plan-01",
+    "pass": "plan",
+    "point": "SE:02",
+    "severity": "Medium",
+    "sentence": "Constraints, Standards and lifecycle: a code component from a community repository is imported into Test and Prod as downloaded, with no review or scan."
+  },
+  {
+    "id": "F21",
+    "case": "plan-03",
+    "pass": "plan",
+    "point": "column security",
+    "severity": "High",
+    "sentence": "Constraints, Column security: the profile Starter Sensitive gives Read and Update on the bank account and national ID columns to the line managers team, though Data says managers never see them."
+  },
+  {
+    "id": "F22",
+    "case": "plan-06",
+    "pass": "plan",
+    "point": "SE:09",
+    "severity": "Medium",
+    "sentence": "Constraints, Testing: the checks run with System Administrator accounts, and the Site Lead restrictions are not tested separately."
+  },
+  {
+    "id": "F23",
+    "case": "plan-09",
+    "pass": "plan",
+    "point": "plan checklist",
+    "severity": "High",
+    "sentence": "Automation 3 uses the HTTP connector, which is premium, while Constraints, Licensing says standard connectors only and no extra licence."
+  },
+  {
+    "id": "F24",
+    "case": "plan-05",
+    "pass": "plan",
+    "point": "plan checklist",
+    "severity": "Medium",
+    "sentence": "Screens, Inspection list: Search on the calculated column SiteLabel does not delegate and the row limit stays at 500, against about 360,000 inspections in Data."
+  },
+  {
+    "id": "F25",
+    "case": "plan-09",
+    "pass": "plan",
+    "point": "SE:05",
+    "severity": "High",
+    "sentence": "Constraints, Identity and access: Prod deployments are made with the lead maker's personal account, which keeps System Administrator in Prod after the import."
+  },
+  {
+    "id": "F26",
+    "case": "solution-04",
+    "pass": "security-solution",
+    "point": "connection references",
+    "severity": "Medium",
+    "sentence": "In the flow file Emaildailyworkitemsummary the Outlook entry names a connection (connection name) and not the connection reference pops_SeedOutlook that the plan requires."
+  },
+  {
+    "id": "F27",
+    "case": "plan-10",
+    "pass": "plan",
+    "point": "SE:07",
+    "severity": "Medium",
+    "sentence": "Constraints, Secrets: the finance system credential is sent to the lead maker by email, stays valid for three years and is not rotated."
+  },
+  {
+    "id": "F28",
+    "case": "plan-03",
+    "pass": "plan",
+    "point": "plan checklist",
+    "severity": "High",
+    "sentence": "Environments and route: the solution goes from Dev straight to Prod, with no Test environment."
+  },
+  {
+    "id": "F29",
+    "case": "plan-01",
+    "pass": "plan",
+    "point": "plan checklist",
+    "severity": "High",
+    "sentence": "Automation 2: the workshop mailbox address is typed into the Send an email action, where every other address is an environment variable."
+  },
+  {
+    "id": "F30",
+    "case": "solution-01",
+    "pass": "security-solution",
+    "point": "secrets in environment variables",
+    "severity": "High",
+    "sentence": "settings.json holds a literal token as the value of pops_OnCallBoardToken, where the plan says the file holds only a reference to the vault."
+  },
+  {
+    "id": "F31",
+    "case": "plan-09",
+    "pass": "plan",
+    "point": "connection references",
+    "severity": "Medium",
+    "sentence": "Automation 1 and 2: the flows run on the lead maker's own connections, and no connection references are added to the solution."
+  },
+  {
+    "id": "F32",
+    "case": "plan-07",
+    "pass": "plan",
+    "point": "plan checklist",
+    "severity": "Low",
+    "sentence": "Steps 6 and 7 ('intuitive', 'good performance') name no way to check them."
+  },
+  {
+    "id": "F33",
+    "case": "solution-01",
+    "pass": "security-solution",
+    "point": "security roles",
+    "severity": "High",
+    "sentence": "Roles/WorkItemSupervisor.xml gives Delete, Assign and Share and sets every privilege at Global depth, where the plan allows Read, Write, Append and Append To at business unit depth."
+  },
+  {
+    "id": "F34",
+    "case": "plan-08",
+    "pass": "plan",
+    "point": "SE:10",
+    "severity": "Medium",
+    "sentence": "Constraints, Monitoring and incidents: incident response is left to the complaints team, with no named owner, no runbook and no rehearsal."
+  },
+  {
+    "id": "F35",
+    "case": "plan-07",
+    "pass": "plan",
+    "point": "data policies",
+    "severity": "High",
+    "sentence": "Constraints, Data policy puts the Course Catalogue custom connector in the Non-business group and Dataverse in Business, and Automation 1 uses both in one flow."
+  },
+  {
+    "id": "F36",
+    "case": "solution-03",
+    "pass": "security-solution",
+    "point": "SE:04",
+    "severity": "High",
+    "sentence": "The trigger of Announce reassigned work item has scope 4 (Organization), where the plan sets Business Unit so that the flow sees only the Operations business unit."
+  },
+  {
+    "id": "F37",
+    "case": "plan-06",
+    "pass": "plan",
+    "point": "secrets in environment variables",
+    "severity": "High",
+    "sentence": "Automation 1: the gateway token is held in the environment variable vol_SmsGatewayToken of type Text, not Secret."
+  },
+  {
+    "id": "F38",
+    "case": "plan-04",
+    "pass": "plan",
+    "point": "Power Pages table permissions and web roles",
+    "severity": "High",
+    "sentence": "Constraints, Web roles and table permissions: the Applicant web role has Global scope with Read, Create and Write on cty_Permit, though Goal and Users say a resident sees only their own applications."
+  },
+  {
+    "id": "F39",
+    "case": "plan-10",
+    "pass": "plan",
+    "point": "data policies",
+    "severity": "High",
+    "sentence": "Constraints, Data policy lists HTTP as Blocked in all three environments, and Automation 2 calls the finance system with the HTTP connector."
+  }
+]

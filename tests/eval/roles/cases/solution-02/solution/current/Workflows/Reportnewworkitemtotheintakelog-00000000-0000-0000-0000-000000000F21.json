@@ -1,0 +1,85 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "pops_SeedDataverse"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "Intake Log Url (pops_IntakeLogUrl)": {
+          "defaultValue": "",
+          "type": "String",
+          "metadata": {
+            "schemaName": "pops_IntakeLogUrl",
+            "description": "The intake log's address for each environment"
+          }
+        },
+        "Intake Log Token (pops_IntakeLogToken)": {
+          "defaultValue": "",
+          "type": "SecureString",
+          "metadata": {
+            "schemaName": "pops_IntakeLogToken",
+            "description": "Credential for the intake log"
+          }
+        }
+      },
+      "triggers": {
+        "When_a_work_item_changes": {
+          "metadata": {
+            "operationMetadataId": "00000000-0000-0000-0000-000000000501"
+          },
+          "type": "OpenApiConnectionWebhook",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_commondataserviceforapps",
+              "operationId": "SubscribeWebhookTrigger",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+            },
+            "parameters": {
+              "subscriptionRequest/message": 1,
+              "subscriptionRequest/entityname": "pops_workitem",
+              "subscriptionRequest/scope": 4
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Post_to_the_intake_log": {
+          "runAfter": {},
+          "type": "Http",
+          "inputs": {
+            "method": "POST",
+            "uri": "@parameters('Intake Log Url (pops_IntakeLogUrl)')",
+            "headers": {
+              "Content-Type": "application/json",
+              "Authorization": "@concat('Bearer ', parameters('Intake Log Token (pops_IntakeLogToken)'))"
+            },
+            "body": {
+              "name": "@triggerOutputs()?['body/pops_name']"
+            }
+          }
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

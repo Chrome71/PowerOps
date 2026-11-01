@@ -1,0 +1,55 @@
+{
+  "EnvironmentVariables": [
+    {
+      "SchemaName": "pops_DefaultStatus",
+      "Value": "Open",
+      "DefaultValue": "New",
+      "Name": {
+        "Default": "Default Status",
+        "ByLcid": {
+          "1033": "Default Status"
+        }
+      },
+      "TypeId": 100000000,
+      "Description": {
+        "Default": "Status label the seed flow writes on new work items",
+        "ByLcid": {
+          "1033": "Status label the seed flow writes on new work items"
+        }
+      },
+      "IsRequired": false
+    },
+    {
+      "SchemaName": "pops_SupervisorChannel",
+      "Value": "supervisors-channel-test",
+      "DefaultValue": "",
+      "Name": {
+        "Default": "Supervisor Channel",
+        "ByLcid": {
+          "1033": "Supervisor Channel"
+        }
+      },
+      "TypeId": 100000000,
+      "Description": {
+        "Default": "The supervisors' channel for each environment",
+        "ByLcid": {
+          "1033": "The supervisors' channel for each environment"
+        }
+      },
+      "IsRequired": false
+    }
+  ],
+  "ConnectionReferences": [
+    {
+      "LogicalName": "pops_SeedDataverse",
+      "ConnectionId": "fake-connection-id",
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+    },
+    {
+      "LogicalName": "pops_SeedTeams",
+      "ConnectionId": "fake-connection-id-2",
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_teams"
+    }
+  ],
+  "CopilotAgents": []
+}

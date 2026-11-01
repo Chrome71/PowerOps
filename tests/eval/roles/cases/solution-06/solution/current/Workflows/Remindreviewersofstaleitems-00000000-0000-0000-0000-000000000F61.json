@@ -1,0 +1,130 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "pops_SeedDataverse"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      },
+      "shared_office365": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "pops_SeedOutlook"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "Reminder Mailbox (pops_ReminderMailbox)": {
+          "defaultValue": "",
+          "type": "String",
+          "metadata": {
+            "schemaName": "pops_ReminderMailbox",
+            "description": "The reviewers' mailbox for each environment"
+          }
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "type": "Recurrence",
+          "recurrence": {
+            "frequency": "Week",
+            "interval": 1,
+            "schedule": {
+              "hours": [
+                "7"
+              ],
+              "minutes": [
+                0
+              ],
+              "weekDays": [
+                "Monday"
+              ]
+            },
+            "timeZone": "UTC"
+          }
+        }
+      },
+      "actions": {
+        "List_stale_work_items": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "00000000-0000-0000-0000-000000000502"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_commondataserviceforapps",
+              "operationId": "ListRecords",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+            },
+            "parameters": {
+              "entityName": "pops_workitems",
+              "$select": "pops_name",
+              "$filter": "@concat('statecode eq 0 and createdon lt ', addDays(utcNow(), -14))"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Check_for_stale_items": {
+          "runAfter": {
+            "List_stale_work_items": [
+              "Succeeded"
+            ]
+          },
+          "type": "If",
+          "expression": {
+            "greater": [
+              "@length(body('List_stale_work_items')?['value'])",
+              0
+            ]
+          },
+          "actions": {
+            "Send_the_reminder": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "00000000-0000-0000-0000-000000000503"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_office365",
+                  "operationId": "SendEmailV2",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+                },
+                "parameters": {
+                  "emailMessage/To": "@parameters('Reminder Mailbox (pops_ReminderMailbox)')",
+                  "emailMessage/Subject": "@concat('Stale work items: ', string(length(body('List_stale_work_items')?['value'])))",
+                  "emailMessage/Body": "<p>The count is in the subject.</p>"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          }
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

@@ -1,0 +1,41 @@
+{
+  "flow": "Announce reassigned work item",
+  "trigger": {
+    "body": {
+      "pops_name": "Pump check",
+      "pops_workitemid": "00000000-0000-0000-0000-000000000003"
+    }
+  },
+  "environmentVariables": {
+    "pops_SupervisorChannel": "supervisors-channel-test"
+  },
+  "mocks": {
+    "Post_message_in_the_channel": {
+      "status": "Succeeded"
+    }
+  },
+  "assertions": [
+    {
+      "kind": "runStatus",
+      "equals": "Succeeded"
+    },
+    {
+      "kind": "inputs",
+      "action": "Post_message_in_the_channel",
+      "path": [
+        "parameters",
+        "body/recipient"
+      ],
+      "equals": "supervisors-channel-test"
+    },
+    {
+      "kind": "inputs",
+      "action": "Post_message_in_the_channel",
+      "path": [
+        "parameters",
+        "body/messageBody"
+      ],
+      "equals": "Reassigned: Pump check"
+    }
+  ]
+}

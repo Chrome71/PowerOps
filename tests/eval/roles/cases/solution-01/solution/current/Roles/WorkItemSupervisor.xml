@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Role id="{00000000-0000-0000-0000-000000000a11}" name="Work Item Supervisor">
+  <IsInherited>0</IsInherited>
+  <IntroducedVersion>1.1.0.0</IntroducedVersion>
+  <RolePrivileges>
+    <RolePrivilege name="prvReadpops_workitem" level="Global" />
+    <RolePrivilege name="prvWritepops_workitem" level="Global" />
+    <RolePrivilege name="prvAppendpops_workitem" level="Global" />
+    <RolePrivilege name="prvAppendTopops_workitem" level="Global" />
+    <RolePrivilege name="prvDeletepops_workitem" level="Global" />
+    <RolePrivilege name="prvAssignpops_workitem" level="Global" />
+    <RolePrivilege name="prvSharepops_workitem" level="Global" />
+  </RolePrivileges>
+</Role>

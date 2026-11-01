@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FieldSecurityProfile fieldsecurityprofileid="{00000000-0000-0000-0000-000000000b21}" name="Work Item Note Readers">
+  <IntroducedVersion>1.2.0.0</IntroducedVersion>
+  <Permissions>
+    <Permission entityname="pops_workitem" attributelogicalname="pops_notes" canread="4" cancreate="0" canupdate="4" canreadunmasked="0" />
+  </Permissions>
+</FieldSecurityProfile>
