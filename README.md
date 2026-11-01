@@ -18,7 +18,11 @@ powerops --version
 
 `--source` makes the install use only `artifacts`. Leave it out and the install looks the name `PowerOps` up on nuget.org, where it is not registered, so it could install whatever package someone registers under it.
 
+PowerShell 7 runs that block as written. Windows PowerShell 5.1 has no `&&`, so the block doesn't parse there: run its two commands one at a time, the second only if the first succeeded.
+
 Update: uninstall, then pack and install again. Every build is version 0.0.0 and `--version` cannot tell two builds apart, so installing or updating over the installed tool keeps the old build. Run this as its own command, not chained to the install: uninstalling fails when the tool is not installed.
+
+On Windows the uninstall also fails, with `Access to the path ... is denied`, while a `powerops mcp` server runs from the tool's folder, and each Claude Code or Codex session that uses PowerOps starts one. Close those sessions first. Codex's daemon can keep a server running after its session ends: `codex app-server daemon stop` ends it, and `Get-Process powerops` shows whether any is left. The plugin updates separately: see [Use from an agent](docs/USE-WITH-AGENTS.md#planning-skills).
 
 ```sh
 dotnet tool uninstall --global PowerOps
