@@ -20,3 +20,4 @@ The values that look like tenant data are fake:
 - GUIDs made of zeros. Component ids that the cases add are patterned the same way, for example `00000000-0000-0000-0000-000000000f11`, and the seed's own ids are kept.
 - Connection ids such as `fake-connection-id`, and channel names such as `supervisors-channel-test`.
 - Token strings made of zeros, such as `wh-0000-0000-0000-0000`, and a vault reference whose subscription id is all zeros.
+- The mock value `test-token` in flow tests.
