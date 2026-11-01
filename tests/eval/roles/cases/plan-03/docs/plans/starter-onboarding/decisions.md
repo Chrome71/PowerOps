@@ -29,10 +29,10 @@ Answer: Create tasks from a template, remind owners, and tell the manager when a
 Answer: Dev and Prod, managed in Prod. HR tests in Dev with the coordinators.
 
 ### Q5. Licensing and cost?
-1. Per-app plans for managers and task owners, per-user for HR and payroll, paid by HR (recommended)
+1. Per-app plans for managers and task owners, per-user for HR and payroll, and a Power Automate Premium licence for the flows' service account, paid by HR (recommended)
 2. Per-user plans for everyone
 3. In your own words
-Answer: Per-app plans for managers and task owners, per-user for HR and payroll, paid by HR
+Answer: Per-app plans for managers and task owners, per-user for HR and payroll, and a Power Automate Premium licence for the flows' service account, paid by HR
 
 ### Q6. Security and the data policy?
 1. The company's HR data protection standard and the tenant data policy as it stands, with roles per user group (recommended)

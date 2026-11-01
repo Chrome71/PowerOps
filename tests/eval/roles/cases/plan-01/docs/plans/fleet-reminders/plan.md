@@ -40,7 +40,7 @@ Done when:
 2. `Email the workshop`. Trigger: every weekday at 06:30 UTC. Action: list the vehicles that became Due soon since the last run and send one email with the list to the workshop mailbox `workshop@example.invalid`, using the Send an email action with that address typed in. Connection reference `flt_OutlookService`.
 3. `Receive readings`. The telematics service creates `flt_Reading` rows through the Dataverse web interface as an application user. It needs to create readings and read vehicles to match registrations.
 
-Flows 1 and 2 use the dedicated service account of their environment through connection references, and use standard connectors only.
+Flows 1 and 2 use the dedicated service account of their environment through connection references. Dataverse is a premium connector, so that account holds a Power Automate Premium licence; Outlook is standard.
 
 ## Screens
 
@@ -60,7 +60,7 @@ Solution `FleetReminders`, publisher `Fleet Operations` with prefix `flt`. One d
 
 ## Constraints
 
-- Licensing: Power Apps per-user plans for the 16 users, paid from the fleet budget. The flows use only standard connectors (Dataverse and Outlook). The application user of the telematics service needs no licence.
+- Licensing: Power Apps per-user plans for the 16 users, paid from the fleet budget, cover Dataverse in the app. Dataverse is a premium connector, so the flows' service account holds a Power Automate Premium licence, also paid from the fleet budget; Outlook is a standard connector. The application user of the telematics service needs no licence.
 - Data policy: checked against the tenant policy for all three environments by the platform team. Dataverse and Office 365 Outlook are in the Business group, and no other connector is used.
 - Security roles: `Fleet Manager` reads and writes vehicles and service jobs of the business unit and reads readings. `Workshop` reads vehicles and readings and updates service jobs. No role can delete a vehicle. The platform team holds System Administrator in Dev only.
 - Sharing, secrets, column security: the app is assigned to the two roles and nobody else. The telematics service signs in with a certificate that the provider holds, so there is no secret in the solution. No column needs field security.

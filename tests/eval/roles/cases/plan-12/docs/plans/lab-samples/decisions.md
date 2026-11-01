@@ -29,10 +29,10 @@ Answer: A hand-over record on each station change, and a mail to the client cont
 Answer: Dev, Test and Prod, managed in Test and Prod, through the pipeline
 
 ### Q5. Licensing?
-1. Power Apps per-user plans for the 29 users, standard connectors only (recommended)
+1. Power Apps per-user plans for the 29 users and a Power Automate Premium licence for the flows' service account (recommended)
 2. Per-app plans
 3. In your own words
-Answer: Power Apps per-user plans for the 29 users, standard connectors only
+Answer: Power Apps per-user plans for the 29 users and a Power Automate Premium licence for the flows' service account
 
 ### Q6. Which security rules apply?
 1. The accreditation rules, the company's information security standard and the tenant data policy as it stands (recommended)

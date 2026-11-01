@@ -29,10 +29,10 @@ Answer: Assignment, a late alert for team leads and a monthly count for the comp
 Answer: Dev, Test and Prod, managed in Test and Prod, through the pipeline
 
 ### Q5. Licensing?
-1. Power Apps per-user plans for the 110 users, standard connectors only (recommended)
+1. Power Apps per-user plans for the 110 users and a Power Automate Premium licence for the flows' service account (recommended)
 2. Per-app plans
 3. In your own words
-Answer: Power Apps per-user plans for the 110 users, standard connectors only
+Answer: Power Apps per-user plans for the 110 users and a Power Automate Premium licence for the flows' service account
 
 ### Q6. Which security rules apply?
 1. The insurer's information security policy, the regulator's record-keeping rule and the tenant data policy as it stands (recommended)

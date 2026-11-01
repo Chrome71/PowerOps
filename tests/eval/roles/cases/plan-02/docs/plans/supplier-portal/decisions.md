@@ -29,10 +29,10 @@ Answer: An approval for procurement, a mail to finance without the details, and 
 Answer: Dev, Test and Prod, managed in Test and Prod, through the pipeline
 
 ### Q5. Licensing?
-1. Power Pages authenticated-user capacity for 3,000 users and per-user plans for the 12 internal users (recommended)
+1. Power Pages authenticated-user capacity for 3,000 users and per-user plans for the 12 internal users, and a Power Automate Premium licence for the flows' service account (recommended)
 2. Anonymous capacity only
 3. In your own words
-Answer: Power Pages authenticated-user capacity for 3,000 users and per-user plans for the 12 internal users
+Answer: Power Pages authenticated-user capacity for 3,000 users and per-user plans for the 12 internal users, and a Power Automate Premium licence for the flows' service account
 
 ### Q6. Which security rules apply?
 1. The company's information security standard and the tenant data policy as it stands (recommended)

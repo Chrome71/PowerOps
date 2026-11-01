@@ -32,7 +32,7 @@ Done when:
 | Table | Holds | Volume | Classification |
 |---|---|---|---|
 | `wtr_Site` | one valve, hydrant or station: name, type, region, coordinates | 9,000 rows | Restricted |
-| `wtr_Inspection` | one visit to a site: site, date, inspector, result | about 180,000 rows a year, kept for two years, so 360,000 | Restricted |
+| `wtr_Inspection` | one visit to a site: site, site number, date, inspector, result | about 180,000 rows a year, kept for two years, so 360,000 | Restricted |
 | `wtr_Finding` | a fault found during a visit: description, severity, status, photo reference | about 12,000 rows a year | Internal |
 
 Classification follows the utility's labels. Restricted tables are readable only through the roles below. Photos are stored in a Dataverse file column, not in a separate store.
@@ -42,11 +42,11 @@ Classification follows the utility's labels. Restricted tables are readable only
 1. `Notify planners of an urgent finding`. Trigger: a `wtr_Finding` row is created. Condition: severity is Urgent. Action: post a message to the planners' Teams channel. Connection reference `wtr_TeamsPlanners` (Microsoft Teams). Environment variable `wtr_PlannersChannel` holds the channel for each environment.
 2. `Remind planners of open findings`. Trigger: every weekday at 07:00 UTC. Action: list the open Urgent findings older than two days and email one summary to the operations mailbox. Connection reference `wtr_OutlookService` (Office 365 Outlook). Environment variable `wtr_OperationsMailbox` holds the address for each environment.
 
-Both flows use the dedicated service account for their connections, and nothing is hard-coded in them. Both are standard-licence connectors.
+Both flows use the dedicated service account for their connections, and nothing is hard-coded in them. Dataverse is a premium connector, so that account holds a Power Automate Premium licence; Teams and Outlook are standard.
 
 ## Screens
 
-- Inspection list: the inspector's inspections, newest first, with a search box. The gallery filters with `Search(wtr_Inspection, txtSearch.Text, SiteLabel)`, where `SiteLabel` is a calculated column that joins the site name and the region. The app keeps the default data row limit of 500.
+- Inspection list: the inspector's inspections, newest first, with a search box. The gallery filters with `Filter(wtr_Inspection, StartsWith(Text(SiteNumber), txtSearch.Text))`, where `SiteNumber` is a whole-number column that holds the site's number. The app keeps the default data row limit of 500.
 - Inspection form: site picker, date, result, notes. Buttons: Save, Cancel and Back. A failed save keeps the form open and shows the error.
 - Finding form: description, severity, photo. Buttons: Save, Cancel and Back. A failed save keeps the form open and shows the error.
 - Planner board: open findings of the planner's region, with a Close action that asks for confirmation.
@@ -61,7 +61,7 @@ Solution `SiteInspections`, publisher `Water Operations` with prefix `wtr`. One 
 
 ## Constraints
 
-- Licensing: the 40 inspectors and 6 planners hold Power Apps per-user plans, paid from the operations budget. The two flows use only standard connectors (Dataverse, Teams, Outlook), so no extra flow licence is needed.
+- Licensing: the 40 inspectors, the 6 planners and the operations manager hold Power Apps per-user plans, which cover Dataverse in the app, paid from the operations budget. Dataverse is a premium connector, so the flows' service account holds a Power Automate Premium licence, also paid from the operations budget; Teams and Outlook are standard connectors.
 - Data policy: checked against the tenant policy for Dev, Test and Prod by the platform team. Dataverse, Teams and Office 365 Outlook are in the Business group in all three environments, and no other connector is used.
 - Security roles: `Inspector` reads and writes sites, inspections and findings of the user's business unit and cannot delete. `Planner` reads and updates findings of the business unit and closes them. `Manager` reads all rows in all business units and writes nothing. The platform team holds System Administrator in Dev only and has no role in Prod data.
 - Sharing: the canvas app is shared with Everyone, so staff find it in their app list, and the Inspectors group has Co-owner permission, so that it can add contractors without asking the platform team. Access to data still depends on the roles above.

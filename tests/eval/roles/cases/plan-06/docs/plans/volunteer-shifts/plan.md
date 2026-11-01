@@ -39,6 +39,7 @@ Done when:
 1. `Confirm a signup`. Trigger: a `vol_Signup` row is created. Action: send a confirmation text through the text message gateway's web interface with the HTTP connector. The address is in environment variable `vol_SmsGatewayAddress` and the gateway token in environment variable `vol_SmsGatewayToken`, of type Text, whose value is set at each import. Connection reference `vol_DataverseService`.
 2. `Remind volunteers`. Trigger: every day at 16:00 UTC. Action: find the signups for tomorrow and send each volunteer a text the same way.
 3. `Weekly shortage list`. Trigger: every Monday at 07:00 UTC. Action: post the shifts with fewer signups than capacity to the coordinators' Teams channel. Connection reference `vol_TeamsService`. Environment variable `vol_CoordinatorsChannel` holds the channel for each environment.
+4. `Record a signup`. Trigger: a response is submitted to the volunteers' sign-up form in Microsoft Forms. Action: match the volunteer by mobile number, create the `vol_Volunteer` row when none matches, and create a `vol_Signup` row for the chosen shift. Connection references `vol_FormsService` and `vol_DataverseService`.
 
 The flows run under the dedicated service account of their environment through connection references.
 
@@ -54,12 +55,12 @@ Dev (unmanaged), Test (managed) and Prod (managed), each a separate environment.
 
 ## Solution and publisher
 
-Solution `VolunteerShifts`, publisher `Food Bank Operations` with prefix `vol`. One deployable unit: the app, the three tables, the roles and the three flows.
+Solution `VolunteerShifts`, publisher `Food Bank Operations` with prefix `vol`. One deployable unit: the app, the three tables, the roles and the four flows.
 
 ## Constraints
 
 - Licensing: the HTTP connector is premium. The head coordinator holds the Power Automate Premium per-user licence that owns the flow connections, paid from the food bank's grant for volunteer systems. The 13 app users hold Power Apps plans from the same grant.
-- Data policy: checked against the tenant policy for all three environments by the platform team. Dataverse, Teams and HTTP are in the Business group in all three, and no other connector is used.
+- Data policy: checked against the tenant policy for all three environments by the platform team. Dataverse, Teams, Microsoft Forms and HTTP are in the Business group in all three, and no other connector is used.
 - Security roles: `Coordinator` reads and writes volunteers, shifts and signups and cannot delete volunteers. `Site Lead` reads shifts and signups of the user's site and updates attendance. The platform team holds System Administrator in Dev only.
 - Sharing, app users, column security: the canvas app is shared with the Coordinators and Site Leads groups only. No application user. Mobile numbers are readable by the Coordinator role only, through table permissions, and no column needs field security.
 - Standards and lifecycle: the plan follows the food bank's data protection policy and the Power Platform Well-Architected Security checklist. Changes go through source control with a second maker's review, and the pipeline service principal deploys to Test and Prod. The threat model is a one-page list kept in the repo.
@@ -86,7 +87,7 @@ Solution `VolunteerShifts`, publisher `Food Bank Operations` with prefix `vol`. 
 1. Create the solution `VolunteerShifts` with publisher prefix `vol` in Dev.
 2. Create the three tables and the two security roles.
 3. Build the canvas app with its three screens. Check that every form has a working Save, Cancel and Back.
-4. Build the three flows with their connection references and environment variables. Run `powerops test` on each.
+4. Build the four flows with their connection references and environment variables. Run `powerops test` on each.
 5. Export from Dev, run the solution checker and fix what it reports.
 6. Import as managed into Test with the pipeline. Sign up with a test volunteer and check both texts.
 7. After the head coordinator approves, import the same package into Prod and set the environment variables.

@@ -40,7 +40,7 @@ Done when:
 1. `Receive an application`. Trigger: a `cty_Permit` row is created from the portal. Action: encode the resident's national ID number with `base64()` before it is stored in `cty_IdNumber`, then assign the row to the permit officers' queue. Connection reference `cty_DataverseService`.
 2. `Tell the resident about a status change`. Trigger: `cty_Status` of a `cty_Permit` row changes. Action: email the resident. Connection reference `cty_OutlookService`. Environment variable `cty_PermitDeskSender` holds the sender mailbox for each environment.
 
-Both flows use the dedicated service account of their environment through connection references, and use standard connectors only.
+Both flows use the dedicated service account of their environment through connection references. Dataverse is a premium connector, so that account holds a Power Automate Premium licence; Outlook is standard.
 
 ## Screens
 
@@ -63,11 +63,11 @@ Solution `PermitPortal`, publisher `City Digital Services` with prefix `cty`. On
 
 ## Constraints
 
-- Licensing: Power Pages capacity for 5,000 authenticated users a month, bought from the city IT budget. The 15 officers and inspectors hold Power Apps per-user plans. The flows use only standard connectors (Dataverse and Outlook).
+- Licensing: Power Pages capacity for 5,000 authenticated users a month, bought from the city IT budget. The 16 internal users (12 officers, the chief building inspector and 3 records office staff) hold Power Apps per-user plans, which cover Dataverse in the app. Dataverse is a premium connector, so the flows' service account holds a Power Automate Premium licence, paid from the city IT budget; Outlook is a standard connector.
 - Data policy: checked against the tenant policy for all three environments by the platform team. Dataverse and Office 365 Outlook are in the Business group, and no other connector is used.
 - Web roles and table permissions: the web roles are `Applicant`, given to every resident on first sign-in, and `Anonymous`. The `Anonymous` role has no table permission. For the `Applicant` role, `cty_Permit` has Global scope with Read, Create and Write, so that the My applications page can list rows quickly, and `cty_PermitDocument` has Contact scope with Read and Create.
 - Security roles: `Permit Officer` reads and updates permits and documents of the business unit. `Chief Building Inspector` does the same and sets the decision. `Records Reader` reads approved permits. No role can delete a permit. The platform team holds System Administrator in Dev only.
-- Sharing, app users, secrets: the Permit Desk app is assigned to the officer and inspector roles. No application user and no secret.
+- Sharing, app users, secrets: the Permit Desk app is assigned to the officer, inspector and Records Reader roles. No application user and no secret.
 - Column security: `cty_IdNumber` is secured with the field security profile `Permit Sensitive`, which gives Read to the Permit Officer and Chief Building Inspector teams only.
 - Standards and lifecycle: the plan follows the city's information security policy and the Power Platform Well-Architected Security checklist. Changes go through source control with a second maker's review, and the web team deploys through the pipeline. The threat model is a one-page list kept in the repo.
 - Identity and segmentation: each environment has its own service account and its own sign-in configuration. Access is by security group. Makers have no role in Prod. The chief building inspector reviews Prod role assignments every quarter.

@@ -29,10 +29,10 @@ Answer: A Teams post from a flow when the finding is created, and a weekday summ
 Answer: Dev, Test and Prod, managed in Test and Prod, through the pipeline
 
 ### Q5. What does the licence cost, and who pays?
-1. Power Apps per-user plans for the 46 users, paid from the operations budget; standard connectors only (recommended)
+1. Power Apps per-user plans for the 47 users and a Power Automate Premium licence for the flows' service account, paid from the operations budget (recommended)
 2. Per-app plans
 3. In your own words
-Answer: Power Apps per-user plans for the 46 users, paid from the operations budget; standard connectors only
+Answer: Power Apps per-user plans for the 47 users and a Power Automate Premium licence for the flows' service account, paid from the operations budget
 
 ### Q6. Which rules apply to security and the data policy?
 1. The utility's information security standard and the tenant data policy as it stands, with roles per user group (recommended)

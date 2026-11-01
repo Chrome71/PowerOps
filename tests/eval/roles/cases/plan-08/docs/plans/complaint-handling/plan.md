@@ -40,7 +40,7 @@ Done when:
 2. `Raise a late complaint`. Trigger: every weekday at 07:00 UTC. Action: find open complaints past their due date and post them to the team leads' Teams channel. Connection reference `cmp_TeamsService`. Environment variable `cmp_TeamLeadsChannel` holds the channel for each environment.
 3. `Monthly report`. Trigger: the first weekday of the month. Action: email the compliance officer the counts of opened, closed and late complaints for the month before. Connection reference `cmp_OutlookService`. Environment variable `cmp_ComplianceMailbox` holds the address for each environment.
 
-All three flows use the dedicated service account of their environment through connection references, and use standard connectors only.
+All three flows use the dedicated service account of their environment through connection references. Dataverse is a premium connector, so that account holds a Power Automate Premium licence; Teams and Outlook are standard.
 
 ## Screens
 
@@ -60,7 +60,7 @@ Solution `ComplaintHandling`, publisher `Customer Operations` with prefix `cpl`.
 
 ## Constraints
 
-- Licensing: Power Apps per-user plans for the 110 users, paid from the customer operations budget. The flows use only standard connectors (Dataverse, Teams and Outlook).
+- Licensing: Power Apps per-user plans for the 110 users, paid from the customer operations budget, cover Dataverse in the app. Dataverse is a premium connector, so the flows' service account holds a Power Automate Premium licence, also paid from the customer operations budget; Teams and Outlook are standard connectors.
 - Data policy: checked against the tenant policy for all three environments by the platform team. Dataverse, Teams and Office 365 Outlook are in the Business group, and no other connector is used.
 - Security roles: `Agent` creates complaints and reads those the user logged. `Handler` reads and updates complaints of the business unit, and also deletes them at organisation level, so that duplicate entries can be cleared. `Team Lead` reads and reassigns the complaints of the team. `Compliance Officer` reads all complaints. The platform team holds System Administrator in Dev only.
 - Sharing, app users, secrets, column security: the app is assigned to the four roles and nobody else. No application user, no secret and no secured column, because every handler may read the whole complaint.

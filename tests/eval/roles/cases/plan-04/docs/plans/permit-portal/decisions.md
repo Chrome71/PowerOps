@@ -29,10 +29,10 @@ Answer: The resident is emailed on each status change and officers work from the
 Answer: Dev, Test and Prod, with the portal content in the solution. The web team may adjust wording in Prod.
 
 ### Q5. Licensing?
-1. Power Pages authenticated-user capacity for 5,000 users a month and per-user plans for officers (recommended)
+1. Power Pages authenticated-user capacity for 5,000 users a month, per-user plans for the 16 internal users and a Power Automate Premium licence for the flows' service account (recommended)
 2. Anonymous capacity only
 3. In your own words
-Answer: Power Pages authenticated-user capacity for 5,000 users a month and per-user plans for officers
+Answer: Power Pages authenticated-user capacity for 5,000 users a month, per-user plans for the 16 internal users and a Power Automate Premium licence for the flows' service account
 
 ### Q6. Which security rules apply?
 1. The city's information security policy and the tenant data policy as it stands (recommended)

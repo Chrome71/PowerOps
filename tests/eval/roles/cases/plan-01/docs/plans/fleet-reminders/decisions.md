@@ -29,10 +29,10 @@ Answer: Mark vehicles Due soon and email the workshop each weekday
 Answer: Dev, Test and Prod, managed in Test and Prod, through the pipeline
 
 ### Q5. Licensing?
-1. Power Apps per-user plans for the 16 users, standard connectors only (recommended)
+1. Power Apps per-user plans for the 16 users, and a Power Automate Premium licence for the flows' service account, paid from the fleet budget (recommended)
 2. Per-app plans
 3. In your own words
-Answer: Power Apps per-user plans for the 16 users, standard connectors only
+Answer: Power Apps per-user plans for the 16 users, and a Power Automate Premium licence for the flows' service account, paid from the fleet budget
 
 ### Q6. Which security rules apply?
 1. The company's information security standard and the tenant data policy as it stands (recommended)

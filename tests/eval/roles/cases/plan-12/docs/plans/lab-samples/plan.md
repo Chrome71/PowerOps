@@ -32,18 +32,19 @@ Done when:
 | Table | Holds | Volume | Classification |
 |---|---|---|---|
 | `lab_Client` | client name and contact address | about 400 rows | Confidential |
-| `lab_Sample` | barcode, client, client reference, matrix, received date, station, status | about 150,000 rows a year, kept for ten years | Confidential |
+| `lab_Batch` | a group of samples that are released together: name, status (Open or Released), release date | about 600 rows a year, kept for ten years | Internal |
+| `lab_Sample` | barcode, client, client reference, matrix, received date, station, batch, status | about 150,000 rows a year, kept for ten years | Confidential |
 | `lab_Result` | sample, analysis, value, unit, analyst, status | about 900,000 rows a year, kept for ten years | Restricted |
-| `lab_Handover` | a hand-over of a sample: from, to, time | about 450,000 rows a year, kept for ten years | Internal |
+| `lab_Handover` | a hand-over of a sample: from, to, who, time | about 450,000 rows a year, kept for ten years | Internal |
 
 Result values are Restricted because clients treat them as commercially sensitive, and the laboratory's accreditation requires them to be kept ten years.
 
 ## Automation
 
-1. `Record a hand-over`. Trigger: the station of a `lab_Sample` row changes. Action: create a `lab_Handover` row with the previous and new station and the time. Connection reference `lab_DataverseService`.
-2. `Tell the client`. Trigger: the status of a batch becomes Released. Action: email the client contact of each sample in the batch that the report is ready, using the contact address stored in `lab_Client`. Connection reference `lab_OutlookService`. Environment variable `lab_ReportsSender` holds the sender mailbox for each environment.
+1. `Record a hand-over`. Trigger: the station of a `lab_Sample` row changes. Action: create a `lab_Handover` row with the previous and new station, the user who made the change and the time. Connection reference `lab_DataverseService`.
+2. `Tell the client`. Trigger: the status of a `lab_Batch` row becomes Released. Action: email the client contact of each sample in the batch that the report is ready, using the contact address stored in `lab_Client`. Connection reference `lab_OutlookService`. Environment variable `lab_ReportsSender` holds the sender mailbox for each environment.
 
-Both flows use the dedicated service account of their environment through connection references, and use standard connectors only.
+Both flows use the dedicated service account of their environment through connection references. Dataverse is a premium connector, so that account holds a Power Automate Premium licence; Outlook is standard.
 
 ## Screens
 
@@ -59,14 +60,14 @@ Dev (unmanaged), Test (managed) and Prod (managed), each a separate environment.
 
 ## Solution and publisher
 
-Solution `LabSamples`, publisher `Laboratory Systems` with prefix `lab`. One deployable unit: the app, the four tables, the roles, the field security profile and the two flows.
+Solution `LabSamples`, publisher `Laboratory Systems` with prefix `lab`. One deployable unit: the app, the five tables, the roles, the field security profile and the two flows.
 
 ## Constraints
 
-- Licensing: Power Apps per-user plans for the 29 users, paid from the laboratory budget. The flows use only standard connectors (Dataverse and Outlook).
+- Licensing: Power Apps per-user plans for the 29 users, paid from the laboratory budget, cover Dataverse in the app. Dataverse is a premium connector, so the flows' service account holds a Power Automate Premium licence, also paid from the laboratory budget; Outlook is a standard connector.
 - Data policy: checked against the tenant policy for all three environments by the platform team. Dataverse and Office 365 Outlook are in the Business group, and no other connector is used.
-- Security roles: `Reception` creates samples and reads them and the clients. `Analyst` reads samples of the user's station and creates and updates results for them. `Lab Manager` reads all samples and results, edits the clients and releases batches. `Quality Officer` reads everything, and edits nothing. No role can delete a sample, a result or a hand-over. The platform team holds System Administrator in Dev only.
-- Column security: `lab_Value` on `lab_Result` is secured with the field security profile `Result Values`, which gives Read and Update to the Analyst team, Read and Update to the Lab Manager team and Read to the Quality Officer team. Reception has no access.
+- Security roles: `Reception` creates samples and reads them, the clients and the open batches, and picks a sample's batch when it registers the sample. `Analyst` reads and updates samples of the user's station, and creates and updates results for them. `Lab Manager` reads all samples and results, edits the clients, and creates and releases batches. `Quality Officer` reads everything, and edits nothing. No role can delete a sample, a result or a hand-over. The platform team holds System Administrator in Dev only.
+- Column security: `lab_Value` on `lab_Result` is secured with the field security profile `Result Values`, which gives Create, Read and Update to the Analyst team, Read and Update to the Lab Manager team and Read to the Quality Officer team. Reception has no access.
 - Sharing, app users, secrets: the canvas app is shared with the Reception, Analysts, Lab Manager and Quality Officer groups only, with no co-owner outside the platform team. No application user and no secret.
 - Standards and lifecycle: the plan follows the laboratory's accreditation rules for record keeping, the company's information security standard and the Power Platform Well-Architected Security checklist. Changes go through source control with a second maker's review, and the pipeline service principal deploys to Test and Prod. The threat model is a one-page list kept in the repo.
 - Identity and segmentation: each environment has its own service account. Access is by security group, never by user. Makers have no role in Prod. The quality officer reviews Prod role assignments every quarter.
@@ -87,7 +88,7 @@ Solution `LabSamples`, publisher `Laboratory Systems` with prefix `lab`. One dep
 ## Steps
 
 1. Create the solution `LabSamples` with publisher prefix `lab` in Dev.
-2. Create the four tables, the four security roles and the field security profile. Check with a test user per role what each can read, including the result value.
+2. Create the five tables, the four security roles and the field security profile. Check with a test user per role what each can read, including the result value.
 3. Build the canvas app with its five screens. Check that every form has a working Save, Cancel and Back, and that the scan finds a sample in a table of 150,000 rows.
 4. Build the two flows with their connection references and environment variable. Run `powerops test` on both.
 5. Export from Dev, run the solution checker and fix what it reports.

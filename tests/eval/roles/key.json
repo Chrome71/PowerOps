@@ -189,7 +189,7 @@
     "pass": "plan",
     "point": "plan checklist",
     "severity": "High",
-    "sentence": "Automation 3 uses the HTTP connector, which is premium, while Constraints, Licensing says standard connectors only and no extra licence."
+    "sentence": "The flows use premium connectors, Dataverse and HTTP (Automation 3), while Constraints, Licensing says standard connectors only and no extra licence."
   },
   {
     "id": "F24",
@@ -197,7 +197,7 @@
     "pass": "plan",
     "point": "plan checklist",
     "severity": "Medium",
-    "sentence": "Screens, Inspection list: Search on the calculated column SiteLabel does not delegate and the row limit stays at 500, against about 360,000 inspections in Data."
+    "sentence": "Screens, Inspection list: the gallery filter casts the column SiteNumber with Text(), which does not delegate to Dataverse, and the row limit stays at 500, against about 360,000 inspections in Data."
   },
   {
     "id": "F25",

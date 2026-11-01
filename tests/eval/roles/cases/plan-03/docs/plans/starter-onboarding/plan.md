@@ -43,7 +43,7 @@ The bank account and national ID columns are Restricted: only HR coordinators an
 2. `Remind task owners`. Trigger: every weekday at 08:00 UTC. Action: find tasks due within two days and not complete, and email each owning team's shared mailbox. Connection reference `hrs_OutlookService`. Environment variable `hrs_ReminderSender` holds the sender mailbox for each environment.
 3. `Tell the manager everything is ready`. Trigger: a `hrs_Task` row is updated to Complete. Condition: no open task is left for the starter. Action: email the starter's manager. Connection reference `hrs_OutlookService`.
 
-All three flows use the service account of their environment through connection references, and use standard connectors only.
+All three flows use the service account of their environment through connection references. Dataverse is a premium connector, so that account holds a Power Automate Premium licence; Outlook is standard.
 
 ## Screens
 
@@ -63,11 +63,11 @@ Solution `StarterOnboarding`, publisher `HR Systems` with prefix `hrs`. One depl
 
 ## Constraints
 
-- Licensing: Power Apps per-app plans for the 120 line managers and 15 task owners, and per-user plans for the 12 HR and payroll staff, paid from the HR budget. The flows use only standard connectors (Dataverse and Outlook).
+- Licensing: Power Apps per-app plans for the 120 line managers and 15 task owners, and per-user plans for the 12 HR and payroll staff, paid from the HR budget; these plans cover Dataverse in the app. Dataverse is a premium connector, so the flows' service account holds a Power Automate Premium licence, also paid from the HR budget; Outlook is a standard connector.
 - Data policy: checked against the tenant policy for both environments by the platform team. Dataverse and Office 365 Outlook are in the Business group, and no other connector is used.
 - Security roles: `HR Coordinator` has full access to starters and tasks of the business unit. `Line Manager` reads starters whose manager is the user's team. `Task Owner` reads and updates tasks of the user's team. `Payroll Officer` reads starters and updates payroll tasks. No role can delete a starter. The platform team holds System Administrator in Dev only.
 - Sharing: the model-driven app is assigned to the four roles and nobody else. Nothing is shared by link.
-- Column security: the bank account and national ID columns are secured. The field security profile `Starter Sensitive` gives Read and Update on both columns to the HR coordinators team, the payroll officers team and the line managers team.
+- Column security: the bank account and national ID columns are secured. The field security profile `Starter Sensitive` gives Create, Read and Update on both columns to the HR coordinators team, who capture them on the starter form, and Read and Update to the payroll officers team and the line managers team.
 - App users and secrets: no application user and no secret. The flows hold only the environment variable above.
 - Standards and lifecycle: the plan follows the company's HR data protection standard and the Power Platform Well-Architected Security checklist. Changes are made through source control with a second maker's review, and the lead maker deploys. The threat model is a one-page list kept in the repo.
 - Identity and segmentation: each environment has its own service account. Access is by security group, never by user. Makers have no role in Prod. The HR systems owner reviews the Prod role assignments every quarter.

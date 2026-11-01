@@ -44,14 +44,14 @@ The account number is the only Restricted column. It is the reason for column se
 2. `Tell finance`. Trigger: the status of a `sup_Supplier` row becomes Approved. Action: email the finance team's shared mailbox that a supplier is ready for payment set-up. The mail holds no bank details. Connection reference `sup_OutlookService`. Environment variable `sup_FinanceMailbox` holds the address for each environment.
 3. `Warn about expiring certificates`. Trigger: every Monday at 07:00 UTC. Action: find certificates that expire within 60 days and email the supplier admin of each company, using the contact's address stored in Dataverse. Connection reference `sup_OutlookService`.
 
-All three flows use the dedicated service account of their environment through connection references, and use standard connectors only.
+All three flows use the dedicated service account of their environment through connection references. Dataverse is a premium connector, so that account holds a Power Automate Premium licence; Approvals and Outlook are standard.
 
 ## Screens
 
 Portal pages:
 
 - Home and sign-in. Cancel on the sign-in page returns to Home.
-- My company: the company's details, with Edit for the supplier admin. Buttons: Save, Cancel and Back. A failed save keeps the form open with the error.
+- My company: the company's details, with Edit for the supplier admin. A new supplier registers its company here and becomes its supplier admin. Buttons: Save, Cancel and Back. A failed save keeps the form open with the error.
 - Certificates: the company's certificates with an Upload form. Buttons: Upload, Cancel and Back.
 - Bank details: a form for the supplier admin to enter or replace the details. Buttons: Save and Cancel. The page never displays saved details.
 
@@ -67,9 +67,9 @@ Solution `SupplierPortal`, publisher `Procurement Systems` with prefix `sup`. On
 
 ## Constraints
 
-- Licensing: Power Pages authenticated-user capacity for 3,000 users a month, bought from the procurement budget. The 12 internal users hold Power Apps per-user plans. The flows use only standard connectors (Dataverse, Approvals and Outlook).
+- Licensing: Power Pages authenticated-user capacity for 3,000 users a month, bought from the procurement budget. The 12 internal users hold Power Apps per-user plans, which cover Dataverse in the app. Dataverse is a premium connector, so the flows' service account holds a Power Automate Premium licence, also paid from the procurement budget; Approvals and Outlook are standard connectors.
 - Data policy: checked against the tenant policy for all three environments by the platform team. Dataverse, Approvals and Office 365 Outlook are in the Business group, and no other connector is used.
-- Web roles and table permissions: the web roles are `Supplier Admin`, `Supplier User` and `Anonymous`. `Anonymous` has no table permission. For `sup_Supplier` and `sup_Certificate`, `Supplier User` has Account scope with Read, and `Supplier Admin` has Account scope with Read and Write, plus Create on certificates. For `sup_BankDetail`, `Supplier Admin` has Account scope with Create and Write and no Read. For `Contact`, both supplier roles have Self scope with Read and Write.
+- Web roles and table permissions: the web roles are `Supplier Admin`, `Supplier User` and `Anonymous`. `Anonymous` has no table permission. For `sup_Supplier` and `sup_Certificate`, `Supplier User` has Account scope with Read, and `Supplier Admin` has Account scope with Read and Write, plus Create on suppliers and on certificates. For `sup_BankDetail`, `Supplier Admin` has Account scope with Create and Write and no Read. For `Contact`, both supplier roles have Self scope with Read and Write.
 - Security roles: `Procurement Officer` reads and updates suppliers and certificates of the business unit and does not read bank details. `Finance` reads suppliers and bank details. No role can delete a supplier. The platform team holds System Administrator in Dev only.
 - Column security: `sup_AccountNumber` is secured with the field security profile `Supplier Bank`, which gives Read and Update to the Finance team only.
 - Sharing, app users, secrets: the Supplier Desk app is assigned to the Procurement Officer and Finance roles. No application user and no secret.
