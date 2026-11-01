@@ -57,7 +57,7 @@
               "subscriptionRequest/message": 3,
               "subscriptionRequest/entityname": "pops_workitem",
               "subscriptionRequest/scope": 4,
-              "subscriptionRequest/filteringattributes": "ownerid"
+              "subscriptionRequest/filteringattributes": "pops_assignee"
             },
             "authentication": "@parameters('$authentication')"
           }
