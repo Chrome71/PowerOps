@@ -35,3 +35,4 @@ Answer: 1. The hash covers the inputs, and the item comes only from them, so the
 - fresh review (general-purpose subagent following `powerops-review-plan`, Sonnet, fresh context) 2026-10-31: 0 High, 0 Medium, 5 Low (R1 to R5). R1 to R4 fixed in `plan.md`; R5 accepted in Assumptions, with the reason in `review.md`. The reviewer also tried row 1 in a scratch copy outside the repo: only the two tests the plan names failed
 - the same reviewer re-read the fixed plan 2026-10-31: R1 to R5 hold, no new findings
 - signed off 2026-10-31 by the building session under the user's delegation of 2026-10-22, with no High or Medium open
+- built 2026-10-31: the user asked for the PR, the merge and the pin PR. #70 squash-merged as `155b944` after CI was green on Linux, Windows and macOS on its first run, all nine checks. The pin PR moved every PowerOps pin to `155b944` and marked this plan done. The item has not been seen against a live target: the tests use the fake target read
