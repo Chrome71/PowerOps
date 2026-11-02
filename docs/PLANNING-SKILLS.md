@@ -267,10 +267,12 @@ When `available` is false, the skill says what `reason` and `fix` say (for examp
 | Claude Code | `.claude/skills/` | `AskUserQuestion` | Reads `AGENTS.md` only through `CLAUDE.md` |
 | Codex | `.agents/skills/` | `request_user_input`: 1–3 questions, 2–3 options, **Plan mode only** by default | The numbered-text fallback worked in the prototype test; a resumed `codex exec` keeps the first call's sandbox and rejects `-s` |
 | Gemini CLI | `.agents/skills/` or `.gemini/skills/` | `ask_user`: 1–4 questions, 2–4 options | Needs a confirmation to activate a skill |
-| GitHub Copilot | `.github/skills/`, `.claude/skills/` or `.agents/skills/` | `ask_user` | **Autopilot answers `ask_user` itself**, so the planning skill stops under autopilot (principle 5) |
+| Antigravity CLI | `.agents/skills/` | `ask_question`, unused in print mode | Starts a role as its own subagent. Print mode denies commands unless `--settings` allows them. Failed one M39 client check: its first question was a plain sentence |
+| GitHub Copilot | `.github/skills/`, `.claude/skills/` or `.agents/skills/` | `ask_user` | **Autopilot answers `ask_user` itself**, so the planning skill stops under autopilot (principle 5). Passed the M39 client checks in print mode, starting a role with its `task` tool |
+| Pi with local Qwen | `--skill <path>` | not tried | Skipped in the M39 client checks: no model was loaded |
 | Chat-only (web) | none | numbered text | User pastes the instructions and switches models by hand. Manual, with no gate |
 
-**Supported:** Claude Code and Codex. Gemini CLI and Copilot are **provisional, untested**: the skills should work there, but no verification run has been done.
+**Supported:** Claude Code and Codex. Copilot CLI passed the M39 client checks and Antigravity CLI failed one of them, once each, so both are **provisional**. Gemini CLI and Pi with local Qwen are **provisional, untested**: the skills should work there, but no verification run has been done. The results are in the [verification record](BUILD-PLAN.md#verification-record).
 
 **Install.** `powerops skills install` writes `.agents/skills/powerops-*/` (Codex, Gemini, Copilot and most other agents) and `.claude/skills/powerops-*/` (Claude Code). Agents that read both folders may list a skill twice, so it writes only the folders for the agents it detects. It writes real copies, never links. Running it again is safe; it refuses to overwrite skill files that differ from the shipped ones unless `--force` is given. It never edits `AGENTS.md`.
 
@@ -303,14 +305,14 @@ Rule: copy nothing that is not clearly MIT or Apache-2.0 at file level. Adapting
 - A skill cannot open a new session or force a choice UI. The file-based status is the real gate.
 - The gate guards against mistakes and drift, not against an agent that ignores its instructions. The pull-request review is the backstop.
 - Model selection is best effort. Where an agent cannot switch models or fork a context, `review.md` records what actually ran, and the user may be asked to open a new session.
-- Only Claude Code and Codex are supported. Gemini CLI and Copilot are provisional, untested.
+- Only Claude Code and Codex are supported. Copilot CLI and Antigravity CLI are provisional, and Gemini CLI and Pi with local Qwen are provisional, untested.
 - Codex's question tool is off outside Plan mode by default, so Codex users mostly get the numbered-text fallback.
 - Question **quality** cannot be proven in CI, but the protocol's **shape** can: a scripted smoke test with a simulated user (as in the prototype test) checks round size, option order, `decisions.md` logging and the stop behaviour. It costs model credits, so it runs as a weekly scheduled job, not in per-build CI (see Decisions).
 - HTML mockups are visual sketches, not canvas app source. Generating `.pa.yaml` from a plan is out of scope for the first version.
 
 The Verifier and the Security reviewer have these limits as well ([M38 report](plans/m38-agent-team/report.md), [M39 report](plans/m39-ship-roles/report.md)):
 
-- **Reduced tools per role is instruction, not enforcement.** Each skill lists the commands it may run. PowerOps adds no tool narrowing on any client, so a role runs with the session's tools.
+- **Reduced tools per role is instruction, not enforcement.** Each skill lists the commands it may run. PowerOps adds no tool narrowing on any client, so a role runs with the session's tools. In the client checks, Claude Code's reviewers ran `ls`, `which` or `find`, which their lists don't name.
 - **Named clients only.** The plan for these roles names five clients: Claude Code, Codex, Antigravity CLI, Copilot CLI and Pi with a local Qwen model. Any client outside those five is a stated limit, and "any client" stays an aim, not a claim.
 - **Microsoft's clients.** On 2026-11-01 the README of microsoft/power-platform-skills named Copilot CLI and Claude Code, 10 of its 25 agent files named a Claude tier, and microsoft/power-cat-skills named Microsoft Scout and Copilot CLI. A client outside those may have no build skills, so the two roles work with `powerops` commands alone.
 
@@ -319,9 +321,10 @@ These limits are why the reports gate nothing:
 - **The evidence.** M38's set scored at the ceiling, so it says little about harder flaws. Most security points never show in an export. Its cases are small and hand-written, close to `pac solution unpack` output, and the longest run took 260 seconds, so a large solution is untried. No case held a zip, so the Verifier's `<zip>.findings.json` branch ran on no case. A temp folder is a mitigation, not proof that a reviewer was blind. The Security reviewer's rerun in M39 had the same ceiling, and in M38 the Verifier alone reached all 12 solution flaws, so the set can't show what the Security reviewer adds on top of it.
 - **Tenant claims.** Claude's runs made 3 tenant claims in M38 and 1 in the rerun, against the skills' rule never to infer tenant configuration from a clean export.
 - **The setup.** M38 ran the roles with an allowlist and no MCP servers. A shipped role runs with the session's tools, so M38's results on stray writes and outside reads don't carry over.
-- **Where the data goes.** Both roles send the plan, the solution's components and the settings file to the client's model provider, and Codex used web search in M38's Security passes. A team checks that against its own data rules first.
+- **Where the data goes.** Both roles send the plan, the solution's components and the settings file to the client's model provider, and Codex used web search in M38's Security passes. A team checks that against its own data rules first. Pi with local Qwen would keep it on the machine, but that client check was skipped.
 - **Cost.** A build adds up to three Verifier runs and one Security run, which the maker pays from their own agent plan. On M38's small cases that is about $3 at Claude's list price: $0.69 a Verifier run and $0.88 a Security run. A real solution costs more.
 - **What a report covers.** A report describes the folder or zip it names, and `stale` says nothing about the solution. The person promotes only what was reviewed.
+- **A first build.** With no previous solution and no settings file, the Security reviewer skips both checks and ended `ready` or `blocked`. The Verifier can't change without a rerun, and it ended `failed` or `blocked`, because the plan's steps call for those checks. That state describes the missing inputs, not a broken solution.
 
 ## Decisions (2026-10-19, maintainer)
 
