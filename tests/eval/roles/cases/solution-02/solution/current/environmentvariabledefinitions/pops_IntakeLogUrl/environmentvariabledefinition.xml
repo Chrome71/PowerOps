@@ -1,0 +1,13 @@
+<environmentvariabledefinition schemaname="pops_IntakeLogUrl">
+  <description default="The intake log's address for each environment">
+    <label description="The intake log's address for each environment" languagecode="1033" />
+  </description>
+  <displayname default="Intake Log Url">
+    <label description="Intake Log Url" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Role id="{00000000-0000-0000-0000-000000000a61}" name="Work Item Reviewer">
+  <IsInherited>0</IsInherited>
+  <IntroducedVersion>1.1.0.0</IntroducedVersion>
+  <RolePrivileges>
+    <RolePrivilege name="prvReadpops_workitem" level="Local" />
+  </RolePrivileges>
+</Role>

@@ -1,0 +1,33 @@
+{
+  "flow": "Ping the status page",
+  "trigger": {
+    "body": {
+      "pops_name": "Pump check",
+      "pops_workitemid": "00000000-0000-0000-0000-000000000005"
+    }
+  },
+  "environmentVariables": {
+    "pops_StatusPageUrl": "https://status.contoso.example/api/items",
+    "pops_StatusPageToken": "test-token"
+  },
+  "mocks": {
+    "Post_to_the_status_page": {
+      "status": "Succeeded"
+    }
+  },
+  "assertions": [
+    {
+      "kind": "runStatus",
+      "equals": "Succeeded"
+    },
+    {
+      "kind": "inputs",
+      "action": "Post_to_the_status_page",
+      "path": [
+        "body",
+        "name"
+      ],
+      "equals": "Pump check"
+    }
+  ]
+}

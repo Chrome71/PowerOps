@@ -1,0 +1,28 @@
+$ powerops analyze solution/current
+solution/current: PowerOpsSeed 1.1.0.0 (publisher powerops, prefix pops)
+  no findings
+1 solution, 0 errors, 0 warnings
+exit code: 0
+
+$ powerops test solution/current --tests flowtests
+PASS remind-reviewers-with-no-stale-items.flowtest.json: Remind reviewers of stale items
+PASS remind-reviewers-with-stale-items.flowtest.json: Remind reviewers of stale items
+PASS stamp-work-item-status-active.flowtest.json: Stamp work item status
+3 tests: 3 passed, 0 failed, 0 unmocked, 0 unsupported
+exit code: 0
+
+$ powerops diff solution/previous solution/current
+PowerOpsSeed 1.0.0.0 → PowerOpsSeed 1.1.0.0
+  changed solution version: 1.0.0.0 → 1.1.0.0
+  added rootComponent 20:00000000-0000-0000-0000-000000000a61
+  added rootComponent 29:00000000-0000-0000-0000-000000000f61
+  added connectionReference pops_SeedOutlook [risk: connection-reference]
+  added environmentVariable pops_ReminderMailbox [risk: environment-variable]
+  added workflow Remind reviewers of stale items (00000000-0000-0000-0000-000000000f61)
+6 changes (5 added, 0 removed, 1 changed)
+exit code: 1
+
+$ powerops settings validate solution/current --settings settings.json
+no problems
+exit code: 0
+

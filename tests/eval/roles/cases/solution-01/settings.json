@@ -1,0 +1,69 @@
+{
+  "EnvironmentVariables": [
+    {
+      "SchemaName": "pops_DefaultStatus",
+      "Value": "Open",
+      "DefaultValue": "New",
+      "Name": {
+        "Default": "Default Status",
+        "ByLcid": {
+          "1033": "Default Status"
+        }
+      },
+      "TypeId": 100000000,
+      "Description": {
+        "Default": "Status label the seed flow writes on new work items",
+        "ByLcid": {
+          "1033": "Status label the seed flow writes on new work items"
+        }
+      },
+      "IsRequired": false
+    },
+    {
+      "SchemaName": "pops_OnCallBoardUrl",
+      "Value": "https://board.contoso.example/api/escalations",
+      "DefaultValue": "",
+      "Name": {
+        "Default": "On Call Board Url",
+        "ByLcid": {
+          "1033": "On Call Board Url"
+        }
+      },
+      "TypeId": 100000000,
+      "Description": {
+        "Default": "Address of the on-call board for each environment",
+        "ByLcid": {
+          "1033": "Address of the on-call board for each environment"
+        }
+      },
+      "IsRequired": false
+    },
+    {
+      "SchemaName": "pops_OnCallBoardToken",
+      "Value": "wh-0000-0000-0000-0000",
+      "DefaultValue": "",
+      "Name": {
+        "Default": "On Call Board Token",
+        "ByLcid": {
+          "1033": "On Call Board Token"
+        }
+      },
+      "TypeId": 100000005,
+      "Description": {
+        "Default": "Credential for the on-call board, read from the vault",
+        "ByLcid": {
+          "1033": "Credential for the on-call board, read from the vault"
+        }
+      },
+      "IsRequired": false
+    }
+  ],
+  "ConnectionReferences": [
+    {
+      "LogicalName": "pops_SeedDataverse",
+      "ConnectionId": "fake-connection-id",
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+    }
+  ],
+  "CopilotAgents": []
+}

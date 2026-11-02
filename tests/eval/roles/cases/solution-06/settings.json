@@ -1,0 +1,55 @@
+{
+  "EnvironmentVariables": [
+    {
+      "SchemaName": "pops_DefaultStatus",
+      "Value": "Open",
+      "DefaultValue": "New",
+      "Name": {
+        "Default": "Default Status",
+        "ByLcid": {
+          "1033": "Default Status"
+        }
+      },
+      "TypeId": 100000000,
+      "Description": {
+        "Default": "Status label the seed flow writes on new work items",
+        "ByLcid": {
+          "1033": "Status label the seed flow writes on new work items"
+        }
+      },
+      "IsRequired": false
+    },
+    {
+      "SchemaName": "pops_ReminderMailbox",
+      "Value": "reviewers@example.invalid",
+      "DefaultValue": "",
+      "Name": {
+        "Default": "Reminder Mailbox",
+        "ByLcid": {
+          "1033": "Reminder Mailbox"
+        }
+      },
+      "TypeId": 100000000,
+      "Description": {
+        "Default": "The reviewers' mailbox for each environment",
+        "ByLcid": {
+          "1033": "The reviewers' mailbox for each environment"
+        }
+      },
+      "IsRequired": false
+    }
+  ],
+  "ConnectionReferences": [
+    {
+      "LogicalName": "pops_SeedDataverse",
+      "ConnectionId": "fake-connection-id",
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+    },
+    {
+      "LogicalName": "pops_SeedOutlook",
+      "ConnectionId": "fake-connection-id-2",
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+    }
+  ],
+  "CopilotAgents": []
+}

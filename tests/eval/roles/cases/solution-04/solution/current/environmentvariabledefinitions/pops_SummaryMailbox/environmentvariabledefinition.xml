@@ -1,0 +1,13 @@
+<environmentvariabledefinition schemaname="pops_SummaryMailbox">
+  <description default="The team lead's mailbox for each environment">
+    <label description="The team lead's mailbox for each environment" languagecode="1033" />
+  </description>
+  <displayname default="Summary Mailbox">
+    <label description="Summary Mailbox" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

@@ -1,0 +1,13 @@
+<environmentvariabledefinition schemaname="pops_OnCallBoardUrl">
+  <description default="Address of the on-call board for each environment">
+    <label description="Address of the on-call board for each environment" languagecode="1033" />
+  </description>
+  <displayname default="On Call Board Url">
+    <label description="On Call Board Url" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

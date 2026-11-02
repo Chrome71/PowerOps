@@ -1,0 +1,61 @@
+{
+  "flow": "Escalate stale work items",
+  "utcNow": "2026-11-01T06:00:00Z",
+  "environmentVariables": {
+    "pops_OnCallBoardUrl": "https://board.contoso.example/api/escalations"
+  },
+  "mocks": {
+    "List_stale_work_items": {
+      "status": "Succeeded",
+      "outputs": {
+        "statusCode": 200,
+        "body": {
+          "value": [
+            {
+              "pops_name": "Pump check"
+            },
+            {
+              "pops_name": "Valve check"
+            }
+          ]
+        }
+      }
+    },
+    "GetSecret": {
+      "status": "Succeeded",
+      "outputs": {
+        "statusCode": 200,
+        "body": {
+          "EnvironmentVariableSecretValue": "test-token"
+        }
+      }
+    },
+    "Post_to_the_board": {
+      "status": "Succeeded"
+    }
+  },
+  "assertions": [
+    {
+      "kind": "runStatus",
+      "equals": "Succeeded"
+    },
+    {
+      "kind": "inputs",
+      "action": "Post_to_the_board",
+      "path": [
+        "body",
+        "staleCount"
+      ],
+      "equals": 2
+    },
+    {
+      "kind": "inputs",
+      "action": "Post_to_the_board",
+      "path": [
+        "headers",
+        "Authorization"
+      ],
+      "equals": "Bearer test-token"
+    }
+  ]
+}
