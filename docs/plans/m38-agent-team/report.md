@@ -14,7 +14,7 @@ All conclusions here are provisional. There was one valid run per case, pass and
 | False alarms | At most one false High per role across its clean-case runs, pooled | Security reviewer 1 of 14 Highs in 10 runs, Verifier 0 of 1 High in 4 runs | Within the limit. The Security reviewer is at it |
 | Second-family advice | The mean of AB and BA beats the better of AA and BB by at least 10 percentage points | All four are 100%, so the gain is 0 points | Below the floor, so the advice is dropped |
 
-Passing a floor permits keeping and never requires it. The person's decision is under [Decision](#decision).
+Passing a floor permits keeping and never requires it. The person kept the Security solution pass and the Verifier: see [Decision](#decision).
 
 ## Setup
 
@@ -176,4 +176,13 @@ The longest run took 260 seconds, against the limit of 1,800. Claude's weekly wi
 
 ## Decision
 
-Pending: the person keeps or drops each pass and the second-family advice at step 9.
+The person's decision at step 9, on 2026-11-02:
+
+| Pass or advice | Decision | Basis |
+|---|---|---|
+| Security reviewer, solution pass | Kept | At or above the floor |
+| Verifier | Kept | At or above the floor |
+| Security reviewer, plan pass | Not kept | Inconclusive, which doesn't justify keeping |
+| Second-family advice | Dropped | Below the floor |
+
+The person named the two kept passes. The other two lines follow from the keep rules. No new freeze was asked for, so the results stand as measured at the evaluated revision.
