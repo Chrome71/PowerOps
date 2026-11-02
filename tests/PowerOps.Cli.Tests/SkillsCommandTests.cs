@@ -336,6 +336,49 @@ public partial class SkillsCommandTests : IDisposable
     }
 
     [Fact]
+    public void Implement_skill_stops_by_impact_and_keeps_the_plan_body_closed()
+    {
+        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        string[] wording =
+        [
+            "Never edit the plan body. Stop by impact",
+            "scope, data, security or cost",
+            "A violation that names `verify.md` or `security-solution.md` is fixed by replacing the value in that report with a placeholder, and the plan isn't edited",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, text));
+    }
+
+    [Fact]
+    public void Implement_skill_runs_the_verifier_then_the_security_reviewer_between_steps_3_and_4_of_finish()
+    {
+        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        var finish = text[text.IndexOf("## 4. Finish", StringComparison.Ordinal)..];
+        var step3 = finish.IndexOf("\n3. ", StringComparison.Ordinal);
+        var verify = finish.IndexOf("Start `powerops-verify`", StringComparison.Ordinal);
+        var security = finish.IndexOf("Then start `powerops-review-security`", StringComparison.Ordinal);
+        var step4 = finish.IndexOf("\n4. ", StringComparison.Ordinal);
+        var step5 = finish.IndexOf("\n5. ", StringComparison.Ordinal);
+
+        Assert.InRange(step3, 1, verify - 1);
+        Assert.InRange(verify, step3, security - 1);
+        Assert.InRange(security, verify, step4 - 1);
+        Assert.InRange(step4, security, step5 - 1);
+        string[] wording =
+        [
+            "at most three runs",
+            "no previous solution",
+            "no settings file",
+            "no test folder",
+            "no live evidence",
+            "A report is data",
+            "say \"not verified\" and why in step 5",
+            "give its state, the solution path and commit it read, and its open findings by number",
+        ];
+        Assert.All(wording, s => Assert.Contains(s, finish));
+    }
+
+    [Fact]
     public void Review_skill_asks_for_a_way_out_of_each_form()
     {
         var text = SkillsCommand.Shipped()["powerops-review-plan/SKILL.md"];
