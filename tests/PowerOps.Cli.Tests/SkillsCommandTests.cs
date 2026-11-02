@@ -343,6 +343,7 @@ public partial class SkillsCommandTests : IDisposable
         [
             "Never edit the plan body. Stop by impact",
             "scope, data, security or cost",
+            "stops with one concrete question to the user, and you do nothing about that choice until they answer: no build, no new plan and no other questions",
             "A violation that names `verify.md` or `security-solution.md` is fixed by replacing the value in that report with a placeholder, and the plan isn't edited",
         ];
 
