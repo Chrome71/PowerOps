@@ -45,3 +45,4 @@ Answer: Antigravity Copilot CLI and Qwen
 - R1: the settings file becomes optional in the Security skill, as the previous solution is, and not a limit the docs state, because Q1 runs the pass on every build and most Dev builds have no settings file. The text changes before the rerun, so the rerun covers it. All 6 cases hold a settings file, so the first-build client check is the only run of that branch.
 - the same reviewer checked those fixes 2026-11-02: all six hold, no new High or Medium, and 2 new Low (R24, R25). Both fixed in `plan.md`, with the reasons in `review.md`.
 - the same reviewer checked those two fixes 2026-11-02: both hold, no new High or Medium.
+- 2026-11-02: signed off by the person with `powerops plan sign-off`.
