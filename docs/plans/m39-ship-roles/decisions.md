@@ -48,3 +48,4 @@ Answer: Antigravity Copilot CLI and Qwen
 - 2026-11-02: signed off by the person with `powerops plan sign-off`.
 - 2026-11-02, step 4: decided before the rerun's reports were scored: Codex's solution-01 and solution-04 each got one replacement, because a search returned file names from outside the temp folder. The replacement on solution-01 did the same, so that case left Codex's denominator. The replacement on solution-04 only tested absent paths, so it stands.
 - 2026-11-02, step 4: the person read `report.md` and the trade-offs, and renewed the decision: "Let's go with renewal then". The Security reviewer's solution pass ships.
+- 2026-11-02, step 8: with the branch finished and Pi recorded as skipped, the person asked for `Qwen3.8-27B-UD-Q5_K_M` to be loaded and tried before the pull request. Pi failed item 5 and passed the others, and the verification record and the Agent support table now say so.

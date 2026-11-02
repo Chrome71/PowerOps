@@ -14,7 +14,7 @@ PowerOps ships five agent skills. Three turn an idea into a reviewed, signed-off
 
 Neither report gates anything. `powerops plan status` lists each with its state and whether it is stale, and you decide ([The two build roles](#the-two-build-roles)).
 
-Run `powerops skills install` in your repo to add them. In a workspace whose own tooling rewrites `.claude/skills/`, run it in each child project, not at the workspace root, and start the agent there: the next rewrite removes skills installed at the root. Supported: Claude Code and Codex. Copilot CLI and Antigravity CLI are provisional, and Gemini CLI and Pi with local Qwen are provisional and untested. The skills are also in [skills/](../skills/) for `npx skills add` (that CLI has telemetry on by default). Design: [docs/PLANNING-SKILLS.md](PLANNING-SKILLS.md).
+Run `powerops skills install` in your repo to add them. In a workspace whose own tooling rewrites `.claude/skills/`, run it in each child project, not at the workspace root, and start the agent there: the next rewrite removes skills installed at the root. Supported: Claude Code and Codex. Copilot CLI, Antigravity CLI and Pi with local Qwen are provisional, and Gemini CLI is provisional and untested. The skills are also in [skills/](../skills/) for `npx skills add` (that CLI has telemetry on by default). Design: [docs/PLANNING-SKILLS.md](PLANNING-SKILLS.md).
 
 For your own Claude Code or Codex setup, the skills also install as a plugin from this repo, beside Microsoft's plugins. Install the `powerops` CLI first ([Install](../README.md#install)): the plugin's skills call it and need it on PATH.
 
