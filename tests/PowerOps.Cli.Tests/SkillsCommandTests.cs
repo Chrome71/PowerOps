@@ -6,7 +6,7 @@ namespace PowerOps.Cli.Tests;
 
 public partial class SkillsCommandTests : IDisposable
 {
-    private static readonly string[] Skills = ["powerops-plan", "powerops-review-plan", "powerops-implement"];
+    private static readonly string[] Skills = ["powerops-plan", "powerops-review-plan", "powerops-implement", "powerops-review-security", "powerops-verify"];
     private readonly string _temp = Directory.CreateTempSubdirectory("powerops-skills-").FullName;
 
     public void Dispose() => Directory.Delete(_temp, recursive: true);
@@ -26,7 +26,7 @@ public partial class SkillsCommandTests : IDisposable
     private static partial Regex NamePattern();
 
     [Fact]
-    public void Empty_dir_gets_both_targets_with_all_three_skills()
+    public void Empty_dir_gets_both_targets_with_all_five_skills()
     {
         var (code, output, _) = Run("skills", "install", _temp);
 
@@ -71,7 +71,7 @@ public partial class SkillsCommandTests : IDisposable
         Assert.Equal(0, code);
         Assert.DoesNotContain("created", output);
         Assert.DoesNotContain("updated", output);
-        Assert.Equal(6, output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Count(l => l.StartsWith("unchanged ")));
+        Assert.Equal(10, output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Count(l => l.StartsWith("unchanged ")));
         Assert.Equal(stamp, File.GetLastWriteTimeUtc(file));
     }
 

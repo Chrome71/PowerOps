@@ -1,6 +1,6 @@
 # Notice: the role evaluation set
 
-Everything under `tests/eval/roles/` except `skills/` was made for this project and is licensed under the repository's Apache-2.0 licence. No third-party content is copied into it.
+Everything under `tests/eval/roles/` was made for this project and is licensed under the repository's Apache-2.0 licence. No third-party content is copied into it.
 
 ## Where the cases come from
 
