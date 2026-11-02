@@ -1,6 +1,6 @@
 # M39 report: the Security reviewer's rerun
 
-Evaluated revision: `7b51d80911c2a9e65fdd152a948da004aa275e26`, the commit of step 2. `skills/powerops-review-security/SKILL.md`, `tests/eval/roles/run.sh`, the cases and the key are as they stand there. No defect led to a new freeze.
+Evaluated revision: `7b51d80911c2a9e65fdd152a948da004aa275e26`, the commit of step 2. A squash merge leaves that commit off `main`, so the skill that was evaluated is pinned by git blob id, on its LF text: `skills/powerops-review-security/SKILL.md` is `6a6a6a1fdb71eb16d09cf3ed99406d04a0982a1f`. `skills/powerops-review-security/SKILL.md`, `tests/eval/roles/run.sh`, the cases and the key are as they stand there. No defect led to a new freeze.
 
 A fresh clone of that commit built clean, passed `dotnet test` (2,814 tests: 2,809 passed, 5 skipped, 0 failed) and passed `dotnet format --verify-no-changes`. That test run holds `Every_solution_case_has_a_baseline_file_that_matches_the_live_output`, so the baseline still matches the freeze.
 

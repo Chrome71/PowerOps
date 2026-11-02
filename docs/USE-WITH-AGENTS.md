@@ -4,11 +4,15 @@ PowerOps works with Claude Code, Codex and other agents in two ways: planning sk
 
 ## Planning skills
 
-PowerOps ships three agent skills that turn an idea into a reviewed, signed-off plan before any code or solution change is made:
+PowerOps ships five agent skills. Three turn an idea into a reviewed, signed-off plan before any code or solution change is made, and two check the build against that plan and read it for security before it is promoted:
 
 - `powerops-plan` asks short question rounds (at most three questions, recommended answer first), logs every answer in `decisions.md`, drafts `plan.md`, and signs it off with you. Asked to build without a plan, it drafts one and asks only the route.
 - `powerops-review-plan` reviews an approved plan in a fresh context against a Power Platform checklist and writes `review.md`. It never asks you questions.
-- `powerops-implement` builds only from a signed-off plan whose body still matches its sign-off.
+- `powerops-implement` builds only from a signed-off plan whose body still matches its sign-off. It stops with one concrete question when a choice changes scope, data, security or cost, and after the build it starts the two skills below.
+- `powerops-verify` runs after the build's final checks, in a fresh context. It checks the built solution against the plan with `analyze`, `test`, `diff` and `settings validate`, and writes `verify.md`. It never asks you questions. `powerops-implement` fixes its findings inside the plan and runs it again, at most three runs in all.
+- `powerops-review-security` runs on every build, before `powerops deploy plan`, in a fresh context. It reads the solution against the Power Platform Well-Architected Security checklist and writes `security-solution.md`. It never asks you questions. A later build that changes the solution runs it again.
+
+Neither report gates anything. `powerops plan status` lists each with its state and whether it is stale, and you decide ([The two build roles](#the-two-build-roles)).
 
 Run `powerops skills install` in your repo to add them. In a workspace whose own tooling rewrites `.claude/skills/`, run it in each child project, not at the workspace root, and start the agent there: the next rewrite removes skills installed at the root. Supported: Claude Code and Codex. Gemini CLI and GitHub Copilot are provisional and untested. The skills are also in [skills/](../skills/) for `npx skills add` (that CLI has telemetry on by default). Design: [docs/PLANNING-SKILLS.md](PLANNING-SKILLS.md).
 
@@ -26,11 +30,23 @@ claude plugin uninstall powerops@powerops --scope user
 claude plugin install powerops@powerops --scope user
 ```
 
+To get the two build roles and the changed `powerops-implement` from an earlier version, update the CLI, then uninstall and install the plugin as above, or in a repo with copied skills run `powerops skills install --force`. A Codex plugin update has not been tried.
+
 The plugin also starts the PowerOps MCP server: see [MCP server](#mcp-server).
 
 For a team, `powerops skills install` stays the default: the skills then live in the repo, so every contributor and CI sees the same gate. Use one or the other in a repo; with both, each skill is listed twice.
 
 With Microsoft's power-platform-skills or Dataverse-skills installed too, their skills build in Dev and PowerOps checks, plans and imports: the steps are in [docs/HANDOFF.md](HANDOFF.md).
+
+### The two build roles
+
+Know these before you run `powerops-verify` and `powerops-review-security` on real work. The rest is in [Limits](PLANNING-SKILLS.md#limits).
+
+- **Where the data goes.** Both roles send the plan, the solution's components and the settings file to your client's model provider, and Codex used web search in M38's Security passes. Check that against your own data rules first.
+- **Cost.** A build adds up to three Verifier runs and one Security run, which you pay from your own agent plan. On M38's small cases that was about $3 at Claude's list price: $0.69 a Verifier run and $0.88 a Security run. A real solution costs more.
+- **What a report covers.** A report describes the folder or zip it names. `stale` means the plan body changed since the report was written, and says nothing about the solution. Promote only what a report reviewed.
+- **Reports gate nothing.** `powerops-implement` lists their open findings, and you decide. M38 and M39 measured the roles on small hand-written cases ([M38 report](plans/m38-agent-team/report.md), [M39 report](plans/m39-ship-roles/report.md)), and they say little about harder flaws.
+- **Instruction, not enforcement.** Each skill lists the commands it may run. PowerOps adds no tool narrowing on any client, so a role runs with your session's tools.
 
 ## MCP server
 

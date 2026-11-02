@@ -478,6 +478,22 @@ Before shipping more agent roles, the [plan](plans/m38-agent-team/plan.md) measu
 67. `docs:` M38: the 72 runs, the report and the person's decision (2026-11-02, [report](plans/m38-agent-team/report.md))
 68. `docs:` M38: the M39 plan, reviewed and signed off (2026-11-02, [plan](plans/m39-ship-roles/plan.md))
 
+## M39: shipping the two kept roles
+
+In M38 the person kept the Security reviewer's solution pass and the Verifier. The [plan](plans/m39-ship-roles/plan.md) ships them: the Verifier as it was evaluated, and the Security reviewer with its solution pass only, after a [rerun](plans/m39-ship-roles/report.md) and a renewed decision. `powerops-implement` then runs both after the build, in a fresh context, and `plan status` lists their reports. Neither report gates anything, and the docs state the limits that are the reason.
+
+| Milestone | Release | Scope | Done when |
+|---|---|---|---|
+| **M39. Ship the kept roles** | v0.23.0 | <ul><li>Built from 2026-11-02 ([plan](plans/m39-ship-roles/plan.md), [report](plans/m39-ship-roles/report.md)). `skills/` holds `powerops-verify`, byte for byte as evaluated, and `powerops-review-security` with its solution pass only. `powerops skills install` and both plugins ship five skills</li><li>`plan status` adds a `reports` list to each plan, and the Claude Code copy of each of the three review skills forks</li><li>`powerops-implement` stops by impact and runs both roles after the build. The docs name the roles and state their limits</li><li>Not yet run: the client checks on Claude Code, Codex, Antigravity CLI, Copilot CLI and local Qwen, and the final checks</li></ul> | <ul><li>`powerops-verify` hashes to its evaluated blob id, and the Security reviewer's 12 reruns, with the keep rules recomputed, and the person's renewed decision are in the report</li><li>`powerops plan status` lists each report with its state and whether it is stale</li><li>Claude Code and Codex pass the client checks, and the other three are recorded as passed, failed or skipped</li><li>`dotnet build`, `dotnet test`, `dotnet format --verify-no-changes` and `powerops plan status .` are clean</li></ul> |
+
+### Build order, M39 (continues the list below)
+
+69. `feat:` M39: the two kept roles move to `skills/`, and the Security reviewer keeps its solution pass (2026-11-02, [plan](plans/m39-ship-roles/plan.md))
+70. `docs:` M39: the Security reviewer's rerun and the person's renewed decision (2026-11-02, [report](plans/m39-ship-roles/report.md))
+71. `feat:` M39: `plan status` lists the reports, and the Claude Code copies of the three review skills fork (2026-11-02)
+72. `feat:` M39: `powerops-implement` stops by impact and runs both roles after the build (2026-11-02)
+73. `docs:` M39: the docs name the two roles and their limits (2026-11-02)
+
 ## Testing
 
 | Layer | What | Runs |
@@ -545,7 +561,7 @@ For a person with a Windows or macOS machine (M32, [plan](plans/m32-platforms/pl
 1. First write down `git rev-parse HEAD` of the clone: `--version` prints `0.0.0` on every local build. Then install from a clone with the lines in the README's Install section, run as written in the shell you use (on Windows PowerShell 7; on macOS zsh). Write down what you had to change. The block doesn't parse in Windows PowerShell 5.1 (checked 2026-11-01): it chains two commands with `&&`, which PowerShell implements from version 7. The README says to run them one at a time there, which has not been tried.
 2. Open a new shell and run the bare `powerops --version`. Then run `Get-Command powerops` (PowerShell), `where.exe powerops` (cmd) or `command -v powerops` (macOS). Expected: the version, and a path in the dotnet tools folder.
 3. In the clone, run `powerops analyze tests/fixtures`. Expected: exit 0, and a last line equal to the last line of `tests/golden/analyze-fixtures.txt` (`11 solutions, 0 errors, 36 warnings` when this was written).
-4. Claude Code, with `CLAUDE_CONFIG_DIR` pointing to a new empty folder (these four commands ran there without a sign-in on Linux): `claude plugin marketplace add <the clone>`, `claude plugin install powerops@powerops`, `claude plugin details powerops` (three skills and one MCP server), and `claude mcp list` from the new shell (`plugin:powerops:powerops` connected). Then, with `CLAUDE_CONFIG_DIR` unset so that your usual sign-in applies, start `claude --plugin-dir plugins/claude` in the clone, as M20 did, and run `/mcp`: the server lists 12 tools.
+4. Claude Code, with `CLAUDE_CONFIG_DIR` pointing to a new empty folder (these four commands ran there without a sign-in on Linux): `claude plugin marketplace add <the clone>`, `claude plugin install powerops@powerops`, `claude plugin details powerops` (five skills and one MCP server), and `claude mcp list` from the new shell (`plugin:powerops:powerops` connected). Then, with `CLAUDE_CONFIG_DIR` unset so that your usual sign-in applies, start `claude --plugin-dir plugins/claude` in the clone, as M20 did, and run `/mcp`: the server lists 12 tools.
 5. Codex, with `CODEX_HOME` pointing to a new empty folder outside the system temp folder: `codex plugin marketplace add <the clone>`, `codex plugin add powerops@powerops`, `codex mcp get powerops --json` (enabled, `tool_timeout_sec` 3600.0), then `codex login`, `codex` in the clone, and `/mcp`: `powerops` with 12 tools. Then `codex logout`. That leaves Codex's daemon running from `CODEX_HOME`, with a `powerops mcp` child, so run `codex app-server daemon stop` with the variable still set. On Windows on 2026-11-01 its `pid-update-loop` helper stayed running after that and held `codex.exe` open: stop it by its process id before you delete the folder.
 6. The 12 names are those in `tests/golden/mcp-tools.txt`. Optionally ask each agent to call `analyze` on the absolute path of `tests/fixtures` (a `C:\` path on Windows): its result matches step 3. Do not call `plan_facts`, `drift` against an environment, `deploy_plan` or `deploy_apply`: they read a tenant. Never set `apply`.
 7. Run `pac auth list`. Expected: exit 0, and the profiles you know are there, or none. Do not sign in. If `pac` is not installed, write that down.
