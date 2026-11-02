@@ -32,3 +32,6 @@ Answer: Antigravity Copilot CLI and Qwen
 - checked on 2026-11-02: each of the 26 solution-pass and Verifier reports of M38, put in its case's plan folder, leaves `plan status` at exit 0, because both drafts replace tenant values with placeholders. So a report written before the next role runs doesn't turn that role's status read into a wrong `failed`, and `powerops-implement` needs no rule for it.
 - read on 2026-11-02: AGENTS.md; `report.md` and `m39-outline.md` of M38; both draft skills; `powerops-plan` and `powerops-implement`; `PlanChecker`, `PlanStatusReport`, `SkillsCommand`, `run.sh`, `RoleEvalTests`, `SkillsCommandTests`, `PluginManifestTests`; `docs/PLANNING-SKILLS.md`. The outline's line references were checked against `b254179`, and the plan cites that commit's lines.
 - depth: standard
+- areas not asked: users, environments and ALM. The plan names its users, and it targets no environment.
+- 2026-11-02: approved by the person.
+- approved without: users, environments and ALM

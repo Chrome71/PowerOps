@@ -1,6 +1,6 @@
 ---
-status: draft
-review: pending
+status: approved
+review: done
 signed-off: null
 signed-off-hash: null
 environment: null
