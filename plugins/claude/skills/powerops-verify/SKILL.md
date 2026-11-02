@@ -3,6 +3,9 @@ name: powerops-verify
 description: Use to verify a built Power Platform solution against its signed-off PowerOps plan in docs/plans/<name>/ with the offline powerops checks. Writes verify.md. Works alone and never asks the user questions.
 license: Apache-2.0
 compatibility: Needs the powerops CLI on PATH. pac is optional.
+context: fork
+background: false
+model: opus
 ---
 
 # powerops-verify

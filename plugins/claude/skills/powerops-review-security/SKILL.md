@@ -3,6 +3,9 @@ name: powerops-review-security
 description: Use to review the solution built from a signed-off PowerOps plan in docs/plans/<name>/ against the Power Platform Well-Architected Security checklist. Writes security-solution.md. Works alone and never asks the user questions.
 license: Apache-2.0
 compatibility: Needs the powerops CLI on PATH. pac is optional.
+context: fork
+background: false
+model: opus
 ---
 
 # powerops-review-security

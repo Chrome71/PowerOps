@@ -18,7 +18,11 @@ public sealed record PlanReport(
     string? BodyHash,
     bool Malformed,
     IReadOnlyList<string> Violations,
-    IReadOnlyList<string> Warnings);
+    IReadOnlyList<string> Warnings,
+    IReadOnlyList<PlanReportFile> Reports);
+
+/// <summary>One agent report in a plan folder. State and Stale are null when the report does not say, or could not be read.</summary>
+public sealed record PlanReportFile(string File, string? State, bool? Stale);
 
 public static partial class PlanChecker
 {
@@ -109,7 +113,7 @@ public static partial class PlanChecker
         catch (InvalidDataException ex)
         {
             // One unreadable plan.md is that plan's violation; the other plans are still checked.
-            return new PlanReport(Display(folder, baseDir), null, null, null, null, null, null, 0, null, false, [ex.Message.Replace(planFile, Display(planFile, baseDir), StringComparison.Ordinal)], []);
+            return new PlanReport(Display(folder, baseDir), null, null, null, null, null, null, 0, null, false, [ex.Message.Replace(planFile, Display(planFile, baseDir), StringComparison.Ordinal)], [], []);
         }
 
         var violations = new List<string>();
@@ -141,18 +145,7 @@ public static partial class PlanChecker
 
         violations.AddRange(ScanTenantData(folder, baseDir, warnings));
 
-        if (doc.BodyHash is not null && File.Exists(reviewFile) && ReadScannable(reviewFile, baseDir, warnings) is { } review)
-        {
-            var line = Lines(review).FirstOrDefault(l => l.StartsWith("plan-hash:", StringComparison.Ordinal));
-            if (line is null)
-            {
-                warnings.Add("review.md has no plan-hash line");
-            }
-            else if (line["plan-hash:".Length..].Trim() != doc.BodyHash)
-            {
-                warnings.Add("review.md was written for a different version of the plan (stale review)");
-            }
-        }
+        var reports = ReadReports(folder, baseDir, doc.BodyHash, warnings);
 
         return new PlanReport(
             Display(folder, baseDir),
@@ -166,8 +159,74 @@ public static partial class PlanChecker
             doc.BodyHash,
             doc.Header is null,
             violations,
-            warnings);
+            warnings,
+            reports);
     }
+
+    private static readonly string[] ReportFiles = ["review.md", "security-solution.md", "verify.md"];
+
+    private static readonly string[] ReportStates = ["ready", "blocked", "failed", "dropped"];
+
+    // State and plan-hash come from a report's first four lines (review.md's plan-hash, as before, from the first such line anywhere).
+    // A stale or unknown-state report only warns: the report is data, and neither one gates anything.
+    private static List<PlanReportFile> ReadReports(string folder, string baseDir, string? bodyHash, ICollection<string> warnings)
+    {
+        var reports = new List<PlanReportFile>();
+        foreach (var name in ReportFiles)
+        {
+            var file = System.IO.Path.Combine(folder, name);
+            if (!File.Exists(file))
+            {
+                continue;
+            }
+
+            if (ReadScannable(file, baseDir, warnings) is not { } text)
+            {
+                reports.Add(new PlanReportFile(name, null, null));
+                continue;
+            }
+
+            var head = Lines(text).Take(4).Select(l => l.Trim()).ToList();
+            var state = HeadValue(head, "state:");
+            bool? stale = null;
+            if (bodyHash is not null && name == "review.md")
+            {
+                var line = Lines(text).FirstOrDefault(l => l.StartsWith("plan-hash:", StringComparison.Ordinal));
+                if (line is null)
+                {
+                    warnings.Add("review.md has no plan-hash line");
+                }
+                else
+                {
+                    stale = line["plan-hash:".Length..].Trim() != bodyHash;
+                    if (stale == true)
+                    {
+                        warnings.Add("review.md was written for a different version of the plan (stale review)");
+                    }
+                }
+            }
+            else if (bodyHash is not null && HeadValue(head, "plan-hash:") is { } hash)
+            {
+                stale = hash != bodyHash;
+                if (stale == true)
+                {
+                    warnings.Add($"{name} was written for a different version of the plan (stale report)");
+                }
+            }
+
+            if (state is not null && !ReportStates.Contains(state))
+            {
+                warnings.Add($"{name} has an unknown state '{state}' (expected {string.Join(", ", ReportStates[..^1])} or {ReportStates[^1]})");
+            }
+
+            reports.Add(new PlanReportFile(name, state, stale));
+        }
+
+        return reports;
+    }
+
+    private static string? HeadValue(List<string> head, string key) =>
+        head.FirstOrDefault(l => l.StartsWith(key, StringComparison.Ordinal))?[key.Length..].Trim();
 
     // The name is echoed (and put in a path) only when it is a plain word.
     private static IEnumerable<string> SupersedesProblems(string name, string folder, string baseDir)

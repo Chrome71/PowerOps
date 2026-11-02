@@ -180,13 +180,16 @@ public partial class SkillsCommandTests : IDisposable
         Assert.StartsWith("error: path not found:", err);
     }
 
-    [Fact]
-    public void Only_the_claude_review_copy_gets_the_fork_lines()
+    [Theory]
+    [InlineData("powerops-review-plan")]
+    [InlineData("powerops-review-security")]
+    [InlineData("powerops-verify")]
+    public void Only_the_claude_copies_of_the_three_role_skills_get_the_fork_lines(string skill)
     {
         Run("skills", "install", _temp);
 
-        var claude = Skill(".claude", "powerops-review-plan");
-        var shared = Skill(".agents", "powerops-review-plan");
+        var claude = Skill(".claude", skill);
+        var shared = Skill(".agents", skill);
         foreach (var line in new[] { "context: fork", "background: false", "model: opus" })
         {
             Assert.Contains($"\n{line}\n", claude);
@@ -194,15 +197,20 @@ public partial class SkillsCommandTests : IDisposable
         }
 
         Assert.Equal(Skill(".agents", "powerops-plan"), Skill(".claude", "powerops-plan"));
+        Assert.DoesNotContain("context: fork", Skill(".claude", "powerops-implement"));
     }
 
-    [Fact]
-    public void ForClaude_inserts_before_the_closing_fence_and_leaves_other_files_alone()
+    [Theory]
+    [InlineData("powerops-review-plan/SKILL.md")]
+    [InlineData("powerops-review-security/SKILL.md")]
+    [InlineData("powerops-verify/SKILL.md")]
+    public void ForClaude_inserts_before_the_closing_fence_and_leaves_other_files_alone(string file)
     {
-        var result = SkillsCommand.ForClaude("powerops-review-plan/SKILL.md", "---\nname: x\n---\n\nbody\n---\n");
+        var result = SkillsCommand.ForClaude(file, "---\nname: x\n---\n\nbody\n---\n");
 
         Assert.Equal("---\nname: x\ncontext: fork\nbackground: false\nmodel: opus\n---\n\nbody\n---\n", result);
         Assert.Equal("---\nname: x\n---\n", SkillsCommand.ForClaude("powerops-plan/SKILL.md", "---\nname: x\n---\n"));
+        Assert.Equal("---\nname: x\n---\n", SkillsCommand.ForClaude("powerops-verify/other.md", "---\nname: x\n---\n"));
     }
 
     [Fact]

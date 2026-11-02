@@ -150,6 +150,200 @@ public class PlanCheckerTests : IDisposable
         Assert.Equal(["review.md has no plan-hash line"], hashless.Warnings);
     }
 
+    private static readonly string Hash = PlanDocument.Parse(Plan()).BodyHash!;
+
+    private static readonly string Other = new('a', 64);
+
+    private TempFolder Report(string name, string text) => _t.Write($"docs/plans/demo/{name}", text);
+
+    private static (string File, string? State, bool? Stale) Row(PlanReportFile r) => (r.File, r.State, r.Stale);
+
+    [Fact]
+    public void No_reports_is_an_empty_list_and_present_ones_come_in_a_fixed_order()
+    {
+        Write(Plan());
+        Assert.Empty(Check().Reports);
+
+        Report("verify.md", "state: ready\n");
+        Report("review.md", "findings\n");
+        Report("security-solution.md", "state: blocked\n");
+
+        Assert.Equal(["review.md", "security-solution.md", "verify.md"], Check().Reports.Select(r => r.File));
+    }
+
+    [Fact]
+    public void A_review_without_a_state_line_has_a_null_state_and_its_stale_comes_from_the_existing_check()
+    {
+        Write(Plan());
+        Report("review.md", $"plan-hash: {Hash}\nmodel: unknown\nreviewer: x\n");
+        var fresh = Check();
+        Report("review.md", $"plan-hash: {Other}\nmodel: unknown\nreviewer: x\n");
+        var stale = Check();
+
+        Assert.Equal(("review.md", null, false), Row(Assert.Single(fresh.Reports)));
+        Assert.Empty(fresh.Warnings);
+        Assert.Equal(("review.md", null, true), Row(Assert.Single(stale.Reports)));
+        Assert.Equal(["review.md was written for a different version of the plan (stale review)"], stale.Warnings);
+        Assert.Empty(stale.Violations);
+    }
+
+    [Fact]
+    public void A_review_plan_hash_after_the_fourth_line_still_counts_but_a_verify_one_does_not()
+    {
+        Write(Plan());
+        Report("review.md", $"a\nb\nc\nd\ne\nplan-hash: {Other}\n");
+        Report("verify.md", $"state: ready\nb\nc\nd\nplan-hash: {Other}\n");
+
+        var reports = Check();
+
+        Assert.Equal([("review.md", null, true), ("verify.md", "ready", null)], reports.Reports.Select(Row));
+        Assert.Equal(["review.md was written for a different version of the plan (stale review)"], reports.Warnings);
+    }
+
+    [Fact]
+    public void A_report_reads_state_and_plan_hash_from_its_first_four_lines_only()
+    {
+        Write(Plan());
+        Report("security-solution.md", $"a\nb\nc\nplan-hash: {Hash}\nstate: ready\n");
+        Report("verify.md", "a\nb\nc\nd\nstate: ready\n");
+
+        var reports = Check();
+
+        Assert.Equal([("security-solution.md", null, false), ("verify.md", null, null)], reports.Reports.Select(Row));
+        Assert.Empty(reports.Warnings);
+    }
+
+    [Fact]
+    public void Keys_and_values_compare_by_exact_case()
+    {
+        Write(Plan());
+        Report("security-solution.md", "State: ready\n");
+        Report("verify.md", "state: Ready\n");
+
+        var reports = Check();
+
+        Assert.Equal([("security-solution.md", null, null), ("verify.md", "Ready", null)], reports.Reports.Select(Row));
+        Assert.Equal(["verify.md has an unknown state 'Ready' (expected ready, blocked, failed or dropped)"], reports.Warnings);
+    }
+
+    [Fact]
+    public void Crlf_and_padded_lines_read_fine()
+    {
+        Write(Plan());
+        Report("verify.md", $"  plan-hash:   {Hash}  \r\n\tstate:  failed \r\nmore\r\n");
+
+        var reports = Check();
+
+        Assert.Equal(("verify.md", "failed", false), Row(Assert.Single(reports.Reports)));
+        Assert.Empty(reports.Warnings);
+    }
+
+    [Theory]
+    [InlineData("ready")]
+    [InlineData("blocked")]
+    [InlineData("failed")]
+    [InlineData("dropped")]
+    public void The_four_known_states_do_not_warn(string state)
+    {
+        Write(Plan());
+        Report("security-solution.md", $"state: {state}\n");
+
+        var reports = Check();
+
+        Assert.Equal(state, Assert.Single(reports.Reports).State);
+        Assert.Empty(reports.Warnings);
+    }
+
+    [Fact]
+    public void An_unknown_state_is_kept_and_warns_but_is_not_a_violation()
+    {
+        Write(Plan("approved", "skipped"));
+        Report("security-solution.md", "state: mostly fine\n");
+
+        var reports = Check();
+
+        Assert.Equal("mostly fine", Assert.Single(reports.Reports).State);
+        Assert.Equal(["security-solution.md has an unknown state 'mostly fine' (expected ready, blocked, failed or dropped)"], reports.Warnings);
+        Assert.Empty(reports.Violations);
+    }
+
+    [Fact]
+    public void A_stale_verify_or_security_report_warns_without_a_violation()
+    {
+        Write(Plan());
+        Report("security-solution.md", $"state: ready\nplan-hash: {Other}\n");
+        Report("verify.md", $"plan-hash: {Other}\nstate: ready\n");
+
+        var reports = Check();
+
+        Assert.Equal([("security-solution.md", "ready", true), ("verify.md", "ready", true)], reports.Reports.Select(Row));
+        Assert.Equal(
+            ["security-solution.md was written for a different version of the plan (stale report)", "verify.md was written for a different version of the plan (stale report)"],
+            reports.Warnings);
+        Assert.Empty(reports.Violations);
+    }
+
+    [Fact]
+    public void A_report_without_a_plan_hash_is_not_stale_and_does_not_warn()
+    {
+        Write(Plan());
+        Report("verify.md", "state: ready\n");
+
+        var reports = Check();
+
+        Assert.Equal(("verify.md", "ready", (bool?)null), Row(Assert.Single(reports.Reports)));
+        Assert.Empty(reports.Warnings);
+    }
+
+    [Fact]
+    public void A_plan_without_a_body_hash_gives_a_null_stale_for_every_report()
+    {
+        Write("no header here\n");
+        Report("review.md", $"plan-hash: {Other}\n");
+        Report("verify.md", $"plan-hash: {Other}\nstate: ready\n");
+
+        var reports = Check();
+
+        Assert.Null(reports.BodyHash);
+        Assert.Equal([("review.md", null, null), ("verify.md", "ready", null)], reports.Reports.Select(Row));
+        Assert.DoesNotContain(reports.Warnings, w => w.Contains("stale", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("review.md", "link")]
+    [InlineData("verify.md", "link")]
+    [InlineData("review.md", "binary")]
+    [InlineData("security-solution.md", "binary")]
+    [InlineData("verify.md", "large")]
+    [InlineData("review.md", "large")]
+    public void A_link_a_binary_or_a_large_report_shows_null_for_both_with_one_warning(string name, string kind)
+    {
+        Assert.SkipWhen(kind == "link" && OperatingSystem.IsWindows(), "symbolic links need a privilege on Windows");
+        Write(Plan());
+        var file = Path.Combine(_t.Path, "docs", "plans", "demo", name);
+        var content = $"state: ready\nplan-hash: {Other}\n";
+        switch (kind)
+        {
+            case "link":
+                var target = Path.Combine(_t.Path, "target.txt");
+                File.WriteAllText(target, content);
+                File.CreateSymbolicLink(file, target);
+                break;
+            case "binary":
+                File.WriteAllBytes(file, [.. System.Text.Encoding.UTF8.GetBytes(content), 0, 0, 0]);
+                break;
+            default:
+                File.WriteAllText(file, content + new string(' ', (int)PlanChecker.MaxFileBytes));
+                break;
+        }
+
+        var reports = Check();
+
+        Assert.Equal((name, null, null), Row(Assert.Single(reports.Reports)));
+        Assert.Single(reports.Warnings);
+        Assert.StartsWith($"docs/plans/demo/{name}: ", reports.Warnings[0]);
+    }
+
     [Fact]
     public void A_matching_review_hash_has_no_warning()
     {
