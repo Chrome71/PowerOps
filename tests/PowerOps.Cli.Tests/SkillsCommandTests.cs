@@ -367,6 +367,7 @@ public partial class SkillsCommandTests : IDisposable
         Assert.InRange(step4, security, step5 - 1);
         string[] wording =
         [
+            "Write only inside the repo, scratch files included",
             "at most three runs",
             "no previous solution",
             "no settings file",
