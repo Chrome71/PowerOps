@@ -453,6 +453,20 @@ The review of the Windows live run listed one gap as low priority: `deploy plan`
 64. `feat:` M37: the plan, then the item (built 2026-10-31, #70, [plan](plans/m37-same-version-notice/plan.md))
 65. `docs:` M37: every PowerOps pin moved to the merge commit of item 64 (`155b944`), and the plan marked done (2026-10-31)
 
+## M38: measuring two agent roles
+
+Before shipping more agent roles, the [plan](plans/m38-agent-team/plan.md) measured two drafts, a Security reviewer and a Verifier, on planted flaws in 18 cases, on Claude Code and Codex. The [report](plans/m38-agent-team/report.md) holds the results. The person kept the Security reviewer's solution pass and the Verifier. Its plan pass wasn't kept, and the second-family advice was dropped. This milestone ships no role: M39 builds what was kept, from its own [plan](plans/m39-ship-roles/plan.md).
+
+| Milestone | Release | Scope | Done when |
+|---|---|---|---|
+| **M38. Role evaluation** | none (tests and docs) | <ul><li>Built 2026-11-02 ([plan](plans/m38-agent-team/plan.md), [report](plans/m38-agent-team/report.md)). `tests/eval/roles/` holds the cases, the key, the baseline, the two draft skills and the run script, and `RoleEvalTests` checks them. The 72 runs used the frozen commit `b254179`</li></ul> | <ul><li>The report records the evaluated commit, the results and the person's decision</li><li>A plan for M39 names only the kept roles</li><li>`dotnet build`, `dotnet test`, `dotnet format --verify-no-changes` and `powerops plan status .` are clean</li></ul> |
+
+### Build order, M38 (continues the list below)
+
+66. `test:` M38: the plan, the cases, the key, the baseline, the two draft skills and the run script (built 2026-11-01, [plan](plans/m38-agent-team/plan.md))
+67. `docs:` M38: the 72 runs, the report and the person's decision (2026-11-02, [report](plans/m38-agent-team/report.md))
+68. `docs:` M38: the M39 plan, reviewed and signed off (2026-11-02, [plan](plans/m39-ship-roles/plan.md))
+
 ## Testing
 
 | Layer | What | Runs |
