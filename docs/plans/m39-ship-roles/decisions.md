@@ -35,3 +35,13 @@ Answer: Antigravity Copilot CLI and Qwen
 - areas not asked: users, environments and ALM. The plan names its users, and it targets no environment.
 - 2026-11-02: approved by the person.
 - approved without: users, environments and ALM
+- fresh review (general-purpose subagent following `powerops-review-plan`, Sonnet, fresh context) 2026-11-02: 0 High, 9 Medium, 9 Low (R1 to R18). The person chose to resolve them before sign-off. R1 to R14 and R16 to R18 fixed in `plan.md`, R15 accepted, with the reasons in `review.md`.
+- R9 corrects the line above on the 26 M38 reports: they held only fake values, so they show nothing about a real solution, and `powerops-implement` gains the rule after all.
+- R10: the ALM of this change is how it reaches current users, which row 7 now covers. `plugin.json` says `0.0.0` and no release has been cut, so `claude plugin update` changes nothing today, and row 7 gives the uninstall and install route.
+- R11: only `powerops-review-security` joins `PlanFactsSkillTests`, because `powerops-verify` doesn't list `plan facts`.
+- R17: the false-High rule counts the rerun's own 4 runs, so M38's 1 isn't added to them, and one is still within the limit.
+- R5: no tool narrowing is added. `run.sh` measured no client's narrowing, and the outline leaves enforcement to a later plan.
+- the same reviewer checked those fixes 2026-11-02: R1 reopened, because the Security skill needs a settings file and a build without one would end `failed`, and 5 new Low (R19 to R23). All fixed in `plan.md`, with the reasons in `review.md`.
+- R1: the settings file becomes optional in the Security skill, as the previous solution is, and not a limit the docs state, because Q1 runs the pass on every build and most Dev builds have no settings file. The text changes before the rerun, so the rerun covers it. All 6 cases hold a settings file, so the first-build client check is the only run of that branch.
+- the same reviewer checked those fixes 2026-11-02: all six hold, no new High or Medium, and 2 new Low (R24, R25). Both fixed in `plan.md`, with the reasons in `review.md`.
+- the same reviewer checked those two fixes 2026-11-02: both hold, no new High or Medium.
