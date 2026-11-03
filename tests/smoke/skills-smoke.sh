@@ -27,6 +27,9 @@ dotnet build "$repo_root/src/PowerOps.Cli" -c Release -p:RestoreLockedMode=true 
 mkdir -p "$work/path"
 printf '#!/bin/sh\nexec dotnet "%s/bin/powerops.dll" "$@"\n' "$work" >"$work/path/powerops"
 chmod +x "$work/path/powerops"
+# A pac that is never signed in, so a run by hand reads no tenant: `plan facts` reports itself unavailable, as in CI.
+printf '#!/bin/sh\necho "No profiles were found on this computer." >&2\nexit 1\n' >"$work/path/pac"
+chmod +x "$work/path/pac"
 export PATH="$work/path:$PATH"
 
 # One turn of the agent under test, in the current scenario's repo. Prints the agent's reply.
