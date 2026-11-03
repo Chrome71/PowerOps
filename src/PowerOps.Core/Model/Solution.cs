@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace PowerOps.Core.Model;
 
 /// <summary>A solution (unpacked folder or exported zip) reduced to what the rules need. Paths in `File` are relative to the solution root, forward slashes.</summary>
@@ -15,13 +17,17 @@ public sealed record Solution(
     string ManifestFile = "Other/Solution.xml",
     IReadOnlyList<string>? SourceFolders = null,
     IReadOnlyList<CanvasFormula>? CanvasFormulas = null,
-    IReadOnlyList<string>? AgentConnectionReferences = null)
+    IReadOnlyList<string>? AgentConnectionReferences = null,
+    IReadOnlyList<PowerPageComponent>? PowerPageComponents = null)
 {
     /// <summary>The formulas of the canvas apps' `.pa.yaml` source; empty unless the YAML layout provides them.</summary>
     public IReadOnlyList<CanvasFormula> CanvasFormulas { get; init; } = CanvasFormulas ?? [];
 
     /// <summary>The connection references that an agent component maps in `Assets/botcomponent_connectionreferenceset.xml`; empty when the solution has none.</summary>
     public IReadOnlyList<string> AgentConnectionReferences { get; init; } = AgentConnectionReferences ?? [];
+
+    /// <summary>The Power Pages components (enhanced data model) of `powerpagecomponents/`; empty when the solution has none.</summary>
+    public IReadOnlyList<PowerPageComponent> PowerPageComponents { get; init; } = PowerPageComponents ?? [];
 }
 
 public sealed record Publisher(string UniqueName, string Prefix);
@@ -47,3 +53,6 @@ public sealed record EnvironmentVariable(
 public sealed record CanvasFormula(string App, string Control, string Property, string Formula, string File);
 
 public sealed record Workflow(string Id, string Name, int Category, int? StateCode, string File, string? ClientData);
+
+/// <summary>One Power Pages component: `Id` is normalized, `Active` is true unless `statecode` is other than 0, and `Content` is the component's `content` JSON object (empty when it has none).</summary>
+public sealed record PowerPageComponent(string Id, int Type, string Name, string? SiteId, bool Active, JsonElement Content, string File);

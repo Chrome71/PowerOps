@@ -148,6 +148,7 @@ public static class AnalyzeCommand
             }
 
             TextReport.WriteNotes(context.SkippedLinks, error);
+            TextReport.WriteNotChecked(result, error);
             return emit(baseline?.Apply(result) ?? result, inputs);
         }
         catch (Exception ex)

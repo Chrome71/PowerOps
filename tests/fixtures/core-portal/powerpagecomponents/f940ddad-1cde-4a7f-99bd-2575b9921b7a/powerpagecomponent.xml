@@ -1,0 +1,11 @@
+<powerpagecomponent powerpagecomponentid="f940ddad-1cde-4a7f-99bd-2575b9921b7a">
+  <content>{"description":"Determines if faceted search is used for this portal.","value":"True"}</content>
+  <iscustomizable>1</iscustomizable>
+  <name>Search/FacetedView</name>
+  <powerpagecomponenttype>9</powerpagecomponenttype>
+  <powerpagesiteid>
+    <powerpagesiteid>add6fceb-252c-456e-bead-89dbed3b19c5</powerpagesiteid>
+  </powerpagesiteid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</powerpagecomponent>

@@ -1,0 +1,18 @@
+<powerpagecomponent powerpagecomponentid="9cb91d01-d008-c208-5e59-f67cfed471a6">
+  <content>{
+  "display_name": "Search/Title",
+  "type": 756150000,
+  "value": "Discover Government Services"
+}</content>
+  <iscustomizable>1</iscustomizable>
+  <name>Search/Title</name>
+  <powerpagecomponenttype>7</powerpagecomponenttype>
+  <powerpagesiteid>
+    <powerpagesiteid>add6fceb-252c-456e-bead-89dbed3b19c5</powerpagesiteid>
+  </powerpagesiteid>
+  <powerpagesitelanguageid>
+    <powerpagesitelanguageid>478b893f-eef8-4927-ac86-ba2f4f37d706</powerpagesitelanguageid>
+  </powerpagesitelanguageid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</powerpagecomponent>

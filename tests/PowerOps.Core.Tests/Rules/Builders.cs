@@ -63,4 +63,45 @@ internal static class B
 
     public static MissingDependency Dep(string type, string? schema, string? id = null, string? owner = "Other (1.0)") =>
         new(new DependencyNode(type, schema, id, null, owner), new DependencyNode("29", null, "x", null, null));
+
+    private static int _nextId = 0x1000;
+
+    /// <summary>A fake GUID that ends in <paramref name="n"/> (hex).</summary>
+    public static string Guid(int n) => $"00000000-0000-0000-0000-{n:x12}";
+
+    private static PowerPageComponent Component(string id, int type, string name, bool active, string site, object content) =>
+        new(id, type, name, site, active, JsonSerializer.SerializeToElement(content), $"powerpagecomponents/{id}/powerpagecomponent.xml");
+
+    /// <summary>A site setting; a null <paramref name="value"/> gives no `value` key, as nine of the core-portal settings have none.</summary>
+    public static PowerPageComponent Setting(string name, string? value, bool active = true, string site = "00000000-0000-0000-0000-0000000000f1") =>
+        Component(Guid(Interlocked.Increment(ref _nextId)), 9, name, active, site, value is null ? new { } : new { value });
+
+    public static PowerPageComponent Role(string id, string name, bool anonymous = false, bool authenticated = false, bool active = true) =>
+        Component(id, 11, name, active, "00000000-0000-0000-0000-0000000000f1", new { anonymoususersrole = anonymous, authenticatedusersrole = authenticated });
+
+    public static PowerPageComponent Permission(
+        string id,
+        string name,
+        string[]? roles = null,
+        string table = "demo_item",
+        object? parent = null,
+        bool read = false,
+        bool create = false,
+        bool write = false,
+        bool delete = false,
+        bool append = false,
+        bool appendTo = false,
+        bool active = true) =>
+        Component(id, 18, name, active, "00000000-0000-0000-0000-0000000000f1", new Dictionary<string, object?>
+        {
+            ["entitylogicalname"] = table,
+            ["adx_entitypermission_webrole"] = roles ?? [],
+            ["parententitypermission"] = parent,
+            ["read"] = read,
+            ["create"] = create,
+            ["write"] = write,
+            ["delete"] = delete,
+            ["append"] = append,
+            ["appendto"] = appendTo,
+        });
 }

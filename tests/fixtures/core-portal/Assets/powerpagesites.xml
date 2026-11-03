@@ -1,0 +1,11 @@
+<powerpagesites>
+  <powerpagesite powerpagesiteid="add6fceb-252c-456e-bead-89dbed3b19c5">
+    <content>{"defaultlanguage":"478b893f-eef8-4927-ac86-ba2f4f37d706","footerwebtemplateid":"2fc6e958-b0d5-4bc3-9d88-1da944f869bb","headerwebtemplateid":"6a857af4-75db-4c3b-8e8f-26df1270373a","website_language":1033}</content>
+    <datamodelversion>2.0</datamodelversion>
+    <iscustomizable>1</iscustomizable>
+    <name>MSGOV PORTALS CORE - msgov-portals-core</name>
+    <primarydomainname>msgov-portals-core.powerappsportals.us</primarydomainname>
+    <statecode>0</statecode>
+    <statuscode>1</statuscode>
+  </powerpagesite>
+</powerpagesites>

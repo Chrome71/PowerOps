@@ -167,4 +167,41 @@ public class OutputHygieneTests
 
         Assert.Equal(20, error.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Length);
     }
+
+    private static AnalysisResult WithNotes(params string[] notes) =>
+        new([new SolutionResult("a/b", B.Empty(), []) { NotChecked = notes }]);
+
+    [Fact]
+    public void A_not_checked_note_is_one_cleaned_line()
+    {
+        var error = new StringWriter();
+
+        TextReport.WriteNotChecked(WithNotes("PO023 not checked for table permission 'x\n::error::forged': web role 'r' is not in the solution."), error);
+
+        var line = Assert.Single(error.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries));
+        Assert.StartsWith("note: a/b: PO023 not checked for table permission 'x ::error::forged'", line);
+    }
+
+    [Fact]
+    public void Not_checked_notes_are_capped_at_20_then_a_count_follows()
+    {
+        var error = new StringWriter();
+
+        TextReport.WriteNotChecked(WithNotes([.. Enumerable.Range(1, 20).Select(i => $"PO022 check {i}"), .. Enumerable.Range(1, 5).Select(i => $"PO023 check {i}"), .. Enumerable.Range(21, 5).Select(i => $"PO022 check {i}")]), error);
+
+        var lines = error.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.TrimEnd('\r')).ToList();
+        Assert.Equal(21, lines.Count);
+        Assert.All(lines.Take(20), l => Assert.StartsWith("note: a/b: PO022 check", l));
+        Assert.Equal("note: and 10 more checks not done (PO022, PO023)", lines[20]);
+    }
+
+    [Fact]
+    public void Twenty_not_checked_notes_have_no_count_line()
+    {
+        var error = new StringWriter();
+
+        TextReport.WriteNotChecked(WithNotes([.. Enumerable.Range(1, 20).Select(i => $"PO022 check {i}")]), error);
+
+        Assert.Equal(20, error.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Length);
+    }
 }

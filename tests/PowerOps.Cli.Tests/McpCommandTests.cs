@@ -999,6 +999,37 @@ public sealed class McpCommandTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Analyze_returns_the_not_checked_note()
+    {
+        var folder = Path.Combine(_temp, "viewfields");
+        Directory.CreateDirectory(Path.Combine(folder, "Other"));
+        File.WriteAllText(Path.Combine(folder, "Other", "Solution.xml"), """
+            <ImportExportXml><SolutionManifest>
+              <UniqueName>Demo</UniqueName><Version>1.0.0.0</Version><Managed>0</Managed>
+              <Publisher><UniqueName>demopub</UniqueName><CustomizationPrefix>demo</CustomizationPrefix></Publisher>
+            </SolutionManifest></ImportExportXml>
+            """);
+        foreach (var (id, name, value) in new[] { ("00000000-0000-0000-0000-0000000000d1", "Webapi/demo_item/enabled", "true"), ("00000000-0000-0000-0000-0000000000d2", "Webapi/demo_item/UseFieldsFromView", "True") })
+        {
+            Directory.CreateDirectory(Path.Combine(folder, "powerpagecomponents", id));
+            File.WriteAllText(Path.Combine(folder, "powerpagecomponents", id, "powerpagecomponent.xml"), $$"""
+                <powerpagecomponent powerpagecomponentid="{{id}}">
+                  <content>{"value":"{{value}}"}</content>
+                  <name>{{name}}</name>
+                  <powerpagecomponenttype>9</powerpagecomponenttype>
+                </powerpagecomponent>
+                """);
+        }
+
+        var result = await Call("analyze", new() { ["paths"] = new[] { folder } });
+
+        Assert.False(result.IsError);
+        Assert.Equal(2, result.Content.Count);
+        Assert.StartsWith("note: ", Text(result, 1));
+        Assert.EndsWith(": PO020 not checked for table 'demo_item': UseFieldsFromView is True, and the view that holds the columns is not read.", Text(result, 1));
+    }
+
+    [Fact]
     public void Exit_one_with_a_report_is_not_an_error_and_a_code_beyond_three_is()
     {
         Assert.False(McpCommand.Result(1, "{}", "").IsError);

@@ -362,6 +362,18 @@
       ]
     },
     {
+      "path": "tests/fixtures/core-portal",
+      "uniqueName": "msgov_coreportal",
+      "version": "1.0.0.0",
+      "managed": false,
+      "publisher": {
+        "uniqueName": "msgovsolutions",
+        "prefix": "msgov"
+      },
+      "requires": [],
+      "findings": []
+    },
+    {
       "path": "tests/fixtures/powerops-seed-yaml/v1",
       "uniqueName": "PowerOpsSeed",
       "version": "1.0.0.0",
@@ -538,7 +550,7 @@
     }
   ],
   "summary": {
-    "solutions": 11,
+    "solutions": 12,
     "errors": 0,
     "warnings": 43,
     "baselined": 0

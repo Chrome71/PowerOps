@@ -45,4 +45,15 @@ public partial class RuleDocsTests
             Assert.True(date <= DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)), $"{rule.Id}: verified date {date} is in the future");
         }
     }
+
+    [Fact]
+    public void A_rule_that_can_say_not_checked_says_so_on_its_page()
+    {
+        foreach (var rule in Analyzer.Rules.OfType<INotChecked>().Cast<IRule>())
+        {
+            var text = File.ReadAllText(Path.Combine(Golden.RepoRoot, "docs", "rules", rule.Id + ".md"));
+
+            Assert.Contains("not checked", text, StringComparison.OrdinalIgnoreCase);
+        }
+    }
 }

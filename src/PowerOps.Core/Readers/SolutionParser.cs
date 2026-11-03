@@ -93,6 +93,11 @@ internal static partial class SolutionParser
                 .ToList()
             : [];
 
+        var powerPageComponents = paths.Values
+            .Where(p => PowerPageComponentPath().IsMatch(p))
+            .Select(p => ReadPowerPageComponent(LoadXml(files, p), p))
+            .ToList();
+
         return new Solution(
             UniqueName: Text(manifest, "UniqueName") ?? "",
             Version: Text(manifest, "Version") ?? "",
@@ -112,7 +117,99 @@ internal static partial class SolutionParser
             Workflows: workflows,
             CanvasAppTexts: canvasApps,
             ManifestFile: manifestPath,
-            AgentConnectionReferences: agentConnectionReferences);
+            AgentConnectionReferences: agentConnectionReferences)
+        {
+            PowerPageComponents = powerPageComponents,
+        };
+    }
+
+    private static PowerPageComponent ReadPowerPageComponent(XElement e, string path)
+    {
+        if (e.Name.LocalName != "powerpagecomponent")
+        {
+            throw new InvalidDataException($"{path}: the root element is '{e.Name.LocalName}', not 'powerpagecomponent'.");
+        }
+
+        var id = NormalizeId((string?)e.Attribute("powerpagecomponentid"))
+            ?? throw new InvalidDataException($"{path}: missing powerpagecomponentid attribute.");
+        if (!int.TryParse(Text(e, "powerpagecomponenttype"), out var type))
+        {
+            throw new InvalidDataException($"{path}: powerpagecomponenttype is missing or not an integer.");
+        }
+
+        var name = Text(e, "name") ?? "";
+        // Only the three types the rules read have their content parsed; any other type's content may be anything.
+        var content = EmptyContent;
+        if (type is 9 or 11 or 18)
+        {
+            content = ReadContent(e.Element("content")?.Value, path);
+            CheckContentKinds(content, type, name, path);
+        }
+
+        return new PowerPageComponent(
+            id,
+            type,
+            name,
+            NormalizeId(e.Element("powerpagesiteid")?.Element("powerpagesiteid")?.Value),
+            Text(e, "statecode") is null or "0",
+            content,
+            path);
+    }
+
+    private static readonly JsonElement EmptyContent = JsonDocument.Parse("{}").RootElement.Clone();
+
+    private static JsonElement ReadContent(string? text, string path)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(text) ? "{}" : text, new JsonDocumentOptions { AllowDuplicateProperties = false });
+            return doc.RootElement.ValueKind == JsonValueKind.Object
+                ? doc.RootElement.Clone()
+                : throw new InvalidDataException($"{path}: content is not a JSON object.");
+        }
+        catch (JsonException e)
+        {
+            throw new InvalidDataException($"{path}: content is not valid JSON: {e.Message}", e);
+        }
+    }
+
+    // The rules read these keys without checks of their own, so a kind they can't use is refused here, where the path is known.
+    private static void CheckContentKinds(JsonElement content, int type, string name, string path)
+    {
+        switch (type)
+        {
+            case 9 when name.StartsWith("Webapi/", StringComparison.OrdinalIgnoreCase):
+                Expect(content, "value", JsonValueKind.String, "a string", path);
+                break;
+            case 11:
+                Expect(content, "anonymoususersrole", JsonValueKind.True, "a boolean", path);
+                break;
+            case 18:
+                Expect(content, "adx_entitypermission_webrole", JsonValueKind.Array, "an array of strings", path);
+                Expect(content, "create", JsonValueKind.True, "a boolean", path);
+                Expect(content, "write", JsonValueKind.True, "a boolean", path);
+                Expect(content, "delete", JsonValueKind.True, "a boolean", path);
+                break;
+        }
+    }
+
+    private static void Expect(JsonElement content, string key, JsonValueKind kind, string described, string path)
+    {
+        if (!content.TryGetProperty(key, out var v) || v.ValueKind == JsonValueKind.Null)
+        {
+            return;
+        }
+
+        var ok = kind switch
+        {
+            JsonValueKind.True => v.ValueKind is JsonValueKind.True or JsonValueKind.False,
+            JsonValueKind.Array => v.ValueKind == JsonValueKind.Array && v.EnumerateArray().All(x => x.ValueKind == JsonValueKind.String),
+            _ => v.ValueKind == kind,
+        };
+        if (!ok)
+        {
+            throw new InvalidDataException($"{path}: content key '{key}' is not {described}.");
+        }
     }
 
     internal static List<RootComponent> ReadRootComponents(XElement? rootComponents) =>
@@ -285,4 +382,7 @@ internal static partial class SolutionParser
 
     [GeneratedRegex(@"^environmentvariabledefinitions/[^/]+/environmentvariabledefinition\.xml$", RegexOptions.IgnoreCase)]
     private static partial Regex EnvVarDefinitionPath();
+
+    [GeneratedRegex(@"^powerpagecomponents/[^/]+/powerpagecomponent\.xml$", RegexOptions.IgnoreCase)]
+    private static partial Regex PowerPageComponentPath();
 }

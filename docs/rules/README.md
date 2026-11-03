@@ -21,3 +21,8 @@
 | [PO015](PO015.md) | error | Dataverse row-created trigger has filter columns |
 | [PO016](PO016.md) | warning | Flow has more than 50 actions or more than 4 levels of nesting |
 | [PO017](PO017.md) | warning | Flow runs a loop inside a loop |
+| [PO019](PO019.md) | warning | Power Pages Web API fields setting is * |
+| [PO020](PO020.md) | warning | Power Pages Web API is enabled for a table with no fields setting |
+| [PO021](PO021.md) | warning | Power Pages table permission has no web role |
+| [PO022](PO022.md) | warning | Power Pages child table permission is not in effect through its parent |
+| [PO023](PO023.md) | warning | Power Pages table permission lets anonymous users create, write or delete |

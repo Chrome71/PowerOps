@@ -160,13 +160,13 @@ public class AnalyzeCommandTests : IDisposable
     }
 
     [Fact]
-    public void Json_output_parses_and_has_eleven_solutions()
+    public void Json_output_parses_and_has_twelve_solutions()
     {
         var (code, output, _) = Run("analyze", Fixtures, "--format", "json", "--fail-on", "none");
 
         Assert.Equal(0, code);
         using var doc = JsonDocument.Parse(output);
-        Assert.Equal(11, doc.RootElement.GetProperty("summary").GetProperty("solutions").GetInt32());
+        Assert.Equal(12, doc.RootElement.GetProperty("summary").GetProperty("solutions").GetInt32());
     }
 
     [Fact]
@@ -175,7 +175,7 @@ public class AnalyzeCommandTests : IDisposable
         var (code, output, _) = Run("analyze", Fixtures, "--format", "markdown", "--fail-on", "none");
 
         Assert.Equal(0, code);
-        Assert.StartsWith("## PowerOps analyze\n\n**11 solutions, ", output);
+        Assert.StartsWith("## PowerOps analyze\n\n**12 solutions, ", output);
     }
 
     [Fact]
@@ -200,7 +200,7 @@ public class AnalyzeCommandTests : IDisposable
         Assert.Equal(0, code);
         Assert.Equal("", output);
         using var doc = JsonDocument.Parse(File.ReadAllText(file));
-        Assert.Equal(11, doc.RootElement.GetProperty("solutions").GetArrayLength());
+        Assert.Equal(12, doc.RootElement.GetProperty("solutions").GetArrayLength());
     }
 
     [Fact]
@@ -210,5 +210,104 @@ public class AnalyzeCommandTests : IDisposable
 
         Assert.Equal(3, code);
         Assert.StartsWith("error: ", err);
+    }
+
+    private static readonly string CorePortal = Path.Combine(Fixtures, "core-portal");
+    private const string AnonymousRoleId = "c29ed002-f074-474f-9361-16b9a46850d6";
+    private const string PermissionId = "00000000-0000-0000-0000-0000000000c1";
+    private static readonly string PermissionFile = $"powerpagecomponents/{PermissionId}/powerpagecomponent.xml";
+
+    private static void CopyDirectory(string from, string to)
+    {
+        foreach (var dir in Directory.EnumerateDirectories(from, "*", SearchOption.AllDirectories))
+        {
+            Directory.CreateDirectory(Path.Combine(to, Path.GetRelativePath(from, dir)));
+        }
+
+        foreach (var file in Directory.EnumerateFiles(from, "*", SearchOption.AllDirectories))
+        {
+            File.Copy(file, Path.Combine(to, Path.GetRelativePath(from, file)));
+        }
+    }
+
+    private static JsonElement[] Findings(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return [.. doc.RootElement.GetProperty("solutions").EnumerateArray().SelectMany(s => s.GetProperty("findings").EnumerateArray().Select(f => f.Clone()))];
+    }
+
+    [Fact]
+    public void Core_portal_folder_and_zip_exit_zero_with_no_finding()
+    {
+        var zip = Path.Combine(_temp, "core-portal.zip");
+        SolutionZip.Create(CorePortal, zip);
+
+        foreach (var path in new[] { CorePortal, zip })
+        {
+            var (code, output, err) = Run("analyze", path, "--fail-on", "warning");
+
+            Assert.Equal(0, code);
+            Assert.Contains("no findings", output);
+            Assert.DoesNotContain("note:", err);
+        }
+    }
+
+    [Fact]
+    public void An_anonymous_create_permission_gives_the_same_finding_from_a_folder_and_a_zip()
+    {
+        var copy = Path.Combine(_temp, "copy");
+        CopyDirectory(CorePortal, copy);
+        var dir = Path.Combine(copy, "powerpagecomponents", PermissionId);
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "powerpagecomponent.xml"), $$"""
+            <powerpagecomponent powerpagecomponentid="{{PermissionId}}">
+              <content>{"entitylogicalname":"demo_item","adx_entitypermission_webrole":["{{AnonymousRoleId}}"],"create":true,"write":false,"delete":false,"read":true,"parententitypermission":null}</content>
+              <name>Item access</name>
+              <powerpagecomponenttype>18</powerpagecomponenttype>
+              <statecode>0</statecode>
+            </powerpagecomponent>
+            """);
+        var zip = Path.Combine(_temp, "copy.zip");
+        SolutionZip.Create(copy, zip);
+
+        var fromFolder = Findings(Run("analyze", copy, "--format", "json", "--fail-on", "none").Out);
+        var fromZip = Findings(Run("analyze", zip, "--format", "json", "--fail-on", "none").Out);
+
+        var finding = Assert.Single(fromFolder);
+        Assert.Equal("PO023", finding.GetProperty("ruleId").GetString());
+        Assert.Equal(PermissionFile, finding.GetProperty("file").GetString());
+        Assert.Equal("Table permission 'Item access' on 'demo_item' lets the anonymous role 'Anonymous Users' create, so anyone can without signing in; confirm it before Production.", finding.GetProperty("message").GetString());
+        Assert.Equal(finding.GetRawText(), Assert.Single(fromZip).GetRawText());
+    }
+
+    [Fact]
+    public void UseFieldsFromView_prints_a_note_on_stderr_and_exits_zero()
+    {
+        Directory.CreateDirectory(Path.Combine(_temp, "Other"));
+        File.WriteAllText(Path.Combine(_temp, "Other", "Solution.xml"), """
+            <ImportExportXml><SolutionManifest>
+              <UniqueName>Demo</UniqueName><Version>1.0.0.0</Version><Managed>0</Managed>
+              <Publisher><UniqueName>demopub</UniqueName><CustomizationPrefix>demo</CustomizationPrefix></Publisher>
+            </SolutionManifest></ImportExportXml>
+            """);
+        foreach (var (id, name, value) in new[] { ("00000000-0000-0000-0000-0000000000d1", "Webapi/demo_item/enabled", "true"), ("00000000-0000-0000-0000-0000000000d2", "Webapi/demo_item/UseFieldsFromView", "True") })
+        {
+            Directory.CreateDirectory(Path.Combine(_temp, "powerpagecomponents", id));
+            File.WriteAllText(Path.Combine(_temp, "powerpagecomponents", id, "powerpagecomponent.xml"), $$"""
+                <powerpagecomponent powerpagecomponentid="{{id}}">
+                  <content>{"value":"{{value}}"}</content>
+                  <name>{{name}}</name>
+                  <powerpagecomponenttype>9</powerpagecomponenttype>
+                </powerpagecomponent>
+                """);
+        }
+
+        var (code, output, err) = Run("analyze", _temp, "--fail-on", "warning");
+
+        Assert.Equal(0, code);
+        Assert.Contains("no findings", output);
+        var note = Assert.Single(err.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        Assert.StartsWith("note: ", note);
+        Assert.EndsWith(": PO020 not checked for table 'demo_item': UseFieldsFromView is True, and the view that holds the columns is not read.", note);
     }
 }

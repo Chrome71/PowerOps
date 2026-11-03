@@ -39,6 +39,8 @@ tests/fixtures/coe-auditlogs: CenterofExcellenceAuditLogs 3.27.2 (publisher powe
   warning PO011 Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json: Flow 'Deprecated | [Child] Admin | Sync Logs' is turned off.
   warning PO016 Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json: Flow 'Deprecated | [Child] Admin | Sync Logs' has 36 actions and a nesting depth of 5.
   warning PO017 Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json: Flow 'Deprecated | [Child] Admin | Sync Logs' runs loop 'Apply_to_each_Audit_Log' inside loop 'Apply_to_each_cluster'.
+tests/fixtures/core-portal: msgov_coreportal 1.0.0.0 (publisher msgovsolutions, prefix msgov)
+  no findings
 tests/fixtures/powerops-seed-yaml/v1: PowerOpsSeed 1.0.0.0 (publisher powerops, prefix pops)
   no findings
 tests/fixtures/powerops-seed-yaml/v2: PowerOpsSeed 1.0.0.0 (publisher powerops, prefix pops)
@@ -62,4 +64,4 @@ tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip: Contoso_sample 1.0.0.1 (
   warning PO010 solution.xml: Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher.
 tests/fixtures/zips/polymorphiclookupexamplesolution.zip: polymorphiclookupexamplesolution 1.0.0.0 (publisher examplepublisher, prefix sample)
   no findings
-11 solutions, 0 errors, 43 warnings
+12 solutions, 0 errors, 43 warnings
