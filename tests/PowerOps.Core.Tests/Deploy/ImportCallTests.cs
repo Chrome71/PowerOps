@@ -106,6 +106,16 @@ public class ImportCallTests
     [InlineData("pac copilot pull")]
     [InlineData("pac copilot list")]
     [InlineData("pac copilot pack --publisher-prefix contoso")]
+    [InlineData("npm install @microsoft/power-apps")]
+    [InlineData("npm install --save-dev @microsoft/power-apps-cli")]
+    [InlineData("echo the app pushed")]
+    [InlineData("cp -r public/pages uploads/")]
+    [InlineData("git commit -m \"copilot publisher\"")]
+    [InlineData("ls power-apps/src")]
+    [InlineData("git add power-apps/")]
+    // Known misses: a variable holds the flat CLI, and push alone can't be a marker (git push).
+    [InlineData("$PA push")]
+    [InlineData("PA=\"npx --no-install power-apps\"; $PA push")]
     public void A_shell_command_without_an_import_is_not_one(string command)
     {
         Assert.IsType<ImportRead.NotImport>(Bash(command));
@@ -315,6 +325,15 @@ public class ImportCallTests
             { "git commit -m \"fix: gate pa app push\"", CantRead },
             { "grep \"pages upload\" docs", CantRead },
             { "bash -c \"pac copilot publish\"", CantRead },
+            // Microsoft's code-apps skills set PA to the CLI they find and run $PA app push, or $PA push for the flat power-apps.
+            { "PA=\"npx --no-install pa\"; $PA app push", CantRead },
+            { "pa.cmd app push", PaPush },
+            { "node_modules/.bin/power-apps.cmd push", PaPush },
+            { "npx.cmd --no-install pa app push", PaPush },
+            // The route words are bare, so these block too while the hooks are on: reword them.
+            { "git commit -m \"feat: add app push notifications\"", CantRead },
+            { "git -C apps push origin main", CantRead },
+            { "mv pages upload", CantRead },
             { $"pac catalog install --environment {Env} --catalog-item-id x", "pac catalog install installs a catalog item that no plan holds" },
             { $"pac app-management install-application-package --environment {Env} --unique-name x", "pac app-management install-application-package installs an application package that no plan holds" },
             { "sh -c 'pac catalog install --catalog-item-id x'", CantRead },
@@ -561,6 +580,7 @@ public class ImportCallTests
         Assert.Equal(new ImportCall(Zip, Env, null, false), Checked(Bash(Import(), "Monitor")));
         Assert.Contains(CantRead, Blocked(Bash("sh -c 'pac solution import'", "Monitor")).Lines);
         Assert.Contains("pac pcf push imports a solution that no plan holds", Blocked(Bash("pac pcf push", "Monitor")).Lines);
+        Assert.Contains(PaPush, Blocked(Bash("npx pa app push", "Monitor")).Lines);
         Assert.IsType<ImportRead.NotImport>(Bash("tail -f /var/log/syslog", "Monitor"));
     }
 

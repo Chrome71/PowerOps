@@ -44,7 +44,7 @@ public class SolutionLoaderTests
     }
 
     [Fact]
-    public void WithzipDirthe_agent_mapping_both_references_are_unused()
+    public void Without_the_agent_mapping_both_references_are_unused()
     {
         using var t = AgentSolution(null);
 

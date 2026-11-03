@@ -2,12 +2,15 @@ using System.CommandLine;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
+using PowerOps.Core.Deploy;
 using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
 
 public partial class HandoffDocTests
 {
+    private const string PacTools = "mcp__pac-cli__solution_import|mcp__pac-cli__pages_upload|mcp__pac-cli__pages_upload-code-site|mcp__pac-cli__copilot_publish|mcp__pac-cli__model_genpage_upload";
+
     // `powerops` at the start of a word, then groups of one space and a lowercase word, never across a line break.
     [GeneratedRegex(@"\bpowerops((?: [a-z][a-z-]*)+)")]
     private static partial Regex Mention();
@@ -92,12 +95,27 @@ public partial class HandoffDocTests
     {
         var groups = HookGroups();
 
-        Assert.Equal(["mcp__pac-cli__solution_import", "Bash", "Monitor", "PowerShell"], groups.Select(g => (string?)g!["matcher"]));
+        Assert.Equal([PacTools, "Bash", "Monitor", "PowerShell"], groups.Select(g => (string?)g!["matcher"]));
         foreach (var hook in groups.SelectMany(g => g!["hooks"]!.AsArray()))
         {
             Assert.Equal("powerops deploy gate \"$CLAUDE_PROJECT_DIR/deploy/powerops-plan.json\" || exit 2", (string?)hook!["command"]);
             Assert.Equal("block", (string?)hook["onFailure"]);
             Assert.Equal(600, (int?)hook["timeout"]);
+        }
+    }
+
+    // Codex turns the - of a server or tool name into _, so its matcher is Claude Code's with each - replaced.
+    [Fact]
+    public void The_codex_matcher_is_the_claude_one_in_codex_names_and_the_gate_blocks_every_name()
+    {
+        var codex = PacTools.Replace('-', '_');
+
+        Assert.Contains($"`{codex}`", Page());
+        Assert.Contains("Hooks copied from an earlier version of this page match only `solution_import`.", Page());
+        foreach (var tool in PacTools.Split('|').Concat(codex.Split('|')))
+        {
+            var hook = new JsonObject { ["tool_name"] = tool, ["tool_input"] = new JsonObject() };
+            Assert.IsType<ImportRead.Blocked>(ImportCall.Read(System.Text.Encoding.UTF8.GetBytes(hook.ToJsonString())));
         }
     }
 

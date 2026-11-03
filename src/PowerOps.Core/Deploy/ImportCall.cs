@@ -76,7 +76,7 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
 
     private sealed record Given(string Value, bool Literal);
 
-    [GeneratedRegex($"solution{Gap}import|solution{Gap}upgrade|pipeline{Gap}deploy|package{Gap}deploy|solution-settings\\.js|import-template-solution|encode-solution-file|ImportSolution|StageAndUpgrade|DeployPackageAsync|RetryFailedDeploymentAsync|(?<!\\w)(?:pcf{Gap}push|application{Gap}install|code{Gap}push|catalog{Gap}install|apps?{Gap}push|(?:pages|powerpages|paportal){Gap}(?:upload|migrate-datamodel)|genpage{Gap}upload|copilot{Gap}(?:push|publish))|install-application-package|Import-CrmSolution", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex($"solution{Gap}import|solution{Gap}upgrade|pipeline{Gap}deploy|package{Gap}deploy|solution-settings\\.js|import-template-solution|encode-solution-file|ImportSolution|StageAndUpgrade|DeployPackageAsync|RetryFailedDeploymentAsync|(?<!\\w)(?:pcf{Gap}push|application{Gap}install|code{Gap}push|catalog{Gap}install|(?:apps?{Gap}push|(?:pages|powerpages|paportal){Gap}(?:upload|migrate-datamodel)|genpage{Gap}upload|copilot{Gap}(?:push|publish))(?!\\w))|install-application-package|Import-CrmSolution", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex Markers();
 
     // A $'...' word holding a backslash: its escapes (\x70, \160, \u0070) can spell any text.
@@ -346,11 +346,11 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
 
                 recognized.Add(segment);
             }
-            else if (program is "pa" or "power-apps" or "npx")
+            else if (Bin(program) is "pa" or "power-apps" or "npx")
             {
                 // npx runs the package named by its first word that isn't an option.
-                var read = (program == "npx" ? words.Skip(1).SkipWhile(w => w.Value.StartsWith('-')) : words).Select(w => w.Value.ToLowerInvariant()).ToArray();
-                if (read is [var first, .. var after] && ((FileName(first) == "pa" && after is ["app", "push", ..]) || (FileName(first) == "power-apps" && after is ["push", ..])))
+                var read = (Bin(program) == "npx" ? words.Skip(1).SkipWhile(w => w.Value.StartsWith('-')) : words).Select(w => w.Value.ToLowerInvariant()).ToArray();
+                if (read is [var first, .. var after] && ((Bin(FileName(first)) == "pa" && after is ["app", "push", ..]) || (Bin(FileName(first)) == "power-apps" && after is ["push", ..])))
                 {
                     lines.Add(RoutePaPush);
                     recognized.Add(segment);
@@ -386,6 +386,9 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
     private static string Join(Segment segment) => string.Join(' ', segment.Words.Select(w => w.Value));
 
     private static string FileName(string path) => path[(path.LastIndexOfAny(['/', '\\']) + 1)..];
+
+    // npm's shims on Windows are pa.cmd, power-apps.cmd and npx.cmd.
+    private static string Bin(string name) => name.EndsWith(".cmd", StringComparison.Ordinal) ? name[..^4] : name;
 
     private static ImportCall? ReadCli(Word[] words, List<string> lines)
     {
