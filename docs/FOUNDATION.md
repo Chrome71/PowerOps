@@ -2,7 +2,7 @@
 
 **One line:** a free, open-source, cross-platform toolkit that brings software-engineering discipline (analysis, diffing, testing, repeatable deployment) to Microsoft Power Platform. It works alongside `pac`; it does not replace it.
 
-Last updated 2026-10-28.
+Last updated 2026-11-02.
 
 ## 1. Why now
 
@@ -66,7 +66,7 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
 
 ## 5. Roadmap
 
-The ordered milestones for Phases 1–6 are in [BUILD-PLAN.md](BUILD-PLAN.md).
+The ordered milestones for Phases 1–7 are in [BUILD-PLAN.md](BUILD-PLAN.md).
 
 Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform tenant**, which keeps contribution easy.
 
@@ -82,6 +82,7 @@ Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform
 | **4. Testing** | A flow test harness that runs exported flow definitions offline with mocked actions, and its merge gate; a Playwright starter that follows Microsoft's samples; a Copilot Studio eval gate on the preview evaluation API, on hold by the user's choice since 2026-10-27 ([Phase 4](BUILD-PLAN.md#phase-4-testing-m14m17)) | A failing flow assertion blocks a merge (met by M14 and M15) |
 | **5. Agents** | `powerops mcp`, a stdio MCP server over the same core, with only what `pac`'s and Dataverse's MCP servers lack (BUILD-PLAN [decision 16](BUILD-PLAN.md#decisions-phase-3b-2026-10-24), amended by decision 25): `analyze`, `rules`, `baseline`, `diff`, `test`, `settings generate` and `validate`, `plan status` and `facts`, `drift` and `deploy plan`, read-only except that `deploy plan` can save the plan file, plus `deploy apply` as a dry run unless the call sets `apply` and the user confirms ([Phase 5](BUILD-PLAN.md#phase-5-agents-m18m20)). No export, import, environment, auth or record tools, which theirs already have. Tool descriptions say to promote a reviewed plan with `deploy apply`, not with an import tool. It does not need either Microsoft server and does not name their tools, which have changed before | An agent can run analyze, diff, drift and deploy plan, but never writes without an explicit flag |
 | **6. Hardening** | No new feature: the fixes from a read-only audit of what Phases 0 to 5 built ([Phase 6](BUILD-PLAN.md#phase-6-hardening-m22m32), [plan](plans/phase6-hardening/plan.md)). `pac` and `az` resolved from PATH only, install docs that never fetch `PowerOps` by name from nuget.org, the gap between `deploy_apply`'s yes and the import closed, size, depth and time limits on every input, path-prefixed errors and exit codes that follow AGENTS.md, safe writes, the repo settings the user approves, lock files and a licence test, docs checked against the code, and Windows and macOS checked where CI can | Every high and medium finding of the audit is fixed with a test that fails without the fix, or accepted in the plan with its reason, and the commands, options, JSON schemas and documented exit codes are unchanged (met by M22 to M32) |
+| **7. Power Platform integration** | The plan, check and gate step for what Microsoft's skills and MCP servers build: canvas, model-driven, Power Pages, Power Automate, Power BI, Code Apps and the data store, with Copilot Studio and MCP second ([Phase 7](BUILD-PLAN.md#phase-7-power-platform-integration-m40m49), [plan](plans/phase7-power-platform/plan.md)). A goal trace and a size brake in the planning skills; readers and a few offline rules for canvas formulas inside an `.msapp`, Power Pages permissions and Web API settings, model-driven app modules and site maps, code-app dependencies and, in stage two, agents; flow size and nested-loop rules; `deploy gate` routes and hook matchers for the pushes and uploads it misses today; a hand-off row per product. PowerOps authors nothing, compiles nothing and deploys no Power BI content | Each milestone, M40 to M47 and then M48 and M49, is built or deferred by name, and the two pinned roles are unchanged |
 
 ## 6. Risks
 
