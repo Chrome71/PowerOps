@@ -44,9 +44,9 @@ Check the plan for each item. Report a gap, a risk or an unanswered area as a fi
 8. Security roles: who can read, write and administer, and whether the plan names roles.
 9. Testability: can each step in `Steps` be checked, is there a way to test before Prod, and does each form have a way out (cancel, back, a failed save).
 10. Unanswered areas and the open-question count: areas never asked (see the `## Log` in `decisions.md`), items under `Open questions` and `Questions for your admin`.
-11. Size: for each table, list, flow and screen, ask which line of `Goal` would fail if it were removed. Write one finding per problem, listing every artefact it covers.
+11. Size: for each table, list, flow and screen, ask which line of `Goal` would fail if it were removed. This item is about what the plan has and doesn't need; something missing, or a column that repeats another, belongs under the other items. Write one finding per problem, listing every artefact it covers.
     - No Goal line named, or none would fail: High.
-    - Two artefacts hold the same concept, or one shape is copied per year, team or site: High.
+    - Two tables, lists, flows or screens hold the same concept, or one shape is copied per year, team or site: High.
     - A SharePoint list fails a gate below with no stated reason: High.
     - A table or list not marked Reuse, Extend or Create, or a Create that doesn't name what it checked first: Medium.
     - A table or list holding only a name, code or status, with no attributes, owner, security or business editing of its own: Medium.

@@ -66,6 +66,12 @@ Asked after the first evaluation round, answered by the building session.
 3. In your own words
 Answer: 1. Both clients raised it as a Medium on both cases' screens and flows, so as worded it fires on every plan the skill writes. The ledger is where the Phase 7 plan puts the column, and the flow card already asks for the flow it reuses; a column on screens would cost words the core skill doesn't have. Item 11 keeps its seven severities, so `plan.md` is unchanged, and all four runs repeat on the new text so `report.md` describes what ships.
 
+### Q10. Round 2 missed on `plan-14`: each client raised a supported High that it filed under item 11 (a column that repeats another; no source for the team leads' addresses). What is the one revision?
+1. Scope item 11 to what the plan has and doesn't need, say that something missing or a column that repeats another belongs under the other items, and name the artefacts in the "same concept" line; rerun all four (recommended)
+2. Change `plan-14` to remove the two gaps
+3. In your own words
+Answer: 1. The plan allows one revision of item 11's wording after a miss, and forbids changing the cases, the key or the pass rule, so option 2 is out. Both Highs are real gaps in `plan-14`, but neither is the plan being too big, which is what item 11 measures; filing them there is the item's wording at fault. They stay findings under items 2 and 7 to 9, which the pass rule records and doesn't score.
+
 ## Log
 
 - 2026-11-03: plan started at the request of the session that started this one: build M41 of Phase 7, build-order item 76, from the M41 section of `docs/plans/phase7-power-platform/plan.md` and its BUILD-PLAN row, with decisions 40 and 45
