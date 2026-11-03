@@ -21,6 +21,8 @@ public static class Analyzer
         new PO013RootComponentWithoutSourceFolder(),
         new PO014CanvasHardCodedUrl(),
         new PO015CreateTriggerWithFilterColumns(),
+        new PO016FlowSizeOrDepth(),
+        new PO017NestedLoop(),
     }.OrderBy(r => r.Id, StringComparer.Ordinal).ToList();
 
     public static string HelpUri(string ruleId) => $"{Output.SarifReport.Repo}/blob/main/docs/rules/{ruleId}.md";

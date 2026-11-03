@@ -332,4 +332,127 @@ public class WarningRuleTests
 
         Assert.Empty(Run(new PO012RowUpdatedTriggerWithoutFilterColumns(), s));
     }
+
+    private static Dictionary<string, object> Composes(int n, string prefix = "c") =>
+        Enumerable.Range(0, n).ToDictionary(i => prefix + i, _ => (object)new { type = "Compose", inputs = "x" });
+
+    private static Dictionary<string, object> InScope(string name, IDictionary<string, object> inner) =>
+        new() { [name] = new { type = "Scope", actions = inner } };
+
+    private static Dictionary<string, object> Loop(string name, string type, IDictionary<string, object> inner) =>
+        new() { [name] = new { type, actions = inner } };
+
+    private static IReadOnlyList<Finding> Size(IDictionary<string, object> actions, object? triggers = null) =>
+        Run(new PO016FlowSizeOrDepth(), B.Empty() with { Workflows = [B.Flow(name: "Big", actions: actions, triggers: triggers)] });
+
+    [Theory]
+    [InlineData(51, 0)]
+    [InlineData(1, 5)]
+    public void PO016_fires_for_too_many_actions_or_too_deep(int compose, int scopes)
+    {
+        var actions = Composes(compose);
+        for (var i = 0; i < scopes; i++)
+        {
+            actions = InScope("s" + i, actions);
+        }
+
+        var f = Assert.Single(Size(actions));
+
+        Assert.Equal("Big", f.Component);
+        Assert.Equal($"Flow 'Big' has {compose + scopes} actions and a nesting depth of {scopes}.", f.Message);
+    }
+
+    [Fact]
+    public void PO016_counts_every_branch_and_a_switch_case_as_one_level()
+    {
+        var actions = new Dictionary<string, object>
+        {
+            ["cond"] = new { type = "If", expression = "x", actions = Composes(13, "t"), @else = new { actions = Composes(13, "e") } },
+            ["sw"] = new
+            {
+                type = "Switch",
+                expression = "x",
+                cases = new Dictionary<string, object>
+                {
+                    ["c1"] = new { @case = "a", actions = Composes(13, "a") },
+                    ["c2"] = new { @case = "b", actions = Composes(11, "b") },
+                },
+                @default = new { actions = Composes(1, "d") },
+            },
+        };
+
+        var f = Assert.Single(Size(actions));
+
+        Assert.Equal("Flow 'Big' has 53 actions and a nesting depth of 1.", f.Message);
+    }
+
+    [Fact]
+    public void PO016_quiet_at_50_actions_and_depth_4()
+    {
+        var actions = Composes(46);
+        for (var i = 0; i < 4; i++)
+        {
+            actions = InScope("s" + i, actions);
+        }
+
+        Assert.Empty(Size(actions));
+    }
+
+    [Fact]
+    public void PO016_does_not_count_the_trigger()
+    {
+        Assert.Empty(Size(Composes(50), B.RowTrigger(1)));
+    }
+
+    [Theory]
+    [InlineData("Foreach", "Foreach")]
+    [InlineData("Foreach", "Until")]
+    [InlineData("Until", "Foreach")]
+    [InlineData("Until", "Until")]
+    public void PO017_fires_for_a_loop_inside_a_loop(string outer, string inner)
+    {
+        var actions = Loop("outer", outer, Loop("inner", inner, Composes(1)));
+        var s = B.Empty() with { Workflows = [B.Flow(name: "Nest", actions: actions)] };
+
+        var f = Assert.Single(Run(new PO017NestedLoop(), s));
+
+        Assert.Equal("inner", f.Component);
+        Assert.Equal("Flow 'Nest' runs loop 'inner' inside loop 'outer'.", f.Message);
+    }
+
+    [Fact]
+    public void PO017_fires_through_a_condition_between_the_loops()
+    {
+        var actions = Loop("outer", "Foreach", new Dictionary<string, object>
+        {
+            ["cond"] = new { type = "If", expression = "x", actions = Composes(1), @else = new { actions = Loop("inner", "Foreach", Composes(1)) } },
+        });
+        var s = B.Empty() with { Workflows = [B.Flow(name: "Nest", actions: actions)] };
+
+        var f = Assert.Single(Run(new PO017NestedLoop(), s));
+
+        Assert.Equal("inner", f.Component);
+        Assert.Equal("Flow 'Nest' runs loop 'inner' inside loop 'outer'.", f.Message);
+    }
+
+    [Fact]
+    public void PO017_reports_each_inner_loop_against_its_nearest_enclosing_loop()
+    {
+        var actions = Loop("a", "Foreach", Loop("b", "Foreach", Loop("c", "Until", Composes(1))));
+        var s = B.Empty() with { Workflows = [B.Flow(name: "Deep", actions: actions)] };
+
+        var found = Run(new PO017NestedLoop(), s);
+
+        Assert.Equal(["Flow 'Deep' runs loop 'b' inside loop 'a'.", "Flow 'Deep' runs loop 'c' inside loop 'b'."], found.Select(f => f.Message));
+    }
+
+    [Fact]
+    public void PO017_quiet_for_sibling_loops_and_a_loop_holding_only_a_scope()
+    {
+        var siblings = Loop("a", "Foreach", Composes(1));
+        siblings["b"] = new { type = "Until", expression = "x", limit = new { count = 60 }, actions = Composes(1) };
+        var withScope = Loop("outer", "Foreach", InScope("s", Composes(2)));
+
+        Assert.Empty(Run(new PO017NestedLoop(), B.Empty() with { Workflows = [B.Flow(actions: siblings), B.Flow(id: "22222222-2222-2222-2222-222222222222", name: "Other", actions: withScope)] }));
+    }
 }

@@ -12,13 +12,19 @@ public sealed record StringLiteral(bool InParameters, string Value);
 /// <summary>A trigger of a cloud flow. <paramref name="Message"/> is the Dataverse subscription message (1 create, 2 delete, 3 update, ...), null when absent or not a number.</summary>
 public sealed record FlowTrigger(string Name, string? OperationId, int? Message, string? Entity, string? FilteringAttributes);
 
-/// <summary>The parts of a cloud flow's clientdata JSON that the analyzer rules need.</summary>
+/// <summary>A loop (<c>Foreach</c> or <c>Until</c>) that runs inside another loop, by action name; <paramref name="Outer"/> is the nearest enclosing loop.</summary>
+public sealed record NestedLoop(string Outer, string Inner);
+
+/// <summary>The parts of a cloud flow's clientdata JSON that the analyzer rules need. <c>ActionCount</c> counts every action under <c>definition.actions</c>, containers and the actions in all their branches included, not the trigger. <c>Depth</c> is the number of containers around the deepest action (0 for a top-level action).</summary>
 public sealed partial record FlowDefinition(
     IReadOnlyList<FlowConnectionReference> ConnectionReferences,
     IReadOnlyList<string> EnvironmentVariables,
     IReadOnlyList<string> ChildFlowIds,
     IReadOnlyList<StringLiteral> StringLiterals,
-    IReadOnlyList<FlowTrigger> Triggers)
+    IReadOnlyList<FlowTrigger> Triggers,
+    int ActionCount,
+    int Depth,
+    IReadOnlyList<NestedLoop> NestedLoops)
 {
     private static readonly string[] SkippedParameters = ["$connections", "$authentication"];
     private static readonly string[] SkippedProperties = ["metadata", "$schema", "operationMetadataId"];
@@ -60,10 +66,13 @@ public sealed partial record FlowDefinition(
             var children = new List<string>();
             var literals = new List<StringLiteral>();
             var triggers = new List<FlowTrigger>();
+            var actionCount = 0;
+            var maxDepth = 0;
+            var nestedLoops = new List<NestedLoop>();
 
             if (Get(doc.RootElement, "properties") is not { } props)
             {
-                return new FlowDefinition(connections, envVars, children, literals, []);
+                return new FlowDefinition(connections, envVars, children, literals, [], 0, 0, []);
             }
 
             if (Get(props, "connectionReferences") is { ValueKind: JsonValueKind.Object } refs)
@@ -111,15 +120,50 @@ public sealed partial record FlowDefinition(
                     }
                 }
 
+                WalkActions(definition, 0, null, ref actionCount, ref maxDepth, nestedLoops);
                 Walk(definition, 0, false, false, children, literals);
             }
 
-            return new FlowDefinition(connections, envVars, children.Distinct().ToList(), literals, triggers);
+            return new FlowDefinition(connections, envVars, children.Distinct().ToList(), literals, triggers, actionCount, maxDepth, nestedLoops);
         }
         // InvalidOperationException: GetString on a string with a lone surrogate.
         catch (Exception ex) when (ex is JsonException or InvalidOperationException)
         {
             throw new InvalidDataException("Flow definition is not valid JSON: " + ex.Message, ex);
+        }
+    }
+
+    /// <summary>Counts the actions under <paramref name="holder"/>'s <c>actions</c> object, at <paramref name="depth"/>, and everything nested in them. A holder or <c>actions</c> value that is not an object is skipped.</summary>
+    private static void WalkActions(JsonElement? holder, int depth, string? enclosingLoop, ref int count, ref int maxDepth, List<NestedLoop> nested)
+    {
+        if (Get(holder, "actions") is not { ValueKind: JsonValueKind.Object } actions)
+        {
+            return;
+        }
+
+        foreach (var a in actions.EnumerateObject())
+        {
+            count++;
+            maxDepth = Math.Max(maxDepth, depth);
+            var isLoop = Str(Get(a.Value, "type")) is { } type
+                && (type.Equals("Foreach", StringComparison.OrdinalIgnoreCase) || type.Equals("Until", StringComparison.OrdinalIgnoreCase));
+            if (isLoop && enclosingLoop is not null)
+            {
+                nested.Add(new NestedLoop(enclosingLoop, a.Name));
+            }
+
+            // Whatever the action's type, these hold the next level: its own actions, a Condition's else, a Switch's default and cases.
+            var loop = isLoop ? a.Name : enclosingLoop;
+            WalkActions(a.Value, depth + 1, loop, ref count, ref maxDepth, nested);
+            WalkActions(Get(a.Value, "else"), depth + 1, loop, ref count, ref maxDepth, nested);
+            WalkActions(Get(a.Value, "default"), depth + 1, loop, ref count, ref maxDepth, nested);
+            if (Get(a.Value, "cases") is { ValueKind: JsonValueKind.Object } cases)
+            {
+                foreach (var c in cases.EnumerateObject())
+                {
+                    WalkActions(c.Value, depth + 1, loop, ref count, ref maxDepth, nested);
+                }
+            }
         }
     }
 

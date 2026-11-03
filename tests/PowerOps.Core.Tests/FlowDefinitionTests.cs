@@ -113,6 +113,38 @@ public class FlowDefinitionTests
         Assert.Empty(flow.EnvironmentVariables);
         Assert.Empty(flow.ChildFlowIds);
         Assert.Empty(flow.StringLiterals);
+        Assert.Equal(0, flow.ActionCount);
+        Assert.Equal(0, flow.Depth);
+        Assert.Empty(flow.NestedLoops);
+    }
+
+    [Theory]
+    [InlineData("""{"triggers":{"t":{"type":"Request"}}}""", 0)]
+    [InlineData("""{"actions":[{"a":1}]}""", 0)]
+    [InlineData("""{"actions":null}""", 0)]
+    [InlineData("""{"actions":{"a":1,"b":"x","c":null}}""", 3)]
+    public void Odd_action_shapes_are_counted_without_throwing(string definition, int actions)
+    {
+        var flow = FlowDefinition.Parse(Flow("{}", definition));
+
+        Assert.Equal(actions, flow.ActionCount);
+        Assert.Equal(0, flow.Depth);
+        Assert.Empty(flow.NestedLoops);
+    }
+
+    [Fact]
+    public void Odd_holders_are_skipped_and_loop_types_ignore_case()
+    {
+        var flow = FlowDefinition.Parse(Flow("{}", """
+            {"actions":{
+              "b":{"type":"foreach","actions":[],"else":"x","cases":[1],"default":null},
+              "c":{"type":"until","actions":{"d":{"type":"FOREACH","actions":null}},"cases":{"k":"x"}}
+            }}
+            """));
+
+        Assert.Equal(3, flow.ActionCount);
+        Assert.Equal(1, flow.Depth);
+        Assert.Equal([new NestedLoop("c", "d")], flow.NestedLoops);
     }
 
     [Fact]
@@ -170,6 +202,9 @@ public class FlowDefinitionTests
         Assert.Equal(
             ["admin_AdminMail", "admin_TimeIntervalUnit", "admin_TimeIntervalInterval", "admin_AdmineMailPreferredLanguage", "admin_PowerAutomateEnvironmentVariable"],
             flow.EnvironmentVariables);
+        Assert.Equal(36, flow.ActionCount);
+        Assert.Equal(5, flow.Depth);
+        Assert.Equal([new NestedLoop("Apply_to_each_cluster", "Apply_to_each_Audit_Log")], flow.NestedLoops);
     }
 
     [Fact]

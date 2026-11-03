@@ -18,6 +18,11 @@ tests/fixtures/alm-makers: ALMAcceleratorforMakers 0.0.0.0 (publisher catteam, p
   warning PO011 Workflows/WorkflowCompleteNotification-518F39D7-F4E5-EA11-A817-000D3A56B702.json: Flow 'WorkflowCompleteNotification' is turned off.
   warning PO012 Workflows/DeleteProjectCleanUp-6F3FF001-D7EC-EA11-A817-000D3A1ABE26.json: Flow 'DeleteProjectCleanUp' runs on every update of 'cat_project'; set filter columns.
   warning PO012 Workflows/BuildRequestCancellation-05878F85-5A13-EB11-A813-000D3AA3E77C.json: Flow 'BuildRequestCancellation' runs on every update of 'cat_project'; set filter columns.
+  warning PO016 Workflows/CreateEnvironment-46735D3D-D2E1-EA11-A813-000D3A1ABE26.json: Flow 'CreateEnvironment' has 28 actions and a nesting depth of 5.
+  warning PO016 Workflows/CreateProject-0405E906-DAE1-EA11-A813-000D3A56B702.json: Flow 'CreateProject' has 76 actions and a nesting depth of 4.
+  warning PO016 Workflows/DeployToProd-076AFC29-3CE8-EA11-A817-000D3A1ABE26.json: Flow 'DeployToProd' has 109 actions and a nesting depth of 5.
+  warning PO016 Workflows/DeployToStage-692CD95A-C0E2-EA11-A813-000D3A1ABE26.json: Flow 'DeployToStage' has 67 actions and a nesting depth of 4.
+  warning PO016 Workflows/WorkflowCompleteNotification-518F39D7-F4E5-EA11-A817-000D3A56B702.json: Flow 'WorkflowCompleteNotification' has 72 actions and a nesting depth of 4.
 tests/fixtures/alm-sample: ALMAcceleratorSampleSolution 0.0.0.0 (publisher catteam, prefix cat)
   requires AppModuleWebResources (2.5)
   warning PO011 Workflows/EmailQuote-A4C44986-14D6-EC11-A7B5-000D3A1C0439.json: Flow 'Email Quote' is turned off.
@@ -32,6 +37,8 @@ tests/fixtures/coe-auditlogs: CenterofExcellenceAuditLogs 3.27.2 (publisher powe
   warning PO009 Other/Customizations.xml: Component 'new_CoEAuditLogsO365Outlook' does not use the publisher prefix 'admin'.
   warning PO011 Workflows/DeprecatedAdminSyncAuditLogs-FA91974D-6E68-EA11-A811-000D3A31CF04.json: Flow 'Deprecated | Admin | Sync Audit Logs' is turned off.
   warning PO011 Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json: Flow 'Deprecated | [Child] Admin | Sync Logs' is turned off.
+  warning PO016 Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json: Flow 'Deprecated | [Child] Admin | Sync Logs' has 36 actions and a nesting depth of 5.
+  warning PO017 Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json: Flow 'Deprecated | [Child] Admin | Sync Logs' runs loop 'Apply_to_each_Audit_Log' inside loop 'Apply_to_each_cluster'.
 tests/fixtures/powerops-seed-yaml/v1: PowerOpsSeed 1.0.0.0 (publisher powerops, prefix pops)
   no findings
 tests/fixtures/powerops-seed-yaml/v2: PowerOpsSeed 1.0.0.0 (publisher powerops, prefix pops)
@@ -55,4 +62,4 @@ tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip: Contoso_sample 1.0.0.1 (
   warning PO010 solution.xml: Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher.
 tests/fixtures/zips/polymorphiclookupexamplesolution.zip: polymorphiclookupexamplesolution 1.0.0.0 (publisher examplepublisher, prefix sample)
   no findings
-11 solutions, 0 errors, 36 warnings
+11 solutions, 0 errors, 43 warnings

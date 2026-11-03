@@ -218,6 +218,34 @@
               "defaultConfiguration": {
                 "level": "error"
               }
+            },
+            {
+              "id": "PO016",
+              "name": "FlowSizeOrDepth",
+              "shortDescription": {
+                "text": "Cloud flow has more than 50 actions or more than 4 levels of nesting"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO016.md",
+              "help": {
+                "text": "Move self-contained parts of the flow into child flows, and reduce nested scopes, conditions and loops."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO017",
+              "name": "NestedLoop",
+              "shortDescription": {
+                "text": "Cloud flow runs a loop inside a loop"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO017.md",
+              "help": {
+                "text": "Replace the inner loop with one query, filter or bulk action over the whole set, or fetch the related rows with the outer query's expand option and use one loop."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
             }
           ]
         }
@@ -638,6 +666,121 @@
           }
         },
         {
+          "ruleId": "PO016",
+          "ruleIndex": 15,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'CreateEnvironment' has 28 actions and a nesting depth of 5."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/Workflows/CreateEnvironment-46735D3D-D2E1-EA11-A813-000D3A1ABE26.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "73904bc832afb32dbe4964c083288fe32d8781fe2f4ac05fcaeef18b93386671"
+          }
+        },
+        {
+          "ruleId": "PO016",
+          "ruleIndex": 15,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'CreateProject' has 76 actions and a nesting depth of 4."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/Workflows/CreateProject-0405E906-DAE1-EA11-A813-000D3A56B702.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "cba64baddb83fd555bec47c0a7eb9fcd2428cd4b1615d50ca6832eb3895bdf2a"
+          }
+        },
+        {
+          "ruleId": "PO016",
+          "ruleIndex": 15,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'DeployToProd' has 109 actions and a nesting depth of 5."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/Workflows/DeployToProd-076AFC29-3CE8-EA11-A817-000D3A1ABE26.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "9181365c5dd79b111b25a951c63453780e5bf16b096ab5decba214e59e718d7f"
+          }
+        },
+        {
+          "ruleId": "PO016",
+          "ruleIndex": 15,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'DeployToStage' has 67 actions and a nesting depth of 4."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/Workflows/DeployToStage-692CD95A-C0E2-EA11-A813-000D3A1ABE26.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "b3937d76117d8d1c7f08999145c7693f5f8a8e2c62642ac4e319df7dae61a205"
+          }
+        },
+        {
+          "ruleId": "PO016",
+          "ruleIndex": 15,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'WorkflowCompleteNotification' has 72 actions and a nesting depth of 4."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-makers/Workflows/WorkflowCompleteNotification-518F39D7-F4E5-EA11-A817-000D3A56B702.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "df51d0424885591575675eb3c9350226547861c3ec746dff785af2d5c43ce8c3"
+          }
+        },
+        {
           "ruleId": "PO011",
           "ruleIndex": 10,
           "level": "warning",
@@ -865,6 +1008,52 @@
           ],
           "partialFingerprints": {
             "poFinding/v1": "8d4990e37cfcc084366da0c1ec0b587e57710e9d377b34112ba82ab2d73b47a2"
+          }
+        },
+        {
+          "ruleId": "PO016",
+          "ruleIndex": 15,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Deprecated | [Child] Admin | Sync Logs' has 36 actions and a nesting depth of 5."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/coe-auditlogs/Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "c8d3a5484032954a3f6090ea4d319a7ee001604d7d4d6f0603f9bce3d1464013"
+          }
+        },
+        {
+          "ruleId": "PO017",
+          "ruleIndex": 16,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Deprecated | [Child] Admin | Sync Logs' runs loop 'Apply_to_each_Audit_Log' inside loop 'Apply_to_each_cluster'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/coe-auditlogs/Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "c87800626127faf64eb9cb14a6c508bc7e569dccde4beebb7d15b87f4fc1fc06"
           }
         },
         {

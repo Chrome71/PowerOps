@@ -43,3 +43,9 @@ PO014 warning Canvas app formula contains a hard-coded environment or SharePoint
 PO015 error  Dataverse row-created trigger has filter columns
   fix: Clear the trigger's filter columns, or change its change type to Create or Update.
   https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO015.md
+PO016 warning Cloud flow has more than 50 actions or more than 4 levels of nesting
+  fix: Move self-contained parts of the flow into child flows, and reduce nested scopes, conditions and loops.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO016.md
+PO017 warning Cloud flow runs a loop inside a loop
+  fix: Replace the inner loop with one query, filter or bulk action over the whole set, or fetch the related rows with the outer query's expand option and use one loop.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO017.md

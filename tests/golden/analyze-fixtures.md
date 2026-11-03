@@ -1,6 +1,6 @@
 ## PowerOps analyze
 
-**11 solutions, 0 errors, 36 warnings**
+**11 solutions, 0 errors, 43 warnings**
 
 ### tests/fixtures/alm-makers: ALMAcceleratorforMakers 0.0.0.0
 
@@ -24,6 +24,11 @@
 | warning | [PO011](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md) | Workflows/WorkflowCompleteNotification-518F39D7-F4E5-EA11-A817-000D3A56B702.json | Flow 'WorkflowCompleteNotification' is turned off. | Turn the flow on before export, or remove it from the solution if it is no longer needed. |
 | warning | [PO012](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO012.md) | Workflows/DeleteProjectCleanUp-6F3FF001-D7EC-EA11-A817-000D3A1ABE26.json | Flow 'DeleteProjectCleanUp' runs on every update of 'cat\_project'; set filter columns. | Set the trigger's filter columns to the columns whose update should start the flow. |
 | warning | [PO012](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO012.md) | Workflows/BuildRequestCancellation-05878F85-5A13-EB11-A813-000D3AA3E77C.json | Flow 'BuildRequestCancellation' runs on every update of 'cat\_project'; set filter columns. | Set the trigger's filter columns to the columns whose update should start the flow. |
+| warning | [PO016](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO016.md) | Workflows/CreateEnvironment-46735D3D-D2E1-EA11-A813-000D3A1ABE26.json | Flow 'CreateEnvironment' has 28 actions and a nesting depth of 5. | Move self-contained parts of the flow into child flows, and reduce nested scopes, conditions and loops. |
+| warning | [PO016](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO016.md) | Workflows/CreateProject-0405E906-DAE1-EA11-A813-000D3A56B702.json | Flow 'CreateProject' has 76 actions and a nesting depth of 4. | Move self-contained parts of the flow into child flows, and reduce nested scopes, conditions and loops. |
+| warning | [PO016](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO016.md) | Workflows/DeployToProd-076AFC29-3CE8-EA11-A817-000D3A1ABE26.json | Flow 'DeployToProd' has 109 actions and a nesting depth of 5. | Move self-contained parts of the flow into child flows, and reduce nested scopes, conditions and loops. |
+| warning | [PO016](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO016.md) | Workflows/DeployToStage-692CD95A-C0E2-EA11-A813-000D3A1ABE26.json | Flow 'DeployToStage' has 67 actions and a nesting depth of 4. | Move self-contained parts of the flow into child flows, and reduce nested scopes, conditions and loops. |
+| warning | [PO016](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO016.md) | Workflows/WorkflowCompleteNotification-518F39D7-F4E5-EA11-A817-000D3A56B702.json | Flow 'WorkflowCompleteNotification' has 72 actions and a nesting depth of 4. | Move self-contained parts of the flow into child flows, and reduce nested scopes, conditions and loops. |
 
 ### tests/fixtures/alm-sample: ALMAcceleratorSampleSolution 0.0.0.0
 
@@ -44,6 +49,8 @@
 | warning | [PO009](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md) | Other/Customizations.xml | Component 'new\_CoEAuditLogsO365Outlook' does not use the publisher prefix 'admin'. | Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency. |
 | warning | [PO011](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md) | Workflows/DeprecatedAdminSyncAuditLogs-FA91974D-6E68-EA11-A811-000D3A31CF04.json | Flow 'Deprecated \| Admin \| Sync Audit Logs' is turned off. | Turn the flow on before export, or remove it from the solution if it is no longer needed. |
 | warning | [PO011](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md) | Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json | Flow 'Deprecated \| \[Child\] Admin \| Sync Logs' is turned off. | Turn the flow on before export, or remove it from the solution if it is no longer needed. |
+| warning | [PO016](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO016.md) | Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json | Flow 'Deprecated \| \[Child\] Admin \| Sync Logs' has 36 actions and a nesting depth of 5. | Move self-contained parts of the flow into child flows, and reduce nested scopes, conditions and loops. |
+| warning | [PO017](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO017.md) | Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json | Flow 'Deprecated \| \[Child\] Admin \| Sync Logs' runs loop 'Apply\_to\_each\_Audit\_Log' inside loop 'Apply\_to\_each\_cluster'. | Replace the inner loop with one query, filter or bulk action over the whole set, or fetch the related rows with the outer query's expand option and use one loop. |
 
 ### tests/fixtures/powerops-seed-yaml/v1: PowerOpsSeed 1.0.0.0
 
