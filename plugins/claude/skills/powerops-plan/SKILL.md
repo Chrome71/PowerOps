@@ -134,7 +134,7 @@ Do not ask what the facts already answer. When nothing is left to ask, say so an
 
 **Depth.** `depth` in the header sets how far the rounds go:
 
-- `quick`: one round, at most three questions, only what blocks the plan, with licensing and environments asked in it. Keep sections short. Recommend B as soon as nothing blocks.
+- `quick`: one round of at most three questions: licensing, environments, and data question 1 when the plan names new data. Keep sections short. Recommend B as soon as nothing blocks.
 - `standard`: the rounds as written above.
 - `deep`: more rounds are fine. Also ask about edge cases, data volume and delegation, security roles and testability. Write fuller Steps.
 
