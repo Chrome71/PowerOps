@@ -255,7 +255,8 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         var expected = Cli(cli);
         Assert.False(result.IsError);
-        Assert.Single(result.Content);
+        // Analyze also returns its notes: alm-sample's .msapp has no Src (M44).
+        Assert.Equal(tool == "analyze" ? 2 : 1, result.Content.Count);
         Assert.Equal(expected.Out, Text(result));
         Assert.Equal("", OutputSchemaTests.Errors(OutputSchemaTests.Load(schema), JsonNode.Parse(Text(result))!));
     }
@@ -298,8 +299,10 @@ public sealed class McpCommandTests : IAsyncLifetime
         var result = await Call("baseline", new() { ["paths"] = new[] { Fixtures } });
 
         Assert.False(result.IsError);
-        Assert.Single(result.Content);
+        Assert.Equal(2, result.Content.Count);
         Assert.Equal(File.ReadAllText(file), Text(result));
+        // The note of alm-sample's .msapp, which has no Src (M44).
+        Assert.EndsWith(": PO014 and PO018 not checked for canvas app 'CanvasApps/cat_devopskitsamplecanvasapp_c7ec5_DocumentUri.msapp': its .msapp has no Src folder (older app, resave in Studio).", Text(result, 1));
     }
 
     // 3
@@ -1027,6 +1030,27 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Equal(2, result.Content.Count);
         Assert.StartsWith("note: ", Text(result, 1));
         Assert.EndsWith(": PO020 not checked for table 'demo_item': UseFieldsFromView is True, and the view that holds the columns is not read.", Text(result, 1));
+    }
+
+    [Fact]
+    public async Task Analyze_returns_the_canvas_note()
+    {
+        var folder = Path.Combine(_temp, "canvas-seed");
+        foreach (var f in Directory.EnumerateFiles(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "powerops-seed", "v2"), "*", SearchOption.AllDirectories))
+        {
+            var to = Path.Combine(folder, Path.GetRelativePath(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "powerops-seed", "v2"), f));
+            Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+            File.Copy(f, to);
+        }
+
+        SolutionZip.Msapp(Path.Combine(folder, "CanvasApps", "pops_workitems_2af60_DocumentUri.msapp"), ("Header.json", "{}"));
+
+        var result = await Call("analyze", new() { ["paths"] = new[] { folder } });
+
+        Assert.False(result.IsError);
+        Assert.Equal(2, result.Content.Count);
+        Assert.StartsWith("note: ", Text(result, 1));
+        Assert.EndsWith(": PO014 and PO018 not checked for canvas app 'CanvasApps/pops_workitems_2af60_DocumentUri.msapp': its .msapp has no Src folder (older app, resave in Studio).", Text(result, 1));
     }
 
     [Fact]

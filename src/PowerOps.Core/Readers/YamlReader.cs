@@ -122,26 +122,12 @@ public static partial class YamlReader
         var src = $"{folder}/{name}_DocumentUri/Src/";
         foreach (var file in solutionFiles.Where(p => p.StartsWith(src, StringComparison.OrdinalIgnoreCase) && p.EndsWith(".pa.yaml", StringComparison.OrdinalIgnoreCase)))
         {
-            var top = root.LoadYaml(file);
-            var holders = new[] { top.Element("App") }
-                .Concat(top.Element("Screens")?.Elements() ?? [])
-                .Concat(top.Element("ComponentDefinitions")?.Elements() ?? []);
-            foreach (var holder in holders.OfType<XElement>().SelectMany(Controls))
+            foreach (var formula in CanvasSource.Formulas(root.LoadYaml(file), appName, file))
             {
-                foreach (var property in holder.Element("Properties")?.Elements() ?? [])
-                {
-                    if (!property.HasElements && property.Value.StartsWith('='))
-                    {
-                        yield return new CanvasFormula(appName, XmlConvert.DecodeName(holder.Name.LocalName), XmlConvert.DecodeName(property.Name.LocalName), property.Value.TrimEnd(), file);
-                    }
-                }
+                yield return formula;
             }
         }
     }
-
-    /// <summary>The element itself, then its nested controls (each `Children` item holds one control element), in document order.</summary>
-    private static IEnumerable<XElement> Controls(XElement control) =>
-        control.Elements("Children").SelectMany(c => c.Elements()).SelectMany(Controls).Prepend(control);
 
     private static EnvironmentVariable ReadEnvironmentVariable(YamlRoot root, string path)
     {

@@ -248,6 +248,20 @@
               }
             },
             {
+              "id": "PO018",
+              "name": "CanvasForAllPatch",
+              "shortDescription": {
+                "text": "Canvas app formula calls Patch or ForAll inside ForAll"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO018.md",
+              "help": {
+                "text": "Loop once and pass the loop's result to a single Patch call, and don't nest ForAll."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
               "id": "PO019",
               "name": "WebApiWildcardFields",
               "shortDescription": {

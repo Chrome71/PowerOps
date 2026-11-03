@@ -55,6 +55,9 @@ internal static class B
         };
     }
 
+    public static CanvasFormula Formula(string formula, string control = "Button1", string property = "OnSelect", string app = "Demo") =>
+        new(app, control, property, formula, "CanvasApps/demo_DocumentUri.msapp");
+
     public static ConnectionReference Ref(string name, string connector = "/providers/x") => new(name, connector, "Other/Customizations.xml");
 
     public static EnvironmentVariable Env(string name, bool required = false, string? def = null, string? cur = null) =>

@@ -21,19 +21,25 @@ internal static class ZipGuard
     internal static void Check(string zipPath, ReadBudget budget)
     {
         using var file = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        var length = file.Length;
+        Check(file, zipPath, budget);
+    }
+
+    /// <summary>The same check for a zip held in a seekable stream, such as an <c>.msapp</c> read into memory; <paramref name="name"/> starts the message.</summary>
+    internal static void Check(Stream zip, string name, ReadBudget budget)
+    {
+        var length = zip.Length;
         if (length > budget.MaxZipBytes)
         {
-            throw new InvalidDataException($"{zipPath}: larger than {budget.MaxZipBytes / (1024 * 1024)} MB.");
+            throw new InvalidDataException($"{name}: larger than {budget.MaxZipBytes / (1024 * 1024)} MB.");
         }
 
-        if (DeclaredEntries(file, length) > (ulong)budget.MaxEntries)
+        if (DeclaredEntries(zip, length) > (ulong)budget.MaxEntries)
         {
-            throw new InvalidDataException($"{zipPath}: more than {budget.MaxEntries} entries.");
+            throw new InvalidDataException($"{name}: more than {budget.MaxEntries} entries.");
         }
     }
 
-    private static ulong DeclaredEntries(FileStream file, long length)
+    private static ulong DeclaredEntries(Stream file, long length)
     {
         var tail = new byte[(int)Math.Min(length, MaxTail)];
         var tailStart = length - tail.Length;
@@ -62,7 +68,7 @@ internal static class ZipGuard
         return 0;
     }
 
-    private static ulong Zip64Entries(FileStream file, long length, long eocdPosition)
+    private static ulong Zip64Entries(Stream file, long length, long eocdPosition)
     {
         var locatorPosition = eocdPosition - LocatorSize;
         if (locatorPosition < 0)

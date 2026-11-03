@@ -208,8 +208,9 @@ public class AnalyzeCommandTests : IDisposable
     {
         var (code, _, err) = Run("analyze", Fixtures, "--out", Path.Combine(_temp, "no-such-dir", "r.txt"), "--fail-on", "none");
 
+        // The notes (alm-sample's canvas note among them) come first and the error last.
         Assert.Equal(3, code);
-        Assert.StartsWith("error: ", err);
+        Assert.StartsWith("error: ", err.TrimEnd().Split('\n')[^1]);
     }
 
     private static readonly string CorePortal = Path.Combine(Fixtures, "core-portal");
@@ -309,5 +310,99 @@ public class AnalyzeCommandTests : IDisposable
         var note = Assert.Single(err.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
         Assert.StartsWith("note: ", note);
         Assert.EndsWith(": PO020 not checked for table 'demo_item': UseFieldsFromView is True, and the view that holds the columns is not read.", note);
+    }
+
+    private const string SeedMsapp = "CanvasApps/pops_workitems_2af60_DocumentUri.msapp";
+    private static readonly string SeedYaml = Path.Combine(Fixtures, "powerops-seed-yaml", "v2");
+
+    /// <summary>A copy of the seed solution (XML layout) whose `.msapp`, which the fixture had to drop, is rebuilt in code from the three `Src` files of the YAML fixture, with the backslash names `pac` writes.</summary>
+    private string SeedWithMsapp(string name, string? screen2 = null, bool withSource = true)
+    {
+        var copy = Path.Combine(_temp, name);
+        CopyDirectory(Path.Combine(Fixtures, "powerops-seed", "v2"), copy);
+        var src = Path.Combine(SeedYaml, "canvasapps", "pops_workitems_2af60", "pops_workitems_2af60_DocumentUri", "Src");
+        var entries = Directory.EnumerateFiles(src, "*.pa.yaml").Order(StringComparer.Ordinal).Select(f => ("Src\\" + Path.GetFileName(f), File.ReadAllText(f))).ToList();
+        if (screen2 is not null)
+        {
+            entries.Add(("Src\\Screen2.pa.yaml", $"Screens:\n  Screen2:\n    Properties:\n      Fill: =Color.Red\n    Children:\n      - Button2:\n          Control: Button@2.2.0\n          Properties:\n            OnSelect: {screen2}\n"));
+        }
+
+        SolutionZip.Msapp(Path.Combine(copy, "CanvasApps", "pops_workitems_2af60_DocumentUri.msapp"), withSource ? [.. entries] : [("Header.json", "{}"), ("Controls\\1.json", "{}")]);
+        return copy;
+    }
+
+    private static JsonElement[] RuleFindings(string path, string ruleId) =>
+        [.. Findings(Run("analyze", path, "--format", "json", "--fail-on", "none").Out).Where(f => f.GetProperty("ruleId").GetString() == ruleId)];
+
+    [Fact]
+    public void An_msapp_gives_the_PO014_finding_of_the_yaml_layout_from_a_folder_and_a_zip()
+    {
+        var folder = SeedWithMsapp("with-source");
+        var zip = Path.Combine(_temp, "with-source.zip");
+        SolutionZip.Create(folder, zip);
+        var expected = Assert.Single(RuleFindings(SeedYaml, "PO014"));
+
+        foreach (var path in new[] { folder, zip })
+        {
+            var found = Assert.Single(RuleFindings(path, "PO014"));
+
+            Assert.Equal(expected.GetProperty("message").GetString(), found.GetProperty("message").GetString());
+            Assert.Equal(expected.GetProperty("component").GetString(), found.GetProperty("component").GetString());
+            Assert.Equal(SeedMsapp, found.GetProperty("file").GetString());
+            Assert.DoesNotContain("note:", Run("analyze", path, "--fail-on", "none").Err);
+        }
+    }
+
+    [Fact]
+    public void A_forall_around_patch_in_an_msapp_gives_one_PO018_finding_from_a_folder_and_a_zip()
+    {
+        var folder = SeedWithMsapp("forall", screen2: "=ForAll(colItems, Patch(Source, {a:1}))");
+        var zip = Path.Combine(_temp, "forall.zip");
+        SolutionZip.Create(folder, zip);
+
+        foreach (var path in new[] { folder, zip })
+        {
+            var found = Assert.Single(RuleFindings(path, "PO018"));
+
+            Assert.Equal("Canvas app 'Work Items' calls Patch inside ForAll in Button2.OnSelect, which sends one request per record.", found.GetProperty("message").GetString());
+            Assert.Equal("Button2.OnSelect", found.GetProperty("component").GetString());
+            Assert.Equal(SeedMsapp, found.GetProperty("file").GetString());
+        }
+    }
+
+    [Fact]
+    public void An_msapp_without_Src_prints_the_note_on_stderr_gives_no_finding_and_exits_zero()
+    {
+        var folder = SeedWithMsapp("no-src", withSource: false);
+
+        var (code, output, err) = Run("analyze", folder);
+
+        Assert.Equal(0, code);
+        Assert.DoesNotContain("PO014", output);
+        var note = Assert.Single(err.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        Assert.StartsWith("note: ", note);
+        Assert.EndsWith($": PO014 and PO018 not checked for canvas app '{SeedMsapp}': its .msapp has no Src folder (older app, resave in Studio).", note);
+    }
+
+    [Fact]
+    public void An_msapp_the_solution_names_but_does_not_hold_is_not_read_and_gives_no_note()
+    {
+        var (code, _, err) = Run("analyze", Path.Combine(Fixtures, "powerops-seed", "v2"));
+
+        Assert.Equal(0, code);
+        Assert.Equal("", err);
+    }
+
+    [Fact]
+    public void A_hostile_msapp_exits_three_naming_it()
+    {
+        var folder = SeedWithMsapp("hostile");
+        File.WriteAllText(Path.Combine(folder, "CanvasApps", "pops_workitems_2af60_DocumentUri.msapp"), "not a zip");
+
+        var (code, _, err) = Run("analyze", folder);
+
+        Assert.Equal(3, code);
+        Assert.StartsWith("error: ", err);
+        Assert.Contains(SeedMsapp, err);
     }
 }

@@ -8,19 +8,27 @@ using PowerOps.Core.Model;
 
 namespace PowerOps.Core.Readers;
 
-/// <summary>The file-access seam: relative forward-slash paths plus a way to read one as text.</summary>
+/// <summary>The file-access seam: relative forward-slash paths plus a way to read one as text, and, for the layouts that hold `.msapp` files, a way to open one as raw bytes.</summary>
 internal sealed record SolutionFiles(
     IReadOnlyCollection<string> Paths,
     Func<string, string> ReadText,
     string ManifestFile,
     string CustomizationsFile,
-    ReadBudget Budget);
+    ReadBudget Budget,
+    Func<string, Stream>? OpenRead = null);
 
 /// <summary>Parses the files of an unpacked or exported solution; folder and zip differ only in <see cref="SolutionFiles"/>.</summary>
 internal static partial class SolutionParser
 {
     /// <summary>Reads a stream as text, enforcing the per-file cap on the bytes actually read (declared sizes can lie) and the per-solution budget.</summary>
     public static string ReadCapped(Stream source, string name, ReadBudget budget)
+    {
+        using var reader = new StreamReader(new MemoryStream(ReadCappedBytes(source, name, budget)), Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        return reader.ReadToEnd();
+    }
+
+    /// <summary>The bytes of a stream under the same caps as <see cref="ReadCapped"/>.</summary>
+    public static byte[] ReadCappedBytes(Stream source, string name, ReadBudget budget)
     {
         using var stream = source;
         using var buffer = new MemoryStream();
@@ -37,9 +45,7 @@ internal static partial class SolutionParser
             buffer.Write(chunk, 0, n);
         }
 
-        buffer.Position = 0;
-        using var reader = new StreamReader(buffer, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
-        return reader.ReadToEnd();
+        return buffer.ToArray();
     }
 
     public static Solution Parse(SolutionFiles files)
@@ -80,11 +86,12 @@ internal static partial class SolutionParser
             workflows.Add(ReadWorkflow(files, paths, w, customizationsPath!));
         }
 
-        var canvasApps = paths.Values
+        var canvasMeta = paths.Values
             .Where(p => CanvasMetaPath().IsMatch(p))
             .Select(p => CheckedMeta(files, p))
-            .Concat((customizations?.Element("CanvasApps")?.Elements("CanvasApp") ?? []).Select(e => e.ToString(SaveOptions.DisableFormatting)))
+            .Concat((customizations?.Element("CanvasApps")?.Elements("CanvasApp") ?? []).Select(e => (Text: e.ToString(SaveOptions.DisableFormatting), Element: (XElement?)e)))
             .ToList();
+        var (canvasFormulas, canvasWithoutSource) = ReadMsapps(files, paths, canvasMeta.Select(m => m.Element));
 
         var agentConnectionReferences = paths.TryGetValue("Assets/botcomponent_connectionreferenceset.xml", out var agentPath)
             ? LoadXml(files, agentPath).Elements("botcomponent_connectionreference")
@@ -115,11 +122,13 @@ internal static partial class SolutionParser
                 .Select(p => ReadEnvironmentVariable(files, paths, p))
                 .ToList(),
             Workflows: workflows,
-            CanvasAppTexts: canvasApps,
+            CanvasAppTexts: canvasMeta.Select(m => m.Text).ToList(),
             ManifestFile: manifestPath,
             AgentConnectionReferences: agentConnectionReferences)
         {
             PowerPageComponents = powerPageComponents,
+            CanvasFormulas = canvasFormulas,
+            CanvasAppsWithoutSource = canvasWithoutSource,
         };
     }
 
@@ -327,19 +336,64 @@ internal static partial class SolutionParser
         }
     }
 
-    /// <summary>Canvas metadata stays text, and malformed XML in it is tolerated (SolutionDiff reads it later); too deep or too large is refused here, where the file's path is known.</summary>
-    private static string CheckedMeta(SolutionFiles files, string path)
+    /// <summary>
+    /// Canvas metadata stays text, and malformed XML in it is tolerated (SolutionDiff reads it later; the element is then null); too deep or too large is refused here,
+    /// where the file's path is known. One parse gives both, so the file's nodes count against the budget once.
+    /// </summary>
+    private static (string Text, XElement? Element) CheckedMeta(SolutionFiles files, string path)
     {
         var text = files.ReadText(path);
         try
         {
-            ScanXml(text, path, files.Budget);
+            return (text, ParseXml(text, path, files.Budget).Root);
         }
         catch (XmlException)
         {
+            return (text, null);
+        }
+    }
+
+    /// <summary>
+    /// Reads each `CanvasApps/&lt;name&gt;.msapp` (a zip) in ordinal order. The app's name comes from the metadata whose <c>DocumentUri</c> names the file, else from the file name.
+    /// An app whose package holds no source is listed instead of read. A <c>DocumentUri</c> that names no listed <c>.msapp</c> is not read and not noted: the file is never opened.
+    /// </summary>
+    private static (List<CanvasFormula> Formulas, List<string> WithoutSource) ReadMsapps(SolutionFiles files, Dictionary<string, string> paths, IEnumerable<XElement?> metadata)
+    {
+        var apps = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var app in metadata.OfType<XElement>().Where(e => e.Name.LocalName == "CanvasApp"))
+        {
+            if (Text(app, "DocumentUri")?.Replace('\\', '/').TrimStart('/') is not { } uri)
+            {
+                continue;
+            }
+
+            if ((Text(app, "DisplayName") ?? Text(app, "Name")) is { } name)
+            {
+                apps.TryAdd(uri, name);
+            }
         }
 
-        return text;
+        var formulas = new List<CanvasFormula>();
+        var withoutSource = new List<string>();
+        if (files.OpenRead is { } open)
+        {
+            foreach (var msapp in paths.Values.Where(p => MsappPath().IsMatch(p)).Order(StringComparer.Ordinal))
+            {
+                var fileName = msapp[(msapp.LastIndexOf('/') + 1)..];
+                var name = apps.GetValueOrDefault(msapp)
+                    ?? (fileName.EndsWith("_DocumentUri.msapp", StringComparison.OrdinalIgnoreCase) ? fileName[..^"_DocumentUri.msapp".Length] : fileName[..^".msapp".Length]);
+                if (CanvasSource.ReadMsapp(ReadCappedBytes(open(msapp), msapp, files.Budget), msapp, name, files.Budget) is { } read)
+                {
+                    formulas.AddRange(read);
+                }
+                else
+                {
+                    withoutSource.Add(msapp);
+                }
+            }
+        }
+
+        return (formulas, withoutSource);
     }
 
     /// <summary>
@@ -379,6 +433,9 @@ internal static partial class SolutionParser
 
     [GeneratedRegex(@"^CanvasApps/[^/]+\.meta\.xml$", RegexOptions.IgnoreCase)]
     private static partial Regex CanvasMetaPath();
+
+    [GeneratedRegex(@"^CanvasApps/[^/]+\.msapp$", RegexOptions.IgnoreCase)]
+    private static partial Regex MsappPath();
 
     [GeneratedRegex(@"^environmentvariabledefinitions/[^/]+/environmentvariabledefinition\.xml$", RegexOptions.IgnoreCase)]
     private static partial Regex EnvVarDefinitionPath();

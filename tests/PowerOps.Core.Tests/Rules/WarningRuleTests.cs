@@ -754,6 +754,115 @@ public class WarningRuleTests
         Assert.Equal(2, notes.Count);
     }
 
+    private static IReadOnlyList<Finding> Canvas(params string[] formulas) =>
+        Run(new PO018CanvasForAllPatch(), B.Empty() with { CanvasFormulas = [.. formulas.Select(f => B.Formula(f))] });
+
+    private const string PatchMessage = "Canvas app 'Demo' calls Patch inside ForAll in Button1.OnSelect, which sends one request per record.";
+    private const string NestedMessage = "Canvas app 'Demo' nests ForAll inside ForAll in Button1.OnSelect, which multiplies the iterations.";
+
+    [Theory]
+    [InlineData("=ForAll(colSampleFoodSales, Patch(SampleFoodSalesData, {demoName:\"test\"}))")]
+    [InlineData("=ForAll(a, If(b, Patch(c, d), e))")]
+    [InlineData("=forall(a, PATCH(c, d))")]
+    [InlineData("=ForAll (a, Patch (c, d))")]
+    [InlineData("=X.ForAll(a, Patch(c, d))")]
+    [InlineData("=ForAll(a, Patch(c, d)); Patch(e, f)")]
+    public void PO018_fires_for_patch_inside_forall(string formula)
+    {
+        var f = Assert.Single(Canvas(formula));
+
+        Assert.Equal("PO018", f.RuleId);
+        Assert.Equal(Severity.Warning, f.Severity);
+        Assert.Equal(PatchMessage, f.Message);
+        Assert.Equal("Button1.OnSelect", f.Component);
+        Assert.Equal("CanvasApps/demo_DocumentUri.msapp", f.File);
+    }
+
+    [Theory]
+    [InlineData("=ForAll(a, ForAll(b, c))")]
+    [InlineData("=ForAll(a, Filter(b, ForAll(c, d)))")]
+    [InlineData("=forall(ForAll(a, b), c)")]
+    public void PO018_fires_for_forall_inside_forall(string formula) =>
+        Assert.Equal(NestedMessage, Assert.Single(Canvas(formula)).Message);
+
+    [Fact]
+    public void PO018_gives_two_findings_when_a_formula_has_both_kinds_and_one_per_kind()
+    {
+        var found = Canvas("=ForAll(a, ForAll(b, Patch(c, d)), Patch(e, f))");
+
+        Assert.Equal([PatchMessage, NestedMessage], found.Select(f => f.Message));
+    }
+
+    [Theory]
+    [InlineData("=Patch(SampleFoodSalesData, ForAll(colSampleFoodSales, {demoName:\"fromCanvas2\"}))")]
+    [InlineData("=ForAll(a, b); Patch(c, d)")]
+    [InlineData("=ForAll(a, \"Patch(c, d)\")")]
+    [InlineData("=ForAll(a, \"say \"\"hi\"\" Patch(c, d) \")")]
+    [InlineData("=ForAll(a, 'Patch(c)'.Name)")]
+    [InlineData("=ForAll(a, 'it''s Patch(c)'.Name)")]
+    [InlineData("=ForAll(a, // Patch(c, d)\n b)")]
+    [InlineData("=ForAll(a, /* Patch(c, d) */ b)")]
+    [InlineData("=ForAll(a, /* Patch(c, d)")]
+    [InlineData("=ForAll(a, MyPatch(c, d))")]
+    [InlineData("=ForAll(a, Patches(c, d))")]
+    [InlineData("=ForAll(a, Patch)")]
+    [InlineData("=ForAll(a, 1Patch(c))")]
+    [InlineData("=ForAll(a, b")]
+    [InlineData("=a) ForAll(b, c) )) Patch(d, e)")]
+    [InlineData("=MyForAll(a, Patch(c, d))")]
+    [InlineData("=Patch(a, b)")]
+    public void PO018_is_quiet(string formula) => Assert.Empty(Canvas(formula));
+
+    [Fact]
+    public void PO018_names_the_app_control_and_property_of_each_formula()
+    {
+        var s = B.Empty() with { CanvasFormulas = [B.Formula("=ForAll(a, Patch(c, d))", "Gallery1", "Items", "Tracker")] };
+
+        var f = Assert.Single(Run(new PO018CanvasForAllPatch(), s));
+
+        Assert.Equal("Canvas app 'Tracker' calls Patch inside ForAll in Gallery1.Items, which sends one request per record.", f.Message);
+        Assert.Equal("Gallery1.Items", f.Component);
+    }
+
+    [Fact]
+    public void PO018_runs_in_linear_time_on_a_million_nested_calls()
+    {
+        var deep = "=" + string.Concat(Enumerable.Repeat("ForAll(", 1_000_000)) + "Patch(a, b)";
+
+        var sw = Stopwatch.StartNew();
+        var found = Canvas(deep);
+
+        Assert.Equal([PatchMessage, NestedMessage], found.Select(f => f.Message));
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(5), $"took {sw.Elapsed}");
+    }
+
+    [Fact]
+    public void PO018_is_a_registered_warning_with_a_fix_sentence()
+    {
+        var rule = Assert.IsAssignableFrom<IRule>(Analyzer.Find("PO018"));
+
+        Assert.Equal(Severity.Warning, rule.Severity);
+        Assert.Equal("Canvas app formula calls Patch or ForAll inside ForAll", rule.Title);
+        Assert.Equal("Loop once and pass the loop's result to a single Patch call, and don't nest ForAll.", rule.Fix);
+    }
+
+    [Fact]
+    public void PO018_says_which_apps_it_did_not_check_and_sorts_the_notes()
+    {
+        var s = B.Empty() with
+        {
+            CanvasAppsWithoutSource = ["CanvasApps/b_DocumentUri.msapp", "CanvasApps/a_DocumentUri.msapp"],
+        };
+
+        Assert.Equal(
+            [
+                "PO014 and PO018 not checked for canvas app 'CanvasApps/a_DocumentUri.msapp': its .msapp has no Src folder (older app, resave in Studio).",
+                "PO014 and PO018 not checked for canvas app 'CanvasApps/b_DocumentUri.msapp': its .msapp has no Src folder (older app, resave in Studio).",
+            ],
+            Analyzer.NotChecked(s));
+        Assert.Empty(Analyzer.NotChecked(B.Empty()));
+    }
+
     [Fact]
     public void PO019_has_the_review_wording_for_its_fix()
     {

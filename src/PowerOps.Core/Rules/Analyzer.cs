@@ -23,6 +23,7 @@ public static class Analyzer
         new PO015CreateTriggerWithFilterColumns(),
         new PO016FlowSizeOrDepth(),
         new PO017NestedLoop(),
+        new PO018CanvasForAllPatch(),
         new PO019WebApiWildcardFields(),
         new PO020WebApiNoFields(),
         new PO021PermissionWithoutRole(),

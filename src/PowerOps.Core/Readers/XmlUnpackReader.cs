@@ -28,6 +28,7 @@ public static class XmlUnpackReader
             p => SolutionParser.ReadCapped(File.OpenRead(Path.Combine(root, p)), p, budget),
             "Other/Solution.xml",
             "Other/Customizations.xml",
-            budget));
+            budget,
+            p => File.OpenRead(Path.Combine(root, p))));
     }
 }
