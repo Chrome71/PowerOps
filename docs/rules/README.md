@@ -8,7 +8,7 @@
 | [PO002](PO002.md) | error | Required environment variable has neither a default nor a current value |
 | [PO003](PO003.md) | error | Missing dependency that no solution owns |
 | [PO004](PO004.md) | error | Flow calls a child flow that is not in the solution or its dependencies |
-| [PO005](PO005.md) | warning | Connection reference not used by any flow or canvas app |
+| [PO005](PO005.md) | warning | Connection reference not used by any flow, canvas app or agent |
 | [PO006](PO006.md) | warning | Flow contains a hard-coded environment or SharePoint URL |
 | [PO007](PO007.md) | warning | Environment variable default looks environment-specific (URL, GUID, email) |
 | [PO008](PO008.md) | warning | Environment variable current value is shipped in the solution |

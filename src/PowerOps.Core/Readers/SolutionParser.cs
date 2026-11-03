@@ -86,6 +86,13 @@ internal static partial class SolutionParser
             .Concat((customizations?.Element("CanvasApps")?.Elements("CanvasApp") ?? []).Select(e => e.ToString(SaveOptions.DisableFormatting)))
             .ToList();
 
+        var agentConnectionReferences = paths.TryGetValue("Assets/botcomponent_connectionreferenceset.xml", out var agentPath)
+            ? LoadXml(files, agentPath).Elements("botcomponent_connectionreference")
+                .Select(e => Opt((string?)e.Attribute("connectionreferenceid.connectionreferencelogicalname")))
+                .OfType<string>()
+                .ToList()
+            : [];
+
         return new Solution(
             UniqueName: Text(manifest, "UniqueName") ?? "",
             Version: Text(manifest, "Version") ?? "",
@@ -104,7 +111,8 @@ internal static partial class SolutionParser
                 .ToList(),
             Workflows: workflows,
             CanvasAppTexts: canvasApps,
-            ManifestFile: manifestPath);
+            ManifestFile: manifestPath,
+            AgentConnectionReferences: agentConnectionReferences);
     }
 
     internal static List<RootComponent> ReadRootComponents(XElement? rootComponents) =>

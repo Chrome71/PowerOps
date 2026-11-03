@@ -27,13 +27,20 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
     private const string RouteCode = "pac code push pushes an app that no plan holds";
     private const string RouteCatalog = "pac catalog install installs a catalog item that no plan holds";
     private const string RouteAppPackage = "pac app-management install-application-package installs an application package that no plan holds";
+    private const string RoutePaPush = "pa app push publishes an app that no plan holds";
+    private const string RoutePagesUpload = "pac pages upload uploads a site that no plan holds";
+    private const string RoutePagesCodeSite = "pac pages upload-code-site uploads a site that no plan holds";
+    private const string RoutePagesMigrate = "pac pages migrate-datamodel migrates a site's data model, which no plan holds";
+    private const string RouteGenpage = "pac model genpage upload publishes a page that no plan holds";
+    private const string RouteCopilotPush = "pac copilot push changes a live agent that no plan holds";
+    private const string RouteCopilotPublish = "pac copilot publish publishes an agent that no plan holds";
 
     private const string CantRead = "the command holds an import that the gate can't read";
     private const string Stray = "the command has a word the gate doesn't read";
     private const string PathHint = "must be a literal absolute path (no $, backtick, escape, ~ or wildcard)";
     private const string AnsiC = "the command has a $'...' word with an escape, which the gate can't read";
 
-    private static readonly string[] Routes = [RouteModelApps, RoutePowerPages, RoutePipeline, RouteTemplate, RoutePackage, RouteUpgrade, RoutePcf, RouteApplication, RouteCode, RouteCatalog, RouteAppPackage];
+    private static readonly string[] Routes = [RouteModelApps, RoutePowerPages, RoutePipeline, RouteTemplate, RoutePackage, RouteUpgrade, RoutePcf, RouteApplication, RouteCode, RouteCatalog, RouteAppPackage, RoutePaPush, RoutePagesUpload, RoutePagesCodeSite, RoutePagesMigrate, RouteGenpage, RouteCopilotPush, RouteCopilotPublish];
 
     private static readonly Dictionary<string, string> Canonical = new(StringComparer.Ordinal)
     {
@@ -50,6 +57,16 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
         ["-wt"] = "--max-async-wait-time",
     };
 
+    // Pac's MCP tools that write to a tenant and that no plan holds, by the end of the tool name; Codex turns the - of a tool name into _.
+    private static readonly (string Suffix, string Route)[] McpRoutes =
+    [
+        ("__pages_upload", RoutePagesUpload),
+        ("__pages_upload-code-site", RoutePagesCodeSite),
+        ("__pages_upload_code_site", RoutePagesCodeSite),
+        ("__copilot_publish", RouteCopilotPublish),
+        ("__model_genpage_upload", RouteGenpage),
+    ];
+
     private static readonly string[] Switches = ["--stage-and-upgrade", "--async"];
     private static readonly string[] McpKeys = ["--path", "--environment", "--settings-file", "--stage-and-upgrade", "--async", "--max-async-wait-time"];
 
@@ -59,7 +76,7 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
 
     private sealed record Given(string Value, bool Literal);
 
-    [GeneratedRegex($"solution{Gap}import|solution{Gap}upgrade|pipeline{Gap}deploy|package{Gap}deploy|solution-settings\\.js|import-template-solution|encode-solution-file|ImportSolution|StageAndUpgrade|DeployPackageAsync|RetryFailedDeploymentAsync|(?<!\\w)(?:pcf{Gap}push|application{Gap}install|code{Gap}push|catalog{Gap}install)|install-application-package|Import-CrmSolution", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex($"solution{Gap}import|solution{Gap}upgrade|pipeline{Gap}deploy|package{Gap}deploy|solution-settings\\.js|import-template-solution|encode-solution-file|ImportSolution|StageAndUpgrade|DeployPackageAsync|RetryFailedDeploymentAsync|(?<!\\w)(?:pcf{Gap}push|application{Gap}install|code{Gap}push|catalog{Gap}install|(?:apps?{Gap}push|(?:pages|powerpages|paportal){Gap}(?:upload|migrate-datamodel)|genpage{Gap}upload|copilot{Gap}(?:push|publish))(?!\\w))|install-application-package|Import-CrmSolution", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex Markers();
 
     // A $'...' word holding a backslash: its escapes (\x70, \160, \u0070) can spell any text.
@@ -130,6 +147,11 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
             }
 
             var tool = nameElement.GetString()!;
+            if (tool.StartsWith("mcp__", StringComparison.Ordinal) && McpRoutes.FirstOrDefault(r => tool.EndsWith(r.Suffix, StringComparison.Ordinal)).Route is { } route)
+            {
+                return new ImportRead.Blocked([route], false);
+            }
+
             var shell = tool is "Bash" or "PowerShell" or "Monitor";
             var mcp = tool.StartsWith("mcp__", StringComparison.Ordinal) && tool.EndsWith("__solution_import", StringComparison.Ordinal);
             if (!shell && !mcp)
@@ -274,6 +296,24 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
                     case "app-management install-application-package":
                         lines.Add(RouteAppPackage);
                         break;
+                    case "pages upload" or "powerpages upload" or "paportal upload":
+                        lines.Add(RoutePagesUpload);
+                        break;
+                    case "pages upload-code-site" or "powerpages upload-code-site" or "paportal upload-code-site":
+                        lines.Add(RoutePagesCodeSite);
+                        break;
+                    case "pages migrate-datamodel" or "powerpages migrate-datamodel" or "paportal migrate-datamodel":
+                        lines.Add(RoutePagesMigrate);
+                        break;
+                    case "copilot push":
+                        lines.Add(RouteCopilotPush);
+                        break;
+                    case "copilot publish":
+                        lines.Add(RouteCopilotPublish);
+                        break;
+                    case "model genpage" when words.Length > 3 && (!words[3].Literal || words[3].Value.Equals("upload", StringComparison.OrdinalIgnoreCase)):
+                        lines.Add(words[3].Literal ? RouteGenpage : CantRead);
+                        break;
                     default:
                         // An option before the subcommand must not hide an import.
                         if (Markers().IsMatch(Join(segment)))
@@ -306,6 +346,16 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
 
                 recognized.Add(segment);
             }
+            else if (Bin(program) is "pa" or "power-apps" or "npx")
+            {
+                // npx runs the package named by its first word that isn't an option.
+                var read = (Bin(program) == "npx" ? words.Skip(1).SkipWhile(w => w.Value.StartsWith('-')) : words).Select(w => w.Value.ToLowerInvariant()).ToArray();
+                if (read is [var first, .. var after] && ((Bin(FileName(first)) == "pa" && after is ["app", "push", ..]) || (Bin(FileName(first)) == "power-apps" && after is ["push", ..])))
+                {
+                    lines.Add(RoutePaPush);
+                    recognized.Add(segment);
+                }
+            }
         }
 
         // Every marker must sit in a recognized segment: what is left after their text is removed must hold none.
@@ -336,6 +386,9 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
     private static string Join(Segment segment) => string.Join(' ', segment.Words.Select(w => w.Value));
 
     private static string FileName(string path) => path[(path.LastIndexOfAny(['/', '\\']) + 1)..];
+
+    // npm's shims on Windows are pa.cmd, power-apps.cmd and npx.cmd.
+    private static string Bin(string name) => name.EndsWith(".cmd", StringComparison.Ordinal) ? name[..^4] : name;
 
     private static ImportCall? ReadCli(Word[] words, List<string> lines)
     {

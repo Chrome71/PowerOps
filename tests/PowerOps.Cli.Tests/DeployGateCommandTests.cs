@@ -196,6 +196,25 @@ public class DeployGateCommandTests : DeployTestBase
         Assert.Empty(pac.Calls);
     }
 
+    [Theory]
+    [InlineData("mcp__pac-cli__pages_upload", "pac pages upload uploads a site that no plan holds")]
+    [InlineData("mcp__pac_cli__pages_upload_code_site", "pac pages upload-code-site uploads a site that no plan holds")]
+    [InlineData("mcp__pac-cli__copilot_publish", "pac copilot publish publishes an agent that no plan holds")]
+    [InlineData("mcp__pac-cli__model_genpage_upload", "pac model genpage upload publishes a page that no plan holds")]
+    [InlineData("Bash", "pa app push publishes an app that no plan holds")]
+    public void A_write_route_with_no_plan_file_is_blocked_with_its_line_and_the_target_is_not_read(string tool, string line)
+    {
+        var test = SeedTarget();
+        var input = tool == "Bash" ? new JsonObject { ["command"] = "pa app push" } : new JsonObject { ["--path"] = "/x" };
+
+        var r = Gate(Environments(test), Hook(tool, input));
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal("", r.Out);
+        Assert.Equal($"{Prefix}{line}\n{ImportGuidance}\n", r.Err);
+        Assert.Equal(0, test.Calls);
+    }
+
     [Fact]
     public void A_call_that_is_not_an_import_is_allowed_without_reading_anything()
     {

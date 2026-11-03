@@ -17,6 +17,7 @@ public sealed class PO005UnusedConnectionReference : IRule
         var used = RuleHelpers.CloudFlows(solution)
             .SelectMany(f => f.Flow.ConnectionReferences.Select(c => c.LogicalName))
             .Where(n => !string.IsNullOrEmpty(n))
+            .Concat(solution.AgentConnectionReferences)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (var c in solution.ConnectionReferences)
