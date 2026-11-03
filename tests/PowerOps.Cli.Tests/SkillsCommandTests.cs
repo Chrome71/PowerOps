@@ -71,7 +71,7 @@ public partial class SkillsCommandTests : IDisposable
         Assert.Equal(0, code);
         Assert.DoesNotContain("created", output);
         Assert.DoesNotContain("updated", output);
-        Assert.Equal(10, output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Count(l => l.StartsWith("unchanged ")));
+        Assert.Equal(2 * SkillsCommand.Shipped().Count, output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Count(l => l.StartsWith("unchanged ")));
         Assert.Equal(stamp, File.GetLastWriteTimeUtc(file));
     }
 
@@ -386,5 +386,58 @@ public partial class SkillsCommandTests : IDisposable
         var text = SkillsCommand.Shipped()["powerops-review-plan/SKILL.md"];
 
         Assert.Contains("a way out (cancel, back, a failed save)", text);
+    }
+
+    [Fact]
+    public void Plan_skill_stays_under_its_word_ceiling()
+    {
+        // M41: the 2,483 words the skill had before the ledger, plus 300. On ASCII text a split on whitespace counts as wc -w does.
+        var text = SkillsCommand.Shipped()["powerops-plan/SKILL.md"];
+        var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+
+        Assert.All(text, c => Assert.True(c < 128, $"non-ASCII character U+{(int)c:X4}"));
+        Assert.InRange(words, 1, 2783);
+    }
+
+    [Fact]
+    public void Plan_skills_carry_the_ledger_the_data_round_and_item_11()
+    {
+        var shipped = SkillsCommand.Shipped();
+        string[] plan =
+        [
+            "`| Artefact | Kind | Store | Goal line | Reuse, Extend or Create | Why not a column or choice | Rows now, 3 years |`",
+            "`Goal` writes its outcomes as numbered Goal lines, then ends with a `### Won't build` list",
+            "\"Nothing was cut.\"",
+            "Under `quick` only question 1 joins the one round",
+            "The fast path asks none and does the same.",
+        ];
+        const string Pointer = "When the plan names new data or a flow, read `references/data.md` beside this file";
+        string[] data =
+        [
+            "1. **Rows.**", "2. **Delegation.**", "3. **Few lookups.**", "4. **Small flow volume.**", "5. **Permissions.**", "6. **No native offline.**",
+            "7. **A real licence saving.**", "8. **An owner for the schema.**", "## 5. The flow card", "## Sources",
+        ];
+        string[] review = ["11. Size: for each table, list, flow and screen", "Write one finding per problem", "The SharePoint gates: under 5,000 rows at three years"];
+
+        Assert.All(plan, s => Assert.Contains(s, shipped["powerops-plan/SKILL.md"]));
+        // In section 5, which the fast path writes too, not only in the question rounds.
+        Assert.InRange(shipped["powerops-plan/SKILL.md"].IndexOf(Pointer, StringComparison.Ordinal), 0, shipped["powerops-plan/SKILL.md"].IndexOf("## 6. Question rounds", StringComparison.Ordinal));
+        Assert.All(data, s => Assert.Contains(s, shipped["powerops-plan/references/data.md"]));
+        Assert.All(review, s => Assert.Contains(s, shipped["powerops-review-plan/SKILL.md"]));
+    }
+
+    [Fact]
+    public void Install_writes_the_plan_reference_beside_its_skill()
+    {
+        var (code, output, _) = Run("skills", "install", _temp);
+
+        Assert.Equal(0, code);
+        foreach (var root in new[] { ".claude", ".agents" })
+        {
+            var file = P(root, "skills", "powerops-plan", "references", "data.md");
+            Assert.Equal(SkillsCommand.Shipped()["powerops-plan/references/data.md"], File.ReadAllText(file));
+            Assert.True(File.Exists(P(root, "skills", "powerops-plan", "SKILL.md")));
+            Assert.Contains($"created {file.Replace('\\', '/')}", output);
+        }
     }
 }
