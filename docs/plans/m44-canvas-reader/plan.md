@@ -1,0 +1,119 @@
+---
+status: draft
+review: pending
+signed-off: null
+signed-off-hash: null
+environment: null
+depth: standard
+supersedes: null
+---
+
+# M44: Canvas reader
+
+## Goal
+
+Read the canvas formulas of each `.msapp` in an unpacked XML folder and in an exported zip, so PO014 covers the layouts that `docs/HANDOFF.md` commits, and warn about `ForAll` around `Patch` and `ForAll` inside `ForAll` in every layout. This is M44 of Phase 7 ([plan](../phase7-power-platform/plan.md), build-order item 79, release label v0.27.0), with its "Stops if" rule, decision 49 (D10) for inputs an export doesn't hold, and the F1 fact read from Dev on 2026-11-03 (Assumptions).
+
+Done when:
+
+1. `SolutionParser` opens each `CanvasApps/*.msapp` of a folder or zip read-only as a zip, in memory, and reads every `.pa.yaml` entry under `Src/` (either path separator, any case) through the same YAML conversion and formula walk the YAML layout uses, into `Solution.CanvasFormulas`. The reads stay under the solution's `ReadBudget` with the outer zip reader's entry and byte caps, and no entry is written to disk. A `.msapp` or `.pa.yaml` that can't be read is an `InvalidDataException` whose message starts with the `.msapp`'s path.
+2. A canvas app whose `.msapp` holds no `Src/*.pa.yaml`, or whose `.msapp` the solution names but doesn't hold, gives one `note:` line on stderr through `analyze`, `baseline` and the MCP tool, with no finding and no exit-code change (D10).
+3. PO014 fires on a hard-coded URL in an `.msapp` formula with the same message as in the YAML layout, and in both XML layouts the same finding.
+4. PO018, warning: a formula that calls `Patch` inside `ForAll`, or `ForAll` inside `ForAll`, with firing and quiet tests in `WarningRuleTests`, a page with a dated Learn Sources line, and a row in `docs/rules/README.md`. It reads `CanvasFormulas`, so it covers the YAML layout too.
+5. Tests build their `.msapp` in code (`SolutionZip`); no `.msapp` file is added to the repo. The hostile-input cases (too many entries, an oversized or bomb entry, deep YAML, not a zip) are refused with the path.
+6. The goldens change only as the Data section says. `RoleEvalTests` passes with no eval file changed, and `powerops-verify` and `powerops-review-security` keep their blob ids (`69208a2ed044a346bbae9877c8cd74d9e4794df9` and `6a6a6a1fdb71eb16d09cf3ed99406d04a0982a1f`).
+7. `dotnet build`, `dotnet test`, `dotnet format --verify-no-changes`, `powerops plan status .` and the leak scan are clean, and one `feat:` PR is open.
+
+### Won't build
+
+- A Power Fx parser: a token scan with a `shortcut:` note finds the two call shapes PO018 needs (the Phase 7 plan's "Deliberately doesn't").
+- Reading `AppCheckerResult.sarif`: F1 shows it is still in a fresh `.msapp`, but its format inside the package is undocumented; a later milestone can read it (Phase 7 plan).
+- Rules for 256,000 characters, more than 2 dependent screens, `TabIndex`, `FluentV8/*`, control counts, library size or delegation (the Phase 7 plan's "Deliberately doesn't" and "Won't build").
+- The retired `*.fx.yaml` layout of `pac canvas unpack` or `--processCanvasApps` (`CanvasApps/src/<app>/`): Learn calls the format retired, and the `.msapp` beside it is what the import uses.
+- Any JSON file of the `.msapp` (`Controls/`, `References/`, `Properties.json`): Learn says only `Src/*.pa.yaml` is source and the JSON isn't stable between saves.
+- A change to PO005 (decisions Q2).
+- A note for a YAML-layout app with no `Src`: Git integration writes `Src` for every app, and the YAML reader is unchanged.
+- A count or formula field in `--json`, SARIF or the baseline: findings only, no schema change.
+
+## Users
+
+- A maker or agent who runs `analyze` on an export or an unpacked folder before review: PO014 and PO018 now see the app's formulas, which before this milestone only the YAML layout gave.
+- CI: the Action runs `analyze` with `--fail-on error` by default, so the new findings change no exit code there. A job set to `fail-on: warning` fails on new PO014 findings in XML-layout apps and on PO018 until they are fixed or baselined. New `note:` lines on stderr change no exit code.
+- An agent through the MCP `analyze` tool, which already passes on stderr `note:` lines (`McpCommand.cs:144`).
+- Every command that loads a solution (`analyze`, `baseline`, `diff`, `test`, `settings`, `deploy` and their MCP tools) goes through the same parser, so it now opens each `.msapp` and parses its `Src/*.pa.yaml`. A `.msapp` that isn't a zip, or a `.pa.yaml` the YAML conversion refuses (anchors, too deep), stops it with exit 3, as a malformed YAML-layout file does today. Entries outside `Src/` are never opened.
+
+## Data
+
+Line numbers are those of `a8f2bf4`.
+
+| # | Change | Where | Test |
+|---|---|---|---|
+| 1 | `SolutionFiles` gains an optional last parameter `Func<string, Stream>? OpenRead`: the raw stream of one listed path. `ZipReader` passes the entry's stream after the same declared-length check `ReadEntry` makes; `XmlUnpackReader` passes `File.OpenRead` of the listed file. `YamlReader` passes nothing, so the YAML layout reads no `.msapp` | `src/PowerOps.Core/Readers/SolutionParser.cs:12-17`, `ZipReader.cs:42-47,55-63`, `XmlUnpackReader.cs:25-30` | rows 4 and 5 |
+| 2 | `SolutionParser.ReadCappedBytes(Stream, string name, ReadBudget)`: the loop `ReadCapped` has today (per-file cap on the bytes actually read, `Consume` per chunk), returning the bytes; `ReadCapped` decodes its result. `ZipGuard` gains `Check(Stream, string name, ReadBudget)` for a seekable stream, which the file overload calls, so the declared entry count of an in-memory zip is checked before `ZipArchive` parses its central directory | `SolutionParser.cs:23-42`, `ZipGuard.cs:20-33` | row 5 |
+| 3 | New `internal static class CanvasSource` in Readers. `Formulas(XElement top, string app, string file)` is the walk moved unchanged from `YamlReader.ReadCanvasFormulas` (the `App`, `Screens` and `ComponentDefinitions` holders, their nested `Children`, each property value starting with `=`), and `YamlReader` calls it. `ReadMsapp(byte[] bytes, string path, string app, ReadBudget budget)` returns the formulas, or null when no entry qualifies: `ZipGuard.Check` on the bytes, then `ZipArchive` in read mode, more than `MaxEntries` entries refused as the outer reader does; each entry name with `\` replaced by `/`; directories and unsafe names (rooted, a drive letter, a `..` segment) skipped as `ZipReader.IsSafe` does; an entry qualifies when its name starts with `Src/` and ends with `.pa.yaml`, both ignoring case; two qualifying names equal ignoring case are refused; a qualifying entry whose declared length is over `MaxFileBytes` is refused, and the rest are read with `ReadCapped` and converted with `YamlXml.Convert`, in ordinal name order. Every refusal is an `InvalidDataException` whose message starts with `<path>: ` and, for one entry, `<path>: <entry>: `; `ZipArchive`'s own `InvalidDataException`, `IOException` or `NotSupportedException` is rethrown that way. Each formula's `File` is the `.msapp` path | new `src/PowerOps.Core/Readers/CanvasSource.cs`; `YamlReader.cs:114-142` | rows 4 and 5 |
+| 4 | `SolutionParser.Parse`: the canvas metadata (each `CanvasApps/*.meta.xml`, whose text stays as `CanvasAppTexts` is today, and each `CanvasApp` element of `customizations.xml`) gives a map from `DocumentUri` (leading `/` dropped, `\` as `/`, ignoring case) to the app's `DisplayName`, else `Name`; a meta file that isn't well-formed XML gives no entry, as it is tolerated today. Each path matching `^CanvasApps/[^/]+\.msapp$` (ignoring case), in ordinal order, is read with `ReadCappedBytes` through `OpenRead` and `CanvasSource.ReadMsapp`, named by the map, else by its file name without `_DocumentUri.msapp` or `.msapp`. Its formulas go into `CanvasFormulas`. A `.msapp` with none, and a `DocumentUri` ending in `.msapp` that no listed path matches, go into the new `Solution` property `CanvasAppsWithoutSource` (record `CanvasAppWithoutSource(string File, bool Missing)`, empty when absent, as `PowerPageComponents` is). The `DocumentUri` is only looked up among the listed paths, never opened | `SolutionParser.cs:83-87,330-342`; `src/PowerOps.Core/Model/Solution.cs:4-25` | row 5 |
+| 5 | Reader tests in a new `tests/PowerOps.Core.Tests/Readers/CanvasReaderTests.cs`, each `.msapp` built in code with a new `SolutionZip.Msapp(string path, params (string Name, string Text)[] entries)` that writes the entries with the names given. Read: a folder with `CanvasApps/x_DocumentUri.msapp` and its meta gives the formulas with the meta's `DisplayName` and the `.msapp` as `File`; the same folder zipped with `SolutionZip` gives the same formulas; `Src\App.pa.yaml`, `src/app.PA.YAML` and `Src\Components\C.pa.yaml` are read; `Controls\1.json`, `Src/notes.txt`, `../Src/x.pa.yaml`, `/Src/x.pa.yaml` and `C:/Src/x.pa.yaml` are not; a `.msapp` with no meta is named by its file. Not checked: a `.msapp` with no `Src` entry, and a meta whose `.msapp` is absent, give their `CanvasAppsWithoutSource` entries and no formulas. Hostile input, with a small `ReadBudget` where it helps: a `.msapp` declaring more entries than the cap is refused before it is opened; an entry declared over `MaxFileBytes` and a deflate bomb whose actual bytes pass the cap are refused; the bytes of the `.msapp` and of its entries count against the solution total; YAML nested deeper than `MaxXmlDepth`, YAML with an anchor, two `Src` names equal ignoring case, a `.msapp` that isn't a zip and a truncated one are refused, each message starting with the `.msapp`'s path; a binary entry outside `Src` is never opened (a corrupt deflate stream there loads) | new test file; `tests/Shared/SolutionZip.cs` | itself |
+| 6 | `PO018CanvasForAllPatch`, `Warning`, registered in `Analyzer.Rules`, implementing `IRule` and `INotChecked`. For each formula, one linear pass with a stack over the text: double-quoted strings (`""` inside them), single-quoted names (`''` inside them), `//` line comments and `/* */` comments are skipped; a call is the name `ForAll` or `Patch` (ignoring case) not preceded by a letter, digit or `_`, then optional whitespace and `(`; a call met while a `ForAll` call's parentheses are open counts; an unbalanced `)` is ignored and an unclosed `(` runs to the end. At most one finding per formula and kind, `Patch` before `ForAll`. The `shortcut:` comment: a token scan, so a `Patch` inside a user-defined function called from `ForAll` is not seen; upgrade if a rule needs the syntax tree. `NotChecked` gives one line per `CanvasAppsWithoutSource` entry (texts below) | new `src/PowerOps.Core/Rules/PO018CanvasForAllPatch.cs`; `Analyzer.cs:23` | row 7 |
+| 7 | `WarningRuleTests`, with a new `B.Formula(string formula, string control = "Button1", string property = "OnSelect", string app = "Demo")` builder. PO018 fires for Learn's two examples (`ForAll(colSampleFoodSales, Patch(SampleFoodSalesData, {demoName:"test"}))` and the nested `ForAll`), for `Patch` reached through `If` inside `ForAll`, for `forall`/`PATCH` in other case, for a call with a space before `(` and through `X.ForAll(`; both kinds in one formula give two findings; quiet for `Patch(SampleFoodSalesData, ForAll(colSampleFoodSales, {demoName:"fromCanvas2"}))`, `ForAll` then `Patch` side by side (`ForAll(a, b); Patch(c, d)`), the names in a string, in a single-quoted name and in both comment kinds, `MyForAll(` and `Patches(`, an unclosed formula and a stray `)`. A formula of 1,000,000 nested `ForAll(` runs within a time bound, as `InputLimitsTests` bounds other shapes. `NotChecked` gives the two texts, and nothing for a solution with every app read | `tests/PowerOps.Core.Tests/Rules/WarningRuleTests.cs`, `Builders.cs` | itself |
+| 8 | CLI tests in `AnalyzeCommandTests`: a temp copy of `tests/fixtures/powerops-seed/v2` with `CanvasApps/pops_workitems_2af60_DocumentUri.msapp` built from the three `Src/*.pa.yaml` files of `tests/fixtures/powerops-seed-yaml/v2` (backslash names, as F1 observed) gives the PO014 finding that the YAML fixture gives, same message and component, as a folder and as a `SolutionZip` zip; a copy of it with a `ForAll`/`Patch` formula added gives one PO018 finding in both; a copy whose `.msapp` has no `Src` prints the note on stderr, exit 0, and so does `baseline`; the MCP `analyze` tool passes the note on | `tests/PowerOps.Cli.Tests/AnalyzeCommandTests.cs`, `BaselineCommandTests.cs`, `McpCommandTests.cs` | itself |
+| 9 | The fixtures: `alm-sample`'s `.msapp` (2023) has no `Src`, and `powerops-seed/v1` and `v2` name a `.msapp` that was removed when they were scrubbed (`tests/fixtures/NOTICE.md`), so `analyze` on them now prints the note (three lines on `tests/fixtures`). Tests that pin their stderr are updated to expect it; their findings don't change | `tests/PowerOps.Cli.Tests/*` as the run shows | themselves |
+| 10 | `docs/rules/PO018.md` in the recipe's sections, its Sources line on Learn's code optimization page, verified on the day it is written; it names the input it needs and the two note texts (decision 49). `docs/rules/PO014.md`: "What it finds" says the XML and zip layouts are read from the `.msapp`'s `Src/*.pa.yaml` and names the note, replacing "Only the YAML layout is scanned" | new page; `docs/rules/PO014.md:9`; `docs/rules/README.md:24` | `RuleDocsTests`, `DocsDriftTests` |
+| 11 | Goldens by "Update goldens": `rules.txt`, `rules.json` and the `analyze-fixtures.sarif` descriptors gain PO018. No fixture formula holds `ForAll`, `alm-sample`'s `.msapp` has no `Src`, and the seed fixtures have none, so no finding changes. Nothing else changes | `tests/golden/` | `ReportTests`, `RulesCommandTests`, `OutputSchemaTests` |
+| 12 | `docs/COMMANDS.md`: the `analyze` paragraph's sentence "Canvas app `.pa.yaml` formulas are read only in the YAML layout (PO014)" becomes: canvas formulas are read from `Src/*.pa.yaml`, in the YAML layout from the folder and in the XML layouts from inside each `.msapp`, and an app whose `.msapp` has no `Src` (older apps, until resaved in Studio) or isn't in the solution prints a `note:` line (PO014, PO018) | `docs/COMMANDS.md:37` | `DocsDriftTests` if it covers it; else none |
+| 13 | `docs/BUILD-PLAN.md`: M44 marked built in the Phase 7 table and item 79, with the plan link; an M44 line in the verification record after M45's, with F1's answer (Assumptions) | `docs/BUILD-PLAN.md:148,527,544` | none, docs only |
+
+The rule (row 6). Messages are one sentence; `<…>` are values.
+
+| Rule | Title | Message (component) | Fix |
+|---|---|---|---|
+| PO018 | Canvas app formula calls Patch or ForAll inside ForAll | `Canvas app '<app>' calls Patch inside ForAll in <control>.<property>, which sends one request per record.` or `Canvas app '<app>' nests ForAll inside ForAll in <control>.<property>, which multiplies the iterations.` (`<control>.<property>`) | Loop once and pass the loop's result to a single Patch call, and don't nest ForAll. |
+
+The notes (row 6), as `note: <solution path>: <line>`: `PO014 and PO018 not checked for canvas app '<file>': its .msapp has no Src folder (older app, resave in Studio).` and `PO014 and PO018 not checked for canvas app '<file>': its .msapp is not in the solution.` `<file>` is the `.msapp` path, or the `DocumentUri` without its leading `/`.
+
+Measured before the build, with a scratch script outside the repo: in today's fixtures no formula holds `ForAll`; `alm-sample`'s `.msapp` has 15 entries and none under `Src`; the seed fixtures in the XML layout have no `.msapp`; the YAML fixture `powerops-seed-yaml/v2` has the three `Src` files and one PO014 finding. No eval case holds an `.msapp` or a `ForAll`.
+
+## Automation
+
+None. The reader and the rule run inside every command that loads a solution, with no new command, option or tool.
+
+## Screens
+
+None.
+
+## Environments and route
+
+F1 only: one unmanaged `pac solution export` of an existing solution from Dev on 2026-11-03, approved by the person in the master session, into a scratch folder outside the repo, deleted once recorded. Nothing was created, saved or published in Dev. No other step reads or writes a tenant.
+
+## Solution and publisher
+
+None.
+
+## Constraints
+
+- AGENTS.md: the "Add a reader" and "Add a rule" recipes, tests first; no dependency (`System.IO.Compression` is in the runtime); no write site; no `.msapp` fixture; fake values in tests; no version or changelog edits; Conventional Commits; `dotnet format` clean.
+- Readers: reads capped through `ReadBudget`, no symlink followed, no path outside the solution, nothing extracted to disk, errors as `InvalidDataException` starting with the path.
+- No eval baseline may change: no eval case holds an `.msapp` or a `ForAll` (the Phase 7 plan's M44 "Touches"). If one does, the build stops and records what decision 40 requires.
+- No change to `powerops-verify` or `powerops-review-security`.
+
+## Assumptions
+
+- F1, read 2026-11-03 (`pac` 2.14.1): an unmanaged export of the seed solution from Dev holds one canvas app as `CanvasApps/<app>_DocumentUri.msapp` beside `_BackgroundImageUri` and `_AdditionalUris0_identity.json`. The `.msapp` has 15 entries, no directory entries, all with `\` separators: `Header.json`, `Properties.json`, `Controls\4.json`, `Src\Screen1.pa.yaml`, `Controls\1.json`, `Src\App.pa.yaml`, `Src\_EditorState.pa.yaml`, five `References\*.json`, `AppCheckerResult.sarif` and `Resources\PublishInfo.json`. There is no `.msapr` anywhere in the export. So a fresh export has `Src`, and the "Stops if" rule doesn't apply. Only entry names and layout were recorded.
+- Learn, checked 2026-11-03. "View source code files for canvas apps": Studio stores the `*.pa.yaml` source in the `.msapp`, in its `\Src` folder, with `App.pa.yaml`, one file per screen and a component folder; only those files are source, and the JSON files aren't stable between saves; an older `.msapp` without the folder must be imported, resaved and downloaded again; `*.fx.yaml` is retired. "Code optimization", Optimize ForAll: avoid nesting `ForAll`, which can lead to exponential iterations; `Patch(source, ForAll(...))` is the better approach and `ForAll(..., Patch(...))` less efficient.
+- Observed, not documented: the repo's `alm-sample` `.msapp` (saved 2023-10-05) has the same `\` separators and no `Src`. `_EditorState.pa.yaml` has none of the three holder keys, so it gives no formula, as in the YAML layout today.
+- The `.pa.yaml` files inside a `.msapp` are the same format the YAML layout's `Src` folder holds: the F1 export's three `Src` names match the YAML fixture's, and its `App.pa.yaml` and `_EditorState.pa.yaml` are byte-identical to `powerops-seed-yaml/v1`'s, which Git integration committed from the same app (`Screen1.pa.yaml` differs; the app was edited since). The build confirms the reader on the F1 export before the zip is deleted (Steps).
+- Power Fx names are matched ignoring case because Studio saves them in one case and a user name can't take a built-in function's name; a miss costs a warning, not an import.
+- Environment facts beyond F1 were not read: this plan changes this repo and targets no environment.
+
+## Open questions
+
+## Questions for your admin
+
+## Steps
+
+1. This plan, a review in a fresh context, fixes, sign-off.
+2. Rows 5, 7 and 8 and see them fail to compile or fail; then rows 1 to 4 and 6 until they pass; row 9 from the full run.
+3. Run the built reader on the F1 export in the scratch folder (formula count only, no content printed), then delete the export.
+4. Rows 10 and 12; `RuleDocsTests` and `DocsDriftTests` pass.
+5. Row 11 by "Update goldens", reading the diff; `RoleEvalTests` passes with no eval file changed.
+6. Row 13.
+7. `dotnet build`, `dotnet test`, `dotnet format --verify-no-changes`, `powerops plan status .` and the leak scan (`bash reports/leakscan.sh origin/main <this branch's commit>` from the main checkout); push and open one `feat:` PR whose body names PO018, PO014's new reach, the notes, the `fail-on: warning` effect, and that every command that loads a solution now opens each `.msapp` and parses its `Src/*.pa.yaml`, so a refused one stops it (`Users`). The master session merges.
