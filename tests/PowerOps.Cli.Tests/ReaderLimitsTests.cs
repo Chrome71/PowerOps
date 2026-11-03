@@ -29,6 +29,8 @@ public sealed class ReaderLimitsTests : IDisposable
         ["R-4 diff: 15,000,002 XML nodes"] = (t => t.Diff(t.Folder("nodes", ("Other/Customizations.xml", Dense(5_000_000)))), 3),
         ["R-4 analyze: zip with 100,001 entries"] = (t => t.Analyze(t.ZipWith(100_001)), 3),
         ["R-4 diff: zip with 100,001 entries"] = (t => t.Diff(t.ZipWith(100_001)), 3),
+        ["M44 analyze: msapp with 100,001 entries"] = (t => t.Analyze(t.MsappWith(100_001)), 3),
+        ["M44 diff: msapp with 100,001 entries"] = (t => t.Diff(t.MsappWith(100_001)), 3),
     };
 
     public static TheoryData<string> Names => [.. Cases.Keys];
@@ -94,6 +96,23 @@ public sealed class ReaderLimitsTests : IDisposable
         }
 
         return (path, path);
+    }
+
+    // The error line starts with the solution folder, and the message after it names the .msapp.
+    private (string Path, string ErrorPath) MsappWith(int entries)
+    {
+        var folder = Folder("msapp");
+        var path = Path.Combine(folder.Path, "CanvasApps", "x_DocumentUri.msapp");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        using (var zip = new ZipArchive(File.Create(path), ZipArchiveMode.Create))
+        {
+            for (var i = 0; i < entries; i++)
+            {
+                zip.CreateEntry($"f/{i}.txt");
+            }
+        }
+
+        return folder;
     }
 
     private static string Deep(int depth) => string.Concat(Enumerable.Repeat("<a>", depth)) + string.Concat(Enumerable.Repeat("</a>", depth));

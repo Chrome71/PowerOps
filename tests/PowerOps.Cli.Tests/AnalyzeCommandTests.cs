@@ -364,7 +364,7 @@ public class AnalyzeCommandTests : IDisposable
         {
             var found = Assert.Single(RuleFindings(path, "PO018"));
 
-            Assert.Equal("Canvas app 'Work Items' calls Patch inside ForAll in Button2.OnSelect, which sends one request per record.", found.GetProperty("message").GetString());
+            Assert.Equal("Canvas app 'Work Items' calls Patch inside ForAll in Button2.OnSelect, which is less efficient than passing the ForAll result to one Patch.", found.GetProperty("message").GetString());
             Assert.Equal("Button2.OnSelect", found.GetProperty("component").GetString());
             Assert.Equal(SeedMsapp, found.GetProperty("file").GetString());
         }
@@ -381,7 +381,7 @@ public class AnalyzeCommandTests : IDisposable
         Assert.DoesNotContain("PO014", output);
         var note = Assert.Single(err.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
         Assert.StartsWith("note: ", note);
-        Assert.EndsWith($": PO014 and PO018 not checked for canvas app '{SeedMsapp}': its .msapp has no Src folder (older app, resave in Studio).", note);
+        Assert.EndsWith($": PO014 and PO018 not checked for canvas app '{SeedMsapp}': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).", note);
     }
 
     [Fact]
@@ -397,7 +397,7 @@ public class AnalyzeCommandTests : IDisposable
     public void A_hostile_msapp_exits_three_naming_it()
     {
         var folder = SeedWithMsapp("hostile");
-        File.WriteAllText(Path.Combine(folder, "CanvasApps", "pops_workitems_2af60_DocumentUri.msapp"), "not a zip");
+        File.WriteAllText(Path.Combine(folder, "CanvasApps", "pops_workitems_2af60_DocumentUri.msapp"), "PK but not a zip");
 
         var (code, _, err) = Run("analyze", folder);
 

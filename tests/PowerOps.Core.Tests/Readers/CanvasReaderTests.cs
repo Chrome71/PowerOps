@@ -88,12 +88,19 @@ public class CanvasReaderTests
     }
 
     [Fact]
-    public void The_name_comes_from_a_canvas_app_element_of_customizations_when_there_is_no_meta_file()
+    public void A_zip_with_only_a_customizations_canvas_app_element_names_the_app_as_the_folder_layout_does()
     {
-        using var t = Folder().Write("Other/Customizations.xml", $"<ImportExportXml><CanvasApps>{Meta(display: "From customizations")}</CanvasApps></ImportExportXml>");
-        SolutionZip.Msapp(MsappPath(t), ("Src/App.pa.yaml", AppYaml));
+        // A pac export holds the app's metadata in customizations.xml and no .meta.xml; the unpacked folder holds the meta file.
+        using var unpacked = Folder().Write("CanvasApps/x.meta.xml", Meta(display: "Work Items"));
+        SolutionZip.Msapp(MsappPath(unpacked), ("Src/App.pa.yaml", AppYaml));
+        using var exported = Folder().Write("Other/Customizations.xml", $"<ImportExportXml><CanvasApps>{Meta(display: "Work Items")}</CanvasApps></ImportExportXml>");
+        SolutionZip.Msapp(MsappPath(exported), ("Src/App.pa.yaml", AppYaml));
 
-        Assert.All(ReadZip(t).CanvasFormulas, f => Assert.Equal("From customizations", f.App));
+        var fromZip = ReadZip(exported).CanvasFormulas;
+
+        Assert.NotEmpty(fromZip);
+        Assert.Equal(Read(unpacked).CanvasFormulas, fromZip);
+        Assert.All(fromZip, f => Assert.Equal("Work Items", f.App));
     }
 
     [Fact]
@@ -297,13 +304,30 @@ public class CanvasReaderTests
         Assert.Contains("listed more than once", message);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("version https://git-lfs.github.com/spec/v1\noid sha256:0000000000000000000000000000000000000000000000000000000000000000\nsize 123\n")]
+    [InlineData("placeholder")]
+    public void A_file_without_the_zip_signature_is_not_opened_and_is_listed_without_source(string content)
+    {
+        using var t = Folder();
+        Directory.CreateDirectory(Path.GetDirectoryName(MsappPath(t))!);
+        File.WriteAllText(MsappPath(t), content);
+
+        foreach (var s in new[] { Read(t), ReadZip(t) })
+        {
+            Assert.Empty(s.CanvasFormulas);
+            Assert.Equal(Msapp, Assert.Single(s.CanvasAppsWithoutSource));
+        }
+    }
+
     [Fact]
-    public void A_file_that_is_not_a_zip_and_a_truncated_one_are_refused()
+    public void A_zip_signature_on_a_file_that_is_not_a_zip_and_a_truncated_zip_are_refused()
     {
         using var t = Folder();
         var path = MsappPath(t);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, "this is not a zip");
+        File.WriteAllText(path, "PK but not a zip");
 
         Assert.StartsWith($"{Msapp}: ", Assert.Throws<InvalidDataException>(() => Read(t)).Message);
 
@@ -313,6 +337,39 @@ public class CanvasReaderTests
         File.WriteAllBytes(path, bytes[..(bytes.Length / 2)]);
 
         Assert.StartsWith($"{Msapp}: ", Assert.Throws<InvalidDataException>(() => Read(t)).Message);
+    }
+
+    [Fact]
+    public void An_msapp_over_the_file_cap_but_under_the_zip_cap_is_read_and_over_the_zip_cap_is_refused()
+    {
+        using var t = Folder();
+        var noise = string.Concat(Enumerable.Range(0, 1500).Select(i => (i * 2654435761L % 4294967296L).ToString("x8")));
+        SolutionZip.Msapp(MsappPath(t), ("Src/App.pa.yaml", AppYaml), ("Resources/media.txt", noise));
+        var size = new FileInfo(MsappPath(t)).Length;
+        Assert.InRange(size, 3000, 90_000);
+
+        foreach (var s in new[] { Read(t, new ReadBudget(maxFileBytes: 2000, maxZipBytes: 100_000)), ReadZip(t, new ReadBudget(maxFileBytes: 2000, maxZipBytes: 100_000)) })
+        {
+            Assert.NotEmpty(s.CanvasFormulas);
+        }
+
+        var message = Assert.Throws<InvalidDataException>(() => Read(t, new ReadBudget(maxZipBytes: size - 1))).Message;
+        Assert.StartsWith($"{Msapp}: larger than", message);
+    }
+
+    [Fact]
+    public void Many_properties_in_an_msapp_entry_are_refused_by_the_node_budget_naming_the_msapp()
+    {
+        var many = "App:\n  Properties:\n" + string.Concat(Enumerable.Range(0, 300).Select(i => $"    P{i}: =1\n"));
+        using var t = Folder();
+        SolutionZip.Msapp(MsappPath(t), ("Src/App.pa.yaml", many));
+
+        Assert.Equal(300, Read(t).CanvasFormulas.Count);
+        var message = Assert.Throws<InvalidDataException>(() => Read(t, new ReadBudget(maxNodes: 240))).Message;
+
+        Assert.StartsWith($"{Msapp}: Src/App.pa.yaml: ", message);
+        Assert.Equal(1, message.Split($"{Msapp}:").Length - 1);
+        Assert.Contains("XML nodes", message);
     }
 
     [Fact]

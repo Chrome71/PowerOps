@@ -302,7 +302,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Equal(2, result.Content.Count);
         Assert.Equal(File.ReadAllText(file), Text(result));
         // The note of alm-sample's .msapp, which has no Src (M44).
-        Assert.EndsWith(": PO014 and PO018 not checked for canvas app 'CanvasApps/cat_devopskitsamplecanvasapp_c7ec5_DocumentUri.msapp': its .msapp has no Src folder (older app, resave in Studio).", Text(result, 1));
+        Assert.EndsWith(": PO014 and PO018 not checked for canvas app 'CanvasApps/cat_devopskitsamplecanvasapp_c7ec5_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).", Text(result, 1));
     }
 
     // 3
@@ -1050,7 +1050,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.False(result.IsError);
         Assert.Equal(2, result.Content.Count);
         Assert.StartsWith("note: ", Text(result, 1));
-        Assert.EndsWith(": PO014 and PO018 not checked for canvas app 'CanvasApps/pops_workitems_2af60_DocumentUri.msapp': its .msapp has no Src folder (older app, resave in Studio).", Text(result, 1));
+        Assert.EndsWith(": PO014 and PO018 not checked for canvas app 'CanvasApps/pops_workitems_2af60_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).", Text(result, 1));
     }
 
     [Fact]

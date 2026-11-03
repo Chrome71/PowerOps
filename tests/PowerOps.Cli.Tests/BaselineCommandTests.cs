@@ -155,7 +155,7 @@ public class BaselineCommandTests : IDisposable
 
         Assert.Equal(0, code);
         var line = Assert.Single(err.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-        Assert.EndsWith(": PO014 and PO018 not checked for canvas app 'CanvasApps/pops_workitems_2af60_DocumentUri.msapp': its .msapp has no Src folder (older app, resave in Studio).", line);
+        Assert.EndsWith(": PO014 and PO018 not checked for canvas app 'CanvasApps/pops_workitems_2af60_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).", line);
     }
 
     private static void CopyDirectory(string from, string to)

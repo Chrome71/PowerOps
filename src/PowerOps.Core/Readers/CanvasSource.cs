@@ -32,12 +32,17 @@ internal static class CanvasSource
         control.Elements("Children").SelectMany(c => c.Elements()).SelectMany(Controls).Prepend(control);
 
     /// <summary>
-    /// The formulas of the `Src/*.pa.yaml` entries of an `.msapp` held in memory, or null when it has none. Only those entries are opened, in memory, in ordinal name order;
+    /// The formulas of the `Src/*.pa.yaml` entries of an `.msapp` held in memory, or null when it has none or is not a zip (no `PK` signature: an empty file, a Git LFS pointer). Only those entries are opened, in memory, in ordinal name order;
     /// `Controls/` and the other JSON are not source and are never read. Each formula's file is <paramref name="path"/>.
     /// </summary>
     /// <exception cref="InvalidDataException">The package is not a zip, is over a cap, or an entry is malformed; the message starts with <paramref name="path"/> (and the entry name, for one entry).</exception>
     public static List<CanvasFormula>? ReadMsapp(byte[] bytes, string path, string app, ReadBudget budget)
     {
+        if (bytes.Length < 2 || bytes[0] != (byte)'P' || bytes[1] != (byte)'K')
+        {
+            return null;
+        }
+
         try
         {
             using var memory = new MemoryStream(bytes);
@@ -98,7 +103,7 @@ internal static class CanvasSource
                 throw new InvalidDataException($"{name}: larger than {budget.MaxFileBytes / (1024 * 1024)} MB.");
             }
 
-            return [.. Formulas(YamlXml.Convert(SolutionParser.ReadCapped(entry.Open(), name, budget)), app, file)];
+            return [.. Formulas(YamlXml.Convert(SolutionParser.ReadCapped(entry.Open(), name, budget), n => budget.CountNode(name, n)), app, file)];
         }
         catch (Exception e) when (e is InvalidDataException or IOException or NotSupportedException && !e.Message.StartsWith(name + ": ", StringComparison.Ordinal))
         {

@@ -255,7 +255,7 @@
               },
               "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO018.md",
               "help": {
-                "text": "Loop once and pass the loop's result to a single Patch call, and don't nest ForAll."
+                "text": "Pass the ForAll result to one Patch call instead of calling Patch inside ForAll, and avoid nesting ForAll."
               },
               "defaultConfiguration": {
                 "level": "warning"

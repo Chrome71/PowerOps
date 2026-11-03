@@ -10,7 +10,7 @@ public sealed class PO018CanvasForAllPatch : IRule, INotChecked
 
     public string Title => "Canvas app formula calls Patch or ForAll inside ForAll";
 
-    public string Fix => "Loop once and pass the loop's result to a single Patch call, and don't nest ForAll.";
+    public string Fix => "Pass the ForAll result to one Patch call instead of calling Patch inside ForAll, and avoid nesting ForAll.";
 
     public IEnumerable<Finding> Evaluate(Solution solution)
     {
@@ -20,7 +20,7 @@ public sealed class PO018CanvasForAllPatch : IRule, INotChecked
             var where = $"{f.Control}.{f.Property}";
             if (patch)
             {
-                yield return new Finding(Id, Severity, $"Canvas app '{f.App}' calls Patch inside ForAll in {where}, which sends one request per record.", f.File, where);
+                yield return new Finding(Id, Severity, $"Canvas app '{f.App}' calls Patch inside ForAll in {where}, which is less efficient than passing the ForAll result to one Patch.", f.File, where);
             }
 
             if (nested)
@@ -32,9 +32,9 @@ public sealed class PO018CanvasForAllPatch : IRule, INotChecked
 
     // An .msapp with no source in it is neither a finding nor a pass.
     public IEnumerable<string> NotChecked(Solution solution) =>
-        solution.CanvasAppsWithoutSource.Select(file => $"PO014 and PO018 not checked for canvas app '{file}': its .msapp has no Src folder (older app, resave in Studio).");
+        solution.CanvasAppsWithoutSource.Select(file => $"PO014 and PO018 not checked for canvas app '{file}': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).");
 
-    // shortcut: a token scan, so a Patch inside a user-defined function that ForAll calls is not seen, upgrade if a rule needs the syntax tree.
+    // shortcut: a token scan, so a Patch inside a user-defined function that ForAll calls is not seen, an interpolated string ($"...{Patch(...)}...") is skipped whole, and a call in ForAll's table argument counts as inside it; upgrade if a rule needs the syntax tree.
     /// <summary>One linear pass: strings, quoted names and comments are skipped, and a stack of open parentheses says which ones belong to a ForAll call.</summary>
     private static (bool PatchInForAll, bool ForAllInForAll) Scan(string text)
     {

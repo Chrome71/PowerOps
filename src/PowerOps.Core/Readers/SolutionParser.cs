@@ -27,18 +27,19 @@ internal static partial class SolutionParser
         return reader.ReadToEnd();
     }
 
-    /// <summary>The bytes of a stream under the same caps as <see cref="ReadCapped"/>.</summary>
-    public static byte[] ReadCappedBytes(Stream source, string name, ReadBudget budget)
+    /// <summary>The bytes of a stream under the same caps as <see cref="ReadCapped"/>; <paramref name="cap"/> replaces the per-file cap (an <c>.msapp</c> is a zip, so it gets the zip cap).</summary>
+    public static byte[] ReadCappedBytes(Stream source, string name, ReadBudget budget, long? cap = null)
     {
+        var limit = cap ?? budget.MaxFileBytes;
         using var stream = source;
         using var buffer = new MemoryStream();
         var chunk = new byte[81920];
         int n;
         while ((n = stream.Read(chunk, 0, chunk.Length)) > 0)
         {
-            if (buffer.Length + n > budget.MaxFileBytes)
+            if (buffer.Length + n > limit)
             {
-                throw new InvalidDataException($"{name}: larger than {budget.MaxFileBytes / (1024 * 1024)} MB.");
+                throw new InvalidDataException($"{name}: larger than {limit / (1024 * 1024)} MB.");
             }
 
             budget.Consume(n, name);
@@ -382,7 +383,7 @@ internal static partial class SolutionParser
                 var fileName = msapp[(msapp.LastIndexOf('/') + 1)..];
                 var name = apps.GetValueOrDefault(msapp)
                     ?? (fileName.EndsWith("_DocumentUri.msapp", StringComparison.OrdinalIgnoreCase) ? fileName[..^"_DocumentUri.msapp".Length] : fileName[..^".msapp".Length]);
-                if (CanvasSource.ReadMsapp(ReadCappedBytes(open(msapp), msapp, files.Budget), msapp, name, files.Budget) is { } read)
+                if (CanvasSource.ReadMsapp(ReadCappedBytes(open(msapp), msapp, files.Budget, files.Budget.MaxZipBytes), msapp, name, files.Budget) is { } read)
                 {
                     formulas.AddRange(read);
                 }
