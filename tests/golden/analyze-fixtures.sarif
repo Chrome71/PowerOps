@@ -246,6 +246,76 @@
               "defaultConfiguration": {
                 "level": "warning"
               }
+            },
+            {
+              "id": "PO019",
+              "name": "WebApiWildcardFields",
+              "shortDescription": {
+                "text": "Power Pages Web API fields setting is *"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO019.md",
+              "help": {
+                "text": "Replace * with the comma-separated logical names of the columns the site needs, or set UseFieldsFromView to True with a view that holds them."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO020",
+              "name": "WebApiNoFields",
+              "shortDescription": {
+                "text": "Power Pages Web API is enabled for a table with no fields setting"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO020.md",
+              "help": {
+                "text": "Add a fields site setting for the table with the columns the site needs, or set its UseFieldsFromView site setting to True with a view that holds them."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO021",
+              "name": "PermissionWithoutRole",
+              "shortDescription": {
+                "text": "Power Pages table permission has no web role"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO021.md",
+              "help": {
+                "text": "Associate the table permission with the web roles that need it, or delete it."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO022",
+              "name": "ChildPermissionRoles",
+              "shortDescription": {
+                "text": "Power Pages child table permission is not in effect through its parent"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO022.md",
+              "help": {
+                "text": "Give the parent table permission the child's web roles or remove them from the child, and keep the parent active."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO023",
+              "name": "AnonymousWrite",
+              "shortDescription": {
+                "text": "Power Pages table permission lets anonymous users create, write or delete"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO023.md",
+              "help": {
+                "text": "Remove create, write and delete from the anonymous role's table permission, or grant them to a role that requires sign-in."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
             }
           ]
         }

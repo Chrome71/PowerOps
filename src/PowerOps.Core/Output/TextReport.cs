@@ -51,6 +51,22 @@ public static class TextReport
         }
     }
 
+    /// <summary>One "note:" line per check a rule did not do because the export lacks its input. At most 20 across all solutions; a last line counts the rest.</summary>
+    public static void WriteNotChecked(AnalysisResult result, TextWriter error)
+    {
+        var notes = result.Solutions.SelectMany(s => s.NotChecked.Select(line => (s.Path, Line: line))).ToList();
+        foreach (var (path, line) in notes.Take(MaxNotes))
+        {
+            error.WriteLine($"note: {Clean(path)}: {Clean(line)}");
+        }
+
+        if (notes.Count > MaxNotes)
+        {
+            var rules = notes.Skip(MaxNotes).Select(n => n.Line.Split(' ')[0]).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
+            error.WriteLine($"note: and {notes.Count - MaxNotes} more checks not done ({Clean(string.Join(", ", rules))})");
+        }
+    }
+
     internal static string Summary(AnalysisResult result) =>
         $"{Count(result.Solutions.Count, "solution")}, {Count(result.Errors, "error")}, {Count(result.Warnings, "warning")}{(result.Baselined > 0 ? $", {result.Baselined} baselined" : "")}";
 

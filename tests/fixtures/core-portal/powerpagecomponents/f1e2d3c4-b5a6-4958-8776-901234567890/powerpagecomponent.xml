@@ -1,0 +1,18 @@
+<powerpagecomponent powerpagecomponentid="f1e2d3c4-b5a6-4958-8776-901234567890">
+  <content>{
+  "enabletracking": false,
+  "excludefromsearch": false,
+  "hiddenfromsitemap": true,
+  "parentpageid": "4c0dafbd-c00f-48ac-9b6a-890cb257d854",
+  "partialurl": "us_flag_small.png"
+}</content>
+  <filecontent mimetype="application/octet-stream">us_flag_small.png</filecontent>
+  <iscustomizable>1</iscustomizable>
+  <name>us_flag_small.png</name>
+  <powerpagecomponenttype>3</powerpagecomponenttype>
+  <powerpagesiteid>
+    <powerpagesiteid>add6fceb-252c-456e-bead-89dbed3b19c5</powerpagesiteid>
+  </powerpagesiteid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</powerpagecomponent>

@@ -1,6 +1,6 @@
 ## PowerOps analyze
 
-**11 solutions, 0 errors, 43 warnings**
+**12 solutions, 0 errors, 43 warnings**
 
 ### tests/fixtures/alm-makers: ALMAcceleratorforMakers 0.0.0.0
 
@@ -51,6 +51,10 @@
 | warning | [PO011](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md) | Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json | Flow 'Deprecated \| \[Child\] Admin \| Sync Logs' is turned off. | Turn the flow on before export, or remove it from the solution if it is no longer needed. |
 | warning | [PO016](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO016.md) | Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json | Flow 'Deprecated \| \[Child\] Admin \| Sync Logs' has 36 actions and a nesting depth of 5. | Move self-contained parts of the flow into child flows, and reduce nested scopes, conditions and loops. |
 | warning | [PO017](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO017.md) | Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json | Flow 'Deprecated \| \[Child\] Admin \| Sync Logs' runs loop 'Apply\_to\_each\_Audit\_Log' inside loop 'Apply\_to\_each\_cluster'. | Replace the inner loop with one query, filter or bulk action over the whole set, or fetch the related rows with the outer query's expand option and use one loop. |
+
+### tests/fixtures/core-portal: msgov\_coreportal 1.0.0.0
+
+No findings.
 
 ### tests/fixtures/powerops-seed-yaml/v1: PowerOpsSeed 1.0.0.0
 

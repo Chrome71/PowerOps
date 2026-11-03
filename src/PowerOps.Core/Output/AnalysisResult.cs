@@ -15,6 +15,9 @@ public sealed record SolutionResult(string Path, Solution Solution, IReadOnlyLis
         .Distinct(StringComparer.Ordinal)
         .Order(StringComparer.Ordinal)
         .ToList();
+
+    /// <summary>What the rules did not check because the export lacks the input; <c>analyze</c> prints each as a note.</summary>
+    public IReadOnlyList<string> NotChecked { get; init; } = [];
 }
 
 public sealed record AnalysisResult(IReadOnlyList<SolutionResult> Solutions)
@@ -48,22 +51,17 @@ public sealed record AnalysisResult(IReadOnlyList<SolutionResult> Solutions)
             var solution = SolutionLoader.Load(path, context);
             // A YAML solution is reported as its root: finding files are relative to it.
             var shown = YamlReader.IsSolutionYml(path) ? YamlReader.RootFolder(path) : path;
-            results.Add(new SolutionResult(DisplayPath(shown, baseDir), solution, Analyze(solution, path)));
+            try
+            {
+                results.Add(new SolutionResult(DisplayPath(shown, baseDir), solution, Analyzer.Run(solution)) { NotChecked = Analyzer.NotChecked(solution) });
+            }
+            catch (InvalidDataException e)
+            {
+                throw new InvalidDataException($"{path}: {e.Message}", e);
+            }
         }
 
         return new AnalysisResult(results);
-    }
-
-    private static IReadOnlyList<Finding> Analyze(Solution solution, string path)
-    {
-        try
-        {
-            return Analyzer.Run(solution);
-        }
-        catch (InvalidDataException e)
-        {
-            throw new InvalidDataException($"{path}: {e.Message}", e);
-        }
     }
 
     private static string DisplayPath(string path, string baseDir)

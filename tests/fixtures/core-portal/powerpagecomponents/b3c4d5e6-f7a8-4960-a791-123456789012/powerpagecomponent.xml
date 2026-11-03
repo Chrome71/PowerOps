@@ -1,0 +1,18 @@
+<powerpagecomponent powerpagecomponentid="b3c4d5e6-f7a8-4960-a791-123456789012">
+  <content>{
+  "enabletracking": false,
+  "excludefromsearch": false,
+  "hiddenfromsitemap": true,
+  "parentpageid": "4c0dafbd-c00f-48ac-9b6a-890cb257d854",
+  "partialurl": "icon-https.svg"
+}</content>
+  <filecontent mimetype="application/octet-stream">icon-https.svg</filecontent>
+  <iscustomizable>1</iscustomizable>
+  <name>icon-https.svg</name>
+  <powerpagecomponenttype>3</powerpagecomponenttype>
+  <powerpagesiteid>
+    <powerpagesiteid>add6fceb-252c-456e-bead-89dbed3b19c5</powerpagesiteid>
+  </powerpagesiteid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</powerpagecomponent>

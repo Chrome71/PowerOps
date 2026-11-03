@@ -23,11 +23,20 @@ public static class Analyzer
         new PO015CreateTriggerWithFilterColumns(),
         new PO016FlowSizeOrDepth(),
         new PO017NestedLoop(),
+        new PO019WebApiWildcardFields(),
+        new PO020WebApiNoFields(),
+        new PO021PermissionWithoutRole(),
+        new PO022ChildPermissionRoles(),
+        new PO023AnonymousWrite(),
     }.OrderBy(r => r.Id, StringComparer.Ordinal).ToList();
 
     public static string HelpUri(string ruleId) => $"{Output.SarifReport.Repo}/blob/main/docs/rules/{ruleId}.md";
 
     public static IRule? Find(string ruleId) => Rules.FirstOrDefault(r => r.Id == ruleId);
+
+    /// <summary>What the rules that implement <see cref="INotChecked"/> did not check, distinct and sorted (ordinal).</summary>
+    public static IReadOnlyList<string> NotChecked(Solution solution) =>
+        Rules.OfType<INotChecked>().SelectMany(r => r.NotChecked(solution)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
 
     /// <summary>All findings, sorted by rule id, component, message, file (ordinal). File comes last because it differs between zip and unpacked layouts.</summary>
     public static IReadOnlyList<Finding> Run(Solution solution) =>

@@ -19,6 +19,7 @@ public class SolutionDiscoveryTests
                 "alm-makers",
                 "alm-sample",
                 "coe-auditlogs",
+                "core-portal",
                 "powerops-seed-yaml/v1/solutions/PowerOpsSeed/solution.yml",
                 "powerops-seed-yaml/v2/solutions/PowerOpsSeed/solution.yml",
                 "powerops-seed/v1",

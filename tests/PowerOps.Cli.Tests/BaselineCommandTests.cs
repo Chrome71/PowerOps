@@ -112,4 +112,35 @@ public class BaselineCommandTests : IDisposable
         Assert.Equal(2, Run("baseline", _temp, "--out", BaselineFile).Code);
         Assert.False(File.Exists(BaselineFile));
     }
+
+    [Fact]
+    public void Baseline_prints_the_not_checked_note_on_stderr()
+    {
+        var folder = Path.Combine(_temp, "viewfields");
+        Directory.CreateDirectory(Path.Combine(folder, "Other"));
+        File.WriteAllText(Path.Combine(folder, "Other", "Solution.xml"), """
+            <ImportExportXml><SolutionManifest>
+              <UniqueName>Demo</UniqueName><Version>1.0.0.0</Version><Managed>0</Managed>
+              <Publisher><UniqueName>demopub</UniqueName><CustomizationPrefix>demo</CustomizationPrefix></Publisher>
+            </SolutionManifest></ImportExportXml>
+            """);
+        foreach (var (id, name, value) in new[] { ("00000000-0000-0000-0000-0000000000d1", "Webapi/demo_item/enabled", "true"), ("00000000-0000-0000-0000-0000000000d2", "Webapi/demo_item/UseFieldsFromView", "True") })
+        {
+            Directory.CreateDirectory(Path.Combine(folder, "powerpagecomponents", id));
+            File.WriteAllText(Path.Combine(folder, "powerpagecomponents", id, "powerpagecomponent.xml"), $$"""
+                <powerpagecomponent powerpagecomponentid="{{id}}">
+                  <content>{"value":"{{value}}"}</content>
+                  <name>{{name}}</name>
+                  <powerpagecomponenttype>9</powerpagecomponenttype>
+                </powerpagecomponent>
+                """);
+        }
+
+        var (code, _, err) = Run("baseline", folder, "--out", BaselineFile);
+
+        Assert.Equal(0, code);
+        var line = Assert.Single(err.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        Assert.StartsWith("note: ", line);
+        Assert.EndsWith(": PO020 not checked for table 'demo_item': UseFieldsFromView is True, and the view that holds the columns is not read.", line);
+    }
 }

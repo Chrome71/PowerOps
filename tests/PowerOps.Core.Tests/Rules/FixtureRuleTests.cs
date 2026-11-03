@@ -124,4 +124,18 @@ public class FixtureRuleTests
             [.. xml, ("PO014", url, $"Canvas app 'Work Items' hard-codes the URL '{url}' in Button1.OnSelect.")],
             Keys(AnalyzeYaml("v2")));
     }
+
+    [Fact]
+    public void Core_portal_loads_its_components_and_is_quiet_on_the_power_pages_rules()
+    {
+        var s = SolutionLoader.Load(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "core-portal"));
+
+        Assert.Equal(122, s.PowerPageComponents.Count);
+        Assert.Equal(50, s.PowerPageComponents.Count(c => c.Type == 9));
+        Assert.Equal(3, s.PowerPageComponents.Count(c => c.Type == 11));
+        Assert.Equal(0, s.PowerPageComponents.Count(c => c.Type == 18));
+        Assert.All(s.PowerPageComponents, c => Assert.True(c.Active));
+        Assert.DoesNotContain(Analyzer.Run(s), f => f.RuleId is "PO019" or "PO020" or "PO021" or "PO022" or "PO023");
+        Assert.Empty(Analyzer.NotChecked(s));
+    }
 }

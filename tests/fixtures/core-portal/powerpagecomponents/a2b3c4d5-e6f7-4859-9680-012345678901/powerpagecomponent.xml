@@ -1,0 +1,18 @@
+<powerpagecomponent powerpagecomponentid="a2b3c4d5-e6f7-4859-9680-012345678901">
+  <content>{
+  "enabletracking": false,
+  "excludefromsearch": false,
+  "hiddenfromsitemap": true,
+  "parentpageid": "4c0dafbd-c00f-48ac-9b6a-890cb257d854",
+  "partialurl": "icon-dot-gov.svg"
+}</content>
+  <filecontent mimetype="application/octet-stream">icon-dot-gov.svg</filecontent>
+  <iscustomizable>1</iscustomizable>
+  <name>icon-dot-gov.svg</name>
+  <powerpagecomponenttype>3</powerpagecomponenttype>
+  <powerpagesiteid>
+    <powerpagesiteid>add6fceb-252c-456e-bead-89dbed3b19c5</powerpagesiteid>
+  </powerpagesiteid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</powerpagecomponent>

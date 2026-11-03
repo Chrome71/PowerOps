@@ -1,0 +1,11 @@
+<powerpagecomponent powerpagecomponentid="c2e7d106-0b33-4242-b192-3a78a96ac550">
+  <content>{"disablepagevalidation":false,"displayimageonly":false,"displayorder":1,"displaypagechildlinks":false,"openinnewwindow":false,"pageid":"4c0dafbd-c00f-48ac-9b6a-890cb257d854","publishingstateid":"bb41cbbb-c85a-4db5-a56e-a669cb132666","robotsfollowlink":true,"weblinksetid":"d7bc18b5-f1d0-4d5d-ad78-f7abc5b20c2a"}</content>
+  <iscustomizable>1</iscustomizable>
+  <name>Home</name>
+  <powerpagecomponenttype>5</powerpagecomponenttype>
+  <powerpagesiteid>
+    <powerpagesiteid>add6fceb-252c-456e-bead-89dbed3b19c5</powerpagesiteid>
+  </powerpagesiteid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</powerpagecomponent>
