@@ -18,9 +18,10 @@ internal static class B
         string[]? refs = null,
         string[]? children = null,
         string[]? literals = null,
-        object? triggers = null)
+        object? triggers = null,
+        IDictionary<string, object>? actions = null)
     {
-        var actions = new Dictionary<string, object>();
+        actions = new Dictionary<string, object>(actions ?? new Dictionary<string, object>());
         var i = 0;
         foreach (var c in children ?? [])
         {

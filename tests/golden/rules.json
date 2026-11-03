@@ -105,6 +105,20 @@
       "title": "Dataverse row-created trigger has filter columns",
       "fix": "Clear the trigger's filter columns, or change its change type to Create or Update.",
       "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO015.md"
+    },
+    {
+      "id": "PO016",
+      "severity": "warning",
+      "title": "Cloud flow has more than 50 actions or more than 4 levels of nesting",
+      "fix": "Move self-contained parts of the flow into child flows, and reduce nested scopes, conditions and loops.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO016.md"
+    },
+    {
+      "id": "PO017",
+      "severity": "warning",
+      "title": "Cloud flow runs a loop inside a loop",
+      "fix": "Replace the inner loop with one query, filter or bulk action over the whole set, or fetch the related rows with the outer query's expand option and use one loop.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO017.md"
     }
   ]
 }

@@ -19,3 +19,5 @@
 | [PO013](PO013.md) | error | Root component in the YAML layout has no source folder |
 | [PO014](PO014.md) | warning | Canvas app formula contains a hard-coded environment or SharePoint URL |
 | [PO015](PO015.md) | error | Dataverse row-created trigger has filter columns |
+| [PO016](PO016.md) | warning | Flow has more than 50 actions or more than 4 levels of nesting |
+| [PO017](PO017.md) | warning | Flow runs a loop inside a loop |
