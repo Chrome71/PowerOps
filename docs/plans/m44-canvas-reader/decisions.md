@@ -12,13 +12,13 @@ Answer: 1. M45 built `INotChecked` for this, and `analyze`, `baseline` and the M
 1. Nothing: it reads `CanvasAppTexts`, which both XML layouts already fill from the app's metadata, so the `.msapp` read adds no match (recommended)
 2. Also match connection references in the formulas
 3. In your own words
-Answer: 1. The Phase 7 plan says the shortcut "covers the XML layout"; it already does, through `CanvasApps/*.meta.xml` in a folder and the `CanvasApp` elements of `customizations.xml` in a zip, which hold the app's connection references. Formulas name a data source by its display name, never by a connection reference's logical name or a connector's API id, so matching them adds nothing.
+Answer: 1. The Phase 7 plan says the shortcut "covers the XML layout"; it already does, through `CanvasApps/*.meta.xml` in a folder and the `CanvasApp` elements of `customizations.xml` in a zip, which hold the app's connection references. Formulas name a data source by its display name, never by a connection reference's logical name or a connector's API id, so matching them adds nothing. The BUILD-PLAN M44 row is reworded to say so when M44 is marked built (review R9).
 
 ### Q3. Is an app whose `.msapp` isn't in the solution "not checked" too?
 1. Yes: a `DocumentUri` that names no listed `.msapp` gives the note too, with its own text (recommended)
 2. No: only a `.msapp` with no `Src`
 3. In your own words
-Answer: 1. Decision 49: a check that can't see its input says so. A repo that keeps the unpacked folder without its `.msapp` (the seed fixtures do, scrubbed of the environment URL the file caches) would otherwise pass PO014 and PO018 silently, now that the PO014 page says the XML layout is read. The `DocumentUri` is only looked up among the listed paths, never opened.
+Answer: 2, changed during the build from 1. The first answer was 1 (decision 49: a check that can't see its input says so; the seed fixtures keep their metadata without the `.msapp`). The build showed that all 7 eval solution cases are copies of the seed solution whose metadata names a `.msapp` they don't hold, so the note changed every eval baseline, which decision 40 answers with a rerun of the pinned roles on all cases. The Phase 7 section asks only for the no-`Src` note. So a `.msapp` the solution doesn't hold gets no note, and the PO014 and PO018 pages say in one sentence that such an app isn't read. A later milestone can add the note together with the eval rerun.
 
 ### Q4. What is a formula's `File` in the XML layouts?
 1. The `.msapp` path, which is a file in the folder and an entry in the zip (recommended)
@@ -42,3 +42,10 @@ Answer: 1. Studio saves built-in names in one case, and no user name can take a 
 - questions answered by the building session, under the user's delegation of 2026-10-22 (autonomous milestone mode), with the Phase 7 plan's scope and the master session's brief
 - areas not asked: users, automation, environments and ALM, and constraints; the change is to this repo, and the plan answers each or marks it not applicable
 - approved 2026-11-03 by the building session under the user's delegation of 2026-10-22, for a fresh-context review; approved without asking: users, automation, environments and ALM, constraints
+- PO018 is M44's id because M45's Q1 left it free for M44, as the Phase 7 plan and BUILD-PLAN name it; the recipe's next free id would be PO024
+- the code was built alongside the review, before sign-off, by an implementer subagent (Sonnet) in this worktree, test first (the new tests failed to compile before the types existed); read by the building session
+- 2026-11-03: the build found that Q3's first answer changed all seven eval baselines (`RoleEvalTests` failed), so the build stopped as Constraints says; Q3 changed to option 2 before any baseline was touched, and the eval stays unchanged
+- fresh review (general-purpose subagent following `powerops-review-plan`, Sonnet, fresh context) 2026-11-03, on the body at hash `cca0c45b…`: 1 High, 4 Medium, 5 Low (R1 to R10); R1 is the eval conflict above
+- R1 to R10 answered in `plan.md`, the code, the tests, the pages and here (Q2 and Q3 changed; see review.md). R3 was answered from the F1 export before it was deleted: element names only
+- the reader was run on the F1 export with a throwaway console harness in the scratch folder (counts only): 89 formulas from 10 holders in the one `.msapp`, read through its `\` entry names, no app without source, and the rule ids PO005, PO006 and PO014, the same as the YAML fixture `powerops-seed-yaml/v2` of the same app
+- 2026-11-03: the F1 export was deleted from the scratch folder after the reader was run on it again with the review fixes (same counts and rule ids)
