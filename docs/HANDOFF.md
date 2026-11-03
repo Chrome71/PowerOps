@@ -9,12 +9,27 @@ Microsoft's [power-platform-skills](https://github.com/microsoft/power-platform-
 - Install Microsoft's skills as their READMEs say.
 - Sign in `pac` with `pac auth create`. PowerOps is tested with `pac` 2.13.1, and the example workflows pin 2.14.1; older builds are untested (`pac` prints its version). `drift`, `deploy plan` and `deploy apply` also need the Azure CLI signed in with `az login` ([Command reference](COMMANDS.md#drift)).
 
+## Per product
+
+Microsoft's skill builds each product in Dev, and PowerOps takes over after it. Power BI is the exception: it has no Dataverse solution and moves by its own route.
+
+| Product | Microsoft builds it with | Then PowerOps | To Test and Prod |
+|---|---|---|---|
+| Canvas app | `canvas-app` (canvas-apps) and the Canvas Authoring MCP server | `analyze`, `diff` and the import gate on the exported solution | `deploy apply` |
+| Model-driven app | `app-builder` and `genpage` (model-apps), for forms, views, custom and generative pages | the same | `deploy apply` |
+| Code component (PCF) | `pcf` (pcf). Its `pac pcf push` writes to Dev and needs a yes, and the gate always blocks it | the same | `deploy apply` |
+| Power Pages site | `create-site`, `edit-site` and `setup-datamodel` (power-pages) | the same | `deploy apply` |
+| Cloud flow | `build-flow` (power-automate) | `analyze`, `test`, `diff` and the import gate | `deploy apply`, then `manage-flows` for a flow that is off (step 10) |
+| Code app | `create-code-app` (code-apps-preview, folder `code-apps`). Its baseline `pa app push` needs a yes, goes to Dev only and takes `--solution-id` | `analyze`, `diff` and the import gate | `deploy apply` |
+| Dataverse tables | `dv-metadata` and `dv-solution` (dataverse) | `analyze`, `diff` and the import gate | `deploy apply` |
+| Power BI | `semantic-model-authoring` and `powerbi-report-cli` (the `powerbi-authoring` plugin of microsoft/skills-for-fabric), locally in a PBIP folder | plans it; `powerbi-report-author validate` checks each report locally. Only an embedded dashboard and its environment variable go in a solution | fabric-cicd, Git integration or deployment pipelines. Every service write (publish, refresh, delete) needs a yes, and the gate has no route for it |
+
 ## The steps
 
 The steps go from Dev to Test. For Prod, repeat steps 7 to 9 with Prod as the target, with its own plan and approval.
 
 1. **Plan.** The `powerops-plan` skill turns the request into a plan in `docs/plans/<name>/`, `powerops-review-plan` reviews it in a fresh context, and `powerops plan sign-off docs/plans/<name>` signs it off. `powerops plan status` shows where each plan stands. Asked to build without a signed-off plan, the skills draft one and ask only the route, and the publisher prefix if the repo doesn't show it.
-2. **Build in Dev.** `powerops-implement` does the plan's steps in order and hands the build work to the Microsoft skill for the product: `canvas-app` (canvas-apps), `app-builder` or `genpage` (model-apps), `build-flow` (power-automate), `create-site` (power-pages) or `create-code-app` (code-apps-preview). Tables, columns, publishers and solutions go to `dv-metadata` and `dv-solution` (dataverse). Build in Dev only, never in Test or Prod. After the build and its final checks (step 4), `powerops-implement` starts `powerops-verify` and then `powerops-review-security`, each in a fresh context. Each writes a report in the plan folder, and neither gates anything.
+2. **Build in Dev.** `powerops-implement` does the plan's steps in order and hands the build work to the Microsoft skill for the product: `canvas-app` (canvas-apps), `app-builder` or `genpage` (model-apps), `pcf` (pcf), `build-flow` (power-automate), `create-site` (power-pages) or `create-code-app` (code-apps-preview). Tables, columns, publishers and solutions go to `dv-metadata` and `dv-solution` (dataverse). Build in Dev only, never in Test or Prod. After the build and its final checks (step 4), `powerops-implement` starts `powerops-verify` and then `powerops-review-security`, each in a fresh context. Each writes a report in the plan folder, and neither gates anything.
 3. **Export, and unpack into XML only.** Export the solution from Dev, unmanaged for the source and managed for Test, and unpack the unmanaged zip into an XML folder (`Other/Solution.xml`) that you commit:
 
    ```sh

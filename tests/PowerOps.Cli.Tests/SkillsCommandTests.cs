@@ -426,18 +426,56 @@ public partial class SkillsCommandTests : IDisposable
         Assert.All(review, s => Assert.Contains(s, shipped["powerops-review-plan/SKILL.md"]));
     }
 
+    private static readonly string[] ProductReferences = ["canvas.md", "model-driven.md", "power-pages.md", "code-apps.md", "power-bi.md"];
+
     [Fact]
-    public void Install_writes_the_plan_reference_beside_its_skill()
+    public void Install_writes_the_plan_references_beside_their_skill()
     {
         var (code, output, _) = Run("skills", "install", _temp);
 
         Assert.Equal(0, code);
         foreach (var root in new[] { ".claude", ".agents" })
         {
-            var file = P(root, "skills", "powerops-plan", "references", "data.md");
-            Assert.Equal(SkillsCommand.Shipped()["powerops-plan/references/data.md"], File.ReadAllText(file));
+            foreach (var name in ProductReferences.Concat(["data.md", "route.md"]))
+            {
+                var file = P(root, "skills", "powerops-plan", "references", name);
+                Assert.Equal(SkillsCommand.Shipped()[$"powerops-plan/references/{name}"], File.ReadAllText(file));
+                Assert.Contains($"created {file.Replace('\\', '/')}", output);
+            }
+
             Assert.True(File.Exists(P(root, "skills", "powerops-plan", "SKILL.md")));
-            Assert.Contains($"created {file.Replace('\\', '/')}", output);
         }
+    }
+
+    [Fact]
+    public void Plan_skills_carry_the_product_references_the_sketch_and_the_power_bi_branch()
+    {
+        var shipped = SkillsCommand.Shipped();
+        var plan = shipped["powerops-plan/SKILL.md"];
+        var route = shipped["powerops-plan/references/route.md"];
+        const string Pointer = "When it names an app, page, site or report, read `references/route.md`";
+        const string Sketch = "**D** sketch the screens first";
+
+        // The pointer is in section 5, which both paths write, and D is on the what-next menu and the fast-path menu.
+        Assert.InRange(plan.IndexOf(Pointer, StringComparison.Ordinal), 0, plan.IndexOf("## 6. Question rounds", StringComparison.Ordinal));
+        Assert.Equal(2, Regex.Count(plan, Regex.Escape(Sketch)));
+        Assert.True(plan.LastIndexOf(Sketch, StringComparison.Ordinal) > plan.IndexOf("## 8. Fast path", StringComparison.Ordinal));
+        string[] log = ["If a sketch exists or D was offered, log `prototype: approved mockups/prototype.html`", "`prototype: skipped`", "`prototype: not chosen`", "Keep visual detail out of `Screens` and `Steps`"];
+        string[] data = ["## 6. The data round", "1. Where does the data live today?", "6. What is out of this version?"];
+        string[] routeText = ["## 1. The route", "## 2. The sketch", "at most 6 screens and 15 KB", "control map", .. ProductReferences.Select(f => $"`{f}`")];
+        string[] review = ["Per product, when the plan names it", "more than 12 data visuals", "accordion"];
+        string[] implement = ["## 5. Power BI", "\"not applicable\"", "`powerbi-report-author validate`", "`semantic-model-authoring`", "`powerbi-report-cli`", "`pcf`", "`pac pcf push`", "the sketch's path, not a screenshot"];
+
+        Assert.All(log, s => Assert.Contains(s, plan));
+        Assert.All(data, s => Assert.Contains(s, shipped["powerops-plan/references/data.md"]));
+        Assert.All(routeText, s => Assert.Contains(s, route));
+        foreach (var file in ProductReferences.Append("route.md"))
+        {
+            Assert.Contains("## Sources\n\nChecked on 2026-11-03", shipped[$"powerops-plan/references/{file}"]);
+        }
+
+        Assert.Contains("12 data visuals", shipped["powerops-plan/references/power-bi.md"]);
+        Assert.All(review, s => Assert.Contains(s, shipped["powerops-review-plan/SKILL.md"]));
+        Assert.All(implement, s => Assert.Contains(s, shipped["powerops-implement/SKILL.md"]));
     }
 }

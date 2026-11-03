@@ -120,6 +120,29 @@ public partial class HandoffDocTests
     }
 
     [Fact]
+    public void The_per_product_table_has_a_row_for_each_product_and_names_its_build_skill()
+    {
+        var page = Page();
+        var section = page[page.IndexOf("## Per product\n", StringComparison.Ordinal)..page.IndexOf("## The steps\n", StringComparison.Ordinal)];
+        var rows = section.Split('\n').Where(l => l.StartsWith("| ", StringComparison.Ordinal)).Skip(1).ToDictionary(l => l.Split('|')[1].Trim());
+        var skills = new Dictionary<string, string>
+        {
+            ["Canvas app"] = "`canvas-app`",
+            ["Model-driven app"] = "`app-builder`",
+            ["Code component (PCF)"] = "`pcf`",
+            ["Power Pages site"] = "`create-site`",
+            ["Cloud flow"] = "`build-flow`",
+            ["Code app"] = "`create-code-app`",
+            ["Dataverse tables"] = "`dv-metadata`",
+            ["Power BI"] = "`semantic-model-authoring`",
+        };
+
+        Assert.Equal(skills.Keys, rows.Keys);
+        Assert.All(skills, s => Assert.Contains(s.Value, rows[s.Key]));
+        Assert.Contains("needs a yes", rows["Power BI"]);
+    }
+
+    [Fact]
     public void Step_4_also_runs_the_flow_tests_and_no_step_is_renumbered()
     {
         var lines = Page().Split('\n');

@@ -35,7 +35,7 @@ Never answer your own questions. After you ask, end your turn and wait.
 
 Never run `pac` yourself. Read environment facts only for an environment the user names.
 
-1. Ask which environment the plan targets and whether `pac` is signed in to it. End your turn and wait.
+1. Ask, as a question of round 1, which environment the plan targets and whether `pac` is signed in to it. End your turn and wait.
 2. Run `powerops plan facts` once, and only after the user has named the environment and said `pac` is signed in to it.
 3. Output with `"available": true` lists the environment `pac` is signed in to and the existing solutions (names, versions, managed flag). If that environment is not the one the user named, say only that they differ. Use none of the facts, and write that environment's name nowhere: not in a plan file, and not repeated in chat. Otherwise use the facts to answer questions instead of asking them.
 4. If `available` is false, tell the user the `reason` and the `fix` in your next message, in one line. Do not run the fix. Add a line to Assumptions in `plan.md` that environment facts were not available. Carry on.
@@ -83,7 +83,7 @@ supersedes: null
 - `Goal` writes its outcomes as numbered Goal lines, then ends with a `### Won't build` list: one `- ` item per thing left out of this version, and why, or the line "Nothing was cut.".
 - `Data` has one row per table and list: `| Artefact | Kind | Store | Goal line | Reuse, Extend or Create | Why not a column or choice | Rows now, 3 years |`. Its Goal line is the number of the line that would fail without it.
 - `Automation` and `Screens` give each flow and screen its Goal line too.
-- When the plan names new data or a flow, read `references/data.md` beside this file: the store, the gates, table design and each flow's card.
+- When the plan names new data or a flow, read `references/data.md` beside this file: the store, the gates, table design, each flow's card and the data round. When it names an app, page, site or report, read `references/route.md` and the product files it names.
 - `Constraints` holds licensing, DLP and deadlines.
 - `Steps` is a numbered list of implementation steps: small, in order, each one checkable.
 - `Open questions` and `Questions for your admin` hold one top-level `- ` item per question. When there are none, leave the section empty. Do not write "None": the tool counts list items. Move an item out when it is answered.
@@ -121,29 +121,20 @@ Each round:
 3. Right after the answers, append each question and answer to `decisions.md`.
 4. Update `plan.md`. Put assumptions and open items in the plan, not in chat.
 5. Show exactly three lines, one per change to the plan. Nothing else.
-6. Ask what next, with lettered options: **A** another round, **B** approve the draft, **C** stop for now. End your turn.
+6. Ask what next, with lettered options: **A** another round, **B** approve the draft, **C** stop for now, **D** sketch the screens first if section 11 offers it. End your turn.
 
 Question order: outcome and users, then data, then automation, then environments and ALM, then constraints. Two rules keep late areas from being skipped:
 
 - Ask one licensing question in round 1 or 2.
 - Ask the environments question (target, route Dev to Test to Prod) by round 3.
 
-**Data round.** When the plan names new data (a table, list or store), ask these, recommended answer first, and skip what the request or the facts already answer:
-
-1. Where does the data live today? Connect to it; don't copy it.
-2. How many rows in the largest table now and in three years, and what is the widest filter?
-3. Who sees which rows?
-4. Which existing table, list or standard table covers each thing named?
-5. Is offline needed, and is the environment a Managed Environment?
-6. What is out of this version? (the `Won't build` list)
-
-Under `standard` and `deep` they fill successive rounds of at most three. A data question waits a round when the licensing or environments question is due. Under `quick` only question 1 joins the one round: write the ledger's other cells from the request or as Assumptions, and put unknowns under Open questions. The fast path asks none and does the same.
+**Data round.** When the plan names new data (a table, list or store), ask the six questions in section 6 of `references/data.md`. Under `standard` and `deep` they fill successive rounds of at most three. A data question waits a round when the licensing or environments question is due. Under `quick` only question 1 joins the one round: write the ledger's other cells from the request or as Assumptions, and put unknowns under Open questions. The fast path asks none and does the same.
 
 Do not ask what the facts already answer. When nothing is left to ask, say so and recommend B. The user decides.
 
 **Depth.** `depth` in the header sets how far the rounds go:
 
-- `quick`: one round, at most three questions, only what blocks the plan, with licensing and environments asked in it. Keep sections short. Recommend B as soon as nothing blocks.
+- `quick`: one round of at most three questions: licensing, environments, and data question 1 when the plan names new data. Keep sections short. Recommend B as soon as nothing blocks.
 - `standard`: the rounds as written above.
 - `deep`: more rounds are fine. Also ask about edge cases, data volume and delegation, security roles and testability. Write fuller Steps.
 
@@ -158,7 +149,7 @@ After each round, judge engagement from the answers. Mostly one-word or option-n
 1. Run `powerops plan status docs/plans/<name> --json`. Show the open-question count and which of the five areas (users, data, automation, environments and ALM, constraints) were never asked.
 2. If any area was never asked, ask one confirmation: approve anyway, or ask about it first. Wait.
 3. If `Steps` is empty, draft it from the plan and tell the user.
-4. Log the approval under `## Log`. If areas were skipped, log `approved without: <areas>`.
+4. Log the approval under `## Log`. If areas were skipped, log `approved without: <areas>`. If a sketch exists or D was offered, log `prototype: approved mockups/prototype.html`, `prototype: skipped` (sketch dropped) or `prototype: not chosen`.
 5. Set `status: approved` in the header.
 6. Recommend a review in a fresh context with the `powerops-review-plan` skill, and start it as follows:
    - Claude Code: invoke the `powerops-review-plan` skill. Its installed copy runs in a forked context on the top model.
@@ -179,8 +170,9 @@ Use this when the user asks to build without a signed-off plan, or `powerops-imp
 4. Log the route in `decisions.md` as a normal question.
 5. Show one lettered menu:
    - **A** approve the draft, then review and sign-off as usual (section 7, from step 3).
-   - **B** approve, skip the review and sign off now. Log it, set `status: approved` and `review: skipped`, then do section 9 step 4 (no second menu: this answer is the sign-off). The Assumptions list stands in for the coverage check.
+   - **B** approve, skip the review and sign off now. Log it (section 7 step 4), set `status: approved` and `review: skipped`, then do section 9 step 4 (no second menu: this answer is the sign-off). The Assumptions list stands in for the coverage check.
    - **C** ask question rounds instead (section 6).
+   - **D** sketch the screens first, if section 11 offers it.
 
 A route answer approves nothing. A bare "approve" means A.
 
@@ -212,12 +204,11 @@ A small edit to a plan that is `signed-off` but not yet `implementing` follows t
 
 ## 11. Mockups
 
-When the user asks for a screen, wireframe, mockup or prototype:
+Offer **D** only when `references/route.md` says `Screens` is laid out freely. On D, or when asked for a screen, wireframe, mockup or prototype, write `docs/plans/<name>/mockups/prototype.html` by its rules, give the path and show the menu again.
 
-- Write static HTML with inline CSS only. No scripts, fonts, images or external links.
-- Use fake data only. Show a visible "Sketch" label.
-- Write only to `docs/plans/<name>/mockups/`. Never publish or upload it.
-- Apply section 4 to the HTML too.
+- Static HTML, inline CSS, fake data, a "Sketch" label. No scripts, fonts, images or external links.
+- Never publish or upload it. Apply section 4 to it.
+- Keep visual detail out of `Screens` and `Steps`.
 
 ## 12. Never write to an environment
 
