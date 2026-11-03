@@ -48,7 +48,7 @@ Check the plan for each item. Report a gap, a risk or an unanswered area as a fi
     - No Goal line named, or none would fail: High.
     - Two artefacts hold the same concept, or one shape is copied per year, team or site: High.
     - A SharePoint list fails a gate below with no stated reason: High.
-    - Not marked Reuse, Extend or Create, or a Create that doesn't name what it checked first: Medium.
+    - A table or list not marked Reuse, Extend or Create, or a Create that doesn't name what it checked first: Medium.
     - A table or list holding only a name, code or status, with no attributes, owner, security or business editing of its own: Medium.
     - No `Won't build` list under `Goal`, and no "Nothing was cut.": Medium.
     - A flow over 50 actions or 4 levels of nesting with no stated reason: Medium.

@@ -56,6 +56,16 @@ Answer: 1. Item 11's text is the same for both clients, so a revision voids the 
 3. In your own words
 Answer: 1. Section 5 is the file format that both the question rounds and the fast path write, so one sentence reaches both, and it cost no extra words. The wording test pins it before section 6.
 
+## Round 4
+
+Asked after the first evaluation round, answered by the building session.
+
+### Q9. Item 11 asks every artefact to be marked Reuse, Extend or Create, but the plan skill marks only tables and lists. Which gives?
+1. Item 11's line names tables and lists, as the ledger does; rerun all four cases on that text (recommended)
+2. The plan skill adds a Reuse, Extend or Create column to `Automation` and `Screens`
+3. In your own words
+Answer: 1. Both clients raised it as a Medium on both cases' screens and flows, so as worded it fires on every plan the skill writes. The ledger is where the Phase 7 plan puts the column, and the flow card already asks for the flow it reuses; a column on screens would cost words the core skill doesn't have. Item 11 keeps its seven severities, so `plan.md` is unchanged, and all four runs repeat on the new text so `report.md` describes what ships.
+
 ## Log
 
 - 2026-11-03: plan started at the request of the session that started this one: build M41 of Phase 7, build-order item 76, from the M41 section of `docs/plans/phase7-power-platform/plan.md` and its BUILD-PLAN row, with decisions 40 and 45
