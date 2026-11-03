@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Smoke test of the planning skills, driven by a simulated user (a second model call).
 # It checks the protocol's shape, not question quality: round size, option order,
-# decisions.md logging, the stop behaviour and the fast path, also with a routing skill installed.
+# decisions.md logging, the stop behaviour, the fast path (also with a routing skill installed), and the data
+# round and the sketch option at depth quick and standard.
 # It costs model credits, so it runs weekly (.github/workflows/skills-smoke.yml), never per build.
 # Keep it bash 3.2 compatible (macOS): no ${x,,}, no mapfile, and guard empty arrays under set -u.
 #
@@ -82,7 +83,8 @@ new_repo() {
   git -C "$dir" -c user.name=smoke -c user.email=smoke@example.invalid commit -qm init
 }
 
-plan_dir() { find "$dir/docs/plans" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -n 1; }
+# The plan the agent writes; `earlier` is the seeded plan of the quick scenario.
+plan_dir() { find "$dir/docs/plans" -mindepth 1 -maxdepth 1 -type d ! -name earlier 2>/dev/null | head -n 1; }
 header() { sed -n '2,/^---/p' "$(plan_dir)/plan.md" | sed -n "s/^$1:[[:space:]]*\([^#[:space:]]*\).*/\1/p"; }
 
 # Runs the conversation until `done_when` holds or the turn budget is spent. `done_when` is a shell
@@ -104,7 +106,7 @@ converse() {
 
 # The distinct menu letters in a reply: **A** or **A.** style (one per line or all on one line) or "A." / "A)" at a line start.
 menu_letters() {
-  grep -oE '\*\*[ABC][).:]?\*\*|^[[:space:]-]*[ABC][).:]' <<<"$1" | tr -dc 'ABC\n' | sort -u | tr -d '\n'
+  grep -oE '\*\*[A-D][).:]?\*\*|^[[:space:]-]*[A-D][).:]' <<<"$1" | tr -dc 'A-D\n' | sort -u | tr -d '\n'
 }
 
 # decisions.md shape: every round has 1-3 questions, option 1 is the recommended one, every question has an answer.
@@ -203,6 +205,62 @@ EOF
 git -C "$dir" add -A
 git -C "$dir" -c user.name=smoke -c user.email=smoke@example.invalid commit -qm router
 check_fast_path "Build a model-driven app for tracking site visits by our field engineers."
+
+# The data round and the sketch: a canvas app over new lists names new data and screens laid out freely.
+loans="a canvas app where store keepers record equipment loans and returns, with new lists for the equipment and the loans"
+sketch_offered=0
+# Whether any agent reply so far showed a lettered option to sketch the screens.
+note_sketch() { grep -qiE '(\*\*D[).:]?\*\*|^[[:space:]-]*D[).:]).*sketch' <<<"$reply" && sketch_offered=1; return 0; }
+questions() { grep '^### Q' "$(plan_dir)/decisions.md"; }
+
+# 5. Depth quick, inherited from an earlier plan: one round with licensing and environments in it, at most one
+# other question (the data round's first), the sketch option, and "not chosen" after approving without it.
+scenario=quick
+new_repo
+mkdir -p "$dir/docs/plans/earlier"
+printf -- '---\nstatus: approved\nreview: skipped\nsigned-off: null\nsigned-off-hash: null\nenvironment: null\ndepth: quick\nsupersedes: null\n---\n\n# Room bookings\n\n## Goal\n\n1. Staff book meeting rooms.\n' >"$dir/docs/plans/earlier/plan.md"
+powerops plan sign-off "$dir/docs/plans/earlier" >/dev/null
+sed -i.bak 's/^status: signed-off$/status: done/' "$dir/docs/plans/earlier/plan.md" && rm "$dir/docs/plans/earlier/plan.md.bak"
+git -C "$dir" add -A
+git -C "$dir" -c user.name=smoke -c user.email=smoke@example.invalid commit -qm earlier
+sketch_offered=0
+goal="At a what-next menu choose B (approve the draft), never the sketch. Confirm if asked to approve anyway. When a review or a sign-off is offered, say you will do it later."
+converse "Use the powerops-plan skill. My idea: $loans." 'note_sketch; [ -n "$(plan_dir)" ] && grep -q "^- .*prototype:" "$(plan_dir)/decisions.md" 2>/dev/null' || true
+if [ -n "$(plan_dir)" ]; then
+  check_decisions
+  [ "$(header depth)" = quick ] || fail "depth is '$(header depth)', expected quick from the earlier plan"
+  [ "$(grep -c '^## Round ' "$(plan_dir)/decisions.md")" = 1 ] || fail "quick asked more than one round"
+  questions | grep -qi 'licen' || fail "no licensing question"
+  questions | grep -qi 'environment' || fail "no environments question"
+  [ "$(questions | grep -vic 'licen\|environment')" -le 1 ] || fail "more than one question besides licensing and environments"
+  [ "$sketch_offered" = 1 ] || fail "no lettered option to sketch the screens"
+  grep -q '^- .*prototype: not chosen' "$(plan_dir)/decisions.md" || fail "no 'prototype: not chosen' log line"
+else
+  fail "no plan folder under docs/plans"
+fi
+
+# 6. Depth standard: the data round within three questions a round, then the sketch, then approval.
+scenario=standard
+new_repo
+sketch_offered=0
+goal="At a what-next menu: if you have answered fewer than two menus, choose A (another round); if exactly two, choose D (sketch the screens first); otherwise choose B (approve the draft). Confirm if asked to approve anyway. When a review or a sign-off is offered, say you will do it later."
+converse "Use the powerops-plan skill. My idea: $loans." 'note_sketch; [ -n "$(plan_dir)" ] && grep -q "^- .*prototype:" "$(plan_dir)/decisions.md" 2>/dev/null' || true
+if [ -n "$(plan_dir)" ]; then
+  check_decisions
+  questions | grep -qiE 'rows|records|how many' || fail "no data round question about rows"
+  [ "$sketch_offered" = 1 ] || fail "no lettered option to sketch the screens"
+  grep -q '^- .*prototype: approved mockups/prototype.html' "$(plan_dir)/decisions.md" || fail "no 'prototype: approved' log line"
+  sketch="$(plan_dir)/mockups/prototype.html"
+  if [ -f "$sketch" ]; then
+    grep -q 'Sketch' "$sketch" || fail "the sketch has no Sketch label"
+    if grep -qi '<script' "$sketch"; then fail "the sketch has a script"; fi
+    [ "$(wc -c <"$sketch")" -le 15360 ] || fail "the sketch is over 15 KB"
+  else
+    fail "no mockups/prototype.html"
+  fi
+else
+  fail "no plan folder under docs/plans"
+fi
 
 echo
 if [ "$failures" -gt 0 ]; then

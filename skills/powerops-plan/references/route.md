@@ -1,0 +1,56 @@
+# Route: which product, and the sketch
+
+Read this when a plan names an app, a page, a site or a report. Section 1 picks the product and names the file to read next. Section 2 says when to offer **D**, "sketch the screens first", and how to write the sketch.
+
+## 1. The route
+
+These are PowerOps's planning rules. Each product file cites Learn for what Learn states.
+
+- Records to create, read and edit: a model-driven form and view (`model-driven.md`).
+- An overview, a queue or guided work over Dataverse: a generative page in a model-driven app (`model-driven.md`).
+- A custom page only for a canvas control or a generally available connector that a form or a generative page can't give (`model-driven.md`, `canvas.md`).
+- A code component (PCF) only for a reusable field or dataset control (`model-driven.md`).
+- A Code App only when all four hold: every user is in the tenant, every user has a premium licence, a development team owns TypeScript and CI, and the UI needs npm libraries or automated tests (`code-apps.md`).
+- A standalone app laid out freely, for users in the tenant: a canvas app (`canvas.md`).
+- Anonymous or external users: Power Pages (`power-pages.md`).
+- A report or dashboard over a semantic model: Power BI, which lives outside the solution (`power-bi.md`).
+
+Write the route in `Screens`, one line per app or page with its reason.
+
+## 2. The sketch
+
+Offer **D** when `Screens` names content the maker lays out freely:
+
+| Product | Offer |
+|---|---|
+| Canvas | Yes, with the "doesn't map" list in `canvas.md` |
+| Custom pages | Yes: the canvas list applies, and custom pages don't use the modern theme |
+| Power Pages, Bootstrap site | Yes, after the Bootstrap version is known (`power-pages.md`) |
+| Power Pages, code site | Yes: name the UI library |
+| Generative pages | Yes: the user attaches a screenshot of the sketch in the page builder |
+| Power BI | Yes: one 1920 by 1080 page, a box per visual (`power-bi.md`) |
+| Code Apps | No sketch: a mock-data first slice instead (`code-apps.md`) |
+| Model-driven forms, views, site map | No: metadata lays them out, and the list of tabs and sections in `Screens` is the equivalent |
+| Flows, tables, agents | No: no screens |
+
+The file:
+
+- One file, `docs/plans/<name>/mockups/prototype.html`: static HTML with inline CSS, no scripts, fonts, images or external links, fake data, and a visible "Sketch" label.
+- Distinct layouts only, at most 6 screens and 15 KB.
+- A header comment names the route (canvas, custom page, Bootstrap 3 or 5 site, code site, generative page or Power BI) and, for canvas, the theme as the YAML that Paste theme takes: the one part that transfers directly.
+- Flex and `gap`, no absolute positions or fixed container widths.
+- Text contrast of 4.5:1 and non-text contrast of 3:1, visible labels, DOM order equal to reading order, no positive `tabindex`.
+- Every screen in the sketch is already in `Screens`. Show empty, error and failed-save states, at least as a line of text.
+
+A passing sketch proves intent, not the build: nothing shows that a build skill follows it. Keep visual detail out of `Screens` and `Steps`, and write no Step that says "match the sketch": the Verifier compares the build with those sections. A control map and control names in the sketch wait until one canvas build has tested whether `canvas-app` uses a sketch.
+
+## Sources
+
+Checked on 2026-11-03:
+
+- [Overview of custom pages](https://learn.microsoft.com/power-apps/maker/model-driven-apps/model-app-page-overview) and the [modern look FAQ](https://learn.microsoft.com/power-apps/user/modern-fluent-design): custom pages bring canvas into model-driven apps and don't use the modern theme.
+- [Generate a page using natural language](https://learn.microsoft.com/power-apps/maker/model-driven-apps/generative-pages): attached images, and "clear and detailed sketches or wireframes" work best.
+- [pac pcf](https://learn.microsoft.com/power-platform/developer/cli/reference/pcf): the `field` and `dataset` templates.
+- [Power Apps code apps overview](https://learn.microsoft.com/power-apps/developer/code-apps/overview): the admin setting and Microsoft Entra sign-in.
+- [What is Power Pages?](https://learn.microsoft.com/power-pages/introduction) and [Power Pages security](https://learn.microsoft.com/power-pages/security/power-pages-security): external-facing sites and anonymous users.
+- [Use modern themes in canvas apps](https://learn.microsoft.com/power-apps/maker/canvas-apps/controls/modern-controls/modern-theming): Paste theme takes YAML.

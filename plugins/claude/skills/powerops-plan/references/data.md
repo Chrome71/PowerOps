@@ -1,6 +1,6 @@
 # Data: the store, the gates, table design and the flow card
 
-Read this when a plan names new data (a table, a list or a store) or a flow. It fills the ledger in `Data` and the cards in `Automation`.
+Read this when a plan names new data (a table, a list or a store) or a flow. It fills the ledger in `Data` and the cards in `Automation`, and section 6 holds the data round's questions.
 
 ## 1. The store
 
@@ -69,6 +69,17 @@ One card per flow under `Automation`:
 - How it is tested
 
 For cost, a reference line, not a required one: actions a day = runs a day x (1 + straight actions + for each loop, 1 + inner actions x items), against the daily action limit of the owner's licence. Every trigger and action counts, and an action inside a loop counts once per item.
+
+## 6. The data round
+
+Ask these when the plan names new data, recommended answer first, and skip what the request or the facts already answer. `powerops-plan` section 6 says how they fill the rounds.
+
+1. Where does the data live today? Connect to it; don't copy it.
+2. How many rows in the largest table now and in three years, and what is the widest filter?
+3. Who sees which rows?
+4. Which existing table, list or standard table covers each thing named?
+5. Is offline needed, and is the environment a Managed Environment?
+6. What is out of this version? (the `Won't build` list)
 
 ## Sources
 

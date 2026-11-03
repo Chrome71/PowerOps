@@ -52,6 +52,14 @@ Check the plan for each item. Report a gap, a risk or an unanswered area as a fi
 
     The SharePoint gates: under 5,000 rows at three years, or every view and query filters on an indexed column and returns at most 5,000 items, with the indexes added before 20,000 items; every app query delegates; few lookups (at most 12 joins in a query); small flow volume (the connector allows 600 calls per connection a minute); site or list permission is enough; no native offline; a real licence saving under Managed Environment licensing; an owner for each list's schema.
 
+    Per product, when the plan names it, each Medium, including what is missing:
+    - Canvas: several personas with different tasks in one app and no reason; a source above 500 rows with no delegation note; a new component where a component library has one.
+    - Model-driven: a page whose type has no reason; a removal that isn't a step of its own; a persona whose roles together can't read a table its tasks use (roles that split access across personas on purpose are fine); a dashboard over six components with no reason; when the plan names phones or tablets, a form over 5 tabs or 75 columns and 10 subgrids.
+    - Power Pages: Global scope on anything but read-only public reference data.
+    - Code Apps: no reason a code app is needed rather than a form, a page or a canvas app.
+    - Power BI: a page with more than 12 data visuals and no reason.
+    - The sketch in `mockups/`: a screen that isn't in `Screens`, or a canvas element with no modern control (accordion, breadcrumb, dialog, drawer, menu, nav, toast, toolbar, tree) and no workaround named.
+
 If the plan or `decisions.md` contains a URL, GUID, email or person's name, report it as a finding. Do not repeat the value.
 
 ## 4. Write review.md
