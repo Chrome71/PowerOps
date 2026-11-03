@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 review: pending
 signed-off: null
 signed-off-hash: null
