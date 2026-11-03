@@ -14,6 +14,13 @@ public class ImportCallTests
     private const string Stray = "the command has a word the gate doesn't read";
     private const string EnvLine = "--environment must be an environment id or the https URL of a Dataverse host";
     private const string AnsiC = "the command has a $'...' word with an escape, which the gate can't read";
+    private const string PaPush = "pa app push publishes an app that no plan holds";
+    private const string PagesUpload = "pac pages upload uploads a site that no plan holds";
+    private const string PagesCodeSite = "pac pages upload-code-site uploads a site that no plan holds";
+    private const string PagesMigrate = "pac pages migrate-datamodel migrates a site's data model, which no plan holds";
+    private const string Genpage = "pac model genpage upload publishes a page that no plan holds";
+    private const string CopilotPush = "pac copilot push changes a live agent that no plan holds";
+    private const string CopilotPublish = "pac copilot publish publishes an agent that no plan holds";
 
     // Paths are built per OS, so the Windows leg of CI reads them as fully qualified.
     private static readonly string Dir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "powerops-gate"));
@@ -86,6 +93,19 @@ public class ImportCallTests
     [InlineData("node \"${PLUGIN_ROOT}/scripts/solution-settings.js\" template --env https://contoso-test.crm.dynamics.com")]
     [InlineData("powerops deploy apply deploy/powerops-plan.json --target 00000000-0000-0000-0000-000000000001 --apply")]
     [InlineData("echo \"it's fine")]
+    [InlineData("pa app run")]
+    [InlineData("pa app list")]
+    [InlineData("pa auth login")]
+    [InlineData("npx pa app init")]
+    [InlineData("npm run build")]
+    [InlineData("pac pages download --path /x")]
+    [InlineData("pac pages list")]
+    [InlineData("pac pages download-code-site")]
+    [InlineData("pac model genpage list")]
+    [InlineData("pac model genpage download")]
+    [InlineData("pac copilot pull")]
+    [InlineData("pac copilot list")]
+    [InlineData("pac copilot pack --publisher-prefix contoso")]
     public void A_shell_command_without_an_import_is_not_one(string command)
     {
         Assert.IsType<ImportRead.NotImport>(Bash(command));
@@ -267,6 +287,34 @@ public class ImportCallTests
             { "pac pcf push --publisher-prefix pub", "pac pcf push imports a solution that no plan holds" },
             { "pac application install --application-name x --environment " + Env, "pac application install installs an application that no plan holds" },
             { "pac code push --environment " + Env, "pac code push pushes an app that no plan holds" },
+            { "pa app push", PaPush },
+            { "pa app push --solution-id 00000000-0000-0000-0000-000000000002", PaPush },
+            { "node_modules/.bin/pa app push", PaPush },
+            { "./node_modules/.bin/pa app push", PaPush },
+            { "npx pa app push", PaPush },
+            { "npx --no-install pa app push --solution-id 00000000-0000-0000-0000-000000000002", PaPush },
+            { "npx -y pa app push", PaPush },
+            { "power-apps push", PaPush },
+            { "npx power-apps push", PaPush },
+            { "pac pages upload --path /x", PagesUpload },
+            { "pac powerpages upload --path /x", PagesUpload },
+            { "pac paportal upload --path /x", PagesUpload },
+            { "pac pages upload-code-site --rootPath /x", PagesCodeSite },
+            { "pac powerpages upload-code-site --rootPath /x", PagesCodeSite },
+            { "pac paportal upload-code-site --rootPath /x", PagesCodeSite },
+            { "pac pages migrate-datamodel --webSiteId x --mode all", PagesMigrate },
+            { "pac powerpages migrate-datamodel --webSiteId x --mode all", PagesMigrate },
+            { "pac paportal migrate-datamodel --webSiteId x --mode all", PagesMigrate },
+            { "pac model genpage upload --app-id x --code-file /x.tsx", Genpage },
+            { "pac copilot push", CopilotPush },
+            { "pac copilot publish --bot x", CopilotPublish },
+            { "sh -c 'pa app push'", CantRead },
+            { "npx -p x pa app push", CantRead },
+            { "pac --verbose pages upload", CantRead },
+            { "pac model genpage $X", CantRead },
+            { "git commit -m \"fix: gate pa app push\"", CantRead },
+            { "grep \"pages upload\" docs", CantRead },
+            { "bash -c \"pac copilot publish\"", CantRead },
             { $"pac catalog install --environment {Env} --catalog-item-id x", "pac catalog install installs a catalog item that no plan holds" },
             { $"pac app-management install-application-package --environment {Env} --unique-name x", "pac app-management install-application-package installs an application package that no plan holds" },
             { "sh -c 'pac catalog install --catalog-item-id x'", CantRead },
@@ -536,6 +584,7 @@ public class ImportCallTests
     [InlineData("pac solution import --path /x.zip")]
     [InlineData("Import-CrmSolution -InFile x.zip")]
     [InlineData("& 'C:\\Tools\\pac.exe' auth list")]
+    [InlineData("pa app push")]
     public void A_pac_or_import_command_in_the_powershell_tool_is_blocked(string command)
     {
         Assert.Contains("imports are read only in Bash commands, not in PowerShell", Blocked(Bash(command, "PowerShell")).Lines);
@@ -555,10 +604,53 @@ public class ImportCallTests
     [Fact]
     public void The_new_always_blocked_routes_ask_for_the_plan_not_a_rewrite()
     {
-        foreach (var command in new[] { "pac pcf push", "pac application install --application-name x", "pac code push", "pac catalog install --catalog-item-id x", "pac app-management install-application-package --unique-name x" })
+        foreach (var command in new[] { "pac pcf push", "pac application install --application-name x", "pac code push", "pac catalog install --catalog-item-id x", "pac app-management install-application-package --unique-name x", "pa app push", "npx --no-install pa app push", "power-apps push", "pac pages upload --path /x", "pac paportal upload-code-site --rootPath /x", "pac pages migrate-datamodel --webSiteId x", "pac model genpage upload --app-id x", "pac copilot push", "pac copilot publish --bot x" })
         {
             Assert.False(Blocked(Bash(command)).Unreadable);
         }
+    }
+
+    // ---- 3. the four write tools of pac's MCP server -----------------------------------------------------------
+
+    public static TheoryData<string, string, string> WriteTools() => new()
+    {
+        { "pages_upload", "pages_upload", PagesUpload },
+        { "pages_upload-code-site", "pages_upload_code_site", PagesCodeSite },
+        { "pages_upload_code_site", "pages_upload_code_site", PagesCodeSite },
+        { "copilot_publish", "copilot_publish", CopilotPublish },
+        { "model_genpage_upload", "model_genpage_upload", Genpage },
+    };
+
+    [Theory]
+    [MemberData(nameof(WriteTools))]
+    public void A_pac_mcp_write_tool_is_blocked_with_its_route_under_any_servers_name(string claudeTool, string codexTool, string line)
+    {
+        var input = new JsonObject { ["--path"] = "/x" };
+        var reads = new[]
+        {
+            ImportCall.Read(Bytes(Claude($"mcp__pac-cli__{claudeTool}", input))),
+            ImportCall.Read(Bytes(Codex($"mcp__pac_cli__{codexTool}", input.DeepClone().AsObject()))),
+            ImportCall.Read(Bytes(Claude($"mcp__plugin_power-pages_pac-cli__{claudeTool}", input.DeepClone().AsObject()))),
+            ImportCall.Read(Bytes(new JsonObject { ["tool_name"] = $"mcp__pac-cli__{claudeTool}" })),
+            ImportCall.Read(Bytes(new JsonObject { ["tool_name"] = $"mcp__pac-cli__{claudeTool}", ["tool_input"] = "text" })),
+        };
+
+        foreach (var read in reads)
+        {
+            var blocked = Blocked(read);
+            Assert.Equal([line], blocked.Lines);
+            Assert.False(blocked.Unreadable);
+        }
+    }
+
+    [Theory]
+    [InlineData("mcp__pac-cli__pages_download")]
+    [InlineData("mcp__pac-cli__pages_list")]
+    [InlineData("mcp__pac-cli__model_genpage_list")]
+    [InlineData("mcp__pac-cli__copilot_publish_x")]
+    public void Another_pac_mcp_tool_is_not_an_import(string tool)
+    {
+        Assert.IsType<ImportRead.NotImport>(ImportCall.Read(Bytes(Claude(tool, new JsonObject { ["--path"] = "/x" }))));
     }
 
     // ---- 3. input ----------------------------------------------------------------------------------------------
