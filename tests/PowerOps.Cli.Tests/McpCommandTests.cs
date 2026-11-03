@@ -261,6 +261,26 @@ public sealed class McpCommandTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Plan_status_carries_the_reports_list_and_it_matches_the_schema()
+    {
+        var plans = PlanFolder("status: draft\nreview: pending");
+        var folder = Path.Combine(plans, "docs", "plans", "x");
+        File.WriteAllText(Path.Combine(folder, "verify.md"), $"state: ready\nplan-hash: {new string('a', 64)}\n");
+        File.WriteAllText(Path.Combine(folder, "security-solution.md"), "state: blocked\n");
+
+        var result = await Call("plan_status", new() { ["path"] = plans });
+
+        Assert.False(result.IsError);
+        var node = JsonNode.Parse(Text(result))!;
+        Assert.Equal("", OutputSchemaTests.Errors(OutputSchemaTests.Load("plan-status.schema.json"), node));
+        var reports = node["plans"]![0]!["reports"]!.AsArray();
+        Assert.Equal(["security-solution.md", "verify.md"], reports.Select(r => (string?)r!["file"]));
+        Assert.Equal(["blocked", "ready"], reports.Select(r => (string?)r!["state"]));
+        Assert.Null(reports[0]!["stale"]);
+        Assert.True((bool?)reports[1]!["stale"]);
+    }
+
+    [Fact]
     public async Task Settings_generate_returns_the_settings_file_the_cli_prints()
     {
         var result = await Call("settings_generate", new() { ["solution"] = V1 });

@@ -50,6 +50,7 @@ public partial class PlanFactsSkillTests
     [Theory]
     [InlineData("powerops-plan")]
     [InlineData("powerops-review-plan")]
+    [InlineData("powerops-review-security")]
     public void Plan_facts_is_run_only_for_an_environment_the_user_named(string skill)
     {
         Assert.Empty(Unconditional(Skill(skill)));

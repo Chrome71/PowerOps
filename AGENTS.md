@@ -9,8 +9,8 @@ PowerOps is an open-source .NET 10 CLI toolkit for Microsoft Power Platform: ana
 - `tests/PowerOps.Cli.Tests/`: xUnit tests of the commands
 - `tests/PowerOps.Core.Tests/`: xUnit tests of the library
 - `tests/Shared/`: helpers both test projects use (`Golden`, `SolutionZip`)
-- `tests/eval/`: the set that measures agent roles: its cases, key, baseline, draft skills and run script
-- `skills/`: the planning skills (`SKILL.md` files)
+- `tests/eval/`: the set that measures agent roles: its cases, key, baseline and run script
+- `skills/`: the planning skills and the two report roles (`SKILL.md` files)
 - `action/`: the scripts the composite GitHub Action (`action.yml`) runs
 - `docs/`: plan and roadmap
 - `plugins/`: the Claude Code and Codex plugins that `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json` list. Their `skills/` folders are generated copies of `skills/` (see "Update goldens")
@@ -37,6 +37,7 @@ dotnet pack src/PowerOps.Cli -c Release -o artifacts
   - `pac org who` (`plan facts`, `settings apply`, and `drift` and `deploy` for `--env` and `--target`): the `Friendly Name:`, `Org URL:` and `Environment ID:` lines. Decision 15 in [docs/BUILD-PLAN.md](docs/BUILD-PLAN.md) keeps it so that `--env` takes what `pac` takes. The format was observed in `tests/fixtures/pac/org-who.txt` and `tests/fixtures/pac/drift/capture/`.
   - `pac solution list` (`plan facts`): the Unique Name, Version and Managed columns of its table, from the M3 design in [docs/PLANNING-SKILLS.md](docs/PLANNING-SKILLS.md) (BUILD-PLAN M3). No capture of it is kept; the samples in `tests/PowerOps.Cli.Tests/PlanFactsTests.cs` and `tests/PowerOps.Cli.Tests/McpCommandTests.cs` are the only record of the layout.
   - `pac power-automate list-cloud-flows --json` (`settings apply`): the `workflowId` and `stateCode` fields, chosen as Q4 of the [M7 live plan](docs/plans/m7-settings-live/decisions.md) because the command is preview with no documented fields. The format was observed in `tests/fixtures/pac/list-cloud-flows-*.json`.
+- Skill text of a kept role (`powerops-verify`, `powerops-review-security`): a typo or formatting edit needs only a recorded comparison with the evaluated text. A change to a check, command, stop rule, input or report line reruns that pass on all its cases and both families, recomputes the keep rules and renews the person's decision before it ships. The evaluated text is pinned by git blob id: the Verifier's in the Data section of `docs/plans/m39-ship-roles/plan.md`, the Security reviewer's in `docs/plans/m39-ship-roles/report.md`.
 - Make the smallest change that fully solves the task. No unrequested features, options or dependencies.
 - New logic comes with tests.
 - Keep `dotnet format --verify-no-changes` clean.

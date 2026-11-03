@@ -9,7 +9,7 @@ namespace PowerOps.Cli;
 public static class SkillsCommand
 {
     private const int UsageError = 2;
-    private const string ReviewSkill = "powerops-review-plan/SKILL.md";
+    private static readonly string[] ForkedSkills = ["powerops-review-plan/SKILL.md", "powerops-review-security/SKILL.md", "powerops-verify/SKILL.md"];
     private static readonly string[] Agents = ["claude", "codex", "gemini", "copilot"];
 
     public static Command Create(TextWriter output, TextWriter error)
@@ -55,10 +55,10 @@ public static class SkillsCommand
         return files;
     }
 
-    /// <summary>The Claude Code copy of a file: the review skill runs in a fresh context on the top-tier model alias.</summary>
+    /// <summary>The Claude Code copy of a file: the three role skills (plan review, security review, verify) run in a fresh context on the top-tier model alias.</summary>
     public static string ForClaude(string relativePath, string content)
     {
-        if (relativePath != ReviewSkill)
+        if (!ForkedSkills.Contains(relativePath))
         {
             return content;
         }

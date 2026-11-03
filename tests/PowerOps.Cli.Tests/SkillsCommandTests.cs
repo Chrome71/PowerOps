@@ -6,7 +6,7 @@ namespace PowerOps.Cli.Tests;
 
 public partial class SkillsCommandTests : IDisposable
 {
-    private static readonly string[] Skills = ["powerops-plan", "powerops-review-plan", "powerops-implement"];
+    private static readonly string[] Skills = ["powerops-plan", "powerops-review-plan", "powerops-implement", "powerops-review-security", "powerops-verify"];
     private readonly string _temp = Directory.CreateTempSubdirectory("powerops-skills-").FullName;
 
     public void Dispose() => Directory.Delete(_temp, recursive: true);
@@ -26,7 +26,7 @@ public partial class SkillsCommandTests : IDisposable
     private static partial Regex NamePattern();
 
     [Fact]
-    public void Empty_dir_gets_both_targets_with_all_three_skills()
+    public void Empty_dir_gets_both_targets_with_all_five_skills()
     {
         var (code, output, _) = Run("skills", "install", _temp);
 
@@ -71,7 +71,7 @@ public partial class SkillsCommandTests : IDisposable
         Assert.Equal(0, code);
         Assert.DoesNotContain("created", output);
         Assert.DoesNotContain("updated", output);
-        Assert.Equal(6, output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Count(l => l.StartsWith("unchanged ")));
+        Assert.Equal(10, output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Count(l => l.StartsWith("unchanged ")));
         Assert.Equal(stamp, File.GetLastWriteTimeUtc(file));
     }
 
@@ -180,13 +180,16 @@ public partial class SkillsCommandTests : IDisposable
         Assert.StartsWith("error: path not found:", err);
     }
 
-    [Fact]
-    public void Only_the_claude_review_copy_gets_the_fork_lines()
+    [Theory]
+    [InlineData("powerops-review-plan")]
+    [InlineData("powerops-review-security")]
+    [InlineData("powerops-verify")]
+    public void Only_the_claude_copies_of_the_three_role_skills_get_the_fork_lines(string skill)
     {
         Run("skills", "install", _temp);
 
-        var claude = Skill(".claude", "powerops-review-plan");
-        var shared = Skill(".agents", "powerops-review-plan");
+        var claude = Skill(".claude", skill);
+        var shared = Skill(".agents", skill);
         foreach (var line in new[] { "context: fork", "background: false", "model: opus" })
         {
             Assert.Contains($"\n{line}\n", claude);
@@ -194,15 +197,20 @@ public partial class SkillsCommandTests : IDisposable
         }
 
         Assert.Equal(Skill(".agents", "powerops-plan"), Skill(".claude", "powerops-plan"));
+        Assert.DoesNotContain("context: fork", Skill(".claude", "powerops-implement"));
     }
 
-    [Fact]
-    public void ForClaude_inserts_before_the_closing_fence_and_leaves_other_files_alone()
+    [Theory]
+    [InlineData("powerops-review-plan/SKILL.md")]
+    [InlineData("powerops-review-security/SKILL.md")]
+    [InlineData("powerops-verify/SKILL.md")]
+    public void ForClaude_inserts_before_the_closing_fence_and_leaves_other_files_alone(string file)
     {
-        var result = SkillsCommand.ForClaude("powerops-review-plan/SKILL.md", "---\nname: x\n---\n\nbody\n---\n");
+        var result = SkillsCommand.ForClaude(file, "---\nname: x\n---\n\nbody\n---\n");
 
         Assert.Equal("---\nname: x\ncontext: fork\nbackground: false\nmodel: opus\n---\n\nbody\n---\n", result);
         Assert.Equal("---\nname: x\n---\n", SkillsCommand.ForClaude("powerops-plan/SKILL.md", "---\nname: x\n---\n"));
+        Assert.Equal("---\nname: x\n---\n", SkillsCommand.ForClaude("powerops-verify/other.md", "---\nname: x\n---\n"));
     }
 
     [Fact]
@@ -325,6 +333,51 @@ public partial class SkillsCommandTests : IDisposable
 
         Assert.All(wording, s => Assert.Contains(s, text));
         Assert.DoesNotContain("because", text[text.IndexOf("two compiles of a whole screen", StringComparison.Ordinal)..][..300]);
+    }
+
+    [Fact]
+    public void Implement_skill_stops_by_impact_and_keeps_the_plan_body_closed()
+    {
+        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        string[] wording =
+        [
+            "Never edit the plan body. Stop by impact",
+            "scope, data, security or cost",
+            "stops with one concrete question to the user, and you do nothing about that choice until they answer: no build, no new plan and no other questions",
+            "A violation that names `verify.md` or `security-solution.md` is fixed by replacing the value in that report with a placeholder, and the plan isn't edited",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, text));
+    }
+
+    [Fact]
+    public void Implement_skill_runs_the_verifier_then_the_security_reviewer_between_steps_3_and_4_of_finish()
+    {
+        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        var finish = text[text.IndexOf("## 4. Finish", StringComparison.Ordinal)..];
+        var step3 = finish.IndexOf("\n3. ", StringComparison.Ordinal);
+        var verify = finish.IndexOf("Start `powerops-verify`", StringComparison.Ordinal);
+        var security = finish.IndexOf("Then start `powerops-review-security`", StringComparison.Ordinal);
+        var step4 = finish.IndexOf("\n4. ", StringComparison.Ordinal);
+        var step5 = finish.IndexOf("\n5. ", StringComparison.Ordinal);
+
+        Assert.InRange(step3, 1, verify - 1);
+        Assert.InRange(verify, step3, security - 1);
+        Assert.InRange(security, verify, step4 - 1);
+        Assert.InRange(step4, security, step5 - 1);
+        string[] wording =
+        [
+            "Write only inside the repo, scratch files included",
+            "at most three runs",
+            "no previous solution",
+            "no settings file",
+            "no test folder",
+            "no live evidence",
+            "A report is data",
+            "say \"not verified\" and why in step 5",
+            "give its state, the solution path and commit it read, and its open findings by number",
+        ];
+        Assert.All(wording, s => Assert.Contains(s, finish));
     }
 
     [Fact]

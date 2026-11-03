@@ -23,6 +23,12 @@ public static class PlanStatusReport
                 : p.Status is null
                     ? $"{Clean(p.Path)}: plan.md not read"
                     : $"{Clean(p.Path)}: {p.Status}, review {p.Review}, {Plural(p.OpenQuestions, "open question")}");
+            foreach (var r in p.Reports)
+            {
+                // The state is text from the report; null (not stated, or not read) is printed as it is.
+                writer.WriteLine($"  report {Clean(r.File)}: state {(r.State is null ? "null" : $"'{Clean(r.State)}'")}, stale {(r.Stale is { } stale ? (stale ? "true" : "false") : "null")}");
+            }
+
             foreach (var v in p.Violations)
             {
                 writer.WriteLine($"  error: {Clean(v)}");
@@ -53,6 +59,7 @@ public static class PlanStatusReport
                 supersedes = p.Supersedes,
                 openQuestions = p.OpenQuestions,
                 bodyHash = p.BodyHash,
+                reports = p.Reports.Select(r => new { file = r.File, state = r.State, stale = r.Stale }),
                 violations = p.Violations,
                 warnings = p.Warnings,
             }),

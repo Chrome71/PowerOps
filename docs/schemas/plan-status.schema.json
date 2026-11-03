@@ -12,7 +12,7 @@
       "description": "One entry per plan.md found.",
       "items": {
         "type": "object",
-        "required": ["path", "status", "review", "signedOff", "environment", "depth", "supersedes", "openQuestions", "bodyHash", "violations", "warnings"],
+        "required": ["path", "status", "review", "signedOff", "environment", "depth", "supersedes", "openQuestions", "bodyHash", "reports", "violations", "warnings"],
         "properties": {
           "path": { "type": "string", "description": "Plan folder, relative to the working folder." },
           "status": { "type": ["string", "null"], "description": "draft, approved, signed-off, implementing or done; null when the header is malformed." },
@@ -23,6 +23,19 @@
           "supersedes": { "type": ["string", "null"], "description": "Folder name of the earlier plan this one replaces, or null." },
           "openQuestions": { "type": "integer", "description": "Number of items under Open questions." },
           "bodyHash": { "type": ["string", "null"], "description": "SHA-256 hash of the plan body, or null when the header is malformed." },
+          "reports": {
+            "type": "array",
+            "description": "The agent reports found in the plan folder, in this order when present: review.md, security-solution.md, verify.md. Empty when there is none. A report's state or staleness is never a violation.",
+            "items": {
+              "type": "object",
+              "required": ["file", "state", "stale"],
+              "properties": {
+                "file": { "enum": ["review.md", "security-solution.md", "verify.md"], "description": "The report's file name." },
+                "state": { "type": ["string", "null"], "description": "The value of the 'state:' line in the report's first four lines, as written (the known values are ready, blocked, failed and dropped; any other value also adds a warning), or null when there is no such line or the file was not read (a link, a binary file or one over 1 MB). review.md normally has none." },
+                "stale": { "type": ["boolean", "null"], "description": "True when the plan body changed since the report was written, that is, the report's 'plan-hash:' differs from bodyHash. It says nothing about the solution. Null when the report or the plan has no hash, or the file was not read." }
+              }
+            }
+          },
           "violations": { "type": "array", "items": { "type": "string" }, "description": "Problems that make 'plan status' exit non-zero." },
           "warnings": { "type": "array", "items": { "type": "string" }, "description": "Problems that do not change the exit code." }
         }

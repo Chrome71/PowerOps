@@ -8,9 +8,8 @@ using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
 
-// Checks the cases, the key and the baseline in tests/eval/roles/, and the two draft skills that the cases are run against. Each check that
-// reads a file takes its text, so the last tests can feed it good and bad samples. The [Fact]s that load the real drafts need
-// tests/eval/roles/skills/, which a worktree may leave out; they fail there.
+// Checks the cases, the key and the baseline in tests/eval/roles/, and the two role skills in skills/ that the cases are run against. Each check that
+// reads a file takes its text, so the last tests can feed it good and bad samples.
 public sealed partial class RoleEvalTests
 {
     private static readonly string Roles = Path.Combine(Golden.RepoRoot, "tests", "eval", "roles");
@@ -478,7 +477,7 @@ public sealed partial class RoleEvalTests
         [.. listed.Where(c => c != "powerops plan facts" && !c.StartsWith("powerops plan facts ", StringComparison.Ordinal))
             .Where(c => !allowlist.Any(a => c == a || c.StartsWith(a + " ", StringComparison.Ordinal)))];
 
-    private static string Draft(string name) => Path.Combine(Roles, "skills", name, "SKILL.md");
+    private static string Draft(string name) => Path.Combine(Golden.RepoRoot, "skills", name, "SKILL.md");
 
     // ---- tests of the real files ----
 

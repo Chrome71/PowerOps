@@ -3,7 +3,7 @@
 # It costs model quota, so it runs by hand, never per build. The set is described in docs/plans/m38-agent-team/plan.md.
 # Keep it bash 3.2 compatible (macOS): no case-changing expansions, no array-reading builtins, and guard empty arrays under set -u.
 #
-# Usage: tests/eval/roles/run.sh claude|codex review-plan|security-plan|security-solution|verify <case folder>
+# Usage: tests/eval/roles/run.sh claude|codex review-plan|security-solution|verify <case folder>
 #        tests/eval/roles/run.sh --list <case folder>     (prints the files of the case, and starts nothing)
 # Needs EVAL_MODEL and EVAL_EFFORT in the environment, a clean tests/eval, src and skills, dotnet, git, and the client signed in.
 # Results go in ${EVAL_OUT:-$HOME/.local/state/powerops-role-eval}/<client>-<pass>-<case>-<UTC time>/.
@@ -11,7 +11,7 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: run.sh claude|codex review-plan|security-plan|security-solution|verify <case folder>" >&2
+  echo "usage: run.sh claude|codex review-plan|security-solution|verify <case folder>" >&2
   echo "       run.sh --list <case folder>" >&2
   exit 2
 }
@@ -31,7 +31,7 @@ client="$1"
 pass="$2"
 case_arg="$3"
 case "$client" in claude | codex) ;; *) usage ;; esac
-case "$pass" in review-plan | security-plan | security-solution | verify) ;; *) usage ;; esac
+case "$pass" in review-plan | security-solution | verify) ;; *) usage ;; esac
 [ -d "$case_arg" ] || { echo "error: case folder not found: $case_arg" >&2; exit 2; }
 case_dir="$(cd "$case_arg" && pwd -P)"
 case_name="$(basename "$case_dir")"
@@ -50,9 +50,8 @@ command -v dotnet >/dev/null 2>&1 || { echo "error: dotnet is not on PATH" >&2; 
 
 case "$pass" in
   review-plan) skill_name=powerops-review-plan; skill_file="$repo/skills/powerops-review-plan/SKILL.md"; report=review.md ;;
-  security-plan) skill_name=powerops-review-security; skill_file="$here/skills/powerops-review-security/SKILL.md"; report=security-plan.md ;;
-  security-solution) skill_name=powerops-review-security; skill_file="$here/skills/powerops-review-security/SKILL.md"; report=security-solution.md ;;
-  verify) skill_name=powerops-verify; skill_file="$here/skills/powerops-verify/SKILL.md"; report=verify.md ;;
+  security-solution) skill_name=powerops-review-security; skill_file="$repo/skills/powerops-review-security/SKILL.md"; report=security-solution.md ;;
+  verify) skill_name=powerops-verify; skill_file="$repo/skills/powerops-verify/SKILL.md"; report=verify.md ;;
 esac
 [ -f "$skill_file" ] || { echo "error: the skill is missing: $skill_file" >&2; exit 2; }
 
@@ -161,8 +160,7 @@ cp "$skill_file" "$skills_dir/SKILL.md"
 
 case "$pass" in
   review-plan) prompt="Use the powerops-review-plan skill to review the plan $plan_name." ;;
-  security-plan) prompt="Use the powerops-review-security skill. Plan: $plan_name. Pass: plan." ;;
-  security-solution) prompt="Use the powerops-review-security skill. Plan: $plan_name. Pass: solution. Current solution: solution/current. Previous solution: solution/previous. Settings file: settings.json." ;;
+  security-solution) prompt="Use the powerops-review-security skill. Plan: $plan_name. Current solution: solution/current. Previous solution: solution/previous. Settings file: settings.json." ;;
   verify) prompt="Use the powerops-verify skill. Plan: $plan_name. Current solution: solution/current. Previous solution: solution/previous. Settings file: settings.json. Test folder: flowtests. There is no live evidence." ;;
 esac
 

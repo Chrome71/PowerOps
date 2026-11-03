@@ -26,4 +26,27 @@ public class PlanStatusReportTests
         Assert.Single(plans[2].Warnings);
         Golden.Verify(w.ToString(), "plan-status.json");
     }
+
+    [Fact]
+    public void Text_prints_one_line_per_report_under_its_plan_with_null_shown_plainly_and_values_cleaned()
+    {
+        using var t = new TempFolder();
+        t.Write("docs/plans/demo/plan.md", Plan("draft", "pending", "# Plan\n"));
+        t.Write("docs/plans/demo/review.md", "findings\n");
+        t.Write("docs/plans/demo/verify.md", $"state: ready\nplan-hash: {PlanChecker.Check(Path.Combine(t.Path, "docs", "plans", "demo", "plan.md"), t.Path).BodyHash}\n");
+        t.Write("docs/plans/demo/security-solution.md", "state: ok\u2028::error::forged\u001b[31m\n");
+
+        var w = new StringWriter();
+        PlanStatusReport.WriteText([PlanChecker.Check(Path.Combine(t.Path, "docs", "plans", "demo", "plan.md"), t.Path)], w);
+
+        Assert.Equal(
+            "docs/plans/demo: draft, review pending, 0 open questions\n"
+            + "  report review.md: state null, stale null\n"
+            + "  report security-solution.md: state 'ok ::error::forged [31m', stale null\n"
+            + "  report verify.md: state 'ready', stale false\n"
+            + "  warning: review.md has no plan-hash line\n"
+            + "  warning: security-solution.md has an unknown state 'ok ::error::forged [31m' (expected ready, blocked, failed or dropped)\n"
+            + "1 plan, 0 violations, 2 warnings\n",
+            w.ToString().Replace("\r\n", "\n"));
+    }
 }

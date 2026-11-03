@@ -147,6 +147,26 @@ public class PlanCommandTests : IDisposable
     }
 
     [Fact]
+    public void A_stale_verify_report_is_a_warning_and_a_listed_report_and_the_exit_code_stays_zero()
+    {
+        Plan("status: draft\nreview: pending");
+        File.WriteAllText(Path.Combine(PlanDir(), "verify.md"), $"state: ready\nplan-hash: {new string('a', 64)}\n");
+
+        var (code, output, _) = Run("plan", "status", _temp);
+        var (_, json, _) = Run("plan", "status", _temp, "--json");
+
+        Assert.Equal(0, code);
+        Assert.Contains("  report verify.md: state 'ready', stale true\n", output.Replace("\r\n", "\n"));
+        Assert.Contains("  warning: verify.md was written for a different version of the plan (stale report)\n", output.Replace("\r\n", "\n"));
+        Assert.EndsWith("0 violations, 1 warning\n", output.Replace("\r\n", "\n"));
+        using var doc = JsonDocument.Parse(json);
+        var report = Assert.Single(doc.RootElement.GetProperty("plans")[0].GetProperty("reports").EnumerateArray());
+        Assert.Equal("verify.md", report.GetProperty("file").GetString());
+        Assert.Equal("ready", report.GetProperty("state").GetString());
+        Assert.True(report.GetProperty("stale").GetBoolean());
+    }
+
+    [Fact]
     public void Depth_and_supersedes_are_in_the_json_and_a_missing_superseded_plan_exits_one()
     {
         Plan("status: draft\nreview: pending\ndepth: quick\nsupersedes: old");

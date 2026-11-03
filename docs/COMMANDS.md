@@ -114,10 +114,12 @@ Plans live in `docs/plans/<name>/plan.md`, with a header between `---` lines (`s
 powerops plan status                  # check every docs/plans/*/plan.md under . (offline, read-only; add --json for machine output)
 powerops plan sign-off docs/plans/site-visits   # write status, date and body hash into the header
 powerops plan facts                   # environment and solution names as JSON; read-only, needs pac signed in, prints names only
-powerops skills install               # copy the planning skills into .claude/skills/ and/or .agents/skills/ (--agent claude|codex|gemini|copilot, --force to overwrite)
+powerops skills install               # copy the agent skills into .claude/skills/ and/or .agents/skills/ (--agent claude|codex|gemini|copilot, --force to overwrite)
 ```
 
 `plan status` checks the header, that a signed-off plan still matches its recorded hash, that the review is done (with `review.md`) or skipped, and that no file in the plan folder holds a URL, GUID or email (add `<!-- plan-status: allow -->` to a line to allow it). `plan sign-off` refuses unless `status` is `approved`, the review is done or skipped, and the scan is clean; it edits only the header. Exit codes: `0` clean, `1` violations or a refused sign-off, `2` usage error or malformed header, `3` internal error.
+
+`plan status` also lists the reports in each plan folder: `review.md`, `security-solution.md` and `verify.md`, in that order, when present. In the JSON, `reports` holds one entry for each, with `file`, `state` and `stale`, and is empty when there is none. The text output prints one line for each: `report <file>: state <state>, stale <true|false|null>`. `state` is the value of the `state:` line in the report's first four lines, or null when there is none (`review.md` has none). `stale` is true when the report's `plan-hash:` differs from the plan body's hash. That means the plan body changed, and it says nothing about the solution. It is null when the report or the plan has no hash. A `state` other than `ready`, `blocked`, `failed` or `dropped`, and a stale report, each add a warning. Neither is a violation, so neither changes the exit code. A report that is a link, binary or over 1 MB keeps the warning it had and shows null for both.
 
 Agents: run `plan facts` only when the environment `pac` is signed in to is one the user named in the session.
 

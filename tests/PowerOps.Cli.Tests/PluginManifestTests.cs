@@ -129,7 +129,15 @@ public class PluginManifestTests
         }
 
         // ForClaude compared with itself proves nothing on its own.
-        Assert.Equal(agent == "claude", actual["powerops-review-plan/SKILL.md"].Contains("\ncontext: fork\n"));
+        foreach (var skill in new[] { "powerops-review-plan", "powerops-review-security", "powerops-verify" })
+        {
+            Assert.Equal(agent == "claude", actual[$"{skill}/SKILL.md"].Contains("\ncontext: fork\n"));
+        }
+
+        foreach (var skill in new[] { "powerops-plan", "powerops-implement" })
+        {
+            Assert.DoesNotContain("\ncontext: fork\n", actual[$"{skill}/SKILL.md"]);
+        }
     }
 
     // "<skill>/<path>" to text with LF line endings, as SkillsCommand.Shipped() keys them.

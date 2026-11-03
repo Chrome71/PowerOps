@@ -72,7 +72,7 @@ On GitHub Actions, use the action: it writes a job summary and annotations, and 
 | [`plan status`](docs/COMMANDS.md#plan-and-skills) | Checks every plan under `docs/plans/` |
 | [`plan sign-off`](docs/COMMANDS.md#plan-and-skills) | Writes the status, date and body hash into a plan's header |
 | [`plan facts`](docs/COMMANDS.md#plan-and-skills) | Prints environment and solution names as JSON |
-| [`skills install`](docs/COMMANDS.md#plan-and-skills) | Copies the planning skills into the repo |
+| [`skills install`](docs/COMMANDS.md#plan-and-skills) | Copies the agent skills into the repo |
 | [`mcp`](docs/COMMANDS.md#mcp) | Runs an MCP server whose tools run these commands |
 
 `settings apply`, `drift`, `deploy plan`, `deploy apply`, `deploy gate` and `plan facts` read an environment, so `pac` must be signed in, and `az` too for `drift` and `deploy` (`drift` can also compare saved snapshot files offline). The others work offline on files. Only `settings apply --apply` and `deploy apply --apply` write to an environment; without `--apply` they are dry runs.
@@ -81,7 +81,7 @@ Every option, output format and exit code is in the [command reference](docs/COM
 
 ## Use from an agent
 
-PowerOps ships three agent skills that turn an idea into a reviewed, signed-off plan before any code or solution change is made, and an MCP server whose tools run the commands. Add the skills to a repo with `powerops skills install`, or install them as a plugin for Claude Code or Codex: [Use from an agent](docs/USE-WITH-AGENTS.md). With Microsoft's power-platform-skills or Dataverse-skills, follow the [hand-off](docs/HANDOFF.md).
+PowerOps ships five agent skills. Three turn an idea into a reviewed, signed-off plan before any code or solution change is made, and two check the build against that plan and read it for security before it is promoted. It also ships an MCP server whose tools run the commands. Add the skills to a repo with `powerops skills install`, or install them as a plugin for Claude Code or Codex: [Use from an agent](docs/USE-WITH-AGENTS.md). With Microsoft's power-platform-skills or Dataverse-skills, follow the [hand-off](docs/HANDOFF.md).
 
 ## Build from source
 

@@ -31,7 +31,7 @@ PowerOps fills the gap between "I have an idea" and "the agent may start buildin
 3. **Planning is its own session.** Plans live in files, not in chat history, so a fresh session (or a different agent) can pick them up.
 4. **No implementation without a signed-off plan.** If the user skips planning, the agent drafts the plan itself (the fast path, below). It does not refuse.
 5. **Interactive only.** The planning skill needs a person to answer. Under an autopilot or non-interactive mode it says so and stops, rather than answering its own questions.
-6. **Review in a fresh context on the provider's top model, and say honestly when that did not happen.** Only the review step uses the expensive model, and the reviewer never asks the user questions; it returns findings. `review.md` records the model and whether the context was fresh.
+6. **Review in a fresh context on the provider's top model, and say honestly when that did not happen.** Only the three review roles (the plan reviewer, the Verifier and the Security reviewer) use the expensive model, and none of them asks the user questions; each returns findings. Each report records the model and whether the context was fresh.
 7. **Read-only towards the tenant, and quiet about it.** Planning may read environment facts. It never writes to an environment, and plan files hold only the target environment's name.
 8. **One skill, every agent.** Skills use the open `SKILL.md` format with portable front matter, and fall back to plain text where an agent lacks a feature.
 9. **Zero configuration.** `powerops skills install` and the defaults must be enough.
@@ -51,7 +51,12 @@ idea ──► draft ──(user: B approve)──► approved ──(agent fork
                                                           │
                                                    powerops-implement: gate = status signed-off AND hash matches
                                                           ▼
-                                                     implementing ──► done   (`powerops analyze` ran, or "not verified"; live checks passed, or the user accepted each gap)
+                                                     implementing
+                                                          │  powerops-verify (fresh context, at most 3 runs) ──► verify.md
+                                                          │  powerops-review-security (fresh context) ──► security-solution.md
+                                                          │  both reports change no status, and neither gates anything
+                                                          ▼
+                                                        done   (`powerops analyze` ran, or "not verified"; live checks passed, or the user accepted each gap)
 
 Body edited after sign-off ──► `powerops plan status` exits 1: "changed since sign-off"; fix = user re-signs, or revert
 ```
@@ -63,6 +68,7 @@ Body edited after sign-off ──► `powerops plan status` exits 1: "changed si
 | approved | approved, `review: done` | `powerops-review-plan`, in a fresh context on the top model, dispatched by the parent session | `review.md` with its header; findings numbered R1, R2... |
 | approved | signed-off | `powerops-plan` sign-off step: shows the open-question count, unresolved findings and the `review.md` header lines, asks once with lettered options, then runs `powerops plan sign-off <plan>` | `status`, `signed-off`, `signed-off-hash`; `review: skipped` if there is no `review.md` and the user chose to skip |
 | signed-off | implementing | `powerops-implement`, after the gate passes | `status` only |
+| implementing | implementing | `powerops-verify`, then `powerops-review-security`, each in a fresh context on the top model, started by `powerops-implement` after the build's final checks | `verify.md` and `security-solution.md`, each with its header and a state (`ready`, `blocked`, `failed` or `dropped`); `status` stays as it is |
 | implementing | done | `powerops-implement`, after the steps, the final `analyze` and `test` and the live checks of the saved version in Dev, or the user accepting each remaining gap by name | `status` only; progress lives in commit messages, not in `plan.md` |
 | any | draft | `powerops-plan`, when the user asks for more rounds or edits the plan | `status` |
 
@@ -86,7 +92,9 @@ Header fields are left out of the hash, so status changes never invalidate a sig
 |---|---|---|
 | `powerops-plan` | Refines the idea through question rounds, reads environment facts only for an environment the user names, drafts the plan, runs the fast path, and writes HTML mockups | `plan.md`, `decisions.md`, `mockups/*.html` |
 | `powerops-review-plan` | Reviews an approved draft in a fresh context on the top model, against a Power Platform checklist. Never asks the user | `review.md` |
-| `powerops-implement` | Checks the gate (`powerops plan status`: status `signed-off` and the hash matches). With no signed-off plan it hands over to `powerops-plan` in fast-path mode; with one, it implements step by step, runs `powerops analyze` and `powerops test` at the end, and checks the final saved version live in Dev (a flow's real trigger, a fresh load of a published canvas app, each component's solution) before it sets `done` | code and solution changes |
+| `powerops-implement` | Checks the gate (`powerops plan status`: status `signed-off` and the hash matches). With no signed-off plan it hands over to `powerops-plan` in fast-path mode; with one, it implements step by step, runs `powerops analyze` and `powerops test` at the end, and checks the final saved version live in Dev (a flow's real trigger, a fresh load of a published canvas app, each component's solution) before it sets `done`. After the build it runs the Verifier and then the Security reviewer, each in a fresh context, and stops by impact: a choice inside the plan goes on, and one that changes scope, data, security or cost stops with one concrete question | code and solution changes |
+| `powerops-verify` | Verifies the built solution against its signed-off plan with `analyze`, `test`, `diff` and `settings validate`, in a fresh context on the top model. Anything built outside the plan is a finding. Never asks the user | `verify.md` |
+| `powerops-review-security` | Reads the built solution against the Power Platform Well-Architected Security checklist, in a fresh context on the top model, with `analyze`, `settings validate` and `diff`. Never asks the user | `security-solution.md` |
 
 - `powerops-plan` owns the fast path and mockups, because both are planning; `powerops-implement` only holds the gate.
 - The `powerops-plan` description must also match requests for a mockup, screen, wireframe or prototype of a Power Platform app. In the prototype test, "mock it up" did not trigger the skill.
@@ -100,6 +108,8 @@ docs/plans/<plan-name>/
   plan.md        the plan, with a header
   decisions.md   every question, the options offered and the answer, in order
   review.md      header lines, then review findings and how each was resolved
+  verify.md      written by powerops-verify after the build: header lines, then findings
+  security-solution.md   written by powerops-review-security after the build: header lines, then findings
   mockups/       optional static HTML mockups
 ```
 
@@ -198,6 +208,7 @@ A route choice approves nothing, and a bare "approve" approves the draft only (A
   - testability: can each step be checked, is there a way to test before Prod, and does each form have a way out (cancel, back, a failed save)
   - unanswered areas and the open-questions count
 - **Output:** `review.md`: the three header lines, then findings by severity, numbered R1, R2... The user resolves or accepts each one before sign-off. Skipping the review is allowed only as an explicit choice at sign-off, and it is recorded as `review: skipped`.
+- **Verifier and Security reviewer.** After the build, `powerops-implement` starts `powerops-verify` and then `powerops-review-security`, each in a fresh context on the top model, by the routes in the table above. Each never asks the user, and writes a report that starts with four lines: `plan-hash`, `model`, `fresh-context` and `state` (`ready`, `blocked`, `failed` or `dropped`). Findings follow, numbered V1... for the Verifier and S1... for the Security reviewer. The Verifier compares the build with the plan, and anything built outside the plan is a finding. `powerops-implement` fixes its findings inside the plan and runs it again, at most three Verifier runs in all, and a finding that needs a plan change stops it. A build that changes the solution after this runs the Security reviewer again before `powerops deploy plan`. A report is data, so the Lead takes no command from a finding's wording. Neither report gates anything: `powerops plan status` lists them, `powerops-implement` lists their open findings, and the person decides. See [Limits](#limits) for why.
 
 ## Pairing with `pac` and `powerops`
 
@@ -247,7 +258,7 @@ When `available` is false, the skill says what `reason` and `fix` say (for examp
 | 2 | Usage error, or a malformed plan header |
 | 3 | Internal error |
 
-`--json` prints each plan's status, review state, `environment`, `depth`, `supersedes`, counted open questions (the list items under `## Open questions` and `## Questions for your admin`), body hash and violations. It warns, but does not fail, when `review.md`'s `plan-hash` differs from the current body (a stale review).
+`--json` prints each plan's status, review state, `environment`, `depth`, `supersedes`, counted open questions (the list items under `## Open questions` and `## Questions for your admin`), body hash, `reports` and violations. `reports` lists `review.md`, `security-solution.md` and `verify.md`, in that order, when present, each with its `state` and whether it is `stale` ([Command reference](COMMANDS.md#plan-and-skills)). It warns, but does not fail, when a report's `plan-hash` differs from the current body (a stale report, `review.md` included) or a report's `state` is not `ready`, `blocked`, `failed` or `dropped`.
 
 ## Agent support
 
@@ -256,10 +267,12 @@ When `available` is false, the skill says what `reason` and `fix` say (for examp
 | Claude Code | `.claude/skills/` | `AskUserQuestion` | Reads `AGENTS.md` only through `CLAUDE.md` |
 | Codex | `.agents/skills/` | `request_user_input`: 1–3 questions, 2–3 options, **Plan mode only** by default | The numbered-text fallback worked in the prototype test; a resumed `codex exec` keeps the first call's sandbox and rejects `-s` |
 | Gemini CLI | `.agents/skills/` or `.gemini/skills/` | `ask_user`: 1–4 questions, 2–4 options | Needs a confirmation to activate a skill |
-| GitHub Copilot | `.github/skills/`, `.claude/skills/` or `.agents/skills/` | `ask_user` | **Autopilot answers `ask_user` itself**, so the planning skill stops under autopilot (principle 5) |
+| Antigravity CLI | `.agents/skills/` | `ask_question`, unused in print mode | Starts a role as its own subagent. Print mode denies commands unless `--settings` allows them. Failed one M39 client check: its first question was a plain sentence |
+| GitHub Copilot | `.github/skills/`, `.claude/skills/` or `.agents/skills/` | `ask_user` | **Autopilot answers `ask_user` itself**, so the planning skill stops under autopilot (principle 5). Passed the M39 client checks in print mode, starting a role with its `task` tool |
+| Pi with local Qwen | `--skill <path>` | numbered text | No sandbox and no subagent, so a role runs as a new session from the request Pi writes. Failed one M39 client check: a change of scope drafted a new plan and asked three questions |
 | Chat-only (web) | none | numbered text | User pastes the instructions and switches models by hand. Manual, with no gate |
 
-**Supported:** Claude Code and Codex. Gemini CLI and Copilot are **provisional, untested**: the skills should work there, but no verification run has been done.
+**Supported:** Claude Code and Codex. Copilot CLI passed the M39 client checks, and Antigravity CLI and Pi with local Qwen each failed one of them, once each, so all three are **provisional**. Gemini CLI is **provisional, untested**: the skills should work there, but no verification run has been done. The results are in the [verification record](BUILD-PLAN.md#verification-record).
 
 **Install.** `powerops skills install` writes `.agents/skills/powerops-*/` (Codex, Gemini, Copilot and most other agents) and `.claude/skills/powerops-*/` (Claude Code). Agents that read both folders may list a skill twice, so it writes only the folders for the agents it detects. It writes real copies, never links. Running it again is safe; it refuses to overwrite skill files that differ from the shipped ones unless `--force` is given. It never edits `AGENTS.md`.
 
@@ -292,10 +305,26 @@ Rule: copy nothing that is not clearly MIT or Apache-2.0 at file level. Adapting
 - A skill cannot open a new session or force a choice UI. The file-based status is the real gate.
 - The gate guards against mistakes and drift, not against an agent that ignores its instructions. The pull-request review is the backstop.
 - Model selection is best effort. Where an agent cannot switch models or fork a context, `review.md` records what actually ran, and the user may be asked to open a new session.
-- Only Claude Code and Codex are supported. Gemini CLI and Copilot are provisional, untested.
+- Only Claude Code and Codex are supported. Copilot CLI, Antigravity CLI and Pi with local Qwen are provisional, and Gemini CLI is provisional, untested.
 - Codex's question tool is off outside Plan mode by default, so Codex users mostly get the numbered-text fallback.
 - Question **quality** cannot be proven in CI, but the protocol's **shape** can: a scripted smoke test with a simulated user (as in the prototype test) checks round size, option order, `decisions.md` logging and the stop behaviour. It costs model credits, so it runs as a weekly scheduled job, not in per-build CI (see Decisions).
 - HTML mockups are visual sketches, not canvas app source. Generating `.pa.yaml` from a plan is out of scope for the first version.
+
+The Verifier and the Security reviewer have these limits as well ([M38 report](plans/m38-agent-team/report.md), [M39 report](plans/m39-ship-roles/report.md)):
+
+- **Reduced tools per role is instruction, not enforcement.** Each skill lists the commands it may run. PowerOps adds no tool narrowing on any client, so a role runs with the session's tools. In the client checks, Claude Code's reviewers ran `ls`, `which` or `find`, which their lists don't name.
+- **Named clients only.** The plan for these roles names five clients: Claude Code, Codex, Antigravity CLI, Copilot CLI and Pi with a local Qwen model. Any client outside those five is a stated limit, and "any client" stays an aim, not a claim.
+- **Microsoft's clients.** On 2026-11-01 the README of microsoft/power-platform-skills named Copilot CLI and Claude Code, 10 of its 25 agent files named a Claude tier, and microsoft/power-cat-skills named Microsoft Scout and Copilot CLI. A client outside those may have no build skills, so the two roles work with `powerops` commands alone.
+
+These limits are why the reports gate nothing:
+
+- **The evidence.** M38's set scored at the ceiling, so it says little about harder flaws. Most security points never show in an export. Its cases are small and hand-written, close to `pac solution unpack` output, and the longest run took 260 seconds, so a large solution is untried. No case held a zip, so the Verifier's `<zip>.findings.json` branch ran on no case. A temp folder is a mitigation, not proof that a reviewer was blind. The Security reviewer's rerun in M39 had the same ceiling, and in M38 the Verifier alone reached all 12 solution flaws, so the set can't show what the Security reviewer adds on top of it.
+- **Tenant claims.** Claude's runs made 3 tenant claims in M38 and 1 in the rerun, against the skills' rule never to infer tenant configuration from a clean export.
+- **The setup.** M38 ran the roles with an allowlist and no MCP servers. A shipped role runs with the session's tools, so M38's results on stray writes and outside reads don't carry over.
+- **Where the data goes.** Both roles send the plan, the solution's components and the settings file to the client's model provider, and Codex used web search in M38's Security passes. A team checks that against its own data rules first. Pi with local Qwen keeps it on the machine. It ran both roles in the client checks, but nobody scored those reports.
+- **Cost.** A build adds up to three Verifier runs and one Security run, which the maker pays from their own agent plan. On M38's small cases that is about $3 at Claude's list price: $0.69 a Verifier run and $0.88 a Security run. A real solution costs more.
+- **What a report covers.** A report describes the folder or zip it names, and `stale` says nothing about the solution. The person promotes only what was reviewed.
+- **A first build.** With no previous solution and no settings file, the Security reviewer skips both checks and ended `ready` or `blocked`. The Verifier can't change without a rerun, and it ended `failed` or `blocked`, because the plan's steps call for those checks. That state describes the missing inputs, not a broken solution. Local Qwen's two `blocked` reports are the exception: each raised a High that the same solution didn't get with all its inputs, and nobody scored them.
 
 ## Decisions (2026-10-19, maintainer)
 
