@@ -56,6 +56,22 @@ public class WarningRuleTests
     }
 
     [Fact]
+    public void PO005_quiet_when_an_agent_maps_it()
+    {
+        var s = B.Empty() with { ConnectionReferences = [B.Ref("demo_a")], AgentConnectionReferences = ["DEMO_A"] };
+
+        Assert.Empty(Run(new PO005UnusedConnectionReference(), s));
+    }
+
+    [Fact]
+    public void PO005_fires_when_an_agent_maps_another_reference()
+    {
+        var s = B.Empty() with { ConnectionReferences = [B.Ref("demo_a")], AgentConnectionReferences = ["demo_b"] };
+
+        Assert.Equal("demo_a", Assert.Single(Run(new PO005UnusedConnectionReference(), s)).Component);
+    }
+
+    [Fact]
     public void PO006_fires_once_per_distinct_url_per_flow()
     {
         var s = B.Empty() with

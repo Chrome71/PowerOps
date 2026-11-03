@@ -14,10 +14,14 @@ public sealed record Solution(
     IReadOnlyList<string> CanvasAppTexts,
     string ManifestFile = "Other/Solution.xml",
     IReadOnlyList<string>? SourceFolders = null,
-    IReadOnlyList<CanvasFormula>? CanvasFormulas = null)
+    IReadOnlyList<CanvasFormula>? CanvasFormulas = null,
+    IReadOnlyList<string>? AgentConnectionReferences = null)
 {
     /// <summary>The formulas of the canvas apps' `.pa.yaml` source; empty unless the YAML layout provides them.</summary>
     public IReadOnlyList<CanvasFormula> CanvasFormulas { get; init; } = CanvasFormulas ?? [];
+
+    /// <summary>The connection references that an agent component maps in `Assets/botcomponent_connectionreferenceset.xml`; empty when the solution has none.</summary>
+    public IReadOnlyList<string> AgentConnectionReferences { get; init; } = AgentConnectionReferences ?? [];
 }
 
 public sealed record Publisher(string UniqueName, string Prefix);
