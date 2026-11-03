@@ -1,4 +1,4 @@
-plan-hash: 9e7823a62043a24f2932265683d3ad70efe58eb567ac1fc4e0e6e4af61bb253c
+plan-hash: 92cc9fbc24b2cb8c56f4786892af363dbfb7941b562714847f05cee7c4a109f5
 model: claude-sonnet-5-5
 fresh-context: yes
 
@@ -42,6 +42,8 @@ Third pass (head `fe77715`: code and pages in `47ef010`, plan text in `fe77715`;
 - R13: the PO018 sentence, the PO014 sentence, the cache attribution, rows 2, 2a (signature, line references `YamlXml.cs:17-36` and `YamlRoot.cs:60-76`) and 10 (three limits) are as the Resolution says and match the code, except the nit in R14. `RuleDocsTests` and `DocsDriftTests` pass on the changed pages.
 - Unchanged since the second pass: `git hash-object` on both pinned skills gives the same two blob ids; no file under `tests/eval`, `skills`, `plugins`, `.claude-plugin` or `.agents`, no version file, changelog, lock file, fixture or `.msapp` changed since `7201ced`; the golden files did not change after `e49fa82` and still hold only PO018 additions. `powerops plan status` gives `bodyHash` as above and `review: pending`; once this file's hash line is read against it the "stale review" warning goes away, and `review: done` is the parent's to set.
 - Not run: the leak scan (no `reports/` folder in the worktree), anything on a tenant, and the unwritten part of the BUILD-PLAN edit.
+
+Fourth pass (head `38b3305`; body hash above, renewed). The diff `fe77715..38b3305` is one table row in `plan.md` (row 2a), one sentence in each of `docs/rules/PO014.md` and `docs/rules/PO018.md`, and this file; no code or test changed, so I did not rerun the two suites. R14 holds: row 2a now lists "one for the root, each mapping element, each attribute and each `#text` value, two for a scalar", which matches the five `count` calls in `YamlXml.cs` (root, `#text`, attribute, scalar, mapping element); both pages now say this repo's `powerops-seed` fixture leaves the `.msapp` out for that reason, see `tests/fixtures/NOTICE.md`, and that note is in the scrub list of the `powerops-seed` section. Nothing else in the diff is new: the other plan and page text is unchanged, and no file outside those four changed. I ran `RuleDocsTests` (4 passed) and `DocsDriftTests` (11 passed) with the two changed pages in a copy outside the repo. No finding added: 0 new, none open, 0 open questions. `powerops plan status` gives the hash above with the review not stale; `review: done` is the parent's to set.
 
 ## Findings
 
@@ -139,4 +141,4 @@ Third pass (head `fe77715`: code and pages in `47ef010`, plan text in `fe77715`;
 - Area: Data row 2a; `docs/rules/PO014.md` and `docs/rules/PO018.md`
 - Finding: Row 2a now lists the charges as "one for the root, each mapping element and each attribute, two for a scalar". `YamlXml` also charges one for a `#text` key (the element's own text), so the list is one short; the budget behaviour is right. Both rule pages now say a repo drops the `.msapp` "because it caches the environment URL (as this repo's own exports do, see `tests/fixtures/NOTICE.md`)". `NOTICE.md` records it for one fixture (`powerops-seed`), and AGENTS.md's "Add a fixture" step states it as a rule; "as this repo's seed fixture does" says what the source supports.
 - Suggested fix: Add "and each `#text` key" to row 2a, and say "this repo's seed fixture" on the two pages. The row edit renews the plan hash again; the two pages do not.
-- Resolution: fixed. Row 2a lists the `#text` charge, and both pages say this repo's `powerops-seed` fixture leaves the `.msapp` out for that reason, which is what `tests/fixtures/NOTICE.md` records
+- Resolution: fixed. Row 2a lists the `#text` charge, and both pages say this repo's `powerops-seed` fixture leaves the `.msapp` out for that reason, which is what `tests/fixtures/NOTICE.md` records Fourth pass: holds.
