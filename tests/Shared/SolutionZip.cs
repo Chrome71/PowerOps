@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text;
 
 namespace PowerOps.Tests.Shared;
 
@@ -18,6 +19,18 @@ public static class SolutionZip
                 _ => rel,
             };
             zip.CreateEntryFromFile(file, entry);
+        }
+    }
+
+    /// <summary>Writes a canvas app package (an `.msapp` is a zip) with exactly these entry names, so a test can use the backslashes `pac` writes.</summary>
+    public static void Msapp(string path, params (string Name, string Text)[] entries)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        using var zip = ZipFile.Open(path, ZipArchiveMode.Create);
+        foreach (var (name, text) in entries)
+        {
+            using var writer = new StreamWriter(zip.CreateEntry(name).Open(), new UTF8Encoding(false));
+            writer.Write(text);
         }
     }
 }

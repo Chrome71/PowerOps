@@ -49,6 +49,9 @@ PO016 warning Cloud flow has more than 50 actions or more than 4 levels of nesti
 PO017 warning Cloud flow runs a loop inside a loop
   fix: Replace the inner loop with one query, filter or bulk action over the whole set, or fetch the related rows with the outer query's expand option and use one loop.
   https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO017.md
+PO018 warning Canvas app formula calls Patch or ForAll inside ForAll
+  fix: Pass the ForAll result to one Patch call instead of calling Patch inside ForAll, and avoid nesting ForAll.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO018.md
 PO019 warning Power Pages Web API fields setting is *
   fix: Replace * with the comma-separated logical names of the columns the site needs, or set UseFieldsFromView to True with a view that holds them.
   https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO019.md

@@ -32,6 +32,9 @@ public class WriteSitesTests
         ["src/PowerOps.Core/Readers/ZipGuard.cs: new FileStream("] = 1,
         ["src/PowerOps.Core/Readers/ZipGuard.cs: FileMode.Open"] = 1,
 
+        // Reads only: an .msapp held in memory, opened with ZipArchiveMode.Read.
+        ["src/PowerOps.Core/Readers/CanvasSource.cs: ZipArchive"] = 1,
+
         // FileInfo: reads only. LinkTarget checks and the size check of BoundedRead (and its doc comment).
         ["src/PowerOps.Core/Readers/BoundedRead.cs: FileInfo"] = 2,
         ["src/PowerOps.Core/Plans/PlanChecker.cs: FileInfo"] = 2,

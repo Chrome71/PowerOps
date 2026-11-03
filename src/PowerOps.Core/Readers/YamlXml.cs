@@ -12,10 +12,12 @@ namespace PowerOps.Core.Readers;
 /// </summary>
 internal static class YamlXml
 {
+    /// <param name="count">Charges that many nodes to the solution's budget before they are created (it throws when the budget is spent).</param>
     /// <returns>A `yaml` element whose children are the document's top-level keys.</returns>
-    /// <exception cref="InvalidDataException">The YAML is malformed, uses anchors or aliases, or is nested too deep.</exception>
-    public static XElement Convert(string yaml)
+    /// <exception cref="InvalidDataException">The YAML is malformed, uses anchors or aliases, is nested too deep, or has more nodes than the budget has left.</exception>
+    public static XElement Convert(string yaml, Action<int> count)
     {
+        count(1);
         var root = new XElement("yaml");
         try
         {
@@ -23,7 +25,7 @@ internal static class YamlXml
             Next(parser); // StreamStart
             if (Next(parser) is DocumentStart && Next(parser) is MappingStart)
             {
-                Mapping(parser, root, 1);
+                Mapping(parser, root, 1, count);
             }
         }
         // XAttribute and XElement throw for reserved names such as `'@xmlns'`.
@@ -35,7 +37,7 @@ internal static class YamlXml
         return root;
     }
 
-    private static void Mapping(Parser parser, XElement element, int depth)
+    private static void Mapping(Parser parser, XElement element, int depth, Action<int> count)
     {
         for (var ev = Next(parser); ev is not MappingEnd; ev = Next(parser))
         {
@@ -54,21 +56,23 @@ internal static class YamlXml
 
                 if (key.Value == "#text")
                 {
+                    count(1);
                     element.Add(text.Value);
                 }
                 else if (!key.Value.Contains(':'))
                 {
+                    count(1);
                     element.SetAttributeValue(Name(key.Value[1..]), text.Value);
                 }
             }
             else
             {
-                Node(parser, element, Name(key.Value), value, depth);
+                Node(parser, element, Name(key.Value), value, depth, count);
             }
         }
     }
 
-    private static void Node(Parser parser, XElement parent, string name, ParsingEvent ev, int depth)
+    private static void Node(Parser parser, XElement parent, string name, ParsingEvent ev, int depth, Action<int> count)
     {
         if (depth > SolutionParser.MaxXmlDepth)
         {
@@ -78,17 +82,19 @@ internal static class YamlXml
         switch (ev)
         {
             case Scalar s:
+                count(2); // the element and its text
                 parent.Add(new XElement(name, s.Value));
                 break;
             case MappingStart:
+                count(1);
                 var child = new XElement(name);
                 parent.Add(child);
-                Mapping(parser, child, depth + 1);
+                Mapping(parser, child, depth + 1, count);
                 break;
             case SequenceStart:
                 for (var item = Next(parser); item is not SequenceEnd; item = Next(parser))
                 {
-                    Node(parser, parent, name, item, depth + 1);
+                    Node(parser, parent, name, item, depth + 1, count);
                 }
 
                 break;

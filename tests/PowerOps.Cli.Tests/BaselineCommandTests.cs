@@ -143,4 +143,32 @@ public class BaselineCommandTests : IDisposable
         Assert.StartsWith("note: ", line);
         Assert.EndsWith(": PO020 not checked for table 'demo_item': UseFieldsFromView is True, and the view that holds the columns is not read.", line);
     }
+
+    [Fact]
+    public void Baseline_prints_the_canvas_note_for_an_msapp_with_no_Src()
+    {
+        var folder = Path.Combine(_temp, "no-src");
+        CopyDirectory(V2, folder);
+        SolutionZip.Msapp(Path.Combine(folder, "CanvasApps", "pops_workitems_2af60_DocumentUri.msapp"), ("Header.json", "{}"));
+
+        var (code, _, err) = Run("baseline", folder, "--out", BaselineFile);
+
+        Assert.Equal(0, code);
+        var line = Assert.Single(err.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        Assert.EndsWith(": PO014 and PO018 not checked for canvas app 'CanvasApps/pops_workitems_2af60_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).", line);
+    }
+
+    private static void CopyDirectory(string from, string to)
+    {
+        foreach (var dir in Directory.EnumerateDirectories(from, "*", SearchOption.AllDirectories))
+        {
+            Directory.CreateDirectory(Path.Combine(to, Path.GetRelativePath(from, dir)));
+        }
+
+        foreach (var file in Directory.EnumerateFiles(from, "*", SearchOption.AllDirectories))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(to, Path.GetRelativePath(from, file)))!);
+            File.Copy(file, Path.Combine(to, Path.GetRelativePath(from, file)));
+        }
+    }
 }

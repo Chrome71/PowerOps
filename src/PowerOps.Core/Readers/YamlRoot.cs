@@ -67,9 +67,10 @@ internal sealed class YamlRoot
         var text = ReadText(path);
         try
         {
-            return _parsed[path] = YamlXml.Convert(text);
+            return _parsed[path] = YamlXml.Convert(text, n => Budget.CountNode(path, n));
         }
-        catch (InvalidDataException e)
+        // The node budget's message already starts with the path.
+        catch (InvalidDataException e) when (!e.Message.StartsWith(path + ": ", StringComparison.Ordinal))
         {
             throw new InvalidDataException($"{path}: {e.Message}", e);
         }

@@ -121,6 +121,13 @@
       "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO017.md"
     },
     {
+      "id": "PO018",
+      "severity": "warning",
+      "title": "Canvas app formula calls Patch or ForAll inside ForAll",
+      "fix": "Pass the ForAll result to one Patch call instead of calling Patch inside ForAll, and avoid nesting ForAll.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO018.md"
+    },
+    {
       "id": "PO019",
       "severity": "warning",
       "title": "Power Pages Web API fields setting is *",

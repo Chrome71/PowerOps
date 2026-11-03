@@ -416,6 +416,20 @@ public class YamlReaderTests
     }
 
     [Fact]
+    public void Many_properties_in_a_pa_yaml_are_refused_by_the_node_budget_naming_the_file()
+    {
+        var many = "App:\n  Properties:\n" + string.Concat(Enumerable.Range(0, 300).Select(i => $"    P{i}: =1\n"));
+        using var t = CanvasLayout().Write(SrcDir + "App.pa.yaml", many);
+        var yml = SolutionYml(t);
+
+        Assert.Equal(300, SolutionLoader.Load(yml).CanvasFormulas.Count);
+        var ex = Assert.Throws<InvalidDataException>(() => YamlReader.Read(yml, new YamlRoot(t.Path, new ReadBudget(maxNodes: 240))));
+
+        Assert.StartsWith(SrcDir + "App.pa.yaml: ", ex.Message);
+        Assert.Contains("XML nodes", ex.Message);
+    }
+
+    [Fact]
     public void The_xml_layout_has_no_canvas_formulas()
     {
         var path = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "powerops-seed", "v2");

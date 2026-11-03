@@ -41,24 +41,26 @@ public static class ZipReader
 
         return SolutionParser.Parse(new SolutionFiles(
             entries.Keys,
-            p => ReadEntry(entries[p], p, budget),
+            p => SolutionParser.ReadCapped(OpenEntry(entries[p], p, budget.MaxFileBytes), p, budget),
             "solution.xml",
             "customizations.xml",
-            budget));
+            budget,
+            // An .msapp is a zip, so it may be as long as one.
+            p => OpenEntry(entries[p], p, budget.MaxZipBytes)));
     }
 
-    private static bool IsSafe(string name) =>
+    internal static bool IsSafe(string name) =>
         !name.StartsWith('/')
         && !(name.Length > 1 && name[1] == ':')
         && !name.Split('/').Contains("..");
 
-    private static string ReadEntry(ZipArchiveEntry entry, string name, ReadBudget budget)
+    private static Stream OpenEntry(ZipArchiveEntry entry, string name, long cap)
     {
-        if (entry.Length > budget.MaxFileBytes)
+        if (entry.Length > cap)
         {
-            throw new InvalidDataException($"{name}: larger than {budget.MaxFileBytes / (1024 * 1024)} MB.");
+            throw new InvalidDataException($"{name}: larger than {cap / (1024 * 1024)} MB.");
         }
 
-        return SolutionParser.ReadCapped(entry.Open(), name, budget);
+        return entry.Open();
     }
 }

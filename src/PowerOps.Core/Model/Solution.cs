@@ -18,9 +18,10 @@ public sealed record Solution(
     IReadOnlyList<string>? SourceFolders = null,
     IReadOnlyList<CanvasFormula>? CanvasFormulas = null,
     IReadOnlyList<string>? AgentConnectionReferences = null,
-    IReadOnlyList<PowerPageComponent>? PowerPageComponents = null)
+    IReadOnlyList<PowerPageComponent>? PowerPageComponents = null,
+    IReadOnlyList<string>? CanvasAppsWithoutSource = null)
 {
-    /// <summary>The formulas of the canvas apps' `.pa.yaml` source; empty unless the YAML layout provides them.</summary>
+    /// <summary>The formulas of the canvas apps' `.pa.yaml` source: the YAML layout's `Src` folders, and the `Src/*.pa.yaml` inside each `.msapp` of the XML layouts.</summary>
     public IReadOnlyList<CanvasFormula> CanvasFormulas { get; init; } = CanvasFormulas ?? [];
 
     /// <summary>The connection references that an agent component maps in `Assets/botcomponent_connectionreferenceset.xml`; empty when the solution has none.</summary>
@@ -28,6 +29,9 @@ public sealed record Solution(
 
     /// <summary>The Power Pages components (enhanced data model) of `powerpagecomponents/`; empty when the solution has none.</summary>
     public IReadOnlyList<PowerPageComponent> PowerPageComponents { get; init; } = PowerPageComponents ?? [];
+
+    /// <summary>The paths of the `.msapp` files of the XML layouts that hold no `Src/*.pa.yaml`; empty when every `.msapp` has source.</summary>
+    public IReadOnlyList<string> CanvasAppsWithoutSource { get; init; } = CanvasAppsWithoutSource ?? [];
 }
 
 public sealed record Publisher(string UniqueName, string Prefix);

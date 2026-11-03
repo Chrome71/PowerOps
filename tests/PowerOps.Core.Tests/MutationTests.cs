@@ -31,7 +31,7 @@ public partial class MutationTests
     {
         using var t = new Readers.TempFolder();
         Copy(Path.Combine(Golden.RepoRoot, "tests", "fixtures"), t.Path);
-        var files = Directory.GetFiles(t.Path, "*", SearchOption.AllDirectories).Where(f => Path.GetExtension(f) is ".json" or ".xml" or ".yml" or ".yaml" or ".zip").Order(StringComparer.Ordinal).ToList();
+        var files = Directory.GetFiles(t.Path, "*", SearchOption.AllDirectories).Where(f => Path.GetExtension(f) is ".json" or ".xml" or ".yml" or ".yaml" or ".zip" or ".msapp").Order(StringComparer.Ordinal).ToList();
         var roots = SolutionDiscovery.Find(t.Path).Select(s => Directory.Exists(s) || s.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ? s : YamlReader.RootFolder(s)).ToList();
         var rng = new Random(Seed);
 
@@ -86,7 +86,7 @@ public partial class MutationTests
     private static string Mutate(string file, byte[] bytes, Random rng)
     {
         var json = file.EndsWith(".json", StringComparison.Ordinal);
-        var kind = file.EndsWith(".zip", StringComparison.Ordinal) ? 0 : rng.Next(json ? 5 : 2);
+        var kind = file.EndsWith(".zip", StringComparison.Ordinal) || file.EndsWith(".msapp", StringComparison.Ordinal) ? 0 : rng.Next(json ? 5 : 2);
         var text = Encoding.UTF8.GetString(bytes);
         var bom = bytes is [0xEF, 0xBB, 0xBF, ..];
         string Swap(string replacement)
