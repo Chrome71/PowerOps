@@ -54,7 +54,7 @@ Answer: 1. The reviewer is right that Q4's second reason doesn't cover it: the l
 1. One unscored spot check on Claude Code: `run.sh claude review-plan` on `plan-13` and `plan-14` on the shipped text, read by the building session against F40 to F42 and for item 11 Highs, recorded here (recommended)
 2. Record it as unmeasured in BUILD-PLAN only
 3. In your own words
-Answer: 1. Item 11 grows by about ten lines, which could shift what a reviewer files under it, and M41's twelve runs cost $3.00 at list price, so one run per case is cheap. It is not M41's blind scoring and not on Codex, so the record says so, and a miss stops the build for the master session as M41's rule says.
+Answer: 1. Item 11 grows by about ten lines, which could shift what a reviewer files under it, and M41's twelve runs cost $3.00 at list price, so one run per case is cheap. It is not M41's blind scoring and not on Codex, so the record says so. A miss follows M41's rule: one revision of item 11's new lines only, both runs again, and a second miss stops the build for the master session (corrected after R12: the first wording skipped the revision).
 
 ## Log
 
@@ -67,3 +67,7 @@ Answer: 1. Item 11 grows by about ten lines, which could shift what a reviewer f
 - approved 2026-11-03 by the building session under the same delegation
 - 2026-11-03: the modern controls reference lists 28 controls, not the 27 of the Phase 7 `## Screens` table; `canvas.md` writes 28 with the date
 - fresh review (general-purpose subagent following `powerops-review-plan`, Sonnet, fresh context) 2026-11-03: 0 High, 4 Medium, 7 Low (R1 to R11). All fixed in `plan.md`, the skills and the smoke script, with the reasons in `review.md`; Round 3 records the two choices the fixes needed. The log rule moved to section 7 step 4 (R3), and the plan skill is 2,770 words after it
+- the same reviewer's second pass 2026-11-03: R1 to R11 hold (corrections appended to R1 and R10), 1 new Medium and 4 new Low (R12 to R16), all fixed in `plan.md`, Q8 and the plan skill (a sketch asked for without D is logged too, R15)
+- spot check (Q8) 2026-11-03 on Claude Code 2.1.316, `opus`, high: `plan-13` at `1bf0931` and `plan-14` at `d146ad3` (which differs only in the smoke script), both exit 0. Read by the building session, unscored and not blind: on `plan-13` item 11 named F40 (R1, High), F41 (R3, Medium) and F42 (R2, High); on `plan-14` no item 11 finding is High (the Highs are under items 2 and 5, the gaps M41's hand-over names). The new canvas line fired as Medium on both. Passes; not measured on Codex. The review skill is unchanged since `1bf0931`
+- the same reviewer's third pass 2026-11-03: R12 to R16 hold, the spot-check record matches the two reports, one new Low (R17), accepted with no change because `app-builder`'s SKILL.md states the rebuild claim at line 885; no finding open
+- signed off 2026-11-03 by the building session under the user's delegation of 2026-10-22, with no finding open (`powerops plan sign-off`, body hash `0baa5a0a…`); status set to implementing for the build, which was written alongside the review and fixed with it

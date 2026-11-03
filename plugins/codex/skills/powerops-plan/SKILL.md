@@ -149,7 +149,7 @@ After each round, judge engagement from the answers. Mostly one-word or option-n
 1. Run `powerops plan status docs/plans/<name> --json`. Show the open-question count and which of the five areas (users, data, automation, environments and ALM, constraints) were never asked.
 2. If any area was never asked, ask one confirmation: approve anyway, or ask about it first. Wait.
 3. If `Steps` is empty, draft it from the plan and tell the user.
-4. Log the approval under `## Log`. If areas were skipped, log `approved without: <areas>`. If D was offered, log `prototype: approved mockups/prototype.html`, `prototype: skipped` (sketch dropped) or `prototype: not chosen`.
+4. Log the approval under `## Log`. If areas were skipped, log `approved without: <areas>`. If a sketch exists or D was offered, log `prototype: approved mockups/prototype.html`, `prototype: skipped` (sketch dropped) or `prototype: not chosen`.
 5. Set `status: approved` in the header.
 6. Recommend a review in a fresh context with the `powerops-review-plan` skill, and start it as follows:
    - Claude Code: invoke the `powerops-review-plan` skill. Its installed copy runs in a forked context on the top model.

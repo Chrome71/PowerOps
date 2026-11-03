@@ -460,7 +460,7 @@ public partial class SkillsCommandTests : IDisposable
         Assert.InRange(plan.IndexOf(Pointer, StringComparison.Ordinal), 0, plan.IndexOf("## 6. Question rounds", StringComparison.Ordinal));
         Assert.Equal(2, Regex.Count(plan, Regex.Escape(Sketch)));
         Assert.True(plan.LastIndexOf(Sketch, StringComparison.Ordinal) > plan.IndexOf("## 8. Fast path", StringComparison.Ordinal));
-        string[] log = ["`prototype: approved mockups/prototype.html`", "`prototype: skipped`", "`prototype: not chosen`", "Keep visual detail out of `Screens` and `Steps`"];
+        string[] log = ["If a sketch exists or D was offered, log `prototype: approved mockups/prototype.html`", "`prototype: skipped`", "`prototype: not chosen`", "Keep visual detail out of `Screens` and `Steps`"];
         string[] data = ["## 6. The data round", "1. Where does the data live today?", "6. What is out of this version?"];
         string[] routeText = ["## 1. The route", "## 2. The sketch", "at most 6 screens and 15 KB", "control map", .. ProductReferences.Select(f => $"`{f}`")];
         string[] review = ["Per product, when the plan names it", "more than 12 data visuals", "accordion"];
