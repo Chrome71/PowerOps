@@ -4,12 +4,12 @@ Everything under `tests/eval/roles/` was made for this project and is licensed u
 
 ## Where the cases come from
 
-- The plan cases (`cases/plan-*`) are plans and decision logs written for this project, in the layout `powerops-plan` writes. The projects, organisations and numbers in them are invented. They hold no real tenant, person or organisation.
+- The plan cases (`cases/plan-*`) are plans and decision logs written for this project, in the layout `powerops-plan` writes. The projects, organisations and numbers in them are invented. They hold no real tenant, person or organisation. `plan-13` and `plan-14` use the layout with the ledger (numbered Goal lines, a `Won't build` list and a row per table and list); the other plans use the layout from before it.
 - The solution cases (`cases/solution-*`) start from `tests/fixtures/powerops-seed/v1` (their `solution/previous`, kept byte for byte), a copy of it with a higher version and the change of the case's plan (`solution/current`), a settings file that begins as `tests/fixtures/settings/powerops-seed-v1.valid.json`, and the flow test `tests/fixtures/flowtests/seed/stamp-work-item-status-active.flowtest.json`. The seed's own component ids stay.
 - What the cases add to the seed is hand-written in the layouts that `pac solution unpack` writes: security roles, field security profiles, one table column, environment variable definitions, connection references, cloud flows and flow tests. None of it was exported from a tenant, so the layouts are close approximations.
 - Each solution case's plan was signed with `powerops plan sign-off`, and then only its `status` line was changed to `implementing`, which keeps the hash.
 - `baseline/` holds the output of `powerops analyze`, `test`, `diff` and `settings validate`, run from each solution case's folder with relative paths. It is not part of any case.
-- `pilot/` holds one plan case and one solution case with one flaw each, outside the 18 cases of the set.
+- `pilot/` holds one plan case and one solution case with one flaw each, outside the 20 cases of the set.
 
 ## Fake values
 

@@ -80,6 +80,10 @@ supersedes: null
 ## Steps
 ```
 
+- `Goal` writes its outcomes as numbered Goal lines, then ends with a `### Won't build` list: one `- ` item per thing left out of this version, and why, or the line "Nothing was cut.".
+- `Data` has one row per table and list: `| Artefact | Kind | Store | Goal line | Reuse, Extend or Create | Why not a column or choice | Rows now, 3 years |`. Its Goal line is the number of the line that would fail without it.
+- `Automation` and `Screens` give each flow and screen its Goal line too.
+- When the plan names new data or a flow, read `references/data.md` beside this file: the store, the gates, table design and each flow's card.
 - `Constraints` holds licensing, DLP and deadlines.
 - `Steps` is a numbered list of implementation steps: small, in order, each one checkable.
 - `Open questions` and `Questions for your admin` hold one top-level `- ` item per question. When there are none, leave the section empty. Do not write "None": the tool counts list items. Move an item out when it is answered.
@@ -123,6 +127,17 @@ Question order: outcome and users, then data, then automation, then environments
 
 - Ask one licensing question in round 1 or 2.
 - Ask the environments question (target, route Dev to Test to Prod) by round 3.
+
+**Data round.** When the plan names new data (a table, list or store), ask these, recommended answer first, and skip what the request or the facts already answer:
+
+1. Where does the data live today? Connect to it; don't copy it.
+2. How many rows in the largest table now and in three years, and what is the widest filter?
+3. Who sees which rows?
+4. Which existing table, list or standard table covers each thing named?
+5. Is offline needed, and is the environment a Managed Environment?
+6. What is out of this version? (the `Won't build` list)
+
+Under `standard` and `deep` they fill successive rounds of at most three. A data question waits a round when the licensing or environments question is due. Under `quick` only question 1 joins the one round: write the ledger's other cells from the request or as Assumptions, and put unknowns under Open questions. The fast path asks none and does the same.
 
 Do not ask what the facts already answer. When nothing is left to ask, say so and recommend B. The user decides.
 

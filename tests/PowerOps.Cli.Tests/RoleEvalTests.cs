@@ -492,14 +492,14 @@ public sealed partial class RoleEvalTests
         Assert.Empty(CountProblems(json, planCases, solutionCases, perCase, flawedPlan, flawedSolution, security, verify));
     }
 
-    private static string[] MainPlans => [.. Enumerable.Range(1, 12).Select(n => $"plan-{n:00}")];
+    private static string[] MainPlans => [.. Enumerable.Range(1, 14).Select(n => $"plan-{n:00}")];
 
     private static string[] MainSolutions => [.. Enumerable.Range(1, 6).Select(n => $"solution-{n:00}")];
 
     [Fact]
     public void Every_key_entry_names_a_real_case_and_pass_and_every_case_and_pass_has_its_flaw_count()
     {
-        KeyChecks(Path.Combine(Roles, "key.json"), Cases, MainPlans, MainSolutions, perCase: 3, flawedPlan: 9, flawedSolution: 4, security: 6, verify: 6);
+        KeyChecks(Path.Combine(Roles, "key.json"), Cases, MainPlans, MainSolutions, perCase: 3, flawedPlan: 10, flawedSolution: 4, security: 6, verify: 6);
     }
 
     [Fact]
@@ -538,7 +538,7 @@ public sealed partial class RoleEvalTests
     {
         var cases = CaseNames(Cases, "plan").Select(n => Path.Combine(Cases, n)).Concat(CaseNames(Pilot, "plan").Select(n => Path.Combine(Pilot, n))).ToList();
 
-        Assert.Equal(13, cases.Count);
+        Assert.Equal(15, cases.Count);
         Assert.All(cases, c => Assert.Empty(PlanCaseProblems(c)));
         Assert.All(cases.SelectMany(CaseFiles), f => Assert.Empty(FakeValueProblems(f, Read(f))));
     }
@@ -549,7 +549,7 @@ public sealed partial class RoleEvalTests
         var key = ReadKey(File.ReadAllText(Path.Combine(Roles, "key.json")));
         var clean = CaseNames(Cases, "plan").Where(n => key.All(f => f.Case != n)).ToList();
 
-        Assert.Equal(3, clean.Count);
+        Assert.Equal(4, clean.Count);
         foreach (var name in clean)
         {
             var dir = Path.Combine(Cases, name);

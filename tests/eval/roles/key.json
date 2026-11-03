@@ -322,5 +322,29 @@
     "point": "data policies",
     "severity": "High",
     "sentence": "Constraints, Data policy lists HTTP as Blocked in all three environments, and Automation 2 calls the finance system with the HTTP connector."
+  },
+  {
+    "id": "F40",
+    "case": "plan-13",
+    "pass": "plan",
+    "point": "plan checklist",
+    "severity": "High",
+    "sentence": "Data and Automation: the lists Loans North, Loans South, Loans East and Loans West have the same columns, one copy per depot, each with its own reminder flow, where one loans list with a depot column would hold about 3,300 rows at three years, under the 5,000-item threshold the plan gives as the reason to split, and one reminder flow would serve every depot."
+  },
+  {
+    "id": "F41",
+    "case": "plan-13",
+    "pass": "plan",
+    "point": "plan checklist",
+    "severity": "Medium",
+    "sentence": "Data: the lists Loan statuses, Equipment categories, Conditions and Depots each hold only a title, with no attributes, owner, security or business editing of their own, where a choice column would do."
+  },
+  {
+    "id": "F42",
+    "case": "plan-13",
+    "pass": "plan",
+    "point": "plan checklist",
+    "severity": "High",
+    "sentence": "Data: the list Loan feedback, with the flow Ask for feedback and the Feedback screen, names Goal line 1, but no line of Goal fails without it: Goal records loans, overdue loans and stock checks, not how a loan went."
   }
 ]
