@@ -358,6 +358,54 @@ public class CanvasReaderTests
     }
 
     [Fact]
+    public void An_entry_count_declared_over_the_cap_is_refused_by_the_guard_before_the_directory_is_parsed()
+    {
+        // Only an end-of-central-directory record: 5 entries declared, a directory that starts past the end of the file.
+        // ZipArchive would fail on that with its own message, so only ZipGuard can give the entry-count one.
+        var record = new byte[22];
+        BitConverter.GetBytes(0x06054b50).CopyTo(record, 0);
+        BitConverter.GetBytes((ushort)5).CopyTo(record, 8);
+        BitConverter.GetBytes((ushort)5).CopyTo(record, 10);
+        BitConverter.GetBytes(1000).CopyTo(record, 12);
+        BitConverter.GetBytes(5000).CopyTo(record, 16);
+        using var t = Folder();
+        Directory.CreateDirectory(Path.GetDirectoryName(MsappPath(t))!);
+        File.WriteAllBytes(MsappPath(t), record);
+
+        var message = Assert.Throws<InvalidDataException>(() => Read(t, new ReadBudget(maxEntries: 2))).Message;
+
+        Assert.Equal($"{Msapp}: more than 2 entries.", message);
+    }
+
+    [Fact]
+    public void Flipping_the_low_bit_of_each_byte_of_an_msapp_loads_it_or_refuses_it_with_its_path()
+    {
+        using var t = Folder();
+        var path = MsappPath(t);
+        SolutionZip.Msapp(path, ("Src\\App.pa.yaml", AppYaml), ("Src\\Components\\C.pa.yaml", "ComponentDefinitions:\n  Header:\n    Properties:\n      Fill: =Color.Blue\n"), ("Header.json", "{}"));
+        var original = File.ReadAllBytes(path);
+        Assert.InRange(original.Length, 200, 3000);
+
+        for (var i = 0; i < original.Length; i++)
+        {
+            var mutant = (byte[])original.Clone();
+            mutant[i] ^= 1;
+            File.WriteAllBytes(path, mutant);
+            try
+            {
+                Read(t);
+            }
+            catch (InvalidDataException e) when (e.Message.StartsWith($"{Msapp}: ", StringComparison.Ordinal))
+            {
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"byte {i}: {e}");
+            }
+        }
+    }
+
+    [Fact]
     public void Many_properties_in_an_msapp_entry_are_refused_by_the_node_budget_naming_the_msapp()
     {
         var many = "App:\n  Properties:\n" + string.Concat(Enumerable.Range(0, 300).Select(i => $"    P{i}: =1\n"));
