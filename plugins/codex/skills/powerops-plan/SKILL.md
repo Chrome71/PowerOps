@@ -35,7 +35,7 @@ Never answer your own questions. After you ask, end your turn and wait.
 
 Never run `pac` yourself. Read environment facts only for an environment the user names.
 
-1. Ask which environment the plan targets and whether `pac` is signed in to it. End your turn and wait.
+1. Ask, as a question of round 1, which environment the plan targets and whether `pac` is signed in to it. End your turn and wait.
 2. Run `powerops plan facts` once, and only after the user has named the environment and said `pac` is signed in to it.
 3. Output with `"available": true` lists the environment `pac` is signed in to and the existing solutions (names, versions, managed flag). If that environment is not the one the user named, say only that they differ. Use none of the facts, and write that environment's name nowhere: not in a plan file, and not repeated in chat. Otherwise use the facts to answer questions instead of asking them.
 4. If `available` is false, tell the user the `reason` and the `fix` in your next message, in one line. Do not run the fix. Add a line to Assumptions in `plan.md` that environment facts were not available. Carry on.
