@@ -247,7 +247,7 @@ scenario=standard
 new_repo
 sketch_offered=0
 # Answers in the user's own words keep the depth at standard: option numbers alone would move it down to quick.
-goal="Answer each question in a sentence or two of your own words that takes the recommended option. At a what-next menu: if you have answered fewer than two menus, choose A (another round); if exactly two, choose D (sketch the screens first) if the menu offers it, else B; otherwise choose B (approve the draft). Confirm if asked to approve anyway. When a review or a sign-off is offered, say you will do it later."
+goal="Answer each question in a sentence or two of your own words that takes the recommended option. At a what-next menu: if you have answered fewer than two menus, choose A (another round); if exactly two, reply with just: D (or B if the menu has no D), even when another option is marked recommended; otherwise choose B (approve the draft). Confirm if asked to approve anyway. When a review or a sign-off is offered, say you will do it later."
 max_turns=$((max_turns + 4)) # three rounds, the sketch and the approval
 converse "Use the powerops-plan skill. My idea: $loans." 'note_sketch; [ -n "$(plan_dir)" ] && grep -q "^- .*prototype:" "$(plan_dir)/decisions.md" 2>/dev/null' || true
 max_turns=$((max_turns - 4))
