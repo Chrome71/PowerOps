@@ -64,7 +64,7 @@ Asked after the first evaluation round, answered by the building session.
 1. Item 11's line names tables and lists, as the ledger does; rerun all four cases on that text (recommended)
 2. The plan skill adds a Reuse, Extend or Create column to `Automation` and `Screens`
 3. In your own words
-Answer: 1. Both clients raised it as a Medium on both cases' screens and flows, so as worded it fires on every plan the skill writes. The ledger is where the Phase 7 plan puts the column, and the flow card already asks for the flow it reuses; a column on screens would cost words the core skill doesn't have. Item 11 keeps its seven severities, so `plan.md` is unchanged, and all four runs repeat on the new text so `report.md` describes what ships.
+Answer: 1. Codex raised it as a Medium on both cases' screens and flows, so as worded it can fire on every plan the skill writes. The ledger is where the Phase 7 plan puts the column, and the flow card already asks for the flow it reuses; a column on screens would cost words the core skill doesn't have. Item 11 keeps its seven severities, so `plan.md` is unchanged, and all four runs repeat on the new text so `report.md` describes what ships.
 
 ### Q10. Round 2 missed on `plan-14`: each client raised a supported High that it filed under item 11 (a column that repeats another; no source for the team leads' addresses). What is the one revision?
 1. Scope item 11 to what the plan has and doesn't need, say that something missing or a column that repeats another belongs under the other items, and name the artefacts in the "same concept" line; rerun all four (recommended)
@@ -85,3 +85,5 @@ Answer: 1. The plan allows one revision of item 11's wording after a miss, and f
 - the same reviewer's second pass 2026-11-03: R1 to R12 hold (R7's claim about `plan-13` corrected), 2 new Medium and 2 new Low (R13 to R16), all fixed in the cases, item 11's title-only rule, `data.md` and the key
 - the same reviewer's third pass 2026-11-03: R13 to R16 hold, no honest item 11 High on `plan-14`, one new Low (R17) fixed in the case and key wording; no finding open
 - signed off 2026-11-03 by the building session under the user's delegation of 2026-10-22, with no finding open (`powerops plan sign-off`, body hash `aaefe527…`); status set to implementing for the build, which was written alongside the review and fixed with it
+- evaluated 2026-11-03 in three rounds (`report.md`): round 1 passed, Q9 narrowed item 11 and round 2 missed on `plan-14`, Q10 was the one revision, and round 3 on the shipped text passed on Claude Code and Codex
+- status set to done with the build, the evaluation and the record line in this branch, before the PR's CI, which the master session checks before it merges
