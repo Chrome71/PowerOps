@@ -57,7 +57,7 @@ user_turn() {
   local prompt
   prompt="You are role-playing a user talking to a coding agent that is planning a Microsoft Power Platform project with you.
 Your instructions for this conversation: $goal
-What-next menus (A another round / B approve / C stop) you have answered so far: $menus.
+What-next menus (A another round / B approve / C stop / D sketch the screens) you have answered so far: $menus.
 Always pick the option marked (recommended) when you are asked questions, unless your instructions say otherwise.
 Reply with only the words you would type back, nothing else.
 
@@ -243,17 +243,21 @@ fi
 scenario=standard
 new_repo
 sketch_offered=0
-goal="At a what-next menu: if you have answered fewer than two menus, choose A (another round); if exactly two, choose D (sketch the screens first); otherwise choose B (approve the draft). Confirm if asked to approve anyway. When a review or a sign-off is offered, say you will do it later."
+# Answers in the user's own words keep the depth at standard: option numbers alone would move it down to quick.
+goal="Answer each question in a sentence or two of your own words that takes the recommended option. At a what-next menu: if you have answered fewer than two menus, choose A (another round); if exactly two, choose D (sketch the screens first) if the menu offers it, else B; otherwise choose B (approve the draft). Confirm if asked to approve anyway. When a review or a sign-off is offered, say you will do it later."
+max_turns=$((max_turns + 4)) # three rounds, the sketch and the approval
 converse "Use the powerops-plan skill. My idea: $loans." 'note_sketch; [ -n "$(plan_dir)" ] && grep -q "^- .*prototype:" "$(plan_dir)/decisions.md" 2>/dev/null' || true
+max_turns=$((max_turns - 4))
 if [ -n "$(plan_dir)" ]; then
   check_decisions
-  questions | grep -qiE 'rows|records|how many' || fail "no data round question about rows"
+  questions | grep -qiE 'rows|records|how many' || fail "no data round question about rows (depth $(header depth))"
   [ "$sketch_offered" = 1 ] || fail "no lettered option to sketch the screens"
   grep -q '^- .*prototype: approved mockups/prototype.html' "$(plan_dir)/decisions.md" || fail "no 'prototype: approved' log line"
   sketch="$(plan_dir)/mockups/prototype.html"
   if [ -f "$sketch" ]; then
     grep -q 'Sketch' "$sketch" || fail "the sketch has no Sketch label"
     if grep -qi '<script' "$sketch"; then fail "the sketch has a script"; fi
+    if grep -qiE 'https?://' "$sketch"; then fail "the sketch has an external link"; fi
     [ "$(wc -c <"$sketch")" -le 15360 ] || fail "the sketch is over 15 KB"
   else
     fail "no mockups/prototype.html"

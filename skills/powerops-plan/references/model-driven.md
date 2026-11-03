@@ -8,7 +8,7 @@ Read this when a plan names a model-driven app, a custom page, a generative page
 - **Removals.** Plan each removal as a step of its own. Taking a form, view or page out of a spec doesn't take it out of an environment: in one public version of `app-builder`, a rebuild didn't remove what the spec dropped, and in Test and Prod only a managed upgrade removes a component.
 - **Phones and tablets.** Only when the plan names them: Learn limits a main form on the phone and tablet apps to 5 tabs or 75 columns and 10 subgrids. Write the counts beside each form that exceeds them, and the reason.
 - **Roles.** For each persona, name its security roles, and check that the roles together read every table its tasks use. Roles may split access between personas on purpose: say so.
-- **Dashboards.** At most six components, Learn's default for a dashboard (the on-premises version of the page lets a setting raise it to 20). More needs a reason in the plan.
+- **Dashboards.** At most six components (charts, grids, IFRAMEs, web resources) on a standard dashboard, Learn's default (the on-premises version of the page lets a setting raise it to 20). More needs a reason in the plan.
 - **Generative pages.** Name the tables and the page's question. A sketch goes in as a screenshot the user attaches in the page builder.
 - **Code components.** Only for a reusable field or dataset control. Microsoft's `pcf` skill deploys with `pac pcf push`, a write to Dev that needs the user's yes.
 
@@ -21,7 +21,7 @@ Read this when a plan names a model-driven app, a custom page, a generative page
 Checked on 2026-11-03:
 
 - [How main forms appear on different devices](https://learn.microsoft.com/power-apps/maker/model-driven-apps/main-form-presentations): 5 tabs or 75 columns and 10 subgrids, on phones and tablets.
-- [Dashboard components and FormXML](https://learn.microsoft.com/power-apps/developer/model-driven-apps/understand-dashboards-dashboard-components-formxml): six components by default.
+- [Dashboard components and FormXML](https://learn.microsoft.com/power-apps/developer/model-driven-apps/understand-dashboards-dashboard-components-formxml): six components on a standard dashboard by default.
 - [Share a model-driven app](https://learn.microsoft.com/power-apps/maker/model-driven-apps/share-model-driven-app): sharing through security roles.
 - [Generate a page using natural language](https://learn.microsoft.com/power-apps/maker/model-driven-apps/generative-pages): attached images.
 - [Overview of custom pages](https://learn.microsoft.com/power-apps/maker/model-driven-apps/model-app-page-overview).

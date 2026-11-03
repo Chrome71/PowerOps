@@ -40,6 +40,22 @@ Answer: 1. The Phase 7 Done when asks for "a row per product, `pcf`, Power BI an
 3. In your own words
 Answer: 1. The fact check found 20 only on the Dynamics 365 on-premises version of the page, where a setting raises the default. The plan line and the review should state the number the cloud page gives. This departs from the Phase 7 text, which wrote 20 from the research report.
 
+## Round 3
+
+Asked after the review (R4, R10), answered by the building session.
+
+### Q7. Does the Power Pages Global scope line stay Medium?
+1. High; the other product lines and the sketch line stay Medium (recommended)
+2. Medium, with table-permission scope added to item 8
+3. In your own words
+Answer: 1. The reviewer is right that Q4's second reason doesn't cover it: the line fires only on a plan that names a site, so it can't reach `plan-13` or `plan-14`, and Global scope on anything but read-only public data exposes every row to the web role, which is what the review skill calls High. Q4 stands for the other lines, with its reason corrected: the lines that can fire on the two cases (canvas, the sketch) are Medium.
+
+### Q8. How is the other half of M41's pass rule (item 11 names the three keyed problems on `plan-13`) covered?
+1. One unscored spot check on Claude Code: `run.sh claude review-plan` on `plan-13` and `plan-14` on the shipped text, read by the building session against F40 to F42 and for item 11 Highs, recorded here (recommended)
+2. Record it as unmeasured in BUILD-PLAN only
+3. In your own words
+Answer: 1. Item 11 grows by about ten lines, which could shift what a reviewer files under it, and M41's twelve runs cost $3.00 at list price, so one run per case is cheap. It is not M41's blind scoring and not on Codex, so the record says so, and a miss stops the build for the master session as M41's rule says.
+
 ## Log
 
 - 2026-11-03: plan started at the request of the session that started this one: build M42 of Phase 7, build-order item 77, from the M42 section of `docs/plans/phase7-power-platform/plan.md`, its Screens section and its BUILD-PLAN row, with decisions 43 and 47
@@ -49,3 +65,5 @@ Answer: 1. The fact check found 20 only on the Dynamics 365 on-premises version 
 - questions answered by the building session, under the user's delegation of 2026-10-22 (autonomous milestone mode), with the Phase 7 plan's scope and the master session's brief
 - areas not asked: users, automation, environments and ALM, and constraints; the change is to this repo, and the plan answers each or marks it not applicable
 - approved 2026-11-03 by the building session under the same delegation
+- 2026-11-03: the modern controls reference lists 28 controls, not the 27 of the Phase 7 `## Screens` table; `canvas.md` writes 28 with the date
+- fresh review (general-purpose subagent following `powerops-review-plan`, Sonnet, fresh context) 2026-11-03: 0 High, 4 Medium, 7 Low (R1 to R11). All fixed in `plan.md`, the skills and the smoke script, with the reasons in `review.md`; Round 3 records the two choices the fixes needed. The log rule moved to section 7 step 4 (R3), and the plan skill is 2,770 words after it

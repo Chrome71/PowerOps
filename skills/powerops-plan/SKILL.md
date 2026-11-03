@@ -128,7 +128,7 @@ Question order: outcome and users, then data, then automation, then environments
 - Ask one licensing question in round 1 or 2.
 - Ask the environments question (target, route Dev to Test to Prod) by round 3.
 
-**Data round.** When the plan names new data (a table, list or store), ask the six questions in section 6 of `references/data.md`, recommended answer first, and skip what the request or the facts already answer. Under `standard` and `deep` they fill successive rounds of at most three. A data question waits a round when the licensing or environments question is due. Under `quick` only question 1 joins the one round: write the ledger's other cells from the request or as Assumptions, and put unknowns under Open questions. The fast path asks none and does the same.
+**Data round.** When the plan names new data (a table, list or store), ask the six questions in section 6 of `references/data.md`. Under `standard` and `deep` they fill successive rounds of at most three. A data question waits a round when the licensing or environments question is due. Under `quick` only question 1 joins the one round: write the ledger's other cells from the request or as Assumptions, and put unknowns under Open questions. The fast path asks none and does the same.
 
 Do not ask what the facts already answer. When nothing is left to ask, say so and recommend B. The user decides.
 
@@ -149,7 +149,7 @@ After each round, judge engagement from the answers. Mostly one-word or option-n
 1. Run `powerops plan status docs/plans/<name> --json`. Show the open-question count and which of the five areas (users, data, automation, environments and ALM, constraints) were never asked.
 2. If any area was never asked, ask one confirmation: approve anyway, or ask about it first. Wait.
 3. If `Steps` is empty, draft it from the plan and tell the user.
-4. Log the approval under `## Log`. If areas were skipped, log `approved without: <areas>`.
+4. Log the approval under `## Log`. If areas were skipped, log `approved without: <areas>`. If D was offered, log `prototype: approved mockups/prototype.html`, `prototype: skipped` (sketch dropped) or `prototype: not chosen`.
 5. Set `status: approved` in the header.
 6. Recommend a review in a fresh context with the `powerops-review-plan` skill, and start it as follows:
    - Claude Code: invoke the `powerops-review-plan` skill. Its installed copy runs in a forked context on the top model.
@@ -170,7 +170,7 @@ Use this when the user asks to build without a signed-off plan, or `powerops-imp
 4. Log the route in `decisions.md` as a normal question.
 5. Show one lettered menu:
    - **A** approve the draft, then review and sign-off as usual (section 7, from step 3).
-   - **B** approve, skip the review and sign off now. Log it, set `status: approved` and `review: skipped`, then do section 9 step 4 (no second menu: this answer is the sign-off). The Assumptions list stands in for the coverage check.
+   - **B** approve, skip the review and sign off now. Log it (section 7 step 4), set `status: approved` and `review: skipped`, then do section 9 step 4 (no second menu: this answer is the sign-off). The Assumptions list stands in for the coverage check.
    - **C** ask question rounds instead (section 6).
    - **D** sketch the screens first, if section 11 offers it.
 
@@ -209,7 +209,6 @@ Offer **D** only when `references/route.md` says `Screens` is laid out freely. O
 - Static HTML, inline CSS, fake data, a "Sketch" label. No scripts, fonts, images or external links.
 - Never publish or upload it. Apply section 4 to it.
 - Keep visual detail out of `Screens` and `Steps`.
-- At approval, log `prototype: approved mockups/prototype.html`, `prototype: skipped` (sketch dropped) or `prototype: not chosen` (D shown, never picked).
 
 ## 12. Never write to an environment
 

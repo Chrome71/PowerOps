@@ -36,7 +36,7 @@ Offer **D** when `Screens` names content the maker lays out freely:
 The file:
 
 - One file, `docs/plans/<name>/mockups/prototype.html`: static HTML with inline CSS, no scripts, fonts, images or external links, fake data, and a visible "Sketch" label.
-- Distinct layouts only, at most 6 screens and 15 KB.
+- Distinct layouts only, at most 6 screens and 15 KB (15,360 bytes).
 - A header comment names the route (canvas, custom page, Bootstrap 3 or 5 site, code site, generative page or Power BI) and, for canvas, the theme as the YAML that Paste theme takes: the one part that transfers directly.
 - Flex and `gap`, no absolute positions or fixed container widths.
 - Text contrast of 4.5:1 and non-text contrast of 3:1, visible labels, DOM order equal to reading order, no positive `tabindex`.
