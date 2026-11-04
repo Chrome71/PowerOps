@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Runs `powerops deploy apply` for the action. Inputs come only from the environment:
-# PO_DLL, PO_PLAN_FILE, PO_TARGET, PO_APPLY, PO_EVENT, PO_HEAD_REPO, GITHUB_REPOSITORY, GITHUB_OUTPUT, GITHUB_STEP_SUMMARY and, optionally, RUNNER_DEBUG.
+# PO_DLL, PO_PLAN_FILE, PO_TARGET, PO_APPLY, PO_EVENT, PO_HEAD_REPO, GITHUB_REPOSITORY, GITHUB_OUTPUT, GITHUB_STEP_SUMMARY and, optionally, RUNNER_DEBUG,
+# PO_ENVIRONMENT (the job's environment, from check-apply.sh), GITHUB_RUN_ID and GITHUB_RUN_ATTEMPT.
+# Every call passes --github-run "<repository> run <id> attempt <n>[, environment <name>]": the report's receipt, which points at GitHub's record of the run and its approval.
 # PO_APPLY must be exactly `true` to import; anything else is a dry run.
 # Only push, workflow_dispatch, merge_group and a pull_request whose head repository (PO_HEAD_REPO) is this repository (GITHUB_REPOSITORY) may run it.
 # A pull request with no head repository (a deleted fork) is refused, as is every other event.
@@ -29,7 +31,9 @@ elif ! allowed "${PO_EVENT:-}" "${PO_HEAD_REPO:-}" "${GITHUB_REPOSITORY:-}"; the
   echo "::error::plan-file is supported only on push, workflow_dispatch, merge_group and same-repository pull_request events, not on ${PO_EVENT:-an unknown event}, a fork pull request or a pull request whose head repository is missing; nothing was imported"
   code=2
 else
-  args=(deploy apply "$PO_PLAN_FILE" --target "$PO_TARGET")
+  receipt="${GITHUB_REPOSITORY:-} run ${GITHUB_RUN_ID:-} attempt ${GITHUB_RUN_ATTEMPT:-}"
+  if [ -n "${PO_ENVIRONMENT:-}" ]; then receipt="$receipt, environment $PO_ENVIRONMENT"; fi
+  args=(deploy apply "$PO_PLAN_FILE" --target "$PO_TARGET" --github-run "$receipt")
   if [ "${PO_APPLY:-}" = "true" ]; then args+=(--apply); fi
   set +e
   dotnet "$PO_DLL" "${args[@]}" 2>"$stderr" | tee "$report"

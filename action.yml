@@ -4,7 +4,7 @@ author: Chrome71
 
 inputs:
   path:
-    description: Solution folder or zip to analyze; folders are searched recursively.
+    description: Solution folder or zip to analyze; folders are searched recursively. With plan-file it must be the folder that holds the plan file, or the job stops before anything is imported.
     default: .
   fail-on:
     description: Lowest severity that fails the job (error, warning or none).
@@ -31,10 +31,10 @@ inputs:
     description: Environment (id or URL) to plan the deployment against with `powerops deploy plan`. pac and az must be signed in by earlier steps. Empty means no plan. Not used on fork pull requests.
     default: ''
   plan-file:
-    description: Plan file written by an earlier `deploy plan` (its folder holds the zips and settings files). When set, the action runs `powerops deploy apply` against target instead of planning; target is required. pac and az must be signed in by earlier steps.
+    description: Plan file written by an earlier `deploy plan` (its folder holds the zips and settings files). When set, the action runs `powerops deploy apply` against target instead of planning; target is required. pac and az must be signed in by earlier steps. path must be this file's folder.
     default: ''
   apply:
-    description: With plan-file, 'true' imports the reviewed plan (`--apply`); anything else is a dry run that imports nothing.
+    description: With plan-file, 'true' imports the reviewed plan (`--apply`); anything else is a dry run that imports nothing. 'true' needs the `id-token` write permission and a job that declares a GitHub environment, or the job stops before anything is imported.
     default: 'false'
 
 outputs:
@@ -124,6 +124,17 @@ runs:
         PO_COMMENT: ${{ runner.temp }}/powerops-comment.md
       run: bash "$GITHUB_ACTION_PATH/action/plan.sh"
 
+    # With plan-file set, path must be its folder, and an apply of 'true' needs a job environment. No always() and no continue-on-error: a refusal stops the job.
+    - name: Check the apply
+      id: check
+      if: inputs.plan-file != ''
+      shell: bash
+      env:
+        PO_PATH: ${{ inputs.path }}
+        PO_PLAN_FILE: ${{ inputs.plan-file }}
+        PO_APPLY: ${{ inputs.apply }}
+      run: bash "$GITHUB_ACTION_PATH/action/check-apply.sh"
+
     # With plan-file set the import runs here, so the real fail-on gates it: a failure stops the job before Deploy apply.
     - name: Gate the apply
       if: inputs.plan-file != ''
@@ -147,6 +158,7 @@ runs:
         PO_PLAN_FILE: ${{ inputs.plan-file }}
         PO_TARGET: ${{ inputs.target }}
         PO_APPLY: ${{ inputs.apply }}
+        PO_ENVIRONMENT: ${{ steps.check.outputs.environment }}
         PO_EVENT: ${{ github.event_name }}
         PO_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
       run: bash "$GITHUB_ACTION_PATH/action/apply.sh"

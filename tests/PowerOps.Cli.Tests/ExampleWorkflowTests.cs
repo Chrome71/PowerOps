@@ -323,6 +323,26 @@ public sealed partial class ExampleWorkflowTests
         Assert.Contains(StepsOf(SweepWorkflow), s => s.Run.Contains("bash docs/examples/powerops/ephemeral-sweep.sh", StringComparison.Ordinal));
     }
 
+    // M52: the Action refuses an apply of 'true' in a job with no environment (or no id-token: write), and a path that is not the folder of the plan file.
+    [Theory]
+    [InlineData("promote-dev-to-test.yml")]
+    [InlineData("ephemeral-pr.yml")]
+    public void Every_apply_true_step_sits_in_a_job_with_an_environment_and_id_token_write_and_gates_the_folder_of_its_plan_file(string file)
+    {
+        var workflow = Load(file);
+        var applying = StepsOf(workflow).Where(s => s.Uses?.StartsWith("Chrome71/PowerOps@", StringComparison.Ordinal) == true && s.With.TryGetValue("apply", out var v) && (string)v == "true").ToList();
+
+        Assert.NotEmpty(applying);
+        foreach (var step in applying)
+        {
+            var job = Map(JobsOf(workflow)[step.Job]);
+            Assert.True(job.ContainsKey("environment"), $"{step.Job} declares no environment");
+            Assert.Equal("write", Text(Map(job["permissions"]), "id-token"));
+            var planFile = (string)step.With["plan-file"];
+            Assert.Equal(planFile[..planFile.LastIndexOf('/')], (string)step.With["path"]);
+        }
+    }
+
     [Fact]
     public void The_workflow_runs_only_for_pull_requests_into_main()
     {

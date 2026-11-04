@@ -6,6 +6,12 @@
   "hash": "0000000000000000000000000000000000000000000000000000000000000000",
   "status": "failed",
   "message": "The import failed (pac exit code 1); pac's output is on stderr. There is no rollback. Imported: A.",
+  "appliedAt": "2000-01-01T00:00:00Z",
+  "executor": "cli",
+  "approval": {
+    "mode": "cli",
+    "receipt": null
+  },
   "solutions": [
     {
       "order": 1,

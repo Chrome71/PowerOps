@@ -4,7 +4,7 @@
   "title": "powerops deploy apply --format json",
   "description": "The JSON written by 'powerops deploy apply --format json': what a dry run would import, or what an apply imported, and the state of each planned cloud flow afterwards. It never holds an environment id or URL, a folder path, a connection id, an environment variable value, the --target value or pac's output text; only the target's friendly name, the tool version, file names, solution names, flow names, states and the reviewed plan's hash. Keep the report in private places, because the names can still identify a tenant.",
   "type": "object",
-  "required": ["schemaVersion", "tool", "applied", "target", "hash", "status", "message", "solutions", "flows"],
+  "required": ["schemaVersion", "tool", "applied", "target", "hash", "status", "message", "appliedAt", "executor", "approval", "solutions", "flows"],
   "properties": {
     "schemaVersion": { "const": 1, "description": "Version of this output format." },
     "tool": { "type": "string", "description": "The version 'powerops --version' prints. Plan and apply must run the same version." },
@@ -16,6 +16,24 @@
       "description": "refused: nothing was imported (exit 1), because the plan file is blocked or from another version, the new plan's hash differs, or the new plan is blocked. planned: a dry run (exit 0). imported: the imports ran; see message and flows for exit 1 and 3. failed: an import failed, pac was not found, or a file changed before its import, or an import timed out, which leaves its row unknown (exit 3); there is no rollback."
     },
     "message": { "type": ["string", "null"], "description": "Why a run stopped, or null. For a failure it says there is no rollback and names the imported solutions; after good imports, a second read that failed starts with 'The imports succeeded.'." },
+    "appliedAt": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "description": "The UTC time, to the second, at which an --apply run passed its checks and started importing, from the clock of the machine that ran it. Set when status is imported or failed; null for planned and refused, which imported nothing."
+    },
+    "executor": {
+      "enum": ["cli", "mcp", "action"],
+      "description": "The route the run took, as the caller reports it: action with --github-run (the GitHub Action), mcp when the MCP tool deploy_apply ran it, else cli. Provenance, not authentication: nothing checks it, and a person at a shell can pass --github-run."
+    },
+    "approval": {
+      "type": ["object", "null"],
+      "description": "How the yes to the import was given, as the caller reports it; null without --apply. Provenance, not authentication: it holds no identity, and nothing in it proves who approved.",
+      "required": ["mode", "receipt"],
+      "properties": {
+        "mode": { "enum": ["cli", "form", "action"], "description": "form: the MCP tool passed the plan hash that the user's form showed (the user typed the environment's name). action: --github-run was given. cli: neither, so the person who ran the command is the only approval, and nothing checks it." },
+        "receipt": { "type": ["string", "null"], "description": "Opaque text. For the Action it is the repository, run, attempt and job environment, which point at GitHub's own record of who approved the run; for cli and form it is null." }
+      }
+    },
     "solutions": {
       "type": "array",
       "description": "In plan order; empty when the run was refused before the re-plan.",

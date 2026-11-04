@@ -6,6 +6,12 @@
   "hash": "0000000000000000000000000000000000000000000000000000000000000000",
   "status": "refused",
   "message": "the settings file of PowerOpsSeed.zip changed since the plan; nothing was imported. Plan again and review the new plan.",
+  "appliedAt": null,
+  "executor": "cli",
+  "approval": {
+    "mode": "cli",
+    "receipt": null
+  },
   "solutions": [
     {
       "order": 1,

@@ -17,7 +17,7 @@ public class DeployGateCommandTests : DeployTestBase
     private const string TwinUrl = "https://twin-host-9e8f.crm.dynamics.com";
     private const string Prefix = "error: deploy gate: ";
     private const string ReadingGuidance = "The call was blocked. If it is an import, write it as one plain pac solution import command with literal absolute paths and the environment's id or https URL. If it only mentions an import, reword it.";
-    private const string ImportGuidance = "The import was blocked. To import a reviewed plan, run powerops deploy apply <plan file> --target <environment id or URL> --apply after the user's yes to that environment. Do not retry this import another way.";
+    private const string ImportGuidance = "The import was blocked. To import a reviewed plan, ask the user for a yes to that environment, then call the MCP tool deploy_apply with apply: true, where the user types the environment's name in a form, or leave the import to the Action's approved job or to the user, who runs powerops deploy apply <plan file> --target <environment id or URL> --apply. Do not retry this import another way.";
 
     private string SeedZipPath => Path.Combine(Folder, "PowerOpsSeed.zip");
 
@@ -311,6 +311,13 @@ public class DeployGateCommandTests : DeployTestBase
                 doc["tool"] = "9.9.9";
                 File.WriteAllText(PlanFile, doc.ToJsonString());
                 return new(Seeded(), SeedCall(), Gated("the dry run did not pass: the plan was made by powerops 9.9.9; this is "));
+            case "plan-file-hash-edited":
+                SeedZip(Folder);
+                MakePlan();
+                var edited = JsonNode.Parse(File.ReadAllText(PlanFile))!.AsObject();
+                edited["hash"] = new string('a', 64);
+                File.WriteAllText(PlanFile, edited.ToJsonString());
+                return new(Seeded(), SeedCall(), Gated($"the dry run did not pass: {DeployApply.InputsEqualMessage}; nothing was imported. Plan again and review the new plan."));
             case "plan-file-symbolic-link":
                 SeedZip(Folder);
                 MakePlan();
@@ -393,7 +400,7 @@ public class DeployGateCommandTests : DeployTestBase
     [
         "zip-of-no-plan", "second-zip-of-the-chain", "skipped-zip", "plan-of-skips", "zip-changed-after-the-plan", "settings-file-missing",
         "settings-file-different", "settings-file-extra", "upgrade-without-stage-and-upgrade", "install-with-stage-and-upgrade", "target-changed",
-        "blocked-plan", "plan-file-missing", "plan-file-of-another-version", "plan-file-symbolic-link", "call-zip-missing", "call-settings-file-missing",
+        "blocked-plan", "plan-file-missing", "plan-file-of-another-version", "plan-file-hash-edited", "plan-file-symbolic-link", "call-zip-missing", "call-settings-file-missing",
         "call-zip-symbolic-link", "call-zip-unreadable", "stdin-over-1-mb", "no-stdin", "target-read-throws", "target-read-fails",
     ];
 
