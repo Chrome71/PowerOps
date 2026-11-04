@@ -35,13 +35,14 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
     private const string RouteCopilotPush = "pac copilot push changes a live agent that no plan holds";
     private const string RouteCopilotPublish = "pac copilot publish publishes an agent that no plan holds";
     private const string RouteCopilotInit = "pac copilot init may import a solution that no plan holds";
+    private const string RouteManageAgent = "copilot-studio's manage-agent push and publish change an agent that no plan holds";
 
     private const string CantRead = "the command holds an import that the gate can't read";
     private const string Stray = "the command has a word the gate doesn't read";
     private const string PathHint = "must be a literal absolute path (no $, backtick, escape, ~ or wildcard)";
     private const string AnsiC = "the command has a $'...' word with an escape, which the gate can't read";
 
-    private static readonly string[] Routes = [RouteModelApps, RoutePowerPages, RoutePipeline, RouteTemplate, RoutePackage, RouteUpgrade, RoutePcf, RouteApplication, RouteCode, RouteCatalog, RouteAppPackage, RoutePaPush, RoutePagesUpload, RoutePagesCodeSite, RoutePagesMigrate, RouteGenpage, RouteCopilotPush, RouteCopilotPublish, RouteCopilotInit];
+    private static readonly string[] Routes = [RouteModelApps, RoutePowerPages, RoutePipeline, RouteTemplate, RoutePackage, RouteUpgrade, RoutePcf, RouteApplication, RouteCode, RouteCatalog, RouteAppPackage, RoutePaPush, RoutePagesUpload, RoutePagesCodeSite, RoutePagesMigrate, RouteGenpage, RouteCopilotPush, RouteCopilotPublish, RouteCopilotInit, RouteManageAgent];
 
     private static readonly Dictionary<string, string> Canonical = new(StringComparer.Ordinal)
     {
@@ -77,7 +78,7 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
 
     private sealed record Given(string Value, bool Literal);
 
-    [GeneratedRegex($"solution{Gap}import|solution{Gap}upgrade|pipeline{Gap}deploy|package{Gap}deploy|solution-settings\\.js|import-template-solution|encode-solution-file|ImportSolution|StageAndUpgrade|DeployPackageAsync|RetryFailedDeploymentAsync|(?<!\\w)(?:pcf{Gap}push|application{Gap}install|code{Gap}push|catalog{Gap}install|(?:apps?{Gap}push|(?:pages|powerpages|paportal){Gap}(?:upload|migrate-datamodel)|genpage{Gap}upload|copilot{Gap}(?:push|publish|init))(?!\\w))|install-application-package|Import-CrmSolution", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex($"solution{Gap}import|solution{Gap}upgrade|pipeline{Gap}deploy|package{Gap}deploy|solution-settings\\.js|import-template-solution|encode-solution-file|ImportSolution|StageAndUpgrade|DeployPackageAsync|RetryFailedDeploymentAsync|(?<!\\w)(?:pcf{Gap}push|application{Gap}install|code{Gap}push|catalog{Gap}install|(?:apps?{Gap}push|(?:pages|powerpages|paportal){Gap}(?:upload|migrate-datamodel)|genpage{Gap}upload|copilot{Gap}(?:push|publish|init))(?!\\w))|install-application-package|Import-CrmSolution|manage-agent\\.bundle", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex Markers();
 
     // A $'...' word holding a backslash: its escapes (\x70, \160, \u0070) can spell any text.
@@ -331,12 +332,20 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
             else if (program is "node" or "node.exe" && words.Length >= 2)
             {
                 var verb = words.Length >= 3 ? words[2].Value : "";
+
+                // A recognized segment's text is not scanned for markers, so a pass must hold none: a backtick in a word runs a command.
+                var clean = !Markers().IsMatch(string.Join(' ', words.Skip(2).Select(w => w.Value)));
                 switch (FileName(words[1].Value).ToLowerInvariant())
                 {
                     case "solution-settings.js" when verb == "import":
                         lines.Add(RouteModelApps);
                         break;
-                    case "solution-settings.js" when verb == "template":
+                    case "solution-settings.js" when verb == "template" && clean:
+                        break;
+                    case "manage-agent.bundle.js" when verb is "push" or "publish":
+                        lines.Add(RouteManageAgent);
+                        break;
+                    case "manage-agent.bundle.js" when clean && verb is "pull" or "clone" or "changes" or "validate" or "list-agents" or "list-envs" or "auth":
                         break;
                     case "encode-solution-file.js":
                         lines.Add(RoutePowerPages);
