@@ -614,6 +614,8 @@ This starts once M1 passes locally.
 
 ### Windows and macOS
 
+The macOS steps below no longer apply: macOS is out of scope since 2026-11-04 (decision 51, [Decisions, platforms](#decisions-platforms-2026-11-04)).
+
 For a person with a Windows or macOS machine (M32, [plan](plans/m32-platforms/plan.md)). Nobody had one on 2026-10-28. It ran on Windows on 2026-11-01 ("M32 (2026-11-01)" in the [verification record](#verification-record)) and has not been run on macOS. It reads and writes no tenant: the only `pac` call is `pac auth list`, which reads the local profile store. The installs use a new config folder, deleted afterwards; the interactive Claude Code session in step 4 uses your usual one.
 
 0. Have the .NET 10 SDK (`global.json`), git, Claude Code, Codex and `pac`. Write down their versions, the operating system's version and architecture, and the shell.
@@ -735,3 +737,7 @@ The plan's `decisions.md` holds the question for each, with the options weighed.
 48. **`diff`'s `schemaVersion` goes to 2 with M49's first new enum value.** The `component` and `risks` lists are closed enums, so a consumer that validates against the published schema rejects a value the schema doesn't list. A bump makes such a consumer update its schema once. No such consumer is known.
 49. **A check's missing input is "not checked", unless the layout proves a component missing.** Evidence the export layout doesn't carry (no `Src` in an old `.msapp`, `uxagentprojects/` dropped by unpack, a role or connector definition outside the solution) gives one `note:` line on stderr, no finding and no exit-code change, and the rule page names the inputs it needs. A reference of a kind the layout does carry that neither the solution nor a declared dependency holds is an Error, as PO001 and PO004 are today.
 50. **A deferral the user accepts by name counts as done for the stage.** A milestone is deferred when a fact it depends on is missing; the deferral is recorded here with its reason, and its scope stays open. A stage is done when every milestone in it is built or deferred, and a deferral doesn't block the next stage.
+
+## Decisions, platforms (2026-11-04)
+
+51. **Platforms are Windows (primary) and Linux.** The owner dropped macOS from CI and the docs on 2026-11-04. CI builds and tests on Linux and Windows only, and the docs claim no macOS support. This supersedes the macOS half of decision 37. The runbook's macOS steps and the open macOS checks are closed as out of scope; the dated verification-record lines stay as history.
