@@ -24,5 +24,9 @@ The baseline file (`powerops-baseline.json`) is a file format with its own `vers
 
 - Adding a field keeps `schemaVersion`. The schemas do not set `additionalProperties: false`, so a consumer built on the current schema still accepts output with new fields. Consumers should ignore fields they do not know.
 - Removing or renaming a field, or changing its type or meaning, bumps `schemaVersion`.
+- Adding a value to a closed list (an `enum` or `const`, such as `diff`'s `component` and `risks`) bumps `schemaVersion` too: a consumer that validates against the published schema rejects a value the schema doesn't list. This rule holds from `diff` 2 on; before it, the lists of `deploy plan`, `deploy apply` and `drift` gained values at version 1.
+- Each output's version moves on its own. `diff` is at 2; every other output, and the snapshot file, is at 1.
+
+**`diff` from 1 to 2.** Version 2 added the components `agent` and `agentTool` and the risk labels `agent-tool` and `agent-instructions`. Nothing was removed or renamed, and every field keeps its type and meaning. A consumer that checks `schemaVersion` accepts 2, and one that validates the output takes the new `diff.schema.json`. The schema's `$id` points at `main`, so a consumer that fetches it there gets version 2 as soon as it merges; to stay on version 1 for a while, keep a copy of the schema from an earlier commit.
 
 Tests validate golden output files in `tests/golden/` against these schemas, and fail for a golden `*.json` that has no schema.

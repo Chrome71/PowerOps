@@ -21,7 +21,7 @@ Answer: 1. Instructions run to 8,000 characters, so the text can't be shown usef
 ### Q4. Do other agent fields go in the detail?
 1. No: instructions for an agent; action, MCP flag and mode for a tool, with no change risk (recommended)
 2. Also authentication, generative orchestration and the recognizer
-Answer: 1. The M49 section asks for added tools and changed instructions. `analyze` judges the end state of the other three fields (PO027, PO029, the harness note), which is where a risky value is caught. The tool fields are the three the model holds, shown so that a tool moved to Maker mode isn't silent; PO030 already warns on the result.
+Answer: 1. The M49 section asks for added tools and changed instructions. `analyze` judges the end state of the other three fields (PO027, PO029, the harness note), which is where a risky value is caught. The tool fields are the three the model holds, shown so that a tool moved to Maker mode isn't silent; PO030 already warns on the result. The cost: a reviewer who reads only the risk column of a PR comment doesn't see a tool turned to Maker mode or to MCP; it shows in the detail, and PO030 judges the end state only when `analyze` runs (amended in Round 2, R7).
 
 ### Q5. How does `diff` alone move to `schemaVersion` 2, and what else reads it?
 1. A second constant, `JsonOutput.DiffSchemaVersion = 2`, used by `DiffReport` only; `JsonOutput.SchemaVersion` stays 1 for every other output and for the plan file (recommended)
@@ -46,7 +46,7 @@ Answer: 1. The person took D9's first option on 2026-11-02 (Phase 7 decisions Q9
 ### Q7. Which `pac copilot init` calls does the gate block?
 1. Every `pac copilot init`, with or without `--environment` (recommended)
 2. Only one with `--environment` or `-env`
-Answer: 1. Learn's `pac copilot` page says `init --environment` imports a solution, and the flag's own description says the active auth profile's environment is used when it isn't given (M48 decisions Q11). The gate reads only the hook's JSON and never runs `pac`, so it can't tell whether a profile is active. A local scaffold is a build step in Dev, where the hooks are off. The route text says "can import", so it is true in both cases. pac's MCP server has no `copilot_init` tool, so no MCP route or matcher change is needed; the `Bash`, `Monitor` and `PowerShell` groups already send the command to the gate. Like the other route words, a mention such as `git commit -m "pac copilot init"` is blocked while the hooks are on.
+Answer: 1. Learn's `pac copilot` page, read again on 2026-11-04, says `init` with `--environment` imports a solution and creates the agent, and that without it `init` writes files only and needs no sign-in; the flag's own description on the same page still says the active auth profile's environment is used when it isn't given (M48 decisions Q11). The gate reads only the hook's JSON and never runs `pac`, so it can't tell whether a profile is active or which reading `pac` follows. Blocking the local scaffold costs little: it is a build step in Dev, and `docs/HANDOFF.md` says to turn the hooks on at step 7 (the import) and off again when building in Dev. So the route is deliberately wider than the M49 section's `init --environment` (amended in Round 2, R1), and its text says "may import", which holds for both readings. Option 2 would also have to read every spelling of the flag (`--environment`, `-env`, before or after other options), and a spelling it missed would let an import through. pac's MCP server has no `copilot_init` tool, so no MCP route or matcher change is needed; the `Bash`, `Monitor` and `PowerShell` groups already send the command to the gate. Like the other route words, a mention such as `git commit -m "pac copilot init"` is blocked while the hooks are on.
 
 ### Q8. What do the docs say about skill pushes?
 1. Correct the line: a skill's push or publish runs `node …/manage-agent.bundle.js` in Bash, which the gate reads and has no route for, so it passes; add no route (recommended)
@@ -66,7 +66,17 @@ Answer: 1. Step 11 is where a user meets them, and FOUNDATION section 8 is the l
 ### Q11. What does the PR title say about the contract change?
 1. `feat!:`, with a `BREAKING CHANGE:` note in the body naming the migration line (recommended)
 2. `feat:` with the note in the body only
-Answer: 1. `release-please-config.json` sets `bump-minor-pre-major`, so a breaking change on 0.x bumps the minor version, the same v0.32.0 that a `feat:` gives, and the changelog lists it under breaking changes, where a consumer that validates the schema looks. No version file is edited.
+Answer: 1. `release-please-config.json` sets `bump-minor-pre-major`, so a breaking change on 0.x bumps the minor version, the same v0.32.0 that a `feat:` gives, and the changelog lists it under breaking changes, where a consumer that validates the schema looks. No version file is edited. BUILD-PLAN item 84 becomes `feat!:` to match; the Phase 7 plan's M49 heading keeps `feat:`, because its body is signed off and an edit would void the hash (amended in Round 2, R6).
+
+### Q12. What does the schemas README's versioning rule say about list values, given that earlier milestones added some at version 1?
+1. Add the rule for every output from `diff` 2 on, and say that `deploy plan`, `deploy apply` and `drift` gained list values at version 1 before it (recommended)
+2. Write the rule for `diff` only
+3. Bump the other outputs too
+Answer: 1. D9's reason (a validating consumer rejects a value the schema doesn't list) holds for every closed list, and D9 reads the README's "type or meaning" rule as covering it. M33 added `unknown` to `deploy apply`'s step status, M36 a drift kind and M37 `same-version-differs` to `deploy plan`'s kinds, all at version 1. Saying so keeps the README true without moving outputs that D9 doesn't name (option 3); a rule for `diff` alone (option 2) would leave the next widening undecided.
+
+## Round 2 (from the review)
+
+No new question. The review's findings amended Q7 (R1: the route is deliberately wider than the M49 section, and says "may import"), Q4 (R7: the missing risk label for a tool turned to Maker mode or MCP is named) and Q11 (R6: item 84's label); the rest changed `plan.md`, the tests and the schemas README (R2 to R5).
 
 ## Log
 
