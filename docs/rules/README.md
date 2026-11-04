@@ -27,3 +27,5 @@
 | [PO021](PO021.md) | warning | Power Pages table permission has no web role |
 | [PO022](PO022.md) | warning | Power Pages child table permission is not in effect through its parent |
 | [PO023](PO023.md) | warning | Power Pages table permission lets anonymous users create, write or delete |
+| [PO024](PO024.md) | error | Site map opens a custom page that is not in the solution or its dependencies |
+| [PO025](PO025.md) | warning | Model-driven app has more than 25 custom pages, 10 connectors or 20 connection references |

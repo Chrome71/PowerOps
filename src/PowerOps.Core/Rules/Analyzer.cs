@@ -29,6 +29,8 @@ public static class Analyzer
         new PO021PermissionWithoutRole(),
         new PO022ChildPermissionRoles(),
         new PO023AnonymousWrite(),
+        new PO024SiteMapPageMissing(),
+        new PO025AppPageLimits(),
     }.OrderBy(r => r.Id, StringComparer.Ordinal).ToList();
 
     public static string HelpUri(string ruleId) => $"{Output.SarifReport.Repo}/blob/main/docs/rules/{ruleId}.md";

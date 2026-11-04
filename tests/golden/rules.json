@@ -161,6 +161,20 @@
       "title": "Power Pages table permission lets anonymous users create, write or delete",
       "fix": "Remove create, write and delete from the anonymous role's table permission, or grant them to a role that requires sign-in.",
       "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO023.md"
+    },
+    {
+      "id": "PO024",
+      "severity": "error",
+      "title": "Site map opens a custom page that is not in the solution",
+      "fix": "Add the custom page to the solution, or add the solution that holds it as a dependency.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO024.md"
+    },
+    {
+      "id": "PO025",
+      "severity": "warning",
+      "title": "Model-driven app has more than 25 custom pages, 10 connectors or 20 connection references",
+      "fix": "Move custom pages to another app, or remove pages and connections, until the app has at most 25 custom pages, 10 connectors and 20 connection references.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO025.md"
     }
   ]
 }

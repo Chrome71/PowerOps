@@ -138,4 +138,25 @@ public class FixtureRuleTests
         Assert.DoesNotContain(Analyzer.Run(s), f => f.RuleId is "PO019" or "PO020" or "PO021" or "PO022" or "PO023");
         Assert.Empty(Analyzer.NotChecked(s));
     }
+
+    [Fact]
+    public void Alm_sample_reads_its_app_module_site_map_and_canvas_app_and_is_quiet_on_PO024_and_PO025()
+    {
+        var s = SolutionLoader.Load(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "alm-sample"));
+
+        var app = Assert.Single(s.AppModules);
+        Assert.Equal("cat_AlmAcceleratorSampleMda", app.UniqueName);
+        Assert.Equal(["cat_AlmAcceleratorSampleMda"], app.SiteMaps);
+        Assert.Empty(app.Pages);
+        var map = Assert.Single(s.SiteMaps);
+        Assert.Equal("cat_AlmAcceleratorSampleMda", map.UniqueName);
+        Assert.Empty(map.Pages);
+        Assert.Empty(map.GenPageIds);
+        var canvas = Assert.Single(s.CanvasApps);
+        Assert.Equal("cat_devopskitsamplecanvasapp_c7ec5", canvas.Name);
+        Assert.Equal(8, canvas.Connections!.Count);
+        Assert.Equal(5, canvas.Connections.Values.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.DoesNotContain(Analyzer.Run(s), f => f.RuleId is "PO024" or "PO025");
+        Assert.DoesNotContain(Analyzer.NotChecked(s), n => n.StartsWith("PO024", StringComparison.Ordinal) || n.StartsWith("PO025", StringComparison.Ordinal));
+    }
 }

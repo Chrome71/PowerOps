@@ -330,6 +330,34 @@
               "defaultConfiguration": {
                 "level": "warning"
               }
+            },
+            {
+              "id": "PO024",
+              "name": "SiteMapPageMissing",
+              "shortDescription": {
+                "text": "Site map opens a custom page that is not in the solution"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO024.md",
+              "help": {
+                "text": "Add the custom page to the solution, or add the solution that holds it as a dependency."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              }
+            },
+            {
+              "id": "PO025",
+              "name": "AppPageLimits",
+              "shortDescription": {
+                "text": "Model-driven app has more than 25 custom pages, 10 connectors or 20 connection references"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO025.md",
+              "help": {
+                "text": "Move custom pages to another app, or remove pages and connections, until the app has at most 25 custom pages, 10 connectors and 20 connection references."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
             }
           ]
         }

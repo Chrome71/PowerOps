@@ -1038,4 +1038,316 @@ public class WarningRuleTests
         Assert.Single(Run(new PO020WebApiNoFields(), Pages(on, off)));
         Assert.Empty(Run(new PO020WebApiNoFields(), Pages(off, on)));
     }
+
+    private static (string Key, string Id)[] Conns(int keys, int connectors = int.MaxValue) =>
+        [.. Enumerable.Range(0, keys).Select(i => ($"key{i}", $"/providers/microsoft.powerapps/apis/shared_{i % connectors}"))];
+
+    private static Solution AppOf(string[] pages, params CanvasAppMeta[] canvas) =>
+        B.Empty() with { AppModules = [B.App("demo_app", pages: pages)], CanvasApps = canvas };
+
+    private static string[] Names(int n) => [.. Enumerable.Range(0, n).Select(i => $"demo_page{i}")];
+
+    private static Solution WithPages(int n) => AppOf(Names(n), [.. Names(n).Select(p => B.Canvas(p))]);
+
+    [Fact]
+    public void PO025_fires_at_26_pages_and_is_quiet_at_25()
+    {
+        var f = Assert.Single(Run(new PO025AppPageLimits(), WithPages(26)));
+
+        Assert.Equal("PO025", f.RuleId);
+        Assert.Equal(Severity.Warning, f.Severity);
+        Assert.Equal("App 'demo_app' has 26 custom pages, more than 25.", f.Message);
+        Assert.Equal("demo_app", f.Component);
+        Assert.Equal("AppModules/demo_app/AppModule.xml", f.File);
+        Assert.Empty(Run(new PO025AppPageLimits(), WithPages(25)));
+    }
+
+    [Fact]
+    public void PO025_counts_an_appelement_page_and_the_same_page_in_the_site_map_once()
+    {
+        var names = Names(25);
+        var s = B.Empty() with
+        {
+            AppModules = [B.App("demo_app", siteMaps: ["Demo_Map"], pages: names)],
+            SiteMaps = [B.SiteMap("demo_map", pages: [.. names.Select(n => n.ToUpperInvariant())])],
+            CanvasApps = [.. names.Select(n => B.Canvas(n))],
+        };
+
+        Assert.Empty(Run(new PO025AppPageLimits(), s));
+        Assert.Empty(Analyzer.NotChecked(s));
+    }
+
+    [Fact]
+    public void PO025_adds_the_pages_of_the_named_site_maps_only()
+    {
+        var s = B.Empty() with
+        {
+            AppModules = [B.App("demo_app", siteMaps: ["demo_map", "demo_nomap"], pages: Names(20))],
+            SiteMaps = [B.SiteMap("demo_map", pages: [.. Names(26).Skip(20)]), B.SiteMap("demo_other", pages: ["demo_a", "demo_b", "demo_c"])],
+            CanvasApps = [.. Names(26).Select(n => B.Canvas(n))],
+        };
+
+        Assert.Equal("App 'demo_app' has 26 custom pages, more than 25.", Assert.Single(Run(new PO025AppPageLimits(), s)).Message);
+    }
+
+    [Fact]
+    public void PO025_fires_at_11_connectors_and_is_quiet_at_10()
+    {
+        var f = Assert.Single(Run(new PO025AppPageLimits(), AppOf(["demo_p"], B.Canvas("demo_p", Conns(11)))));
+        Assert.Equal("The custom pages of app 'demo_app' use 11 connectors, more than 10.", f.Message);
+        Assert.Equal("demo_app", f.Component);
+        Assert.Equal("AppModules/demo_app/AppModule.xml", f.File);
+
+        Assert.Empty(Run(new PO025AppPageLimits(), AppOf(["demo_p"], B.Canvas("demo_p", Conns(10)))));
+    }
+
+    [Fact]
+    public void PO025_fires_at_21_connection_references_and_is_quiet_at_20()
+    {
+        var f = Assert.Single(Run(new PO025AppPageLimits(), AppOf(["demo_p"], B.Canvas("demo_p", Conns(21, connectors: 5)))));
+        Assert.Equal("The custom pages of app 'demo_app' use 21 connection references, more than 20.", f.Message);
+
+        Assert.Empty(Run(new PO025AppPageLimits(), AppOf(["demo_p"], B.Canvas("demo_p", Conns(20, connectors: 5)))));
+    }
+
+    [Fact]
+    public void PO025_counts_one_key_in_two_pages_once_and_one_connector_in_two_keys_once()
+    {
+        // 11 keys over 2 pages share their keys; 11 distinct keys carry 10 distinct connectors.
+        var shared = Conns(11, connectors: 10);
+        var s = AppOf(["demo_p1", "demo_p2"], B.Canvas("demo_p1", shared), B.Canvas("DEMO_P2", [.. shared.Select(c => (c.Key.ToUpperInvariant(), c.Id.ToUpperInvariant()))]));
+
+        Assert.Empty(Run(new PO025AppPageLimits(), s));
+    }
+
+    [Fact]
+    public void PO025_does_not_count_an_empty_id_as_a_connector()
+    {
+        var s = AppOf(["demo_p"], B.Canvas("demo_p", [.. Conns(10), ("empty1", ""), ("empty2", "")]));
+
+        Assert.Empty(Run(new PO025AppPageLimits(), s));
+    }
+
+    [Fact]
+    public void PO025_gives_a_note_for_pages_without_readable_metadata_and_none_when_every_page_is_held()
+    {
+        var s = AppOf(["demo_a", "demo_b", "demo_c"], B.Canvas("demo_a"), B.CanvasUnreadable("demo_b"));
+
+        Assert.Empty(Run(new PO025AppPageLimits(), s));
+        Assert.Equal(
+            ["PO025 not checked for app 'demo_app': 2 of its custom pages have no readable metadata in the solution, so their connectors and connection references are not counted."],
+            Analyzer.NotChecked(s));
+        Assert.Empty(Analyzer.NotChecked(AppOf(["demo_a"], B.Canvas("demo_a"))));
+    }
+
+    [Fact]
+    public void PO025_still_counts_what_it_can_read_when_a_page_is_unreadable()
+    {
+        var s = AppOf(["demo_a", "demo_b"], B.Canvas("demo_a", Conns(11)));
+
+        Assert.Single(Run(new PO025AppPageLimits(), s));
+        Assert.Single(Analyzer.NotChecked(s), n => n.StartsWith("PO025 not checked for app 'demo_app': 1 of its custom pages", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void PO025_gives_no_finding_for_an_app_with_no_pages_and_notes_a_site_map_the_solution_lacks()
+    {
+        var s = B.Empty() with { AppModules = [B.App("demo_app", siteMaps: ["demo_nomap"])] };
+
+        Assert.Empty(Run(new PO025AppPageLimits(), s));
+        Assert.Equal(["PO025 not checked for app 'demo_app': its site map 'demo_nomap' is not in the solution, so the custom pages it opens are not counted."], Analyzer.NotChecked(s));
+        Assert.Empty(Analyzer.NotChecked(B.Empty() with { AppModules = [B.App("demo_app")] }));
+    }
+
+    [Fact]
+    public void PO025_counts_the_site_maps_in_the_solution_and_notes_the_one_it_lacks()
+    {
+        var s = B.Empty() with
+        {
+            AppModules = [B.App("demo_app", siteMaps: ["demo_b", "demo_gone", "demo_a"])],
+            SiteMaps = [B.SiteMap("demo_a", pages: Names(26)), B.SiteMap("demo_b", pages: ["demo_x"])],
+            CanvasApps = [.. Names(26).Select(n => B.Canvas(n)), B.Canvas("demo_x")],
+        };
+
+        Assert.Equal("App 'demo_app' has 26 custom pages, more than 25.", Assert.Single(Run(new PO025AppPageLimits(), s)).Message);
+        Assert.Equal(
+            [
+                "PO025 not checked for app 'demo_app': it names 2 site maps in the solution, and only 'demo_a' is counted.",
+                "PO025 not checked for app 'demo_app': its site map 'demo_gone' is not in the solution, so the custom pages it opens are not counted.",
+            ],
+            Analyzer.NotChecked(s));
+    }
+
+    [Fact]
+    public void PO025_uses_the_first_record_in_file_order_when_two_share_a_name()
+    {
+        var s = B.Empty() with
+        {
+            AppModules = [B.App("demo_app", siteMaps: ["demo_map"])],
+            SiteMaps = [B.SiteMap("DEMO_MAP", pages: Names(30)) with { File = "AppModuleSiteMaps/b/AppModuleSiteMap.xml" }, B.SiteMap("demo_map", pages: ["demo_p"]) with { File = "AppModuleSiteMaps/a/AppModuleSiteMap.xml" }],
+            CanvasApps = [B.Canvas("demo_p", Conns(11)), B.Canvas("DEMO_P")],
+        };
+
+        var f = Assert.Single(Run(new PO025AppPageLimits(), s));
+
+        Assert.Contains("11 connectors", f.Message);
+    }
+
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(2, true)]
+    [InlineData(null, true)]
+    public void PO025_counts_an_appelement_page_unless_its_metadata_says_another_type(int? type, bool fires)
+    {
+        var names = Names(26);
+        var s = AppOf(names, [.. names.Take(25).Select(n => B.Canvas(n)), B.Canvas(names[25]) with { Type = type }]);
+
+        Assert.Equal(fires, Run(new PO025AppPageLimits(), s).Count == 1);
+    }
+
+    [Fact]
+    public void PO025_counts_an_appelement_page_with_no_metadata_and_a_site_map_target_of_any_type()
+    {
+        var names = Names(26);
+        var s = B.Empty() with
+        {
+            AppModules = [B.App("demo_app", siteMaps: ["demo_map"], pages: names.Take(25).ToArray())],
+            SiteMaps = [B.SiteMap("demo_map", pages: [names[25]])],
+            CanvasApps = [.. names.Take(25).Select(n => B.Canvas(n)), B.Canvas(names[25]) with { Type = 1 }],
+        };
+
+        Assert.Single(Run(new PO025AppPageLimits(), s));
+        Assert.Single(Run(new PO025AppPageLimits(), AppOf(names, [.. names.Take(25).Select(n => B.Canvas(n))])));
+    }
+
+    [Fact]
+    public void PO025_counts_the_connections_of_the_counted_pages_only()
+    {
+        var s = AppOf(["demo_page", "demo_library"], B.Canvas("demo_page", Conns(5)), B.Canvas("demo_library", Conns(30)) with { Type = 1 });
+
+        Assert.Empty(Run(new PO025AppPageLimits(), s));
+    }
+
+    [Fact]
+    public void PO025_adds_an_apps_own_pages_to_those_of_its_site_map_with_the_counts_of_one_set()
+    {
+        var mapPages = Enumerable.Range(0, 10).Select(i => $"demo_m{i}").ToArray();
+        string[] extras = ["DEMO_M0", "demo_x1", "demo_x2", "demo_x3"];
+        CanvasAppMeta[] canvas =
+        [
+            .. mapPages.Select((p, i) => B.Canvas(p, ($"k{i}", $"/c{i}"))),
+            B.Canvas("demo_x1", ("kx1", "/C3")),
+            B.Canvas("demo_x2", ("kx2", "/cnew")),
+        ];
+        var split = B.Empty() with
+        {
+            AppModules = [B.App("demo_app", siteMaps: ["demo_map"], pages: extras)],
+            SiteMaps = [B.SiteMap("demo_map", pages: mapPages)],
+            CanvasApps = canvas,
+        };
+        var together = B.Empty() with { AppModules = [B.App("demo_app", pages: [.. mapPages, .. extras])], CanvasApps = canvas };
+
+        var f = Assert.Single(Run(new PO025AppPageLimits(), split));
+
+        Assert.Equal("The custom pages of app 'demo_app' use 11 connectors, more than 10.", f.Message);
+        Assert.Equal(Analyzer.NotChecked(together), Analyzer.NotChecked(split));
+        Assert.Equal(
+            ["PO025 not checked for app 'demo_app': 1 of its custom pages have no readable metadata in the solution, so their connectors and connection references are not counted."],
+            Analyzer.NotChecked(split));
+        Assert.Equal(f.Message, Assert.Single(Run(new PO025AppPageLimits(), together)).Message);
+    }
+
+    [Fact]
+    public void PO025_runs_in_linear_time_on_5000_apps_naming_one_100000_page_site_map()
+    {
+        var pages = Enumerable.Range(0, 100_000).Select(i => $"demo_page{i}").ToArray();
+        var s = B.Empty() with
+        {
+            AppModules = [.. Enumerable.Range(0, 5_000).Select(i => B.App($"demo_app{i}", siteMaps: ["demo_map"], pages: [$"demo_own{i}"]))],
+            SiteMaps = [B.SiteMap("demo_map", pages: pages)],
+            CanvasApps = [.. pages.Where((_, i) => i % 2 == 0).Select((p, i) => B.Canvas(p, ($"key{i}", $"/providers/microsoft.powerapps/apis/shared_{i}")))],
+        };
+
+        var sw = Stopwatch.StartNew();
+        var findings = Run(new PO025AppPageLimits(), s);
+        var notes = Analyzer.NotChecked(s);
+
+        Assert.Equal(15_000, findings.Count);
+        Assert.Equal(5_000, notes.Count);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"took {sw.Elapsed}");
+    }
+
+    [Theory]
+    [InlineData("demo_big", "demo_small")]
+    [InlineData("demo_small", "demo_big")]
+    public void PO025_counts_only_the_first_site_map_by_name_of_an_app_that_names_two_and_says_so(string first, string second)
+    {
+        var small = B.SiteMap("demo_a", pages: ["demo_p"]);
+        var big = B.SiteMap("demo_b", pages: Names(30));
+        var s = B.Empty() with
+        {
+            AppModules = [B.App("demo_app", siteMaps: [first == "demo_big" ? "demo_b" : "demo_a", second == "demo_big" ? "demo_b" : "demo_a"])],
+            SiteMaps = [big, small],
+            CanvasApps = [B.Canvas("demo_p"), .. Names(30).Select(n => B.Canvas(n))],
+        };
+
+        Assert.Empty(Run(new PO025AppPageLimits(), s));
+        Assert.Equal(["PO025 not checked for app 'demo_app': it names 2 site maps in the solution, and only 'demo_a' is counted."], Analyzer.NotChecked(s));
+
+        var bigFirst = s with { SiteMaps = [B.SiteMap("demo_a", pages: Names(26)), B.SiteMap("demo_b", pages: ["demo_p"])] };
+        Assert.Equal("App 'demo_app' has 26 custom pages, more than 25.", Assert.Single(Run(new PO025AppPageLimits(), bigFirst)).Message);
+    }
+
+    [Fact]
+    public void PO025_puts_the_unread_note_before_the_site_map_note()
+    {
+        var s = B.Empty() with
+        {
+            AppModules = [B.App("demo_app", siteMaps: ["demo_b", "demo_a"])],
+            SiteMaps = [B.SiteMap("demo_a", pages: ["demo_p"]), B.SiteMap("demo_b")],
+        };
+
+        Assert.Equal(
+            [
+                "PO025 not checked for app 'demo_app': 1 of its custom pages have no readable metadata in the solution, so their connectors and connection references are not counted.",
+                "PO025 not checked for app 'demo_app': it names 2 site maps in the solution, and only 'demo_a' is counted.",
+            ],
+            new PO025AppPageLimits().NotChecked(s));
+    }
+
+    [Fact]
+    public void PO025_runs_in_linear_time_on_1000_apps_naming_a_100000_page_site_map_and_a_small_one()
+    {
+        var pages = Enumerable.Range(0, 100_000).Select(i => $"demo_page{i}").ToArray();
+        var s = B.Empty() with
+        {
+            AppModules = [.. Enumerable.Range(0, 1_000).Select(i => B.App($"demo_app{i}", siteMaps: ["demo_big", "demo_small"]))],
+            SiteMaps = [B.SiteMap("demo_big", pages: pages), B.SiteMap("demo_small", pages: ["demo_one"])],
+            CanvasApps = [.. pages.Select((p, i) => B.Canvas(p, ($"key{i}", $"/providers/microsoft.powerapps/apis/shared_{i}")))],
+        };
+
+        var sw = Stopwatch.StartNew();
+        var findings = Run(new PO025AppPageLimits(), s);
+        var notes = Analyzer.NotChecked(s);
+
+        Assert.Equal(3_000, findings.Count);
+        Assert.Equal(1_000, notes.Count);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"took {sw.Elapsed}");
+    }
+
+    [Fact]
+    public void PO025_counts_a_key_shared_by_an_own_page_and_a_site_map_page_once()
+    {
+        var keys = Enumerable.Range(0, 20).Select(i => ($"key{i}", "/c0")).ToArray();
+        Solution WithOwn(params CanvasAppMeta[] own) => B.Empty() with
+        {
+            AppModules = [B.App("demo_app", siteMaps: ["demo_map"], pages: ["demo_own"])],
+            SiteMaps = [B.SiteMap("demo_map", pages: ["demo_s"])],
+            CanvasApps = [B.Canvas("demo_s", keys), .. own],
+        };
+
+        Assert.Empty(Run(new PO025AppPageLimits(), WithOwn(B.Canvas("demo_own", ("key0", "/c0")))));
+        var f = Assert.Single(Run(new PO025AppPageLimits(), WithOwn(B.Canvas("demo_own", ("key0", "/c0"), ("keynew", "/c0")))));
+        Assert.Equal("The custom pages of app 'demo_app' use 21 connection references, more than 20.", f.Message);
+    }
 }
