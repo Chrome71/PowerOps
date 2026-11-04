@@ -8,6 +8,32 @@ It finds what would break a solution's import or a run, compares two versions of
 
 ## Install
 
+### With your agent
+
+Paste this into Claude Code, Codex or another coding agent. It installs the CLI and the skills, checks that they run, and tells you what is left for you.
+
+```text
+Install PowerOps (https://github.com/Chrome71/PowerOps), a CLI and agent skills for Microsoft
+Power Platform. If a step fails, read the Install section of its README.
+1. Check that `dotnet --list-sdks` shows a 10.0 SDK (10.0.100 or later). If not, stop and tell me.
+2. Clone the repo into a new temporary folder <clone> and install the CLI from that clone only:
+   `dotnet pack <clone>/src/PowerOps.Cli -c Release -o <clone>/artifacts`, then
+   `dotnet tool install --global --source <clone>/artifacts PowerOps`.
+   If `powerops` is already installed, ask me before you uninstall it.
+3. Add the skills for the agent you are running in. Claude Code:
+   `claude plugin marketplace add Chrome71/PowerOps`, then `claude plugin install powerops@powerops`.
+   Codex: `codex plugin marketplace add Chrome71/PowerOps`, then `codex plugin add powerops@powerops`.
+   Any other agent: `powerops skills install` in my repo. Use the plugin or the repo copy, not both.
+4. Run `powerops --version` and `powerops rules`; both must exit 0.
+5. Tell me whether `pac` and `az` are on PATH: only the commands that read an environment need them.
+Never ask me for, or handle, passwords, keys or tokens: I sign in to pac and az myself. Write
+nothing to a Power Platform environment. Ask me before changing anything outside this install,
+such as my PATH or shell profile. Last, report what you installed and what is left for me to do,
+such as starting a new agent session so the plugin loads.
+```
+
+### By hand
+
 PowerOps is not on NuGet yet. Install it from a clone (needs the .NET 10 SDK):
 
 ```sh
