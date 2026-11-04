@@ -135,6 +135,20 @@ public class YamlReaderTests
         Assert.Contains("anchors", ex.Message);
     }
 
+    [Theory]
+    [InlineData("'@a':\n  b: c\n", "YAML key '@a' must have a plain text value.")]
+    [InlineData("'#text':\n  b: c\n", "YAML key '#text' must have a plain text value.")]
+    [InlineData("? [a, b]\n: c\n", "YAML keys must be plain text.")]
+    [InlineData("\"\": x\n", "YAML keys must not be empty.")]
+    public void A_key_the_converter_cannot_map_is_refused_with_both_paths_and_the_message_text(string yaml, string message)
+    {
+        using var t = Layout().Write("solutions/Demo/rootcomponents.yml", yaml);
+
+        var e = Assert.Throws<InvalidDataException>(() => SolutionLoader.Load(SolutionYml(t)));
+
+        Assert.Equal($"{SolutionYml(t)}: solutions/Demo/rootcomponents.yml: {message}", e.Message);
+    }
+
     [Fact]
     public void Nesting_deeper_than_the_xml_cap_is_rejected()
     {

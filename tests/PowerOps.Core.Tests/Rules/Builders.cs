@@ -83,6 +83,20 @@ internal static class B
     public static CanvasAppMeta CodeApp(string name, IEnumerable<string>? tables = null, IEnumerable<string>? connectors = null, int? type = 4, IEnumerable<int>? otherTypes = null) =>
         new(name, type, new Dictionary<string, string>(), $"CanvasApps/{name}.meta.xml", (tables ?? []).ToList(), (connectors ?? []).ToList(), (otherTypes ?? []).ToList());
 
+    /// <summary>An agent on the standard harness that no rule fires on; `with { Configuration = null }` is one whose configuration.json was missing. A tool is MCP when <paramref name="mcp"/> is true.</summary>
+    public static Agent Agent(
+        string name = "demo_agent",
+        int? auth = 2,
+        string? instructions = "Answer questions about orders.",
+        bool? generative = true,
+        string? recognizer = "GenerativeAIRecognizer",
+        IEnumerable<AgentTool>? tools = null,
+        IEnumerable<string>? unread = null) =>
+        new(name, $"bots/{name}/bot.xml", auth, new AgentConfiguration(recognizer, generative), instructions, $"botcomponents/{name}.gpt.default/data", [.. tools ?? []], [.. unread ?? []]);
+
+    public static AgentTool Tool(string name = "demo_agent.topic.Orders", bool mcp = false, string? action = null, string? mode = "Invoker") =>
+        new(name, action ?? (mcp ? "InvokeExternalAgentTaskAction" : "InvokeConnectorTaskAction"), mcp, mode, $"botcomponents/{name}/data");
+
     private static int _nextId = 0x1000;
 
     /// <summary>A fake GUID that ends in <paramref name="n"/> (hex).</summary>

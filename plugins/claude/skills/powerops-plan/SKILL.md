@@ -83,7 +83,7 @@ supersedes: null
 - `Goal` writes its outcomes as numbered Goal lines, then ends with a `### Won't build` list: one `- ` item per thing left out of this version, and why, or the line "Nothing was cut.".
 - `Data` has one row per table and list: `| Artefact | Kind | Store | Goal line | Reuse, Extend or Create | Why not a column or choice | Rows now, 3 years |`. Its Goal line is the number of the line that would fail without it.
 - `Automation` and `Screens` give each flow and screen its Goal line too.
-- When the plan names new data or a flow, read `references/data.md` beside this file: the store, the gates, table design, each flow's card and the data round. When it names an app, page, site or report, read `references/route.md` and the product files it names.
+- When the plan names new data or a flow, read `references/data.md` beside this file: the store, the gates, table design, each flow's card and the data round. When it names an app, page, site, report or agent, read `references/route.md` and the product files it names.
 - `Constraints` holds licensing, DLP and deadlines.
 - `Steps` is a numbered list of implementation steps: small, in order, each one checkable.
 - `Open questions` and `Questions for your admin` hold one top-level `- ` item per question. When there are none, leave the section empty. Do not write "None": the tool counts list items. Move an item out when it is answered.

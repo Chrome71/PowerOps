@@ -148,6 +148,7 @@ internal static partial class SolutionParser
             AppModules = appModules,
             SiteMaps = siteMaps,
             CanvasApps = canvasApps,
+            Agents = ReadAgents(files, paths),
         };
     }
 
@@ -158,6 +159,167 @@ internal static partial class SolutionParser
             .GroupBy(x => x.Match.Groups[1].Value, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.OrderBy(x => x.Match.Groups[2].Success).ThenBy(x => x.Path, StringComparer.Ordinal).First().Path)
             .Order(StringComparer.Ordinal);
+
+    private sealed class AgentParts(string name, string file, int? mode, AgentConfiguration? configuration)
+    {
+        public string Name { get; } = name;
+
+        public string File { get; } = file;
+
+        public int? Mode { get; } = mode;
+
+        public AgentConfiguration? Configuration { get; } = configuration;
+
+        public List<AgentTool> Tools { get; } = [];
+
+        public List<(XElement? Yaml, string File)> Gpts { get; } = [];
+
+        public List<string> Unread { get; } = [];
+    }
+
+    /// <summary>
+    /// Reads each `bots/&lt;folder&gt;/bot.xml` and the `botcomponents/` that name it as their `parentbotid` (M48 plan, Data row 2). Malformed XML, JSON or YAML is refused with the path; a shape the reader doesn't know gives null fields.
+    /// Only a type-15 (Custom GPT) and a type-9 (Topic (V2)) component of a read agent has its `data` read, and a type-9 `data` only when its text holds `TaskDialog`, so topics add no refusals.
+    /// </summary>
+    private static List<Agent> ReadAgents(SolutionFiles files, Dictionary<string, string> paths)
+    {
+        var agents = new List<AgentParts>();
+        var byName = new Dictionary<string, AgentParts>(StringComparer.OrdinalIgnoreCase);
+        foreach (var path in paths.Values.Where(p => BotPath().IsMatch(p)).Order(StringComparer.Ordinal))
+        {
+            var folder = BotPath().Match(path).Groups[1].Value;
+            var bot = LoadRoot(files, path, "bot");
+            var agent = new AgentParts(
+                Opt((string?)bot.Attribute("schemaname")) ?? folder,
+                path,
+                int.TryParse(Text(bot, "authenticationmode"), out var mode) ? mode : null,
+                paths.TryGetValue($"bots/{folder}/configuration.json", out var config) ? ReadAgentConfiguration(files.ReadText(config), config) : null);
+            agents.Add(agent);
+            byName.TryAdd(agent.Name, agent);
+        }
+
+        foreach (var path in paths.Values.Where(p => BotComponentPath().IsMatch(p)).Order(StringComparer.Ordinal))
+        {
+            var folder = BotComponentPath().Match(path).Groups[1].Value;
+            var component = LoadRoot(files, path, "botcomponent");
+            if (!int.TryParse(Text(component, "componenttype"), out var type) || type is not (9 or 15)
+                || component.Element("parentbotid") is not { } parentElement || Text(parentElement, "schemaname") is not { } parent || !byName.TryGetValue(parent, out var agent)
+                || !paths.TryGetValue($"botcomponents/{folder}/data", out var data))
+            {
+                continue;
+            }
+
+            var text = files.ReadText(data);
+            if (type == 9 && !text.Contains("TaskDialog", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var yaml = ReadAgentYaml(files, data, text);
+            if (type == 15)
+            {
+                agent.Gpts.Add((yaml, data));
+            }
+            else if (yaml is null)
+            {
+                agent.Unread.Add(data); // may be a tool, but its keys can't be mapped
+            }
+            else if (YamlText(yaml, "kind") == "TaskDialog")
+            {
+                agent.Tools.Add(new AgentTool(
+                    Opt((string?)component.Attribute("schemaname")) ?? folder,
+                    YamlText(yaml, "action", "kind"),
+                    YamlText(yaml, "action", "operationDetails", "kind") == "ModelContextProtocolMetadata",
+                    YamlText(yaml, "action", "connectionProperties", "mode"),
+                    data));
+            }
+        }
+
+        return agents.Select(a =>
+        {
+            var gpt = a.Gpts.Count == 1 ? a.Gpts[0] : default;
+            var instructions = gpt.Yaml?.Elements("instructions").ToList();
+            return new Agent(
+                a.Name,
+                a.File,
+                a.Mode,
+                a.Configuration,
+                instructions is null ? null : instructions.Count == 0 ? "" : instructions is [{ HasElements: false } only] ? only.Value : null,
+                gpt.File,
+                a.Tools,
+                [.. a.Unread.Order(StringComparer.Ordinal)]);
+        }).ToList();
+    }
+
+    private static XElement? ReadAgentYaml(SolutionFiles files, string path, string text)
+    {
+        try
+        {
+            return YamlXml.Read(text, n => files.Budget.CountNode(path, n));
+        }
+        // Valid YAML the converter can't map is an unknown shape, not a refusal (M48 decisions Q6).
+        catch (YamlShapeException)
+        {
+            return null;
+        }
+        // The node budget's message already starts with the path.
+        catch (InvalidDataException e) when (!e.Message.StartsWith(path + ": ", StringComparison.Ordinal))
+        {
+            throw new InvalidDataException($"{path}: {e.Message}", e);
+        }
+    }
+
+    // The text of a scalar below the top level; null when a key on the way is missing or the value is a mapping.
+    private static string? YamlText(XElement yaml, params string[] keys)
+    {
+        XElement? e = yaml;
+        foreach (var key in keys)
+        {
+            e = e?.Element(key);
+        }
+
+        return e is { HasElements: false } ? Opt(e.Value.Trim()) : null;
+    }
+
+    private static AgentConfiguration? ReadAgentConfiguration(string text, string path)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(text);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            // A recognizer that is there but names no readable kind is "": not GenerativeAIRecognizer, so the agent isn't placed in the standard harness.
+            var recognizer = !root.TryGetProperty("recognizer", out var r) ? null
+                : r.ValueKind == JsonValueKind.Object && r.TryGetProperty("$kind", out var kind) ? JsonString(kind) ?? ""
+                : "";
+            bool? generative = root.TryGetProperty("settings", out var settings) && settings.ValueKind == JsonValueKind.Object && settings.TryGetProperty("GenerativeActionsEnabled", out var on)
+                && on.ValueKind is JsonValueKind.True or JsonValueKind.False
+                ? on.ValueKind == JsonValueKind.True
+                : null;
+            return new AgentConfiguration(recognizer, generative);
+        }
+        catch (JsonException e)
+        {
+            throw new InvalidDataException($"{path}: {e.Message}", e);
+        }
+    }
+
+    // A string that is not valid UTF-16 text throws InvalidOperationException from GetString.
+    private static string? JsonString(JsonElement e)
+    {
+        try
+        {
+            return e.ValueKind == JsonValueKind.String ? e.GetString() : null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
 
     private static XElement LoadRoot(SolutionFiles files, string path, string name)
     {
@@ -633,4 +795,10 @@ internal static partial class SolutionParser
 
     [GeneratedRegex(@"^powerpagecomponents/[^/]+/powerpagecomponent\.xml$", RegexOptions.IgnoreCase)]
     private static partial Regex PowerPageComponentPath();
+
+    [GeneratedRegex(@"^bots/([^/]+)/bot\.xml$", RegexOptions.IgnoreCase)]
+    private static partial Regex BotPath();
+
+    [GeneratedRegex(@"^botcomponents/([^/]+)/botcomponent\.xml$", RegexOptions.IgnoreCase)]
+    private static partial Regex BotComponentPath();
 }

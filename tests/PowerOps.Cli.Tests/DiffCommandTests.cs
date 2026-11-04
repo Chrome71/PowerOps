@@ -61,7 +61,7 @@ public class DiffCommandTests : IDisposable
 
         Assert.Equal(1, code);
         Assert.Equal("", output);
-        Assert.Contains("\"schemaVersion\": 1", File.ReadAllText(file));
+        Assert.Contains("\"schemaVersion\": 2", File.ReadAllText(file));
     }
 
     [Fact]
@@ -113,5 +113,74 @@ public class DiffCommandTests : IDisposable
 
         Assert.Equal(3, code);
         Assert.StartsWith($"error: {bad}", err);
+    }
+
+    /// <summary>A copy of `powerops-seed/v1` with a hand-built agent: authentication 2, generative orchestration on, the given instructions and tools.</summary>
+    private string SeedWithAgent(string name, string instructions, params (string Schema, string Data)[] tools)
+    {
+        var copy = Path.Combine(_temp, name);
+        foreach (var file in Directory.EnumerateFiles(V1, "*", SearchOption.AllDirectories))
+        {
+            var target = Path.Combine(copy, Path.GetRelativePath(V1, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target);
+        }
+
+        void Write(string path, string text)
+        {
+            var full = Path.Combine(copy, path);
+            Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+            File.WriteAllText(full, text);
+        }
+
+        const string Component = "<botcomponent schemaname=\"{0}\"><componenttype>{1}</componenttype><parentbotid><schemaname>demo_agent</schemaname></parentbotid></botcomponent>";
+        Write("bots/demo_agent/bot.xml", "<bot schemaname=\"demo_agent\"><authenticationmode>2</authenticationmode></bot>");
+        Write("bots/demo_agent/configuration.json", """{"settings":{"GenerativeActionsEnabled":true},"recognizer":{"$kind":"GenerativeAIRecognizer"}}""");
+        Write("botcomponents/demo_agent.gpt.default/botcomponent.xml", string.Format(Component, "demo_agent.gpt.default", 15));
+        Write("botcomponents/demo_agent.gpt.default/data", "kind: GptComponentMetadata\ninstructions: " + instructions + "\n");
+        foreach (var (schema, data) in tools)
+        {
+            Write($"botcomponents/{schema}/botcomponent.xml", string.Format(Component, schema, 9));
+            Write($"botcomponents/{schema}/data", data);
+        }
+
+        return copy;
+    }
+
+    private (string Old, string New) AgentPair() =>
+    (
+        SeedWithAgent("agent-old", "Answer questions about orders.",
+            ("demo_agent.topic.Orders", "kind: TaskDialog\naction:\n  kind: InvokeConnectorTaskAction\n  connectionProperties:\n    mode: Invoker\n")),
+        SeedWithAgent("agent-new", "Answer questions about orders and refunds.",
+            ("demo_agent.topic.Orders", "kind: TaskDialog\naction:\n  kind: InvokeConnectorTaskAction\n  connectionProperties:\n    mode: Maker\n"),
+            ("demo_agent.topic.Refunds", "kind: TaskDialog\naction:\n  kind: InvokeExternalAgentTaskAction\n  connectionProperties:\n    mode: Invoker\n  operationDetails:\n    kind: ModelContextProtocolMetadata\n"))
+    );
+
+    [Fact]
+    public void Agent_instructions_and_tools_exit_one_and_match_the_text_golden()
+    {
+        var (old, @new) = AgentPair();
+
+        var (code, output, err) = Run("diff", old, @new);
+
+        Assert.Equal(1, code);
+        Assert.Equal("", err);
+        Golden.Verify(output, "diff-agents.txt");
+    }
+
+    [Fact]
+    public void Agent_diff_json_matches_golden()
+    {
+        var (old, @new) = AgentPair();
+
+        Golden.Verify(Run("diff", old, @new, "--format", "json").Out, "diff-agents.json");
+    }
+
+    [Fact]
+    public void Agent_diff_markdown_matches_golden()
+    {
+        var (old, @new) = AgentPair();
+
+        Golden.Verify(Run("diff", old, @new, "--format", "markdown").Out, "diff-agents.md");
     }
 }
