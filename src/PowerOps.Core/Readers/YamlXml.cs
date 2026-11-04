@@ -6,6 +6,9 @@ using YamlDotNet.Core.Events;
 
 namespace PowerOps.Core.Readers;
 
+/// <summary>Valid YAML whose keys the converter can't map. InvalidDataException is sealed, so <see cref="YamlXml.Convert"/> turns this into one for the YAML layout; <see cref="YamlXml.Read"/> lets an agent file see it.</summary>
+internal sealed class YamlShapeException(string message, Exception? inner = null) : Exception(message, inner);
+
 /// <summary>
 /// Turns the YAML layout back into the XML shape of the solution files: `'@name'` is an attribute, `'#text'` the element text,
 /// a list is one element per item. Read as an event stream so anchors and aliases can be refused instead of expanded.
@@ -16,6 +19,19 @@ internal static class YamlXml
     /// <returns>A `yaml` element whose children are the document's top-level keys.</returns>
     /// <exception cref="InvalidDataException">The YAML is malformed, uses anchors or aliases, is nested too deep, or has more nodes than the budget has left.</exception>
     public static XElement Convert(string yaml, Action<int> count)
+    {
+        try
+        {
+            return Read(yaml, count);
+        }
+        catch (YamlShapeException e)
+        {
+            throw new InvalidDataException(e.Message, e.InnerException);
+        }
+    }
+
+    /// <summary>Like <see cref="Convert"/>, but valid YAML whose keys can't be mapped throws <see cref="YamlShapeException"/>.</summary>
+    public static XElement Read(string yaml, Action<int> count)
     {
         count(1);
         var root = new XElement("yaml");
@@ -29,9 +45,13 @@ internal static class YamlXml
             }
         }
         // XAttribute and XElement throw for reserved names such as `'@xmlns'`.
-        catch (Exception e) when (e is YamlException or ArgumentException or XmlException)
+        catch (YamlException e)
         {
             throw new InvalidDataException(e.Message, e);
+        }
+        catch (Exception e) when (e is ArgumentException or XmlException)
+        {
+            throw new YamlShapeException(e.Message, e);
         }
 
         return root;
@@ -43,7 +63,7 @@ internal static class YamlXml
         {
             if (ev is not Scalar key)
             {
-                throw new InvalidDataException("YAML keys must be plain text.");
+                throw new YamlShapeException("YAML keys must be plain text.");
             }
 
             var value = Next(parser);
@@ -51,7 +71,7 @@ internal static class YamlXml
             {
                 if (value is not Scalar text)
                 {
-                    throw new InvalidDataException($"YAML key '{key.Value}' must have a plain text value.");
+                    throw new YamlShapeException($"YAML key '{key.Value}' must have a plain text value.");
                 }
 
                 if (key.Value == "#text")
@@ -120,5 +140,5 @@ internal static class YamlXml
     }
 
     private static string Name(string key) =>
-        key.Length == 0 ? throw new InvalidDataException("YAML keys must not be empty.") : XmlConvert.EncodeLocalName(key);
+        key.Length == 0 ? throw new YamlShapeException("YAML keys must not be empty.") : XmlConvert.EncodeLocalName(key);
 }

@@ -196,6 +196,19 @@ public class OutputHygieneTests
     }
 
     [Fact]
+    public void Unread_file_notes_past_the_cap_are_counted_under_the_rule_id_alone()
+    {
+        var error = new StringWriter();
+        var solution = B.Empty() with { Agents = [B.Agent(unread: Enumerable.Range(1, 25).Select(i => $"botcomponents/demo_agent.topic.T{i}/data"))] };
+
+        TextReport.WriteNotChecked(WithNotes([.. new PO027McpToolWithoutGenerativeOrchestration().NotChecked(solution)]), error);
+
+        var lines = error.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.TrimEnd('\r')).ToList();
+        Assert.Equal(21, lines.Count);
+        Assert.Equal("note: and 5 more checks not done (PO027)", lines[20]);
+    }
+
+    [Fact]
     public void Twenty_not_checked_notes_have_no_count_line()
     {
         var error = new StringWriter();

@@ -426,7 +426,7 @@ public partial class SkillsCommandTests : IDisposable
         Assert.All(review, s => Assert.Contains(s, shipped["powerops-review-plan/SKILL.md"]));
     }
 
-    private static readonly string[] ProductReferences = ["canvas.md", "model-driven.md", "power-pages.md", "code-apps.md", "power-bi.md"];
+    private static readonly string[] ProductReferences = ["canvas.md", "model-driven.md", "power-pages.md", "code-apps.md", "power-bi.md", "copilot-studio.md"];
 
     [Fact]
     public void Install_writes_the_plan_references_beside_their_skill()
@@ -453,7 +453,7 @@ public partial class SkillsCommandTests : IDisposable
         var shipped = SkillsCommand.Shipped();
         var plan = shipped["powerops-plan/SKILL.md"];
         var route = shipped["powerops-plan/references/route.md"];
-        const string Pointer = "When it names an app, page, site or report, read `references/route.md`";
+        const string Pointer = "When it names an app, page, site, report or agent, read `references/route.md`";
         const string Sketch = "**D** sketch the screens first";
 
         // The pointer is in section 5, which both paths write, and D is on the what-next menu and the fast-path menu.

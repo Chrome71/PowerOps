@@ -32,6 +32,11 @@ public static class Analyzer
         new PO024SiteMapPageMissing(),
         new PO025AppPageLimits(),
         new PO026CodeAppDependencyMissing(),
+        new PO027McpToolWithoutGenerativeOrchestration(),
+        new PO028AgentInstructionsLength(),
+        new PO029AgentWithoutAuthentication(),
+        new PO030ToolMakerConnection(),
+        new PO031AgentToolCount(),
     }.OrderBy(r => r.Id, StringComparer.Ordinal).ToList();
 
     public static string HelpUri(string ruleId) => $"{Output.SarifReport.Repo}/blob/main/docs/rules/{ruleId}.md";
