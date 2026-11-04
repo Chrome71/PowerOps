@@ -5,6 +5,11 @@ using PowerOps.Core.Rules;
 
 namespace PowerOps.Core.Tests.Rules;
 
+// Serial: its wall-clock bounds (M43 to M47) failed on a shared CI runner while other classes ran beside them.
+[CollectionDefinition("time bounds", DisableParallelization = true)]
+public sealed class TimeBoundsCollection;
+
+[Collection("time bounds")]
 public class WarningRuleTests
 {
     private static IReadOnlyList<Finding> Run(IRule rule, Solution s) => rule.Evaluate(s).ToList();
