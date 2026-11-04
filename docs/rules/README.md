@@ -29,3 +29,4 @@
 | [PO023](PO023.md) | warning | Power Pages table permission lets anonymous users create, write or delete |
 | [PO024](PO024.md) | error | Site map opens a custom page that is not in the solution or its dependencies |
 | [PO025](PO025.md) | warning | Model-driven app has more than 25 custom pages, 10 connectors or 20 connection references |
+| [PO026](PO026.md) | warning | Code app depends on a table or connector that is not in the solution |

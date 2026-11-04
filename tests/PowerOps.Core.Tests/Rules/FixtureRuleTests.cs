@@ -159,4 +159,18 @@ public class FixtureRuleTests
         Assert.DoesNotContain(Analyzer.Run(s), f => f.RuleId is "PO024" or "PO025");
         Assert.DoesNotContain(Analyzer.NotChecked(s), n => n.StartsWith("PO024", StringComparison.Ordinal) || n.StartsWith("PO025", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void Alm_sample_reads_the_dependencies_of_its_canvas_app_and_is_quiet_on_PO026()
+    {
+        var s = SolutionLoader.Load(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "alm-sample"));
+
+        var canvas = Assert.Single(s.CanvasApps);
+        Assert.Equal(0, canvas.Type);
+        Assert.Equal("CanvasApps/cat_devopskitsamplecanvasapp_c7ec5.meta.xml", canvas.File);
+        Assert.Empty(canvas.Tables!);
+        Assert.Equal(["cat_5Fenvironmentvariableconnector"], canvas.Connectors);
+        Assert.DoesNotContain(Analyzer.Run(s), f => f.RuleId == "PO026");
+        Assert.DoesNotContain(Analyzer.NotChecked(s), n => n.StartsWith("PO026", StringComparison.Ordinal));
+    }
 }

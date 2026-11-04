@@ -358,6 +358,20 @@
               "defaultConfiguration": {
                 "level": "warning"
               }
+            },
+            {
+              "id": "PO026",
+              "name": "CodeAppDependencyMissing",
+              "shortDescription": {
+                "text": "Code app depends on a table or connector that is not in the solution"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO026.md",
+              "help": {
+                "text": "Add the table or connector to the solution, or add the solution that holds it as a dependency."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
             }
           ]
         }

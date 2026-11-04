@@ -90,7 +90,7 @@ internal static partial class SolutionParser
         var canvasMeta = paths.Values
             .Where(p => CanvasMetaPath().IsMatch(p))
             .Select(p => CheckedMeta(files, p))
-            .Concat((customizations?.Element("CanvasApps")?.Elements("CanvasApp") ?? []).Select(e => (Text: e.ToString(SaveOptions.DisableFormatting), Element: (XElement?)e)))
+            .Concat((customizations?.Element("CanvasApps")?.Elements("CanvasApp") ?? []).Select(e => (Text: e.ToString(SaveOptions.DisableFormatting), Element: (XElement?)e, File: customizationsPath!)))
             .ToList();
         var (canvasFormulas, canvasWithoutSource) = ReadMsapps(files, paths, canvasMeta.Select(m => m.Element));
 
@@ -103,7 +103,7 @@ internal static partial class SolutionParser
 
         var canvasApps = canvasMeta
             .Where(m => m.Element is { Name.LocalName: "CanvasApp" })
-            .Select(m => ReadCanvasApp(m.Element!))
+            .Select(m => ReadCanvasApp(m.Element!, m.File))
             .OfType<CanvasAppMeta>()
             .ToList();
 
@@ -201,10 +201,85 @@ internal static partial class SolutionParser
         return new SiteMap(Text(e, "SiteMapUniqueName") ?? throw new InvalidDataException($"{file}: missing SiteMapUniqueName element."), pages, genPageIds, file);
     }
 
-    private static CanvasAppMeta? ReadCanvasApp(XElement app) =>
-        Text(app, "Name") is { } name
-            ? new CanvasAppMeta(name, int.TryParse(Text(app, "CanvasAppType"), out var type) ? type : null, ReadConnections(Text(app, "ConnectionReferences")))
-            : null;
+    private static CanvasAppMeta? ReadCanvasApp(XElement app, string file)
+    {
+        if (Text(app, "Name") is not { } name)
+        {
+            return null;
+        }
+
+        var (tables, connectors, otherTypes) = ReadDependencies(Text(app, "CdsDependencies"));
+        return new CanvasAppMeta(name, int.TryParse(Text(app, "CanvasAppType"), out var type) ? type : null, ReadConnections(Text(app, "ConnectionReferences")), file, tables, connectors, otherTypes);
+    }
+
+    // All three lists are null when the text is not in the observed shape (M47 plan, Data row 2): a check that sees part of an app says nothing. Nothing is refused, as for ReadConnections.
+    // DatabaseReferences is not read: a real export lists an entity set there that no solution can hold.
+    private static (IReadOnlyList<string>? Tables, IReadOnlyList<string>? Connectors, IReadOnlyList<int>? OtherTypes) ReadDependencies(string? text)
+    {
+        if (text is null)
+        {
+            return (null, null, null);
+        }
+
+        var tables = new List<string>();
+        var connectors = new List<string>();
+        var otherTypes = new List<int>();
+        try
+        {
+            if (!ReadCdsDependencies(text, tables, connectors, otherTypes))
+            {
+                return (null, null, null);
+            }
+        }
+        catch (Exception e) when (e is JsonException or InvalidOperationException)
+        {
+            // A name that is not valid UTF-16 text throws InvalidOperationException from GetString.
+            return (null, null, null);
+        }
+
+        return (tables.Distinct(StringComparer.OrdinalIgnoreCase).ToList(), connectors.Distinct(StringComparer.OrdinalIgnoreCase).ToList(), otherTypes.Distinct().ToList());
+    }
+
+    // Type 1 is a table, 372 a connector and 29 a workflow, which is skipped; any other type is listed in otherTypes and its entry not read further.
+    private static bool ReadCdsDependencies(string text, List<string> tables, List<string> connectors, List<int> otherTypes)
+    {
+        using var doc = JsonDocument.Parse(text);
+        if (doc.RootElement.ValueKind != JsonValueKind.Object
+            || !doc.RootElement.TryGetProperty("cdsdependencies", out var entries)
+            || entries.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        foreach (var entry in entries.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.Object
+                || !entry.TryGetProperty("componenttype", out var t)
+                || t.ValueKind != JsonValueKind.Number
+                || !t.TryGetInt32(out var type))
+            {
+                return false;
+            }
+
+            if (type is not (1 or 372 or 29))
+            {
+                otherTypes.Add(type);
+            }
+            else if (type != 29)
+            {
+                if (entry.TryGetProperty("logicalname", out var n) && n.ValueKind == JsonValueKind.String && Opt(n.GetString()!.Trim()) is { } name)
+                {
+                    (type == 1 ? tables : connectors).Add(name);
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
 
     // Null when the text is not a JSON object: before M46 nothing parsed it, so every command that loads a solution must still load it (decisions Q9).
     private static Dictionary<string, string>? ReadConnections(string? text)
@@ -450,16 +525,16 @@ internal static partial class SolutionParser
     /// Canvas metadata stays text, and malformed XML in it is tolerated (SolutionDiff reads it later; the element is then null); too deep or too large is refused here,
     /// where the file's path is known. One parse gives both, so the file's nodes count against the budget once.
     /// </summary>
-    private static (string Text, XElement? Element) CheckedMeta(SolutionFiles files, string path)
+    private static (string Text, XElement? Element, string File) CheckedMeta(SolutionFiles files, string path)
     {
         var text = files.ReadText(path);
         try
         {
-            return (text, ParseXml(text, path, files.Budget).Root);
+            return (text, ParseXml(text, path, files.Budget).Root, path);
         }
         catch (XmlException)
         {
-            return (text, null);
+            return (text, null, path);
         }
     }
 

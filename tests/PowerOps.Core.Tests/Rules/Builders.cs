@@ -75,9 +75,13 @@ internal static class B
 
     /// <summary>A canvas app whose metadata lists these (key, connector id) connections; <see cref="CanvasUnreadable"/> is one whose `ConnectionReferences` was not a JSON object.</summary>
     public static CanvasAppMeta Canvas(string name, params (string Key, string Id)[] connections) =>
-        new(name, 2, connections.ToDictionary(c => c.Key, c => c.Id, StringComparer.OrdinalIgnoreCase));
+        new(name, 2, connections.ToDictionary(c => c.Key, c => c.Id, StringComparer.OrdinalIgnoreCase), $"CanvasApps/{name}.meta.xml", [], [], []);
 
-    public static CanvasAppMeta CanvasUnreadable(string name) => new(name, 2, null);
+    public static CanvasAppMeta CanvasUnreadable(string name) => new(name, 2, null, $"CanvasApps/{name}.meta.xml", [], [], []);
+
+    /// <summary>A canvas app (a code app by default) whose `CdsDependencies` names these tables and connectors; `with { Tables = null, Connectors = null, OtherTypes = null }` is one whose text was unreadable.</summary>
+    public static CanvasAppMeta CodeApp(string name, IEnumerable<string>? tables = null, IEnumerable<string>? connectors = null, int? type = 4, IEnumerable<int>? otherTypes = null) =>
+        new(name, type, new Dictionary<string, string>(), $"CanvasApps/{name}.meta.xml", (tables ?? []).ToList(), (connectors ?? []).ToList(), (otherTypes ?? []).ToList());
 
     private static int _nextId = 0x1000;
 

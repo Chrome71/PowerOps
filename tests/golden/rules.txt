@@ -73,3 +73,6 @@ PO024 error  Site map opens a custom page that is not in the solution
 PO025 warning Model-driven app has more than 25 custom pages, 10 connectors or 20 connection references
   fix: Move custom pages to another app, or remove pages and connections, until the app has at most 25 custom pages, 10 connectors and 20 connection references.
   https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO025.md
+PO026 warning Code app depends on a table or connector that is not in the solution
+  fix: Add the table or connector to the solution, or add the solution that holds it as a dependency.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO026.md

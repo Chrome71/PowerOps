@@ -79,5 +79,9 @@ public sealed record AppModule(string UniqueName, IReadOnlyList<string> SiteMaps
 /// <summary>A site map: `Pages` are the `Page` targets of its `SubArea`s, `GenPageIds` the normalized `GenPageId` targets (generative pages).</summary>
 public sealed record SiteMap(string UniqueName, IReadOnlyList<string> Pages, IReadOnlyList<string> GenPageIds, string File);
 
-/// <summary>A canvas app named by its metadata: `Type` is `CanvasAppType` (null when absent or not an integer; 2 is a custom page), `Connections` maps each `ConnectionReferences` key to its connector id ("" when it has none) and is null when that text is not a JSON object.</summary>
-public sealed record CanvasAppMeta(string Name, int? Type, IReadOnlyDictionary<string, string>? Connections);
+/// <summary>
+/// A canvas app named by its metadata (`File` is that metadata's path): `Type` is `CanvasAppType` (null when absent or not an integer; 2 is a custom page, 4 a code app),
+/// `Connections` maps each `ConnectionReferences` key to its connector id ("" when it has none) and is null when that text is not a JSON object.
+/// `Tables` and `Connectors` are the logical names that the type-1 and type-372 entries of `CdsDependencies` name, distinct ignoring case; `OtherTypes` are the distinct component types of its other entries (not 1, 372 or 29), in the order read. All three are null when that text is missing or not in the shape the reader knows.
+/// </summary>
+public sealed record CanvasAppMeta(string Name, int? Type, IReadOnlyDictionary<string, string>? Connections, string File, IReadOnlyList<string>? Tables, IReadOnlyList<string>? Connectors, IReadOnlyList<int>? OtherTypes);
