@@ -31,6 +31,7 @@ public static class Analyzer
         new PO023AnonymousWrite(),
         new PO024SiteMapPageMissing(),
         new PO025AppPageLimits(),
+        new PO026CodeAppDependencyMissing(),
     }.OrderBy(r => r.Id, StringComparer.Ordinal).ToList();
 
     public static string HelpUri(string ruleId) => $"{Output.SarifReport.Repo}/blob/main/docs/rules/{ruleId}.md";

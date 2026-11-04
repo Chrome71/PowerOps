@@ -1350,4 +1350,146 @@ public class WarningRuleTests
         var f = Assert.Single(Run(new PO025AppPageLimits(), WithOwn(B.Canvas("demo_own", ("key0", "/c0"), ("keynew", "/c0")))));
         Assert.Equal("The custom pages of app 'demo_app' use 21 connection references, more than 20.", f.Message);
     }
+
+    private static Solution Code(params CanvasAppMeta[] apps) => B.Empty() with { CanvasApps = apps };
+
+    [Fact]
+    public void PO026_fires_for_a_missing_table_and_a_missing_connector_with_the_app_file()
+    {
+        var s = Code(B.CodeApp("demo_app", tables: ["demo_missingtable"], connectors: ["demo_missingconnector"]));
+
+        var findings = Run(new PO026CodeAppDependencyMissing(), s);
+
+        Assert.Equal(2, findings.Count);
+        Assert.All(findings, f =>
+        {
+            Assert.Equal("PO026", f.RuleId);
+            Assert.Equal(Severity.Warning, f.Severity);
+            Assert.Equal("CanvasApps/demo_app.meta.xml", f.File);
+        });
+        Assert.Equal("Code app 'demo_app' depends on table 'demo_missingtable', which is not in the solution or its dependencies.", findings[0].Message);
+        Assert.Equal("demo_missingtable", findings[0].Component);
+        Assert.Equal("Code app 'demo_app' depends on connector 'demo_missingconnector', which is not in the solution or its dependencies.", findings[1].Message);
+        Assert.Equal("demo_missingconnector", findings[1].Component);
+    }
+
+    [Fact]
+    public void PO026_is_quiet_for_a_table_and_a_connector_held_as_root_components_of_the_same_type_in_any_case()
+    {
+        var s = Code(B.CodeApp("demo_app", tables: ["demo_order"], connectors: ["demo_api"])) with
+        {
+            RootComponents = [new("1", "DEMO_Order", null), new("372", "Demo_API", null)],
+        };
+
+        Assert.Empty(Run(new PO026CodeAppDependencyMissing(), s));
+    }
+
+    [Fact]
+    public void PO026_is_quiet_for_a_table_and_a_connector_declared_in_missing_dependencies()
+    {
+        var s = Code(B.CodeApp("demo_app", tables: ["demo_order"], connectors: ["demo_api"])) with
+        {
+            MissingDependencies = [B.Dep("1", "Demo_Order"), B.Dep("372", "DEMO_API")],
+        };
+
+        Assert.Empty(Run(new PO026CodeAppDependencyMissing(), s));
+    }
+
+    [Fact]
+    public void PO026_fires_for_a_table_named_only_by_a_connector_root_component_and_a_connector_named_only_by_a_table_one()
+    {
+        var s = Code(B.CodeApp("demo_app", tables: ["demo_one"], connectors: ["demo_two"])) with
+        {
+            RootComponents = [new("372", "demo_one", null), new("1", "demo_two", null)],
+        };
+
+        Assert.Equal(2, Run(new PO026CodeAppDependencyMissing(), s).Count);
+    }
+
+    [Fact]
+    public void PO026_does_not_check_a_table_with_no_underscore_but_checks_a_connector_with_none()
+    {
+        var s = Code(B.CodeApp("demo_app", tables: ["systemuser", "team"], connectors: ["shared"]));
+
+        var f = Assert.Single(Run(new PO026CodeAppDependencyMissing(), s));
+
+        Assert.Equal("Code app 'demo_app' depends on connector 'shared', which is not in the solution or its dependencies.", f.Message);
+        Assert.Equal("shared", f.Component);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    [InlineData(null)]
+    public void PO026_checks_only_code_apps(int? type)
+    {
+        var s = Code(B.CodeApp("demo_app", tables: ["demo_missingtable"], connectors: ["demo_missingconnector"], type: type));
+
+        Assert.Empty(Run(new PO026CodeAppDependencyMissing(), s));
+    }
+
+    [Fact]
+    public void PO026_gives_a_note_for_a_code_app_with_unreadable_text_and_none_for_other_apps_or_readable_ones()
+    {
+        var unreadable = B.CodeApp("demo_app") with { Tables = null, Connectors = null, OtherTypes = null };
+        var s = Code(unreadable, B.CodeApp("demo_page", type: 2) with { Tables = null, Connectors = null, OtherTypes = null }, B.CodeApp("demo_ok"));
+
+        Assert.Empty(Run(new PO026CodeAppDependencyMissing(), s));
+        Assert.Equal(
+            ["PO026 not checked for code app 'demo_app': its CdsDependencies is missing or not in a shape PowerOps reads."],
+            Analyzer.NotChecked(s));
+    }
+
+    [Fact]
+    public void PO026_still_checks_a_code_app_with_entries_of_other_types_and_says_which_types_it_did_not_check()
+    {
+        var s = Code(B.CodeApp("demo_app", tables: ["demo_missingtable"], otherTypes: [10001, 10000]), B.CodeApp("demo_page", type: 2, otherTypes: [10000]));
+
+        var f = Assert.Single(Run(new PO026CodeAppDependencyMissing(), s));
+
+        Assert.Equal("demo_missingtable", f.Component);
+        Assert.Equal(
+            ["PO026 not checked for code app 'demo_app': its CdsDependencies has entries of other component types (10001, 10000), which are not checked."],
+            Analyzer.NotChecked(s));
+    }
+
+    [Theory]
+    [InlineData(5, "10006, 10005, 10004, 10003, 10002")]
+    [InlineData(6, "10006, 10005, 10004, 10003, 10002, and 1 more")]
+    [InlineData(7, "10006, 10005, 10004, 10003, 10002, and 2 more")]
+    public void PO026_names_at_most_five_other_types_in_its_note(int count, string types)
+    {
+        var s = Code(B.CodeApp("demo_app", otherTypes: Enumerable.Range(0, count).Select(i => 10006 - i)));
+
+        Assert.Equal(
+            [$"PO026 not checked for code app 'demo_app': its CdsDependencies has entries of other component types ({types}), which are not checked."],
+            Analyzer.NotChecked(s));
+    }
+
+    [Fact]
+    public void PO026_gives_a_finding_per_code_app_in_file_order()
+    {
+        var s = Code(B.CodeApp("demo_b", tables: ["demo_missing"]), B.CodeApp("demo_a", tables: ["demo_missing"]));
+
+        var findings = Run(new PO026CodeAppDependencyMissing(), s);
+
+        Assert.Equal(["CanvasApps/demo_a.meta.xml", "CanvasApps/demo_b.meta.xml"], findings.Select(f => f.File));
+        Assert.Equal(["demo_a", "demo_b"], findings.Select(f => f.Message.Split('\'')[1]));
+    }
+
+    [Fact]
+    public void PO026_runs_in_linear_time_on_100000_missing_tables_against_100000_root_components_and_100000_declared_names()
+    {
+        var s = Code(B.CodeApp("demo_app", tables: Enumerable.Range(0, 100_000).Select(i => $"demo_missing{i}"))) with
+        {
+            RootComponents = [.. Enumerable.Range(0, 100_000).Select(i => new RootComponent("1", $"demo_root{i}", null))],
+            MissingDependencies = [.. Enumerable.Range(0, 100_000).Select(i => B.Dep("1", $"demo_declared{i}"))],
+        };
+
+        var sw = Stopwatch.StartNew();
+        var findings = Run(new PO026CodeAppDependencyMissing(), s);
+
+        Assert.Equal(100_000, findings.Count);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"took {sw.Elapsed}");
+    }
 }

@@ -475,4 +475,74 @@ public class AnalyzeCommandTests : IDisposable
         Assert.EndsWith(": PO024 not checked for site map 'cat_AlmAcceleratorSampleMda': generative page '00000000-0000-0000-0000-0000000000aa' is not checked, because uxagentprojects/ is not read.", note);
         Assert.Empty(RuleFindings(folder, "PO024"));
     }
+
+    private const string CanvasMetaPath = "CanvasApps/cat_devopskitsamplecanvasapp_c7ec5.meta.xml";
+
+    /// <summary>A copy of `alm-sample` whose canvas app is a code app (`CanvasAppType` 4); a non-null <paramref name="extraTable"/> is added to its `CdsDependencies`, and <paramref name="cdsDependencies"/> replaces them.</summary>
+    private string AlmAsCodeApp(string name, string? extraTable = null, string? cdsDependencies = null)
+    {
+        var copy = Path.Combine(_temp, name);
+        CopyDirectory(AlmSample, copy);
+        var file = Path.Combine(copy, CanvasMetaPath);
+        var doc = System.Xml.Linq.XDocument.Load(file);
+        doc.Root!.Element("CanvasAppType")!.Value = "4";
+        var cds = doc.Root!.Element("CdsDependencies")!;
+        if (cdsDependencies is not null)
+        {
+            cds.Value = cdsDependencies;
+        }
+
+        if (extraTable is not null)
+        {
+            var json = System.Text.Json.Nodes.JsonNode.Parse(cds.Value)!;
+            json["cdsdependencies"]!.AsArray().Add(new System.Text.Json.Nodes.JsonObject { ["logicalname"] = extraTable, ["componenttype"] = 1 });
+            cds.Value = json.ToJsonString();
+        }
+
+        doc.Save(file);
+        return copy;
+    }
+
+    [Fact]
+    public void A_table_the_code_app_names_and_the_solution_does_not_hold_gives_the_same_PO026_finding_from_a_folder_and_a_zip()
+    {
+        var folder = AlmAsCodeApp("missing-table", "demo_missingtable");
+        var zip = PackedLikePac(AlmAsCodeApp("missing-table-zip", "demo_missingtable"));
+
+        var fromFolder = Assert.Single(RuleFindings(folder, "PO026"));
+        var fromZip = Assert.Single(RuleFindings(zip, "PO026"));
+
+        Assert.Equal(0, Run("analyze", folder).Code);
+        Assert.Equal(0, Run("analyze", zip).Code);
+        Assert.Equal("Code app 'cat_devopskitsamplecanvasapp_c7ec5' depends on table 'demo_missingtable', which is not in the solution or its dependencies.", fromFolder.GetProperty("message").GetString());
+        Assert.Equal("demo_missingtable", fromFolder.GetProperty("component").GetString());
+        Assert.Equal(CanvasMetaPath, fromFolder.GetProperty("file").GetString());
+        Assert.Equal("customizations.xml", fromZip.GetProperty("file").GetString());
+        Assert.Equal(fromFolder.GetProperty("message").GetString(), fromZip.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public void A_code_app_whose_dependencies_are_all_held_or_skipped_gives_no_PO026_finding()
+    {
+        var folder = AlmAsCodeApp("held");
+
+        Assert.Empty(RuleFindings(folder, "PO026"));
+        Assert.Empty(RuleFindings(PackedLikePac(AlmAsCodeApp("held-zip")), "PO026"));
+    }
+
+    [Fact]
+    public void A_code_app_with_unreadable_dependencies_prints_the_PO026_note_on_stderr_and_exits_as_before()
+    {
+        var plain = Run("analyze", AlmSample, "--fail-on", "error");
+        var folder = AlmAsCodeApp("unreadable", cdsDependencies: "[]");
+
+        var (code, output, err) = Run("analyze", folder, "--fail-on", "error");
+
+        Assert.Equal(plain.Code, code);
+        Assert.Equal(plain.Out.Replace(AlmSample.Replace('\\', '/'), "X"), output.Replace(folder.Replace('\\', '/'), "X"));
+        var note = Assert.Single(err.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries), l => l.Contains("PO026", StringComparison.Ordinal));
+        Assert.StartsWith("note: ", note);
+        Assert.EndsWith(": PO026 not checked for code app 'cat_devopskitsamplecanvasapp_c7ec5': its CdsDependencies is missing or not in a shape PowerOps reads.", note);
+        Assert.Empty(RuleFindings(folder, "PO026"));
+    }
 }
