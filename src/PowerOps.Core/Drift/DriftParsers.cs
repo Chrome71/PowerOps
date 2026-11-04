@@ -60,11 +60,11 @@ public static partial class DriftParsers
         Unique(Rows(json).Select(r => new SnapshotReference(Id(r, "connectionreferenceid"), Text(r, "connectionreferencelogicalname"), Text(r, "connectorid"), !string.IsNullOrEmpty(OptionalText(r, "connectionid")))).ToList(),
             r => r.LogicalName, StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Read 7: whether the component has an unmanaged layer (a row whose <c>msdyn_solutionname</c> is "Active"). Every component has at least one layer, so no rows is unreadable. <c>msdyn_changes</c> and <c>msdyn_componentjson</c> hold component data and are never read.</summary>
+    /// <summary>Read 7: whether the component has an unmanaged layer (a row whose <c>msdyn_solutionname</c> is "Active"). Every component has at least one layer, so no rows is unreadable; it is also what a caller without read on the component's own table gets (observed 2026-11-04 for a canvas app without <c>prvReadCanvasApp</c>). <c>msdyn_changes</c> and <c>msdyn_componentjson</c> hold component data and are never read.</summary>
     public static bool Layers(string json)
     {
         var rows = Rows(json);
-        return rows.Count > 0 ? rows.Any(r => OptionalText(r, "msdyn_solutionname") == "Active") : throw Bad("no layer rows");
+        return rows.Count > 0 ? rows.Any(r => OptionalText(r, "msdyn_solutionname") == "Active") : throw Bad("no layer rows; a likely cause is a role without read on the component's table, such as prvReadCanvasApp for a canvas app");
     }
 
     /// <summary>Read 8: the components in another solution, one row for each component and solution. The solution's unique name is the aliased column <c>s.uniquename</c>.</summary>

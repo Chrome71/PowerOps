@@ -26,7 +26,7 @@ Encryption does not make a promoted value safe. Set `fail-on: warning` in the pl
 
 Use two Microsoft Entra app registrations:
 
-- A **plan app**: a federated credential for the GitHub environment `test-plan` only. Its application user has the role an export needs in Dev and a role that can read in Test.
+- A **plan app**: a federated credential for the GitHub environment `test-plan` only. Its application user has the role an export needs in Dev and a read-only role in Test ([below](#the-plan-apps-role-in-test)).
 - An **apply app**: a federated credential for the GitHub environment `test` only. Its application user is in Test only, with the role an import needs.
 
 The reason: a `pull_request` run uses the workflow file from the PR, so anyone who can push a branch can run code as the `test-plan` identity and read the secrets of `test-plan`. Those secrets must therefore be configuration only (URLs, ids, values, the zip key), never a credential, and the plan app must not be able to import. The `test` environment's reviewers decide who can use the apply app.
@@ -41,6 +41,23 @@ Also:
 - Run flow tests in their own workflow, as in the Action's [merge gate](../GITHUB-ACTION.md#merge-gate-flow-tests), not in the `plan` job: its `path` is Dev's export, so the test report in the job summary would show values from it, and the job is skipped on fork PRs. The merge-gate workflow tests the committed solution.
 
 For a quick trial in a repository only you can push to, one app registration with both federated credentials works. Do not do that where others can push branches.
+
+### The plan app's role in Test
+
+No built-in Dataverse role fits. Basic User has no `prvReadSolution` and has `prvReadWorkflow` only at user level, and System Customizer and Environment Maker both hold `prvImportCustomization`, the privilege an import needs. Create a custom role in Test with these privileges, each at organization level:
+
+- `prvReadSolution` (it covers solution components too)
+- `prvReadPublisher`
+- `prvReadWorkflow`
+- `prvReadEnvironmentVariableDefinition` (environment variable values have no privilege of their own)
+- `prvReadconnectionreference`
+- `prvReadmsdyn_componentlayer`
+- `prvReadCanvasApp`
+- `prvReadOrganization`
+- `prvReadUser`
+- `prvReadBusinessUnit`
+
+With this role, `powerops deploy plan --target` read Test in a live run on 2026-11-04, for a solution with a table, a cloud flow, a canvas app, an environment variable and two connection references. The plan reads the layers of each table, cloud flow, canvas app, environment variable definition and connection reference in the solution, and a component type whose layers are read needs read on its own table. The list gives that for cloud flows, canvas apps, environment variables and connection references; the table component needed nothing more. In that run the role first lacked `prvReadCanvasApp`: the layer table returned no rows for the canvas app instead of an error, and the plan exited `3` with "no layer rows".
 
 ## OIDC sign-in
 
