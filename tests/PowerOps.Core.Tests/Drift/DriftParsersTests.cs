@@ -141,8 +141,12 @@ public class DriftParsersTests
     }
 
     [Fact]
-    public void Read7_with_no_rows_is_rejected() =>
-        Assert.Contains("no layer rows", Assert.Throws<InvalidDataException>(() => DriftParsers.Layers(Rows())).Message);
+    public void Read7_with_no_rows_is_rejected_and_names_a_missing_read_privilege_as_a_likely_cause()
+    {
+        var message = Assert.Throws<InvalidDataException>(() => DriftParsers.Layers(Rows())).Message;
+        Assert.Contains("no layer rows", message);
+        Assert.Contains("a likely cause is a role without read on the component's table", message);
+    }
 
     [Fact]
     public void Read7_ignores_every_other_property_and_never_quotes_the_component_data()
