@@ -35,4 +35,24 @@ internal static partial class RuleHelpers
         s.MissingDependencies.Any(d =>
             string.Equals(d.Required.SchemaName, value, StringComparison.OrdinalIgnoreCase)
             || string.Equals(d.Required.Id, value, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Every schema name and id that a MissingDependency names as required, built once so a rule can test many values without a scan each.</summary>
+    public static HashSet<string> DeclaredNames(Solution s)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var d in s.MissingDependencies)
+        {
+            if (d.Required.SchemaName is { } schema)
+            {
+                names.Add(schema);
+            }
+
+            if (d.Required.Id is { } id)
+            {
+                names.Add(id);
+            }
+        }
+
+        return names;
+    }
 }

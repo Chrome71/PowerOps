@@ -101,6 +101,21 @@ internal static partial class SolutionParser
                 .ToList()
             : [];
 
+        var canvasApps = canvasMeta
+            .Where(m => m.Element is { Name.LocalName: "CanvasApp" })
+            .Select(m => ReadCanvasApp(m.Element!))
+            .OfType<CanvasAppMeta>()
+            .ToList();
+
+        var appModules = FolderFiles(paths.Values, AppModulePath())
+            .Select(p => ReadAppModule(LoadRoot(files, p, "AppModule"), p))
+            .Concat((customizations?.Element("AppModules")?.Elements("AppModule") ?? []).Select(e => ReadAppModule(e, customizationsPath!)))
+            .ToList();
+        var siteMaps = FolderFiles(paths.Values, SiteMapPath())
+            .Select(p => ReadSiteMap(LoadRoot(files, p, "AppModuleSiteMap"), p))
+            .Concat((customizations?.Element("AppModuleSiteMaps")?.Elements("AppModuleSiteMap") ?? []).Select(e => ReadSiteMap(e, customizationsPath!)))
+            .ToList();
+
         var powerPageComponents = paths.Values
             .Where(p => PowerPageComponentPath().IsMatch(p))
             .Select(p => ReadPowerPageComponent(LoadXml(files, p), p))
@@ -130,7 +145,101 @@ internal static partial class SolutionParser
             PowerPageComponents = powerPageComponents,
             CanvasFormulas = canvasFormulas,
             CanvasAppsWithoutSource = canvasWithoutSource,
+            AppModules = appModules,
+            SiteMaps = siteMaps,
+            CanvasApps = canvasApps,
         };
+    }
+
+    // `pac solution unpack` writes AppModule.xml, or only AppModule_managed.xml for a managed zip; a folder holding both (unpacked as Both) is read once, from the unmanaged file.
+    private static IEnumerable<string> FolderFiles(IEnumerable<string> paths, Regex pattern) =>
+        paths.Select(p => (Path: p, Match: pattern.Match(p)))
+            .Where(x => x.Match.Success)
+            .GroupBy(x => x.Match.Groups[1].Value, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderBy(x => x.Match.Groups[2].Success).ThenBy(x => x.Path, StringComparer.Ordinal).First().Path)
+            .Order(StringComparer.Ordinal);
+
+    private static XElement LoadRoot(SolutionFiles files, string path, string name)
+    {
+        var root = LoadXml(files, path);
+        return root.Name.LocalName == name
+            ? root
+            : throw new InvalidDataException($"{path}: the root element is '{root.Name.LocalName}', not '{name}'.");
+    }
+
+    private static List<string> Trimmed(IEnumerable<string?>? values) =>
+        (values ?? []).Select(v => v?.Trim()).Where(v => !string.IsNullOrEmpty(v)).ToList()!;
+
+    private static AppModule ReadAppModule(XElement e, string file) => new(
+        Text(e, "UniqueName") ?? throw new InvalidDataException($"{file}: missing UniqueName element."),
+        Trimmed(e.Element("AppModuleComponents")?.Elements("AppModuleComponent")
+            .Where(c => ((string?)c.Attribute("type"))?.Trim() == "62")
+            .Select(c => (string?)c.Attribute("schemaName"))),
+        Trimmed(e.Element("appelements")?.Elements("appelement").Select(a => a.Element("canvasappid")?.Element("name")?.Value)),
+        file);
+
+    // The platform types a SubArea as GenPageId, then Entity, then Page (decisions Q4); names are exact, as XML is case-sensitive.
+    private static SiteMap ReadSiteMap(XElement e, string file)
+    {
+        var pages = new List<string>();
+        var genPageIds = new List<string>();
+        foreach (var area in e.Element("SiteMap")?.Descendants("SubArea") ?? [])
+        {
+            if (Opt((string?)area.Attribute("GenPageId")) is { } gen)
+            {
+                if (NormalizeId(gen) is { } id)
+                {
+                    genPageIds.Add(id);
+                }
+            }
+            else if (Opt((string?)area.Attribute("Entity")) is null && Opt(((string?)area.Attribute("Page"))?.Trim()) is { } page)
+            {
+                pages.Add(page);
+            }
+        }
+
+        return new SiteMap(Text(e, "SiteMapUniqueName") ?? throw new InvalidDataException($"{file}: missing SiteMapUniqueName element."), pages, genPageIds, file);
+    }
+
+    private static CanvasAppMeta? ReadCanvasApp(XElement app) =>
+        Text(app, "Name") is { } name
+            ? new CanvasAppMeta(name, int.TryParse(Text(app, "CanvasAppType"), out var type) ? type : null, ReadConnections(Text(app, "ConnectionReferences")))
+            : null;
+
+    // Null when the text is not a JSON object: before M46 nothing parsed it, so every command that loads a solution must still load it (decisions Q9).
+    private static Dictionary<string, string>? ReadConnections(string? text)
+    {
+        var connections = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (text is null)
+        {
+            return connections;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(text);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            foreach (var entry in doc.RootElement.EnumerateObject())
+            {
+                var key = entry.Name.Trim();
+                if (key.Length > 0)
+                {
+                    var id = entry.Value.ValueKind == JsonValueKind.Object && entry.Value.TryGetProperty("id", out var v) && v.ValueKind == JsonValueKind.String ? v.GetString()!.Trim() : "";
+                    connections.TryAdd(key, id);
+                }
+            }
+
+            return connections;
+        }
+        catch (Exception e) when (e is JsonException or InvalidOperationException)
+        {
+            // An id that is not valid UTF-16 text throws InvalidOperationException from GetString.
+            return null;
+        }
     }
 
     private static PowerPageComponent ReadPowerPageComponent(XElement e, string path)
@@ -437,6 +546,12 @@ internal static partial class SolutionParser
 
     [GeneratedRegex(@"^CanvasApps/[^/]+\.msapp$", RegexOptions.IgnoreCase)]
     private static partial Regex MsappPath();
+
+    [GeneratedRegex(@"^AppModules/([^/]+)/AppModule(_managed)?\.xml$", RegexOptions.IgnoreCase)]
+    private static partial Regex AppModulePath();
+
+    [GeneratedRegex(@"^AppModuleSiteMaps/([^/]+)/AppModuleSiteMap(_managed)?\.xml$", RegexOptions.IgnoreCase)]
+    private static partial Regex SiteMapPath();
 
     [GeneratedRegex(@"^environmentvariabledefinitions/[^/]+/environmentvariabledefinition\.xml$", RegexOptions.IgnoreCase)]
     private static partial Regex EnvVarDefinitionPath();

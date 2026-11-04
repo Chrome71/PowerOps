@@ -405,4 +405,74 @@ public class AnalyzeCommandTests : IDisposable
         Assert.StartsWith("error: ", err);
         Assert.Contains(SeedMsapp, err);
     }
+
+    private static readonly string AlmSample = Path.Combine(Fixtures, "alm-sample");
+    private const string SiteMapPath = "AppModuleSiteMaps/cat_AlmAcceleratorSampleMda/AppModuleSiteMap.xml";
+    private const string AppModulePath = "AppModules/cat_AlmAcceleratorSampleMda/AppModule.xml";
+
+    /// <summary>A copy of `alm-sample` whose site map gets one more `SubArea` with these attributes. The fixture's files start with a BOM, so XDocument edits them.</summary>
+    private string AlmWithSubArea(string name, string attribute, string value)
+    {
+        var copy = Path.Combine(_temp, name);
+        CopyDirectory(AlmSample, copy);
+        var file = Path.Combine(copy, SiteMapPath);
+        var doc = System.Xml.Linq.XDocument.Load(file);
+        doc.Descendants("Group").First().Add(new System.Xml.Linq.XElement("SubArea", new System.Xml.Linq.XAttribute("Id", "demo_page"), new System.Xml.Linq.XAttribute(attribute, value)));
+        doc.Save(file);
+        return copy;
+    }
+
+    /// <summary>The copy as `pac solution pack` builds it: the app module, site map and canvas app metadata roots move into the `AppModules`, `AppModuleSiteMaps` and `CanvasApps` elements of customizations.xml; their folders, the metadata file and `CanvasApps/src` go.</summary>
+    private string PackedLikePac(string copy)
+    {
+        var customizations = Path.Combine(copy, "Other", "Customizations.xml");
+        var doc = System.Xml.Linq.XDocument.Load(customizations);
+        doc.Root!.Element("AppModules")!.ReplaceNodes(System.Xml.Linq.XDocument.Load(Path.Combine(copy, AppModulePath)).Root!);
+        doc.Root!.Element("AppModuleSiteMaps")!.ReplaceNodes(System.Xml.Linq.XDocument.Load(Path.Combine(copy, SiteMapPath)).Root!);
+        var meta = Path.Combine(copy, "CanvasApps", "cat_devopskitsamplecanvasapp_c7ec5.meta.xml");
+        doc.Root!.Element("CanvasApps")!.ReplaceNodes(System.Xml.Linq.XDocument.Load(meta).Root!);
+        doc.Save(customizations);
+        File.Delete(meta);
+        Directory.Delete(Path.Combine(copy, "CanvasApps", "src"), recursive: true);
+        Directory.Delete(Path.Combine(copy, "AppModules"), recursive: true);
+        Directory.Delete(Path.Combine(copy, "AppModuleSiteMaps"), recursive: true);
+        var zip = copy + ".zip";
+        SolutionZip.Create(copy, zip);
+        return zip;
+    }
+
+    [Fact]
+    public void A_site_map_page_the_solution_does_not_hold_gives_the_same_PO024_finding_from_a_folder_and_a_zip()
+    {
+        var folder = AlmWithSubArea("missing-page", "Page", "demo_missingpage_00000");
+        var zip = PackedLikePac(AlmWithSubArea("missing-page-zip", "Page", "demo_missingpage_00000"));
+
+        var fromFolder = Assert.Single(RuleFindings(folder, "PO024"));
+        var fromZip = Assert.Single(RuleFindings(zip, "PO024"));
+
+        Assert.Equal(1, Run("analyze", folder).Code);
+        Assert.Equal(1, Run("analyze", zip).Code);
+        Assert.Equal("Site map 'cat_AlmAcceleratorSampleMda' opens custom page 'demo_missingpage_00000', which is not in the solution or its dependencies.", fromFolder.GetProperty("message").GetString());
+        Assert.Equal("demo_missingpage_00000", fromFolder.GetProperty("component").GetString());
+        Assert.Equal(SiteMapPath, fromFolder.GetProperty("file").GetString());
+        Assert.Equal("customizations.xml", fromZip.GetProperty("file").GetString());
+        Assert.Equal(fromFolder.GetProperty("message").GetString(), fromZip.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public void A_generative_page_target_prints_the_PO024_note_on_stderr_and_exits_as_before()
+    {
+        var plain = Run("analyze", AlmSample, "--fail-on", "error");
+        var folder = AlmWithSubArea("gen-page", "GenPageId", "{00000000-0000-0000-0000-0000000000AA}");
+
+        var (code, output, err) = Run("analyze", folder, "--fail-on", "error");
+
+        Assert.Equal(plain.Code, code);
+        Assert.Equal(plain.Out.Replace(AlmSample, "X"), output.Replace(folder, "X"));
+        var notes = err.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(l => l.Contains("PO024", StringComparison.Ordinal)).ToList();
+        var note = Assert.Single(notes);
+        Assert.StartsWith("note: ", note);
+        Assert.EndsWith(": PO024 not checked for site map 'cat_AlmAcceleratorSampleMda': generative page '00000000-0000-0000-0000-0000000000aa' is not checked, because uxagentprojects/ is not read.", note);
+        Assert.Empty(RuleFindings(folder, "PO024"));
+    }
 }

@@ -67,6 +67,18 @@ internal static class B
     public static MissingDependency Dep(string type, string? schema, string? id = null, string? owner = "Other (1.0)") =>
         new(new DependencyNode(type, schema, id, null, owner), new DependencyNode("29", null, "x", null, null));
 
+    public static AppModule App(string name = "demo_app", string[]? siteMaps = null, string[]? pages = null) =>
+        new(name, siteMaps ?? [], pages ?? [], $"AppModules/{name}/AppModule.xml");
+
+    public static SiteMap SiteMap(string name = "demo_app", string[]? pages = null, string[]? genPageIds = null) =>
+        new(name, pages ?? [], genPageIds ?? [], $"AppModuleSiteMaps/{name}/AppModuleSiteMap.xml");
+
+    /// <summary>A canvas app whose metadata lists these (key, connector id) connections; <see cref="CanvasUnreadable"/> is one whose `ConnectionReferences` was not a JSON object.</summary>
+    public static CanvasAppMeta Canvas(string name, params (string Key, string Id)[] connections) =>
+        new(name, 2, connections.ToDictionary(c => c.Key, c => c.Id, StringComparer.OrdinalIgnoreCase));
+
+    public static CanvasAppMeta CanvasUnreadable(string name) => new(name, 2, null);
+
     private static int _nextId = 0x1000;
 
     /// <summary>A fake GUID that ends in <paramref name="n"/> (hex).</summary>

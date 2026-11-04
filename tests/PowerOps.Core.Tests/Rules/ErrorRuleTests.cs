@@ -260,4 +260,145 @@ public class ErrorRuleTests
         Assert.Equal(ids.Order(StringComparer.Ordinal).ToList(), ids);
         Assert.Equal(3, ids.Count);
     }
+
+    private static Solution Maps(SiteMap map, params CanvasAppMeta[] canvas) => B.Empty() with { SiteMaps = [map], CanvasApps = canvas };
+
+    [Fact]
+    public void PO024_fires_for_a_page_target_the_solution_does_not_hold_when_it_holds_canvas_apps()
+    {
+        var s = Maps(B.SiteMap("demo_map", pages: ["demo_missing"]), B.Canvas("demo_other"));
+
+        var f = Assert.Single(Run(new PO024SiteMapPageMissing(), s));
+
+        Assert.Equal("PO024", f.RuleId);
+        Assert.Equal(Severity.Error, f.Severity);
+        Assert.Equal("Site map 'demo_map' opens custom page 'demo_missing', which is not in the solution or its dependencies.", f.Message);
+        Assert.Equal("demo_missing", f.Component);
+        Assert.Equal("AppModuleSiteMaps/demo_map/AppModuleSiteMap.xml", f.File);
+        Assert.Empty(new PO024SiteMapPageMissing().NotChecked(s));
+    }
+
+    [Fact]
+    public void PO024_quiet_for_a_held_page_ignoring_case()
+    {
+        var s = Maps(B.SiteMap("demo_map", pages: ["DEMO_page"]), B.Canvas("demo_PAGE"));
+
+        Assert.Empty(Run(new PO024SiteMapPageMissing(), s));
+        Assert.Empty(new PO024SiteMapPageMissing().NotChecked(s));
+    }
+
+    [Fact]
+    public void PO024_quiet_for_a_page_declared_by_schema_name()
+    {
+        var s = Maps(B.SiteMap("demo_map", pages: ["demo_missing"]), B.Canvas("demo_other")) with { MissingDependencies = [B.Dep("300", "Demo_Missing")] };
+
+        Assert.Empty(Run(new PO024SiteMapPageMissing(), s));
+        Assert.Empty(new PO024SiteMapPageMissing().NotChecked(s));
+    }
+
+    [Fact]
+    public void PO024_quiet_for_a_site_map_with_no_page_target()
+    {
+        var s = Maps(B.SiteMap("demo_map"), B.Canvas("demo_other"));
+
+        Assert.Empty(Run(new PO024SiteMapPageMissing(), s));
+        Assert.Empty(new PO024SiteMapPageMissing().NotChecked(s));
+    }
+
+    [Fact]
+    public void PO024_gives_a_note_and_no_finding_when_the_solution_holds_no_canvas_app()
+    {
+        var s = Maps(B.SiteMap("demo_map", pages: ["demo_missing", "DEMO_MISSING", "demo_declared"])) with { MissingDependencies = [B.Dep("300", "demo_declared")] };
+
+        Assert.Empty(Run(new PO024SiteMapPageMissing(), s));
+        Assert.Equal(
+            ["PO024 not checked for site map 'demo_map': custom page 'demo_missing' is not in the solution, and the solution holds no canvas apps to check it against."],
+            Analyzer.NotChecked(s));
+    }
+
+    [Fact]
+    public void PO024_gives_a_note_for_a_generative_page_unless_it_is_declared()
+    {
+        var map = B.SiteMap("demo_map", genPageIds: [B.Guid(1), B.Guid(2)]);
+        var s = Maps(map, B.Canvas("demo_other")) with { MissingDependencies = [B.Dep("300", null, id: B.Guid(2))] };
+
+        Assert.Empty(Run(new PO024SiteMapPageMissing(), s));
+        Assert.Equal(
+            [$"PO024 not checked for site map 'demo_map': generative page '{B.Guid(1)}' is not checked, because uxagentprojects/ is not read."],
+            Analyzer.NotChecked(s));
+    }
+
+    [Fact]
+    public void PO024_gives_one_finding_for_a_target_named_twice_in_one_site_map()
+    {
+        var s = Maps(B.SiteMap("demo_map", pages: ["demo_missing", "DEMO_Missing"]), B.Canvas("demo_other"));
+
+        Assert.Single(Run(new PO024SiteMapPageMissing(), s));
+    }
+
+    [Fact]
+    public void PO024_checks_each_site_map()
+    {
+        var s = B.Empty() with
+        {
+            SiteMaps = [B.SiteMap("demo_a", pages: ["demo_missing"]), B.SiteMap("demo_b", pages: ["demo_missing"])],
+            CanvasApps = [B.Canvas("demo_other")],
+        };
+
+        Assert.Equal(["demo_a", "demo_b"], Run(new PO024SiteMapPageMissing(), s).Select(f => f.File!.Split('/')[1]));
+    }
+
+    [Fact]
+    public void PO024_quiet_for_a_page_held_only_as_a_custom_page_root_component()
+    {
+        var s = Maps(B.SiteMap("demo_map", pages: ["Demo_Held", "demo_other_type"]), B.Canvas("demo_other")) with
+        {
+            RootComponents = [new RootComponent("300", "demo_held", null), new RootComponent("29", "demo_other_type", null)],
+        };
+
+        Assert.Equal(["demo_other_type"], Run(new PO024SiteMapPageMissing(), s).Select(f => f.Component));
+    }
+
+    [Fact]
+    public void PO024_gives_two_findings_for_one_missing_page_in_two_site_maps()
+    {
+        var s = B.Empty() with
+        {
+            SiteMaps = [B.SiteMap("demo_a", pages: ["demo_missing"]), B.SiteMap("demo_b", pages: ["demo_missing"])],
+            CanvasApps = [B.Canvas("demo_other")],
+        };
+
+        Assert.Equal(2, Run(new PO024SiteMapPageMissing(), s).Count);
+    }
+
+    [Fact]
+    public void PO024_note_with_a_line_break_and_a_forged_command_is_one_cleaned_line()
+    {
+        var s = Maps(B.SiteMap("demo_map", pages: ["demo_x\n::error::forged"]));
+        var error = new StringWriter();
+
+        PowerOps.Core.Output.TextReport.WriteNotChecked(new PowerOps.Core.Output.AnalysisResult([new PowerOps.Core.Output.SolutionResult("a/b", s, []) { NotChecked = Analyzer.NotChecked(s) }]), error);
+
+        var line = Assert.Single(error.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries));
+        Assert.StartsWith("note: a/b: PO024 not checked for site map 'demo_map': custom page 'demo_x ::error::forged' is not in the solution", line);
+    }
+
+    [Fact]
+    public void PO024_runs_in_linear_time_on_50000_targets_and_50000_unrelated_dependencies()
+    {
+        var s = B.Empty() with
+        {
+            SiteMaps = [B.SiteMap("demo_map", pages: [.. Enumerable.Range(0, 50_000).Select(i => $"demo_page{i}")], genPageIds: [.. Enumerable.Range(0, 50_000).Select(B.Guid)])],
+            CanvasApps = [B.Canvas("demo_other")],
+            MissingDependencies = [.. Enumerable.Range(0, 50_000).Select(i => B.Dep("300", $"demo_unrelated{i}", B.Guid(100_000 + i)))],
+        };
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var findings = Run(new PO024SiteMapPageMissing(), s);
+        var notes = new PO024SiteMapPageMissing().NotChecked(s).ToList();
+
+        Assert.Equal(50_000, findings.Count);
+        Assert.Equal(50_000, notes.Count);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"took {sw.Elapsed}");
+    }
 }
