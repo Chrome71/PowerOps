@@ -34,7 +34,9 @@ The reason: a `pull_request` run uses the workflow file from the PR, so anyone w
 Also:
 
 - Protect `.github/workflows/` (and the settings script) with CODEOWNERS or a repository ruleset, so a branch cannot change what runs in `test-plan` unreviewed.
-- Turn on "Prevent self-review" on the `test` environment, so the person who pushed cannot approve their own apply.
+- Turn on "Prevent self-review" on the `test` environment, so the person who pushed cannot approve their own apply. With one GitHub account for you and an agent, that setting refuses every approval of a run that account started, yours too: give the agent an account of its own that is not a reviewer, and keep your own credential away from it, because a reviewer's credential can approve the waiting job through the REST API.
+- Turn off "Allow administrators to bypass configured protection rules" on `test`: by default an administrator can deploy without an approval.
+- The apply job declares `environment: test` and `id-token: write`, and its `path` is the folder of `plan-file`: the action refuses an apply that lacks either, and refuses a dry run whose `path` is another folder. The ephemeral recipe's apply follows the same rules, and a test checks both workflows.
 - Make the `plan` job a required status check. Otherwise a PR can be merged with no plan for its last commit, and `find` fails.
 - Run flow tests in their own workflow, as in the Action's [merge gate](../GITHUB-ACTION.md#merge-gate-flow-tests), not in the `plan` job: its `path` is Dev's export, so the test report in the job summary would show values from it, and the job is skipped on fork PRs. The merge-gate workflow tests the committed solution.
 

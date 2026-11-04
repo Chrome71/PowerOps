@@ -61,6 +61,30 @@ Answer: 1. The plugin's MCP server runs the installed `powerops`, not this branc
 2. Yes, one row
 Answer: 1. A row now would cite a plan that the repo doesn't hold, and the brief lists the doc edits this milestone makes.
 
+## Round 2 (from the review)
+
+### Q3, amended (R6, R7, R8)
+`--github-run` takes 1 to 500 characters and refuses the character classes the MCP form check refuses, not only control characters, because its text lands in a report. 500 leaves room for the receipt the Action builds (a repository of up to 140 characters, the run, the attempt and an environment name of up to 255), so an approved job can't fail the check after its approval. The receipt now starts with the repository (`<owner>/<repo> run <id> attempt <n>, environment <name>`), so it can be followed from the report alone. The approved hash wins over `--github-run` for `approval`, though no caller passes both. The option stays self-reported: checking `GITHUB_ACTIONS` as well would still be forgeable, and would make a person's hand run inside a workflow look like the Action's. So the docs say that `executor` and `approval` are claims, and that an auditor opens the run the receipt names, where GitHub records who approved.
+
+### Q5, amended (R4, R12)
+The script converts `\` to `/` only on a Windows runner (`OS` is `Windows_NT`), because on Linux a backslash is part of a name. It refuses a `..` segment in either input, because `cd` resolves `..` through links and `deploy apply` (.NET's `GetFullPath`) collapses it as text, and the two could name different folders. It refuses a plan file that does not exist, and takes the plan's folder as everything before the last `/`, or `.` for a bare name. Without `..`, `pwd -P` resolves links the way the operating system opens the files `deploy apply` reads.
+
+### Q12. Is the folder rule a breaking change, and does it apply to dry runs? (R2)
+1. Yes, for dry runs too: the PR title is `feat!:`, and the docs give the migration line "set `path` to the folder of `plan-file`" (recommended)
+2. Only with `apply: 'true'`, so nothing that works today breaks
+Answer: 1. A dry run is how a workflow is checked before its first real apply, so it must fail where the apply would. A workflow with `path: .` and a plan file in a subfolder gated other bytes than it imported. No release has been tagged, so the break reaches only workflows pinned to a commit, which the docs tell them to repin anyway.
+
+### Q13. What does the gate tell a blocked agent? (R5)
+1. The two yes routes, with the local command left to the user (recommended)
+2. Keep sending it to `deploy apply --apply` after a yes
+Answer: 1. D1 keeps the local command person-run. An agent that follows the old message runs an unenforced import whose only trace is `approval: cli`, the hole this milestone closes. The new message asks for the user's yes, then names the MCP form, the Action's approved job, or the user running the command. `docs/COMMANDS.md`'s Agents line says the same.
+
+### Q14. Which tools does the new step need, and which refusal comes first? (R10)
+`curl`, `jq` and `base64`, which GitHub's Linux and Windows images have; the docs list them for self-hosted runners. The step runs before `apply.sh`'s event check, so a fork pull request with `apply: 'true'` gets the token refusal; both import nothing, and the docs say so.
+
+### Q15. Is the Action's check a defence? (R9)
+No. Whoever can edit the workflow can name an unprotected environment or pin an older commit. The control is the protected environment, a federated credential whose subject is that environment only, and workflow files protected by CODEOWNERS or a ruleset; the docs say the checks are guardrails against mistakes.
+
 ## Log
 
 - 2026-11-04: plan started at the request of the session that started this one: build M52 of the live-test improvement plan, with D1 as the person answered it
@@ -71,3 +95,4 @@ Answer: 1. A row now would cite a plan that the repo doesn't hold, and the brief
 - questions answered by the building session under the user's delegation of 2026-10-22 (autonomous milestone mode), except Q1, which the person answered
 - areas not asked: users, screens, solution and publisher; the change is to this repo, and the plan answers each or marks it not applicable
 - approved 2026-11-04 by the building session under the user's delegation of 2026-10-22, for a fresh-context review
+- fresh review (a general-purpose subagent following `powerops-review-plan`, Sonnet, fresh context) 2026-11-04: 0 High, 6 Medium, 6 Low (R1 to R12); answered in `plan.md` (Done when 2, rows 2, 4, 5, 8 and a new row 9, Constraints) and here (Round 2: Q3 and Q5 amended, Q12 to Q15 added)
