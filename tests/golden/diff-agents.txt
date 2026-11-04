@@ -1,0 +1,5 @@
+PowerOpsSeed 1.0.0.0 → PowerOpsSeed 1.0.0.0
+  changed agent demo_agent: instructions changed [risk: agent-instructions]
+  changed agentTool demo_agent.topic.Orders: mode: Invoker → Maker
+  added agentTool demo_agent.topic.Refunds [risk: agent-tool]
+3 changes (1 added, 0 removed, 2 changed)

@@ -21,6 +21,7 @@ public class ImportCallTests
     private const string Genpage = "pac model genpage upload publishes a page that no plan holds";
     private const string CopilotPush = "pac copilot push changes a live agent that no plan holds";
     private const string CopilotPublish = "pac copilot publish publishes an agent that no plan holds";
+    private const string CopilotInit = "pac copilot init can import a solution that no plan holds";
 
     // Paths are built per OS, so the Windows leg of CI reads them as fully qualified.
     private static readonly string Dir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "powerops-gate"));
@@ -106,6 +107,7 @@ public class ImportCallTests
     [InlineData("pac copilot pull")]
     [InlineData("pac copilot list")]
     [InlineData("pac copilot pack --publisher-prefix contoso")]
+    [InlineData("pac copilot pack")]
     [InlineData("npm install @microsoft/power-apps")]
     [InlineData("npm install --save-dev @microsoft/power-apps-cli")]
     [InlineData("echo the app pushed")]
@@ -318,6 +320,12 @@ public class ImportCallTests
             { "pac model genpage upload --app-id x --code-file /x.tsx", Genpage },
             { "pac copilot push", CopilotPush },
             { "pac copilot publish --bot x", CopilotPublish },
+            { "pac copilot init", CopilotInit },
+            { $"pac copilot init --environment {Env}", CopilotInit },
+            { $"pac copilot init -env {Env} --agent-name x", CopilotInit },
+            { "pac.exe copilot init", CopilotInit },
+            { "sh -c 'pac copilot init'", CantRead },
+            { "git commit -m \"pac copilot init\"", CantRead },
             { "sh -c 'pa app push'", CantRead },
             { "npx -p x pa app push", CantRead },
             { "pac --verbose pages upload", CantRead },
@@ -624,7 +632,7 @@ public class ImportCallTests
     [Fact]
     public void The_new_always_blocked_routes_ask_for_the_plan_not_a_rewrite()
     {
-        foreach (var command in new[] { "pac pcf push", "pac application install --application-name x", "pac code push", "pac catalog install --catalog-item-id x", "pac app-management install-application-package --unique-name x", "pa app push", "npx --no-install pa app push", "power-apps push", "pac pages upload --path /x", "pac paportal upload-code-site --rootPath /x", "pac pages migrate-datamodel --webSiteId x", "pac model genpage upload --app-id x", "pac copilot push", "pac copilot publish --bot x" })
+        foreach (var command in new[] { "pac pcf push", "pac application install --application-name x", "pac code push", "pac catalog install --catalog-item-id x", "pac app-management install-application-package --unique-name x", "pa app push", "npx --no-install pa app push", "power-apps push", "pac pages upload --path /x", "pac paportal upload-code-site --rootPath /x", "pac pages migrate-datamodel --webSiteId x", "pac model genpage upload --app-id x", "pac copilot push", "pac copilot publish --bot x", "pac copilot init", $"pac copilot init --environment {Env}" })
         {
             Assert.False(Blocked(Bash(command)).Unreadable);
         }

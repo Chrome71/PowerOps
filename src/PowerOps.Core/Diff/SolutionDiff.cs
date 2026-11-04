@@ -22,6 +22,8 @@ public static class Risk
     public const string FlowState = "flow-state";
     public const string ConnectionReference = "connection-reference";
     public const string EnvironmentVariable = "environment-variable";
+    public const string AgentTool = "agent-tool";
+    public const string AgentInstructions = "agent-instructions";
 
     public static string Describe(string id) => id switch
     {
@@ -29,6 +31,8 @@ public static class Risk
         FlowState => "A flow was turned on or off.",
         ConnectionReference => "A connection reference was added or removed.",
         EnvironmentVariable => "An environment variable was added or removed.",
+        AgentTool => "An agent tool was added or removed.",
+        AgentInstructions => "An agent's instructions changed.",
         _ => id,
     };
 }
@@ -82,6 +86,16 @@ public static class SolutionDiff
             (a, b) => Join(
                 a.Text == b.Text ? null : "definition changed",
                 a.Version == b.Version ? null : $"republished (AppVersion {Show(a.Version)}{Arrow}{Show(b.Version)})")));
+
+        // Instructions can run to 8,000 characters, so a change says so and never shows the text.
+        changes.AddRange(Keyed("agent", old.Agents, @new.Agents,
+            a => a.SchemaName, _ => null, null,
+            (a, b) => a.Instructions == b.Instructions ? null : "instructions changed",
+            (a, b) => a.Instructions == b.Instructions ? null : Risk.AgentInstructions));
+
+        changes.AddRange(Keyed("agentTool", old.Agents.SelectMany(a => a.Tools), @new.Agents.SelectMany(a => a.Tools),
+            t => t.SchemaName, _ => null, Risk.AgentTool,
+            (a, b) => Differences(("action", a.Action, b.Action), ("mcp", a.Mcp.ToString().ToLowerInvariant(), b.Mcp.ToString().ToLowerInvariant()), ("mode", a.Mode, b.Mode))));
 
         return new DiffResult(old, @new, changes);
     }

@@ -41,7 +41,7 @@ public static class DiffReport
     public static void WriteJson(DiffResult result, TextWriter writer)
     {
         var doc = new Doc(
-            JsonOutput.SchemaVersion,
+            JsonOutput.DiffSchemaVersion,
             new Sol(result.Old.UniqueName, result.Old.Version),
             new Sol(result.New.UniqueName, result.New.Version),
             result.Changes.Select(c => new Item(c.Kind, c.Component, c.Key, c.Name, c.Detail, c.Risks)).ToList(),

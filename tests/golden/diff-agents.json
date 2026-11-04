@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 2,
+  "old": {
+    "uniqueName": "PowerOpsSeed",
+    "version": "1.0.0.0"
+  },
+  "new": {
+    "uniqueName": "PowerOpsSeed",
+    "version": "1.0.0.0"
+  },
+  "changes": [
+    {
+      "kind": "changed",
+      "component": "agent",
+      "key": "demo_agent",
+      "detail": "instructions changed",
+      "risks": [
+        "agent-instructions"
+      ]
+    },
+    {
+      "kind": "changed",
+      "component": "agentTool",
+      "key": "demo_agent.topic.Orders",
+      "detail": "mode: Invoker → Maker",
+      "risks": []
+    },
+    {
+      "kind": "added",
+      "component": "agentTool",
+      "key": "demo_agent.topic.Refunds",
+      "risks": [
+        "agent-tool"
+      ]
+    }
+  ],
+  "summary": {
+    "added": 1,
+    "removed": 0,
+    "changed": 2
+  }
+}
