@@ -545,4 +545,93 @@ public class AnalyzeCommandTests : IDisposable
         Assert.EndsWith(": PO026 not checked for code app 'cat_devopskitsamplecanvasapp_c7ec5': its CdsDependencies is missing or not in a shape PowerOps reads.", note);
         Assert.Empty(RuleFindings(folder, "PO026"));
     }
+
+    /// <summary>A copy of `alm-sample` with a hand-built agent: generative orchestration off, authentication None, instructions of 8,001 characters, and one MCP server in Maker mode.</summary>
+    private string AlmWithAgent(string name, string recognizer = "GenerativeAIRecognizer")
+    {
+        var copy = Path.Combine(_temp, name);
+        CopyDirectory(AlmSample, copy);
+        void Write(string path, string text)
+        {
+            var full = Path.Combine(copy, path);
+            Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+            File.WriteAllText(full, text);
+        }
+
+        const string Component = "<botcomponent schemaname=\"{0}\"><componenttype>{1}</componenttype><parentbotid><schemaname>demo_agent</schemaname></parentbotid></botcomponent>";
+        Write("bots/demo_agent/bot.xml", "<bot schemaname=\"demo_agent\"><authenticationmode>1</authenticationmode></bot>");
+        Write("bots/demo_agent/configuration.json", $$$"""{"settings":{"GenerativeActionsEnabled":false},"recognizer":{"$kind":"{{{recognizer}}}"}}""");
+        Write("botcomponents/demo_agent.gpt.default/botcomponent.xml", string.Format(Component, "demo_agent.gpt.default", 15));
+        Write("botcomponents/demo_agent.gpt.default/data", "kind: GptComponentMetadata\ninstructions: " + new string('a', 8001) + "\n");
+        Write("botcomponents/demo_agent.topic.Orders/botcomponent.xml", string.Format(Component, "demo_agent.topic.Orders", 9));
+        Write("botcomponents/demo_agent.topic.Orders/data", "kind: TaskDialog\naction:\n  kind: InvokeExternalAgentTaskAction\n  connectionProperties:\n    mode: Maker\n  operationDetails:\n    kind: ModelContextProtocolMetadata\n");
+        return copy;
+    }
+
+    [Fact]
+    public void An_agent_gives_the_same_PO027_to_PO030_findings_from_a_folder_and_a_zip()
+    {
+        var folder = AlmWithAgent("agent");
+        var zip = PackedLikePac(AlmWithAgent("agent-zip"));
+
+        Assert.Equal(1, Run("analyze", folder).Code);
+        Assert.Equal(1, Run("analyze", zip).Code);
+        var expected = new (string Rule, string Message, string Component, string File)[]
+        {
+            ("PO027", "Agent 'demo_agent' has MCP server 'demo_agent.topic.Orders', but its generative orchestration is off, which MCP needs.", "demo_agent.topic.Orders", "botcomponents/demo_agent.topic.Orders/data"),
+            ("PO028", "Agent 'demo_agent' has instructions of 8001 characters, more than the 8,000 that Copilot Studio allows.", "demo_agent", "botcomponents/demo_agent.gpt.default/data"),
+            ("PO029", "Agent 'demo_agent' has authentication None, so anyone with its link can chat with it.", "demo_agent", "bots/demo_agent/bot.xml"),
+            ("PO030", "Tool 'demo_agent.topic.Orders' of agent 'demo_agent' uses the maker's credentials, so every user acts with the maker's permissions.", "demo_agent.topic.Orders", "botcomponents/demo_agent.topic.Orders/data"),
+        };
+        foreach (var path in new[] { folder, zip })
+        {
+            foreach (var (rule, message, component, file) in expected)
+            {
+                var f = Assert.Single(RuleFindings(path, rule));
+
+                Assert.Equal(message, f.GetProperty("message").GetString());
+                Assert.Equal(component, f.GetProperty("component").GetString());
+                Assert.Equal(file, f.GetProperty("file").GetString());
+            }
+
+            Assert.Empty(RuleFindings(path, "PO031"));
+        }
+    }
+
+    [Fact]
+    public void An_agent_outside_the_standard_harness_prints_the_note_on_stderr_and_exits_as_before()
+    {
+        var plain = Run("analyze", AlmSample, "--fail-on", "error");
+        var folder = AlmWithAgent("cli-agent", "CLICopilotRecognizer");
+
+        var (code, output, err) = Run("analyze", folder, "--fail-on", "error");
+
+        Assert.Equal(plain.Code, code);
+        Assert.Equal(plain.Out.Replace(AlmSample.Replace('\\', '/'), "X"), output.Replace(folder.Replace('\\', '/'), "X"));
+        var note = Assert.Single(err.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries), l => l.Contains("PO027 to PO031", StringComparison.Ordinal));
+        Assert.StartsWith("note: ", note);
+        Assert.EndsWith(": PO027 to PO031 not checked for agent 'demo_agent': its recognizer is 'CLICopilotRecognizer', not GenerativeAIRecognizer or VirtualAgentsRecognizer, so it may not run on the standard harness that these rules read.", note);
+        foreach (var rule in new[] { "PO027", "PO028", "PO029", "PO030", "PO031" })
+        {
+            Assert.Empty(RuleFindings(folder, rule));
+        }
+    }
+
+    [Fact]
+    public void A_tool_file_whose_keys_cannot_be_mapped_prints_the_not_checked_note_on_stderr_and_exits_as_before()
+    {
+        var plain = Run("analyze", AlmWithAgent("odd-plain"), "--fail-on", "error");
+        var folder = AlmWithAgent("odd-agent");
+        const string Component = "<botcomponent schemaname=\"demo_agent.topic.Odd\"><componenttype>9</componenttype><parentbotid><schemaname>demo_agent</schemaname></parentbotid></botcomponent>";
+        Directory.CreateDirectory(Path.Combine(folder, "botcomponents", "demo_agent.topic.Odd"));
+        File.WriteAllText(Path.Combine(folder, "botcomponents", "demo_agent.topic.Odd", "botcomponent.xml"), Component);
+        File.WriteAllText(Path.Combine(folder, "botcomponents", "demo_agent.topic.Odd", "data"), "kind: TaskDialog\n'@odata.nextLink':\n  a: b\n");
+
+        var (code, _, err) = Run("analyze", folder, "--fail-on", "error");
+
+        Assert.Equal(plain.Code, code);
+        var note = Assert.Single(err.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries), l => l.Contains("PO027 not checked for agent", StringComparison.Ordinal));
+        Assert.StartsWith("note: ", note);
+        Assert.EndsWith(": PO027 not checked for agent 'demo_agent': 'botcomponents/demo_agent.topic.Odd/data' is valid YAML whose keys PowerOps can't map, so the tool it may hold isn't read, and PO030 and PO031 don't check it either.", note);
+    }
 }

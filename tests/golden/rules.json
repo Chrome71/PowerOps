@@ -182,6 +182,41 @@
       "title": "Code app depends on a table or connector that is not in the solution",
       "fix": "Add the table or connector to the solution, or add the solution that holds it as a dependency.",
       "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO026.md"
+    },
+    {
+      "id": "PO027",
+      "severity": "error",
+      "title": "MCP server on an agent with generative orchestration off",
+      "fix": "Turn on generative orchestration for the agent, or remove the MCP server.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO027.md"
+    },
+    {
+      "id": "PO028",
+      "severity": "warning",
+      "title": "Agent instructions are empty or longer than 8,000 characters",
+      "fix": "Write the agent's instructions, in at most 8,000 characters.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO028.md"
+    },
+    {
+      "id": "PO029",
+      "severity": "warning",
+      "title": "Agent authentication is None",
+      "fix": "Set the agent's authentication to Authenticate with Microsoft or Authenticate manually.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO029.md"
+    },
+    {
+      "id": "PO030",
+      "severity": "warning",
+      "title": "Agent tool uses the maker's credentials",
+      "fix": "Set the tool to use end-user credentials, unless every user may act with the maker's permissions or a trigger calls the tool.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO030.md"
+    },
+    {
+      "id": "PO031",
+      "severity": "warning",
+      "title": "Agent has more than 30 tools",
+      "fix": "Remove tools the agent doesn't need.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO031.md"
     }
   ]
 }

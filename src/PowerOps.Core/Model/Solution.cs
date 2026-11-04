@@ -22,7 +22,8 @@ public sealed record Solution(
     IReadOnlyList<string>? CanvasAppsWithoutSource = null,
     IReadOnlyList<AppModule>? AppModules = null,
     IReadOnlyList<SiteMap>? SiteMaps = null,
-    IReadOnlyList<CanvasAppMeta>? CanvasApps = null)
+    IReadOnlyList<CanvasAppMeta>? CanvasApps = null,
+    IReadOnlyList<Agent>? Agents = null)
 {
     /// <summary>The formulas of the canvas apps' `.pa.yaml` source: the YAML layout's `Src` folders, and the `Src/*.pa.yaml` inside each `.msapp` of the XML layouts.</summary>
     public IReadOnlyList<CanvasFormula> CanvasFormulas { get; init; } = CanvasFormulas ?? [];
@@ -44,6 +45,9 @@ public sealed record Solution(
 
     /// <summary>The canvas apps whose metadata names them (`CanvasApps/*.meta.xml` or the `customizations.xml` `CanvasApp` elements); empty when the solution has none.</summary>
     public IReadOnlyList<CanvasAppMeta> CanvasApps { get; init; } = CanvasApps ?? [];
+
+    /// <summary>The Copilot Studio agents of `bots/&lt;folder&gt;/bot.xml`, in path order; empty when the solution has none.</summary>
+    public IReadOnlyList<Agent> Agents { get; init; } = Agents ?? [];
 }
 
 public sealed record Publisher(string UniqueName, string Prefix);
@@ -85,3 +89,21 @@ public sealed record SiteMap(string UniqueName, IReadOnlyList<string> Pages, IRe
 /// `Tables` and `Connectors` are the logical names that the type-1 and type-372 entries of `CdsDependencies` name, distinct ignoring case; `OtherTypes` are the distinct component types of its other entries (not 1, 372 or 29), in the order read. All three are null when that text is missing or not in the shape the reader knows.
 /// </summary>
 public sealed record CanvasAppMeta(string Name, int? Type, IReadOnlyDictionary<string, string>? Connections, string File, IReadOnlyList<string>? Tables, IReadOnlyList<string>? Connectors, IReadOnlyList<int>? OtherTypes);
+
+/// <summary>
+/// A Copilot Studio agent. `File` is its `bot.xml`. `AuthenticationMode` is the integer in `authenticationmode` (1 is None), null when missing or not an integer.
+/// `Configuration` is null when `configuration.json` is missing or not a JSON object. `Instructions` is the text of the `instructions` key of the agent's one Custom GPT component ("" when the key is missing),
+/// null when the agent has none or several of them or the value is not text; `InstructionsFile` is that component's `data`. `Tools` are its `TaskDialog` components, in path order.
+/// `UnreadFiles` are the `data` paths of its type-9 components that may be tools but whose YAML keys can't be mapped, in ordinal order.
+/// </summary>
+public sealed record Agent(string SchemaName, string File, int? AuthenticationMode, AgentConfiguration? Configuration, string? Instructions, string? InstructionsFile, IReadOnlyList<AgentTool> Tools, IReadOnlyList<string>? UnreadFiles = null)
+{
+    /// <summary>The `data` paths of type-9 components that mention `TaskDialog` but whose YAML keys can't be mapped, in ordinal order, so the tool they may hold isn't read.</summary>
+    public IReadOnlyList<string> UnreadFiles { get; init; } = UnreadFiles ?? [];
+}
+
+/// <summary>What an agent's `configuration.json` says: the `$kind` of its `recognizer` (null when there is no `recognizer`, "" when it names no string kind), and `settings.GenerativeActionsEnabled` (null when absent or not a boolean).</summary>
+public sealed record AgentConfiguration(string? Recognizer, bool? GenerativeOrchestration);
+
+/// <summary>An agent tool (a type-9 component whose `data` has `kind: TaskDialog`; `File` is that `data`): `Action` is `action.kind`, `Mcp` is true for `ModelContextProtocolMetadata` operation details, and `Mode` is `action.connectionProperties.mode`.</summary>
+public sealed record AgentTool(string SchemaName, string? Action, bool Mcp, string? Mode, string File);

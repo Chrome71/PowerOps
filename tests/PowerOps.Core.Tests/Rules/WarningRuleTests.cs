@@ -1497,4 +1497,233 @@ public class WarningRuleTests
         Assert.Equal(100_000, findings.Count);
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"took {sw.Elapsed}");
     }
+
+    private static Solution WithAgents(params Agent[] agents) => B.Empty() with { Agents = agents };
+
+    private static string Long(int n) => new('x', n);
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  \n\t ")]
+    public void PO028_fires_for_empty_or_whitespace_instructions(string instructions)
+    {
+        var f = Assert.Single(Run(new PO028AgentInstructionsLength(), WithAgents(B.Agent(instructions: instructions))));
+
+        Assert.Equal("PO028", f.RuleId);
+        Assert.Equal(Severity.Warning, f.Severity);
+        Assert.Equal("Agent 'demo_agent' has no instructions.", f.Message);
+        Assert.Equal("demo_agent", f.Component);
+        Assert.Equal("botcomponents/demo_agent.gpt.default/data", f.File);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(null)]
+    public void PO028_is_quiet_for_empty_instructions_unless_generative_orchestration_is_on(bool? generative)
+    {
+        var rule = new PO028AgentInstructionsLength();
+        var s = WithAgents(B.Agent(instructions: "", generative: generative));
+
+        Assert.Empty(Run(rule, s));
+        Assert.Empty(rule.NotChecked(s));
+    }
+
+    [Theory]
+    [InlineData(8000, "\n", false)]
+    [InlineData(8000, "\r\n", false)]
+    [InlineData(8000, "\n\n", false)]
+    [InlineData(8001, "\n", true)]
+    public void PO028_does_not_count_trailing_line_breaks(int length, string tail, bool fires)
+    {
+        var found = Run(new PO028AgentInstructionsLength(), WithAgents(B.Agent(instructions: Long(length) + tail)));
+
+        Assert.Equal(fires, found.Count == 1);
+        Assert.All(found, f => Assert.Contains("8001 characters", f.Message));
+    }
+
+    [Fact]
+    public void PO028_counts_utf16_code_units()
+    {
+        var f = Assert.Single(Run(new PO028AgentInstructionsLength(), WithAgents(B.Agent(instructions: string.Concat(Enumerable.Repeat("\U0001F600", 4001))))));
+
+        Assert.Contains("8002 characters", f.Message);
+    }
+
+    [Fact]
+    public void PO028_fires_for_8001_characters_and_is_quiet_for_1_and_8000()
+    {
+        var f = Assert.Single(Run(new PO028AgentInstructionsLength(), WithAgents(B.Agent(instructions: Long(8001)))));
+
+        Assert.Equal("Agent 'demo_agent' has instructions of 8001 characters, more than the 8,000 that Copilot Studio allows.", f.Message);
+        Assert.Equal("botcomponents/demo_agent.gpt.default/data", f.File);
+        Assert.Empty(Run(new PO028AgentInstructionsLength(), WithAgents(B.Agent(instructions: "x"))));
+        Assert.Empty(Run(new PO028AgentInstructionsLength(), WithAgents(B.Agent(instructions: Long(8000)))));
+    }
+
+    [Fact]
+    public void PO028_says_not_checked_when_the_instructions_are_unknown_and_not_when_they_are_known()
+    {
+        var rule = new PO028AgentInstructionsLength();
+        var s = WithAgents(B.Agent(instructions: null));
+
+        Assert.Empty(Run(rule, s));
+        Assert.Equal(["PO028 not checked for agent 'demo_agent': it has no single Custom GPT component whose instructions are text."], rule.NotChecked(s));
+        Assert.Empty(rule.NotChecked(WithAgents(B.Agent(instructions: ""))));
+    }
+
+    [Fact]
+    public void PO029_fires_for_authentication_none_with_the_bot_file()
+    {
+        var f = Assert.Single(Run(new PO029AgentWithoutAuthentication(), WithAgents(B.Agent(auth: 1))));
+
+        Assert.Equal("PO029", f.RuleId);
+        Assert.Equal(Severity.Warning, f.Severity);
+        Assert.Equal("Agent 'demo_agent' has authentication None, so anyone with its link can chat with it.", f.Message);
+        Assert.Equal("demo_agent", f.Component);
+        Assert.Equal("bots/demo_agent/bot.xml", f.File);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void PO029_is_quiet_for_the_other_modes(int mode)
+    {
+        var rule = new PO029AgentWithoutAuthentication();
+        var s = WithAgents(B.Agent(auth: mode));
+
+        Assert.Empty(Run(rule, s));
+        Assert.Empty(rule.NotChecked(s));
+    }
+
+    [Fact]
+    public void PO029_says_not_checked_when_the_mode_is_unknown()
+    {
+        var rule = new PO029AgentWithoutAuthentication();
+        var s = WithAgents(B.Agent(auth: null));
+
+        Assert.Empty(Run(rule, s));
+        Assert.Equal(["PO029 not checked for agent 'demo_agent': its bot.xml has no authenticationmode."], rule.NotChecked(s));
+        Assert.Empty(rule.NotChecked(WithAgents(B.Agent(auth: 1))));
+    }
+
+    [Theory]
+    [InlineData("Maker")]
+    [InlineData("maker")]
+    public void PO030_fires_for_a_tool_in_maker_mode(string mode)
+    {
+        var f = Assert.Single(Run(new PO030ToolMakerConnection(), WithAgents(B.Agent(tools: [B.Tool("demo_agent.topic.Weather", mode: mode)]))));
+
+        Assert.Equal("PO030", f.RuleId);
+        Assert.Equal(Severity.Warning, f.Severity);
+        Assert.Equal("Tool 'demo_agent.topic.Weather' of agent 'demo_agent' uses the maker's credentials, so every user acts with the maker's permissions.", f.Message);
+        Assert.Equal("demo_agent.topic.Weather", f.Component);
+        Assert.Equal("botcomponents/demo_agent.topic.Weather/data", f.File);
+    }
+
+    [Theory]
+    [InlineData("Invoker")]
+    [InlineData(null)]
+    public void PO030_is_quiet_for_invoker_mode_and_no_mode(string? mode) =>
+        Assert.Empty(Run(new PO030ToolMakerConnection(), WithAgents(B.Agent(tools: [B.Tool(mode: mode)]))));
+
+    private static IEnumerable<AgentTool> Tools(int n, string action = "InvokeConnectorTaskAction") =>
+        Enumerable.Range(0, n).Select(i => B.Tool($"demo_agent.topic.T{i:D3}", action: action));
+
+    [Fact]
+    public void PO031_fires_for_31_counted_tools_and_is_quiet_for_30()
+    {
+        var f = Assert.Single(Run(new PO031AgentToolCount(), WithAgents(B.Agent(tools: Tools(31)))));
+
+        Assert.Equal("PO031", f.RuleId);
+        Assert.Equal(Severity.Warning, f.Severity);
+        Assert.Equal("Agent 'demo_agent' has 31 tools, more than 30; Learn advises 25 to 30 at most.", f.Message);
+        Assert.Equal("demo_agent", f.Component);
+        Assert.Equal("bots/demo_agent/bot.xml", f.File);
+        Assert.Empty(Run(new PO031AgentToolCount(), WithAgents(B.Agent(tools: Tools(30)))));
+    }
+
+    [Fact]
+    public void PO031_does_not_count_a_connected_agent()
+    {
+        var thirty = Tools(30).Append(B.Tool("demo_agent.topic.Other", action: "InvokeConnectedAgentTaskAction"));
+        var thirtyOne = Tools(30).Append(B.Tool("demo_agent.topic.Other")).Append(B.Tool("demo_agent.topic.Child", action: "InvokeConnectedAgentTaskAction"));
+
+        Assert.Empty(Run(new PO031AgentToolCount(), WithAgents(B.Agent(tools: thirty))));
+        Assert.Contains("has 31 tools", Assert.Single(Run(new PO031AgentToolCount(), WithAgents(B.Agent(tools: thirtyOne)))).Message);
+    }
+
+    [Fact]
+    public void PO031_says_not_checked_for_30_or_fewer_tools_with_an_mcp_server()
+    {
+        var rule = new PO031AgentToolCount();
+        var s = WithAgents(B.Agent(tools: Tools(3).Append(B.Tool("demo_agent.topic.M1", mcp: true)).Append(B.Tool("demo_agent.topic.M2", mcp: true))));
+
+        Assert.Empty(Run(rule, s));
+        Assert.Equal(["PO031 not checked for agent 'demo_agent': it has at least one MCP server, and the exports read here don't list the tools an MCP server publishes."], rule.NotChecked(s));
+        Assert.Empty(rule.NotChecked(WithAgents(B.Agent(tools: Tools(3)))));
+    }
+
+    [Fact]
+    public void PO031_gives_the_finding_and_no_note_for_31_tools_with_an_mcp_tool()
+    {
+        var rule = new PO031AgentToolCount();
+        var s = WithAgents(B.Agent(tools: Tools(30).Append(B.Tool("demo_agent.topic.M1", mcp: true))));
+
+        Assert.Single(Run(rule, s));
+        Assert.Empty(rule.NotChecked(s));
+    }
+
+    [Fact]
+    public void The_agent_rules_are_quiet_on_an_agent_outside_the_standard_harness_that_would_fire()
+    {
+        var tools = Tools(31).Append(B.Tool("demo_agent.topic.M", mcp: true, mode: "Maker"));
+        var cli = B.Agent(auth: 1, instructions: "", generative: false, recognizer: "CLIAgentRecognizer", tools: tools);
+        var noConfig = B.Agent(auth: 1, instructions: "", tools: tools) with { Configuration = null };
+
+        foreach (var s in new[] { WithAgents(cli), WithAgents(noConfig) })
+        {
+            Assert.Empty(Analyzer.Run(s));
+            Assert.StartsWith("PO027 to PO031 not checked for agent 'demo_agent': ", Assert.Single(Analyzer.NotChecked(s)));
+        }
+
+        // A second unplaced agent that would give every note if it were placed.
+        var other = B.Agent("demo_other", auth: null, instructions: null, generative: null, recognizer: "CLIAgentRecognizer", tools: [B.Tool("demo_other.topic.M", mcp: true, mode: "Invoker")]);
+        var both = WithAgents(cli, other);
+
+        Assert.Equal(2, Analyzer.NotChecked(both).Count);
+        Assert.All(Analyzer.NotChecked(both), n => Assert.StartsWith("PO027 to PO031 not checked for agent '", n));
+        Assert.Contains(Analyzer.NotChecked(both), n => n.Contains("'demo_agent'"));
+        Assert.Contains(Analyzer.NotChecked(both), n => n.Contains("'demo_other'"));
+        Assert.Empty(new PO028AgentInstructionsLength().NotChecked(both));
+        Assert.Empty(new PO029AgentWithoutAuthentication().NotChecked(both));
+        Assert.Empty(new PO031AgentToolCount().NotChecked(both));
+    }
+
+    [Fact]
+    public void The_agent_rules_give_findings_in_file_order()
+    {
+        var s = WithAgents(B.Agent("demo_b", auth: 1, instructions: "", tools: [B.Tool("demo_b.topic.Z", mode: "Maker"), B.Tool("demo_b.topic.A", mode: "Maker")]), B.Agent("demo_a", auth: 1, instructions: "", tools: [B.Tool("demo_a.topic.X", mode: "Maker")]));
+
+        Assert.Equal(["bots/demo_a/bot.xml", "bots/demo_b/bot.xml"], Run(new PO029AgentWithoutAuthentication(), s).Select(f => f.File));
+        Assert.Equal(["botcomponents/demo_a.gpt.default/data", "botcomponents/demo_b.gpt.default/data"], Run(new PO028AgentInstructionsLength(), s).Select(f => f.File));
+        Assert.Equal(["demo_a.topic.X", "demo_b.topic.A", "demo_b.topic.Z"], Run(new PO030ToolMakerConnection(), s).Select(f => f.Component));
+    }
+
+    [Fact]
+    public void The_agent_rules_run_in_linear_time_on_10000_agents_with_100_tools_each()
+    {
+        var tools = Enumerable.Range(0, 100).Select(i => B.Tool($"demo_agent.topic.T{i:D3}", mcp: i == 0, mode: i == 0 ? "Maker" : "Invoker")).ToList();
+        var s = WithAgents([.. Enumerable.Range(0, 10_000).Select(i => B.Agent($"demo_agent{i}", auth: 1, instructions: Long(8001), generative: false, tools: tools))]);
+
+        var sw = Stopwatch.StartNew();
+        var rules = Analyzer.Rules.Where(r => r.Id is "PO027" or "PO028" or "PO029" or "PO030" or "PO031").ToList();
+        var counts = rules.Select(r => r.Evaluate(s).Count()).ToList();
+        var notes = rules.OfType<INotChecked>().Sum(r => r.NotChecked(s).Count());
+
+        Assert.Equal([10_000, 10_000, 10_000, 10_000, 10_000], counts);
+        Assert.Equal(0, notes);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"took {sw.Elapsed}");
+    }
 }

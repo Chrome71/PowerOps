@@ -401,4 +401,112 @@ public class ErrorRuleTests
         Assert.Equal(50_000, notes.Count);
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"took {sw.Elapsed}");
     }
+
+    private static Solution WithAgents(params Agent[] agents) => B.Empty() with { Agents = agents };
+
+    [Fact]
+    public void PO027_fires_for_an_mcp_tool_when_generative_orchestration_is_off()
+    {
+        var s = WithAgents(B.Agent(generative: false, tools: [B.Tool("demo_agent.topic.Orders", mcp: true)]));
+
+        var f = Assert.Single(Run(new PO027McpToolWithoutGenerativeOrchestration(), s));
+
+        Assert.Equal("PO027", f.RuleId);
+        Assert.Equal(Severity.Error, f.Severity);
+        Assert.Equal("Agent 'demo_agent' has MCP server 'demo_agent.topic.Orders', but its generative orchestration is off, which MCP needs.", f.Message);
+        Assert.Equal("demo_agent.topic.Orders", f.Component);
+        Assert.Equal("botcomponents/demo_agent.topic.Orders/data", f.File);
+    }
+
+    [Fact]
+    public void PO027_fires_for_an_agent_with_the_default_virtual_agents_recognizer()
+    {
+        var s = WithAgents(B.Agent(generative: false, recognizer: "VirtualAgentsRecognizer", tools: [B.Tool(mcp: true)]));
+
+        Assert.Single(Run(new PO027McpToolWithoutGenerativeOrchestration(), s));
+    }
+
+    [Fact]
+    public void PO027_is_quiet_when_generative_orchestration_is_on_or_the_tool_is_not_mcp()
+    {
+        Assert.Empty(Run(new PO027McpToolWithoutGenerativeOrchestration(), WithAgents(B.Agent(generative: true, tools: [B.Tool(mcp: true)]))));
+        Assert.Empty(Run(new PO027McpToolWithoutGenerativeOrchestration(), WithAgents(B.Agent(generative: false, tools: [B.Tool(mcp: false)]))));
+    }
+
+    [Fact]
+    public void PO027_says_not_checked_when_generative_orchestration_is_unknown_and_an_mcp_tool_is_present()
+    {
+        var rule = new PO027McpToolWithoutGenerativeOrchestration();
+        var withMcp = WithAgents(B.Agent(generative: null, tools: [B.Tool(mcp: true)]));
+        var withoutMcp = WithAgents(B.Agent(generative: null, tools: [B.Tool(mcp: false)]));
+
+        Assert.Empty(Run(rule, withMcp));
+        Assert.Equal(["PO027 not checked for agent 'demo_agent': its configuration.json doesn't say whether generative orchestration is on."], rule.NotChecked(withMcp));
+        Assert.Empty(rule.NotChecked(withoutMcp));
+    }
+
+    [Theory]
+    [InlineData("CLIAgentRecognizer")]
+    [InlineData("")]
+    public void PO027_is_quiet_for_an_agent_outside_the_standard_harness_and_gives_the_harness_note(string recognizer)
+    {
+        var rule = new PO027McpToolWithoutGenerativeOrchestration();
+        var s = WithAgents(B.Agent(generative: false, recognizer: recognizer, tools: [B.Tool(mcp: true)]));
+
+        Assert.Empty(Run(rule, s));
+        Assert.Equal([$"PO027 to PO031 not checked for agent 'demo_agent': its recognizer is '{recognizer}', not GenerativeAIRecognizer or VirtualAgentsRecognizer, so it may not run on the standard harness that these rules read."], rule.NotChecked(s));
+    }
+
+    [Fact]
+    public void PO027_gives_the_harness_note_for_an_agent_without_a_configuration()
+    {
+        var rule = new PO027McpToolWithoutGenerativeOrchestration();
+        var s = WithAgents(B.Agent(tools: [B.Tool(mcp: true)]) with { Configuration = null });
+
+        Assert.Empty(Run(rule, s));
+        Assert.Equal(["PO027 to PO031 not checked for agent 'demo_agent': its configuration.json is missing or isn't a JSON object."], rule.NotChecked(s));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("GenerativeAIRecognizer")]
+    [InlineData("VirtualAgentsRecognizer")]
+    public void PO027_gives_no_harness_note_for_a_placed_agent(string? recognizer) =>
+        Assert.Empty(new PO027McpToolWithoutGenerativeOrchestration().NotChecked(WithAgents(B.Agent(recognizer: recognizer))));
+
+    [Fact]
+    public void PO027_says_not_checked_for_each_unread_file_of_a_placed_agent_and_has_no_finding_from_it()
+    {
+        var rule = new PO027McpToolWithoutGenerativeOrchestration();
+        var s = WithAgents(B.Agent(generative: false, unread: ["botcomponents/demo_agent.topic.Z/data", "botcomponents/demo_agent.topic.A/data"]));
+
+        Assert.Empty(Run(rule, s));
+        Assert.Equal(
+            [
+                "PO027 not checked for agent 'demo_agent': 'botcomponents/demo_agent.topic.Z/data' is valid YAML whose keys PowerOps can't map, so the tool it may hold isn't read, and PO030 and PO031 don't check it either.",
+                "PO027 not checked for agent 'demo_agent': 'botcomponents/demo_agent.topic.A/data' is valid YAML whose keys PowerOps can't map, so the tool it may hold isn't read, and PO030 and PO031 don't check it either.",
+            ],
+            rule.NotChecked(s));
+    }
+
+    [Fact]
+    public void PO027_gives_only_the_harness_note_for_an_unplaced_agent_with_an_unread_file()
+    {
+        var rule = new PO027McpToolWithoutGenerativeOrchestration();
+        var s = WithAgents(B.Agent(recognizer: "CLIAgentRecognizer", unread: ["botcomponents/demo_agent.topic.A/data"]));
+
+        Assert.Equal([$"PO027 to PO031 not checked for agent 'demo_agent': its recognizer is 'CLIAgentRecognizer', not GenerativeAIRecognizer or VirtualAgentsRecognizer, so it may not run on the standard harness that these rules read."], rule.NotChecked(s));
+    }
+
+    [Fact]
+    public void PO027_gives_findings_in_file_order()
+    {
+        var s = WithAgents(
+            B.Agent("demo_b", generative: false, tools: [B.Tool("demo_b.topic.Z", mcp: true), B.Tool("demo_b.topic.A", mcp: true)]),
+            B.Agent("demo_a", generative: false, tools: [B.Tool("demo_a.topic.X", mcp: true)]));
+
+        var findings = Run(new PO027McpToolWithoutGenerativeOrchestration(), s);
+
+        Assert.Equal(["demo_a.topic.X", "demo_b.topic.A", "demo_b.topic.Z"], findings.Select(f => f.Component));
+    }
 }

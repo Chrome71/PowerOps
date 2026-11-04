@@ -30,3 +30,8 @@
 | [PO024](PO024.md) | error | Site map opens a custom page that is not in the solution or its dependencies |
 | [PO025](PO025.md) | warning | Model-driven app has more than 25 custom pages, 10 connectors or 20 connection references |
 | [PO026](PO026.md) | warning | Code app depends on a table or connector that is not in the solution |
+| [PO027](PO027.md) | error | MCP server on an agent with generative orchestration off |
+| [PO028](PO028.md) | warning | Agent instructions are empty or longer than 8,000 characters |
+| [PO029](PO029.md) | warning | Agent authentication is None |
+| [PO030](PO030.md) | warning | Agent tool uses the maker's credentials |
+| [PO031](PO031.md) | warning | Agent has more than 30 tools |

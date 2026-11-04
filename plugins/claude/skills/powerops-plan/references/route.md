@@ -1,6 +1,6 @@
 # Route: which product, and the sketch
 
-Read this when a plan names an app, a page, a site or a report. Section 1 picks the product and names the file to read next. Section 2 says when to offer **D**, "sketch the screens first", and how to write the sketch.
+Read this when a plan names an app, a page, a site, a report or an agent. Section 1 picks the product and names the file to read next. Section 2 says when to offer **D**, "sketch the screens first", and how to write the sketch.
 
 ## 1. The route
 
@@ -14,6 +14,7 @@ These are PowerOps's planning rules. Each product file cites Learn for what Lear
 - A standalone app laid out freely, for users in the tenant: a canvas app (`canvas.md`).
 - Anonymous or external users: Power Pages (`power-pages.md`).
 - A report or dashboard over a semantic model: Power BI, which lives outside the solution (`power-bi.md`).
+- An agent that answers or acts in chat: a Copilot Studio agent, on the standard harness unless the job needs another (`copilot-studio.md`).
 
 Write the route in `Screens`, one line per app or page with its reason.
 
