@@ -202,7 +202,7 @@ public class DeployGateCommandTests : DeployTestBase
     [InlineData("mcp__pac-cli__copilot_publish", "pac copilot publish publishes an agent that no plan holds")]
     [InlineData("mcp__pac-cli__model_genpage_upload", "pac model genpage upload publishes a page that no plan holds")]
     [InlineData("Bash", "pa app push publishes an app that no plan holds", "pa app push")]
-    [InlineData("Bash", "pac copilot init can import a solution that no plan holds", "pac copilot init --environment 00000000-0000-0000-0000-000000000001")]
+    [InlineData("Bash", "pac copilot init may import a solution that no plan holds", "pac copilot init --environment 00000000-0000-0000-0000-000000000001")]
     public void A_write_route_with_no_plan_file_is_blocked_with_its_line_and_the_target_is_not_read(string tool, string line, string? command = null)
     {
         var test = SeedTarget();

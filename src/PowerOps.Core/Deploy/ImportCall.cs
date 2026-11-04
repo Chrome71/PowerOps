@@ -34,7 +34,7 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
     private const string RouteGenpage = "pac model genpage upload publishes a page that no plan holds";
     private const string RouteCopilotPush = "pac copilot push changes a live agent that no plan holds";
     private const string RouteCopilotPublish = "pac copilot publish publishes an agent that no plan holds";
-    private const string RouteCopilotInit = "pac copilot init can import a solution that no plan holds";
+    private const string RouteCopilotInit = "pac copilot init may import a solution that no plan holds";
 
     private const string CantRead = "the command holds an import that the gate can't read";
     private const string Stray = "the command has a word the gate doesn't read";

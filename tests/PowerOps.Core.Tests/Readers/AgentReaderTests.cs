@@ -169,6 +169,7 @@ public class AgentReaderTests
     [InlineData("kind: GptComponentMetadata\ninstructions: \"\"\n", "")]
     [InlineData("kind: GptComponentMetadata\n", "")]
     [InlineData("kind: GptComponentMetadata\ninstructions: |\n  Line one.\n  Line two.\n", "Line one.\nLine two.\n")]
+    [InlineData("kind: GptComponentMetadata\r\ninstructions: |\r\n  Line one.\r\n  Line two.\r\n", "Line one.\nLine two.\n")]
     [InlineData("kind: GptComponentMetadata\ninstructions:\n  nested: text\n", null)]
     [InlineData("kind: GptComponentMetadata\ninstructions: [a, b]\n", null)]
     public void The_instructions_are_the_top_level_text_of_the_one_custom_gpt_component(string data, string? instructions)

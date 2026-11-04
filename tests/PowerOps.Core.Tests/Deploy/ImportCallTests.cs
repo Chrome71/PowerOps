@@ -21,7 +21,7 @@ public class ImportCallTests
     private const string Genpage = "pac model genpage upload publishes a page that no plan holds";
     private const string CopilotPush = "pac copilot push changes a live agent that no plan holds";
     private const string CopilotPublish = "pac copilot publish publishes an agent that no plan holds";
-    private const string CopilotInit = "pac copilot init can import a solution that no plan holds";
+    private const string CopilotInit = "pac copilot init may import a solution that no plan holds";
 
     // Paths are built per OS, so the Windows leg of CI reads them as fully qualified.
     private static readonly string Dir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "powerops-gate"));
