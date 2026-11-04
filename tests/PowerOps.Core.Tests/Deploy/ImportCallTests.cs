@@ -22,6 +22,10 @@ public class ImportCallTests
     private const string CopilotPush = "pac copilot push changes a live agent that no plan holds";
     private const string CopilotPublish = "pac copilot publish publishes an agent that no plan holds";
     private const string CopilotInit = "pac copilot init may import a solution that no plan holds";
+    private const string ManageAgent = "copilot-studio's manage-agent push and publish change an agent that no plan holds";
+
+    // The manage-agent skill's own command form (skills-for-copilot-studio at 9c42d3a).
+    private const string Bundle = "node ${CLAUDE_SKILL_DIR}/../../scripts/manage-agent.bundle.js";
 
     // Paths are built per OS, so the Windows leg of CI reads them as fully qualified.
     private static readonly string Dir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "powerops-gate"));
@@ -115,9 +119,22 @@ public class ImportCallTests
     [InlineData("git commit -m \"copilot publisher\"")]
     [InlineData("ls power-apps/src")]
     [InlineData("git add power-apps/")]
+    // The manage-agent bundle's read-only verbs, as the word after the script.
+    [InlineData(Bundle + " pull --workspace /x/agent")]
+    [InlineData(Bundle + " clone --workspace /x/new --agent-id 00000000-0000-0000-0000-000000000002")]
+    [InlineData(Bundle + " changes --workspace /x/agent")]
+    [InlineData(Bundle + " validate --workspace /x/agent")]
+    [InlineData(Bundle + " list-agents --no-owner")]
+    [InlineData(Bundle + " list-envs")]
+    [InlineData(Bundle + " auth --client-id 00000000-0000-0000-0000-000000000002")]
+    [InlineData(Bundle + " pull --workspace /x/agent | jq .status")]
+    [InlineData(Bundle + " pull --workspace /x/agent 2>&1")]
     // Known misses: a variable holds the flat CLI, and push alone can't be a marker (git push).
     [InlineData("$PA push")]
     [InlineData("PA=\"npx --no-install power-apps\"; $PA push")]
+    // Known misses: the bundle's name is read as written, so a variable or a wildcard in it hides the call.
+    [InlineData("node \"$S\" push")]
+    [InlineData("node x/manage-agent.bundl?.js push")]
     public void A_shell_command_without_an_import_is_not_one(string command)
     {
         Assert.IsType<ImportRead.NotImport>(Bash(command));
@@ -338,6 +355,28 @@ public class ImportCallTests
             { "pa.cmd app push", PaPush },
             { "node_modules/.bin/power-apps.cmd push", PaPush },
             { "npx.cmd --no-install pa app push", PaPush },
+            { Bundle + " push --workspace /x/agent", ManageAgent },
+            { Bundle + " publish --workspace /x/agent --timeout 300000", ManageAgent },
+            { Bundle + " push --force", ManageAgent },
+            { "node.exe \"C:\\x\\manage-agent.bundle.js\" push", ManageAgent },
+            // The bundle takes the first word that isn't an option or an option's value as its verb, so any other form is unread.
+            { Bundle + " --workspace /x/agent push", CantRead },
+            { Bundle + " \"\" push", CantRead },
+            { Bundle + " \"$V\" --workspace /x/agent", CantRead },
+            { Bundle + " Push", CantRead },
+            { Bundle, CantRead },
+            { Bundle + " delete", CantRead },
+            { "node --no-warnings x/manage-agent.bundle.js push", CantRead },
+            { "X=1 " + Bundle + " push", CantRead },
+            { "sh -c '" + Bundle + " push'", CantRead },
+            { "node x/manage-agent.bundle push", CantRead },
+            { "grep -r manage-agent.bundle.js .", CantRead },
+            // A pass holds no other marker: a backtick in a word runs a command.
+            { $"{Bundle} pull --workspace \"`pac solution import --path {z} --environment {Env}`\"", CantRead },
+            { $"node \"${{PLUGIN_ROOT}}/scripts/solution-settings.js\" template --env \"`pac solution import --path {z} --environment {Env}`\"", CantRead },
+            // So does a $(...) in double quotes, which stays in the word; an unquoted one ends the segment and is read on its own.
+            { $"node \"${{PLUGIN_ROOT}}/scripts/solution-settings.js\" template --env \"$(pac solution import --path {z} --environment {Env})\"", CantRead },
+            { $"{Bundle} pull --workspace \"$(pac copilot push)\"", CantRead },
             // The route words are bare, so these block too while the hooks are on: reword them.
             { "git commit -m \"feat: add app push notifications\"", CantRead },
             { "git -C apps push origin main", CantRead },
@@ -613,6 +652,7 @@ public class ImportCallTests
     [InlineData("Import-CrmSolution -InFile x.zip")]
     [InlineData("& 'C:\\Tools\\pac.exe' auth list")]
     [InlineData("pa app push")]
+    [InlineData("node x/manage-agent.bundle.js pull")]
     public void A_pac_or_import_command_in_the_powershell_tool_is_blocked(string command)
     {
         Assert.Contains("imports are read only in Bash commands, not in PowerShell", Blocked(Bash(command, "PowerShell")).Lines);
@@ -632,7 +672,7 @@ public class ImportCallTests
     [Fact]
     public void The_new_always_blocked_routes_ask_for_the_plan_not_a_rewrite()
     {
-        foreach (var command in new[] { "pac pcf push", "pac application install --application-name x", "pac code push", "pac catalog install --catalog-item-id x", "pac app-management install-application-package --unique-name x", "pa app push", "npx --no-install pa app push", "power-apps push", "pac pages upload --path /x", "pac paportal upload-code-site --rootPath /x", "pac pages migrate-datamodel --webSiteId x", "pac model genpage upload --app-id x", "pac copilot push", "pac copilot publish --bot x", "pac copilot init", $"pac copilot init --environment {Env}" })
+        foreach (var command in new[] { "pac pcf push", "pac application install --application-name x", "pac code push", "pac catalog install --catalog-item-id x", "pac app-management install-application-package --unique-name x", "pa app push", "npx --no-install pa app push", "power-apps push", "pac pages upload --path /x", "pac paportal upload-code-site --rootPath /x", "pac pages migrate-datamodel --webSiteId x", "pac model genpage upload --app-id x", "pac copilot push", "pac copilot publish --bot x", "pac copilot init", $"pac copilot init --environment {Env}", Bundle + " push --workspace /x/agent", Bundle + " publish --workspace /x/agent" })
         {
             Assert.False(Blocked(Bash(command)).Unreadable);
         }
