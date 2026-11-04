@@ -1,10 +1,12 @@
 using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
 
 using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
 
-// Runs action/plan.sh, action/apply.sh, action/diff.sh, action/comment.sh, action/test.sh, action/powerops.sh, action/annotate.sh and action/summary.sh with bash, against stub `gh` and `dotnet` programs
+// Runs action/plan.sh, action/apply.sh, action/check-apply.sh, action/diff.sh, action/comment.sh, action/test.sh, action/powerops.sh, action/annotate.sh and action/summary.sh with bash, against stub `gh`, `dotnet` and `curl` programs
 // that come first on PATH. Skipped on Windows and where bash (or jq or git, which a test needs) is not found.
 public sealed class ActionScriptTests : IDisposable
 {
@@ -120,7 +122,7 @@ public sealed class ActionScriptTests : IDisposable
         Assert.Equal($"exit-code={exit}\nplan-file={run.Folder}/powerops-plan.json\n", run.Output);
         Assert.Equal("## PowerOps deploy plan\n\nthe plan\n", File.ReadAllText(run.Summary));
         Assert.Equal("## PowerOps deploy plan\n\nthe plan\n", File.ReadAllText(run.Comment));
-        Assert.Equal($"deploy plan {run.Folder} --target Contoso Test --save {run.Folder}/powerops-plan.json --format markdown --out {run.Comment}", run.DotnetCalls.Single().Replace("powerops.dll ", ""));
+        Assert.Equal($"deploy plan {run.Folder} --target Contoso Test --save {run.Folder}/powerops-plan.json --format markdown --out {run.Comment} --planned-by action", run.DotnetCalls.Single().Replace("powerops.dll ", ""));
     }
 
     [Fact]
@@ -175,8 +177,16 @@ public sealed class ActionScriptTests : IDisposable
         var dry = RunApply(exit: 0, apply: "false");
         var real = RunApply(exit: 0, apply: "true");
 
-        Assert.Equal("deploy apply plan/powerops-plan.json --target Contoso Test", dry.DotnetCalls.Single().Replace("powerops.dll ", ""));
-        Assert.Equal("deploy apply plan/powerops-plan.json --target Contoso Test --apply", real.DotnetCalls.Single().Replace("powerops.dll ", ""));
+        Assert.Equal("deploy apply plan/powerops-plan.json --target Contoso Test --github-run contoso/widgets run 7 attempt 2", dry.DotnetCalls.Single().Replace("powerops.dll ", ""));
+        Assert.Equal("deploy apply plan/powerops-plan.json --target Contoso Test --github-run contoso/widgets run 7 attempt 2 --apply", real.DotnetCalls.Single().Replace("powerops.dll ", ""));
+    }
+
+    [Fact]
+    public void Apply_passes_the_run_attempt_and_environment_as_the_receipt()
+    {
+        var run = RunApply(exit: 0, environment: "test");
+
+        Assert.Equal("deploy apply plan/powerops-plan.json --target Contoso Test --github-run contoso/widgets run 7 attempt 2, environment test --apply", run.DotnetCalls.Single().Replace("powerops.dll ", ""));
     }
 
     [Theory]
@@ -661,6 +671,252 @@ public sealed class ActionScriptTests : IDisposable
         Assert.Equal(["note: sol/Other/x.xml: a link", "error: b"], logged);
     }
 
+    // ---- check-apply.sh ----
+
+    private const string RequestToken = "REQUEST-TOKEN-SENTINEL";
+    private const string Signature = "SIGNATURE-SENTINEL";
+    private const string Refusal = "::error::path must be the folder that holds plan-file, so that the gate analyzes the zips that are imported; nothing was imported\n";
+
+    private static string Base64Url(string text) => Convert.ToBase64String(Encoding.UTF8.GetBytes(text)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+    // A JWT-shaped token whose payload is the given JSON object plus a filler field, so that its unpadded base64url holds a '-' and a '_' (the two characters that differ from base64).
+    private static string Jwt(string payload)
+    {
+        for (var shift = 0; shift < 6; shift++)
+        {
+            var encoded = Base64Url(payload.TrimEnd('}') + $",\"x\":\"{new string('a', shift)}>>>???\"}}");
+            if (encoded.Contains('-') && encoded.Contains('_'))
+            {
+                Assert.DoesNotContain('=', encoded);
+                return "eyJhbGciOiJSUzI1NiJ9." + encoded + "." + Signature;
+            }
+        }
+
+        throw new InvalidOperationException("no filler gives both characters");
+    }
+
+    private static string TokenResponse(string payload) => JsonSerializer.Serialize(new { value = Jwt(payload) });
+
+    private static void AssertNoSecret(Result run)
+    {
+        foreach (var text in new[] { run.Out, run.Err })
+        {
+            Assert.DoesNotContain(RequestToken, text);
+            Assert.DoesNotContain(Signature, text);
+            Assert.DoesNotContain("eyJ", text);
+        }
+    }
+
+    [Fact]
+    public void Check_passes_an_equal_folder_in_every_spelling_and_for_a_dry_run_asks_for_no_token()
+    {
+        var runs = new[]
+        {
+            RunCheck(path: "deploy", planFile: "deploy/powerops-plan.json", apply: "false", token: false),
+            RunCheck(path: null, planFile: "deploy/powerops-plan.json", apply: "false", token: false, pathSuffix: "/"),
+            RunCheck(path: "./deploy/", planFile: "deploy/powerops-plan.json", apply: "false", token: false),
+            RunCheck(path: ".", planFile: "powerops-plan.json", apply: "false", token: false),
+        };
+
+        foreach (var run in runs)
+        {
+            Assert.Equal(0, run.Code);
+            Assert.Equal("", run.Out);
+            Assert.Equal("", run.Output);
+            Assert.Empty(run.CurlCalls);
+        }
+    }
+
+    [Theory]
+    [InlineData("other", "deploy/powerops-plan.json", "true")]
+    [InlineData("missing", "deploy/powerops-plan.json", "true")]
+    [InlineData("zip", "deploy/powerops-plan.json", "true")]
+    [InlineData("empty", "deploy/powerops-plan.json", "true")]
+    [InlineData("parent", "deploy/powerops-plan.json", "true")]
+    [InlineData("dot-with-the-plan-elsewhere", "deploy/powerops-plan.json", "false")]
+    [InlineData("deploy-with-the-plan-in-the-root", "powerops-plan.json", "false")]
+    [InlineData("dotdot-in-path", "deploy/powerops-plan.json", "false")]
+    [InlineData("deploy", "deploy/../deploy/powerops-plan.json", "false")]
+    [InlineData("deploy", "deploy/nope.json", "false")]
+    [InlineData("deploy", "deploy", "false")]
+    [InlineData("deploy", "", "false")]
+    public void Check_refuses_a_path_that_is_not_the_folder_of_an_existing_plan_file_and_asks_for_no_token(string kind, string planFile, string apply)
+    {
+        var path = kind switch
+        {
+            "other" => "other",
+            "missing" => "nope",
+            "zip" => "deploy/Sol.zip",
+            "empty" => "",
+            "parent" => ".",
+            "dot-with-the-plan-elsewhere" => ".",
+            "dotdot-in-path" => "deploy/../deploy",
+            _ => "deploy",
+        };
+
+        var run = RunCheck(path: path, planFile: planFile, apply: apply);
+
+        Assert.Equal(2, run.Code);
+        Assert.Equal(Refusal, run.Out);
+        Assert.Empty(run.CurlCalls);
+        Assert.Equal("", run.Output);
+        AssertNoSecret(run);
+    }
+
+    [Fact]
+    public void Check_reads_a_backslash_spelling_only_on_windows()
+    {
+        var windows = RunCheck(path: "deploy", planFile: @"deploy\powerops-plan.json", apply: "false", token: false, os: "Windows_NT");
+        var other = RunCheck(path: "deploy", planFile: @"deploy\powerops-plan.json", apply: "false", token: false);
+        var windowsPath = RunCheck(path: @".\deploy", planFile: @"deploy\powerops-plan.json", apply: "false", token: false, os: "Windows_NT");
+        var windowsDotDot = RunCheck(path: @"deploy\..\deploy", planFile: @"deploy\powerops-plan.json", apply: "false", token: false, os: "Windows_NT");
+
+        Assert.Equal((0, ""), (windows.Code, windows.Out));
+        Assert.Equal((0, ""), (windowsPath.Code, windowsPath.Out));
+        Assert.Equal((2, Refusal), (other.Code, other.Out));
+        Assert.Equal((2, Refusal), (windowsDotDot.Code, windowsDotDot.Out));
+    }
+
+    [Fact]
+    public void Check_for_apply_true_asks_for_the_token_with_its_own_audience_and_writes_the_environment()
+    {
+        var run = RunCheck(path: "deploy", planFile: "deploy/powerops-plan.json", apply: "true", response: TokenResponse("""{"environment":"test","sub":"repo:contoso/widgets:environment:test"}"""));
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal("environment=test\n", run.Output);
+        var call = Assert.Single(run.CurlCalls);
+        Assert.Contains("https://token.example.test/token?api-version=2.0&audience=powerops-environment-check", call);
+        Assert.Contains($"Authorization: bearer {RequestToken}", call);
+        AssertNoSecret(run);
+    }
+
+    [Theory]
+    [InlineData("a")]
+    [InlineData("ab")]
+    [InlineData("abc")]
+    [InlineData("a_b-c~?>")]
+    [InlineData("Test é")]
+    public void Check_decodes_payloads_with_each_amount_of_base64_padding(string name)
+    {
+        var run = RunCheck(path: "deploy", planFile: "deploy/powerops-plan.json", apply: "true", response: TokenResponse($$"""{"environment":"{{name}}"}"""));
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal($"environment={name}\n", run.Output);
+    }
+
+    [Fact]
+    public void The_fixture_payloads_cover_all_three_padding_lengths()
+    {
+        var lengths = new[] { "a", "ab", "abc" }.Select(n => Jwt($$"""{"environment":"{{n}}"}""").Split('.')[1].Length % 4).Distinct().ToList();
+
+        Assert.Equal(3, lengths.Count);
+    }
+
+    [Theory]
+    [InlineData("no-variables")]
+    [InlineData("curl-fails")]
+    [InlineData("empty-response")]
+    [InlineData("not-json")]
+    [InlineData("no-value")]
+    [InlineData("not-a-jwt")]
+    [InlineData("no-claim")]
+    [InlineData("empty-claim")]
+    [InlineData("line-break")]
+    [InlineData("carriage-return")]
+    [InlineData("zero-width-space")]
+    [InlineData("line-separator")]
+    [InlineData("number-claim")]
+    public void Check_refuses_apply_true_without_a_job_environment_and_writes_no_output(string kind)
+    {
+        var response = kind switch
+        {
+            "no-claim" => TokenResponse("""{"sub":"repo:contoso/widgets:ref:refs/heads/main"}"""),
+            "empty-claim" => TokenResponse("""{"environment":""}"""),
+            "line-break" => TokenResponse("""{"environment":"te\nst"}"""),
+            "carriage-return" => TokenResponse("""{"environment":"test\r"}"""),
+            "zero-width-space" => TokenResponse("""{"environment":"te\u200bst"}"""),
+            "line-separator" => TokenResponse("""{"environment":"te\u2028st"}"""),
+            "number-claim" => TokenResponse("""{"environment":5}"""),
+            "empty-response" => "",
+            "not-json" => "<html>Signature SENTINEL</html>",
+            "no-value" => """{"count":1}""",
+            "not-a-jwt" => """{"value":"abc"}""",
+            _ => TokenResponse("""{"environment":"test"}"""),
+        };
+
+        var run = RunCheck(path: "deploy", planFile: "deploy/powerops-plan.json", apply: "true", response: response, token: kind != "no-variables", curlExit: kind == "curl-fails" ? "22" : "0");
+
+        Assert.Equal(2, run.Code);
+        Assert.StartsWith("::error::apply: 'true' ", run.Out);
+        Assert.Single(run.Out.TrimEnd().Split('\n'));
+        Assert.EndsWith("nothing was imported\n", run.Out);
+        Assert.Equal("", run.Output);
+        Assert.Equal(kind == "no-variables" ? 0 : 1, run.CurlCalls.Length);
+        AssertNoSecret(run);
+    }
+
+    [Fact]
+    public void Check_names_what_is_missing_in_each_refusal()
+    {
+        var noToken = RunCheck(path: "deploy", planFile: "deploy/powerops-plan.json", apply: "true", token: false);
+        var noEnvironment = RunCheck(path: "deploy", planFile: "deploy/powerops-plan.json", apply: "true", response: TokenResponse("""{"sub":"x"}"""));
+        var curlFails = RunCheck(path: "deploy", planFile: "deploy/powerops-plan.json", apply: "true", curlExit: "22");
+
+        Assert.Equal("::error::apply: 'true' needs permissions: id-token: write, in a job that declares a GitHub environment (jobs.<job_id>.environment); nothing was imported\n", noToken.Out);
+        Assert.Equal("::error::apply: 'true' runs only in a job that declares a GitHub environment (jobs.<job_id>.environment), with required reviewers; nothing was imported\n", noEnvironment.Out);
+        Assert.Equal("::error::apply: 'true' could not get the job's OIDC token to read its environment; nothing was imported\n", curlFails.Out);
+    }
+
+    [Theory]
+    [InlineData("TRUE")]
+    [InlineData("yes")]
+    [InlineData("")]
+    public void Check_treats_any_other_apply_value_as_a_dry_run(string apply)
+    {
+        var run = RunCheck(path: "deploy", planFile: "deploy/powerops-plan.json", apply: apply, token: false);
+
+        Assert.Equal(0, run.Code);
+        Assert.Empty(run.CurlCalls);
+        Assert.Equal("", run.Output);
+    }
+
+    // The stub curl logs its arguments and prints the canned response; CURL_EXIT makes it fail.
+    private const string CurlStub = """
+        #!/usr/bin/env bash
+        echo "$*" >> "$STUB_DIR/curl.log"
+        if [ "${CURL_EXIT:-0}" != "0" ]; then echo "curl: (22) failed REQUEST-TOKEN-SENTINEL" >&2; exit "$CURL_EXIT"; fi
+        printf '%s' "$(cat "$STUB_DIR/curl-response.json")"
+        """;
+
+    // Runs from a workspace that holds deploy/ (a plan file and a zip), other/ and a plan file in its root. A null path is the absolute path of deploy plus pathSuffix.
+    private Result RunCheck(string? path, string planFile, string apply, string response = "", bool token = true, string curlExit = "0", string pathSuffix = "", string os = "")
+    {
+        Tools.Require("bash", "jq");
+        var temp = NewDir("check");
+        WriteStub(temp, "curl", CurlStub);
+        File.WriteAllText(Path.Combine(temp, "curl-response.json"), response);
+        var work = Directory.CreateDirectory(Path.Combine(temp, "work")).FullName;
+        Directory.CreateDirectory(Path.Combine(work, "deploy"));
+        Directory.CreateDirectory(Path.Combine(work, "other"));
+        File.WriteAllText(Path.Combine(work, "powerops-plan.json"), "{}");
+        File.WriteAllText(Path.Combine(work, "deploy", "powerops-plan.json"), "{}");
+        File.WriteAllText(Path.Combine(work, "deploy", "Sol.zip"), "x");
+        var output = Path.Combine(temp, "output.txt");
+        var run = Run("check-apply.sh", temp, work, new()
+        {
+            ["PO_PATH"] = path ?? Path.Combine(work, "deploy") + pathSuffix,
+            ["PO_PLAN_FILE"] = planFile,
+            ["PO_APPLY"] = apply,
+            ["GITHUB_OUTPUT"] = output,
+            ["OS"] = os,
+            // Set to empty, not left out: a test run inside an Actions job inherits the job's own values.
+            ["ACTIONS_ID_TOKEN_REQUEST_URL"] = token ? "https://token.example.test/token?api-version=2.0" : "",
+            ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"] = token ? RequestToken : "",
+            ["CURL_EXIT"] = curlExit,
+        });
+        return run with { Output = ReadOrEmpty(output) };
+    }
+
     // ---- helpers ----
 
     private sealed record Result(int Code, string Out, string Folder, string Temp, string Comment, string Summary, string Output, string Posted)
@@ -670,6 +926,8 @@ public sealed class ActionScriptTests : IDisposable
         public string[] GhCalls => ReadLines(Path.Combine(Temp, "gh.log"));
 
         public string[] DotnetCalls => ReadLines(Path.Combine(Temp, "dotnet.log"));
+
+        public string[] CurlCalls => ReadLines(Path.Combine(Temp, "curl.log"));
     }
 
     private static string[] ReadLines(string path) => File.Exists(path) ? File.ReadAllLines(path) : [];
@@ -772,7 +1030,7 @@ public sealed class ActionScriptTests : IDisposable
         return run with { Folder = folder, Comment = comment, Summary = summary, Output = ReadOrEmpty(output) };
     }
 
-    private Result RunApply(int exit, string? stderr = null, bool debug = false, string apply = "true", string target = "Contoso Test", string? headRepo = "contoso/widgets", string eventName = "pull_request", string report = "the report\n")
+    private Result RunApply(int exit, string? stderr = null, bool debug = false, string apply = "true", string target = "Contoso Test", string? headRepo = "contoso/widgets", string eventName = "pull_request", string report = "the report\n", string environment = "")
     {
         Tools.Require("bash");
         var temp = NewDir("apply");
@@ -792,6 +1050,9 @@ public sealed class ActionScriptTests : IDisposable
             ["PO_TARGET"] = target,
             ["PO_APPLY"] = apply,
             ["PO_EVENT"] = eventName,
+            ["PO_ENVIRONMENT"] = environment,
+            ["GITHUB_RUN_ID"] = "7",
+            ["GITHUB_RUN_ATTEMPT"] = "2",
             ["GITHUB_REPOSITORY"] = "contoso/widgets",
             ["GITHUB_OUTPUT"] = output,
             ["GITHUB_STEP_SUMMARY"] = summary,

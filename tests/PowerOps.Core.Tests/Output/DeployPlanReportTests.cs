@@ -147,13 +147,27 @@ public class DeployPlanReportTests
         Assert.EndsWith("}\n", json);
         Assert.DoesNotContain('\r', json);
         var node = JsonNode.Parse(json)!.AsObject();
-        Assert.Equal(["schemaVersion", "tool", "target", "hash", "blocked", "inputs", "solutions", "items"], node.Select(p => p.Key));
+        Assert.Equal(["schemaVersion", "tool", "plannedBy", "target", "hash", "blocked", "inputs", "solutions", "items"], node.Select(p => p.Key));
         Assert.Equal(["zips", "dependencies"], node["inputs"]!.AsObject().Select(p => p.Key));
         var s = node["solutions"]![0]!.AsObject();
         Assert.Equal(["order", "solution", "zip", "settings", "version", "managed", "action", "installed", "dependsOn", "flows"], s.Select(p => p.Key));
         Assert.Null(s["settings"]);
         Assert.Contains("\"installed\": null", json);
         Assert.Equal("9.9.9", (string?)node["tool"]);
+        Assert.Null(node["plannedBy"]);
+        Assert.Contains("\"plannedBy\": null", json);
+    }
+
+    [Fact]
+    public void Json_writes_plannedBy_right_after_the_tool()
+    {
+        var w = new StringWriter();
+        DeployPlanReport.WriteJson(Result(), "9.9.9", w, "agent");
+
+        var node = JsonNode.Parse(w.ToString())!.AsObject();
+
+        Assert.Equal("agent", (string?)node["plannedBy"]);
+        Assert.Equal(["tool", "plannedBy", "target"], node.Select(p => p.Key).Skip(1).Take(3));
     }
 
     [Fact]

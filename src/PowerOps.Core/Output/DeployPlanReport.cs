@@ -44,10 +44,10 @@ public static class DeployPlanReport
         writer.Write(text.ToString());
     }
 
-    /// <summary>Writes the JSON report, which is also the plan file (stable property order, nulls written, "\n" line endings, trailing newline).</summary>
-    public static void WriteJson(DeployPlanResult result, string tool, TextWriter writer)
+    /// <summary>Writes the JSON report, which is also the plan file (stable property order, nulls written, "\n" line endings, trailing newline). <paramref name="plannedBy"/> is as the caller reports it and is not a hash input.</summary>
+    public static void WriteJson(DeployPlanResult result, string tool, TextWriter writer, string? plannedBy = null)
     {
-        var doc = new Doc(JsonOutput.SchemaVersion, tool, result.Target, result.Hash, result.Blocked, result.Inputs, result.Solutions, result.Items);
+        var doc = new Doc(JsonOutput.SchemaVersion, tool, plannedBy, result.Target, result.Hash, result.Blocked, result.Inputs, result.Solutions, result.Items);
         writer.Write(JsonSerializer.Serialize(doc, Options) + "\n");
     }
 
@@ -109,6 +109,6 @@ public static class DeployPlanReport
     private static string Before(PlannedFlow f) => f.StateBefore ?? "new";
 
     private sealed record Doc(
-        int SchemaVersion, string Tool, string Target, string Hash, bool Blocked,
+        int SchemaVersion, string Tool, string? PlannedBy, string Target, string Hash, bool Blocked,
         PlanInputs Inputs, IReadOnlyList<PlannedSolution> Solutions, IReadOnlyList<PlanItem> Items);
 }

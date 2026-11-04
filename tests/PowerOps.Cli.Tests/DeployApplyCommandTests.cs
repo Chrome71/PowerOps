@@ -465,10 +465,10 @@ public class DeployApplyCommandTests : DeployTestBase
     }
 
     // The in-process entry point takes the hash the user approved; no argument list can.
-    private Outcome ApplyApproved(FakeTarget fake, FakePac pac, string approvedHash)
+    private Outcome ApplyApproved(FakeTarget fake, FakePac pac, string approvedHash, bool mcp = false)
     {
         var (o, e) = (new StringWriter(), new StringWriter());
-        var code = Program.Run(["deploy", "apply", PlanFile, "--target", TargetValue, "--format", "json", "--apply"], o, e, pac.Run, null, fake.Read, null, approvedHash);
+        var code = Program.Run(["deploy", "apply", PlanFile, "--target", TargetValue, "--format", "json", "--apply"], o, e, pac.Run, null, fake.Read, null, approvedHash, mcp);
         return new Outcome(code, o.ToString().ReplaceLineEndings("\n"), e.ToString().ReplaceLineEndings("\n"));
     }
 
@@ -501,6 +501,197 @@ public class DeployApplyCommandTests : DeployTestBase
 
         var pac = new FakePac();
         var r = ApplyApproved(SeedTarget(), pac, planHash);
+
+        Assert.Equal(0, r.Code);
+        Assert.Single(pac.Calls);
+    }
+
+    // ---- executor, approval and time (M52) ---------------------------------------------------------------------
+
+    [Fact]
+    public void A_dry_run_is_cli_with_no_approval_and_no_time()
+    {
+        SeedZip(Folder);
+        MakePlan();
+
+        var json = Json(Apply(SeedTarget(), new FakePac(), "--format", "json"));
+        var text = Apply(SeedTarget(), new FakePac()).Out;
+
+        Assert.Equal("cli", (string?)json["executor"]);
+        Assert.Null(json["approval"]);
+        Assert.Null(json["appliedAt"]);
+        Assert.Equal(["status", "message", "appliedAt", "executor", "approval", "solutions"], json.Select(p => p.Key).Skip(5).Take(6));
+        Assert.Contains("Plan hash: ", text);
+        Assert.Contains("\nExecutor: cli\n", text);
+        Assert.DoesNotContain("Approval:", text);
+        Assert.DoesNotContain("Applied at:", text);
+    }
+
+    [Fact]
+    public void An_apply_is_cli_cli_with_the_utc_time_it_started_importing()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        static DateTime Second(DateTime t) => new(t.Ticks - (t.Ticks % TimeSpan.TicksPerSecond), DateTimeKind.Utc);
+        var before = Second(DateTime.UtcNow);
+
+        var r = Apply(new FakeTarget { Snaps = SeedTarget().Snaps, After = SeedAfter("on") }, new FakePac(), "--apply", "--format", "json");
+
+        var after = DateTime.UtcNow;
+        Assert.Equal(0, r.Code);
+        var doc = Json(r);
+        Assert.Equal("cli", (string?)doc["executor"]);
+        Assert.Equal("cli", (string?)doc["approval"]!["mode"]);
+        Assert.Null(doc["approval"]!["receipt"]);
+        var stamp = (string)doc["appliedAt"]!;
+        Assert.Matches("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$", stamp);
+        var at = DateTime.ParseExact(stamp, "yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal);
+        Assert.InRange(at, before, after);
+        var text = Apply(new FakeTarget { Snaps = SeedTarget().Snaps, After = SeedAfter("on") }, new FakePac(), "--apply").Out;
+        Assert.Matches(@"\nExecutor: cli\nApproval: cli\nApplied at: [0-9T:Z-]{20}\n", text);
+    }
+
+    [Fact]
+    public void A_failed_import_has_a_time_too()
+    {
+        Chain();
+        MakePlan(new FakeTarget());
+        var pac = new FakePac { Answer = n => n == 1 ? new PacResult(true, false, 1, "boom") : null };
+
+        var doc = Json(Apply(new FakeTarget(), pac, "--apply", "--format", "json"));
+
+        Assert.Equal("failed", (string?)doc["status"]);
+        Assert.NotNull(doc["appliedAt"]);
+        Assert.Equal("cli", (string?)doc["approval"]!["mode"]);
+    }
+
+    [Fact]
+    public void Github_run_makes_the_executor_action_and_with_apply_the_approval_its_receipt()
+    {
+        SeedZip(Folder);
+        MakePlan();
+
+        var dry = Json(Apply(SeedTarget(), new FakePac(), "--github-run", "run 7 attempt 2", "--format", "json"));
+        var applied = Json(Apply(new FakeTarget { Snaps = SeedTarget().Snaps, After = SeedAfter("on") }, new FakePac(), "--github-run", "run 7 attempt 2, environment test", "--apply", "--format", "json"));
+        var text = Apply(new FakeTarget { Snaps = SeedTarget().Snaps, After = SeedAfter("on") }, new FakePac(), "--github-run", "run 7 attempt 2, environment test", "--apply").Out;
+
+        Assert.Equal("action", (string?)dry["executor"]);
+        Assert.Null(dry["approval"]);
+        Assert.Equal("action", (string?)applied["executor"]);
+        Assert.Equal("action", (string?)applied["approval"]!["mode"]);
+        Assert.Equal("run 7 attempt 2, environment test", (string?)applied["approval"]!["receipt"]);
+        Assert.Contains("\nExecutor: action\nApproval: action, receipt run 7 attempt 2, environment test\nApplied at: ", text);
+    }
+
+    [Fact]
+    public void The_approved_hash_entry_gives_the_form_approval_and_mcp_when_the_caller_says_so()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var planHash = (string)JsonNode.Parse(File.ReadAllText(PlanFile))!["hash"]!;
+
+        var viaCli = Json(ApplyApproved(SeedTarget(), new FakePac(), planHash));
+        var viaMcp = Json(ApplyApproved(SeedTarget(), new FakePac(), planHash, mcp: true));
+
+        Assert.Equal("cli", (string?)viaCli["executor"]);
+        Assert.Equal("form", (string?)viaCli["approval"]!["mode"]);
+        Assert.Equal("mcp", (string?)viaMcp["executor"]);
+        Assert.Equal("form", (string?)viaMcp["approval"]!["mode"]);
+        Assert.Null(viaMcp["approval"]!["receipt"]);
+        Assert.NotNull(viaMcp["appliedAt"]);
+    }
+
+    [Fact]
+    public void The_approved_hash_wins_the_approval_over_github_run_and_github_run_still_makes_the_executor_action()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var planHash = (string)JsonNode.Parse(File.ReadAllText(PlanFile))!["hash"]!;
+        var (o, e) = (new StringWriter(), new StringWriter());
+        var pac = new FakePac();
+
+        var code = Program.Run(["deploy", "apply", PlanFile, "--target", TargetValue, "--format", "json", "--apply", "--github-run", "contoso/widgets run 7 attempt 1"], o, e, pac.Run, null, SeedTarget().Read, null, planHash);
+
+        Assert.Equal(0, code);
+        var doc = JsonNode.Parse(o.ToString())!;
+        Assert.Equal("action", (string?)doc["executor"]);
+        Assert.Equal("form", (string?)doc["approval"]!["mode"]);
+        Assert.Null(doc["approval"]!["receipt"]);
+    }
+
+    [Fact]
+    public void A_refusal_with_apply_keeps_its_approval_and_has_no_time()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var settings = Path.Combine(Folder, "PowerOpsSeed.settings.json");
+        File.WriteAllBytes(settings, [.. File.ReadAllBytes(settings), (byte)'\n']);
+
+        var pac = new FakePac();
+        var doc = Json(Apply(SeedTarget(), pac, "--apply", "--github-run", "run 7 attempt 1", "--format", "json"));
+
+        Assert.Equal("refused", (string?)doc["status"]);
+        Assert.Equal("action", (string?)doc["executor"]);
+        Assert.Equal("run 7 attempt 1", (string?)doc["approval"]!["receipt"]);
+        Assert.Null(doc["appliedAt"]);
+        Assert.Empty(pac.Calls);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("501")]
+    [InlineData("format")]
+    [InlineData("separator")]
+    [InlineData("private-use")]
+    [InlineData("line-break")]
+    [InlineData("control")]
+    public void A_bad_github_run_exits_2_before_anything_is_read_or_run(string kind)
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var value = kind switch
+        {
+            "501" => new string('a', 501),
+            "format" => "run\u200b7",
+            "separator" => "run\u20287",
+            "private-use" => "run\ue0007",
+            "line-break" => "run 7\n::error::x",
+            "control" => "run\u0007 7",
+            _ => "",
+        };
+
+        var (fake, pac) = (SeedTarget(), new FakePac());
+        var r = Apply(fake, pac, "--apply", "--github-run", value);
+
+        Assert.Equal(2, r.Code);
+        Assert.StartsWith("error: --github-run", r.Err);
+        Assert.Equal("", r.Out);
+        Assert.Equal(0, fake.Calls);
+        Assert.Empty(pac.Calls);
+        Assert.All(r.Err.Split('\n'), l => Assert.DoesNotMatch("^::", l));
+    }
+
+    [Fact]
+    public void A_github_run_of_500_characters_is_accepted()
+    {
+        SeedZip(Folder);
+        MakePlan();
+
+        var r = Apply(SeedTarget(), new FakePac(), "--github-run", new string('a', 500), "--format", "json");
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal("action", (string?)Json(r)["executor"]);
+    }
+
+    [Fact]
+    public void A_plan_file_whose_plannedBy_was_edited_still_applies()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        EditPlanFile(d => d["plannedBy"] = "agent");
+
+        var pac = new FakePac();
+        var r = Apply(new FakeTarget { Snaps = SeedTarget().Snaps, After = SeedAfter("on") }, pac, "--apply");
 
         Assert.Equal(0, r.Code);
         Assert.Single(pac.Calls);
@@ -1003,7 +1194,9 @@ public class DeployApplyCommandTests : DeployTestBase
     // ---- goldens -----------------------------------------------------------------------------------------------
 
     private static string Scrub(string text) =>
-        Regex.Replace(Regex.Replace(text, "[0-9a-f]{64}", new string('0', 64)), "\"tool\": \"[^\"]*\"", "\"tool\": \"<tool>\"");
+        Regex.Replace(
+            Regex.Replace(Regex.Replace(text, "[0-9a-f]{64}", new string('0', 64)), "\"tool\": \"[^\"]*\"", "\"tool\": \"<tool>\""),
+            "(\"appliedAt\": \"|Applied at: )[^\"\n]*", "${1}2000-01-01T00:00:00Z");
 
     [Theory]
     [InlineData("text", "deploy-apply-dry-run.txt")]

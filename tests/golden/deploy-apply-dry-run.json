@@ -6,6 +6,9 @@
   "hash": "0000000000000000000000000000000000000000000000000000000000000000",
   "status": "planned",
   "message": null,
+  "appliedAt": null,
+  "executor": "cli",
+  "approval": null,
   "solutions": [
     {
       "order": 1,

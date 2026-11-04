@@ -490,6 +490,42 @@ public class DeployCommandTests : IDisposable
         Assert.DoesNotContain("SENTINEL", all.ToString());
     }
 
+    // ---- plannedBy (M52) ---------------------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("agent")]
+    [InlineData("person")]
+    [InlineData("action")]
+    public void Planned_by_reaches_the_json_report_and_the_plan_file_and_is_not_in_the_hash(string who)
+    {
+        SeedZip(Folder);
+        var save = Path.Combine(Out, "plan.json");
+
+        var marked = Plan(SeedTarget(), "--format", "json", "--planned-by", who, "--save", save);
+        var plain = Plan(SeedTarget(), "--format", "json");
+
+        Assert.Equal(0, marked.Code);
+        Assert.Equal(who, (string?)Json(marked)["plannedBy"]);
+        Assert.Equal(who, (string?)JsonNode.Parse(File.ReadAllText(save))!["plannedBy"]);
+        Assert.Equal(["schemaVersion", "tool", "plannedBy", "target"], Json(marked).Select(p => p.Key).Take(4));
+        Assert.Null(Json(plain)["plannedBy"]);
+        Assert.Equal(HashOf(plain), HashOf(marked));
+    }
+
+    [Fact]
+    public void A_planned_by_other_than_agent_person_or_action_exits_2_before_the_target_is_read()
+    {
+        SeedZip(Folder);
+        var fake = SeedTarget();
+
+        var r = Plan(fake, "--planned-by", "robot");
+
+        Assert.Equal(2, r.Code);
+        Assert.StartsWith("error: ", r.Err);
+        Assert.Equal("", r.Out);
+        Assert.Empty(fake.Calls);
+    }
+
     // ---- the hash ----------------------------------------------------------------------------------------------
 
     [Fact]

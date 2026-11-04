@@ -11,7 +11,7 @@ if [ -z "${PO_FOLDER:-}" ]; then
 else
   stderr="$(mktemp)"
   trap 'rm -f "$stderr"' EXIT
-  dotnet "$PO_DLL" deploy plan "$PO_FOLDER" --target "$PO_TARGET" --save "$PO_FOLDER/powerops-plan.json" --format markdown --out "$PO_COMMENT" 2>"$stderr" || code=$?
+  dotnet "$PO_DLL" deploy plan "$PO_FOLDER" --target "$PO_TARGET" --save "$PO_FOLDER/powerops-plan.json" --format markdown --out "$PO_COMMENT" --planned-by action 2>"$stderr" || code=$?
   # Text forwarded from pac, az and the Web API can name tenant ids and the environment URL, and the log may be public.
   if [ "${RUNNER_DEBUG:-}" = "1" ]; then
     cat "$stderr"

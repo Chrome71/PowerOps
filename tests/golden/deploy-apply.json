@@ -6,6 +6,12 @@
   "hash": "0000000000000000000000000000000000000000000000000000000000000000",
   "status": "imported",
   "message": null,
+  "appliedAt": "2000-01-01T00:00:00Z",
+  "executor": "cli",
+  "approval": {
+    "mode": "cli",
+    "receipt": null
+  },
   "solutions": [
     {
       "order": 1,

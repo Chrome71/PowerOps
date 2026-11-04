@@ -24,7 +24,17 @@ public static class DeployApplyReport
     public static void WriteText(DeployApplyResult result, TextWriter writer)
     {
         static string C(string? s) => TextReport.Clean(s);
-        var text = new StringBuilder($"Target: {C(result.Target)}\nPlan hash: {C(result.Hash)}\n");
+        var text = new StringBuilder($"Target: {C(result.Target)}\nPlan hash: {C(result.Hash)}\nExecutor: {C(result.Executor)}\n");
+        if (result.Approval is { } approval)
+        {
+            text.Append($"Approval: {C(approval.Mode)}{(approval.Receipt is null ? "" : $", receipt {C(approval.Receipt)}")}\n");
+        }
+
+        if (result.AppliedAt is not null)
+        {
+            text.Append($"Applied at: {C(result.AppliedAt)}\n");
+        }
+
         foreach (var s in result.Solutions)
         {
             text.Append($"{s.Order} {C(s.Solution)} ({C(s.Zip)}): {C(s.Action)}, {C(s.Import)}\n");
@@ -41,7 +51,7 @@ public static class DeployApplyReport
     /// <summary>Writes the JSON report (stable property order, nulls written, "\n" line endings, trailing newline).</summary>
     public static void WriteJson(DeployApplyResult result, TextWriter writer)
     {
-        var doc = new Doc(JsonOutput.SchemaVersion, result.Tool, result.Applied, result.Target, result.Hash, result.Status, result.Message, result.Solutions, result.Flows);
+        var doc = new Doc(JsonOutput.SchemaVersion, result.Tool, result.Applied, result.Target, result.Hash, result.Status, result.Message, result.AppliedAt, result.Executor, result.Approval, result.Solutions, result.Flows);
         writer.Write(JsonSerializer.Serialize(doc, Options) + "\n");
     }
 
@@ -64,6 +74,6 @@ public static class DeployApplyReport
     }
 
     private sealed record Doc(
-        int SchemaVersion, string Tool, bool Applied, string Target, string Hash, string Status, string? Message,
+        int SchemaVersion, string Tool, bool Applied, string Target, string Hash, string Status, string? Message, string? AppliedAt, string Executor, Approval? Approval,
         IReadOnlyList<AppliedSolution> Solutions, IReadOnlyList<AppliedFlow> Flows);
 }

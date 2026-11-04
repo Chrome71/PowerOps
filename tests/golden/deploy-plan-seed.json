@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "tool": "<tool>",
+  "plannedBy": null,
   "target": "Contoso Test",
   "hash": "0000000000000000000000000000000000000000000000000000000000000000",
   "blocked": false,

@@ -344,10 +344,11 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         var result = await Call("deploy_plan", new() { ["folder"] = folder, ["target"] = Secret });
 
-        var expected = CliWith(TargetFakes(), "deploy", "plan", "--target", Secret, "--format", "json", "--", folder);
+        var expected = CliWith(TargetFakes(), "deploy", "plan", "--target", Secret, "--format", "json", "--planned-by", "agent", "--", folder);
         Assert.False(result.IsError);
         Assert.Single(result.Content);
         Assert.Equal(expected.Out, Text(result));
+        Assert.Equal("agent", (string?)JsonNode.Parse(Text(result))!["plannedBy"]);
         Assert.Equal(1, _fakes.Targets);
         Assert.Equal("", OutputSchemaTests.Errors(OutputSchemaTests.Load("deploy-plan.schema.json"), JsonNode.Parse(Text(result))!));
         Assert.Equal(["PowerOpsSeed.settings.json", "PowerOpsSeed.zip"], Files(folder));
@@ -677,6 +678,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         var bytes = File.ReadAllBytes(Path.Combine(folder, "plan.json"));
         Assert.NotEqual(0xEF, bytes[0]);
         Assert.Equal(Text(result), new System.Text.UTF8Encoding(false).GetString(bytes));
+        Assert.Equal("agent", (string?)JsonNode.Parse(bytes)!["plannedBy"]);
     }
 
     [Fact]
@@ -1200,16 +1202,26 @@ public sealed class McpCommandTests : IAsyncLifetime
         };
     }
 
+    // The in-process route the tool takes (mcp, and the approved hash for an apply), so its output can be compared with the tool's.
+    private static (int Code, string Out, string Err) ViaTool(Fakes fakes, string? approvedHash, params string[] args)
+    {
+        var (o, e) = (new StringWriter(), new StringWriter());
+        return (Program.Run(args, o, e, fakes.Pac, fakes.Live, fakes.Target, approvedHash: approvedHash, mcp: true), o.ToString(), e.ToString());
+    }
+
     private (int Code, string Out, string Err) CliApply(string planFile, bool apply, PacResult? pac = null)
     {
         string[] args = ["deploy", "apply", planFile, "--target", Secret, "--format", "json", .. (apply ? new[] { "--apply" } : [])];
-        return CliWith(new Fakes { TargetBehavior = ReadTarget, PacBehavior = _ => pac ?? Ok("imported\n") }, args);
+        return ViaTool(new Fakes { TargetBehavior = ReadTarget, PacBehavior = _ => pac ?? Ok("imported\n") }, apply ? (string)JsonNode.Parse(File.ReadAllText(planFile))!["hash"]! : null, args);
     }
+
+    // The time of an apply is the second it started; the comparison with the tool's report leaves it out.
+    private static string WithoutTime(string json) => System.Text.RegularExpressions.Regex.Replace(json, "\"appliedAt\": \"[^\"]*\"", "\"appliedAt\": \"T\"");
 
     // What a refusal after a failed dry run holds: the CLI's stdout for the same arguments, then its error lines and the tool's line.
     private static string[] DryRunThen(Fakes fakes, string planFile, string line)
     {
-        var dry = CliWith(fakes, "deploy", "apply", planFile, "--target", Secret, "--format", "json");
+        var dry = ViaTool(fakes, null, "deploy", "apply", planFile, "--target", Secret, "--format", "json");
         var errors = dry.Err.Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.StartsWith("error:", StringComparison.Ordinal));
         return [.. (dry.Out.Length > 0 ? new[] { dry.Out } : []), string.Join("\n", [.. errors, line])];
     }
@@ -1241,6 +1253,10 @@ public sealed class McpCommandTests : IAsyncLifetime
             Assert.Single(result.Content);
             Assert.Equal(CliApply(planFile, apply: false).Out, Text(result));
             Assert.Equal("", OutputSchemaTests.Errors(OutputSchemaTests.Load("deploy-apply.schema.json"), JsonNode.Parse(Text(result))!));
+            var doc = JsonNode.Parse(Text(result))!;
+            Assert.Equal("mcp", (string?)doc["executor"]);
+            Assert.Null(doc["approval"]);
+            Assert.Null(doc["appliedAt"]);
         }
 
         Assert.Equal(0, _fakes.Pacs);
@@ -1345,8 +1361,13 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         Assert.False(result.IsError);
         Assert.Single(result.Content);
-        Assert.Equal(CliApply(planFile, apply: true).Out, Text(result));
+        Assert.Equal(WithoutTime(CliApply(planFile, apply: true).Out), WithoutTime(Text(result)));
         Assert.Equal("", OutputSchemaTests.Errors(OutputSchemaTests.Load("deploy-apply.schema.json"), JsonNode.Parse(Text(result))!));
+        var report = JsonNode.Parse(Text(result))!;
+        Assert.Equal("mcp", (string?)report["executor"]);
+        Assert.Equal("form", (string?)report["approval"]!["mode"]);
+        Assert.Null(report["approval"]!["receipt"]);
+        Assert.NotNull(report["appliedAt"]);
         var import = Assert.Single(_imports);
         Assert.Equal(["solution", "import"], import.Take(2));
         Assert.Equal(Path.Combine(folder, "PowerOpsSeed.settings.json"), import[(Array.IndexOf(import, "--settings-file") + 1)]);
@@ -1440,7 +1461,7 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         var result = await Apply(pair, ApplyArgs(planFile));
 
-        var cli = CliWith(new Fakes { TargetBehavior = ChangedTarget(kind), PacBehavior = _ => Ok("imported\n") }, "deploy", "apply", planFile, "--target", Secret, "--format", "json", "--apply");
+        var cli = ViaTool(new Fakes { TargetBehavior = ChangedTarget(kind), PacBehavior = _ => Ok("imported\n") }, (string)JsonNode.Parse(File.ReadAllText(planFile))!["hash"]!, "deploy", "apply", planFile, "--target", Secret, "--format", "json", "--apply");
         Assert.Equal(kind == "snapshot" ? 1 : 2, cli.Code);
         Assert.Equal(kind == "name", result.IsError);
         Assert.Equal(cli.Code == 1 ? cli.Out : string.Join("\n", cli.Err.Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.StartsWith("error:", StringComparison.Ordinal))), Text(result));

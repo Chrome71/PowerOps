@@ -9,10 +9,29 @@ public sealed record AppliedSolution(int Order, string Solution, string Zip, str
 /// <summary>One planned cloud flow and its state after the imports (null in a dry run or when the second read failed).</summary>
 public sealed record AppliedFlow(string Solution, string Name, string ExpectedState, string? StateAfter);
 
-/// <summary>The apply report. Holds no environment id or URL, folder path, connection id, setting value or <c>pac</c> text.</summary>
+/// <summary>How an apply was approved, as the caller reports it: provenance, not authentication. <paramref name="Receipt"/> is opaque text (the Action's run, attempt and environment), null for the CLI and the form.</summary>
+public sealed record Approval(string Mode, string? Receipt);
+
+/// <summary>The apply report. Holds no environment id or URL, folder path, connection id, setting value or <c>pac</c> text. <paramref name="AppliedAt"/> (UTC, to the second) is set once an <c>--apply</c> run started importing.</summary>
 public sealed record DeployApplyResult(
-    string Tool, bool Applied, string Target, string Hash, string Status, string? Message,
+    string Tool, bool Applied, string Target, string Hash, string Status, string? Message, string? AppliedAt, string Executor, Approval? Approval,
     IReadOnlyList<AppliedSolution> Solutions, IReadOnlyList<AppliedFlow> Flows);
+
+/// <summary>The route a <c>deploy apply</c> ran by, as the caller reports it.</summary>
+public static class ApplyExecutor
+{
+    public const string Cli = "cli";
+    public const string Mcp = "mcp";
+    public const string Action = "action";
+}
+
+/// <summary>How the yes to an apply was given, as the caller reports it.</summary>
+public static class ApprovalMode
+{
+    public const string Cli = "cli";
+    public const string Form = "form";
+    public const string Action = "action";
+}
 
 public static class ApplyStatus
 {

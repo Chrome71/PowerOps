@@ -1,4 +1,6 @@
 using System.CommandLine;
+using System.Globalization;
+using System.Text;
 
 using PowerOps.Core.Deploy;
 using PowerOps.Core.Drift;
@@ -19,7 +21,7 @@ public static class DeployCommand
     internal static readonly TimeSpan GateDeadline = TimeSpan.FromSeconds(300);
 
     private const string ReadingGuidance = "The call was blocked. If it is an import, write it as one plain pac solution import command with literal absolute paths and the environment's id or https URL. If it only mentions an import, reword it.";
-    private const string ImportGuidance = "The import was blocked. To import a reviewed plan, run powerops deploy apply <plan file> --target <environment id or URL> --apply after the user's yes to that environment. Do not retry this import another way.";
+    private const string ImportGuidance = "The import was blocked. To import a reviewed plan, ask the user for a yes to that environment, then call the MCP tool deploy_apply with apply: true, where the user types the environment's name in a form, or leave the import to the Action's approved job or to the user, who runs powerops deploy apply <plan file> --target <environment id or URL> --apply. Do not retry this import another way.";
 
     /// <param name="pac">Runs pac; <c>deploy apply</c> uses it for the imports only.</param>
     /// <param name="target">Reads the target: the <c>--target</c> value, the solution names of the folder and the dependency names not in it. Throws <see cref="DriftReadException"/>.</param>
@@ -27,7 +29,7 @@ public static class DeployCommand
     /// <param name="deadline">How long <c>deploy gate</c> may check before it blocks; a test seam, <see cref="GateDeadline"/> in production.</param>
     public static Command Create(
         TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> target,
-        Func<Stream?>? input = null, TimeSpan? deadline = null, string? approvedHash = null)
+        Func<Stream?>? input = null, TimeSpan? deadline = null, string? approvedHash = null, bool mcp = false)
     {
         var folder = new Argument<string>("folder") { Description = "A folder of exported solution zips, each with an optional <zip name>.settings.json beside it." };
         var targetOption = new Option<string?>("--target") { Description = "The environment to plan against (an id or URL, as pac --environment). Never printed." };
@@ -35,17 +37,19 @@ public static class DeployCommand
         var format = new Option<string>("--format") { Description = "Report format.", DefaultValueFactory = _ => "text" };
         format.AcceptOnlyFromAmong("text", "json", "markdown");
         var outFile = new Option<string?>("--out") { Description = "Write the report here instead of stdout." };
+        var plannedBy = new Option<string?>("--planned-by") { Description = "Who made the plan, as you report it (not checked, not part of the hash): agent, person or action. Written to the plan file as plannedBy." };
+        plannedBy.AcceptOnlyFromAmong("agent", "person", "action");
         var plan = new Command("plan", "Say what importing the solution zips in a folder into the target would do. Reads the target only.")
         {
-            folder, targetOption, save, format, outFile,
+            folder, targetOption, save, format, outFile, plannedBy,
         };
         plan.SetAction(parse => SettingsCommand.Guard(error, () =>
-            Run(parse.GetValue(folder)!, parse.GetValue(targetOption), parse.GetValue(save), parse.GetValue(format)!, parse.GetValue(outFile), output, error, target)));
-        return new Command("deploy", "Plan a deployment of solution zips, and import a reviewed plan.") { plan, Apply(output, error, pac, target, approvedHash), Gate(error, input ?? (() => null), deadline ?? GateDeadline, target) };
+            Run(parse.GetValue(folder)!, parse.GetValue(targetOption), parse.GetValue(save), parse.GetValue(format)!, parse.GetValue(outFile), parse.GetValue(plannedBy), output, error, target)));
+        return new Command("deploy", "Plan a deployment of solution zips, and import a reviewed plan.") { plan, Apply(output, error, pac, target, approvedHash, mcp), Gate(error, input ?? (() => null), deadline ?? GateDeadline, target) };
     }
 
     private static Command Apply(
-        TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> target, string? approvedHash)
+        TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> target, string? approvedHash, bool mcp)
     {
         var planFile = new Argument<string>("plan-file") { Description = "A plan file written by deploy plan --save. The zips and settings files are read from its folder." };
         var targetOption = new Option<string?>("--target") { Description = "The environment the plan was made for (an id or URL, as pac --environment). Never printed." };
@@ -53,12 +57,13 @@ public static class DeployCommand
         var format = new Option<string>("--format") { Description = "Report format.", DefaultValueFactory = _ => "text" };
         format.AcceptOnlyFromAmong("text", "json");
         var outFile = new Option<string?>("--out") { Description = "Write the report here instead of stdout." };
+        var githubRun = new Option<string?>("--github-run") { Description = "For the GitHub Action: its run, attempt and environment (1 to 500 characters, no control or format character). Recorded as the report's executor action and, with --apply, as the approval's receipt; not checked." };
         var command = new Command("apply", "Plan again against the target, refuse when an input of the plan changed since the review (a zip, a settings file, the target environment, its solution state or a dependency's version), then import the zips in plan order through pac (only with --apply).")
         {
-            planFile, targetOption, apply, format, outFile,
+            planFile, targetOption, apply, format, outFile, githubRun,
         };
         command.SetAction(parse => SettingsCommand.Guard(error, () =>
-            Apply(parse.GetValue(planFile)!, parse.GetValue(targetOption), parse.GetValue(apply), parse.GetValue(format)!, parse.GetValue(outFile), output, error, pac, target, approvedHash)));
+            Apply(parse.GetValue(planFile)!, parse.GetValue(targetOption), parse.GetValue(apply), parse.GetValue(format)!, parse.GetValue(outFile), parse.GetValue(githubRun), output, error, pac, target, approvedHash, mcp)));
         return command;
     }
 
@@ -67,7 +72,7 @@ public static class DeployCommand
     private sealed record Prepared(DeployPlanResult Plan, IReadOnlyList<DeployZip> Zips, DeployTarget Target);
 
     private static int Run(
-        string folder, string? target, string? save, string format, string? outFile, TextWriter output, TextWriter error,
+        string folder, string? target, string? save, string format, string? outFile, string? plannedBy, TextWriter output, TextWriter error,
         Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
     {
         // The --target value and the folder's full path are never printed.
@@ -102,7 +107,7 @@ public static class DeployCommand
         switch (format)
         {
             case "json":
-                DeployPlanReport.WriteJson(result, AnalyzeCommand.ToolVersion(), report);
+                DeployPlanReport.WriteJson(result, AnalyzeCommand.ToolVersion(), report, plannedBy);
                 break;
             case "markdown":
                 DeployPlanReport.WriteMarkdown(result, report);
@@ -115,7 +120,7 @@ public static class DeployCommand
         if (save is not null)
         {
             var json = new StringWriter();
-            DeployPlanReport.WriteJson(result, AnalyzeCommand.ToolVersion(), json);
+            DeployPlanReport.WriteJson(result, AnalyzeCommand.ToolVersion(), json, plannedBy);
             SafeWrite.WriteText(save, json.ToString(), inputs);
         }
 
@@ -259,8 +264,8 @@ public static class DeployCommand
     }
 
     private static int Apply(
-        string planFile, string? target, bool apply, string format, string? outFile, TextWriter output, TextWriter error,
-        Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, string? approvedHash)
+        string planFile, string? target, bool apply, string format, string? outFile, string? githubRun, TextWriter output, TextWriter error,
+        Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, string? approvedHash, bool mcp)
     {
         // The --target value, the environment id and every folder path are never printed.
         var problems = new List<string>();
@@ -268,6 +273,12 @@ public static class DeployCommand
         // A plan file that does not exist is a usage problem below; its folder is not read (GetFullPath throws on an empty path).
         string[] inputs = File.Exists(planFile) ? [planFile, .. FolderInputs(Path.GetDirectoryName(Path.GetFullPath(planFile)) ?? "")] : [];
         PlanFileProblems(planFile, target, problems);
+        // The value is not echoed: it lands in a report.
+        if (githubRun is not null && (githubRun.Length is 0 or > 500 || githubRun.EnumerateRunes().Any(r => Rune.GetUnicodeCategory(r) is UnicodeCategory.Control or UnicodeCategory.Format or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator or UnicodeCategory.PrivateUse)))
+        {
+            problems.Add("--github-run must be 1 to 500 characters with no control or format character");
+        }
+
         if (outFile is not null && Directory.Exists(outFile))
         {
             problems.Add("--out names an existing folder, not a file");
@@ -289,10 +300,18 @@ public static class DeployCommand
         var tool = AnalyzeCommand.ToolVersion();
         var progress = format == "json" ? error : output;
 
+        // As the caller reports it. `form` is true only for the in-process entry that passes the approved hash.
+        var executor = githubRun is not null ? ApplyExecutor.Action : mcp ? ApplyExecutor.Mcp : ApplyExecutor.Cli;
+        var approval = !apply ? null
+            : approvedHash is not null ? new Approval(ApprovalMode.Form, null)
+            : githubRun is not null ? new Approval(ApprovalMode.Action, githubRun)
+            : new Approval(ApprovalMode.Cli, null);
+        string? appliedAt = null;
+
         int Finish(int code, string name, string hash, string status, string? message, IReadOnlyList<AppliedSolution> solutions, IReadOnlyList<AppliedFlow> flows)
         {
             var report = new StringWriter();
-            var result = new DeployApplyResult(tool, apply, name, hash, status, message, solutions, flows);
+            var result = new DeployApplyResult(tool, apply, name, hash, status, message, appliedAt, executor, approval, solutions, flows);
             if (format == "json")
             {
                 DeployApplyReport.WriteJson(result, report);
@@ -334,6 +353,7 @@ public static class DeployCommand
             return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Planned, null, Rows(plan, s => s.Action == PlanAction.Skip ? ImportStatus.Skipped : ImportStatus.Planned), planned);
         }
 
+        appliedAt = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
         progress.Write(SettingsApplyReport.Header(Clean(plan.Target)));
         var state = new Dictionary<int, string>();
         int? pacExit = null;

@@ -173,14 +173,16 @@ public static partial class McpCommand
     private static ToolDef[] Tools(Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot> driftLive,
         Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget, Action<string[]>? ran)
     {
-        // Only deploy_apply passes a hash: the one the user approved in the form.
-        int Approved(string[] args, TextWriter output, TextWriter error, string? approvedHash)
+        int Run(string[] args, TextWriter output, TextWriter error, string? approvedHash, bool mcp)
         {
             ran?.Invoke(args);
-            return Program.Run(args, output, error, pac, driftLive, deployTarget, approvedHash: approvedHash);
+            return Program.Run(args, output, error, pac, driftLive, deployTarget, approvedHash: approvedHash, mcp: mcp);
         }
 
-        int Cli(string[] args, TextWriter output, TextWriter error) => Approved(args, output, error, null);
+        // Only deploy_apply passes a hash (the one the user approved in the form) and says mcp, which its report records as the executor.
+        int Approved(string[] args, TextWriter output, TextWriter error, string? approvedHash) => Run(args, output, error, approvedHash, mcp: true);
+
+        int Cli(string[] args, TextWriter output, TextWriter error) => Run(args, output, error, null, mcp: false);
 
         // One import at a time in this server; it covers the import only, never the form (see DeployApply).
         var guard = new SemaphoreSlim(1, 1);
@@ -442,7 +444,7 @@ public static partial class McpCommand
     private static int DeployPlan(Values v, TextWriter output, TextWriter error, Func<string[], TextWriter, TextWriter, int> cli, CancellationToken cancellationToken)
     {
         var folder = v.Text("folder");
-        string[] args = ["deploy", "plan", "--target", v.Text("target"), "--format", "json", "--", folder];
+        string[] args = ["deploy", "plan", "--target", v.Text("target"), "--format", "json", "--planned-by", "agent", "--", folder];
         if (v.Optional("save") is not { } save)
         {
             return cli(args, output, error);

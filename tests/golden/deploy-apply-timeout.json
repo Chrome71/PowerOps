@@ -6,6 +6,12 @@
   "hash": "0000000000000000000000000000000000000000000000000000000000000000",
   "status": "failed",
   "message": "The import timed out after 60 minutes. It may still be running in the environment: check the solution's import history there before running again. There is no rollback. Imported before it: A.",
+  "appliedAt": "2000-01-01T00:00:00Z",
+  "executor": "cli",
+  "approval": {
+    "mode": "cli",
+    "receipt": null
+  },
   "solutions": [
     {
       "order": 1,

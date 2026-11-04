@@ -4,10 +4,11 @@
   "title": "powerops deploy plan --format json",
   "description": "The JSON written by 'powerops deploy plan --format json' and by --save (the plan file): what importing the solution zips of a folder into the target would do. It never holds an environment id or URL, a folder path, a connection id, or an environment variable value; only the target's friendly name, the tool version, file names, solution names, versions, flow names, component ids, hashes and the items. Keep the report in private places, because the names can still identify a tenant.",
   "type": "object",
-  "required": ["schemaVersion", "tool", "target", "hash", "blocked", "inputs", "solutions", "items"],
+  "required": ["schemaVersion", "tool", "plannedBy", "target", "hash", "blocked", "inputs", "solutions", "items"],
   "properties": {
     "schemaVersion": { "const": 1, "description": "Version of this output format." },
     "tool": { "type": "string", "description": "The version 'powerops --version' prints. Plan and apply must run the same version." },
+    "plannedBy": { "enum": ["agent", "person", "action", null], "description": "Who made the plan, as the caller reports it with --planned-by (the MCP tool deploy_plan says agent, the Action says action); null when not given. Not a hash input, and nothing reads it to decide anything." },
     "target": { "type": "string", "description": "The target environment's friendly name. Never its id or URL." },
     "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 (lowercase hex) over the plan's inputs: the target id, every zip, settings file and target snapshot, and the dependency versions. It covers the inputs, not the findings." },
     "blocked": { "type": "boolean", "description": "True when any item has severity 'block' (exit code 1)." },

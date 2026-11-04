@@ -36,6 +36,28 @@ public sealed class ActionYmlTests
     }
 
     [Fact]
+    public void The_apply_check_runs_after_the_plan_and_before_the_gate_and_the_apply_and_cannot_be_skipped()
+    {
+        var steps = Steps();
+        int Index(string name) => steps.FindIndex(s => Text(s, "name") == name);
+        var check = Index("Check the apply");
+
+        Assert.True(Index("Deploy plan") < check && check < Index("Gate the apply") && Index("Gate the apply") < Index("Deploy apply"), "the check must come after Deploy plan and before the gate");
+        Assert.Equal("check", Text(steps[check], "id"));
+        Assert.Equal("inputs.plan-file != ''", Text(steps[check], "if"));
+        Assert.DoesNotContain("always()", Text(steps[check], "if"));
+        Assert.DoesNotContain("continue-on-error", steps[check].Keys.Cast<string>());
+        Assert.Equal("bash", Text(steps[check], "shell"));
+        Assert.Equal("bash \"$GITHUB_ACTION_PATH/action/check-apply.sh\"", Text(steps[check], "run"));
+        var env = (Dictionary<object, object>)steps[check]["env"];
+        Assert.Equal(["PO_PATH", "PO_PLAN_FILE", "PO_APPLY"], env.Keys.Cast<string>());
+        Assert.Equal("${{ inputs.path }}", env["PO_PATH"]);
+        Assert.Equal("${{ inputs.plan-file }}", env["PO_PLAN_FILE"]);
+        Assert.Equal("${{ inputs.apply }}", env["PO_APPLY"]);
+        Assert.Equal("${{ steps.check.outputs.environment }}", ((Dictionary<object, object>)steps[Index("Deploy apply")]["env"])["PO_ENVIRONMENT"]);
+    }
+
+    [Fact]
     public void Flow_tests_run_on_every_event_when_set_and_the_last_step_fails_the_job()
     {
         var steps = Steps();
