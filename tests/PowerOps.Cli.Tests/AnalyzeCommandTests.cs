@@ -468,7 +468,7 @@ public class AnalyzeCommandTests : IDisposable
         var (code, output, err) = Run("analyze", folder, "--fail-on", "error");
 
         Assert.Equal(plain.Code, code);
-        Assert.Equal(plain.Out.Replace(AlmSample, "X"), output.Replace(folder, "X"));
+        Assert.Equal(plain.Out.Replace(AlmSample.Replace('\\', '/'), "X"), output.Replace(folder.Replace('\\', '/'), "X"));
         var notes = err.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(l => l.Contains("PO024", StringComparison.Ordinal)).ToList();
         var note = Assert.Single(notes);
         Assert.StartsWith("note: ", note);
