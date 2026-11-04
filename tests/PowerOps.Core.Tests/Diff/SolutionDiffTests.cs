@@ -336,4 +336,129 @@ public class SolutionDiffTests
             File.Delete(zip);
         }
     }
+
+    private static Solution WithAgents(params Agent[] agents) => B.Empty() with { Agents = agents };
+
+    [Fact]
+    public void An_added_agent_tool_carries_agent_tool_and_a_removed_one_also_removed_component()
+    {
+        var none = WithAgents(B.Agent());
+        var one = WithAgents(B.Agent(tools: [B.Tool()]));
+
+        Assert.Equal(["Added agentTool demo_agent.topic.Orders (agent-tool)"], Diff(none, one));
+        Assert.Equal(["Removed agentTool demo_agent.topic.Orders (removed-component,agent-tool)"], Diff(one, none));
+    }
+
+    [Fact]
+    public void Changed_instructions_carry_agent_instructions_and_never_show_the_text()
+    {
+        Assert.Equal(
+            ["Changed agent demo_agent: instructions changed (agent-instructions)"],
+            Diff(WithAgents(B.Agent(instructions: "Old text.")), WithAgents(B.Agent(instructions: "New text."))));
+        Assert.Equal(
+            ["Changed agent demo_agent: instructions changed (agent-instructions)"],
+            Diff(WithAgents(B.Agent(instructions: null)), WithAgents(B.Agent(instructions: "New text."))));
+        Assert.Equal(
+            ["Changed agent demo_agent: instructions changed (agent-instructions)"],
+            Diff(WithAgents(B.Agent(instructions: "Old text.")), WithAgents(B.Agent(instructions: null))));
+    }
+
+    [Theory]
+    [InlineData("Answer questions.", "answer questions.")]
+    [InlineData("Answer questions.", "Answer questions.\n")]
+    public void The_instructions_compare_is_exact(string before, string after) =>
+        Assert.Equal(
+            ["Changed agent demo_agent: instructions changed (agent-instructions)"],
+            Diff(WithAgents(B.Agent(instructions: before)), WithAgents(B.Agent(instructions: after))));
+
+    [Fact]
+    public void The_same_instructions_or_none_in_both_are_no_change()
+    {
+        Assert.Empty(Diff(WithAgents(B.Agent()), WithAgents(B.Agent())));
+        Assert.Empty(Diff(WithAgents(B.Agent(instructions: null)), WithAgents(B.Agent(instructions: null))));
+    }
+
+    [Fact]
+    public void A_tool_whose_mode_mcp_flag_or_action_changed_is_one_detail_with_no_risk()
+    {
+        Assert.Equal(
+            ["Changed agentTool demo_agent.topic.Orders: mode: Invoker → Maker"],
+            Diff(WithAgents(B.Agent(tools: [B.Tool(mode: "Invoker")])), WithAgents(B.Agent(tools: [B.Tool(mode: "Maker")]))));
+        Assert.Equal(
+            ["Changed agentTool demo_agent.topic.Orders: action: A → B"],
+            Diff(WithAgents(B.Agent(tools: [B.Tool(action: "A")])), WithAgents(B.Agent(tools: [B.Tool(action: "B")]))));
+        Assert.Equal(
+            ["Changed agentTool demo_agent.topic.Orders: action: InvokeConnectorTaskAction → InvokeExternalAgentTaskAction; mcp: false → true"],
+            Diff(WithAgents(B.Agent(tools: [B.Tool(mcp: false)])), WithAgents(B.Agent(tools: [B.Tool(mcp: true)]))));
+    }
+
+    [Fact]
+    public void An_added_or_removed_agent_has_no_risk_of_its_own_beyond_removed_component()
+    {
+        Assert.Equal(["Added agent demo_agent"], Diff(B.Empty(), WithAgents(B.Agent())));
+        Assert.Equal(["Removed agent demo_agent (removed-component)"], Diff(WithAgents(B.Agent()), B.Empty()));
+    }
+
+    [Fact]
+    public void Tools_of_two_agents_are_compared_as_one_set_and_keys_ignore_case()
+    {
+        var a = WithAgents(B.Agent("demo_a", tools: [B.Tool("demo_a.topic.One")]), B.Agent("demo_b"));
+        var b = WithAgents(B.Agent("demo_a"), B.Agent("demo_b", tools: [B.Tool("DEMO_A.TOPIC.ONE")]));
+
+        Assert.Empty(Diff(a, b));
+    }
+
+    [Fact]
+    public void A_solution_with_no_agents_has_no_agent_lines() =>
+        Assert.Empty(Diff(B.Empty(), B.Empty() with { Version = "1.0.0.0" }));
+
+    [Fact]
+    public void The_agent_risk_ids_have_descriptions()
+    {
+        Assert.Equal("An agent tool was added or removed.", Risk.Describe(Risk.AgentTool));
+        Assert.Equal("An agent's instructions changed.", Risk.Describe(Risk.AgentInstructions));
+    }
+
+    [Fact]
+    public void An_added_agent_with_two_tools_gives_the_agent_and_each_tool_and_removing_it_the_reverse()
+    {
+        var agent = WithAgents(B.Agent(tools: [B.Tool("demo_agent.topic.One"), B.Tool("demo_agent.topic.Two", mcp: true)]));
+
+        Assert.Equal(
+            ["Added agent demo_agent", "Added agentTool demo_agent.topic.One (agent-tool)", "Added agentTool demo_agent.topic.Two (agent-tool)"],
+            Diff(B.Empty(), agent));
+        Assert.Equal(
+            ["Removed agent demo_agent (removed-component)", "Removed agentTool demo_agent.topic.One (removed-component,agent-tool)", "Removed agentTool demo_agent.topic.Two (removed-component,agent-tool)"],
+            Diff(agent, B.Empty()));
+    }
+
+    [Fact]
+    public void With_a_schema_name_twice_in_one_solution_the_first_agent_and_the_first_tool_count()
+    {
+        var first = WithAgents(B.Agent(instructions: "A"), B.Agent(instructions: "B"));
+
+        Assert.Empty(Diff(first, WithAgents(B.Agent(instructions: "A"))));
+        Assert.Equal(["Changed agent demo_agent: instructions changed (agent-instructions)"], Diff(first, WithAgents(B.Agent(instructions: "B"))));
+
+        var tools = WithAgents(B.Agent(tools: [B.Tool(mode: "Invoker"), B.Tool(mode: "Maker")]));
+
+        Assert.Empty(Diff(tools, WithAgents(B.Agent(tools: [B.Tool(mode: "Invoker")]))));
+        Assert.Equal(["Changed agentTool demo_agent.topic.Orders: mode: Maker → Invoker"], Diff(WithAgents(B.Agent(tools: [B.Tool(mode: "Maker")])), tools));
+    }
+
+    [Fact]
+    public void Agent_names_that_differ_only_in_case_are_the_same_agent() =>
+        Assert.Empty(Diff(WithAgents(B.Agent("demo_agent")), WithAgents(B.Agent("DEMO_AGENT"))));
+
+    [Fact]
+    public void Empty_instructions_and_missing_instructions_are_a_change() =>
+        Assert.Equal(
+            ["Changed agent demo_agent: instructions changed (agent-instructions)"],
+            Diff(WithAgents(B.Agent(instructions: "")), WithAgents(B.Agent(instructions: null))));
+
+    [Fact]
+    public void A_tool_moved_to_another_agent_under_the_same_schema_name_is_no_change() =>
+        Assert.Empty(Diff(
+            WithAgents(B.Agent("demo_a", tools: [B.Tool("demo_x.topic.One")]), B.Agent("demo_b")),
+            WithAgents(B.Agent("demo_a"), B.Agent("demo_b", tools: [B.Tool("demo_x.topic.One")]))));
 }

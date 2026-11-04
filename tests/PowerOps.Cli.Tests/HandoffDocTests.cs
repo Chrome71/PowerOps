@@ -134,12 +134,14 @@ public partial class HandoffDocTests
             ["Cloud flow"] = "`build-flow`",
             ["Code app"] = "`create-code-app`",
             ["Dataverse tables"] = "`dv-metadata`",
+            ["Copilot Studio agent"] = "`copilot-studio`",
             ["Power BI"] = "`semantic-model-authoring`",
         };
 
         Assert.Equal(skills.Keys, rows.Keys);
         Assert.All(skills, s => Assert.Contains(s.Value, rows[s.Key]));
         Assert.Contains("needs a yes", rows["Power BI"]);
+        Assert.Contains("(step 11)", rows["Copilot Studio agent"]);
     }
 
     [Fact]
@@ -148,7 +150,17 @@ public partial class HandoffDocTests
         var lines = Page().Split('\n');
         var numbers = lines.Select(l => Step().Match(l)).Where(m => m.Success).Select(m => int.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture));
 
-        Assert.Equal(Enumerable.Range(1, 10), numbers);
+        Assert.Equal(Enumerable.Range(1, 11), numbers);
         Assert.Contains("`powerops test ", lines.Single(l => l.StartsWith("4. **Analyze", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void Step_11_lists_what_a_solution_does_not_carry_for_an_agent()
+    {
+        var step = Page().Split('\n').Single(l => l.StartsWith("11. **An agent was imported.**", StringComparison.Ordinal));
+
+        Assert.All(
+            new[] { "Application Insights", "manual authentication", "Direct Line and web channel security", "channels", "sharing", "Publish the agent before you share it", "publish it again after a value changes", "ask first", "waiting" },
+            item => Assert.Contains(item, step));
     }
 }
