@@ -363,6 +363,14 @@ public class SolutionDiffTests
             Diff(WithAgents(B.Agent(instructions: "Old text.")), WithAgents(B.Agent(instructions: null))));
     }
 
+    [Theory]
+    [InlineData("Answer questions.", "answer questions.")]
+    [InlineData("Answer questions.", "Answer questions.\n")]
+    public void The_instructions_compare_is_exact(string before, string after) =>
+        Assert.Equal(
+            ["Changed agent demo_agent: instructions changed (agent-instructions)"],
+            Diff(WithAgents(B.Agent(instructions: before)), WithAgents(B.Agent(instructions: after))));
+
     [Fact]
     public void The_same_instructions_or_none_in_both_are_no_change()
     {

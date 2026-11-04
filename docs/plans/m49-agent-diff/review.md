@@ -1,4 +1,4 @@
-plan-hash: 55f202c82c6d820d33a7ab23c288a79bc2c621454669356f18b0a9e42ca1e5aa
+plan-hash: 8e8d8dfae220336b2d3bd9975d17fba3c32fcd778886823689c783b4e1efaa4b
 model: claude-sonnet-5-5
 fresh-context: yes
 
@@ -58,9 +58,45 @@ No findings.
 - Suggested fix: Keep the choice, but add one sentence to Q4 that names this gap and PO030 as the place the end state is judged, or label a change to Maker mode with `agent-tool`.
 - Resolution: Accepted, as suggested: Q4 now names the gap (a change to Maker mode or to MCP shows in the detail and has no risk label) and PO030 as the place the end state is judged.
 
+#### R8. Nothing pins that the instructions compare is exact (a case-only change)
+- Area: Testability (checklist 9)
+- Finding: Found by mutation in the second pass. Changing the `agent` compare to `string.Equals(..., OrdinalIgnoreCase)` leaves every Core and Cli test green. Q3 says the compare is exact ("a trailing line break that differs is a change"), but the tests only use "Old text." against "New text.", null and `""`. A case-only change, or one that differs by a trailing line break, is not tested, so the stated behaviour can drift unnoticed.
+- Suggested fix: Add two cases to `Changed_instructions_carry_agent_instructions_and_never_show_the_text`: `"Text."` against `"text."`, and `"Text."` against `"Text.\n"`, each giving `instructions changed (agent-instructions)`.
+- Resolution: Fixed as suggested: `The_instructions_compare_is_exact` in `SolutionDiffTests` has a case-only change and a trailing line break, each `instructions changed (agent-instructions)`. With the reviewer's mutant (an `OrdinalIgnoreCase` compare) put back by hand, the case-only row fails; the file was restored.
+
+## Second pass
+
+Header hash updated to the current body hash. Re-read: `plan.md`, `decisions.md` (Q4, Q7, Q11, Q12, Round 2) and the three build commits (`fd62b57`, `8066368`, `e6f1a96`) against `e6b7c3b`.
+
+Resolutions checked against the texts and the code: R1 (option B) is consistent: Q7, Done when 3, Assumptions, the route text ("may import"), HANDOFF and COMMANDS all say the block is wider than `init --environment` and why, and HANDOFF line 87 does say to turn the hooks on at step 7 and off when building in Dev, so Q7's reasoning holds; the bare `pac copilot init` is tested in `ImportCallTests` (route, not unreadable). R2: the tests for (a), (b), (c), (d) and (f) exist in `SolutionDiffTests` and the CRLF reader test in `AgentReaderTests`; but see R8 for the case/whitespace behaviour of the compare. R3: the gate theory takes an optional `command`, and Step 2 names row 12. R4: the claim is gone from Assumptions and from step 11. R5: the README migration line was adapted to the fact that no release tag exists (`$id` points at `main`; keep a copy of an earlier schema), which is correct. R6: item 84 reads `feat!:`; keeping `feat:` in the signed-off Phase 7 plan is right (an edit would void its hash). R7: Q4 names the gap. Q12 (README rule from `diff` 2 on, earlier widenings stay at 1) is a sound new decision; the earlier widenings it cites (M33, M36, M37) were not re-verified one by one.
+
+Code and docs diff (`git diff e6b7c3b..HEAD`) against the plan rows: rows 1, 2, 4, 5, 6, 9 match the plan exactly; the schema, the three `diff-agents.*` goldens, the `diff-seed.json` version line, HANDOFF (row, step 11, always-blocked list, no-route list, can't-see line), COMMANDS, the schemas README, FOUNDATION and BUILD-PLAN follow rows 11 to 16. Nothing is built that the plan did not list; `README.md`, skill text and the eval files are untouched. HANDOFF newly names `pac copilot delete` beside `create` (row 11 says so, and Learn lists both).
+
+Numbers, in a fresh copy of `HEAD` outside the repo (`git archive`): `dotnet test` Core 2145 passed, 2 skipped, 0 failed; Cli 1213 passed, 3 skipped, 0 failed; `dotnet format --verify-no-changes` clean.
+
+Mutants (Core and Cli suites each; "killed" means at least one test failed):
+
+| Mutant | Result |
+|---|---|
+| instructions compare ignores case | survived (R8) |
+| no change risk on instructions | killed |
+| no add or remove risk on tools | killed |
+| tool compare drops `mode` | killed |
+| tool compare drops `mcp` | killed (Core only) |
+| tool compare drops `action` | killed (Core only) |
+| tool key changed | killed |
+| `DiffSchemaVersion` set to 1 | killed (Cli only) |
+| `init` removed from `Markers` | killed |
+| `case "copilot init"` removed | killed |
+| route removed from `Routes` | killed |
+| whole `agent` block removed | killed |
+
+Eleven of twelve were killed. No new High or Medium finding.
+
 ## Counts
 
 - High: 0
 - Medium: 2
-- Low: 5
+- Low: 6
 - Open questions in the plan: 0
+- Findings R1 to R7 are answered in their Resolution lines, and the second pass accepts those answers; R8, new in the second pass, is answered by the building session. Open in all: 0 High, 0 Medium, 0 Low
