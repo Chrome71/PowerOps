@@ -823,6 +823,9 @@ public sealed class ActionScriptTests : IDisposable
     [InlineData("empty-claim")]
     [InlineData("line-break")]
     [InlineData("carriage-return")]
+    [InlineData("zero-width-space")]
+    [InlineData("line-separator")]
+    [InlineData("number-claim")]
     public void Check_refuses_apply_true_without_a_job_environment_and_writes_no_output(string kind)
     {
         var response = kind switch
@@ -831,6 +834,9 @@ public sealed class ActionScriptTests : IDisposable
             "empty-claim" => TokenResponse("""{"environment":""}"""),
             "line-break" => TokenResponse("""{"environment":"te\nst"}"""),
             "carriage-return" => TokenResponse("""{"environment":"test\r"}"""),
+            "zero-width-space" => TokenResponse("""{"environment":"te\u200bst"}"""),
+            "line-separator" => TokenResponse("""{"environment":"te\u2028st"}"""),
+            "number-claim" => TokenResponse("""{"environment":5}"""),
             "empty-response" => "",
             "not-json" => "<html>Signature SENTINEL</html>",
             "no-value" => """{"count":1}""",

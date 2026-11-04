@@ -1,9 +1,11 @@
 ---
-status: approved
-review: pending
+status: signed-off
+review: done
 environment: null
 depth: quick
 supersedes: null
+signed-off: 2026-11-04
+signed-off-hash: 16063b3a920d616b4b3eeb01e6b2f4c9b327aea5cc59b7adbe65a41ac5ede1d7
 ---
 
 # M52: The authoring agent cannot approve its own deploy

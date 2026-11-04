@@ -1,4 +1,4 @@
-plan-hash: eec1263c8133172b9fe68850adc5e17cf52bc16d5f65d67295f43e0f5c852634
+plan-hash: 16063b3a920d616b4b3eeb01e6b2f4c9b327aea5cc59b7adbe65a41ac5ede1d7
 model: claude-sonnet-5-5
 fresh-context: yes
 
@@ -12,6 +12,21 @@ Checked and found sound:
 - Learn claims in Assumptions match their pages (SE:05 "Any action must be traceable"; the delegated-deployment FAQ errors for service principal and owner approval; approvals come with delegated deployments).
 - Both example workflows that use `plan-file` already satisfy the new rules (`promote-dev-to-test.yml:236-242`: `path` = folder of `plan-file`, `environment: test`, `id-token: write`; `ephemeral-pr.yml:151-161`: `path: deploy` and `plan-file: deploy/powerops-plan.json`, `environment: ephemeral`, `id-token: write`). The in-process `mcp` flag cannot be set by an MCP caller: `McpCommand.DeployApply` builds the argument list itself (294) and only `Exec(Args(true), plan.Hash)` passes a hash (388). No write is added outside `SafeWrite`; the pinned roles and `tests/eval` are untouched. Checklist items 1 to 8 do not apply (no solution, connector, table, role or screen is built); item 11 is met (a `Won't build` list, each row traces to a Goal line).
 - Not checked: the bash `cd`/`pwd -P` behaviour on a Windows Git Bash runner (no Windows host here); see R4.
+
+## Second pass
+
+Run against HEAD `3201b0b` (plan and docs; the code is `2e50d40`), by the same reviewer with a fresh read of the working tree. The first-pass notes above stay as they were; the `plan-hash` line now names the fixed plan. Still no `powerops plan facts`, `pac`, `az`, tenant call or GitHub write.
+
+What held (each resolution of R1 to R12 checked in the plan, the code and the docs):
+- R1: `check-apply.sh` translates `tr '_-' '/+'`, pads with `=`, and every failure of `curl`, `jq` or `base64` ends in exit 2 with `::error::`. A hand-made token with `-`, `_` and no padding passed (`environment=test`).
+- R2, R4, R12: the folder rule runs for dry runs too; `path` = `.` with the plan in `deploy/` exits 2; the same folder passes as `deploy`, `dl` (a symlink to it) and `deploy\` with `OS=Windows_NT`; `deploy\plan.json` with `path: deploy` passes only on the Windows branch; a bare `plan.json` with `path: .` passes from inside the folder; a `..` in either input, a missing plan file and a zip as `path` exit 2. Backslashes are not rewritten on Linux.
+- R3, R5, R6, R7, R8, R9, R10, R11: the MCP test takes `--planned-by agent`; `ImportGuidance` and the Agents line name the form and the Action and leave the local command to the user, with the test's copy updated; the form hash wins over `--github-run` in code and has a test; the cap is 500 and the receipt (repository, run, attempt, environment) is at most about 450; `--github-run` refuses the MCP character classes; docs say claims-not-proof, guardrails, CODEOWNERS, `curl`/`jq`/`base64`, order of refusals and the migration line; both example workflows have a test.
+- Report code: `appliedAt` is set once, after the dry-run return and before the import loop, and `Finish` reads it, so it is set for `imported` and `failed` and null for `planned`, `refused` and every `Stopped` path. Text goes through `TextReport.Clean`; JSON is escaped by the serializer; the Action's job summary fences the report. The token and the response are never printed (`curl` stderr goes to `/dev/null`, nothing echoes either).
+
+What I ran, all in a scratch copy outside the repo (`git archive HEAD`), nothing in the worktree:
+- `dotnet test` of `PowerOps.Cli.Tests` at HEAD: 1277 tests, all pass except `LicenceTests.Every_restored_package_is_MIT_or_Apache_2_0`, which fails in the scratch copy for an environment reason (it shells out to `jq` over a package listing and gets null); it is unrelated to M52 and I did not run it in the worktree.
+- `check-apply.sh` by hand with a stub `curl`: 18 cases (dry run with equal and different folders, `..`, symlink, bare name, no token variables, failing `curl`, garbage response, no `environment`, line break in the name, numeric claim, unwritable `GITHUB_OUTPUT`, the Windows spellings above). The stub log shows the request carries `&audience=powerops-environment-check` and the bearer header, and the token appears in no output of the script.
+- Mutants of the new logic, each run against the whole Cli test project. Script: remove the `..` guard, remove the `-f` check, make the compare always equal, drop the `tr`, drop the control-character check, loosen the exact `true`, disable the Windows branch, skip the folder rule on dry runs (all killed; 1 to 8 tests fail each). Removing the `=` padding loop survives, which is an equivalent mutant on GNU `base64` (it accepts a missing pad); GitHub's images use GNU. C#: form/`--github-run` precedence swapped, `appliedAt` set on refusals, `mcp` ignored, cap raised to 5000, Format/separator/private-use classes dropped, `plannedBy` dropped from `--save`, `action` approval removed, `appliedAt` never set, MCP `--planned-by agent` dropped, `deploy_apply` not marked `mcp` (all killed).
 
 ## Findings
 
@@ -94,3 +109,16 @@ No findings.
 - Finding: Q5 claims "anything but the same folder gates other bytes than those imported". `cd`/`pwd -P` resolves symbolic links and `..` physically, but `deploy apply` takes the folder from `Path.GetFullPath(planFile)`, which collapses `..` lexically (as the repo found in M28). A spelling such as `x/A` for `path` and `link/../A/plan.json` for `plan-file`, where `link` is a committed symlink to `x/y`, compares equal in bash but imports from `A`, not `x/A`. It needs a symlink in the repo and a spelling set in the workflow, so the reach is small.
 - Suggested fix: Refuse a `plan-file` or `path` that holds a `..` segment, or normalize both lexically the way .NET does before the `cd`; add a test with a `..` spelling.
 - Resolution: Fixed (decisions Q5, amended). A `..` segment in either input is refused, with a test for each.
+
+#### R13. The Action's environment-name check is narrower than `--github-run`'s, so an approved job can still fail after the approval
+- Area: Testability (9)
+- Finding: `action/check-apply.sh:56` refuses only `[[:cntrl:]]` (ASCII control characters, and locale-dependent). `DeployCommand.cs` (the `--github-run` check) also refuses Format, LineSeparator, ParagraphSeparator and PrivateUse characters. An environment name that holds one (a zero-width space or a bidirectional mark, for instance) passes the check, waits for its reviewer, and then `apply.sh` runs `deploy apply --github-run "... environment <name>"`, which exits 2 before anything is read. Nothing is imported, but the approval is spent: the failure R7 was meant to remove, for a rarer input. The plan's row 5 and the Q3 answer say "a control character" only.
+- Suggested fix: Make the script refuse the same classes before the approval (`jq` cannot test categories; a `grep -P '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Co}]'` or a drop of everything outside printable ASCII and letters), or have `apply.sh` leave a name the CLI would refuse out of the receipt. Add one test with a name that holds U+200B.
+- Resolution: Fixed. The script now keeps the name only when `jq` sees a string with no character in `\p{C}`, `\p{Zl}` or `\p{Zp}` (control, format, surrogate, private use, unassigned, line and paragraph separator), a superset of what `--github-run` refuses, so such a name is refused before the approval. `ActionScriptTests` gains a zero-width-space case and a line-separator case; the first fails with the old filter.
+
+#### R14. A non-string `environment` claim is accepted, and one path of the script exits 1
+- Area: Testability (9)
+- Finding: `jq -r '.environment // empty'` prints a number or an object as text, so a claim of `5` gave `environment=5` in my run. GitHub sets a string, so this is hardening, not a bypass. Separately, with `GITHUB_OUTPUT` unset or unwritable, `check-apply.sh:64` ends the script with exit 1 (`set -u` or the failed redirection), not 0 or 2; in Actions the variable is always set, so this shows only in a direct run. The script's header says it exits 2 on a refusal.
+- Suggested fix: Use `jq -r 'select(.environment | type == "string") | .environment'`, and either guard the final `echo` (`|| exit 2`) or leave it; add a test for a numeric claim.
+- Resolution: Fixed in part. A non-string claim is refused by the same `type == "string"` test, with a case for `5` that fails with the old filter. Accepted: the exit 1 when `GITHUB_OUTPUT` is unset or unwritable. GitHub sets it for every step, and exit 1 still fails the step before the gate and before anything is imported, so it adds no code.
+

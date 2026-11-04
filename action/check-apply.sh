@@ -55,7 +55,9 @@ fi
 # The payload is the second part of the JWT, in base64url without padding. Any failure leaves the name empty, which is refused below.
 payload="$(printf '%s' "$response" | jq -r '.value // empty' 2>/dev/null | cut -d. -f2 | tr '_-' '/+')" || payload=""
 while [ $((${#payload} % 4)) -ne 0 ]; do payload="$payload="; done
-environment="$(printf '%s' "$payload" | base64 -d 2>/dev/null | jq -r '.environment // empty' 2>/dev/null)" || environment=""
+# Only a string with none of the characters `deploy apply --github-run` refuses (control, format, separator, private use): a name it
+# refuses would fail the apply after the approval.
+environment="$(printf '%s' "$payload" | base64 -d 2>/dev/null | jq -r '.environment | if type == "string" and (test("[\\p{C}\\p{Zl}\\p{Zp}]") | not) then . else empty end' 2>/dev/null)" || environment=""
 if [ -z "$environment" ] || [[ $environment =~ [[:cntrl:]] ]]; then
   echo "::error::apply: 'true' runs only in a job that declares a GitHub environment (jobs.<job_id>.environment), with required reviewers; nothing was imported"
   exit 2
