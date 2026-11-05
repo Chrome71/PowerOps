@@ -21,6 +21,8 @@ Then say: "Planning needs a person to answer the questions." Write nothing more 
 
 Never answer your own questions. After you ask, end your turn and wait.
 
+An agent that answers for the person under the person's brief is not autopilot: it may settle only the product choices that brief delegates. If you cannot tell who answered, mark `agent`. Only a person signs off, accepts a High finding or accepts a security gap: when an agent gives one, say "A person must answer this." and stop.
+
 ## 2. Start or resume
 
 1. Check that `powerops` runs (for example `powerops --version`). If it is not found, tell the user to install PowerOps as the Install section of its README says (https://github.com/Chrome71/PowerOps#install), and stop.
@@ -101,7 +103,7 @@ Create `decisions.md` in exactly this format:
 1. <option> (recommended)
 2. <option>
 3. In your own words
-Answer: <the user's answer>
+Answer: <the user's answer> (answered by: person)
 
 ### Q2. <question>
 ...
@@ -110,6 +112,7 @@ Answer: <the user's answer>
 - At most three `### Q` per round. Numbering continues across rounds (Q4 starts round 2).
 - The recommended option is always option 1. "In your own words" is always the last option.
 - For `Answer:`, write the text of the option chosen, or the user's own words (redacted, see section 4).
+- End each `Answer:` line, and each Log line of an approval, acceptance or sign-off, with `(answered by: person)` or `(answered by: agent <session>)`.
 - Everything that is not a question goes as a `- ` line under a `## Log` heading at the end: approvals, "approved without: environments, constraints", fast-path choices, sign-off. Add new rounds above `## Log`, and new log lines at the end of it (oldest first).
 
 ## 6. Question rounds
@@ -123,7 +126,7 @@ Each round:
 5. Show exactly three lines, one per change to the plan. Nothing else.
 6. Ask what next, with lettered options: **A** another round, **B** approve the draft, **C** stop for now, **D** sketch the screens first if section 11 offers it. End your turn.
 
-Question order: outcome and users, then data, then automation, then environments and ALM, then constraints. Two rules keep late areas from being skipped:
+Question order: outcome and users, then data, then automation, then environments and ALM, then constraints. Two rules:
 
 - Ask one licensing question in round 1 or 2.
 - Ask the environments question (target, route Dev to Test to Prod) by round 3.
@@ -158,11 +161,9 @@ After each round, judge engagement from the answers. Mostly one-word or option-n
    - In the first two cases, add to the request that the user confirmed in this session that `pac` is signed in to the plan's `environment:`, but only if they did. Otherwise add nothing: the reviewer then reads no environment facts.
 7. If the user prefers to continue in this session, run the review here. The review then records `fresh-context: no`.
 
-An approved draft may still have open questions. The review and the sign-off both show the count.
-
 ## 8. Fast path
 
-Use this when the user asks to build without a signed-off plan, or `powerops-implement` hands over. Write no code and change no solution.
+Use this when the user asks to build without a signed-off plan, or `powerops-implement` hands over.
 
 1. Draft `plan.md` from the request and the repo. Read no environment facts here, even when the request names an environment: the fast path is offline. Put every guess under Assumptions. The status stays `draft`. Set `depth: quick`.
 2. Ask one question: the route. Use the numbered format of a round question (section 6): two or three options, each with its trade-off in a few words, recommended first, then "In your own words". Example: unmanaged in Dev, then managed to Test and Prod through pipelines.
@@ -186,7 +187,7 @@ Run this after the review, or when the user says "sign off".
 4. On A or C, run `powerops plan sign-off docs/plans/<name>`, then `powerops plan status docs/plans/<name>`, and show the result.
 5. If sign-off refuses, show why and fix the cause with the user.
 
-To resolve a finding, change the plan if needed and set its line in `review.md` to `Resolution: fixed` or `Resolution: accepted`. Add a short reason after it.
+To resolve a finding, change the plan if needed and set its line in `review.md` to `Resolution: fixed` or `Resolution: accepted`. Add a short reason after it. Log each acceptance.
 
 ## 10. After sign-off
 
@@ -200,8 +201,6 @@ Any change to the plan body voids the sign-off. If the user wants changes, set `
 4. Ask questions only about what changes. Keep everything else.
 5. Leave the old plan as it is.
 
-A small edit to a plan that is `signed-off` but not yet `implementing` follows the paragraph above.
-
 ## 11. Mockups
 
 Offer **D** only when `references/route.md` says `Screens` is laid out freely. On D, or when asked for a screen, wireframe, mockup or prototype, write `docs/plans/<name>/mockups/prototype.html` by its rules, give the path and show the menu again.
@@ -210,15 +209,9 @@ Offer **D** only when `references/route.md` says `Screens` is laid out freely. O
 - Never publish or upload it. Apply section 4 to it.
 - Keep visual detail out of `Screens` and `Steps`.
 
-## 12. Never write to an environment
-
-Planning only reads. Do not import, deploy, create or change anything in a tenant.
-
 ## Per agent
-
-The plain-text fallback always works: numbered options, a line telling the user how to answer, then end your turn.
 
 - **Claude Code:** use `AskUserQuestion`. It adds "other" for free text by itself.
 - **Codex:** `request_user_input` works only in Plan mode (1 to 3 questions, 2 or 3 options). Elsewhere use plain text.
-- **Gemini CLI:** `ask_user` is available. Plain text is fine.
+- **Gemini CLI:** use `ask_user` or plain text.
 - **GitHub Copilot:** autopilot answers `ask_user` on its own. If autopilot is on, stop (section 1). Otherwise use `ask_user` or plain text.

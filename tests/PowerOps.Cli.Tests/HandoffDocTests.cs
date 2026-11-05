@@ -163,4 +163,19 @@ public partial class HandoffDocTests
             new[] { "Application Insights", "manual authentication", "Direct Line and web channel security", "channels", "sharing", "Publish the agent before you share it", "publish it again after a value changes", "ask first", "waiting" },
             item => Assert.Contains(item, step));
     }
+
+    // M54: the page claimed a delete rule that the skill did not carry (C-3 of the 2026-11-04 live test).
+    [Fact]
+    public void The_delete_rule_the_page_claims_is_in_the_implement_skill()
+    {
+        var page = Page();
+        var claim = page.Split('\n').Single(l => l.Contains("Other tenant writes have no route either", StringComparison.Ordinal));
+        var skill = File.ReadAllText(Path.Combine(Golden.RepoRoot, "skills", "powerops-implement", "SKILL.md")).Replace("\r\n", "\n");
+
+        Assert.Contains("`powerops-implement` never runs a delete: it lists a stray object in the plan's `writes.md` for the person to remove", claim);
+        Assert.DoesNotContain("asks the user before each one", page);
+        Assert.Contains("9. Never delete in a tenant, even when the user tells you to: no `DELETE` call, no `delete` or `remove` command or tool, not even for an object this run made.", skill);
+        Assert.Contains("give it an `open:` cleanup in `writes.md`", skill);
+        Assert.Contains("`powerops-implement` never runs a delete", page.Split('\n').Single(l => l.StartsWith("| Power BI |", StringComparison.Ordinal)));
+    }
 }

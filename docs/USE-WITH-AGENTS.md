@@ -6,13 +6,15 @@ PowerOps works with Claude Code, Codex and other agents in two ways: planning sk
 
 PowerOps ships five agent skills. Three turn an idea into a reviewed, signed-off plan before any code or solution change is made, and two check the build against that plan and read it for security before it is promoted:
 
-- `powerops-plan` asks short question rounds (at most three questions, recommended answer first), logs every answer in `decisions.md`, drafts `plan.md`, and signs it off with you. Asked to build without a plan, it drafts one and asks only the route.
+- `powerops-plan` asks short question rounds (at most three questions, recommended answer first), logs every answer in `decisions.md` with who gave it, drafts `plan.md`, and signs it off with you. Asked to build without a plan, it drafts one and asks only the route.
 - `powerops-review-plan` reviews an approved plan in a fresh context against a Power Platform checklist and writes `review.md`. It never asks you questions.
-- `powerops-implement` builds only from a signed-off plan whose body still matches its sign-off. It stops with one concrete question when a choice changes scope, data, security or cost, and after the build it starts the two skills below.
+- `powerops-implement` builds only from a signed-off plan whose body still matches its sign-off. It stops with one concrete question when a choice changes scope, data, security or cost, and after the build it starts the two skills below. It never deletes in a tenant: it journals each tenant write it attempts in the plan's `writes.md`, and lists a stray object there for you to remove.
 - `powerops-verify` runs after the build's final checks, in a fresh context. It checks the built solution against the plan with `analyze`, `test`, `diff` and `settings validate`, and writes `verify.md`. It never asks you questions. `powerops-implement` fixes its findings inside the plan and runs it again, at most three runs in all.
 - `powerops-review-security` runs on every build, before `powerops deploy plan`, in a fresh context. It reads the solution against the Power Platform Well-Architected Security checklist and writes `security-solution.md`. It never asks you questions. A later build that changes the solution runs it again.
 
 Neither report gates anything. `powerops plan status` lists each with its state and whether it is stale, and you decide ([The two build roles](#the-two-build-roles)).
+
+**Who answered.** An agent that runs the skills for you, under your brief, may answer only the product choices the brief delegates. Only you sign off a plan, accept a High finding or accept a security gap. `decisions.md` ends each answer, and each logged approval, acceptance and sign-off, with `(answered by: person)` or `(answered by: agent <session>)`, and `powerops plan status` warns on a sign-off or an acceptance marked as an agent's. The agent writes the marker itself, so the warning catches honest marking, not a false one.
 
 Run `powerops skills install` in your repo to add them. In a workspace whose own tooling rewrites `.claude/skills/`, run it in each child project, not at the workspace root, and start the agent there: the next rewrite removes skills installed at the root. Supported: Claude Code and Codex. Copilot CLI, Antigravity CLI and Pi with local Qwen are provisional, and Gemini CLI is provisional and untested. The skills are also in [skills/](../skills/) for `npx skills add` (that CLI has telemetry on by default). Design: [docs/PLANNING-SKILLS.md](PLANNING-SKILLS.md).
 

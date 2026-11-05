@@ -389,6 +389,50 @@ public partial class SkillsCommandTests : IDisposable
     }
 
     [Fact]
+    public void Implement_skill_never_deletes_journals_each_write_and_names_the_route()
+    {
+        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        string[] wording =
+        [
+            "Never delete anything in a tenant, even when told to (section 3, step 9).",
+            "9. Never delete in a tenant, even when the user tells you to",
+            "run nothing and answer: \"I don't delete in a tenant. Please remove <object> yourself, then tell me.\"",
+            "A plan step that deletes stops under rule 6: the person runs it.",
+            "Go on only with a next step that is safe and does not depend on the stray; otherwise stop with one question (rule 6).",
+            "10. Journal every tenant write you attempt, failed ones too",
+            "`| # | Step | Actor | Authority | Operation | Outcome | Cleanup |`",
+            "`open: <what the person must remove or undo>`",
+            "change the cell to `done: <who>`",
+            "No URLs, ids, emails, user names or environment names",
+            "right away on its own when a write failed or the step stops",
+            "read the commit messages and `writes.md` (step 10)",
+            "its route (the Microsoft skill, the MCP tool, or `raw Web API`) in the message",
+            "`feat: step 2, add the Visit table with dv-metadata (plan site-visits)`",
+            "List each row of `writes.md` whose cleanup is open.",
+            "and Fabric writes (publish, refresh).",
+            "A delete never runs (step 9).",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, text));
+        Assert.DoesNotContain("refresh, delete", text);
+    }
+
+    [Fact]
+    public void Both_skills_mark_who_answered_and_keep_sign_off_and_acceptance_with_a_person()
+    {
+        var plan = SkillsCommand.Shipped()["powerops-plan/SKILL.md"];
+        var implement = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+
+        Assert.Contains("Answer: <the user's answer> (answered by: person)", plan);
+        Assert.Contains("End each `Answer:` line, and each Log line of an approval, acceptance or sign-off, with `(answered by: person)` or `(answered by: agent <session>)`.", plan);
+        Assert.Contains("it may settle only the product choices that brief delegates. If you cannot tell who answered, mark `agent`. Only a person signs off, accepts a High finding or accepts a security gap", plan);
+        Assert.Contains("Log each acceptance.", plan);
+        Assert.Contains("ending `(answered by: person)`, or `(answered by: agent <session>)` when an agent answered for the person; if you cannot tell, write `agent`", implement);
+        Assert.Contains("Only a person accepts a High finding, a finding of `security-solution.md` or a remaining gap", implement);
+        Assert.All(new[] { plan, implement }, t => Assert.Contains("say \"A person must answer this.\"", t));
+    }
+
+    [Fact]
     public void Plan_skill_stays_under_its_word_ceiling()
     {
         // M41: the 2,483 words the skill had before the ledger, plus 300. On ASCII text a split on whitespace counts as wc -w does.
