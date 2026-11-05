@@ -401,7 +401,8 @@
           "fix": "Move self-contained parts of the flow into child flows, and reduce nested scopes, conditions and loops.",
           "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO016.md"
         }
-      ]
+      ],
+      "notChecked": []
     },
     {
       "path": "tests/fixtures/powerops-seed-yaml/v1",
