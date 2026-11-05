@@ -20,8 +20,8 @@ public sealed class PO031AgentToolCount : IRule, INotChecked
 
     // A connected agent is added as an agent, not a tool, and Learn's 25 to 30 is about tools (M48 decisions Q5).
     public IEnumerable<string> NotChecked(Solution solution) =>
-        Agents.Placed(solution).Where(a => Count(a) <= MaxTools && a.Tools.Any(t => t.Mcp))
+        Agents.Placed(solution).Where(a => Count(a) <= MaxTools && Agents.Tools(a).Any(t => t.Mcp))
             .Select(a => $"PO031 not checked for agent '{a.SchemaName}': it has at least one MCP server, and the exports read here don't list the tools an MCP server publishes.");
 
-    private static int Count(Agent agent) => agent.Tools.Count(t => t.Action != "InvokeConnectedAgentTaskAction");
+    private static int Count(Agent agent) => Agents.Tools(agent).Count(t => t.Action != "InvokeConnectedAgentTaskAction");
 }

@@ -16,10 +16,14 @@ public class SolutionDiscoveryTests
 
         Assert.Equal(
             [
+                "agents/new-ui/v1-no-learn-tool.zip",
+                "agents/new-ui/v1.zip",
+                "agents/new-ui/v2.zip",
                 "alm-makers",
                 "alm-sample",
                 "coe-auditlogs",
                 "core-portal",
+                "flowtests/capture/solution",
                 "powerops-seed-yaml/v1/solutions/PowerOpsSeed/solution.yml",
                 "powerops-seed-yaml/v2/solutions/PowerOpsSeed/solution.yml",
                 "powerops-seed/v1",

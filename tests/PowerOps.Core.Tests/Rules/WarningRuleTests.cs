@@ -1572,6 +1572,31 @@ public class WarningRuleTests
     }
 
     [Fact]
+    public void PO028_does_not_read_instructions_from_configuration_json()
+    {
+        var rule = new PO028AgentInstructionsLength();
+        foreach (var text in new[] { Long(8001), "" })
+        {
+            var s = WithAgents(B.Agent(instructions: text) with { InstructionsFromConfiguration = true, InstructionsFile = "bots/demo_agent/configuration.json" });
+
+            Assert.Empty(Run(rule, s));
+            Assert.Equal(["PO028 not checked for agent 'demo_agent': it has no single Custom GPT component whose instructions are text."], rule.NotChecked(s));
+        }
+    }
+
+    [Fact]
+    public void PO030_and_PO031_do_not_read_an_mcptool_kind_tool_of_a_standard_harness_agent()
+    {
+        static AgentTool Mcp(int n) => B.Tool($"demo_agent.tool.T{n:00}", mcp: true, mode: "Maker") with { Action = null, Kind = "McpTool" };
+        var s = WithAgents(B.Agent(tools: Enumerable.Range(0, 31).Select(Mcp)));
+        var one = WithAgents(B.Agent(tools: [Mcp(0)]));
+
+        Assert.Empty(Run(new PO030ToolMakerConnection(), s));
+        Assert.Empty(Run(new PO031AgentToolCount(), s));
+        Assert.Empty(new PO031AgentToolCount().NotChecked(one));
+    }
+
+    [Fact]
     public void PO029_fires_for_authentication_none_with_the_bot_file()
     {
         var f = Assert.Single(Run(new PO029AgentWithoutAuthentication(), WithAgents(B.Agent(auth: 1))));

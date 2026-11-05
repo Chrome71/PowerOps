@@ -10,7 +10,7 @@ How it runs:
 
 The workflow runs only for pull requests into `main` (`branches: [main]`), so a PR merged into a scratch branch never promotes. Change it if your release branch has another name.
 
-There is no rollback. `deploy apply` refuses (exit 1) when it can, and stops at the first failed import, but an import that has run stays.
+There is no rollback. `deploy apply` refuses (exit 1) when it can, and stops at the first failed import, but an import that has run stays. [Recovery](../RECOVERY.md) says what to do then.
 
 All values below are fake: `contoso` stands for your own.
 
@@ -120,7 +120,7 @@ Test's data loss prevention policy must allow the solution's connectors together
 
 ## The window before each import, and no rollback
 
-Between the re-plan and each import there is a short window in which someone can change Test. `deploy apply` hashes each zip and settings file again just before its import and stops if one changed, but it cannot see a change made in Test during that window. If an import fails or times out, the run stops, the report names the solutions already imported, and there is no rollback: check the environment's import history, then plan again.
+Between the re-plan and each import there is a short window in which someone can change Test. `deploy apply` hashes each zip and settings file again just before its import and stops if one changed, but it cannot see a change made in Test during that window. If an import fails or times out, the run stops, the report names the solutions already imported, and there is no rollback: check the environment's import history, then plan again. [Recovery](../RECOVERY.md) says how, row by row.
 
 ## Plan and apply on the same OS
 

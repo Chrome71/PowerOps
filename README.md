@@ -137,6 +137,8 @@ dotnet test
 - [JSON schemas](docs/schemas/README.md)
 - [Use from an agent: planning skills, plugin and MCP server](docs/USE-WITH-AGENTS.md)
 - [Hand-off to Microsoft's skills](docs/HANDOFF.md)
+- [Recovery after an import that stops](docs/RECOVERY.md)
+- [What an agent client must provide](docs/HARNESS.md)
 - [Example workflows: Dev to Test promotion, an environment per pull request](docs/examples/README.md)
 - [Planning skills design](docs/PLANNING-SKILLS.md)
 - [Foundation plan and roadmap](docs/FOUNDATION.md)

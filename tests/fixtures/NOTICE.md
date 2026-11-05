@@ -29,6 +29,14 @@ Scrubbed before committing:
 - Renamed the publisher display name to "PowerOps Fixtures".
 - `contoso.sharepoint.com` is a placeholder. The files contain no tenant URLs, environment IDs or user names; the remaining GUIDs are component IDs.
 
+`flowtests/capture/` holds the cloud comparison of the plan `m58-flow-conformance`, made for this project under the same licence. `solution/` is the unmanaged solution `PowerOpsCapture`, written for the capture (one manually triggered flow, "PowerOps capture", with 120 actions, one Number environment variable and one Dataverse connection reference), imported into the maintainer's Dev environment on 2026-11-05, run once, exported with `pac solution export` (pac 2.14.1) and unpacked with `pac solution unpack`. `run.json` is that run's history, read through the Power Automate management API: each action's status, code, error code and message, inputs and outputs. `expected-unsupported.json` lists the actions the simulator refuses, with the reason for each.
+
+Scrubbed before committing:
+
+- Renamed the publisher display name to "PowerOps Fixtures". The flow's id is the fake `00000000-0000-0000-0000-000000000058`, chosen before the import.
+- From the run: removed every header, the run id, tracking ids, and start and end times, the List rows action's `host` (it named a subscription) and its `@odata.context` (it named the organisation's host). The List rows action returned no rows, so no row data is kept.
+- `utcNow` in `run.json` is the run's day with the time set to midnight. The only links left are Microsoft's public `aka.ms` help links inside the service's error messages.
+
 `powerops-seed-yaml/` is the same `PowerOpsSeed` solution in the Dataverse Git integration YAML layout, made for this project under the same licence. The solution was bound to an Azure DevOps repo with a solution binding (folder `seed`), and v1 and v2 were committed from the test environment. The files are the working tree of each commit under `seed/PowerOpsSeed/`, without the Git history. Expected findings: none for `v1/`; PO005 and PO006, as in `powerops-seed/v2`, plus PO014 for `v2/`, where the canvas app gains a button whose `OnSelect` is `Launch("https://contoso.sharepoint.com/sites/ops")`.
 
 Scrubbed and trimmed before committing:
@@ -37,6 +45,14 @@ Scrubbed and trimmed before committing:
 - Removed the `Readme.md` that Git integration creates in the binding folder.
 - Renamed the publisher display name to "PowerOps Fixtures". The contact fields in `publisher.yml` were already empty.
 - `connectionreference.yml` holds no connection IDs. The files contain no tenant URLs, environment IDs or user names; the remaining GUIDs are component IDs, the same as in `powerops-seed/`.
+
+`agents/new-ui/` holds a Copilot Studio agent made in the new authoring UI (recognizer `CLICopilotRecognizer`), made for this project under the repository's Apache-2.0 licence by the maintainer in a test environment on 2026-11-04: an unmanaged solution `PowerOpsLiveAgent` with the agent "Loan Helper", its instructions in `configuration.json`, the Microsoft Learn Docs MCP tool and the Work IQ tool (`kind: McpTool`) and six Work IQ workloads (`kind: IQCapability`), exported from Studio's solution explorer.
+
+- `v1.zip`: the first export.
+- `v2.zip`: the second export, after one sentence was added to the instructions; nothing else differs.
+- `v1-no-learn-tool.zip`: `v1.zip` without the Learn tool's `botcomponents/` folder, made offline. Its connection reference stays in `customizations.xml` and `Assets/botcomponent_connectionreferenceset.xml`.
+
+Scrubbed and trimmed before committing (by a script kept outside the repository; the raw exports are not committed): the environment's default publisher prefix became `cr123`, the random parts of the agent's and the Work IQ draft's schema names became `abc123` and `def456`, the two connection ids in the connection reference names became fake values (`00000000000000000000000000000001`, `00000000-0000-0000-0000-000000000002`), the solution publisher's display name became "PowerOps Fixtures", and the agent icon (`iconbase64` in `bot.xml`) was removed. The zips are rebuilt with the same entries, stored without compression and with fixed timestamps, so their text can be searched. The files contain no tenant URLs, environment ids, user names or emails.
 
 `pac/` holds `pac` 2.13.1 output captured for this project, under the same licence, by the maintainer in the test environment that holds `PowerOpsSeed` (2026-10-21). `stdout` was saved apart from `stderr`; every capture left `stderr` empty.
 

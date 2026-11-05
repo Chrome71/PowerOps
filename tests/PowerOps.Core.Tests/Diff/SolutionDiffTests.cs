@@ -392,6 +392,8 @@ public class SolutionDiffTests
             Diff(WithAgents(B.Agent(tools: [B.Tool(mcp: false)])), WithAgents(B.Agent(tools: [B.Tool(mcp: true)]))));
     }
 
+    private const string Readable = "instructions PowerOps can read (the text of a single Custom GPT component, or of configuration.json's segments when the agent has no Custom GPT component)";
+
     private static IReadOnlyList<string> NotCompared(Solution a, Solution b) => SolutionDiff.Compare(a, b).NotCompared;
 
     private static Agent NewUi(string name = "demo_agent", params AgentComponent[] other) => B.Agent(name, instructions: null, recognizer: "CLICopilotRecognizer") with { OtherComponents = other };
@@ -402,13 +404,13 @@ public class SolutionDiffTests
     public void Instructions_not_read_in_either_version_of_a_kept_agent_are_listed()
     {
         Assert.Equal(
-            ["agent 'demo_agent': instructions not compared: neither version has a single Custom GPT component whose instructions are text"],
+            [$"agent 'demo_agent': instructions not compared: neither version has {Readable}"],
             NotCompared(WithAgents(NewUi()), WithAgents(NewUi())));
         Assert.Equal(
-            ["agent 'demo_agent': instructions not compared: the old version has no single Custom GPT component whose instructions are text"],
+            [$"agent 'demo_agent': instructions not compared: the old version has no {Readable}"],
             NotCompared(WithAgents(NewUi()), WithAgents(B.Agent())));
         Assert.Equal(
-            ["agent 'demo_agent': instructions not compared: the new version has no single Custom GPT component whose instructions are text"],
+            [$"agent 'demo_agent': instructions not compared: the new version has no {Readable}"],
             NotCompared(WithAgents(B.Agent()), WithAgents(NewUi("DEMO_AGENT"))));
     }
 
@@ -420,8 +422,8 @@ public class SolutionDiffTests
 
         Assert.Equal(
             [
-                "agent 'a_agent': instructions not compared: neither version has a single Custom GPT component whose instructions are text",
-                "agent 'demo_agent': instructions not compared: neither version has a single Custom GPT component whose instructions are text",
+                $"agent 'a_agent': instructions not compared: neither version has {Readable}",
+                $"agent 'demo_agent': instructions not compared: neither version has {Readable}",
                 "agent 'demo_agent': 1 component not read as tools, so a change to it is not compared: 1 'McpTool'",
             ],
             NotCompared(WithAgents(first, duplicate, NewUi("a_agent")), WithAgents(first, duplicate, NewUi("a_agent"))));
@@ -440,6 +442,124 @@ public class SolutionDiffTests
     {
         Assert.Empty(NotCompared(WithAgents(B.Agent(tools: [B.Tool()])), WithAgents(B.Agent(instructions: "Other.", tools: [B.Tool(mcp: true)]))));
         Assert.Empty(NotCompared(B.Empty(), B.Empty()));
+    }
+
+    private static AgentCapability Cap(string name, string access = "Write", string? schema = null) => new(schema ?? $"demo_agent.iq.{name}", name, access, $"botcomponents/{schema ?? $"demo_agent.iq.{name}"}/data");
+
+    private static Agent WithCaps(string? instructions, params AgentCapability[] caps) => B.Agent(instructions: instructions) with { Capabilities = caps };
+
+    [Fact]
+    public void The_not_compared_instructions_line_has_the_exact_wording()
+    {
+        Assert.Equal(
+            ["agent 'demo_agent': instructions not compared: the old version has no instructions PowerOps can read (the text of a single Custom GPT component, or of configuration.json's segments when the agent has no Custom GPT component)"],
+            NotCompared(WithAgents(NewUi()), WithAgents(B.Agent())));
+    }
+
+    [Fact]
+    public void A_work_iq_workload_removed_added_or_changed_is_a_part_of_the_agent_change_with_no_risk()
+    {
+        Assert.Equal(
+            ["Changed agent demo_agent: IQCapability demo_agent.iq.mail: mail Write → (none)"],
+            Diff(WithAgents(WithCaps("Text.", Cap("mail"))), WithAgents(WithCaps("Text."))));
+        Assert.Equal(
+            ["Changed agent demo_agent: IQCapability demo_agent.iq.mail: (none) → mail Write"],
+            Diff(WithAgents(WithCaps("Text.")), WithAgents(WithCaps("Text.", Cap("mail")))));
+        Assert.Equal(
+            ["Changed agent demo_agent: IQCapability demo_agent.iq.mail: mail Write → mail Read"],
+            Diff(WithAgents(WithCaps("Text.", Cap("mail"))), WithAgents(WithCaps("Text.", Cap("mail", "Read")))));
+    }
+
+    [Fact]
+    public void Parts_are_joined_with_a_semicolon_in_schema_name_order_and_changed_instructions_come_first_with_their_risk()
+    {
+        Assert.Equal(
+            ["Changed agent demo_agent: instructions changed; IQCapability demo_agent.iq.files: files Write → (none); IQCapability demo_agent.iq.mail: mail Write → mail Read (agent-instructions)"],
+            Diff(
+                WithAgents(WithCaps("Old.", Cap("mail"), Cap("files"))),
+                WithAgents(WithCaps("New.", Cap("mail", "Read")))));
+    }
+
+    [Fact]
+    public void Equal_workloads_are_no_change_and_their_schema_names_match_ignoring_case()
+    {
+        Assert.Empty(Diff(WithAgents(WithCaps("Text.", Cap("mail"), Cap("files"))), WithAgents(WithCaps("Text.", Cap("files"), Cap("mail")))));
+        Assert.Empty(Diff(WithAgents(WithCaps("Text.", Cap("mail"))), WithAgents(WithCaps("Text.", Cap("mail", schema: "DEMO_AGENT.IQ.MAIL")))));
+    }
+
+    [Fact]
+    public void A_workload_re_added_under_a_new_schema_name_is_one_part_removed_and_one_added()
+    {
+        Assert.Equal(
+            ["Changed agent demo_agent: IQCapability demo_agent.iq.mail_a: mail Write → (none); IQCapability demo_agent.iq.mail_b: (none) → mail Write"],
+            Diff(WithAgents(WithCaps("Text.", Cap("mail", schema: "demo_agent.iq.mail_a"))), WithAgents(WithCaps("Text.", Cap("mail", schema: "demo_agent.iq.mail_b")))));
+    }
+
+    [Fact]
+    public void A_workload_side_and_a_schema_name_are_cut_to_one_hundred_characters()
+    {
+        var long_ = new AgentCapability(new string('n', 150), new string('c', 150), "Write", "f");
+
+        Assert.Equal(
+            [$"Changed agent demo_agent: IQCapability {new string('n', 100)}…: {new string('c', 100)}… → (none)"],
+            Diff(WithAgents(WithCaps("Text.", long_)), WithAgents(WithCaps("Text."))));
+    }
+
+    [Fact]
+    public void An_unread_workload_on_one_side_shows_as_none_and_is_listed_in_the_components_line()
+    {
+        var unread = B.Agent(instructions: "Text.") with { OtherComponents = [Other("IQCapability", "demo_agent.iq.mail")] };
+
+        Assert.Equal(
+            ["Changed agent demo_agent: IQCapability demo_agent.iq.mail: mail Write → (none)"],
+            Diff(WithAgents(WithCaps("Text.", Cap("mail"))), WithAgents(unread)));
+        Assert.Equal(
+            ["agent 'demo_agent': 1 component not read as tools, so a change to it is not compared: 1 'IQCapability'"],
+            NotCompared(WithAgents(WithCaps("Text.", Cap("mail"))), WithAgents(unread)));
+    }
+
+    [Fact]
+    public void A_tool_whose_connection_reference_or_operation_id_changed_is_one_detail_after_the_mode()
+    {
+        static AgentTool Mcp(string? mode = "Invoker", string? reference = "demo_agent.cr.a", string? operation = "search") =>
+            new("demo_agent.tool.Docs", null, true, mode, "botcomponents/demo_agent.tool.Docs/data", reference, operation, "McpTool");
+
+        Assert.Equal(
+            ["Changed agentTool demo_agent.tool.Docs: operationId: search → fetch"],
+            Diff(WithAgents(B.Agent(tools: [Mcp()])), WithAgents(B.Agent(tools: [Mcp(operation: "fetch")]))));
+        Assert.Equal(
+            ["Changed agentTool demo_agent.tool.Docs: mode: Invoker → Maker; connectionReference: demo_agent.cr.a → demo_agent.cr.b; operationId: search → (none)"],
+            Diff(WithAgents(B.Agent(tools: [Mcp()])), WithAgents(B.Agent(tools: [Mcp("Maker", "demo_agent.cr.b", null)]))));
+        Assert.Empty(Diff(WithAgents(B.Agent(tools: [Mcp()])), WithAgents(B.Agent(tools: [Mcp()]))));
+    }
+
+    [Fact]
+    public void A_configuration_conflict_in_a_kept_agent_is_listed_for_the_old_the_new_or_both_versions_and_never_for_an_added_agent()
+    {
+        var conflict = B.Agent() with { InstructionsConflict = true };
+        var plain = B.Agent();
+        const string Tail = "they differ from the Custom GPT component's or can't be read, and only the component's are compared";
+
+        Assert.Equal([$"agent 'demo_agent': configuration.json instructions not compared: in the old version {Tail}"], NotCompared(WithAgents(conflict), WithAgents(plain)));
+        Assert.Equal([$"agent 'demo_agent': configuration.json instructions not compared: in the new version {Tail}"], NotCompared(WithAgents(plain), WithAgents(conflict)));
+        Assert.Equal([$"agent 'demo_agent': configuration.json instructions not compared: in both versions {Tail}"], NotCompared(WithAgents(conflict), WithAgents(conflict)));
+        Assert.Empty(NotCompared(B.Empty(), WithAgents(conflict)));
+        Assert.Empty(NotCompared(WithAgents(conflict), B.Empty()));
+        Assert.Empty(NotCompared(WithAgents(plain), WithAgents(plain)));
+    }
+
+    [Fact]
+    public void The_conflict_line_comes_after_the_instructions_line_and_before_the_components_line()
+    {
+        var a = NewUi("demo_agent", Other("Widget", "demo_agent.x")) with { InstructionsConflict = true };
+
+        Assert.Equal(
+            [
+                $"agent 'demo_agent': instructions not compared: neither version has {Readable}",
+                "agent 'demo_agent': configuration.json instructions not compared: in both versions they differ from the Custom GPT component's or can't be read, and only the component's are compared",
+                "agent 'demo_agent': 1 component not read as tools, so a change to it is not compared: 1 'Widget'",
+            ],
+            NotCompared(WithAgents(a), WithAgents(a)));
     }
 
     [Fact]
@@ -461,7 +581,7 @@ public class SolutionDiffTests
 
         Assert.Equal(
             [
-                "agent 'demo_agent': instructions not compared: neither version has a single Custom GPT component whose instructions are text",
+                $"agent 'demo_agent': instructions not compared: neither version has {Readable}",
                 "agent 'demo_agent': 4 components not read as tools, so a change to them is not compared: 1 'IQCapability', 2 'McpTool', 1 with no kind",
             ],
             NotCompared(WithAgents(NewUi("demo_agent", v1)), WithAgents(NewUi("demo_agent", v2))));

@@ -159,14 +159,26 @@ public class AnalyzeCommandTests : IDisposable
         Assert.Equal(1, doc.RootElement.GetProperty("summary").GetProperty("solutions").GetInt32());
     }
 
+    [Theory]
+    [InlineData("v1.zip")]
+    [InlineData("v2.zip")]
+    [InlineData("v1-no-learn-tool.zip")]
+    public void A_new_ui_agent_gets_the_harness_note_for_its_recognizer(string zip)
+    {
+        var (code, _, err) = Run("analyze", Path.Combine(Fixtures, "agents", "new-ui", zip), "--fail-on", "none");
+
+        Assert.Equal(0, code);
+        Assert.Contains("PO027 to PO031 not checked for agent 'cr123_loanhelper_abc123': its recognizer is 'CLICopilotRecognizer', not GenerativeAIRecognizer or VirtualAgentsRecognizer", err);
+    }
+
     [Fact]
-    public void Json_output_parses_and_has_twelve_solutions()
+    public void Json_output_parses_and_has_sixteen_solutions()
     {
         var (code, output, _) = Run("analyze", Fixtures, "--format", "json", "--fail-on", "none");
 
         Assert.Equal(0, code);
         using var doc = JsonDocument.Parse(output);
-        Assert.Equal(12, doc.RootElement.GetProperty("summary").GetProperty("solutions").GetInt32());
+        Assert.Equal(16, doc.RootElement.GetProperty("summary").GetProperty("solutions").GetInt32());
     }
 
     [Fact]
@@ -175,7 +187,7 @@ public class AnalyzeCommandTests : IDisposable
         var (code, output, _) = Run("analyze", Fixtures, "--format", "markdown", "--fail-on", "none");
 
         Assert.Equal(0, code);
-        Assert.StartsWith("## PowerOps analyze\n\n**12 solutions, ", output);
+        Assert.StartsWith("## PowerOps analyze\n\n**16 solutions, ", output);
     }
 
     [Fact]
@@ -200,7 +212,7 @@ public class AnalyzeCommandTests : IDisposable
         Assert.Equal(0, code);
         Assert.Equal("", output);
         using var doc = JsonDocument.Parse(File.ReadAllText(file));
-        Assert.Equal(12, doc.RootElement.GetProperty("solutions").GetArrayLength());
+        Assert.Equal(16, doc.RootElement.GetProperty("solutions").GetArrayLength());
     }
 
     [Fact]

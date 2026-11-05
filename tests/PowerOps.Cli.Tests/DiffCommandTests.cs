@@ -156,7 +156,10 @@ public class DiffCommandTests : IDisposable
             ("demo_agent.topic.Refunds", "kind: TaskDialog\naction:\n  kind: InvokeExternalAgentTaskAction\n  connectionProperties:\n    mode: Invoker\n  operationDetails:\n    kind: ModelContextProtocolMetadata\n"))
     );
 
-    /// <summary>A copy of `powerops-seed/v1` with an agent shaped like one from Copilot Studio's new authoring UI: no Custom GPT component, its instructions in `configuration.json`, its tools `McpTool` components (M50).</summary>
+    /// <summary>
+    /// A copy of `powerops-seed/v1` with an agent shaped like one from Copilot Studio's new authoring UI that M51 still doesn't fully read: no Custom GPT component, segments with no `$kind` in `configuration.json`, `McpTool` tools,
+    /// and a component of a kind no reader knows.
+    /// </summary>
     private string SeedWithNewUiAgent(string name, string instructions, params string[] mcpTools)
     {
         var copy = SeedWithAgent(name, "unused");
@@ -171,8 +174,8 @@ public class DiffCommandTests : IDisposable
 
         const string Component = "<botcomponent schemaname=\"{0}\"><componenttype>9</componenttype><parentbotid><schemaname>demo_agent</schemaname></parentbotid></botcomponent>";
         Write("bots/demo_agent/configuration.json", """{"recognizer":{"$kind":"CLICopilotRecognizer"},"agentSettings":{"instructions":{"segments":[{"value":""" + System.Text.Json.JsonSerializer.Serialize(instructions) + "}]}}}");
-        Write("botcomponents/demo_agent.iqCapability.mail/botcomponent.xml", string.Format(Component, "demo_agent.iqCapability.mail"));
-        Write("botcomponents/demo_agent.iqCapability.mail/data", "kind: IQCapability\ncapability: mail\naccess: Write\n");
+        Write("botcomponents/demo_agent.widget.mail/botcomponent.xml", string.Format(Component, "demo_agent.widget.mail"));
+        Write("botcomponents/demo_agent.widget.mail/data", "kind: Widget\nname: mail\n");
         foreach (var tool in mcpTools)
         {
             Write($"botcomponents/{tool}/botcomponent.xml", string.Format(Component, tool));
@@ -189,24 +192,71 @@ public class DiffCommandTests : IDisposable
         var @new = SeedWithNewUiAgent("new-ui-new", "Answer questions about loans. Be brief.", "demo_agent.tool.Docs");
         string[] notes =
         [
-            "agent 'demo_agent': instructions not compared: neither version has a single Custom GPT component whose instructions are text",
-            "agent 'demo_agent': 3 components not read as tools, so a change to them is not compared: 1 'IQCapability', 2 'McpTool'",
+            "agent 'demo_agent': instructions not compared: neither version has instructions PowerOps can read (the text of a single Custom GPT component, or of configuration.json's segments when the agent has no Custom GPT component)",
+            "agent 'demo_agent': 1 component not read as tools, so a change to it is not compared: 1 'Widget'",
         ];
 
-        foreach (var (a, b) in new[] { (old, @new), (@new, old) })
+        foreach (var (a, b, line) in new[] { (old, @new, "removed agentTool demo_agent.tool.Work [risk: removed-component, agent-tool]"), (@new, old, "added agentTool demo_agent.tool.Work [risk: agent-tool]") })
         {
             var (code, output, err) = Run("diff", a, b);
-            Assert.Equal(0, code); // until the reader reads this layout (M51)
-            Assert.EndsWith("no changes\n", output);
+            Assert.Equal(1, code); // the McpTool tools are read, the segments are not
+            Assert.Contains(line, output);
             Assert.Equal(string.Concat(notes.Select(n => $"note: {n}\n")), err.ReplaceLineEndings("\n"));
 
             using var json = System.Text.Json.JsonDocument.Parse(Run("diff", a, b, "--format", "json").Out);
-            Assert.Empty(json.RootElement.GetProperty("changes").EnumerateArray());
+            Assert.Single(json.RootElement.GetProperty("changes").EnumerateArray());
             Assert.Equal(notes, json.RootElement.GetProperty("notCompared").EnumerateArray().Select(e => e.GetString()));
 
             var markdown = Run("diff", a, b, "--format", "markdown").Out;
             Assert.Contains("**Not compared:**\n\n" + string.Concat(notes.Select(n => $"- {n.Replace("_", "\\_")}\n")), markdown);
         }
+    }
+
+    private static readonly string NewUi = Path.Combine(Fixtures, "agents", "new-ui");
+
+    private static readonly string Learn = "cr123_loanhelper_abc123.tool.MicrosoftLearnDocsMCP-MicrosoftLearnDocsMCPServer_Liw";
+
+    [Theory]
+    [InlineData("v1.zip", "v2.zip")]
+    [InlineData("v2.zip", "v1.zip")]
+    public void Changed_instructions_of_a_new_ui_agent_exit_one_with_the_risk_and_no_note(string from, string to)
+    {
+        var (code, output, err) = Run("diff", Path.Combine(NewUi, from), Path.Combine(NewUi, to));
+
+        Assert.Equal(1, code);
+        Assert.Contains("  changed agent cr123_loanhelper_abc123: instructions changed [risk: agent-instructions]\n", output.ReplaceLineEndings("\n"));
+        Assert.Contains("1 change (0 added, 0 removed, 1 changed)", output);
+        Assert.Equal("", err);
+        using var json = System.Text.Json.JsonDocument.Parse(Run("diff", Path.Combine(NewUi, from), Path.Combine(NewUi, to), "--format", "json").Out);
+        Assert.Empty(json.RootElement.GetProperty("notCompared").EnumerateArray());
+        Assert.Equal(["agent-instructions"], json.RootElement.GetProperty("changes")[0].GetProperty("risks").EnumerateArray().Select(e => e.GetString()));
+    }
+
+    [Theory]
+    [InlineData("v1.zip", "v1-no-learn-tool.zip", "  removed agentTool cr123_loanhelper_abc123.tool.MicrosoftLearnDocsMCP-MicrosoftLearnDocsMCPServer_Liw [risk: removed-component, agent-tool]\n", "1 change (0 added, 1 removed, 0 changed)")]
+    [InlineData("v1-no-learn-tool.zip", "v1.zip", "  added agentTool cr123_loanhelper_abc123.tool.MicrosoftLearnDocsMCP-MicrosoftLearnDocsMCPServer_Liw [risk: agent-tool]\n", "1 change (1 added, 0 removed, 0 changed)")]
+    public void A_removed_or_added_learn_tool_of_a_new_ui_agent_exits_one_with_the_tool_risks_and_no_note(string from, string to, string line, string summary)
+    {
+        var (code, output, err) = Run("diff", Path.Combine(NewUi, from), Path.Combine(NewUi, to));
+
+        Assert.Equal(1, code);
+        Assert.Contains(line, output.ReplaceLineEndings("\n"));
+        Assert.Contains(summary, output);
+        Assert.Equal("", err);
+        using var json = System.Text.Json.JsonDocument.Parse(Run("diff", Path.Combine(NewUi, from), Path.Combine(NewUi, to), "--format", "json").Out);
+        Assert.Empty(json.RootElement.GetProperty("notCompared").EnumerateArray());
+        var change = Assert.Single(json.RootElement.GetProperty("changes").EnumerateArray());
+        Assert.Equal(Learn, change.GetProperty("key").GetString());
+    }
+
+    [Fact]
+    public void A_new_ui_agent_against_itself_exits_zero_with_no_note()
+    {
+        var (code, output, err) = Run("diff", Path.Combine(NewUi, "v1.zip"), Path.Combine(NewUi, "v1.zip"));
+
+        Assert.Equal(0, code);
+        Assert.Contains("no changes", output);
+        Assert.Equal("", err);
     }
 
     [Fact]

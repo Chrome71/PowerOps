@@ -160,8 +160,10 @@ internal static partial class SolutionParser
             .Select(g => g.OrderBy(x => x.Match.Groups[2].Success).ThenBy(x => x.Path, StringComparer.Ordinal).First().Path)
             .Order(StringComparer.Ordinal);
 
-    private sealed class AgentParts(string name, string file, int? mode, AgentConfiguration? configuration)
+    private sealed class AgentParts(string name, string file, int? mode, AgentConfiguration? configuration, string? configurationFile)
     {
+        public string? ConfigurationFile { get; } = configurationFile;
+
         public string Name { get; } = name;
 
         public string File { get; } = file;
@@ -177,6 +179,8 @@ internal static partial class SolutionParser
         public List<string> Unread { get; } = [];
 
         public List<AgentComponent> Other { get; } = [];
+
+        public List<AgentCapability> Capabilities { get; } = [];
     }
 
     /// <summary>Topics and child agents are type-9 components that are not tools; `TaskDialog` is a tool.</summary>
@@ -184,7 +188,8 @@ internal static partial class SolutionParser
 
     /// <summary>
     /// Reads each `bots/&lt;folder&gt;/bot.xml` and the `botcomponents/` that name it as their `parentbotid` (M48 plan, Data row 2). Malformed XML, JSON or YAML is refused with the path; a shape the reader doesn't know gives null fields.
-    /// Only a type-15 (Custom GPT) and a type-9 (Topic (V2)) component of a read agent has its `data` read, and a type-9 `data` only when its text holds `TaskDialog`, so topics add no refusals.
+    /// Only a type-15 (Custom GPT) and a type-9 (Topic (V2)) component of a read agent has its `data` read, and a type-9 `data` only when its text holds `TaskDialog` or its first column-0 `kind:` line is `McpTool` or `IQCapability`, so topics add no refusals.
+    /// An agent with no Custom GPT component takes its instructions from `configuration.json` (M51 plan, Data rows 1 to 4).
     /// </summary>
     private static List<Agent> ReadAgents(SolutionFiles files, Dictionary<string, string> paths)
     {
@@ -198,7 +203,8 @@ internal static partial class SolutionParser
                 Opt((string?)bot.Attribute("schemaname")) ?? folder,
                 path,
                 int.TryParse(Text(bot, "authenticationmode"), out var mode) ? mode : null,
-                paths.TryGetValue($"bots/{folder}/configuration.json", out var config) ? ReadAgentConfiguration(files.ReadText(config), config) : null);
+                paths.TryGetValue($"bots/{folder}/configuration.json", out var config) ? ReadAgentConfiguration(files.ReadText(config), config) : null,
+                config);
             agents.Add(agent);
             byName.TryAdd(agent.Name, agent);
         }
@@ -215,13 +221,14 @@ internal static partial class SolutionParser
             }
 
             var text = files.ReadText(data);
-            if (type == 9 && !text.Contains("TaskDialog", StringComparison.Ordinal))
+            // Read from its first `kind:` line, not parsed, so topics add no refusals (M50 decisions Q3).
+            var lineKind = type == 9 && TopKind().Match(text) is { Success: true } m ? Opt(m.Groups[1].Value.Trim().Trim('"', '\'').Trim()) : null;
+            var newKind = lineKind is "McpTool" or "IQCapability";
+            if (type == 9 && !text.Contains("TaskDialog", StringComparison.Ordinal) && !newKind)
             {
-                // Read from its first `kind:` line, not parsed, so topics add no refusals (M50 decisions Q3).
-                var kind = TopKind().Match(text) is { Success: true } m ? Opt(m.Groups[1].Value.Trim().Trim('"', '\'').Trim()) : null;
-                if (!KnownKind(kind))
+                if (!KnownKind(lineKind))
                 {
-                    agent.Other.Add(new AgentComponent(kind, data));
+                    agent.Other.Add(new AgentComponent(lineKind, data));
                 }
 
                 continue;
@@ -234,20 +241,40 @@ internal static partial class SolutionParser
             }
             else if (yaml is null)
             {
-                agent.Unread.Add(data); // may be a tool, but its keys can't be mapped
+                if (newKind)
+                {
+                    agent.Other.Add(new AgentComponent(lineKind, data));
+                }
+                else
+                {
+                    agent.Unread.Add(data); // may be a tool, but its keys can't be mapped
+                }
             }
-            else if (YamlText(yaml, "kind") == "TaskDialog")
+            else
             {
-                agent.Tools.Add(new AgentTool(
-                    Opt((string?)component.Attribute("schemaname")) ?? folder,
-                    YamlText(yaml, "action", "kind"),
-                    YamlText(yaml, "action", "operationDetails", "kind") == "ModelContextProtocolMetadata",
-                    YamlText(yaml, "action", "connectionProperties", "mode"),
-                    data));
-            }
-            else if (!KnownKind(YamlText(yaml, "kind")))
-            {
-                agent.Other.Add(new AgentComponent(YamlText(yaml, "kind"), data));
+                var kind = YamlText(yaml, "kind");
+                var schema = Opt((string?)component.Attribute("schemaname")) ?? folder;
+                if (kind == "TaskDialog")
+                {
+                    agent.Tools.Add(new AgentTool(
+                        schema,
+                        YamlText(yaml, "action", "kind"),
+                        YamlText(yaml, "action", "operationDetails", "kind") == "ModelContextProtocolMetadata",
+                        YamlText(yaml, "action", "connectionProperties", "mode"),
+                        data));
+                }
+                else if (kind == "McpTool")
+                {
+                    agent.Tools.Add(new AgentTool(schema, null, true, YamlText(yaml, "authMode"), data, YamlText(yaml, "connectionReference"), YamlText(yaml, "operationId"), "McpTool"));
+                }
+                else if (kind == "IQCapability" && YamlText(yaml, "capability") is { } capability && YamlText(yaml, "access") is { } access)
+                {
+                    agent.Capabilities.Add(new AgentCapability(schema, capability, access, data));
+                }
+                else if (!KnownKind(kind))
+                {
+                    agent.Other.Add(new AgentComponent(kind, data));
+                }
             }
         }
 
@@ -255,17 +282,27 @@ internal static partial class SolutionParser
         {
             var gpt = a.Gpts.Count == 1 ? a.Gpts[0] : default;
             var instructions = gpt.Yaml?.Elements("instructions").ToList();
+            var text = instructions is null ? null : instructions.Count == 0 ? "" : instructions is [{ HasElements: false } only] ? only.Value : null;
+            var configured = a.Gpts.Count == 0 ? a.Configuration?.Instructions : null;
             return new Agent(
                 a.Name,
                 a.File,
                 a.Mode,
                 a.Configuration,
-                instructions is null ? null : instructions.Count == 0 ? "" : instructions is [{ HasElements: false } only] ? only.Value : null,
-                gpt.File,
+                text ?? configured,
+                a.Gpts.Count == 0 ? (configured is null ? null : a.ConfigurationFile) : gpt.File,
                 a.Tools,
                 [.. a.Unread.Order(StringComparer.Ordinal)])
-            { OtherComponents = [.. a.Other.OrderBy(c => c.File, StringComparer.Ordinal)] };
+            {
+                OtherComponents = [.. a.Other.OrderBy(c => c.File, StringComparer.Ordinal)],
+                Capabilities = [.. a.Capabilities.OrderBy(c => c.File, StringComparer.Ordinal)],
+                InstructionsFromConfiguration = configured is not null,
+                InstructionsConflict = text is not null && a.Configuration is { } c && (c.InstructionsUnread || c.Instructions is not null && Normalize(c.Instructions) != Normalize(text)),
+            };
         }).ToList();
+
+        // A YAML block scalar keeps a line break the maker didn't type, and JSON may write line breaks differently.
+        static string Normalize(string value) => value.Replace("\r\n", "\n").TrimEnd('\n');
     }
 
     private static XElement? ReadAgentYaml(SolutionFiles files, string path, string text)
@@ -317,12 +354,41 @@ internal static partial class SolutionParser
                 && on.ValueKind is JsonValueKind.True or JsonValueKind.False
                 ? on.ValueKind == JsonValueKind.True
                 : null;
-            return new AgentConfiguration(recognizer, generative);
+            var (instructions, unread) = ReadSegments(root);
+            return new AgentConfiguration(recognizer, generative, instructions, unread);
         }
         catch (JsonException e)
         {
             throw new InvalidDataException($"{path}: {e.Message}", e);
         }
+    }
+
+    // `agentSettings.instructions.segments` of the new authoring UI: only StaticSegment items with text are read, so a reference can't pass as the prompt's text (M51 decisions Q2).
+    private static (string? Text, bool Unread) ReadSegments(JsonElement root)
+    {
+        if (!root.TryGetProperty("agentSettings", out var settings) || settings.ValueKind != JsonValueKind.Object || !settings.TryGetProperty("instructions", out var node))
+        {
+            return (null, false);
+        }
+
+        if (node.ValueKind != JsonValueKind.Object || !node.TryGetProperty("segments", out var segments) || segments.ValueKind != JsonValueKind.Array)
+        {
+            return (null, true);
+        }
+
+        var values = new List<string>();
+        foreach (var item in segments.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object || !item.TryGetProperty("$kind", out var kind) || JsonString(kind) != "StaticSegment"
+                || !item.TryGetProperty("value", out var value) || JsonString(value) is not { } text)
+            {
+                return (null, true);
+            }
+
+            values.Add(text);
+        }
+
+        return (string.Concat(values), false);
     }
 
     // A string that is not valid UTF-16 text throws InvalidOperationException from GetString.
