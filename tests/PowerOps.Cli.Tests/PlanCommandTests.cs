@@ -245,4 +245,51 @@ public class PlanCommandTests : IDisposable
             Assert.DoesNotContain(value, err);
         }
     }
+
+    // The shape of the plan folder of the 2026-11-04 live run, marked as M54 asks: an orchestrating agent answered the
+    // route, signed off and accepted findings, and the build left a stray in Dev.
+    [Fact]
+    public void Status_lists_the_journal_and_warns_on_an_agent_sign_off_or_acceptance_without_failing()
+    {
+        Plan("status: approved\nreview: skipped");
+        Assert.Equal(0, Run("plan", "sign-off", PlanDir()).Code);
+        File.WriteAllText(Path.Combine(PlanDir(), "decisions.md"), string.Join("\n",
+            "# Decisions: site-visits",
+            "",
+            "## Round 1",
+            "",
+            "### Q1. Which route?",
+            "1. Unmanaged in Dev, then managed to Test (recommended)",
+            "2. In your own words",
+            "Answer: 1 (answered by: agent orchestrator)",
+            "",
+            "## Log",
+            "",
+            "- approved (answered by: agent orchestrator)",
+            "- signed off (answered by: agent orchestrator)",
+            "- accepted S1, S2, S6 and V1 for Test (answered by: agent orchestrator)",
+            ""));
+        File.WriteAllText(Path.Combine(PlanDir(), "writes.md"), string.Join("\n",
+            "# Writes: site-visits",
+            "",
+            "| # | Step | Actor | Authority | Operation | Outcome | Cleanup |",
+            "|---|---|---|---|---|---|---|",
+            "| 1 | 2 | agent orchestrator child | person: yes to Dev writes | create the Visit table with dv-metadata | done | none |",
+            "| 2 | 3 | agent orchestrator child | person: yes to Dev writes | create two app modules with raw Web API | failed, two drafts left in Dev | open: two draft app modules; the person removes them |",
+            ""));
+
+        var (code, output, _) = Run("plan", "status", PlanDir());
+        var (_, json, _) = Run("plan", "status", PlanDir(), "--json");
+
+        var text = output.Replace("\r\n", "\n");
+        Assert.Equal(0, code);
+        Assert.Contains(": signed-off, review skipped, 0 open questions\n  writes writes.md: 2 entries, 1 open cleanup\n", text);
+        Assert.Contains($"  warning: sign-off answered by an agent ({Path.Combine(PlanDir(), "decisions.md").Replace('\\', '/')}:13): only a person signs off a plan\n", text);
+        Assert.Contains($"  warning: acceptance answered by an agent ({Path.Combine(PlanDir(), "decisions.md").Replace('\\', '/')}:14): only a person accepts a High finding or a security gap\n", text);
+        Assert.EndsWith("1 plan, 0 violations, 2 warnings\n", text);
+        using var doc = JsonDocument.Parse(json);
+        var writes = doc.RootElement.GetProperty("plans")[0].GetProperty("writes");
+        Assert.Equal(2, writes.GetProperty("entries").GetInt32());
+        Assert.Equal(1, writes.GetProperty("openCleanup").GetInt32());
+    }
 }

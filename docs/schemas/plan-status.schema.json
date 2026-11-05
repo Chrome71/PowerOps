@@ -12,7 +12,7 @@
       "description": "One entry per plan.md found.",
       "items": {
         "type": "object",
-        "required": ["path", "status", "review", "signedOff", "environment", "depth", "supersedes", "openQuestions", "bodyHash", "reports", "violations", "warnings"],
+        "required": ["path", "status", "review", "signedOff", "environment", "depth", "supersedes", "openQuestions", "bodyHash", "reports", "writes", "violations", "warnings"],
         "properties": {
           "path": { "type": "string", "description": "Plan folder, relative to the working folder." },
           "status": { "type": ["string", "null"], "description": "draft, approved, signed-off, implementing or done; null when the header is malformed." },
@@ -34,6 +34,15 @@
                 "state": { "type": ["string", "null"], "description": "The value of the 'state:' line in the report's first four lines, as written (the known values are ready, blocked, failed and dropped; any other value also adds a warning), or null when there is no such line or the file was not read (a link, a binary file or one over 1 MB). review.md normally has none." },
                 "stale": { "type": ["boolean", "null"], "description": "True when the plan body changed since the report was written, that is, the report's 'plan-hash:' differs from bodyHash. It says nothing about the solution. Null when the report or the plan has no hash, or the file was not read." }
               }
+            }
+          },
+          "writes": {
+            "type": ["object", "null"],
+            "description": "The plan folder's write journal, writes.md, which powerops-implement keeps with one table row per tenant write it attempted; null when there is none. It never changes the exit code.",
+            "required": ["entries", "openCleanup"],
+            "properties": {
+              "entries": { "type": ["integer", "null"], "description": "The table's rows, header and separator lines left out; null when the file was not read (a link, a binary file or one over 1 MB)." },
+              "openCleanup": { "type": ["integer", "null"], "description": "The rows whose last cell, the cleanup obligation, is neither 'none' nor starts with 'done' (case-insensitive), so a row with no cleanup stated counts; null when the file was not read." }
             }
           },
           "violations": { "type": "array", "items": { "type": "string" }, "description": "Problems that make 'plan status' exit non-zero." },

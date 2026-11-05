@@ -520,4 +520,120 @@ public class PlanCheckerTests : IDisposable
         Assert.EndsWith("---\r\n" + body, text);
         Assert.Empty(Check().Violations);
     }
+
+    [Fact]
+    public void A_plan_with_no_journal_has_no_writes()
+    {
+        Write(Plan());
+
+        Assert.Null(Check().Writes);
+    }
+
+    [Fact]
+    public void The_journal_counts_rows_after_each_header_and_separator_and_cleanups_that_are_neither_none_nor_done()
+    {
+        Write(Plan());
+        _t.Write("docs/plans/demo/writes.md", string.Join("\r\n",
+            "# Writes: demo",
+            "",
+            "| # | Step | Actor | Authority | Operation | Outcome | Cleanup |",
+            "|---|---|---|---|---|---|---|",
+            "| 1 | 1 | agent build | person: yes to step 1 | create table Loan with dv-metadata | done | none |",
+            "| 2 | 2 | agent build | person: yes to step 2 | create app module Loans with raw Web API | failed, a draft left in Dev | open: the draft app module Loans; the person removes it |",
+            "| 3 | 2 | agent build | person: yes to step 2 | turn on auditing \\| Dev | done | DONE: the person, 2026-11-04 |",
+            "| 4 | 3 | agent build | person: yes to step 3 | publish the app | done | |",
+            "| 5 | 3 | agent build | person: yes to step 3 | update a view | done | None.",
+            "| 6 | 3 | agent build | person: yes to step 3 | update a form | done | `none` |",
+            "| 7 | 3 | agent build | person: yes to step 3 | run the flow once | done | `done: the person` |",
+            "",
+            "| Later | table |",
+            "| :-- | --: |",
+            "| x | open: y |",
+            ""));
+
+        var r = Check();
+
+        Assert.Equal(new PlanWrites(8, 3), r.Writes);
+        Assert.Empty(r.Warnings);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("# Writes: demo\n\n| # | Step | Actor | Authority | Operation | Outcome | Cleanup |\n|---|---|---|---|---|---|---|\n")]
+    public void An_empty_journal_or_one_with_only_its_header_has_no_entries(string text)
+    {
+        Write(Plan());
+        _t.Write("docs/plans/demo/writes.md", text);
+
+        Assert.Equal(new PlanWrites(0, 0), Check().Writes);
+    }
+
+    [Fact]
+    public void A_journal_that_is_not_read_has_null_counts_and_one_warning()
+    {
+        Write(Plan());
+        _t.Write("docs/plans/demo/writes.md", "| 1 | open: x |\0\n");
+
+        var r = Check();
+
+        Assert.Equal(new PlanWrites(null, null), r.Writes);
+        Assert.Equal(["docs/plans/demo/writes.md: a binary file, not read"], r.Warnings);
+    }
+
+    [Fact]
+    public void Log_lines_answered_by_an_agent_warn_on_a_sign_off_or_an_acceptance_and_nothing_else_does()
+    {
+        Write(Plan());
+        _t.Write("docs/plans/demo/decisions.md", string.Join("\r\n",
+            "# Decisions: demo",
+            "",
+            "## Round 1",
+            "",
+            "### Q1. Accept the risk and sign off?",
+            "1. Yes (recommended)",
+            "2. In your own words",
+            "Answer: 1, accept it and sign off now (answered by: agent orchestrator)",
+            "",
+            "## Log",
+            "",
+            "- approved for review (answered by: agent orchestrator)",
+            "- signed off 2026-11-04 (answered by: Agent orchestrator)",
+            "- accepted R3 (High): no time to fix (answered by:agent orchestrator)",
+            "- sign-off (answered by: person)",
+            "- accepted S1 by the plan owner",
+            "- acceptance of V1 and sign-off (answered by: agent orchestrator)",
+            "- an acceptable answer (answered by: agent x)",
+            "- plan signed-off (answered by: agent x)",
+            "- signoff (answered by: agent x)",
+            "- accepted the gap of step 3,",
+            "  not verified in Dev (answered by: agent x)",
+            "  - a nested note, accepted (answered by: person)",
+            "",
+            "## Later",
+            "",
+            "- signed off (answered by: agent x)",
+            ""));
+
+        Assert.Equal(
+            [
+                "sign-off answered by an agent (docs/plans/demo/decisions.md:13): only a person signs off a plan",
+                "acceptance answered by an agent (docs/plans/demo/decisions.md:14): only a person accepts a High finding or a security gap",
+                "sign-off answered by an agent (docs/plans/demo/decisions.md:17): only a person signs off a plan",
+                "sign-off answered by an agent (docs/plans/demo/decisions.md:19): only a person signs off a plan",
+                "sign-off answered by an agent (docs/plans/demo/decisions.md:20): only a person signs off a plan",
+                "acceptance answered by an agent (docs/plans/demo/decisions.md:21): only a person accepts a High finding or a security gap",
+            ],
+            Check().Warnings);
+    }
+
+    [Fact]
+    public void A_decisions_file_with_no_log_or_no_marker_adds_no_warning()
+    {
+        Write(Plan());
+        _t.Write("docs/plans/demo/decisions.md", "# Decisions: demo\n\n## Round 1\n\n### Q1. Sign off?\nAnswer: signed off (answered by: agent x)\n");
+        Assert.Empty(Check().Warnings);
+
+        _t.Write("docs/plans/demo/decisions.md", "# Decisions: demo\n\n## Log\n\n- signed off 2026-11-04 by the building session\n- accepted R2\n");
+        Assert.Empty(Check().Warnings);
+    }
 }

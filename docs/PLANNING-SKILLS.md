@@ -92,7 +92,7 @@ Header fields are left out of the hash, so status changes never invalidate a sig
 |---|---|---|
 | `powerops-plan` | Refines the idea through question rounds, reads environment facts only for an environment the user names, drafts the plan, runs the fast path, and writes HTML mockups | `plan.md`, `decisions.md`, `mockups/*.html` |
 | `powerops-review-plan` | Reviews an approved draft in a fresh context on the top model, against a Power Platform checklist. Never asks the user | `review.md` |
-| `powerops-implement` | Checks the gate (`powerops plan status`: status `signed-off` and the hash matches). With no signed-off plan it hands over to `powerops-plan` in fast-path mode; with one, it implements step by step, runs `powerops analyze` and `powerops test` at the end, and checks the final saved version live in Dev (a flow's real trigger, a fresh load of a published canvas app, each component's solution) before it sets `done`. After the build it runs the Verifier and then the Security reviewer, each in a fresh context, and stops by impact: a choice inside the plan goes on, and one that changes scope, data, security or cost stops with one concrete question | code and solution changes |
+| `powerops-implement` | Checks the gate (`powerops plan status`: status `signed-off` and the hash matches). With no signed-off plan it hands over to `powerops-plan` in fast-path mode; with one, it implements step by step, runs `powerops analyze` and `powerops test` at the end, and checks the final saved version live in Dev (a flow's real trigger, a fresh load of a published canvas app, each component's solution) before it sets `done`. After the build it runs the Verifier and then the Security reviewer, each in a fresh context, and stops by impact: a choice inside the plan goes on, and one that changes scope, data, security or cost stops with one concrete question. It never deletes in a tenant, and journals each tenant write it attempts | code and solution changes, `writes.md` |
 | `powerops-verify` | Verifies the built solution against its signed-off plan with `analyze`, `test`, `diff` and `settings validate`, in a fresh context on the top model. Anything built outside the plan is a finding. Never asks the user | `verify.md` |
 | `powerops-review-security` | Reads the built solution against the Power Platform Well-Architected Security checklist, in a fresh context on the top model, with `analyze`, `settings validate` and `diff`. Never asks the user | `security-solution.md` |
 
@@ -106,7 +106,8 @@ Header fields are left out of the hash, so status changes never invalidate a sig
 ```
 docs/plans/<plan-name>/
   plan.md        the plan, with a header
-  decisions.md   every question, the options offered and the answer, in order
+  decisions.md   every question, the options offered and the answer, in order, each marked answered by a person or an agent
+  writes.md      written by powerops-implement: one row per tenant write it attempted, with any open cleanup
   review.md      header lines, then review findings and how each was resolved
   verify.md      written by powerops-verify after the build: header lines, then findings
   security-solution.md   written by powerops-review-security after the build: header lines, then findings
@@ -255,6 +256,8 @@ When `available` is false, the skill says what `reason` and `fix` say (for examp
 - `signed-off` and later requires `review: done` with `review.md` present, or `review: skipped`;
 - no file under the plan folder matches a URL, GUID or email pattern. A `<!-- plan-status: allow -->` comment on the line suppresses the match. Links are not followed (a link at `docs`, `docs/plans` or the path given is refused with exit 3, a linked plan folder is skipped with a warning, and a linked or over-1 MB `plan.md` is that plan's violation), and a binary file (after decoding by byte order mark) or one over 1 MB is skipped with a warning;
 - `draft` and `approved` plans pass, and a repo with no plans passes.
+
+It also lists `writes.md` (its rows and open cleanups) and warns, without a violation, on a sign-off or an acceptance in the Log of `decisions.md` marked `answered by: agent`.
 
 | Exit code | Meaning |
 |---|---|

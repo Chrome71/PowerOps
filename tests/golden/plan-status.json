@@ -12,6 +12,7 @@
       "openQuestions": 0,
       "bodyHash": "c3964bb3b70a957ec9b233c7dd3653f6ba17701ab00facf88ae1393dc6155577",
       "reports": [],
+      "writes": null,
       "violations": [],
       "warnings": []
     },
@@ -26,6 +27,10 @@
       "openQuestions": 1,
       "bodyHash": "21165810c73c3bcfb7f13fd03398c12df2cada3633a1258940beb93339487829",
       "reports": [],
+      "writes": {
+        "entries": 2,
+        "openCleanup": 1
+      },
       "violations": [],
       "warnings": []
     },
@@ -46,6 +51,7 @@
           "stale": true
         }
       ],
+      "writes": null,
       "violations": [
         "docs/plans/trouble/plan.md:10: looks like a URL; remove it, or add <!-- plan-status: allow --> to the line"
       ],

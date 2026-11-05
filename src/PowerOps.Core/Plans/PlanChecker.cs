@@ -19,10 +19,14 @@ public sealed record PlanReport(
     bool Malformed,
     IReadOnlyList<string> Violations,
     IReadOnlyList<string> Warnings,
-    IReadOnlyList<PlanReportFile> Reports);
+    IReadOnlyList<PlanReportFile> Reports,
+    PlanWrites? Writes);
 
 /// <summary>One agent report in a plan folder. State and Stale are null when the report does not say, or could not be read.</summary>
 public sealed record PlanReportFile(string File, string? State, bool? Stale);
+
+/// <summary>The write journal (writes.md) of a plan folder: its table rows and those whose cleanup is still open. Both are null when the file could not be read.</summary>
+public sealed record PlanWrites(int? Entries, int? OpenCleanup);
 
 public static partial class PlanChecker
 {
@@ -113,7 +117,7 @@ public static partial class PlanChecker
         catch (InvalidDataException ex)
         {
             // One unreadable plan.md is that plan's violation; the other plans are still checked.
-            return new PlanReport(Display(folder, baseDir), null, null, null, null, null, null, 0, null, false, [ex.Message.Replace(planFile, Display(planFile, baseDir), StringComparison.Ordinal)], [], []);
+            return new PlanReport(Display(folder, baseDir), null, null, null, null, null, null, 0, null, false, [ex.Message.Replace(planFile, Display(planFile, baseDir), StringComparison.Ordinal)], [], [], null);
         }
 
         var violations = new List<string>();
@@ -146,6 +150,8 @@ public static partial class PlanChecker
         violations.AddRange(ScanTenantData(folder, baseDir, warnings));
 
         var reports = ReadReports(folder, baseDir, doc.BodyHash, warnings);
+        var writes = ReadWrites(folder, baseDir, warnings);
+        warnings.AddRange(AgentAnswers(folder, baseDir, warnings));
 
         return new PlanReport(
             Display(folder, baseDir),
@@ -160,7 +166,84 @@ public static partial class PlanChecker
             doc.Header is null,
             violations,
             warnings,
-            reports);
+            reports,
+            writes);
+    }
+
+    // A row is a table line that is neither a header (the line before a separator) nor a separator. Its cleanup, the last
+    // cell without backticks or a final dot, is open unless it is `none` or starts with `done`, so an empty one is open.
+    private static PlanWrites? ReadWrites(string folder, string baseDir, ICollection<string> warnings)
+    {
+        var file = System.IO.Path.Combine(folder, "writes.md");
+        if (!File.Exists(file))
+        {
+            return null;
+        }
+
+        if (ReadScannable(file, baseDir, warnings) is not { } text)
+        {
+            return new PlanWrites(null, null);
+        }
+
+        var lines = Lines(text).Select(l => l.Trim()).ToList();
+        var rows = lines
+            .Where((l, i) => l.StartsWith('|') && !TableSeparatorRegex().IsMatch(l) && !(i + 1 < lines.Count && TableSeparatorRegex().IsMatch(lines[i + 1])))
+            .ToList();
+        var open = rows.Count(r =>
+        {
+            // Split on the row's leading `|`, so cells[0] is empty; the last cell is empty when the row ends in a `|`.
+            var cells = CellRegex().Split(r);
+            var cleanup = (cells[^1].Length == 0 ? cells[^2] : cells[^1]).Trim(' ', '`', '.');
+            return !cleanup.Equals("none", StringComparison.OrdinalIgnoreCase) && !cleanup.StartsWith("done", StringComparison.OrdinalIgnoreCase);
+        });
+        return new PlanWrites(rows.Count, open);
+    }
+
+    // The skills log every sign-off and acceptance as a line under `## Log`; the reasons of a product answer may mention
+    // either, so only Log lines are read. The marker is the agent's own claim: this catches honest marking, nothing more.
+    private static List<string> AgentAnswers(string folder, string baseDir, ICollection<string> warnings)
+    {
+        var found = new List<string>();
+        var file = System.IO.Path.Combine(folder, "decisions.md");
+        if (!File.Exists(file) || ReadScannable(file, baseDir, warnings) is not { } text)
+        {
+            return found;
+        }
+
+        // The Log runs from `## Log` to the next `## ` heading. An item is a `- ` line and the non-blank lines that continue it;
+        // its warning names its first line.
+        var where = Display(file, baseDir);
+        var inLog = false;
+        var (start, item) = (0, "");
+        var lines = Lines(text).ToList();
+        for (var i = 0; i <= lines.Count; i++)
+        {
+            var line = i < lines.Count ? lines[i] : "";
+            var heading = line.StartsWith("## ", StringComparison.Ordinal);
+            if (heading || line.TrimStart().StartsWith("- ", StringComparison.Ordinal) || line.Trim().Length == 0)
+            {
+                if (item.Length > 0 && AgentAnswerRegex().IsMatch(item))
+                {
+                    if (SignOffRegex().IsMatch(item))
+                    {
+                        found.Add($"sign-off answered by an agent ({where}:{start}): only a person signs off a plan");
+                    }
+                    else if (AcceptanceRegex().IsMatch(item))
+                    {
+                        found.Add($"acceptance answered by an agent ({where}:{start}): only a person accepts a High finding or a security gap");
+                    }
+                }
+
+                (start, item) = inLog && !heading && line.Trim().Length > 0 ? (i + 1, line) : (0, "");
+                inLog = heading ? line.Trim().Equals("## Log", StringComparison.OrdinalIgnoreCase) : inLog;
+            }
+            else if (item.Length > 0)
+            {
+                item += " " + line.Trim();
+            }
+        }
+
+        return found;
     }
 
     private static readonly string[] ReportFiles = ["review.md", "security-solution.md", "verify.md"];
@@ -350,6 +433,22 @@ public static partial class PlanChecker
         var under = !System.IO.Path.IsPathRooted(rel) && rel != ".." && !rel.StartsWith(".." + System.IO.Path.DirectorySeparatorChar, StringComparison.Ordinal);
         return (under ? rel : path).Replace('\\', '/');
     }
+
+    [GeneratedRegex(@"^\|[\s|:-]*-[\s|:-]*$")]
+    private static partial Regex TableSeparatorRegex();
+
+    // A cell boundary is a `|` that no backslash escapes.
+    [GeneratedRegex(@"(?<!\\)\|")]
+    private static partial Regex CellRegex();
+
+    [GeneratedRegex(@"answered by:\s*agent\b", RegexOptions.IgnoreCase)]
+    private static partial Regex AgentAnswerRegex();
+
+    [GeneratedRegex(@"\bsign(?:ed|s|ing)?[- ]?off\b", RegexOptions.IgnoreCase)]
+    private static partial Regex SignOffRegex();
+
+    [GeneratedRegex(@"\baccept(?:s|ed|ing|ance)?\b", RegexOptions.IgnoreCase)]
+    private static partial Regex AcceptanceRegex();
 
     [GeneratedRegex("https?://")]
     private static partial Regex UrlRegex();

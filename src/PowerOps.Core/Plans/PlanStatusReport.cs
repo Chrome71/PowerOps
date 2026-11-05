@@ -29,6 +29,13 @@ public static class PlanStatusReport
                 writer.WriteLine($"  report {Clean(r.File)}: state {(r.State is null ? "null" : $"'{Clean(r.State)}'")}, stale {(r.Stale is { } stale ? (stale ? "true" : "false") : "null")}");
             }
 
+            if (p.Writes is { } j)
+            {
+                writer.WriteLine(j.Entries is { } entries && j.OpenCleanup is { } open
+                    ? $"  writes writes.md: {entries} {(entries == 1 ? "entry" : "entries")}, {Plural(open, "open cleanup")}"
+                    : "  writes writes.md: not read");
+            }
+
             foreach (var v in p.Violations)
             {
                 writer.WriteLine($"  error: {Clean(v)}");
@@ -60,6 +67,7 @@ public static class PlanStatusReport
                 openQuestions = p.OpenQuestions,
                 bodyHash = p.BodyHash,
                 reports = p.Reports.Select(r => new { file = r.File, state = r.State, stale = r.Stale }),
+                writes = p.Writes is { } j ? new { entries = j.Entries, openCleanup = j.OpenCleanup } : null,
                 violations = p.Violations,
                 warnings = p.Warnings,
             }),
