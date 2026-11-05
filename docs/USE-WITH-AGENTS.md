@@ -23,7 +23,7 @@ claude plugin marketplace add Chrome71/PowerOps && claude plugin install powerop
 codex plugin marketplace add Chrome71/PowerOps && codex plugin add powerops@powerops         # Codex
 ```
 
-To update the plugin in Claude Code, uninstall and install it again, then restart Claude Code. `claude plugin update` changes nothing: `plugin.json` says version `0.0.0` in every build, and [Claude Code keeps the installed copy until that string changes](https://code.claude.com/docs/en/plugins/loading#versions-and-updates). Update the CLI as well ([Install](../README.md#install)), because the plugin's server is the `powerops` on PATH. Codex's `plugin.json` has the same version, and updating the plugin there has not been tested.
+To update the plugin in Claude Code, uninstall and install it again, then restart Claude Code. `claude plugin update` changes nothing: `plugin.json` carries the release version (`0.0.0` until the first release), the same in every build between two releases, and [Claude Code keeps the installed copy until that string changes](https://code.claude.com/docs/en/plugins/loading#versions-and-updates). Update the CLI as well ([Install](../README.md#install)), because the plugin's server is the `powerops` on PATH. Codex's `plugin.json` has the same version, and updating the plugin there has not been tested.
 
 ```sh
 claude plugin uninstall powerops@powerops --scope user

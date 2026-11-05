@@ -19,8 +19,7 @@ public sealed class WorkflowTests
     private static List<Dictionary<object, object>> Steps(string workflow, string job) =>
         [.. ((List<object>)Map(Map(Load(".github", "workflows", workflow)["jobs"])[job])["steps"]).Select(Map)];
 
-    private static string ActionBuild() =>
-        Text(((List<object>)Map(Load("action.yml")["runs"])["steps"]).Select(Map).Single(s => Text(s, "name") == "Build PowerOps"), "run")!;
+    private static string InstallScript() => File.ReadAllText(Path.Combine(Golden.RepoRoot, "action", "install.sh"));
 
     [Fact]
     public void The_build_job_builds_in_locked_mode_and_checks_the_actions_own_build_on_every_system()
@@ -28,8 +27,10 @@ public sealed class WorkflowTests
         var build = Steps("ci.yml", "build");
 
         Assert.Contains(build, s => Text(s, "run") == "dotnet build -c Release -p:RestoreLockedMode=true");
-        Assert.Equal(ActionBuild(), Text(build.Single(s => Text(s, "name") == "The Action's build, in locked mode"), "run"));
-        Assert.Contains("-p:RestoreLockedMode=true", ActionBuild());
+        // The Action's source build adds a revision argument after this line, so CI checks the line and not the whole command.
+        var line = Text(build.Single(s => Text(s, "name") == "The Action's build, in locked mode"), "run")!;
+        Assert.Contains("-p:RestoreLockedMode=true", line);
+        Assert.Contains(InstallScript().ReplaceLineEndings("\n").Split('\n'), l => l.TrimStart().StartsWith(line, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -43,7 +44,9 @@ public sealed class WorkflowTests
         var vulnerable = Text(Steps("ci.yml", "package").Single(s => Text(s, "name") == "Fail on a vulnerable package"), "run")!;
         Assert.Contains("--vulnerable --include-transitive", vulnerable);
         Assert.Contains("bash .github/scripts/vulnerable.sh vulnerable.json", vulnerable);
-        Assert.Contains("-p:RestoreLockedMode=true", Steps("release.yml", "publish").Select(s => Text(s, "run")).Single(r => r?.StartsWith("dotnet pack", StringComparison.Ordinal) == true));
+        var pack = Steps("release.yml", "publish").Select(s => Text(s, "run")).Single(r => r?.StartsWith("dotnet pack", StringComparison.Ordinal) == true);
+        Assert.Contains("-p:RestoreLockedMode=true", pack);
+        Assert.Contains("-p:IncludeSourceRevisionInInformationalVersion=false", pack);
     }
 
     public static TheoryData<string> Workflows => ["ci.yml", "release.yml", "skills-smoke.yml", "pin-drift.yml"];
@@ -82,7 +85,36 @@ public sealed class WorkflowTests
         var jobs = Map(Load(".github", "workflows", "release.yml")["jobs"]);
 
         Assert.Equal(new Dictionary<string, string> { ["contents"] = "write", ["issues"] = "write", ["pull-requests"] = "write" }, Permissions(jobs["release-please"]));
-        Assert.Equal(new Dictionary<string, string> { ["contents"] = "read", ["id-token"] = "write", ["attestations"] = "write" }, Permissions(jobs["publish"]));
+        Assert.Equal(new Dictionary<string, string> { ["contents"] = "write", ["id-token"] = "write", ["attestations"] = "write" }, Permissions(jobs["publish"]));
+    }
+
+    [Fact]
+    public void The_release_job_checks_the_package_attests_it_and_attaches_both_files_without_a_clobber_and_never_touches_nuget()
+    {
+        var jobs = Map(Load(".github", "workflows", "release.yml")["jobs"]);
+        var publish = Map(jobs["publish"]);
+        var steps = Steps("release.yml", "publish");
+        int Index(Func<Dictionary<object, object>, bool> match) => steps.FindIndex(s => match(s));
+        var pack = Index(s => Text(s, "run")?.StartsWith("dotnet pack", StringComparison.Ordinal) == true);
+        var check = Index(s => Text(s, "name") == "Check the package");
+        var attest = Index(s => Text(s, "uses")?.StartsWith("actions/attest-build-provenance@", StringComparison.Ordinal) == true);
+        var attach = Index(s => Text(s, "name") == "Attach to the release");
+
+        Assert.Equal("${{ steps.release.outputs.version }}", (string)Map(Map(jobs["release-please"])["outputs"])["version"]);
+        Assert.Equal("${{ needs.release-please.outputs.tag_name }}", (string)Map(publish["env"])["TAG"]);
+        Assert.Equal("${{ needs.release-please.outputs.version }}", (string)Map(publish["env"])["VERSION"]);
+        Assert.True(pack >= 0 && pack < check && check < attest && attest < attach && attach == steps.Count - 1, "pack, check, attest, attach, in that order");
+        Assert.Equal("bash .github/scripts/release-check.sh \"$VERSION\" artifacts", Text(steps[check], "run"));
+        var upload = Text(steps[attach], "run")!;
+        Assert.Contains("gh release upload \"$TAG\"", upload);
+        Assert.Contains("\"artifacts/PowerOps.$VERSION.nupkg\"", upload);
+        Assert.Contains("artifacts/SHA256SUMS", upload);
+        Assert.DoesNotContain("--clobber", upload);
+        Assert.Equal(["GH_TOKEN"], Map(steps[attach]["env"]).Keys.Cast<string>());
+        Assert.Equal("${{ github.token }}", (string)Map(steps[attach]["env"])["GH_TOKEN"]);
+        Assert.DoesNotContain(steps.Where(s => s != steps[attach]), s => s.ContainsKey("env") && Map(s["env"]).ContainsKey("GH_TOKEN"));
+        Assert.False(publish.TryGetValue("env", out var jobEnv) && Map(jobEnv).ContainsKey("GH_TOKEN"));
+        Assert.DoesNotContain("nuget", string.Concat(AllSteps("release.yml").Select(s => (Text(s, "uses") ?? "") + (Text(s, "run") ?? ""))), StringComparison.OrdinalIgnoreCase);
     }
 
     private static Dictionary<string, string> Permissions(object job) =>
@@ -364,5 +396,178 @@ public sealed class WorkflowTests
         });
 
         Warns("no PowerOps pin found", run);
+    }
+
+    // ---- the Action's release pin ----
+
+    private static string ActionYml(string pin) => $"      env:\n        PO_RELEASE: '{pin}'\n        PO_RELEASE_SHA256: '{(pin == "" ? "" : new string('a', 64))}'\n";
+
+    private static string Manifest(string version) => $"{{\n  \".\": \"{version}\"\n}}\n";
+
+    // The pins in the docs are the last commit, so only the release pin can warn. `arrange` may add commits and tags; it returns nothing.
+    private static (int Exit, string Stdout, string Summary) ReleasePin(string pin, string latest, Action<string>? arrange = null, bool tag = true)
+    {
+        return PinDrift(dir =>
+        {
+            var first = Commit(dir, "feat: code", ("src/a.cs", "a"), ("action/a.sh", "a"), ("action.yml", ActionYml(pin)), (".release-please-manifest.json", Manifest(latest)));
+            if (tag)
+            {
+                Git(dir, "tag", "PowerOps-v0.1.0");
+            }
+
+            arrange?.Invoke(dir);
+            var head = Git(dir, "rev-parse", "HEAD");
+            return Pins(head, head);
+        });
+    }
+
+    [Fact]
+    public void The_pin_drift_script_is_quiet_about_the_release_pin_before_the_first_release_and_when_it_is_the_latest_one()
+    {
+        Assert.Equal("", ReleasePin("", "0.0.0").Stdout);
+        Assert.Equal("", ReleasePin("0.1.0", "0.1.0").Stdout);
+    }
+
+    [Fact]
+    public void The_pin_drift_script_warns_when_a_release_exists_and_the_action_builds_from_source()
+    {
+        var run = ReleasePin("", "0.1.0");
+
+        Warns("The Action runs a build from source, but the latest release is 0.1.0", run);
+    }
+
+    [Fact]
+    public void The_pin_drift_script_warns_when_the_pin_is_not_the_latest_release()
+    {
+        var run = ReleasePin("0.1.0", "0.2.0");
+
+        Warns("The Action runs release 0.1.0, but the latest release is 0.2.0", run);
+    }
+
+    [Fact]
+    public void The_pin_drift_script_warns_when_the_action_scripts_changed_after_the_pinned_release()
+    {
+        var run = ReleasePin("0.1.0", "0.1.0", dir => Commit(dir, "fix: script", ("action/a.sh", "b")));
+
+        Warns("The Action's scripts (action/) changed after release 0.1.0", run);
+        Assert.DoesNotContain("latest release", run.Stdout);
+    }
+
+    [Fact]
+    public void The_pin_drift_script_stays_quiet_when_only_other_files_changed_after_the_pinned_release()
+    {
+        var run = ReleasePin("0.1.0", "0.1.0", dir => Commit(dir, "docs: x", ("docs/x.md", "x")));
+
+        Assert.Equal("", run.Stdout);
+    }
+
+    [Fact]
+    public void The_pin_drift_script_warns_when_the_clone_has_no_tag_for_the_pinned_release()
+    {
+        var run = ReleasePin("0.1.0", "0.1.0", tag: false);
+
+        Warns("This clone has no tag PowerOps-v0.1.0", run);
+    }
+
+    // ---- release-check.sh ----
+
+    // The stub dotnet logs its arguments; a `tool install` makes <tool-path>/powerops, which prints STUB_PRINTED, unless STUB_INSTALL_EXIT is set.
+    private const string InstallStub = """
+        #!/usr/bin/env bash
+        echo "$*" >> "$STUB_DIR/dotnet.log"
+        if [ "${STUB_INSTALL_EXIT:-0}" != "0" ]; then echo "error: no such package" >&2; exit "$STUB_INSTALL_EXIT"; fi
+        while [ $# -gt 0 ]; do
+          if [ "$1" = "--tool-path" ]; then path="$2"; fi
+          shift
+        done
+        mkdir -p "$path"
+        printf '#!/usr/bin/env bash\necho "%s"\n' "$STUB_PRINTED" > "$path/powerops"
+        chmod +x "$path/powerops"
+        """;
+
+    private sealed record CheckRun(int Exit, string Stdout, string[] Calls, string? Sums, int SumsCheckExit);
+
+    private static CheckRun ReleaseCheck(string version, string printed, bool package = true, string installExit = "0")
+    {
+        Tools.Require("bash", "sha256sum");
+        var root = Directory.CreateTempSubdirectory("powerops-release-check-").FullName;
+        try
+        {
+            var bin = Directory.CreateDirectory(Path.Combine(root, "bin")).FullName;
+            var stub = Path.Combine(bin, "dotnet");
+            File.WriteAllText(stub, InstallStub.Replace("\r\n", "\n") + "\n");
+            var posix = !OperatingSystem.IsWindows(); // lets the platform analyzer see the guard
+            if (posix)
+            {
+                File.SetUnixFileMode(stub, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+
+            var folder = Directory.CreateDirectory(Path.Combine(root, "artifacts")).FullName;
+            if (package)
+            {
+                File.WriteAllText(Path.Combine(folder, "PowerOps.1.2.3.nupkg"), "the package");
+            }
+
+            var start = new ProcessStartInfo(Tools.Bash) { WorkingDirectory = root, RedirectStandardOutput = true };
+            start.ArgumentList.Add(Path.Combine(Golden.RepoRoot, ".github", "scripts", "release-check.sh"));
+            start.ArgumentList.Add(version);
+            start.ArgumentList.Add("artifacts");
+            start.Environment["PATH"] = bin + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH");
+            start.Environment["STUB_DIR"] = root;
+            start.Environment["STUB_PRINTED"] = printed;
+            start.Environment["STUB_INSTALL_EXIT"] = installExit;
+            using var process = Process.Start(start)!;
+            var stdout = process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+
+            var sums = Path.Combine(folder, "SHA256SUMS");
+            var check = new ProcessStartInfo("sha256sum") { WorkingDirectory = folder, RedirectStandardOutput = true, ArgumentList = { "-c", "SHA256SUMS" } };
+            var sumsCheck = -1;
+            if (File.Exists(sums))
+            {
+                using var verify = Process.Start(check)!;
+                verify.StandardOutput.ReadToEnd();
+                verify.WaitForExit();
+                sumsCheck = verify.ExitCode;
+            }
+
+            var log = Path.Combine(root, "dotnet.log");
+            return new CheckRun(process.ExitCode, stdout, File.Exists(log) ? File.ReadAllLines(log) : [], File.Exists(sums) ? File.ReadAllText(sums) : null, sumsCheck);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void The_release_check_installs_the_package_alone_and_writes_a_SHA256SUMS_that_checks()
+    {
+        var run = ReleaseCheck("1.2.3", "1.2.3");
+
+        Assert.Equal(0, run.Exit);
+        Assert.Equal("", run.Stdout);
+        var call = Assert.Single(run.Calls);
+        Assert.Matches(@"^tool install --tool-path \S+ --source artifacts PowerOps --version 1\.2\.3$", call);
+        Assert.EndsWith("  PowerOps.1.2.3.nupkg\n", run.Sums);
+        Assert.Equal(0, run.SumsCheckExit);
+    }
+
+    [Theory]
+    [InlineData("1.2", "1.2", true, "0")] // not major.minor.patch
+    [InlineData("v1.2.3", "1.2.3", true, "0")]
+    [InlineData("1.2.3-rc.1", "1.2.3-rc.1", true, "0")]
+    [InlineData("1.2.3", "1.2.3", false, "0")] // no package
+    [InlineData("1.2.3", "1.2.3", true, "1")] // the install fails
+    [InlineData("1.2.3", "1.2.4", true, "0")] // the tool prints another version
+    [InlineData("1.2.3", "1.2.3+4a5b6c7d", true, "0")] // or the version with a commit
+    public void The_release_check_refuses_with_one_error_line_and_writes_no_SHA256SUMS(string version, string printed, bool package, string installExit)
+    {
+        var run = ReleaseCheck(version, printed, package, installExit);
+
+        Assert.Equal(1, run.Exit);
+        Assert.StartsWith("::error::", run.Stdout);
+        Assert.Single(run.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries));
+        Assert.Null(run.Sums);
     }
 }

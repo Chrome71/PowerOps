@@ -30,7 +30,8 @@ public class PackedToolTests
             var project = Path.Combine(Golden.RepoRoot, "src", "PowerOps.Cli");
             var fixtures = Path.Combine(Golden.RepoRoot, "tests", "fixtures");
 
-            var pack = Run("dotnet", ["pack", project, "-c", Configuration, "-o", pkg]);
+            // The release build turns the commit off, so the package prints its plain version; pack the way the release does.
+            var pack = Run("dotnet", ["pack", project, "-c", Configuration, "-o", pkg, "-p:IncludeSourceRevisionInInformationalVersion=false"]);
             Assert.True(pack.Code == 0, pack.Out + pack.Err);
 
             // The version comes from Directory.Build.props (release-please bumps it), so read it off the package name.
@@ -42,6 +43,8 @@ public class PackedToolTests
             Assert.True(install.Code == 0, install.Out + install.Err);
 
             var exe = Path.Combine(tool, OperatingSystem.IsWindows() ? "powerops.exe" : "powerops");
+
+            Assert.Equal(version, Run(exe, ["--version"]).Out.Trim());
 
             var analyze = Run(exe, ["analyze", fixtures, "--format", "json", "--fail-on", "warning"]);
             Assert.True(analyze.Code == 1, analyze.Out + analyze.Err);
@@ -56,7 +59,7 @@ public class PackedToolTests
             Assert.True(skills.Code == 0, skills.Out + skills.Err);
             Assert.True(File.Exists(Path.Combine(repo, ".agents", "skills", "powerops-plan", "SKILL.md")));
 
-            Mcp(exe);
+            Mcp(exe, version);
         }
         finally
         {
@@ -73,7 +76,7 @@ public class PackedToolTests
 
     // `powerops mcp` over real stdio: one request at a time, each response read before the next write, because the server drops
     // responses to requests still in flight when stdin closes.
-    private static void Mcp(string exe)
+    private static void Mcp(string exe, string version)
     {
         var info = new ProcessStartInfo(exe, "mcp")
         {
@@ -98,7 +101,7 @@ public class PackedToolTests
                 return line;
             }
 
-            Exchange("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"powerops-tests","version":"1"}}}""");
+            var initialize = Exchange("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"powerops-tests","version":"1"}}}""");
             process.StandardInput.WriteLine("""{"jsonrpc":"2.0","method":"notifications/initialized"}""");
             var tools = Exchange("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""");
             var rules = Exchange("""{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"rules","arguments":{}}}""");
@@ -110,6 +113,8 @@ public class PackedToolTests
 
             Assert.Equal(0, process.ExitCode);
             lines.AddRange(process.StandardOutput.ReadToEnd().Split('\n', StringSplitOptions.RemoveEmptyEntries));
+            using var init = JsonDocument.Parse(initialize);
+            Assert.Equal(version, init.RootElement.GetProperty("result").GetProperty("serverInfo").GetProperty("version").GetString());
             using var list = JsonDocument.Parse(tools);
             Assert.Equal(12, list.RootElement.GetProperty("result").GetProperty("tools").GetArrayLength());
             using var call = JsonDocument.Parse(rules);

@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -6,7 +8,7 @@ using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
 
-// Runs action/plan.sh, action/apply.sh, action/check-apply.sh, action/diff.sh, action/comment.sh, action/test.sh, action/powerops.sh, action/annotate.sh and action/summary.sh with bash, against stub `gh`, `dotnet` and `curl` programs
+// Runs action/install.sh, action/plan.sh, action/apply.sh, action/check-apply.sh, action/diff.sh, action/comment.sh, action/test.sh, action/powerops.sh, action/annotate.sh and action/summary.sh with bash, against stub `gh`, `dotnet` and `curl` programs
 // that come first on PATH. Skipped on Windows and where bash (or jq or git, which a test needs) is not found.
 public sealed class ActionScriptTests : IDisposable
 {
@@ -915,6 +917,189 @@ public sealed class ActionScriptTests : IDisposable
             ["CURL_EXIT"] = curlExit,
         });
         return run with { Output = ReadOrEmpty(output) };
+    }
+
+    // ---- install.sh ----
+
+    private const string Release = "1.2.3";
+
+    private static readonly string ReleaseUrl = $"https://github.com/Chrome71/PowerOps/releases/download/PowerOps-v{Release}/PowerOps.{Release}.nupkg";
+
+    private const string SourceDll = "src/PowerOps.Cli/bin/Release/net10.0/powerops.dll";
+
+    private static readonly string Commit40 = new('a', 40);
+
+    private static readonly (string Name, string Text)[] OneDll = [("tools/net10.0/any/powerops.dll", "the dll"), ("tools/net10.0/any/DotnetToolSettings.xml", "<x/>")];
+
+    // The stub curl logs its arguments and copies the canned package to --output; CURL_EXIT makes it fail.
+    private const string InstallCurlStub = """
+        #!/usr/bin/env bash
+        echo "$*" >> "$STUB_DIR/curl.log"
+        if [ "${CURL_EXIT:-0}" != "0" ]; then echo "curl: (22) failed" >&2; exit "$CURL_EXIT"; fi
+        while [ $# -gt 0 ]; do
+          if [ "$1" = "--output" ]; then cp "$STUB_DIR/package.nupkg" "$2"; fi
+          shift
+        done
+        """;
+
+    // Runs install.sh in a folder named `folderName` (GITHUB_ACTION_PATH unless `actionPath` is given). The canned package is a zip of `files`;
+    // a sha of "match" is its real SHA-256.
+    private Result RunInstall(string release, string sha, string folderName = "action", string? actionPath = null, string curlExit = "0", params (string Name, string Text)[] files)
+    {
+        Tools.Require("bash", "sha256sum", "unzip");
+        var temp = NewDir("install");
+        WriteStub(temp, "dotnet", DotnetStub);
+        WriteStub(temp, "curl", InstallCurlStub);
+        var package = Path.Combine(temp, "package.nupkg");
+        using (var zip = ZipFile.Open(package, ZipArchiveMode.Create))
+        {
+            foreach (var (name, text) in files)
+            {
+                using var writer = new StreamWriter(zip.CreateEntry(name).Open());
+                writer.Write(text);
+            }
+        }
+
+        var folder = Directory.CreateDirectory(Path.Combine(temp, folderName)).FullName;
+        var output = Path.Combine(temp, "output.txt");
+        var run = Run("install.sh", temp, folder, new()
+        {
+            ["PO_RELEASE"] = release,
+            ["PO_RELEASE_SHA256"] = sha == "match" ? Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(package))) : sha,
+            ["GITHUB_ACTION_PATH"] = actionPath ?? folder,
+            ["RUNNER_TEMP"] = Path.Combine(temp, "runner-temp"),
+            ["GITHUB_OUTPUT"] = output,
+            ["CURL_EXIT"] = curlExit,
+        });
+        return run with { Folder = folder, Output = ReadOrEmpty(output) };
+    }
+
+    [Fact]
+    public void Install_without_a_pin_builds_from_source_in_locked_mode_and_downloads_nothing()
+    {
+        var run = RunInstall("", "");
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal(["build src/PowerOps.Cli -c Release -p:RestoreLockedMode=true"], run.DotnetCalls);
+        Assert.Empty(run.CurlCalls);
+        Assert.Equal($"dll={run.Folder}/{SourceDll}\n", run.Output);
+    }
+
+    [Theory]
+    [InlineData("a", true)] // the folder is named after the commit it was pinned to
+    [InlineData("b", true)]
+    [InlineData("main", false)]
+    [InlineData("PowerOps", false)]
+    [InlineData("v1.2.3", false)]
+    [InlineData("39", false)] // not 40 hex digits
+    [InlineData("41", false)]
+    [InlineData("upper", false)]
+    public void Install_passes_the_action_folders_commit_to_the_source_build_only_when_it_is_named_with_40_lowercase_hex_digits(string kind, bool revision)
+    {
+        var name = kind switch
+        {
+            "a" => Commit40,
+            "b" => new string('0', 20) + new string('f', 20),
+            "39" => Commit40[1..],
+            "41" => Commit40 + "a",
+            "upper" => Commit40.ToUpperInvariant(),
+            _ => kind,
+        };
+
+        var run = RunInstall("", "", name);
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal(revision ? $"build src/PowerOps.Cli -c Release -p:RestoreLockedMode=true -p:SourceRevisionId={name}" : "build src/PowerOps.Cli -c Release -p:RestoreLockedMode=true", Assert.Single(run.DotnetCalls));
+        Assert.Empty(run.CurlCalls);
+    }
+
+    [Theory]
+    [InlineData(@"D:\a\_actions\Chrome71\PowerOps\", true)] // a Windows runner's path, with the folder name after a backslash
+    [InlineData(@"/home/runner/work/_actions/Chrome71/PowerOps/", true)]
+    [InlineData(@"D:\a\PowerOps\PowerOps", false)] // uses: ./ is a checkout
+    public void Install_reads_the_last_segment_of_the_action_path_split_on_slash_or_backslash(string prefix, bool revision)
+    {
+        var path = revision ? prefix + Commit40 : prefix;
+
+        var run = RunInstall("", "", actionPath: path);
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal(revision ? $"build src/PowerOps.Cli -c Release -p:RestoreLockedMode=true -p:SourceRevisionId={Commit40}" : "build src/PowerOps.Cli -c Release -p:RestoreLockedMode=true", Assert.Single(run.DotnetCalls));
+        Assert.Equal($"dll={path}/{SourceDll}\n", run.Output);
+    }
+
+    [Fact]
+    public void Install_with_a_pin_downloads_the_release_checks_its_sha256_and_unpacks_it()
+    {
+        var run = RunInstall(Release, "match", files: OneDll);
+
+        Assert.Equal(0, run.Code);
+        Assert.Empty(run.DotnetCalls);
+        var call = Assert.Single(run.CurlCalls);
+        Assert.Contains("--fail", call);
+        Assert.Contains("--proto =https --proto-redir =https", call);
+        Assert.EndsWith(" " + ReleaseUrl, call);
+        var folder = Path.Combine(run.Temp, "runner-temp", "powerops-" + Release);
+        Assert.Equal($"dll={folder}/package/tools/net10.0/any/powerops.dll\n", run.Output);
+        Assert.Equal("the dll", File.ReadAllText(Path.Combine(folder, "package", "tools", "net10.0", "any", "powerops.dll")));
+    }
+
+    [Fact]
+    public void Install_refuses_a_package_with_another_sha256_and_names_both_hashes_before_unpacking_it()
+    {
+        var other = new string('a', 64);
+
+        var run = RunInstall(Release, other, files: OneDll);
+
+        Assert.Equal(1, run.Code);
+        Assert.Equal("", run.Output);
+        Assert.StartsWith("::error::", run.Out);
+        Assert.Contains(other, run.Out);
+        var actual = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(Path.Combine(run.Temp, "package.nupkg"))));
+        Assert.Contains(actual, run.Out);
+        Assert.Single(run.CurlCalls);
+        Assert.False(Directory.Exists(Path.Combine(run.Temp, "runner-temp", "powerops-" + Release, "package")));
+    }
+
+    [Theory]
+    [InlineData("download-fails")]
+    [InlineData("no-dll")]
+    [InlineData("no-tools-folder")]
+    [InlineData("two-dlls")]
+    public void Install_refuses_a_failed_download_or_a_package_without_exactly_one_dll_and_writes_no_output(string kind)
+    {
+        var run = kind switch
+        {
+            "download-fails" => RunInstall(Release, "match", curlExit: "22", files: OneDll),
+            "no-dll" => RunInstall(Release, "match", files: [("tools/net10.0/any/other.dll", "x")]),
+            "no-tools-folder" => RunInstall(Release, "match", files: [("lib/powerops.dll", "x")]),
+            _ => RunInstall(Release, "match", files: [("tools/net10.0/any/powerops.dll", "a"), ("tools/net9.0/any/powerops.dll", "b")]),
+        };
+
+        Assert.Equal(1, run.Code);
+        Assert.Equal("", run.Output);
+        Assert.StartsWith("::error::", run.Out);
+        Assert.Empty(run.DotnetCalls);
+        Assert.Single(run.CurlCalls);
+    }
+
+    [Theory]
+    [InlineData("1.2.3", "")] // half a pin
+    [InlineData("", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
+    [InlineData("1.2", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")] // a version that is not major.minor.patch
+    [InlineData("v1.2.3", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
+    [InlineData("1.2.3", "aaaa")] // a hash that is not 64 lowercase hex digits
+    [InlineData("1.2.3", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")]
+    [InlineData("1.2.3", "gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg")]
+    public void Install_refuses_a_malformed_pin_before_any_download(string release, string sha)
+    {
+        var run = RunInstall(release, sha, files: OneDll);
+
+        Assert.Equal(1, run.Code);
+        Assert.Equal("", run.Output);
+        Assert.StartsWith("::error::", run.Out);
+        Assert.Empty(run.CurlCalls);
+        Assert.Empty(run.DotnetCalls);
     }
 
     // ---- helpers ----
