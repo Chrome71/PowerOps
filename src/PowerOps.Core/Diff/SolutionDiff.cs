@@ -91,17 +91,33 @@ public static class SolutionDiff
                 a.Text == b.Text ? null : "definition changed",
                 a.Version == b.Version ? null : $"republished (AppVersion {Show(a.Version)}{Arrow}{Show(b.Version)})")));
 
-        // Instructions can run to 8,000 characters, so a change says so and never shows the text.
+        // Instructions can run to 8,000 characters, so a change says so and never shows the text. Work IQ workloads are compared inside the change and carry no risk label (M51 decisions Q5).
         changes.AddRange(Keyed("agent", old.Agents, @new.Agents,
             a => a.SchemaName, _ => null, null,
-            (a, b) => a.Instructions == b.Instructions ? null : "instructions changed",
+            (a, b) => Join(a.Instructions == b.Instructions ? null : "instructions changed", Workloads(a, b)),
             (a, b) => a.Instructions == b.Instructions ? null : Risk.AgentInstructions));
 
         changes.AddRange(Keyed("agentTool", old.Agents.SelectMany(a => a.Tools), @new.Agents.SelectMany(a => a.Tools),
             t => t.SchemaName, _ => null, Risk.AgentTool,
-            (a, b) => Differences(("action", a.Action, b.Action), ("mcp", a.Mcp.ToString().ToLowerInvariant(), b.Mcp.ToString().ToLowerInvariant()), ("mode", a.Mode, b.Mode))));
+            (a, b) => Differences(("action", a.Action, b.Action), ("mcp", a.Mcp.ToString().ToLowerInvariant(), b.Mcp.ToString().ToLowerInvariant()), ("mode", a.Mode, b.Mode), ("connectionReference", a.ConnectionReference, b.ConnectionReference), ("operationId", a.OperationId, b.OperationId))));
 
         return new DiffResult(old, @new, changes) { NotCompared = NotCompared(old, @new) };
+    }
+
+    // One part per Work IQ workload that differs, matched by schema name like every keyed match here; a side that is missing (or that the reader couldn't read) shows as "(none)".
+    private static string? Workloads(Agent a, Agent b)
+    {
+        static Dictionary<string, AgentCapability> Index(Agent x) =>
+            x.Capabilities.GroupBy(c => c.SchemaName, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        static string Side(AgentCapability? c) => Show(c is null ? null : $"{c.Capability} {c.Access}");
+
+        var (x, y) = (Index(a), Index(b));
+        var parts = x.Keys.Union(y.Keys, StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase)
+            .Select(k => (Name: x.TryGetValue(k, out var before) ? before.SchemaName : y[k].SchemaName, Before: before, After: y.GetValueOrDefault(k)))
+            .Where(w => w.Before is null || w.After is null || w.Before.Capability != w.After.Capability || w.Before.Access != w.After.Access)
+            .Select(w => $"IQCapability {Truncate(w.Name, 100)}: {Side(w.Before)}{Arrow}{Side(w.After)}");
+        return Join([.. parts]);
     }
 
     // The agents whose instructions or possible tools the reader didn't read, so a change to them can't show above (M50 decisions Q1, Q11).
@@ -115,8 +131,14 @@ public static class SolutionDiff
             var shown = Truncate(name, 100);
             if (a is not null && b is not null && (a.Instructions is null || b.Instructions is null))
             {
-                var which = a.Instructions is null && b.Instructions is null ? "neither version has a" : a.Instructions is null ? "the old version has no" : "the new version has no";
-                notes.Add($"agent '{shown}': instructions not compared: {which} single Custom GPT component whose instructions are text");
+                var which = a.Instructions is null && b.Instructions is null ? "neither version has" : a.Instructions is null ? "the old version has no" : "the new version has no";
+                notes.Add($"agent '{shown}': instructions not compared: {which} instructions PowerOps can read (the text of a single Custom GPT component, or of configuration.json's segments when the agent has no Custom GPT component)");
+            }
+
+            if (a is not null && b is not null && (a.InstructionsConflict || b.InstructionsConflict))
+            {
+                var where = a.InstructionsConflict && b.InstructionsConflict ? "both versions" : a.InstructionsConflict ? "the old version" : "the new version";
+                notes.Add($"agent '{shown}': configuration.json instructions not compared: in {where} they differ from the Custom GPT component's or can't be read, and only the component's are compared");
             }
 
             var kinds = new[] { a, b }.OfType<Agent>()

@@ -16,11 +16,12 @@ public sealed class PO028AgentInstructionsLength : IRule, INotChecked
 
     public IEnumerable<Finding> Evaluate(Solution solution)
     {
-        foreach (var agent in Agents.Placed(solution).Where(a => a.Instructions is not null))
+        foreach (var agent in Agents.Placed(solution).Where(a => Agents.Instructions(a) is not null))
         {
             // A YAML block scalar keeps trailing line breaks the person didn't type, so they aren't counted. Characters are UTF-16 code units, which differ from code points only outside the Basic Multilingual Plane.
-            var length = agent.Instructions!.TrimEnd('\r', '\n').Length;
-            var message = string.IsNullOrWhiteSpace(agent.Instructions) ? (agent.Configuration!.GenerativeOrchestration == true ? $"Agent '{agent.SchemaName}' has no instructions." : null)
+            var instructions = Agents.Instructions(agent)!;
+            var length = instructions.TrimEnd('\r', '\n').Length;
+            var message = string.IsNullOrWhiteSpace(instructions) ? (agent.Configuration!.GenerativeOrchestration == true ? $"Agent '{agent.SchemaName}' has no instructions." : null)
                 : length > MaxLength ? $"Agent '{agent.SchemaName}' has instructions of {length} characters, more than the 8,000 that Copilot Studio allows."
                 : null;
             if (message is not null)
@@ -31,5 +32,5 @@ public sealed class PO028AgentInstructionsLength : IRule, INotChecked
     }
 
     public IEnumerable<string> NotChecked(Solution solution) =>
-        Agents.Placed(solution).Where(a => a.Instructions is null).Select(a => $"PO028 not checked for agent '{a.SchemaName}': it has no single Custom GPT component whose instructions are text.");
+        Agents.Placed(solution).Where(a => Agents.Instructions(a) is null).Select(a => $"PO028 not checked for agent '{a.SchemaName}': it has no single Custom GPT component whose instructions are text.");
 }

@@ -405,6 +405,16 @@ public class ErrorRuleTests
     private static Solution WithAgents(params Agent[] agents) => B.Empty() with { Agents = agents };
 
     [Fact]
+    public void PO027_does_not_read_an_mcptool_kind_tool_of_a_standard_harness_agent()
+    {
+        var tool = B.Tool("demo_agent.tool.Docs", mcp: true, mode: "Maker") with { Action = null, Kind = "McpTool" };
+        var rule = new PO027McpToolWithoutGenerativeOrchestration();
+
+        Assert.Empty(Run(rule, WithAgents(B.Agent(generative: false, tools: [tool]))));
+        Assert.Empty(rule.NotChecked(WithAgents(B.Agent(generative: null, tools: [tool]))));
+    }
+
+    [Fact]
     public void PO027_fires_for_an_mcp_tool_when_generative_orchestration_is_off()
     {
         var s = WithAgents(B.Agent(generative: false, tools: [B.Tool("demo_agent.topic.Orders", mcp: true)]));

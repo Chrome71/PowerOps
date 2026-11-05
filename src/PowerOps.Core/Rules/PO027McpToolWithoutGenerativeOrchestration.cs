@@ -29,6 +29,6 @@ public sealed class PO027McpToolWithoutGenerativeOrchestration : IRule, INotChec
                 $"PO027 not checked for agent '{a.SchemaName}': '{f}' is valid YAML whose keys PowerOps can't map, so the tool it may hold isn't read, and PO030 and PO031 don't check it either.")))
             .Concat(
                 Agents.Placed(solution)
-                    .Where(a => a.Configuration!.GenerativeOrchestration is null && a.Tools.Any(t => t.Mcp))
+                    .Where(a => a.Configuration!.GenerativeOrchestration is null && Agents.Tools(a).Any(t => t.Mcp))
                     .Select(a => $"PO027 not checked for agent '{a.SchemaName}': its configuration.json doesn't say whether generative orchestration is on."));
 }
