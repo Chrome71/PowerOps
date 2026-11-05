@@ -15,12 +15,13 @@ public class ManifestTests
     public void Files_are_listed_with_forward_slashes_in_ordinal_order()
     {
         using var t = new TempFolder();
-        t.Write("b.xml", "b").Write("Other/Solution.xml", "s").Write("a/z.xml", "z").Write("B.xml", "B");
+        // C.xml, not B.xml: Windows file names ignore case, so B.xml would overwrite b.xml there.
+        t.Write("b.xml", "b").Write("Other/Solution.xml", "s").Write("a/z.xml", "z").Write("C.xml", "C");
 
         var m = Manifest.Read(t.Path);
 
         Assert.Equal("folder", m.Kind);
-        Assert.Equal(["B.xml", "Other/Solution.xml", "a/z.xml", "b.xml"], m.Files.Select(f => f.Path));
+        Assert.Equal(["C.xml", "Other/Solution.xml", "a/z.xml", "b.xml"], m.Files.Select(f => f.Path));
         Assert.Equal(Hex("s"), m.Files[1].Sha256);
     }
 
