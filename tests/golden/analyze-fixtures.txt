@@ -37,6 +37,8 @@ tests/fixtures/alm-sample: ALMAcceleratorSampleSolution 0.0.0.0 (publisher catte
   warning PO011 Workflows/EmailQuote-A4C44986-14D6-EC11-A7B5-000D3A1C0439.json: Flow 'Email Quote' is turned off.
   warning PO011 Workflows/LikeQuote-90D90640-11BC-EC11-983F-0022483403A3.json: Flow 'Like Quote' is turned off.
   warning PO011 Workflows/Smplerligforsk-37443C82-D03D-ED11-9DB0-0022482E56BE.json: Flow 'SÆmple Ø ærlig forsøk' is turned off.
+  warning PO032 AppModules/cat_AlmAcceleratorSampleMda/AppModule.xml: App 'cat_AlmAcceleratorSampleMda' is shared only with System Administrator or System Customizer, so users without an admin role may not be able to open it.
+  warning PO033 Roles/ALM Accelerator Sample Role.xml: Role 'ALM Accelerator Sample Role' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.
 tests/fixtures/coe-auditlogs: CenterofExcellenceAuditLogs 3.27.2 (publisher powerplatformadmin, prefix admin)
   requires CenterofExcellenceCoreComponents (4.4.1)
   warning PO005 Other/Customizations.xml: Connection reference 'admin_sharedadmin5foffice2036520management20api5f7fc9343cf45734fe_8f08c' is not used by any flow or app.
@@ -50,6 +52,12 @@ tests/fixtures/coe-auditlogs: CenterofExcellenceAuditLogs 3.27.2 (publisher powe
   warning PO017 Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json: Flow 'Deprecated | [Child] Admin | Sync Logs' runs loop 'Apply_to_each_Audit_Log' inside loop 'Apply_to_each_cluster'.
 tests/fixtures/core-portal: msgov_coreportal 1.0.0.0 (publisher msgovsolutions, prefix msgov)
   no findings
+tests/fixtures/equipment-checkout: EquipmentCheckout 1.0.0.0 (publisher contoso, prefix pops)
+  warning PO032 AppModules/equipment_checkout_a1a05935/AppModule.xml: App 'equipment_checkout_a1a05935' is shared only with System Administrator or System Customizer, so users without an admin role may not be able to open it.
+  warning PO033 Roles/Front desk.xml: Role 'Front desk' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.
+  warning PO033 Roles/IT staff.xml: Role 'IT staff' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.
+  warning PO034 Roles/Front desk.xml: Role 'Front desk' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs.
+  warning PO034 Roles/IT staff.xml: Role 'IT staff' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs.
 tests/fixtures/flowtests/capture/solution: PowerOpsCapture 1.0.0.0 (publisher powerops, prefix pops)
   requires Active
   warning PO016 Workflows/PowerOpscapture-00000000-0000-0000-0000-000000000058.json: Flow 'PowerOps capture' has 120 actions and a nesting depth of 1.
@@ -66,14 +74,16 @@ tests/fixtures/powerops-seed/v2: PowerOpsSeed 1.0.0.0 (publisher powerops, prefi
   warning PO006 Workflows/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json: Flow 'Stamp work item status' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops'.
 tests/fixtures/zips/ColumnLevelSecuritySampleSolution.zip: ColumnLevelSecuritySampleSolution 1.0.0.0 (publisher ColumnLevelSecuritySamplePublisher, prefix sample)
   requires msft_ColumnLevelSecurityData (1.2.0.28)
-  no findings
+  warning PO033 customizations.xml: Role 'Column-level security sample role' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.
+  warning PO034 customizations.xml: Role 'Column-level security sample role' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs.
 tests/fixtures/zips/ColumnLevelSecuritySampleSolution_managed.zip: ColumnLevelSecuritySampleSolution 1.0.0.0 (publisher ColumnLevelSecuritySamplePublisher, prefix sample)
   requires msft_ColumnLevelSecurityData (1.2.0.28)
-  no findings
+  warning PO033 customizations.xml: Role 'Column-level security sample role' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.
+  warning PO034 customizations.xml: Role 'Column-level security sample role' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs.
 tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip: Contoso_sample 1.0.0.1 (publisher DefaultPublisherorg8a403877, prefix new)
   warning PO005 customizations.xml: Connection reference 'new_D365connection' is not used by any flow or app.
   warning PO008 environmentvariabledefinitions/new_ContosoURL/environmentvariablevalues.json: Environment variable 'new_ContosoURL' ships a current value in the solution.
   warning PO010 solution.xml: Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher.
 tests/fixtures/zips/polymorphiclookupexamplesolution.zip: polymorphiclookupexamplesolution 1.0.0.0 (publisher examplepublisher, prefix sample)
   no findings
-16 solutions, 0 errors, 50 warnings
+17 solutions, 0 errors, 61 warnings

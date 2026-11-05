@@ -1940,7 +1940,7 @@ public class WarningRuleTests
         foreach (var (s, reason) in cases)
         {
             Assert.Empty(Run(rule, s));
-            Assert.Equal([$"PO034 not checked for role 'Front desk': it has Create or Write on 2 tables that no read component uses, and the solution holds {reason}, whose table use PowerOps doesn't read."], rule.NotChecked(s));
+            Assert.Equal([$"PO034 not checked for role 'Front desk': 2 of the tables it can create or write are used by no component PowerOps reads, and the solution holds {reason}, whose table use isn't read."], rule.NotChecked(s));
         }
     }
 

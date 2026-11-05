@@ -22,7 +22,7 @@ public sealed class PO034RoleWritesUnusedTable : IRule, INotChecked
     // Plugin code, classic workflows and agent tools can write any table; PowerOps reads none of them for tables, so a finding there could be wrong.
     public IEnumerable<string> NotChecked(Solution solution) =>
         Unreadable(solution) is { } reason
-            ? Left(solution).Select(x => $"PO034 not checked for role '{x.Role.Name}': it has Create or Write on {x.Tables.Count} tables that no read component uses, and the solution holds {reason}, whose table use PowerOps doesn't read.")
+            ? Left(solution).Select(x => $"PO034 not checked for role '{x.Role.Name}': {x.Tables.Count} of the tables it can create or write are used by no component PowerOps reads, and the solution holds {reason}, whose table use isn't read.")
             : [];
 
     private static string? Unreadable(Solution s) =>

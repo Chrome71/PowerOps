@@ -365,10 +365,29 @@
           "component": "SÆmple Ø ærlig forsøk",
           "fix": "Turn the flow on before export, or remove it from the solution if it is no longer needed.",
           "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md"
+        },
+        {
+          "ruleId": "PO032",
+          "severity": "warning",
+          "message": "App 'cat_AlmAcceleratorSampleMda' is shared only with System Administrator or System Customizer, so users without an admin role may not be able to open it.",
+          "file": "AppModules/cat_AlmAcceleratorSampleMda/AppModule.xml",
+          "component": "cat_AlmAcceleratorSampleMda",
+          "fix": "Share the app with the security roles its users hold, and remove System Administrator and System Customizer from it unless they need the app.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO032.md"
+        },
+        {
+          "ruleId": "PO033",
+          "severity": "warning",
+          "message": "Role 'ALM Accelerator Sample Role' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.",
+          "file": "Roles/ALM Accelerator Sample Role.xml",
+          "component": "ALM Accelerator Sample Role",
+          "fix": "Copy the role from App Opener, or give its users App Opener as well, and test the app as a user who holds only those roles.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO033.md"
         }
       ],
       "notChecked": [
-        "PO014 and PO018 not checked for canvas app 'CanvasApps/cat_devopskitsamplecanvasapp_c7ec5_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened)."
+        "PO014 and PO018 not checked for canvas app 'CanvasApps/cat_devopskitsamplecanvasapp_c7ec5_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).",
+        "PO034 not checked for role 'ALM Accelerator Sample Role': 1 of the tables it can create or write are used by no component PowerOps reads, and the solution holds a plugin assembly, whose table use isn't read."
       ]
     },
     {
@@ -479,6 +498,65 @@
       },
       "requires": [],
       "findings": [],
+      "notChecked": []
+    },
+    {
+      "path": "tests/fixtures/equipment-checkout",
+      "uniqueName": "EquipmentCheckout",
+      "version": "1.0.0.0",
+      "managed": false,
+      "publisher": {
+        "uniqueName": "contoso",
+        "prefix": "pops"
+      },
+      "requires": [],
+      "findings": [
+        {
+          "ruleId": "PO032",
+          "severity": "warning",
+          "message": "App 'equipment_checkout_a1a05935' is shared only with System Administrator or System Customizer, so users without an admin role may not be able to open it.",
+          "file": "AppModules/equipment_checkout_a1a05935/AppModule.xml",
+          "component": "equipment_checkout_a1a05935",
+          "fix": "Share the app with the security roles its users hold, and remove System Administrator and System Customizer from it unless they need the app.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO032.md"
+        },
+        {
+          "ruleId": "PO033",
+          "severity": "warning",
+          "message": "Role 'Front desk' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.",
+          "file": "Roles/Front desk.xml",
+          "component": "Front desk",
+          "fix": "Copy the role from App Opener, or give its users App Opener as well, and test the app as a user who holds only those roles.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO033.md"
+        },
+        {
+          "ruleId": "PO033",
+          "severity": "warning",
+          "message": "Role 'IT staff' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.",
+          "file": "Roles/IT staff.xml",
+          "component": "IT staff",
+          "fix": "Copy the role from App Opener, or give its users App Opener as well, and test the app as a user who holds only those roles.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO033.md"
+        },
+        {
+          "ruleId": "PO034",
+          "severity": "warning",
+          "message": "Role 'Front desk' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs.",
+          "file": "Roles/Front desk.xml",
+          "component": "Front desk",
+          "fix": "Check whether the role's users need to create or write that table, and remove those privileges from the role if they don't.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO034.md"
+        },
+        {
+          "ruleId": "PO034",
+          "severity": "warning",
+          "message": "Role 'IT staff' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs.",
+          "file": "Roles/IT staff.xml",
+          "component": "IT staff",
+          "fix": "Check whether the role's users need to create or write that table, and remove those privileges from the role if they don't.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO034.md"
+        }
+      ],
       "notChecked": []
     },
     {
@@ -617,7 +695,26 @@
       "requires": [
         "msft_ColumnLevelSecurityData (1.2.0.28)"
       ],
-      "findings": [],
+      "findings": [
+        {
+          "ruleId": "PO033",
+          "severity": "warning",
+          "message": "Role 'Column-level security sample role' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.",
+          "file": "customizations.xml",
+          "component": "Column-level security sample role",
+          "fix": "Copy the role from App Opener, or give its users App Opener as well, and test the app as a user who holds only those roles.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO033.md"
+        },
+        {
+          "ruleId": "PO034",
+          "severity": "warning",
+          "message": "Role 'Column-level security sample role' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs.",
+          "file": "customizations.xml",
+          "component": "Column-level security sample role",
+          "fix": "Check whether the role's users need to create or write that table, and remove those privileges from the role if they don't.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO034.md"
+        }
+      ],
       "notChecked": []
     },
     {
@@ -632,7 +729,26 @@
       "requires": [
         "msft_ColumnLevelSecurityData (1.2.0.28)"
       ],
-      "findings": [],
+      "findings": [
+        {
+          "ruleId": "PO033",
+          "severity": "warning",
+          "message": "Role 'Column-level security sample role' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.",
+          "file": "customizations.xml",
+          "component": "Column-level security sample role",
+          "fix": "Copy the role from App Opener, or give its users App Opener as well, and test the app as a user who holds only those roles.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO033.md"
+        },
+        {
+          "ruleId": "PO034",
+          "severity": "warning",
+          "message": "Role 'Column-level security sample role' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs.",
+          "file": "customizations.xml",
+          "component": "Column-level security sample role",
+          "fix": "Check whether the role's users need to create or write that table, and remove those privileges from the role if they don't.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO034.md"
+        }
+      ],
       "notChecked": []
     },
     {
@@ -691,9 +807,9 @@
     }
   ],
   "summary": {
-    "solutions": 16,
+    "solutions": 17,
     "errors": 0,
-    "warnings": 50,
+    "warnings": 61,
     "baselined": 0
   }
 }

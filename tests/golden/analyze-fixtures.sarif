@@ -442,6 +442,48 @@
               "defaultConfiguration": {
                 "level": "warning"
               }
+            },
+            {
+              "id": "PO032",
+              "name": "AppSharedWithAdminsOnly",
+              "shortDescription": {
+                "text": "Model-driven app is shared only with admin roles"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO032.md",
+              "help": {
+                "text": "Share the app with the security roles its users hold, and remove System Administrator and System Customizer from it unless they need the app."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO033",
+              "name": "RoleWithoutAppBaseline",
+              "shortDescription": {
+                "text": "Custom security role has no privilege to open a model-driven app"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO033.md",
+              "help": {
+                "text": "Copy the role from App Opener, or give its users App Opener as well, and test the app as a user who holds only those roles."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO034",
+              "name": "RoleWritesUnusedTable",
+              "shortDescription": {
+                "text": "Security role can create or write a table that no component in the solution uses"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO034.md",
+              "help": {
+                "text": "Check whether the role's users need to create or write that table, and remove those privileges from the role if they don't."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
             }
           ]
         }
@@ -499,6 +541,21 @@
               "level": "note",
               "message": {
                 "text": "PO014 and PO018 not checked for canvas app 'CanvasApps/cat_devopskitsamplecanvasapp_c7ec5_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened)."
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "tests/fixtures/alm-sample"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "level": "note",
+              "message": {
+                "text": "PO034 not checked for role 'ALM Accelerator Sample Role': 1 of the tables it can create or write are used by no component PowerOps reads, and the solution holds a plugin assembly, whose table use isn't read."
               },
               "locations": [
                 {
@@ -1281,6 +1338,52 @@
           }
         },
         {
+          "ruleId": "PO032",
+          "ruleIndex": 31,
+          "level": "warning",
+          "message": {
+            "text": "App 'cat_AlmAcceleratorSampleMda' is shared only with System Administrator or System Customizer, so users without an admin role may not be able to open it."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-sample/AppModules/cat_AlmAcceleratorSampleMda/AppModule.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "b2182969f63c3cb51557a5bcd8589aac5a9d427615b7e224d548d616c74cc13b"
+          }
+        },
+        {
+          "ruleId": "PO033",
+          "ruleIndex": 32,
+          "level": "warning",
+          "message": {
+            "text": "Role 'ALM Accelerator Sample Role' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/alm-sample/Roles/ALM%20Accelerator%20Sample%20Role.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "38f15b2e4fd53b2f386b0491e08cbfdefe737fbf0e57e5209e8f9aeacb0df07d"
+          }
+        },
+        {
           "ruleId": "PO005",
           "ruleIndex": 4,
           "level": "warning",
@@ -1488,6 +1591,121 @@
           }
         },
         {
+          "ruleId": "PO032",
+          "ruleIndex": 31,
+          "level": "warning",
+          "message": {
+            "text": "App 'equipment_checkout_a1a05935' is shared only with System Administrator or System Customizer, so users without an admin role may not be able to open it."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/equipment-checkout/AppModules/equipment_checkout_a1a05935/AppModule.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "50de6a7da1d4df7127b410737a265dac9f54d3d7d51b591e6c82e5571deb5255"
+          }
+        },
+        {
+          "ruleId": "PO033",
+          "ruleIndex": 32,
+          "level": "warning",
+          "message": {
+            "text": "Role 'Front desk' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/equipment-checkout/Roles/Front%20desk.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "eae7244410c97cbc17c531a0a02c29fc0b55496ecb7e92c6e9ee4b43ec200c8d"
+          }
+        },
+        {
+          "ruleId": "PO033",
+          "ruleIndex": 32,
+          "level": "warning",
+          "message": {
+            "text": "Role 'IT staff' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/equipment-checkout/Roles/IT%20staff.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "a09f2f1fd33affd6598804c475ca4427647f4986a2264584bcb4648cd2387cb2"
+          }
+        },
+        {
+          "ruleId": "PO034",
+          "ruleIndex": 33,
+          "level": "warning",
+          "message": {
+            "text": "Role 'Front desk' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/equipment-checkout/Roles/Front%20desk.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "30478da1ca8f6b112166900d919bd36d9e8340c13bde4eac22f478ad1afd799c"
+          }
+        },
+        {
+          "ruleId": "PO034",
+          "ruleIndex": 33,
+          "level": "warning",
+          "message": {
+            "text": "Role 'IT staff' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/equipment-checkout/Roles/IT%20staff.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "bc15babb0571014a24c5e37c483f75c3ea1e208de4040ef5d3f17fe6c7ac8caa"
+          }
+        },
+        {
           "ruleId": "PO016",
           "ruleIndex": 15,
           "level": "warning",
@@ -1623,6 +1841,118 @@
           ],
           "partialFingerprints": {
             "poFinding/v1": "d7a7f1d022d3412d56570af46c45495c2c08355e8a93f6cfbb3c172a383d04c2"
+          }
+        },
+        {
+          "ruleId": "PO033",
+          "ruleIndex": 32,
+          "level": "warning",
+          "message": {
+            "text": "Role 'Column-level security sample role' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/zips/ColumnLevelSecuritySampleSolution.zip"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "customizations.xml"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "db83405337118f043dcc4e75bcb365d9ff0b877304b6e34dce7f4fa430be9260"
+          }
+        },
+        {
+          "ruleId": "PO034",
+          "ruleIndex": 33,
+          "level": "warning",
+          "message": {
+            "text": "Role 'Column-level security sample role' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/zips/ColumnLevelSecuritySampleSolution.zip"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "customizations.xml"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "4267405585dbf828d3adab08147cea48cee94e0fe64cafdfcf19652b05baef99"
+          }
+        },
+        {
+          "ruleId": "PO033",
+          "ruleIndex": 32,
+          "level": "warning",
+          "message": {
+            "text": "Role 'Column-level security sample role' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/zips/ColumnLevelSecuritySampleSolution_managed.zip"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "customizations.xml"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "db83405337118f043dcc4e75bcb365d9ff0b877304b6e34dce7f4fa430be9260"
+          }
+        },
+        {
+          "ruleId": "PO034",
+          "ruleIndex": 33,
+          "level": "warning",
+          "message": {
+            "text": "Role 'Column-level security sample role' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/zips/ColumnLevelSecuritySampleSolution_managed.zip"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "customizations.xml"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "4267405585dbf828d3adab08147cea48cee94e0fe64cafdfcf19652b05baef99"
           }
         },
         {
