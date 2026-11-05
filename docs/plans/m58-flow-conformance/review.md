@@ -1,4 +1,4 @@
-plan-hash: d81aa63ae65f68771dc7188eacac52c4590cbf7b02f04bcc7f4c92c8450dc2e8
+plan-hash: b0a4034e14c790f42977af5a4022e4e1c53dcdf7a6e431ab772f01e0eb177c23
 model: claude-sonnet-5-5
 fresh-context: yes
 
@@ -125,3 +125,31 @@ No findings.
 - Finding: (a) The header `environment: PowerOps Test` and the Goal text "the developer environment, not the trial Test environment" use the word Test for both; a session that reads only the header can target the trial environment. (b) The CLI test `The_live_runs_date_expression_passes_with_the_value_the_cloud_gave` runs both the original with `int` and a rewrite that has `int` too, which the cloud never ran; the name claims the cloud's value for both, while the plan says only the Core test's rewrite is the cloud's.
 - Suggested fix: (a) have the pre-check name the environment type and URL host class from `pac org who` and stop if it is a trial environment. (b) Rename the test to say "the date expression gives 2026-11-18" and keep the cloud claim on the Core test.
 - Resolution: fixed: (a) the pre-check reads the type from `pac admin list` and stops unless it is Developer; (b) the CLI test is renamed and says the cloud ran only the rewrite without `int` (decisions Q18)
+
+## Third pass
+
+Run against HEAD `4475468` (plan, decisions Round 3, docs; the code is `9c90006`) by the same reviewer. The earlier text is unchanged; the `plan-hash` line names the revised plan. Still no `powerops plan facts`, `pac`, `az`, tenant call or GitHub write.
+
+What I ran: the whole `dotnet test` in the worktree (3565 pass, 5 skipped, 0 failed; goldens and fixtures included), `dotnet format --verify-no-changes` (clean), and a 41-expression probe in a scratch copy outside the repo. I also listed every `utcNow` value and every `addDays`/`formatDateTime` call in `tests/`, `skills/` and `plugins/`.
+
+What held:
+- R12: `'10:30'`, `'March 15'` and `'15 Mar 2018 10:00:00 GMT'` are now `unsupported` in `formatDateTime` and in `addDays` (with and without a format); text .NET cannot read at all (`'20261104T090000Z'`) is an error. The forms real flows use still read: `2026-11-04T09:00:00Z`, the `o` output with seven fraction digits (`...00.0000000Z`, `...00.1234567Z`), a 3-digit fraction, no seconds, a bare date, `MM/dd/yyyy` with a time. The acceptance expression gives `2026-11-18` and the `addDays` M14 tests still pass. All `utcNow` values in the repo are in accepted forms. Refused and now `unsupported`: a space-separated time, a one-digit-month `3/15/2018`, a lower-case `z`, a fraction past 7 digits; this fails safe and the docs list the accepted forms.
+- R13: with `fr-fr` and `es-es` only `d`, `dd`, `dddd`, `M`, `MM`, `MMMM`, `yy`, `yyyy` and the separators space, `-`, `,`, `.` are accepted. Learn's three locale examples pass; `d`, `dd/MM/yyyy`, `g` and `tt` are `unsupported`; `en-us` is unrestricted.
+- R14: `int('12abc')`, `'1,000'` and `'３'` are `unsupported`; `'abc'`, `''`, `'-'`, `'3.14'` and `'Infinity'` are errors. The docs say "no digit", matching the code.
+- R15: Step 4's pre-check stops unless `pac admin list` says Developer; the CLI test name no longer claims the cloud's value for the form with `int`.
+
+### High
+
+No findings.
+
+### Medium
+
+No findings.
+
+### Low
+
+#### R16. Refused timestamp forms that real flows produce are not listed as such
+- Area: 9 Testability
+- Finding: A user reading `docs/FLOW-TESTS.md` sees "a full ISO 8601 timestamp ... or `MM/dd/yyyy`", but a space between date and time (`2026-11-04 09:00:00`, common from SQL and Excel) and a one-digit month (`3/15/2018`) are now `unsupported` in every date function, also in `addDays` without a format, which M14 flows already used. The plan notes the M14 reader change (row 3) but the docs page does not say that these two common forms are refused.
+- Suggested fix: add one sentence to the docs bullet: "A space instead of `T`, a one-digit month or day, a lower-case `z` and more than seven fraction digits are `unsupported`", and a test for the space form.
+- Resolution: fixed: the docs bullet names the space form, the one-digit month or day, the lower-case `z` and more than seven fraction digits as `unsupported` in every date function; the space form and `3/15/2018` already have tests (`ExpressionTests.cs:865-866`)

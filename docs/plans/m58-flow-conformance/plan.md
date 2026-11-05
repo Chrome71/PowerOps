@@ -1,9 +1,11 @@
 ---
-status: approved
-review: pending
+status: signed-off
+review: done
 environment: PowerOps Test
 depth: quick
 supersedes: null
+signed-off: 2026-11-04
+signed-off-hash: b0a4034e14c790f42977af5a4022e4e1c53dcdf7a6e431ab772f01e0eb177c23
 ---
 
 # M58: Pilot-flow conformance: the run's missing functions and a recorded cloud comparison
