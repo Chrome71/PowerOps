@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppModule>
+  <UniqueName>pops_WorkItemBoard</UniqueName>
+  <IntroducedVersion>1.1.0.0</IntroducedVersion>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+  <FormFactor>1</FormFactor>
+  <ClientType>4</ClientType>
+  <NavigationType>0</NavigationType>
+  <AppModuleComponents>
+    <AppModuleComponent type="1" schemaName="pops_workitem" />
+  </AppModuleComponents>
+  <AppModuleRoleMaps>
+    <Role id="{00000000-0000-0000-0000-000000000a81}" />
+  </AppModuleRoleMaps>
+  <LocalizedNames>
+    <LocalizedName description="Work Item Board" languagecode="1033" />
+  </LocalizedNames>
+</AppModule>

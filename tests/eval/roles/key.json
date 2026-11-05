@@ -346,5 +346,41 @@
     "point": "plan checklist",
     "severity": "High",
     "sentence": "Data: the list Loan feedback, with the flow Ask for feedback and the Feedback screen, names Goal line 1, but no line of Goal fails without it: Goal records loans, overdue loans and stock checks, not how a loan went."
+  },
+  {
+    "id": "F43",
+    "case": "solution-07",
+    "pass": "verify",
+    "point": "plan checklist",
+    "severity": "Medium",
+    "sentence": "Roles/WorkItemEditor.xml gives the role Work Item Editor the privilege prvDeletepops_workitem at business unit depth, where Data says it has Read, Write, Append and Append To and no Delete, and no step of the plan changes the role.",
+    "baseline": "not-shown"
+  },
+  {
+    "id": "F44",
+    "case": "solution-07",
+    "pass": "verify",
+    "point": "plan checklist",
+    "severity": "Medium",
+    "sentence": "AppModules/pops_WorkItemDesk/AppModule.xml lists the role Work Item Auditor in its role map, where Screens says the role map lists Work Item Editor only and the auditors are not in the app, and no step of the plan changes the app.",
+    "baseline": "not-shown"
+  },
+  {
+    "id": "F45",
+    "case": "solution-08",
+    "pass": "security-solution",
+    "point": "security roles",
+    "severity": "High",
+    "sentence": "Roles/WorkItemReader.xml gives Work Item Reader Read, Write and Delete on pops_workitem at Global depth, where Data says Read at user depth (Basic) and no other privilege.",
+    "baseline": "not-shown"
+  },
+  {
+    "id": "F46",
+    "case": "solution-08",
+    "pass": "security-solution",
+    "point": "SE:05",
+    "severity": "High",
+    "sentence": "AppModules/pops_WorkItemBoard/AppModule.xml lists the role Work Item Contractor in its role map, where Screens says the role map lists Work Item Reader only and the contractors are kept out of the app.",
+    "baseline": "not-shown"
   }
 ]

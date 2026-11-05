@@ -36,12 +36,12 @@ Answer: 1. The brief asks for one new case per role. The old cases stay as they 
 
 ### Q7. What does the rerun cost?
 1. 32 runs (2 roles, 8 cases, 2 families), with a fixed cap of USD 30 at Claude's list price; Codex recorded in tokens (recommended)
-Answer: 1. The figures are from M38's and M39's runs, plus 30% for the new command and re-reads, plus four replacements and the Sonnet scorer: about USD 22. The cap is below the USD 40 the person approved under D2, so no new approval is needed. The runs stop and ask if the Claude spend reaches USD 40. (answered by: agent m55-role-freeze)
+Answer: 1. The figures are from M38's and M39's runs, plus 30% for the new command and re-reads, plus four replacements and the Sonnet scorer: about USD 22. The cap of USD 30 covers the Claude runs, their replacements and the Sonnet scorer, and it is below the USD 40 the person approved under D2, so no new approval is needed. The runs stop and ask if that spend reaches USD 30. (answered by: agent m55-role-freeze)
 
 ### Q8. Do the keep rules change?
 1. No: M38's rules, recomputed on this rerun's runs; the new case results and every "unchanged" statement are recorded beside them, not as rules (recommended)
 2. Add a keep rule for the new cases
-Answer: 1. The rules were frozen in M38 and renewed in M39. A new rule on two cases would have a denominator of 2 per role, below M38's floor of 5 for a conclusion. The person sees the new results and decides. (answered by: agent m55-role-freeze)
+Answer: 1. The rules were frozen in M38 and renewed in M39. A new rule on two cases would have a denominator of 2 per role, below M38's floor of 5 for a conclusion. The measures of this milestone's purpose are defined before the run and shown beside the rules: each role's result on its new case, each unchanged statement judged false, unsupported or supported against the case files and the run's own comparison, and the six header lines. A missed floor sends that role's text back to its M39 pin unless the person answers otherwise, and drops no role. The person sees the new results and decides. (answered by: agent m55-role-freeze)
 
 ### Q9. When do the plugin copies and the pins change?
 1. After the person's decision, as the brief says; the freeze commit fails only the plugin-copy checks of the two changed skills, by design, and the Data edit is re-signed after a second review pass (recommended)
@@ -52,6 +52,25 @@ Answer: 1. A plugin copy is what ships, and AGENTS.md says the decision comes be
 2. Only the reference
 Answer: 1. A role in an evaluation run, or in a maker's repository without PowerOps's docs, can't open `docs/COMMANDS.md`. The list is taken from `COMMANDS.md#diff` as it stands at `431df9b`. (answered by: agent m55-role-freeze)
 
+## Round 2: the fresh review (R1 to R14)
+
+Each finding of `review.md` was answered in the plan and, where it is skill text, in the skills, before the freeze. (answered by: agent m55-role-freeze)
+
+- R1: the Security skill's "The first four lines are exactly:" says six; row 6 names line 73.
+- R2: paragraph B maps each kind to its files in the unpacked layout and counts a changed `Other/Customizations.xml` as a change to all of them.
+- R3: paragraph B says a zip leaves the component not verified. The Verifier records the skip in `## Checks` (C2V), and the Security reviewer under the header lines, as it does for `diff`.
+- R4: paragraph A adds classic workflows and business rules (name, category and state only), says "cloud flows", and says a part named in a `note:` line was not compared.
+- R5: `solution-07` was reworked by its writer. Its plan's own change is now a column in an existing view, so `diff` prints only the version change. `solution-08` keeps compared changes, so the set has both shapes. Its settings file now sets the plan's new value, after the independent case check found it still set the old one.
+- R6: row 9 has the right ranges, the per-case count override, the renamed not-shown test, and the baseline files as the proof that `analyze`, `test` and `settings validate` are clean on 07 and 08. The case writer was told the marker words.
+- R7: Automation defines before the run how each unchanged statement is judged (false, unsupported, supported), how it is read, and what a missed floor does (that role's text goes back to its M39 pin unless the person answers otherwise, and no role is dropped).
+- R8: Automation records the six header lines, the hash against the freeze build's digest, and whether `plan status` reads both values.
+- R9: one number, USD 30, covering the Claude runs, their replacements and the Sonnet scorer, with a stop and a question at it.
+- R10: row 3 says the command checks before `Read`, maps the exceptions, and cleans every path. The build does so.
+- R11: the CLI tests scrub the repo root, so the goldens hold `powerops-seed/v1` and `v2`.
+- R12: `COMMANDS.md#manifest` says to give the solution's own folder. The skills use the request's current solution, so their text doesn't change for it.
+- R13: (a) Done when 2 says both forms; (b) row 4 cites `:69`; (c) row 4 and `COMMANDS.md` say a legacy free-text `input:` warns; (d) the golden has a `verify.md` with a hash and a locator; (e) step 3 says not to run the golden update until step 7.
+- R14: Automation says a finding from the unkeyed role on 07 or 08 is unkeyed, neither a hit nor a false High.
+
 ## Log
 
 - 2026-11-04: plan started at the request of the session that started this one: build M55 of the live-test improvement plan, with D2 as the person answered it (answered by: person, through that session's brief)
@@ -60,3 +79,9 @@ Answer: 1. A role in an evaluation run, or in a maker's repository without Power
 - questions Q1 to Q10 answered by the building session under the user's delegation of 2026-10-22 (autonomous milestone mode); D2 by the person
 - areas not asked: users, screens, solution and publisher; the change is to this repo, and the plan answers each or marks it not applicable
 - approved 2026-11-04 by the building session under the user's delegation of 2026-10-22, for a fresh-context review (answered by: agent m55-role-freeze)
+- fresh review (a general-purpose subagent following `powerops-review-plan`, Sonnet, fresh context) 2026-11-04 at `e588815`: 0 High, 9 Medium, 5 Low (R1 to R14); answered in Round 2
+- the code of rows 1 to 4 built by an implementer subagent (Sonnet) in its own worktree from `431df9b`, brought in as one commit; the building session then dropped a locator's trailing `/` and added two docs lines (R12, R13c)
+- the cases of row 8 written by a subagent (Sonnet) that read neither skill nor this plan; checked by another (Sonnet) with the same limits, which confirmed F43 to F46 and found one stray value in `solution-08`'s settings file, fixed by the writer
+- the same reviewer's second pass 2026-11-04 with the build in the tree, at plan body `71c00e0c`: R1 to R14 hold in the plan, the skills, the code, the docs, the tests and the cases; it ran each test project and the CLI on scratch folders and on both new cases; 2 Low new (R15, R16), 0 High, 0 Medium
+- R15 fixed with a test-only guard before the freeze; R16 accepted, Low and not a security finding, with the reason in `review.md` (answered by: agent m55-role-freeze)
+- signed off 2026-11-04 by the building session, outside the skills, under the user's delegation of 2026-10-22, with no High or Medium finding open (`powerops plan sign-off`; `signed-off-hash` equals `review.md`'s `plan-hash`, `71c00e0c`) (answered by: agent m55-role-freeze)

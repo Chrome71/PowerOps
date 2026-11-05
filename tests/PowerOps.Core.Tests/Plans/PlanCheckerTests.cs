@@ -291,7 +291,7 @@ public class PlanCheckerTests : IDisposable
 
         var reports = Check();
 
-        Assert.Equal(input, Assert.Single(reports.Reports).Input);
+        Assert.Equal(input.TrimEnd('/'), Assert.Single(reports.Reports).Input);
         Assert.Empty(reports.Warnings);
     }
 
@@ -329,7 +329,7 @@ public class PlanCheckerTests : IDisposable
         Report("verify.md", $"state: ready\ninput: {new string('a', 261)}\n");
         var tooLong = Check();
 
-        Assert.Equal(new string('a', 260) + "/", Assert.Single(ok.Reports).Input);
+        Assert.Equal(new string('a', 260), Assert.Single(ok.Reports).Input);
         Assert.Empty(ok.Warnings);
         Assert.Null(Assert.Single(tooLong.Reports).Input);
         Assert.Single(tooLong.Warnings);

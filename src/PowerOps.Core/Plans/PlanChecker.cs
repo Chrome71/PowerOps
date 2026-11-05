@@ -309,7 +309,7 @@ public static partial class PlanChecker
                 solutionHash = HeadValue(head, "solution-hash:") is { Length: 64 } h && h.All(c => c is (>= '0' and <= '9') or (>= 'a' and <= 'f')) ? h : UnknownHash;
                 if (HeadValue(head, "input:") is { } value)
                 {
-                    input = IsLocator(value) ? value : null;
+                    input = IsLocator(value) ? value.TrimEnd('/') : null;
                     if (input is null)
                     {
                         warnings.Add($"{name} has an input: line that is not a relative path");

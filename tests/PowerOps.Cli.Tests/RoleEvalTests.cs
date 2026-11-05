@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 
 using PowerOps.Core.Plans;
 using PowerOps.Tests.Shared;
@@ -152,23 +153,24 @@ public sealed partial class RoleEvalTests
         [.. ReadKey(json).Where(f => f.Pass != "plan").GroupBy(f => f.Pass).Where(g => g.Count(f => f.Baseline == "not-shown") < least)
             .Select(g => $"{g.Key}: {g.Count(f => f.Baseline == "not-shown")} of {g.Count()} flaws are not-shown, at least {least} needed")];
 
-    // How many flaws each case holds, and how the cases and passes add up.
-    internal static List<string> CountProblems(string json, IReadOnlyCollection<string> planCases, IReadOnlyCollection<string> solutionCases, int perCase, int flawedPlan, int flawedSolution, int? security, int? verify)
+    // How many flaws each case holds (perCase, or the case's entry in `exceptions`), and how the cases and passes add up.
+    internal static List<string> CountProblems(string json, IReadOnlyCollection<string> planCases, IReadOnlyCollection<string> solutionCases, int perCase, int flawedPlan, int flawedSolution, int? security, int? verify, IReadOnlyDictionary<string, int>? exceptions = null)
     {
         var key = ReadKey(json);
         var problems = new List<string>();
         var perCaseCount = key.GroupBy(f => f.Case).ToDictionary(g => g.Key, g => g.Count());
+        int Expected(string name) => exceptions is not null && exceptions.TryGetValue(name, out var e) ? e : perCase;
         foreach (var name in planCases.Concat(solutionCases))
         {
             var n = perCaseCount.GetValueOrDefault(name);
-            if (n != 0 && n != perCase)
+            if (n != 0 && n != Expected(name))
             {
-                problems.Add($"{name} has {n} flaws, expected {perCase} or none");
+                problems.Add($"{name} has {n} flaws, expected {Expected(name)} or none");
             }
         }
 
-        var flawedPlans = planCases.Count(c => perCaseCount.GetValueOrDefault(c) == perCase);
-        var flawedSolutions = solutionCases.Count(c => perCaseCount.GetValueOrDefault(c) == perCase);
+        var flawedPlans = planCases.Count(c => perCaseCount.GetValueOrDefault(c) == Expected(c));
+        var flawedSolutions = solutionCases.Count(c => perCaseCount.GetValueOrDefault(c) == Expected(c));
         if (flawedPlans != flawedPlan)
         {
             problems.Add($"{flawedPlans} plan cases have flaws, expected {flawedPlan}");
@@ -180,15 +182,17 @@ public sealed partial class RoleEvalTests
         }
 
         var planFlaws = key.Count(f => f.Pass == "plan");
-        if (planFlaws != flawedPlan * perCase)
+        var planExpected = planCases.Where(c => perCaseCount.GetValueOrDefault(c) == Expected(c)).Sum(Expected);
+        if (planFlaws != planExpected)
         {
-            problems.Add($"{planFlaws} plan flaws, expected {flawedPlan * perCase}");
+            problems.Add($"{planFlaws} plan flaws, expected {planExpected}");
         }
 
         var solutionFlaws = key.Count(f => f.Pass != "plan");
-        if (solutionFlaws != flawedSolution * perCase)
+        var solutionExpected = solutionCases.Where(c => perCaseCount.GetValueOrDefault(c) == Expected(c)).Sum(Expected);
+        if (solutionFlaws != solutionExpected)
         {
-            problems.Add($"{solutionFlaws} solution flaws, expected {flawedSolution * perCase}");
+            problems.Add($"{solutionFlaws} solution flaws, expected {solutionExpected}");
         }
 
         if (security is { } s && key.Count(f => f.Pass == "security-solution") != s)
@@ -292,6 +296,34 @@ public sealed partial class RoleEvalTests
 
     private static string SeedV1() => Path.Combine(Golden.RepoRoot, "tests", "fixtures", "powerops-seed", "v1");
 
+    // These cases start from the seed plus security roles and a model-driven app, so their root components can stay the same while a role and the app change.
+    private static readonly string[] RoleAppCases = ["solution-07", "solution-08"];
+
+    private static readonly string[] RoleAppFolders = ["Roles/", "AppModules/", "AppModuleSiteMaps/"];
+
+    // The RootComponent elements of two Other/Solution.xml texts, in order, must be the same.
+    internal static List<string> RootComponentProblems(string previousSolutionXml, string currentSolutionXml)
+    {
+        static List<string> Roots(string xml) =>
+            [.. XDocument.Parse(xml).Descendants("RootComponent").Select(e => e.ToString(SaveOptions.DisableFormatting))];
+
+        return Roots(previousSolutionXml).SequenceEqual(Roots(currentSolutionXml)) ? [] : ["the root components of solution/previous and solution/current differ"];
+    }
+
+    // The previous Other/Solution.xml is the seed's, apart from its version and the root components it adds.
+    internal static List<string> PreviousManifestProblems(string seedSolutionXml, string previousSolutionXml)
+    {
+        static string Key(XElement e) => e.ToString(SaveOptions.DisableFormatting);
+        var seed = XDocument.Parse(seedSolutionXml);
+        var previous = XDocument.Parse(previousSolutionXml);
+        var seedRoots = seed.Descendants("RootComponent").Select(Key).ToHashSet(StringComparer.Ordinal);
+        seed.Descendants("Version").Remove();
+        previous.Descendants("Version").Remove();
+        previous.Descendants("RootComponent").Where(e => !seedRoots.Contains(Key(e))).Remove();
+        return seed.ToString(SaveOptions.DisableFormatting) == previous.ToString(SaveOptions.DisableFormatting)
+            ? [] : ["solution/previous's Other/Solution.xml differs from the seed's beyond its version and added root components"];
+    }
+
     private static string SolutionVersion(string solutionFolder) =>
         Regex.Match(Read(Path.Combine(solutionFolder, "Other", "Solution.xml")), @"<Version>([\d.]+)</Version>").Groups[1].Value;
 
@@ -323,16 +355,35 @@ public sealed partial class RoleEvalTests
         var current = Path.Combine(caseDir, "solution", "current");
         var seedFiles = CaseFiles(seed).Select(f => Rel(seed, f)).ToList();
         var previousFiles = CaseFiles(previous).Select(f => Rel(previous, f)).ToList();
-        if (!previousFiles.SequenceEqual(seedFiles) || seedFiles.Any(f => Read(Path.Combine(seed, f)) != Read(Path.Combine(previous, f))))
+        if (!RoleAppCases.Contains(Path.GetFileName(caseDir)))
         {
-            problems.Add("solution/previous is not a copy of tests/fixtures/powerops-seed/v1");
+            if (!previousFiles.SequenceEqual(seedFiles) || seedFiles.Any(f => Read(Path.Combine(seed, f)) != Read(Path.Combine(previous, f))))
+            {
+                problems.Add("solution/previous is not a copy of tests/fixtures/powerops-seed/v1");
+            }
+        }
+        else
+        {
+            // The seed's files, Other/Solution.xml aside, byte for byte; anything else only under the role and app folders.
+            const string Manifest = "Other/Solution.xml";
+            if (seedFiles.Any(f => f != Manifest && (!previousFiles.Contains(f) || Read(Path.Combine(seed, f)) != Read(Path.Combine(previous, f))))
+                || previousFiles.Except(seedFiles).Any(f => !RoleAppFolders.Any(d => f.StartsWith(d, StringComparison.Ordinal))))
+            {
+                problems.Add("solution/previous is not tests/fixtures/powerops-seed/v1 plus roles and a model-driven app");
+            }
+
+            if (File.Exists(Path.Combine(previous, "Other", "Solution.xml")) && File.Exists(Path.Combine(current, "Other", "Solution.xml")))
+            {
+                problems.AddRange(RootComponentProblems(Read(Path.Combine(previous, "Other", "Solution.xml")), Read(Path.Combine(current, "Other", "Solution.xml"))));
+                problems.AddRange(PreviousManifestProblems(Read(Path.Combine(seed, "Other", "Solution.xml")), Read(Path.Combine(previous, "Other", "Solution.xml"))));
+            }
         }
 
-        if (!File.Exists(Path.Combine(current, "Other", "Solution.xml")))
+        if (!File.Exists(Path.Combine(current, "Other", "Solution.xml")) || !File.Exists(Path.Combine(previous, "Other", "Solution.xml")))
         {
-            problems.Add("solution/current has no Other/Solution.xml");
+            problems.Add("solution/current or solution/previous has no Other/Solution.xml");
         }
-        else if (!Version.TryParse(SolutionVersion(current), out var raised) || !Version.TryParse(SolutionVersion(seed), out var old) || raised <= old)
+        else if (!Version.TryParse(SolutionVersion(current), out var raised) || !Version.TryParse(SolutionVersion(previous), out var old) || raised <= old)
         {
             problems.Add("solution/current does not have a higher version than solution/previous");
         }
@@ -445,13 +496,13 @@ public sealed partial class RoleEvalTests
         return problems;
     }
 
-    // A fenced block with plan-hash:, model:, fresh-context: and state: on four consecutive lines, in this order, each at the start of its line.
+    // A fenced block with the six header lines on consecutive lines, in this order, each at the start of its line.
     internal static List<string> HeaderLineProblems(string skillText)
     {
-        string[] prefixes = ["plan-hash: ", "model: ", "fresh-context: ", "state: "];
+        string[] prefixes = ["plan-hash: ", "model: ", "fresh-context: ", "state: ", "input: ", "solution-hash: "];
         var found = Fence().Matches(skillText.Replace("\r\n", "\n")).Select(m => m.Groups[1].Value.Split('\n')).Any(lines =>
-            Enumerable.Range(0, Math.Max(0, lines.Length - 3)).Any(i => prefixes.Select((p, k) => lines[i + k].StartsWith(p, StringComparison.Ordinal)).All(x => x)));
-        return found ? [] : ["no fenced block has the lines plan-hash: , model: , fresh-context: and state: one after the other"];
+            Enumerable.Range(0, Math.Max(0, lines.Length - prefixes.Length + 1)).Any(i => prefixes.Select((p, k) => lines[i + k].StartsWith(p, StringComparison.Ordinal)).All(x => x)));
+        return found ? [] : ["no fenced block has the lines plan-hash: , model: , fresh-context: , state: , input: and solution-hash: one after the other"];
     }
 
     // The first code span of each bullet under "## Commands you may run" that starts with "powerops ". Null when the section is missing.
@@ -481,7 +532,7 @@ public sealed partial class RoleEvalTests
 
     // ---- tests of the real files ----
 
-    private static void KeyChecks(string keyFile, string root, string[] planCases, string[] solutionCases, int perCase, int flawedPlan, int flawedSolution, int? security, int? verify)
+    private static void KeyChecks(string keyFile, string root, string[] planCases, string[] solutionCases, int perCase, int flawedPlan, int flawedSolution, int? security, int? verify, IReadOnlyDictionary<string, int>? exceptions = null)
     {
         var json = File.ReadAllText(keyFile);
         var cases = planCases.Concat(solutionCases).ToList();
@@ -489,17 +540,17 @@ public sealed partial class RoleEvalTests
         Assert.Equal(planCases.Length, CaseNames(root, "plan").Length);
         Assert.Equal(solutionCases.Length, CaseNames(root, "solution").Length);
         Assert.Empty(KeyProblems(json, cases));
-        Assert.Empty(CountProblems(json, planCases, solutionCases, perCase, flawedPlan, flawedSolution, security, verify));
+        Assert.Empty(CountProblems(json, planCases, solutionCases, perCase, flawedPlan, flawedSolution, security, verify, exceptions));
     }
 
     private static string[] MainPlans => [.. Enumerable.Range(1, 14).Select(n => $"plan-{n:00}")];
 
-    private static string[] MainSolutions => [.. Enumerable.Range(1, 6).Select(n => $"solution-{n:00}")];
+    private static string[] MainSolutions => [.. Enumerable.Range(1, 8).Select(n => $"solution-{n:00}")];
 
     [Fact]
     public void Every_key_entry_names_a_real_case_and_pass_and_every_case_and_pass_has_its_flaw_count()
     {
-        KeyChecks(Path.Combine(Roles, "key.json"), Cases, MainPlans, MainSolutions, perCase: 3, flawedPlan: 10, flawedSolution: 4, security: 6, verify: 6);
+        KeyChecks(Path.Combine(Roles, "key.json"), Cases, MainPlans, MainSolutions, perCase: 3, flawedPlan: 10, flawedSolution: 6, security: 8, verify: 8, RoleAppCases.ToDictionary(c => c, _ => 2));
     }
 
     [Fact]
@@ -509,7 +560,7 @@ public sealed partial class RoleEvalTests
     }
 
     [Fact]
-    public void Every_solution_flaw_has_its_baseline_field_and_at_least_4_of_6_in_each_pass_are_not_shown()
+    public void Every_solution_flaw_has_its_baseline_field_and_at_least_4_in_each_pass_are_not_shown()
     {
         var main = File.ReadAllText(Path.Combine(Roles, "key.json"));
         var pilot = File.ReadAllText(Path.Combine(Pilot, "key.json"));
@@ -525,7 +576,7 @@ public sealed partial class RoleEvalTests
         var folders = CaseNames(Cases, "solution").Select(n => (Name: n, Dir: Path.Combine(Cases, n))).Concat(CaseNames(Pilot, "solution").Select(n => (Name: n, Dir: Path.Combine(Pilot, n)))).ToList();
         var files = Directory.Exists(Path.Combine(Roles, "baseline")) ? Directory.GetFiles(Path.Combine(Roles, "baseline"), "*.txt").Select(f => Path.GetFileNameWithoutExtension(f)!).Order(StringComparer.Ordinal).ToList() : [];
 
-        Assert.Equal(7, folders.Count);
+        Assert.Equal(9, folders.Count);
         Assert.Equal(folders.Select(f => f.Name).Order(StringComparer.Ordinal), files);
         foreach (var (name, dir) in folders)
         {
@@ -562,7 +613,7 @@ public sealed partial class RoleEvalTests
     {
         var cases = CaseNames(Cases, "solution").Select(n => Path.Combine(Cases, n)).Concat(CaseNames(Pilot, "solution").Select(n => Path.Combine(Pilot, n))).ToList();
 
-        Assert.Equal(7, cases.Count);
+        Assert.Equal(9, cases.Count);
         Assert.All(cases, c => Assert.Empty(SolutionCaseProblems(c)));
         Assert.All(cases.SelectMany(c => new[] { Path.Combine(c, "docs"), Path.Combine(c, "settings.json"), Path.Combine(c, "flowtests") }).SelectMany(CaseFilesOrFile), f => Assert.Empty(FakeValueProblems(f, Read(f))));
     }
@@ -618,7 +669,7 @@ public sealed partial class RoleEvalTests
     }
 
     [Fact]
-    public void The_drafts_have_portable_front_matter_and_the_four_header_lines()
+    public void The_drafts_have_portable_front_matter_and_the_six_header_lines()
     {
         foreach (var name in Drafts)
         {
@@ -751,6 +802,7 @@ public sealed partial class RoleEvalTests
         Assert.Empty(BaselineFieldProblems(GoodKey));
         Assert.Empty(CountProblems(GoodKey, ["plan-01"], ["solution-01"], perCase: 1, flawedPlan: 1, flawedSolution: 1, security: 0, verify: 1));
         Assert.Empty(NotShownProblems(GoodKey, least: 1));
+        Assert.Empty(CountProblems(GoodKey, ["plan-01"], ["solution-01"], perCase: 3, flawedPlan: 1, flawedSolution: 1, security: 0, verify: 1, new Dictionary<string, int> { ["plan-01"] = 1, ["solution-01"] = 1 }));
     }
 
     [Fact]
@@ -774,6 +826,7 @@ public sealed partial class RoleEvalTests
         Assert.NotEmpty(CountProblems(GoodKey, ["plan-01", "plan-02"], ["solution-01"], perCase: 1, flawedPlan: 2, flawedSolution: 1, security: null, verify: null));
         Assert.NotEmpty(CountProblems(GoodKey, ["plan-01"], ["solution-01"], perCase: 2, flawedPlan: 1, flawedSolution: 1, security: null, verify: null));
         Assert.NotEmpty(CountProblems(GoodKey, ["plan-01"], ["solution-01"], perCase: 1, flawedPlan: 1, flawedSolution: 1, security: 1, verify: null));
+        Assert.NotEmpty(CountProblems(GoodKey, ["plan-01"], ["solution-01"], perCase: 1, flawedPlan: 1, flawedSolution: 1, security: null, verify: null, new Dictionary<string, int> { ["solution-01"] = 2 }));
     }
 
     // A raw string takes the source file's line endings, and a Windows checkout gives it CRLF.
@@ -800,6 +853,8 @@ public sealed partial class RoleEvalTests
         model: <the model>
         fresh-context: yes|no
         state: ready|blocked|failed|dropped
+        input: <the current solution>
+        solution-hash: <the digest>
         ```
         """.Replace("\r\n", "\n");
 
@@ -827,6 +882,8 @@ public sealed partial class RoleEvalTests
         Assert.NotEmpty(HeaderLineProblems(GoodSkill.Replace("model: <the model>\n", "")));
         Assert.NotEmpty(HeaderLineProblems(GoodSkill.Replace("model: <the model>\nfresh-context: yes|no", "fresh-context: yes|no\nmodel: <the model>")));
         Assert.NotEmpty(HeaderLineProblems(GoodSkill.Replace("\nstate: ", "\n state: ")));
+        Assert.NotEmpty(HeaderLineProblems(GoodSkill.Replace("solution-hash: <the digest>\n", "")));
+        Assert.NotEmpty(HeaderLineProblems(GoodSkill.Replace("input: <the current solution>\nsolution-hash: <the digest>", "solution-hash: <the digest>\ninput: <the current solution>")));
         Assert.Null(ListedCommands(GoodSkill.Replace("## Commands you may run", "## Commands")));
         Assert.Equal(["powerops analyze <current solution>"], ListedCommands(GoodSkill.Replace("- `powerops settings validate <current solution> --settings <settings file>`", "- no code here").Replace("- `powerops plan facts`", "- `plan facts`")));
         Assert.Equal(["powerops deploy apply x --apply"], NotAllowed(["powerops analyze x", "powerops deploy apply x --apply", "powerops plan facts"], ["powerops analyze"]));
@@ -851,5 +908,15 @@ public sealed partial class RoleEvalTests
         Assert.Empty(FakeValueProblems("x", "https://contoso.example/a, https://api.contoso.example, a@example.invalid, 00000000-0000-0000-0000-000000000002"));
         Assert.Equal(3, FakeValueProblems("x", "https://www.example.com/a a@example.com 11111111-1111-1111-1111-111111111111").Count);
         Assert.Equal("a/b\nc/d\n", NormalizeBaseline("a\\b\r\nc\\d\r\n"));
+
+        const string Roots = "<ImportExportXml><SolutionManifest><RootComponents><RootComponent type=\"20\" id=\"{a}\" behavior=\"0\" /><RootComponent type=\"80\" id=\"{b}\" behavior=\"0\" /></RootComponents></SolutionManifest></ImportExportXml>";
+        Assert.Empty(RootComponentProblems(Roots, Roots.Replace("<SolutionManifest>", "<SolutionManifest><Version>1.2.0.0</Version>")));
+        Assert.NotEmpty(RootComponentProblems(Roots, Roots.Replace("<RootComponent type=\"80\" id=\"{b}\" behavior=\"0\" />", "")));
+        Assert.NotEmpty(RootComponentProblems(Roots, Roots.Replace("behavior=\"0\" /><RootComponent type=\"80\"", "behavior=\"2\" /><RootComponent type=\"80\"")));
+        const string Seed = "<ImportExportXml><SolutionManifest><UniqueName>S</UniqueName><Version>1.0.0.0</Version><RootComponents><RootComponent type=\"20\" id=\"{a}\" behavior=\"0\" /></RootComponents></SolutionManifest></ImportExportXml>";
+        var grown = Seed.Replace("1.0.0.0", "1.1.0.0").Replace("</RootComponents>", "<RootComponent type=\"80\" id=\"{b}\" behavior=\"0\" /></RootComponents>");
+        Assert.Empty(PreviousManifestProblems(Seed, grown));
+        Assert.NotEmpty(PreviousManifestProblems(Seed, grown.Replace("<UniqueName>S</UniqueName>", "<UniqueName>T</UniqueName>")));
+        Assert.NotEmpty(PreviousManifestProblems(Seed, grown.Replace("<RootComponent type=\"20\" id=\"{a}\" behavior=\"0\" />", "")));
     }
 }

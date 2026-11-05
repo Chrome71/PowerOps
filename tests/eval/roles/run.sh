@@ -196,6 +196,7 @@ if [ "$client" = claude ]; then
     'Bash(powerops test *)'
     'Bash(powerops settings validate *)'
     'Bash(powerops plan status *)'
+    'Bash(powerops manifest *)'
   )
   started="$(utc)"
   (
