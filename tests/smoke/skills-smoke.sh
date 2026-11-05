@@ -41,7 +41,8 @@ agent_turn() {
   if [ "$agent" = claude ]; then
     local resume=()
     [ -s "$sid_file" ] && resume=(--resume "$(cat "$sid_file")")
-    out="$(cd "$dir" && claude -p ${resume[@]+"${resume[@]}"} --output-format json --permission-mode acceptEdits \
+    # Project and local settings only: a PowerOps plugin installed for the user would add its own, older skills.
+    out="$(cd "$dir" && claude -p --setting-sources project,local ${resume[@]+"${resume[@]}"} --output-format json --permission-mode acceptEdits \
       --allowedTools "$allowed_tools" -- "$message")" || return 1
     jq -r '.session_id' <<<"$out" >"$sid_file"
     jq -r '.result' <<<"$out"
@@ -70,7 +71,7 @@ Reply with only the words you would type back, nothing else.
 The agent said:
 $1"
   if [ "$agent" = claude ]; then
-    (cd "$work" && claude -p --output-format text -- "$prompt")
+    (cd "$work" && claude -p --setting-sources project,local --output-format text -- "$prompt")
   else
     local last="$work/codex-user.txt"
     rm -f "$last"
