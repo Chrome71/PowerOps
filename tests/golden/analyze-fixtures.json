@@ -221,7 +221,8 @@
           "fix": "Move self-contained parts of the flow into child flows, and reduce nested scopes, conditions and loops.",
           "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO016.md"
         }
-      ]
+      ],
+      "notChecked": []
     },
     {
       "path": "tests/fixtures/alm-sample",
@@ -263,6 +264,9 @@
           "fix": "Turn the flow on before export, or remove it from the solution if it is no longer needed.",
           "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md"
         }
+      ],
+      "notChecked": [
+        "PO014 and PO018 not checked for canvas app 'CanvasApps/cat_devopskitsamplecanvasapp_c7ec5_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened)."
       ]
     },
     {
@@ -359,7 +363,8 @@
           "fix": "Replace the inner loop with one query, filter or bulk action over the whole set, or fetch the related rows with the outer query's expand option and use one loop.",
           "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO017.md"
         }
-      ]
+      ],
+      "notChecked": []
     },
     {
       "path": "tests/fixtures/core-portal",
@@ -371,7 +376,8 @@
         "prefix": "msgov"
       },
       "requires": [],
-      "findings": []
+      "findings": [],
+      "notChecked": []
     },
     {
       "path": "tests/fixtures/powerops-seed-yaml/v1",
@@ -383,7 +389,8 @@
         "prefix": "pops"
       },
       "requires": [],
-      "findings": []
+      "findings": [],
+      "notChecked": []
     },
     {
       "path": "tests/fixtures/powerops-seed-yaml/v2",
@@ -423,7 +430,8 @@
           "fix": "Remove the URL where the platform can use the current environment, otherwise read it from an environment variable whose value is set per environment at deployment.",
           "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO014.md"
         }
-      ]
+      ],
+      "notChecked": []
     },
     {
       "path": "tests/fixtures/powerops-seed/v1",
@@ -435,7 +443,8 @@
         "prefix": "pops"
       },
       "requires": [],
-      "findings": []
+      "findings": [],
+      "notChecked": []
     },
     {
       "path": "tests/fixtures/powerops-seed/v2",
@@ -466,7 +475,8 @@
           "fix": "Remove the URL where the platform can use the current environment, otherwise read it from an environment variable whose value is set per environment at deployment.",
           "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO006.md"
         }
-      ]
+      ],
+      "notChecked": []
     },
     {
       "path": "tests/fixtures/zips/ColumnLevelSecuritySampleSolution.zip",
@@ -480,7 +490,8 @@
       "requires": [
         "msft_ColumnLevelSecurityData (1.2.0.28)"
       ],
-      "findings": []
+      "findings": [],
+      "notChecked": []
     },
     {
       "path": "tests/fixtures/zips/ColumnLevelSecuritySampleSolution_managed.zip",
@@ -494,7 +505,8 @@
       "requires": [
         "msft_ColumnLevelSecurityData (1.2.0.28)"
       ],
-      "findings": []
+      "findings": [],
+      "notChecked": []
     },
     {
       "path": "tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip",
@@ -534,7 +546,8 @@
           "fix": "Create a publisher with a meaningful prefix and build the solution under it.",
           "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO010.md"
         }
-      ]
+      ],
+      "notChecked": []
     },
     {
       "path": "tests/fixtures/zips/polymorphiclookupexamplesolution.zip",
@@ -546,7 +559,8 @@
         "prefix": "sample"
       },
       "requires": [],
-      "findings": []
+      "findings": [],
+      "notChecked": []
     }
   ],
   "summary": {

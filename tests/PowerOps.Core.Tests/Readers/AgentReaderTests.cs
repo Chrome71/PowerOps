@@ -68,9 +68,10 @@ public class AgentReaderTests
         {
             var both = Both(t);
             var (folder, zip) = (Assert.Single(both[0].Agents), Assert.Single(both[1].Agents));
-            Assert.Equal(folder with { Tools = [], UnreadFiles = [] }, zip with { Tools = [], UnreadFiles = [] });
+            Assert.Equal(folder with { Tools = [], UnreadFiles = [], OtherComponents = [] }, zip with { Tools = [], UnreadFiles = [], OtherComponents = [] });
             Assert.Equal(folder.Tools, zip.Tools);
             Assert.Equal(folder.UnreadFiles, zip.UnreadFiles);
+            Assert.Equal(folder.OtherComponents, zip.OtherComponents);
             return folder;
         }
     }
@@ -233,6 +234,67 @@ public class AgentReaderTests
             Assert.Empty(ok.UnreadFiles);
             Assert.Equal(2, ok.Tools.Count);
         }
+    }
+
+    [Fact]
+    public void Components_of_another_kind_are_listed_with_their_kind_in_file_order_and_are_not_tools()
+    {
+        var agent = One(Comp(Comp(Comp(Comp(Comp(Comp(Comp(Agent(Base()),
+            "demo_agent.tool.Docs", "9", "kind: McpTool\nauthMode: Invoker\nconnectorId: /providers/Microsoft.PowerApps/apis/shared_demo\n"),
+            "demo_agent.iq.mail", "9", "kind:  'IQCapability'  # Work IQ\ncapability: mail\naccess: Write\n"),
+            "demo_agent.tool.Quoted", "9", "kind: \"McpTool\"\nnote: TaskDialog\n"), // holds TaskDialog, so it is parsed
+            "demo_agent.topic.Greeting", "9", Topic),
+            "demo_agent.agent.Child", "9", "kind: AgentDialog\n"),
+            "demo_agent.topic.Orders", "9", FlowTool),
+            "demo_agent.topic.NoKind", "9", "not: [yaml")); // no kind line and malformed: listed, not parsed
+
+        Assert.Equal(["demo_agent.topic.Orders"], agent.Tools.Select(x => x.SchemaName));
+        Assert.Empty(agent.UnreadFiles);
+        Assert.Equal(
+            [
+                new AgentComponent("IQCapability", "botcomponents/demo_agent.iq.mail/data"),
+                new AgentComponent("McpTool", "botcomponents/demo_agent.tool.Docs/data"),
+                new AgentComponent("McpTool", "botcomponents/demo_agent.tool.Quoted/data"),
+                new AgentComponent(null, "botcomponents/demo_agent.topic.NoKind/data"),
+            ],
+            agent.OtherComponents);
+    }
+
+    [Theory]
+    [InlineData("kind:\nx: y\n")]
+    [InlineData("  kind: McpTool\n")]
+    [InlineData("kindly: McpTool\n")]
+    public void A_data_with_no_top_level_kind_line_has_a_null_kind(string data)
+    {
+        var agent = One(Comp(Agent(Base()), "demo_agent.x", "9", data));
+
+        Assert.Equal([new AgentComponent(null, "botcomponents/demo_agent.x/data")], agent.OtherComponents);
+    }
+
+    [Theory]
+    [InlineData("beginDialog:\n  kind: OnRecognizedIntent\nkind: AdaptiveDialog\n", false)] // a nested kind is not the top-level one
+    [InlineData("# a comment\n---\nkind: AdaptiveDialog\n", false)]
+    [InlineData("\uFEFFkind: AdaptiveDialog\n", false)] // the byte order mark is dropped when the file is read
+    [InlineData("beginDialog:\n  kind: OnRecognizedIntent\n", true)] // no top-level kind
+    [InlineData("kind: AdaptiveDialog # a topic\n", false)] // a trailing comment is not part of the kind
+    public void The_kind_is_the_first_line_that_starts_with_kind_at_column_zero(string data, bool listed)
+    {
+        using var t = Comp(Agent(Base()), "demo_agent.topic.T", "9", null);
+        File.WriteAllText(Path.Combine(t.Path, "botcomponents", "demo_agent.topic.T", "data"), data.TrimStart('\uFEFF'), new System.Text.UTF8Encoding(data.StartsWith('\uFEFF')));
+
+        foreach (var solution in Both(t))
+        {
+            var agent = Assert.Single(solution.Agents);
+            Assert.Equal(listed ? [new AgentComponent(null, "botcomponents/demo_agent.topic.T/data")] : [], agent.OtherComponents);
+        }
+    }
+
+    [Fact]
+    public void A_standard_agent_has_no_other_components()
+    {
+        var agent = One(Comp(Comp(Comp(Agent(Base()), "demo_agent.gpt.default", "15", Gpt), "demo_agent.topic.Greeting", "9", Topic), "demo_agent.topic.Orders", "9", McpTool));
+
+        Assert.Empty(agent.OtherComponents);
     }
 
     [Fact]

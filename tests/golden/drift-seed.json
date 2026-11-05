@@ -50,5 +50,9 @@
       "expected": null,
       "actual": null
     }
+  ],
+  "notCompared": [
+    "component type 1 (table) not compared: its ids change on import, and drift compares components by id",
+    "component type 300 (canvas app) not compared: its ids change on import, and drift compares components by id"
   ]
 }

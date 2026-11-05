@@ -156,6 +156,59 @@ public class DiffCommandTests : IDisposable
             ("demo_agent.topic.Refunds", "kind: TaskDialog\naction:\n  kind: InvokeExternalAgentTaskAction\n  connectionProperties:\n    mode: Invoker\n  operationDetails:\n    kind: ModelContextProtocolMetadata\n"))
     );
 
+    /// <summary>A copy of `powerops-seed/v1` with an agent shaped like one from Copilot Studio's new authoring UI: no Custom GPT component, its instructions in `configuration.json`, its tools `McpTool` components (M50).</summary>
+    private string SeedWithNewUiAgent(string name, string instructions, params string[] mcpTools)
+    {
+        var copy = SeedWithAgent(name, "unused");
+        File.Delete(Path.Combine(copy, "botcomponents", "demo_agent.gpt.default", "data"));
+        File.Delete(Path.Combine(copy, "botcomponents", "demo_agent.gpt.default", "botcomponent.xml"));
+        void Write(string path, string text)
+        {
+            var full = Path.Combine(copy, path);
+            Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+            File.WriteAllText(full, text);
+        }
+
+        const string Component = "<botcomponent schemaname=\"{0}\"><componenttype>9</componenttype><parentbotid><schemaname>demo_agent</schemaname></parentbotid></botcomponent>";
+        Write("bots/demo_agent/configuration.json", """{"recognizer":{"$kind":"CLICopilotRecognizer"},"agentSettings":{"instructions":{"segments":[{"value":""" + System.Text.Json.JsonSerializer.Serialize(instructions) + "}]}}}");
+        Write("botcomponents/demo_agent.iqCapability.mail/botcomponent.xml", string.Format(Component, "demo_agent.iqCapability.mail"));
+        Write("botcomponents/demo_agent.iqCapability.mail/data", "kind: IQCapability\ncapability: mail\naccess: Write\n");
+        foreach (var tool in mcpTools)
+        {
+            Write($"botcomponents/{tool}/botcomponent.xml", string.Format(Component, tool));
+            Write($"botcomponents/{tool}/data", "kind: McpTool\nauthMode: Invoker\nconnectorId: /providers/Microsoft.PowerApps/apis/shared_demo\noperationId: search\n");
+        }
+
+        return copy;
+    }
+
+    [Fact]
+    public void An_unread_agent_is_listed_in_notCompared()
+    {
+        var old = SeedWithNewUiAgent("new-ui-old", "Answer questions about loans.", "demo_agent.tool.Docs", "demo_agent.tool.Work");
+        var @new = SeedWithNewUiAgent("new-ui-new", "Answer questions about loans. Be brief.", "demo_agent.tool.Docs");
+        string[] notes =
+        [
+            "agent 'demo_agent': instructions not compared: neither version has a single Custom GPT component whose instructions are text",
+            "agent 'demo_agent': 3 components not read as tools, so a change to them is not compared: 1 'IQCapability', 2 'McpTool'",
+        ];
+
+        foreach (var (a, b) in new[] { (old, @new), (@new, old) })
+        {
+            var (code, output, err) = Run("diff", a, b);
+            Assert.Equal(0, code); // until the reader reads this layout (M51)
+            Assert.EndsWith("no changes\n", output);
+            Assert.Equal(string.Concat(notes.Select(n => $"note: {n}\n")), err.ReplaceLineEndings("\n"));
+
+            using var json = System.Text.Json.JsonDocument.Parse(Run("diff", a, b, "--format", "json").Out);
+            Assert.Empty(json.RootElement.GetProperty("changes").EnumerateArray());
+            Assert.Equal(notes, json.RootElement.GetProperty("notCompared").EnumerateArray().Select(e => e.GetString()));
+
+            var markdown = Run("diff", a, b, "--format", "markdown").Out;
+            Assert.Contains("**Not compared:**\n\n" + string.Concat(notes.Select(n => $"- {n.Replace("_", "\\_")}\n")), markdown);
+        }
+    }
+
     [Fact]
     public void Agent_instructions_and_tools_exit_one_and_match_the_text_golden()
     {

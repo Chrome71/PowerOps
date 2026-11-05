@@ -2,6 +2,11 @@
 
 **PowerOpsSeed: 1 drift item**
 
+**Not compared:**
+
+- component type 1 (table) not compared: its ids change on import, and drift compares components by id
+- component type 300 (canvas app) not compared: its ids change on import, and drift compares components by id
+
 | Position | Environment | Source | Version | Managed | Layers read |
 |---|---|---|---|---|---|
 | 1 | Contoso Dev | live | 1.0.0.0 | unmanaged | yes |

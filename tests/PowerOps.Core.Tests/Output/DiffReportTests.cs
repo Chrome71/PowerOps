@@ -51,6 +51,40 @@ public class DiffReportTests
     }
 
     [Fact]
+    public void Markdown_lists_what_was_not_compared_escaped_and_before_the_table_even_when_rows_are_cut()
+    {
+        var text = Markdown(Many(50) with { NotCompared = ["agent 'a*b': instructions not compared", "agent 'c': 2 components"] }, max: 1500);
+
+        Assert.Contains("\n**Not compared:**\n\n- agent 'a\\*b': instructions not compared\n- agent 'c': 2 components\n", text);
+        Assert.True(text.IndexOf("**Not compared:**", StringComparison.Ordinal) < text.IndexOf("| Change |", StringComparison.Ordinal));
+        Assert.Contains("more changes not shown", text);
+        Assert.True(text.Length <= 1500);
+    }
+
+    [Fact]
+    public void A_long_not_compared_list_is_cut_at_a_whole_line_and_counted()
+    {
+        var lines = Enumerable.Range(0, 100).Select(i => $"agent 'a{i:D3}': instructions not compared").ToList();
+
+        var text = Markdown(Many(0) with { NotCompared = lines }, max: 2000);
+
+        Assert.True(text.Length <= 2000);
+        var listed = Regex.Matches(text, @"^- agent 'a\d{3}'", RegexOptions.Multiline).Count;
+        Assert.True(listed > 0);
+        Assert.Contains($"- and {100 - listed} more. Use `--format json` for the full list.\n", text);
+    }
+
+    [Fact]
+    public void Json_carries_not_compared_after_changes_and_markdown_has_no_list_when_it_is_empty()
+    {
+        var w = new StringWriter();
+        DiffReport.WriteJson(Many(0) with { NotCompared = ["agent 'a': x"] }, w);
+        Assert.Contains("\"changes\": [],\n  \"notCompared\": [\n    \"agent 'a': x\"\n  ],\n  \"summary\"", w.ToString());
+
+        Assert.DoesNotContain("Not compared", Markdown(Many(3)));
+    }
+
+    [Fact]
     public void Markdown_of_a_small_diff_has_no_truncation_note()
     {
         var text = Markdown(Many(3));

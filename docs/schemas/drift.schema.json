@@ -4,7 +4,7 @@
   "title": "powerops drift --format json",
   "description": "The JSON written by 'powerops drift --format json': one solution compared across two or more environments, each compared with the first, or one environment read for `--save`. It never holds an environment id or URL, a connection id, an environment variable value or hash, or pac's output text. Environment friendly names are included, so keep the report in private places.",
   "type": "object",
-  "required": ["schemaVersion", "solution", "drift", "environments", "items"],
+  "required": ["schemaVersion", "solution", "drift", "environments", "items", "notCompared"],
   "properties": {
     "schemaVersion": { "const": 1, "description": "Version of this output format." },
     "solution": { "type": "string", "description": "The solution's unique name, as given with --solution." },
@@ -46,6 +46,11 @@
           "actual": { "type": ["string", "null"], "description": "This environment's value for those kinds; for also-in-solution, the unique name of the other solution that holds the component; else null." }
         }
       }
+    },
+    "notCompared": {
+      "type": "array",
+      "description": "What this run did not compare, one sentence each, also printed as note: lines on stderr: a line when only one environment was read or no environment has the solution installed together with the first; each component type that is left out of the comparison by id (1, 62, 80, 300, 10087) and that a compared environment holds, which is most runs; and each managed environment whose layers were not read (repeating its layers-not-read item).",
+      "items": { "type": "string" }
     }
   }
 }

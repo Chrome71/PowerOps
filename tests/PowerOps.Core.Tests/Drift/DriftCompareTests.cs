@@ -25,6 +25,52 @@ public class DriftCompareTests
         Assert.Empty(Run(s, s with { Environment = "Test" }));
     }
 
+    private const string TypeLine = "not compared: its ids change on import, and drift compares components by id";
+
+    [Fact]
+    public void One_environment_compares_nothing_between_environments_and_says_so()
+    {
+        Assert.Equal(["only one environment was read, so nothing was compared between environments; only its own checks ran"], DriftCompare.NotCompared([Snap(components: [new(1, G1, null)])]));
+        Assert.Empty(DriftCompare.NotCompared([]));
+    }
+
+    [Fact]
+    public void No_installed_pair_compares_only_whether_the_solution_is_installed()
+    {
+        const string Line = "no environment has the solution installed together with the first, so only whether it is installed was compared";
+
+        Assert.Equal([Line], DriftCompare.NotCompared([Snap(components: [new(1, G1, null)]), Snap("Test", installed: false)]));
+        Assert.Equal([Line], DriftCompare.NotCompared([Snap(installed: false), Snap("Test", components: [new(1, G1, null)]), Snap("Prod", components: [new(1, G1, null)])]));
+    }
+
+    [Fact]
+    public void Dropped_types_in_a_compared_pair_are_listed_once_in_type_order()
+    {
+        var dev = Snap(components: [new(300, G1, null), new(29, G2, null), new(10087, G3, null)]);
+        var test = Snap("Test", components: [new(1, G1, null)]);
+
+        Assert.Equal(
+            [$"component type 1 (table) {TypeLine}", $"component type 300 (canvas app) {TypeLine}", $"component type 10087 {TypeLine}"],
+            DriftCompare.NotCompared([dev, test, test with { Environment = "Prod" }]));
+    }
+
+    [Fact]
+    public void Types_compared_under_their_own_kinds_are_not_listed()
+    {
+        var s = Snap(components: [new(29, G1, null), new(380, G2, null), new(381, G3, null)]);
+
+        Assert.Empty(DriftCompare.NotCompared([s, s with { Environment = "Test" }]));
+    }
+
+    [Fact]
+    public void A_managed_environment_whose_layers_were_not_read_is_listed_by_position()
+    {
+        var dev = Snap();
+        var test = Snap("Test", managed: true, layersRead: false);
+
+        Assert.Equal(["2 Test: layers not read, so unmanaged layers there are not checked"], DriftCompare.NotCompared([dev, test, Snap("Prod", managed: false, layersRead: false)]));
+    }
+
     [Fact]
     public void Kinds_are_in_the_documented_order_and_only_managed_layers_not_read_and_also_in_solution_are_information()
     {

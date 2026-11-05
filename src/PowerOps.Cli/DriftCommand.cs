@@ -137,6 +137,7 @@ public static class DriftCommand
 
         var sources = envs.Select(e => IsSnapshotPath(e) ? "snapshot" : "live").ToList();
         var items = DriftCompare.Compare(snapshots);
+        TextReport.WriteNotCompared(DriftCompare.NotCompared(snapshots), error);
         var report = new StringWriter();
         switch (format)
         {

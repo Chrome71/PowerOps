@@ -12,7 +12,7 @@
       "description": "One entry per analyzed solution.",
       "items": {
         "type": "object",
-        "required": ["path", "uniqueName", "version", "managed", "publisher", "requires", "findings"],
+        "required": ["path", "uniqueName", "version", "managed", "publisher", "requires", "findings", "notChecked"],
         "properties": {
           "path": { "type": "string", "description": "Path of the solution, relative to the working folder." },
           "uniqueName": { "type": "string", "description": "Solution unique name." },
@@ -47,6 +47,11 @@
                 "helpUri": { "type": "string", "format": "uri", "description": "Docs page of the rule." }
               }
             }
+          },
+          "notChecked": {
+            "type": "array",
+            "description": "The checks the rules did not do because the export lacks their input, one sentence each, also printed as note: lines on stderr (at most 20 there) and carried in SARIF as toolExecutionNotifications. Empty when nothing was left unchecked.",
+            "items": { "type": "string" }
           }
         }
       }

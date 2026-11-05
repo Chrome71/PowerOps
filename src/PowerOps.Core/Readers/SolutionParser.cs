@@ -175,7 +175,12 @@ internal static partial class SolutionParser
         public List<(XElement? Yaml, string File)> Gpts { get; } = [];
 
         public List<string> Unread { get; } = [];
+
+        public List<AgentComponent> Other { get; } = [];
     }
+
+    /// <summary>Topics and child agents are type-9 components that are not tools; `TaskDialog` is a tool.</summary>
+    private static bool KnownKind(string? kind) => kind is "TaskDialog" or "AdaptiveDialog" or "AgentDialog";
 
     /// <summary>
     /// Reads each `bots/&lt;folder&gt;/bot.xml` and the `botcomponents/` that name it as their `parentbotid` (M48 plan, Data row 2). Malformed XML, JSON or YAML is refused with the path; a shape the reader doesn't know gives null fields.
@@ -212,6 +217,13 @@ internal static partial class SolutionParser
             var text = files.ReadText(data);
             if (type == 9 && !text.Contains("TaskDialog", StringComparison.Ordinal))
             {
+                // Read from its first `kind:` line, not parsed, so topics add no refusals (M50 decisions Q3).
+                var kind = TopKind().Match(text) is { Success: true } m ? Opt(m.Groups[1].Value.Trim().Trim('"', '\'').Trim()) : null;
+                if (!KnownKind(kind))
+                {
+                    agent.Other.Add(new AgentComponent(kind, data));
+                }
+
                 continue;
             }
 
@@ -233,6 +245,10 @@ internal static partial class SolutionParser
                     YamlText(yaml, "action", "connectionProperties", "mode"),
                     data));
             }
+            else if (!KnownKind(YamlText(yaml, "kind")))
+            {
+                agent.Other.Add(new AgentComponent(YamlText(yaml, "kind"), data));
+            }
         }
 
         return agents.Select(a =>
@@ -247,7 +263,8 @@ internal static partial class SolutionParser
                 instructions is null ? null : instructions.Count == 0 ? "" : instructions is [{ HasElements: false } only] ? only.Value : null,
                 gpt.File,
                 a.Tools,
-                [.. a.Unread.Order(StringComparer.Ordinal)]);
+                [.. a.Unread.Order(StringComparer.Ordinal)])
+            { OtherComponents = [.. a.Other.OrderBy(c => c.File, StringComparer.Ordinal)] };
         }).ToList();
     }
 
@@ -777,6 +794,10 @@ internal static partial class SolutionParser
     internal static string? Opt(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
 
     internal static string? NormalizeId(string? id) => Opt(id?.Trim().Trim('{', '}').ToLowerInvariant());
+
+    // A `#` after white space starts a YAML comment, which is not part of the kind.
+    [GeneratedRegex(@"^kind:(.*?)(?:\s#.*)?\r?$", RegexOptions.Multiline)]
+    private static partial Regex TopKind();
 
     [GeneratedRegex(@"^CanvasApps/[^/]+\.meta\.xml$", RegexOptions.IgnoreCase)]
     private static partial Regex CanvasMetaPath();

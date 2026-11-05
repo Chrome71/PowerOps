@@ -45,6 +45,7 @@ public static class DiffReport
             new Sol(result.Old.UniqueName, result.Old.Version),
             new Sol(result.New.UniqueName, result.New.Version),
             result.Changes.Select(c => new Item(c.Kind, c.Component, c.Key, c.Name, c.Detail, c.Risks)).ToList(),
+            result.NotCompared,
             new Counts(Count(result, ChangeKind.Added), Count(result, ChangeKind.Removed), Count(result, ChangeKind.Changed)));
         writer.Write(JsonSerializer.Serialize(doc, Options) + "\n");
     }
@@ -53,6 +54,31 @@ public static class DiffReport
     public static void WriteMarkdown(DiffResult result, TextWriter writer, int maxChars = MarkdownLimit)
     {
         var text = new StringBuilder($"## PowerOps diff\n\n**{Escape(Header(result, s => s))}**\n\n{Escape(Summary(result))}\n");
+        // Reserve room for the note that is appended when rows are left out.
+        const int Reserve = 300;
+
+        // Before the table, so a cut table never drops it.
+        if (result.NotCompared.Count > 0)
+        {
+            text.Append("\n**Not compared:**\n\n");
+            var listed = 0;
+            foreach (var line in result.NotCompared.Select(l => $"- {MarkdownReport.Escape(l)}\n"))
+            {
+                if (text.Length + line.Length + Reserve > maxChars)
+                {
+                    break;
+                }
+
+                text.Append(line);
+                listed++;
+            }
+
+            if (listed < result.NotCompared.Count)
+            {
+                text.Append($"- and {result.NotCompared.Count - listed} more. Use `--format json` for the full list.\n");
+            }
+        }
+
         if (result.Changes.Count > 0)
         {
             foreach (var id in result.Changes.SelectMany(c => c.Risks).Distinct().Order(StringComparer.Ordinal))
@@ -63,8 +89,6 @@ public static class DiffReport
             text.Append("\n\n| Change | Component | Name | Detail | Risk |\n|---|---|---|---|---|\n");
         }
 
-        // Reserve room for the note that is appended when rows are left out.
-        const int Reserve = 300;
         var shown = 0;
         foreach (var c in result.Changes)
         {
@@ -125,7 +149,7 @@ public static class DiffReport
         return escaped[..cut] + "…";
     }
 
-    private sealed record Doc(int SchemaVersion, Sol Old, Sol New, IReadOnlyList<Item> Changes, Counts Summary);
+    private sealed record Doc(int SchemaVersion, Sol Old, Sol New, IReadOnlyList<Item> Changes, IReadOnlyList<string> NotCompared, Counts Summary);
 
     private sealed record Sol(string UniqueName, string Version);
 

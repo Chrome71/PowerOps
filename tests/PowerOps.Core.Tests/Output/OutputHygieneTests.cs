@@ -1,3 +1,5 @@
+using PowerOps.Core.Diff;
+using PowerOps.Core.Drift;
 using PowerOps.Core.Model;
 using PowerOps.Core.Output;
 using PowerOps.Core.Readers;
@@ -206,6 +208,32 @@ public class OutputHygieneTests
         var lines = error.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.TrimEnd('\r')).ToList();
         Assert.Equal(21, lines.Count);
         Assert.Equal("note: and 5 more checks not done (PO027)", lines[20]);
+    }
+
+    [Fact]
+    public void A_not_compared_line_is_one_cleaned_note_and_more_than_20_are_counted()
+    {
+        var error = new StringWriter();
+
+        TextReport.WriteNotCompared(["agent 'x\n::error::forged\u202E': instructions not compared", .. Enumerable.Range(1, 21).Select(i => $"agent 'a{i}': instructions not compared")], error);
+
+        var lines = error.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.TrimEnd('\r')).ToList();
+        Assert.Equal(21, lines.Count);
+        Assert.Equal("note: agent 'x ::error::forged': instructions not compared", lines[0]);
+        Assert.Equal("note: and 2 more not compared (--format json lists them all)", lines[20]);
+    }
+
+    [Fact]
+    public void Not_compared_lines_in_markdown_are_escaped_and_stay_one_line()
+    {
+        var diff = new StringWriter();
+        DiffReport.WriteMarkdown(SolutionDiff.Compare(B.Empty(), B.Empty()) with { NotCompared = ["agent '@x\n<b>|#1': instructions not compared"] }, diff);
+        var drift = new StringWriter();
+        Snapshot[] envs = [new("Dev", "demo", true, "1.0.0.0", false, true, [], [], [], []), new("T\n<b>@x", "demo", true, "1.0.0.0", true, false, [], [], [], [])];
+        DriftReport.WriteMarkdown("demo", envs, ["live", "live"], [], drift);
+
+        Assert.Contains("- agent '@\u200Bx \\<b\\>\\|#\u200B1': instructions not compared\n", diff.ToString());
+        Assert.Contains("- 2 T \\<b\\>@\u200Bx: layers not read, so unmanaged layers there are not checked\n", drift.ToString());
     }
 
     [Fact]

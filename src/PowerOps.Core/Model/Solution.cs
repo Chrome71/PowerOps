@@ -95,12 +95,19 @@ public sealed record CanvasAppMeta(string Name, int? Type, IReadOnlyDictionary<s
 /// `Configuration` is null when `configuration.json` is missing or not a JSON object. `Instructions` is the text of the `instructions` key of the agent's one Custom GPT component ("" when the key is missing),
 /// null when the agent has none or several of them or the value is not text; `InstructionsFile` is that component's `data`. `Tools` are its `TaskDialog` components, in path order.
 /// `UnreadFiles` are the `data` paths of its type-9 components that may be tools but whose YAML keys can't be mapped, in ordinal order.
+/// `OtherComponents` are its type-9 components of a kind the reader doesn't read, in ordinal order of their file.
 /// </summary>
 public sealed record Agent(string SchemaName, string File, int? AuthenticationMode, AgentConfiguration? Configuration, string? Instructions, string? InstructionsFile, IReadOnlyList<AgentTool> Tools, IReadOnlyList<string>? UnreadFiles = null)
 {
     /// <summary>The `data` paths of type-9 components that mention `TaskDialog` but whose YAML keys can't be mapped, in ordinal order, so the tool they may hold isn't read.</summary>
     public IReadOnlyList<string> UnreadFiles { get; init; } = UnreadFiles ?? [];
+
+    /// <summary>The type-9 components whose top-level kind is not `TaskDialog`, `AdaptiveDialog` (a topic) or `AgentDialog` (a child agent), such as the new authoring UI's `McpTool`, in ordinal order of their file, so a tool they may hold isn't read (M50).</summary>
+    public IReadOnlyList<AgentComponent> OtherComponents { get; init; } = [];
 }
+
+/// <summary>A type-9 agent component the reader doesn't read: `Kind` is its top-level `kind` (null when it has none), `File` its `data`.</summary>
+public sealed record AgentComponent(string? Kind, string File);
 
 /// <summary>What an agent's `configuration.json` says: the `$kind` of its `recognizer` (null when there is no `recognizer`, "" when it names no string kind), and `settings.GenerativeActionsEnabled` (null when absent or not a boolean).</summary>
 public sealed record AgentConfiguration(string? Recognizer, bool? GenerativeOrchestration);
