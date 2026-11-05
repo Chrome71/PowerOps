@@ -26,12 +26,14 @@ public static class AnalyzeCommand
         failOn.AcceptOnlyFromAmong("error", "warning", "none");
         var baseline = new Option<string?>("--baseline") { Description = "Ignore findings listed in this baseline file (see 'powerops baseline')." };
 
+        var redact = new Option<bool>("--redact") { Description = "Replace URLs in findings, notes and stderr with a placeholder." };
+
         var command = new Command("analyze", "Check unpacked or exported solutions for common problems (offline, read-only).")
         {
-            paths, format, outFile, failOn, baseline,
+            paths, format, outFile, failOn, baseline, redact,
         };
         command.SetAction(parse => Execute(
-            parse.GetValue(paths)!, parse.GetValue(format)!, parse.GetValue(outFile), parse.GetValue(failOn)!, parse.GetValue(baseline), output, error));
+            parse.GetValue(paths)!, parse.GetValue(format)!, parse.GetValue(outFile), parse.GetValue(failOn)!, parse.GetValue(baseline), parse.GetValue(redact), output, error));
         return command;
     }
 
@@ -39,9 +41,10 @@ public static class AnalyzeCommand
     internal static string ToolVersion() =>
         Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
 
-    private static int Execute(string[] paths, string format, string? outFile, string failOn, string? baselineFile, TextWriter output, TextWriter error) =>
-        Run(paths, baselineFile, outFile, error, (result, inputs) =>
+    private static int Execute(string[] paths, string format, string? outFile, string failOn, string? baselineFile, bool redact, TextWriter output, TextWriter error) =>
+        Run(paths, baselineFile, outFile, redact ? new Redaction.Writer(error) : error, (found, inputs) =>
         {
+            var result = redact ? Redaction.Apply(found) : found;
             var report = new StringWriter();
             if (format == "json")
             {

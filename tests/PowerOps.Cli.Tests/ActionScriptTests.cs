@@ -617,6 +617,21 @@ public sealed class ActionScriptTests : IDisposable
         Assert.Equal("## PowerOps diff\n\nthe diff\n", File.ReadAllText(run.Comment));
     }
 
+    [Theory]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    [InlineData("", false)]
+    public void Diff_adds_redact_only_when_PO_REDACT_is_true(string redact, bool expected)
+    {
+        Tools.Require("bash", "git");
+        var clone = MakeMergeClone();
+
+        var run = RunDiff(clone, exit: 1, redact: redact);
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal(expected, run.DotnetCalls.Single().EndsWith(" --redact", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void Diff_without_a_parent_writes_the_fixed_text()
     {
@@ -1282,7 +1297,7 @@ public sealed class ActionScriptTests : IDisposable
         return run with { Summary = summary, Output = ReadOrEmpty(output) };
     }
 
-    private Result RunDiff(string workDir, int exit, string? stderr = null)
+    private Result RunDiff(string workDir, int exit, string? stderr = null, string? redact = null)
     {
         Tools.Require("bash", "git");
         var temp = NewDir("diff");
@@ -1301,6 +1316,7 @@ public sealed class ActionScriptTests : IDisposable
             ["PO_COMMENT"] = comment,
             ["RUNNER_TEMP"] = temp,
             ["STUB_EXIT"] = exit.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["PO_REDACT"] = redact ?? "",
         });
         return run with { Comment = comment };
     }

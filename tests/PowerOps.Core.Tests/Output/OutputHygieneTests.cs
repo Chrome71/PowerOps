@@ -245,4 +245,165 @@ public class OutputHygieneTests
 
         Assert.Equal(20, error.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Length);
     }
+
+    // M61: opt-in redaction of URLs and of diff's default values.
+    private const string Sentinel = "https://m61sentinel.crm.dynamics.com";
+
+    private static AnalysisResult Analysis(bool redact)
+    {
+        var s = B.Empty() with
+        {
+            Workflows = [B.Flow(literals: [Sentinel])],
+            CanvasFormulas = [B.Formula($"=Launch(\"{Sentinel}\")")],
+        };
+        var result = new AnalysisResult([new SolutionResult("a/b", s, [.. Analyzer.Run(s)]) { NotChecked = [$"PO022 not checked at {Sentinel}/x"] }]);
+        return redact ? Redaction.Apply(result) : result;
+    }
+
+    [Theory]
+    [InlineData("hard-codes the URL 'https://contoso.sharepoint.com/sites/ops'.", "hard-codes the URL '[redacted URL]'.")]
+    [InlineData("see https://a.example/p/q?x=1&y=2 now", "see [redacted URL] now")]
+    [InlineData("https://a.example and http://b.example/c", "[redacted URL] and [redacted URL]")]
+    [InlineData("file:///etc/passwd", "[redacted URL]")]
+    [InlineData("HTTPS://A.EXAMPLE/x", "[redacted URL]")]
+    [InlineData("no url here, only host.example and a:b", "no url here, only host.example and a:b")]
+    public void Redaction_text_replaces_every_url(string text, string expected) => Assert.Equal(expected, Redaction.Text(text));
+
+    [Fact]
+    public void Redaction_text_returns_a_long_run_of_letters_unchanged_and_fast()
+    {
+        var text = new string('a', 100_000);
+
+        Assert.Equal(text, Redaction.Text(text));
+    }
+
+    [Fact]
+    public void Redaction_writer_redacts_strings_and_passes_characters_on()
+    {
+        var inner = new StringWriter();
+        using var writer = new Redaction.Writer(inner);
+
+        writer.WriteLine($"note: {Sentinel}/a");
+        writer.Write($"x {Sentinel}");
+        writer.Write('!');
+        writer.Write($"c {Sentinel}".ToCharArray(), 0, Sentinel.Length + 2);
+        writer.Write($"s {Sentinel}".AsSpan());
+
+        Assert.Equal("note: [redacted URL]" + inner.NewLine + "x [redacted URL]!c [redacted URL]s [redacted URL]", inner.ToString());
+    }
+
+    [Fact]
+    public void Redaction_apply_changes_messages_components_and_notes_only()
+    {
+        var plain = Analysis(redact: false);
+        var redacted = Redaction.Apply(plain);
+
+        var (a, b) = (plain.Solutions.Single(), redacted.Solutions.Single());
+        Assert.Equal(a.Findings.Count, b.Findings.Count);
+        Assert.All(a.Findings, f => Assert.Contains("m61sentinel", f.Message + f.Component, StringComparison.Ordinal));
+        Assert.All(b.Findings, f => Assert.DoesNotContain("m61sentinel", f.Message + f.Component + f.File, StringComparison.Ordinal));
+        Assert.Equal(a.Findings.Select(f => (f.RuleId, f.Severity, f.File)), b.Findings.Select(f => (f.RuleId, f.Severity, f.File)));
+        Assert.Equal(["PO022 not checked at [redacted URL]"], b.NotChecked);
+        Assert.Equal(a.Path, b.Path);
+        Assert.Same(a.Solution, b.Solution);
+        Assert.Equal(plain.Errors + plain.Warnings, redacted.Errors + redacted.Warnings);
+    }
+
+    [Fact]
+    public void Every_analyze_writer_drops_the_sentinel_with_redaction_and_shows_it_without()
+    {
+        var writers = new (string Name, Action<AnalysisResult, TextWriter> Write)[]
+        {
+            ("text", TextReport.Write),
+            ("json", JsonReport.Write),
+            ("sarif", (r, w) => SarifReport.Write(r, w, "1.2.3")),
+            ("markdown", MarkdownReport.Write),
+        };
+
+        foreach (var (name, write) in writers)
+        {
+            var plain = new StringWriter();
+            var redacted = new StringWriter();
+            write(Analysis(redact: false), plain);
+            write(Analysis(redact: true), redacted);
+
+            Assert.True(plain.ToString().Contains("m61sentinel", StringComparison.Ordinal), name);
+            Assert.False(redacted.ToString().Contains("m61sentinel", StringComparison.Ordinal), name);
+            Assert.True(redacted.ToString().Contains("redacted URL", StringComparison.Ordinal), name); // the Markdown writer escapes the brackets
+        }
+    }
+
+    [Fact]
+    public void Help_links_stay_in_json_and_sarif_with_redaction()
+    {
+        var json = new StringWriter();
+        var sarif = new StringWriter();
+        JsonReport.Write(Analysis(redact: true), json);
+        SarifReport.Write(Analysis(redact: true), sarif, "1.2.3");
+
+        Assert.Contains("\"helpUri\"", json.ToString(), StringComparison.Ordinal);
+        Assert.Contains("\"helpUri\"", sarif.ToString(), StringComparison.Ordinal);
+        Assert.Contains("\"informationUri\"", sarif.ToString(), StringComparison.Ordinal);
+        Assert.Contains(SarifReport.Repo, sarif.ToString(), StringComparison.Ordinal);
+    }
+
+    private static (Solution Old, Solution New) SentinelPair() => (
+        B.Empty() with { EnvironmentVariables = [B.Env("demo_v", def: "m61sentinel-old")], Workflows = [B.Flow(name: Sentinel)] },
+        B.Empty() with { EnvironmentVariables = [B.Env("demo_v", def: "m61sentinel-new")], Workflows = [B.Flow(name: Sentinel, state: 0)] });
+
+    [Fact]
+    public void Every_diff_writer_drops_the_sentinel_with_redaction_and_shows_it_without()
+    {
+        var (old, @new) = SentinelPair();
+        var writers = new (string Name, Action<DiffResult, TextWriter> Write)[]
+        {
+            ("text", DiffReport.WriteText),
+            ("json", DiffReport.WriteJson),
+            ("markdown", (r, w) => DiffReport.WriteMarkdown(r, w)),
+        };
+
+        foreach (var (name, write) in writers)
+        {
+            var plain = new StringWriter();
+            var redacted = new StringWriter();
+            write(SolutionDiff.Compare(old, @new), plain);
+            write(SolutionDiff.Compare(old, @new, redact: true), redacted);
+
+            Assert.True(plain.ToString().Contains("m61sentinel", StringComparison.Ordinal), name);
+            Assert.False(redacted.ToString().Contains("m61sentinel", StringComparison.Ordinal), name);
+            Assert.True(redacted.ToString().Contains("defaultValue changed", StringComparison.Ordinal), name);
+        }
+    }
+
+    [Fact]
+    public void Diff_redaction_also_covers_the_not_compared_lines_it_finds_itself()
+    {
+        var agent = B.Agent(name: Sentinel, instructions: null);
+
+        var plain = SolutionDiff.Compare(B.Empty() with { Agents = [agent] }, B.Empty() with { Agents = [agent] });
+        var redacted = SolutionDiff.Compare(B.Empty() with { Agents = [agent] }, B.Empty() with { Agents = [agent] }, redact: true);
+
+        Assert.Contains(plain.NotCompared, l => l.Contains("m61sentinel", StringComparison.Ordinal));
+        Assert.NotEmpty(redacted.NotCompared);
+        Assert.DoesNotContain(redacted.NotCompared, l => l.Contains("m61sentinel", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_stderr_note_writers_drop_the_sentinel_through_the_redacting_writer_and_show_it_without()
+    {
+        var result = Analysis(redact: false);
+        var plain = new StringWriter();
+        var inner = new StringWriter();
+        using var redacting = new Redaction.Writer(inner);
+        foreach (var error in new TextWriter[] { plain, redacting })
+        {
+            TextReport.WriteNotes([$"{Sentinel}/link"], error);
+            TextReport.WriteNotChecked(result, error);
+            TextReport.WriteNotCompared([$"agent '{Sentinel}': not compared"], error);
+        }
+
+        Assert.True(plain.ToString().Contains("m61sentinel", StringComparison.Ordinal));
+        Assert.False(inner.ToString().Contains("m61sentinel", StringComparison.Ordinal));
+        Assert.Equal(3, inner.ToString().Split("[redacted URL]").Length - 1);
+    }
 }

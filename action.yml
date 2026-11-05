@@ -12,6 +12,9 @@ inputs:
   baseline:
     description: Baseline file made with `powerops baseline`; findings in it are ignored. Empty means no baseline.
     default: ''
+  redact:
+    description: "'true' adds `--redact` to every `analyze` run and to the PR diff, so URLs in findings and environment variable defaults are replaced with placeholders in the job summary, annotations, code scanning, the job log and the comment. Default 'false'."
+    default: 'false'
   tests:
     description: Folder of *.flowtest.json files, relative to the workspace, to run with `powerops test` against the solutions under path. Empty means no tests. It needs no tenant and no secret, so it also runs on fork pull requests.
     default: ''
@@ -68,9 +71,11 @@ runs:
         PO_DLL: ${{ steps.powerops.outputs.dll }}
         PO_PATH: ${{ inputs.path }}
         PO_BASELINE: ${{ inputs.baseline }}
+        PO_REDACT: ${{ inputs.redact }}
       run: |
         args=(analyze "$PO_PATH" --fail-on none)
         if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
+        if [ "$PO_REDACT" = "true" ]; then args+=(--redact); fi
         bash "$GITHUB_ACTION_PATH/action/powerops.sh" "${args[@]}" --format markdown | bash "$GITHUB_ACTION_PATH/action/summary.sh"
 
     - name: Annotations
@@ -80,9 +85,11 @@ runs:
         PO_DLL: ${{ steps.powerops.outputs.dll }}
         PO_PATH: ${{ inputs.path }}
         PO_BASELINE: ${{ inputs.baseline }}
+        PO_REDACT: ${{ inputs.redact }}
       run: |
         args=(analyze "$PO_PATH" --fail-on none)
         if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
+        if [ "$PO_REDACT" = "true" ]; then args+=(--redact); fi
         bash "$GITHUB_ACTION_PATH/action/powerops.sh" "${args[@]}" --format json | bash "$GITHUB_ACTION_PATH/action/annotate.sh"
 
     - name: Write SARIF
@@ -93,9 +100,11 @@ runs:
         PO_DLL: ${{ steps.powerops.outputs.dll }}
         PO_PATH: ${{ inputs.path }}
         PO_BASELINE: ${{ inputs.baseline }}
+        PO_REDACT: ${{ inputs.redact }}
       run: |
         args=(analyze "$PO_PATH" --fail-on none)
         if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
+        if [ "$PO_REDACT" = "true" ]; then args+=(--redact); fi
         bash "$GITHUB_ACTION_PATH/action/powerops.sh" "${args[@]}" --format sarif --out "$RUNNER_TEMP/powerops.sarif"
         echo "written=true" >> "$GITHUB_OUTPUT"
 
@@ -148,10 +157,12 @@ runs:
         PO_DLL: ${{ steps.powerops.outputs.dll }}
         PO_PATH: ${{ inputs.path }}
         PO_BASELINE: ${{ inputs.baseline }}
+        PO_REDACT: ${{ inputs.redact }}
         PO_FAIL_ON: ${{ inputs.fail-on }}
       run: |
         args=(analyze "$PO_PATH" --fail-on "$PO_FAIL_ON")
         if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
+        if [ "$PO_REDACT" = "true" ]; then args+=(--redact); fi
         bash "$GITHUB_ACTION_PATH/action/powerops.sh" "${args[@]}"
 
     - name: Deploy apply
@@ -174,6 +185,7 @@ runs:
       env:
         PO_DLL: ${{ steps.powerops.outputs.dll }}
         PO_PATH: ${{ inputs.path }}
+        PO_REDACT: ${{ inputs.redact }}
         PO_COMMENT: ${{ runner.temp }}/powerops-comment.md
       run: bash "$GITHUB_ACTION_PATH/action/diff.sh"
 
@@ -193,10 +205,12 @@ runs:
         PO_DLL: ${{ steps.powerops.outputs.dll }}
         PO_PATH: ${{ inputs.path }}
         PO_BASELINE: ${{ inputs.baseline }}
+        PO_REDACT: ${{ inputs.redact }}
         PO_FAIL_ON: ${{ inputs.fail-on }}
       run: |
         args=(analyze "$PO_PATH" --fail-on "$PO_FAIL_ON")
         if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
+        if [ "$PO_REDACT" = "true" ]; then args+=(--redact); fi
         bash "$GITHUB_ACTION_PATH/action/powerops.sh" "${args[@]}"
 
     - name: Apply plan result
