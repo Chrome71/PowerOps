@@ -198,21 +198,27 @@ public static class ExpressionFunctions
     private static int CompareNumbers(JsonNode x, JsonNode y) =>
         TryLong(x, out var lx) && TryLong(y, out var ly) ? lx.CompareTo(ly) : Double(x).CompareTo(Double(y));
 
-    /// <summary>Learn: null compares as an empty string; strings are compared ordinally (not on Learn, plan "Not on Learn"); a boolean equals 1 and 0.</summary>
+    /// <summary>The capture run (M06, M07, M08): null equals only null, a boolean only a boolean, numbers by value; strings are compared ordinally (not on Learn, plan "Not on Learn").</summary>
     private static bool Equal(JsonNode? x, JsonNode? y)
     {
-        x ??= "";
-        y ??= "";
+        if (x is null || y is null)
+        {
+            return x is null && y is null;
+        }
+
         if (IsString(x) && IsString(y))
         {
             return x.GetValue<string>() == y.GetValue<string>();
         }
 
-        var xNumeric = IsNumber(x) || x.GetValueKind() is JsonValueKind.True or JsonValueKind.False;
-        var yNumeric = IsNumber(y) || y.GetValueKind() is JsonValueKind.True or JsonValueKind.False;
-        if (xNumeric && yNumeric)
+        if (IsNumber(x) && IsNumber(y))
         {
             return CompareNumbers(x, y) == 0;
+        }
+
+        if (x.GetValueKind() is JsonValueKind.True or JsonValueKind.False)
+        {
+            return x.GetValueKind() == y.GetValueKind();
         }
 
         return (x is JsonObject && y is JsonObject || x is JsonArray && y is JsonArray) && JsonNode.DeepEquals(x, y);
@@ -314,11 +320,11 @@ public static class ExpressionFunctions
         _ => throw new ExpressionException($"empty() expects a string, an array or an object, got {Describe(a)}."),
     };
 
-    // not on Learn, plan "Not on Learn": first and last of an empty collection are null
+    // not on Learn, plan "Not on Learn": first and last of an empty array are null (capture run M15); of an empty string they are "" (M16)
     private static JsonNode? Edge(string function, JsonNode? a, bool first) => a switch
     {
         JsonArray arr => arr.Count == 0 ? null : arr[first ? 0 : arr.Count - 1],
-        _ when IsString(a) => a!.GetValue<string>() is { Length: > 0 } s ? JsonValue.Create(s[first ? 0 : s.Length - 1].ToString()) : null,
+        _ when IsString(a) => a!.GetValue<string>() is { Length: > 0 } s ? JsonValue.Create(s[first ? 0 : s.Length - 1].ToString()) : JsonValue.Create(""),
         _ => throw new ExpressionException($"{function}() expects a string or an array, got {Describe(a)}."),
     };
 
@@ -510,7 +516,8 @@ public static class ExpressionFunctions
             throw new UnsupportedException("formatDateTime() with an empty locale is not supported.");
         }
 
-        var culture = Culture(name) ?? throw new ExpressionException($"formatDateTime() does not know the locale '{name}'.");
+        // Learn says an invalid locale is an error; the capture run F18 gave English text for 'xx-YY'
+        var culture = Culture(name) ?? throw new UnsupportedException($"formatDateTime() with the locale '{name}' is not supported: .NET does not know it, and the service did not call it an error.");
         var lower = name.ToLowerInvariant();
         if (lower is not ("en-us" or "fr-fr" or "es-es"))
         {
@@ -564,6 +571,7 @@ public static class ExpressionFunctions
     {
         Count("addDays", a, 2, 3);
         DateTime start;
+        var kind = DateTimeKind.Utc;
         if (a.Length == 3)
         {
             NeedCultureData("addDays");
@@ -575,7 +583,9 @@ public static class ExpressionFunctions
         }
         else
         {
-            start = Timestamp("addDays", Str("addDays", a[0]));
+            var text = Str("addDays", a[0]);
+            start = Timestamp("addDays", text);
+            kind = ReadZoned("addDays", text).Kind;
         }
 
         DateTime end;
@@ -589,6 +599,14 @@ public static class ExpressionFunctions
         }
 
         // not on Learn, plan "Not on Learn": the format uses en-us, as utcNow's format examples on Learn do
-        return a.Length == 3 ? FormatAs("addDays", end, Str("addDays", a[2]), EnUs!, context) : JsonValue.Create(Format(end));
+        return a.Length == 3 ? FormatAs("addDays", end, Str("addDays", a[2]), EnUs!, context) : JsonValue.Create(Labelled(end, kind));
     }
+
+    // the capture runs A06 and A11: the result keeps no zone for a timestamp with none, and shows an offset as +00:00 once converted to UTC
+    private static string Labelled(DateTime utc, DateTimeKind kind) => kind switch
+    {
+        DateTimeKind.Utc => Format(utc),
+        DateTimeKind.Unspecified => DateTime.SpecifyKind(utc, DateTimeKind.Unspecified).ToString("o", CultureInfo.InvariantCulture),
+        _ => new DateTimeOffset(utc, TimeSpan.Zero).ToString("o", CultureInfo.InvariantCulture),
+    };
 }

@@ -106,9 +106,10 @@ public static class FlowSimulator
         {
             var info = Find(action);
             CheckLoops(info, $"outputs('{action}')");
-            return _calls.TryGetValue(action, out var calls) && calls[^1].Status != "Skipped"
-                ? calls[^1].Outputs
-                : throw new ExpressionException($"Action '{action}' has not run or was skipped, so it has no outputs.");
+            // the capture run M19: the outputs of a skipped action are null
+            return _calls.TryGetValue(action, out var calls)
+                ? calls[^1].Status == "Skipped" ? null : calls[^1].Outputs
+                : throw new ExpressionException($"Action '{action}' has not run, so it has no outputs.");
         }
 
         public JsonNode? Result(string scope)
@@ -654,7 +655,9 @@ public static class FlowSimulator
             CheckType(name, type, variable["value"]);
             CheckDepth(variable["value"]);
             Charge(variable["value"]);
-            _vars[name] = new Var(type) { Value = variable["value"]?.DeepClone() };
+
+            // the capture run M17: a string variable initialized without a value reads as ""
+            _vars[name] = new Var(type) { Value = type == "string" && !variable.ContainsKey("value") ? JsonValue.Create("") : variable["value"]?.DeepClone() };
             return new("Succeeded", evaluated, null, null);
         }
 

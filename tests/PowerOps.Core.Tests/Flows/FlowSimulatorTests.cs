@@ -895,10 +895,19 @@ public class FlowSimulatorTests
         Assert.Equal("Failed", St(unknown, "C"));
     }
 
+    [Fact]
+    public void A_string_variable_with_no_value_reads_as_an_empty_string_and_another_type_as_null()
+    {
+        var run = Run("{\"S\":" + Var("s", "string") + ",\"N\":" + Var("n", "integer", runAfter: After("S")) + ",\"C\":" + Compose("[\"@variables('s')\", \"@variables('n')\"]", After("N")) + "}");
+
+        Assert.Equal(FlowRunOutcome.Finished, run.Outcome);
+        Same("""["",null]""", run.Calls["C"][0].Outputs);
+    }
+
     // outputs()
 
     [Fact]
-    public void Outputs_of_an_action_that_was_skipped_or_has_not_run_fails_the_reader()
+    public void Outputs_of_an_action_that_was_skipped_is_null_and_of_one_that_has_not_run_fails_the_reader()
     {
         var run = Run("""
             {"Z":{"type":"Compose","inputs":1,"runAfter":{}},
@@ -908,9 +917,10 @@ public class FlowSimulatorTests
              "Later":{"type":"Compose","inputs":1,"runAfter":{"E":["Failed"]}}}
             """);
 
-        Assert.Equal("Failed", St(run, "R"));
-        Assert.Equal("InvalidTemplate", (string?)run.Calls["R"][0].Error!["code"]);
+        Assert.Equal("Succeeded", St(run, "R")); // the capture run M19: null, not an error
+        Assert.Null(run.Calls["R"][0].Outputs);
         Assert.Equal("Failed", St(run, "E"));
+        Assert.Equal("InvalidTemplate", (string?)run.Calls["E"][0].Error!["code"]);
     }
 
     [Fact]
