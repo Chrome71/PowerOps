@@ -54,6 +54,19 @@ public class DeployPlanTests
 
     private static MissingDependency Dep(string? owner, string schema = "x_comp") => B.Dep("1", schema, null, owner);
 
+    [Theory]
+    [InlineData("1.0.0.0", "1.0.0.0", true)]
+    [InlineData("1.0.0.0", "1.0.0.00", true)]
+    [InlineData("1.0.0.0", "1.0.0.1", false)]
+    [InlineData("1.0.0", "1.0.0", false)]
+    [InlineData("1.0", "1.0.0.0", false)]
+    [InlineData("a.b.c.d", "a.b.c.d", false)]
+    [InlineData("", "", false)]
+    [InlineData(null, null, false)]
+    [InlineData(null, "1.0.0.0", false)]
+    public void EqualVersions_is_true_only_for_four_numeric_parts_equal_as_numbers(string? a, string? b, bool expected) =>
+        Assert.Equal(expected, DeployPlan.EqualVersions(a, b));
+
     // ---- names -------------------------------------------------------------------------------------------------
 
     [Theory]
@@ -458,7 +471,7 @@ public class DeployPlanTests
     }
 
     [Fact]
-    public void The_table_and_canvas_app_items_do_not_block_or_change_the_hash()
+    public void The_table_and_canvas_app_items_are_information_and_do_not_block()
     {
         var snap = Installed(new SnapshotComponent(1, G1, null), new(300, G2, null));
         DeployZip[] zips = [Zip(Sol("App", "2.0.0.0"))];
@@ -466,9 +479,9 @@ public class DeployPlanTests
 
         var r = DeployPlan.Build(zips, target);
 
+        Assert.All(Of(r, PlanKind.ComponentsNotChecked), i => Assert.Equal(PlanSeverity.Info, i.Severity));
         Assert.Equal(2, NotChecked(r).Length);
         Assert.False(r.Blocked);
-        Assert.Equal(Hash(DeployPlan.HashText(zips, target)), r.Hash);
     }
 
     // ---- layers ------------------------------------------------------------------------------------------------

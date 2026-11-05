@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using System.Xml;
 using System.Xml.Linq;
 
+using PowerOps.Core.Deploy;
 using PowerOps.Core.Model;
 using PowerOps.Core.Readers;
 
@@ -28,6 +29,7 @@ public static class Risk
     public const string EnvironmentVariable = "environment-variable";
     public const string AgentTool = "agent-tool";
     public const string AgentInstructions = "agent-instructions";
+    public const string SameVersion = "same-version";
 
     public static string Describe(string id) => id switch
     {
@@ -37,6 +39,7 @@ public static class Risk
         EnvironmentVariable => "An environment variable was added or removed.",
         AgentTool => "An agent tool was added or removed.",
         AgentInstructions => "An agent's instructions changed.",
+        SameVersion => "The two solutions differ but carry the same version number, so importing the new one is not an upgrade: deploy plan skips it; raise the version.",
         _ => id,
     };
 }
@@ -100,6 +103,12 @@ public static class SolutionDiff
         changes.AddRange(Keyed("agentTool", old.Agents.SelectMany(a => a.Tools), @new.Agents.SelectMany(a => a.Tools),
             t => t.SchemaName, _ => null, Risk.AgentTool,
             (a, b) => Differences(("action", a.Action, b.Action), ("mcp", a.Mcp.ToString().ToLowerInvariant(), b.Mcp.ToString().ToLowerInvariant()), ("mode", a.Mode, b.Mode), ("connectionReference", a.ConnectionReference, b.ConnectionReference), ("operationId", a.OperationId, b.OperationId))));
+
+        // deploy plan skips a zip whose version equals the installed one and matches it by unique name, so the same test decides here (M53).
+        if (changes.Count > 0 && string.Equals(old.UniqueName, @new.UniqueName, StringComparison.OrdinalIgnoreCase) && DeployPlan.EqualVersions(old.Version, @new.Version))
+        {
+            changes = [.. changes.Select(c => c with { Risks = [.. c.Risks, Risk.SameVersion] })];
+        }
 
         return new DiffResult(old, @new, changes) { NotCompared = NotCompared(old, @new) };
     }

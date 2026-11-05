@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "old": {
     "uniqueName": "PowerOpsSeed",
     "version": "1.0.0.0"
@@ -14,7 +14,8 @@
       "component": "connectionReference",
       "key": "pops_SpareDataverse",
       "risks": [
-        "connection-reference"
+        "connection-reference",
+        "same-version"
       ]
     },
     {
@@ -23,7 +24,9 @@
       "key": "4c8dd007-dfcb-f111-a05c-0022480697a8",
       "name": "Stamp work item status",
       "detail": "definition changed",
-      "risks": []
+      "risks": [
+        "same-version"
+      ]
     }
   ],
   "notCompared": [],

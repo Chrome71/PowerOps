@@ -57,6 +57,13 @@
       "severity": "warning",
       "subject": "Notify on new work item",
       "message": "An unmanaged layer stays on top of the imported change."
+    },
+    {
+      "solution": "PowerOpsSeed",
+      "kind": "components-not-checked",
+      "severity": "info",
+      "subject": "1 table(s)",
+      "message": "The target solution holds 1 table(s); the zip names them by schema name and the target by id, so their deletion is checked by count only and one replaced under another name is not seen."
     }
   ]
 }

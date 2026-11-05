@@ -446,5 +446,9 @@ public static class DeployPlan
         return parts.Select((p, i) => long.TryParse(p, NumberStyles.None, CultureInfo.InvariantCulture, out numbers[i])).All(ok => ok) ? numbers : null;
     }
 
+    /// <summary>True when both are four numeric parts and equal as numbers (<c>1.0.0.0</c> and <c>1.0.0.00</c>): the test that makes <c>deploy plan</c> skip a zip. Anything else, equal text included, is not equal.</summary>
+    internal static bool EqualVersions(string? a, string? b) =>
+        ParseVersion(a) is { } x && ParseVersion(b) is { } y && Compare(x, y) == 0;
+
     private static int Compare(long[] a, long[] b) => a.Zip(b, (x, y) => x.CompareTo(y)).FirstOrDefault(c => c != 0);
 }
