@@ -54,7 +54,7 @@ New-Item -ItemType Directory -Force .auth | Out-Null
 icacls .auth /inheritance:r /grant:r "$(whoami):(OI)(CI)F"
 ```
 
-The `icacls` command removes the entries `.auth` inherits from the folders above it and gives full access to your account alone. Every file Playwright writes into the folder inherits that entry. `whoami` names your account with its domain or computer name, which `icacls` needs for a work or school account.
+The `icacls` command removes the entries `.auth` inherits from the folders above it and gives full access to your account alone. Every file Playwright writes into the folder inherits that entry. `whoami` names your account with its domain or computer name, which `icacls` needs for a work or school account. Afterwards only your account can open the folder, so backup or antivirus software that runs as the system cannot read it; `icacls .auth /reset /t` gives the folder and its files their inherited entries back.
 
 Then open a browser that saves your sign-in when you close it:
 

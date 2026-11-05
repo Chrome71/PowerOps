@@ -25,6 +25,7 @@ Answer: 1. The `diff` wording already exists for current values, so a reader see
 Answer: 1. Over a finished report, the pattern would remove the help links (`helpUri`, the Markdown's rule links) that the milestone lets stay, and it would miss the URLs the Markdown writer has already defused with a zero-width space inside `://`. On the model, every writer gets the same redacted text, and the help links, which come from the rule list and not from the solution, are never touched. Stderr has no model: every line goes through one writer, so a wrapper covers all of them, the debug stack trace included. (answered by: agent m61-redact)
 
 ### Q4. What happens to the baseline and to SARIF fingerprints?
+(The fingerprint half of the answer is superseded by round 2's R1.)
 1. The baseline is matched before redaction; fingerprints are taken over the redacted text, with an occurrence suffix for equal keys (recommended)
 2. Fingerprints over the unredacted text
 3. Fingerprints over the redacted text, equal keys left equal
@@ -63,6 +64,19 @@ Answer: 1. Playwright may write the file anew on each save, which gives it the d
 
 Answer: 1. The improvement plan rejected automatic `.gitignore` edits and blanket ignores, because a repository may keep zips that are not exports, and the managed zip may come from CI anyway. Naming the files the step makes keeps the advice exact. (answered by: agent m61-redact)
 
+## Round 2: the fresh review
+
+The review (`review.md`, plan hash `af129aed…`) found 1 High, 2 Medium and 5 Low. Each is answered here and in `plan.md`.
+
+- R1 (High): the occurrence suffix would change `tests/golden/analyze-fixtures.sarif`, which already holds four fingerprints more than once, and so the output without `--redact`. Fixed by dropping the suffix, not by keeping it for `--redact` only as the review suggests: unredacted output already gives two findings one fingerprint, so a redacted pair that shares one is the behaviour code scanning users already get, and a suffix for one mode only would be new code for a case the default mode leaves as it is. `SarifReport` does not change (row 5); Q4's fingerprint answer becomes option 3. (answered by: agent m61-redact)
+- R2 (Medium): `diff.sh` reads `${PO_REDACT:-}` and adds `--redact` only when it is `true`; `ActionScriptTests` gains a case with it set and keeps today's call with it unset (row 6). (answered by: agent m61-redact)
+- R3 (Medium): `diff`'s `SolutionDiscovery.Find` call gains a `catch (Exception)` that writes what `Program.Run` writes today, through the wrapped writer (row 4). The claim now excludes a usage error that the option parser writes before the command runs: it quotes only the command line, which is the person's own input (Done when 1 and 2, row 7, `COMMANDS.md`). (answered by: agent m61-redact)
+- R4 (Low): the writer's overrides are listed in row 1 (`Write(string)`, `Write(char[], int, int)`, `Write(ReadOnlySpan<char>)` redact; `Write(char)` passes on; `Encoding`, `NewLine` and `Flush` follow the inner writer, which is never disposed), with tests; a URL split over several writes is not caught and the plan says so. The assumption names .NET 10. (answered by: agent m61-redact)
+- R5 (Low): the pattern runs with `RegexOptions.NonBacktracking`, as PO007's does, and a 100,000-letter string is tested (row 1). Trailing punctuation going into the placeholder, and two redacted findings reading the same, are accepted and said in `COMMANDS.md` (row 7). (answered by: agent m61-redact)
+- R6 (Low): the README says that only your account can open the folder afterwards and gives `icacls .auth /reset /t` to undo it (row 9). `umask 077` is not added: the private folder covers a re-save. The `/inheritance:r` spelling stays as Q8 says, and M63 checks it. (answered by: agent m61-redact)
+- R7 (Low): no change. The Learn links are public documentation, as in other plans, and the sentinel URL is a fake. (answered by: agent m61-redact)
+- R8 (Low): "Values in outputs" says the MCP tools return unredacted text (row 7), Users says so too, and HANDOFF step 3 says that a `.gitignore` entry does not untrack a file and that a pushed file stays in history (row 10). (answered by: agent m61-redact)
+
 ## Log
 
 - Learn checked 2026-11-05 with the Learn MCP tools: "Recommendations for protecting application secrets" (SE:07), `icacls`, and "OpenSSH Server configuration for Windows". The points used are in the plan's Assumptions
@@ -70,3 +84,5 @@ Answer: 1. The improvement plan rejected automatic `.gitignore` edits and blanke
 - questions answered by the building session under the user's delegation of 2026-10-22 (autonomous milestone mode)
 - areas not asked: automation, screens, environments, solution and publisher; M61 changes this repo's code and docs and reads no tenant
 - approved 2026-11-05 by the building session under the user's delegation of 2026-10-22, for a fresh-context review
+- fresh review (a general-purpose subagent following `powerops-review-plan`, Sonnet, fresh context) 2026-11-05 at `dd3215e`: 1 High, 2 Medium, 5 Low (R1 to R8); answered in `plan.md` and here (Round 2)
+- code built in parallel with the review by an implementer subagent (Sonnet, `powerops-implementer`) in this worktree, test first, then changed to Round 2's R1 to R5
