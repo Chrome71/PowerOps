@@ -1,6 +1,9 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Text.Json.Nodes;
+using System.Xml.Linq;
+
+using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
 
@@ -25,6 +28,43 @@ public class ProgramTests
         var expected = cliAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion;
         Assert.Equal(0, process.ExitCode);
         Assert.Equal(expected, output.Trim());
+    }
+
+    // Needs a build of the current commit: Source Link reads HEAD when the CLI is built, so a stale build (a commit made since) fails here.
+    [Fact]
+    public void Version_of_a_build_from_a_checkout_is_the_props_version_and_the_commit()
+    {
+        var root = Golden.RepoRoot;
+        Assert.SkipWhen(!Directory.Exists(Path.Combine(root, ".git")) && !File.Exists(Path.Combine(root, ".git")), "not a git checkout");
+        var head = RunTool("git", ["-C", root, "rev-parse", "HEAD"]);
+        Assert.SkipWhen(head.Code != 0, "git rev-parse HEAD failed");
+        var props = XDocument.Load(Path.Combine(root, "Directory.Build.props")).Descendants("Version").Single().Value;
+
+        var run = RunTool("dotnet", [typeof(Program).Assembly.Location, "--version"]);
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal($"{props}+{head.Out.Trim()}", run.Out.Trim());
+    }
+
+    private static (int Code, string Out) RunTool(string file, string[] args)
+    {
+        var startInfo = new ProcessStartInfo(file) { RedirectStandardOutput = true };
+        foreach (var a in args)
+        {
+            startInfo.ArgumentList.Add(a);
+        }
+
+        try
+        {
+            using var process = Process.Start(startInfo)!;
+            var output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+            return (process.ExitCode, output);
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return (-1, ""); // the tool is not installed
+        }
     }
 
     // M33 F-4: no arguments at all prints the root help on stderr, then the error line; stdout stays empty.

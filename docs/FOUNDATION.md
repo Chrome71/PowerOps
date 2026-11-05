@@ -47,7 +47,7 @@ What Microsoft ships is in-product (Pipelines, Git integration) or a thin wrappe
   - `pac` is called as a subprocess. It is never re-implemented.
   - The Playwright starter is a small TypeScript example project in `docs/examples/playwright/` that follows Microsoft's samples, not a published package (BUILD-PLAN M16).
 - **Distribution, in order:**
-  1. NuGet tool with trusted publishing.
+  1. The dotnet tool package, with its checksum, on GitHub Releases (not NuGet, decided 2026-11-04).
   2. A composite GitHub Action.
   3. Self-contained binaries and a container image.
   4. An Azure DevOps task and a VS Code extension only if people ask for them.
@@ -114,6 +114,7 @@ Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform
 | 2026-10-19 | Releases: Conventional Commits, **release-please**, NuGet trusted publishing (OIDC) with build provenance, starting at 0.1.0 | No long-lived publish keys, and changelogs are generated from commit history |
 | 2026-10-19 | **Planning skills** ship to PowerOps users, built after M2: question rounds until the user stops, review in a fresh context on the provider's top model, and no implementation without a signed-off plan (the agent drafts one if the user skips planning). See [PLANNING-SKILLS.md](PLANNING-SKILLS.md). | Agents build well from clear plans; most Power Platform mistakes are made before building starts |
 | 2026-10-20 | **Agents are the main users.** The agent base (Phase 1c, BUILD-PLAN M4) comes before the YAML layout and `diff` | PowerOps runs inside the user's Claude Code or Codex. A versioned contract, fix hints and recipes are cheapest to add before the first NuGet release and before more outputs exist |
+| 2026-11-04 | Releases are **GitHub Releases only**: release-please stamps the version, the release carries the tool package, `SHA256SUMS` and a provenance attestation, and the Action runs a release pinned by version and SHA-256. No NuGet. | The person's answer to D4 of the live-test plan (M56). A release build prints its plain version and every other build adds its commit, so a plan or report names the build that made it |
 
 ## 8. Research topics still open
 
@@ -191,7 +192,7 @@ To verify before or during the phase that depends on them:
   - What a contributor can use: a 30-day [trial environment](https://learn.microsoft.com/power-platform/admin/trial-environments) (throwaway, work or school account recommended); a [Microsoft 365 Developer Program](https://learn.microsoft.com/office/developer-program/microsoft-365-developer-program-faq) sandbox tenant (free, but only for Visual Studio subscribers, eligible partners and Premier/Unified Support customers; it does not document a Dataverse environment); or an environment in a paid tenant. Dataverse for Teams is deprecated too.
   - Service principals: documented for Dataverse environments in general ([pac admin create-service-principal](https://learn.microsoft.com/power-platform/developer/cli/reference/admin#pac-admin-create-service-principal)), not for trial or managed developer environments specifically.
   - Plan: contributors need no tenant. Offline fixtures are the default, live tests stay opt-in and read connection details from environment variables, and CI live tests run in a maintainer-owned sandbox with a service principal.
-- [ ] **(Release)** NuGet trusted publishing setup, including the reported expiry of legacy API keys on 2026-11-01 (U).
+- [x] **(Release)** NuGet trusted publishing setup, including the reported expiry of legacy API keys on 2026-11-01 (U). Dropped 2026-11-04: releases are GitHub Releases only (section 7).
 - [ ] **(Release)** Trademark check for the name "PowerOps". The GitHub repo name and the NuGet package ID were both free on 2026-10-19. Checked 2026-10-21, and it is not a clearance:
   - The USPTO and TMview search pages need JavaScript and could not be read. EUIPO, WIPO and UK IPO were not tried. A person has to run those searches.
   - Collision: a PowerShell module named [PowerOps](https://www.powershellgallery.com/packages/PowerOps) "to manage the Power Platform APIs" is published by Microsoft's Customer Architecture Team ("(c) Microsoft", version 0.2.0 from 2023-01-16, 12,104 downloads). Its project URL `github.com/Microsoft/PowerOps` returned 404 on 2026-10-21.

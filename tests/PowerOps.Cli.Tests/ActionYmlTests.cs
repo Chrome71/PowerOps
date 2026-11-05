@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 using PowerOps.Tests.Shared;
 
 using YamlDotNet.Serialization;
@@ -13,6 +15,8 @@ public sealed class ActionYmlTests
         var runs = (Dictionary<object, object>)action["runs"];
         return [.. ((List<object>)runs["steps"]).Cast<Dictionary<object, object>>()];
     }
+
+    private static bool HasDll(Dictionary<object, object> step) => step.TryGetValue("env", out var env) && ((Dictionary<object, object>)env).ContainsKey("PO_DLL");
 
     private static string? Text(Dictionary<object, object> step, string key) => step.TryGetValue(key, out var v) ? (string)v : null;
 
@@ -73,7 +77,7 @@ public sealed class ActionYmlTests
         var env = (Dictionary<object, object>)steps[test]["env"];
         Assert.Equal("${{ inputs.tests }}", env["PO_TESTS"]);
         Assert.Equal("${{ inputs.path }}", env["PO_PATH"]);
-        Assert.Equal("${{ github.action_path }}/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll", env["PO_DLL"]);
+        Assert.Equal("${{ steps.powerops.outputs.dll }}", env["PO_DLL"]);
 
         Assert.Equal(steps.Count - 1, result);
         Assert.Equal("always() && steps.test.outputs.exit-code != '' && steps.test.outputs.exit-code != '0'", Text(steps[result], "if"));
@@ -92,7 +96,7 @@ public sealed class ActionYmlTests
             var step = steps.Single(s => Text(s, "name") == name);
 
             Assert.Contains("action/powerops.sh", Text(step, "run"));
-            Assert.Equal("${{ github.action_path }}/src/PowerOps.Cli/bin/Release/net10.0/powerops.dll", ((Dictionary<object, object>)step["env"])["PO_DLL"]);
+            Assert.Equal("${{ steps.powerops.outputs.dll }}", ((Dictionary<object, object>)step["env"])["PO_DLL"]);
         }
 
         Assert.All(steps.Where(s => Text(s, "run") is not null), s => Assert.DoesNotContain("powerops.dll", Text(s, "run")));
@@ -120,8 +124,45 @@ public sealed class ActionYmlTests
     }
 
     [Fact]
+    public void The_install_step_comes_right_after_setup_dotnet_and_before_every_step_that_runs_powerops()
+    {
+        var steps = Steps();
+        var install = steps.FindIndex(s => Text(s, "name") == "Install PowerOps");
+        var step = steps[install];
+
+        Assert.True(Text(steps[install - 1], "uses")?.StartsWith("actions/setup-dotnet@", StringComparison.Ordinal) == true, "setup-dotnet comes first: the package needs the .NET 10 runtime");
+        Assert.All(steps.Select((s, i) => (s, i)).Where(t => HasDll(t.s)), t => Assert.True(t.i > install));
+        Assert.Equal("powerops", Text(step, "id"));
+        Assert.Equal("bash", Text(step, "shell"));
+        Assert.Equal("${{ github.action_path }}", Text(step, "working-directory"));
+        Assert.Equal("bash \"$GITHUB_ACTION_PATH/action/install.sh\"", Text(step, "run"));
+        Assert.Equal(["PO_RELEASE", "PO_RELEASE_SHA256"], ((Dictionary<object, object>)step["env"]).Keys.Cast<string>());
+        Assert.All(steps.Where(HasDll), s => Assert.Equal("${{ steps.powerops.outputs.dll }}", ((Dictionary<object, object>)s["env"])["PO_DLL"]));
+    }
+
+    // The release pin is one version and the SHA-256 of its package, in action.yml, each a single-quoted string: both empty until a release is pinned.
+    [Fact]
+    public void The_release_pin_is_both_empty_or_a_version_and_a_sha256()
+    {
+        var lines = File.ReadAllLines(Path.Combine(Golden.RepoRoot, "action.yml"));
+        var release = Assert.Single(lines, l => l.TrimStart().StartsWith("PO_RELEASE:", StringComparison.Ordinal));
+        var sha = Assert.Single(lines, l => l.TrimStart().StartsWith("PO_RELEASE_SHA256:", StringComparison.Ordinal));
+        var releaseMatch = Regex.Match(release, @"^\s*PO_RELEASE: '([^']*)'$");
+        var shaMatch = Regex.Match(sha, @"^\s*PO_RELEASE_SHA256: '([^']*)'$");
+
+        Assert.True(releaseMatch.Success && shaMatch.Success, "each pin value is a single-quoted string");
+        if (releaseMatch.Groups[1].Value + shaMatch.Groups[1].Value != "")
+        {
+            Assert.Matches(@"^[0-9]+\.[0-9]+\.[0-9]+$", releaseMatch.Groups[1].Value);
+            Assert.Matches("^[0-9a-f]{64}$", shaMatch.Groups[1].Value);
+        }
+    }
+
+    [Fact]
     public void The_build_restores_in_locked_mode()
     {
-        Assert.Equal("dotnet build src/PowerOps.Cli -c Release -p:RestoreLockedMode=true", Text(Steps().Single(s => Text(s, "name") == "Build PowerOps"), "run"));
+        var script = File.ReadAllLines(Path.Combine(Golden.RepoRoot, "action", "install.sh"));
+
+        Assert.Single(script, l => l.TrimStart().StartsWith("dotnet build src/PowerOps.Cli -c Release -p:RestoreLockedMode=true", StringComparison.Ordinal));
     }
 }

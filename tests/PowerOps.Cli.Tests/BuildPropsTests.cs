@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using System.Xml.Linq;
 
 using PowerOps.Tests.Shared;
@@ -32,5 +33,19 @@ public class BuildPropsTests
         {
             Assert.False(File.Exists(Path.Combine(Golden.RepoRoot, "tests", project, "packages.lock.json")), project);
         }
+    }
+
+    // The version files change only through a release: release-please rewrites the marked line and the manifest together.
+    [Fact]
+    public void The_props_version_and_the_manifest_are_equal_and_stamped_by_release_please()
+    {
+        var props = Path.Combine(Golden.RepoRoot, "Directory.Build.props");
+        var line = File.ReadAllLines(props).Single(l => l.Contains("<Version>", StringComparison.Ordinal));
+        var config = JsonNode.Parse(File.ReadAllText(Path.Combine(Golden.RepoRoot, "release-please-config.json")))!["packages"]!["."]!["extra-files"]!.AsArray();
+        var manifest = JsonNode.Parse(File.ReadAllText(Path.Combine(Golden.RepoRoot, ".release-please-manifest.json")))!;
+
+        Assert.Contains("x-release-please-version", line);
+        Assert.Contains(config, f => (string?)f!["type"] == "generic" && (string?)f["path"] == "Directory.Build.props");
+        Assert.Equal(XDocument.Load(props).Descendants("Version").Single().Value, (string?)manifest["."]);
     }
 }

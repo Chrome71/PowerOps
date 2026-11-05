@@ -1,9 +1,6 @@
-# One-time setup before the first release:
-#   1. On nuget.org, create a Trusted Publishing policy for this repository
-#      and the workflow file `release.yml`.
-#   2. Set the repository variable NUGET_USER to the nuget.org username.
-#   3. Settings > Actions > General: allow GitHub Actions to create pull requests
-#      (release-please opens the release PR with GITHUB_TOKEN).
+# One-time setup before the first release: Settings > Actions > General: allow GitHub Actions to create pull requests
+# (release-please opens the release PR with GITHUB_TOKEN).
+# A release is a GitHub Release only (no NuGet): the publish job attaches the tool package and SHA256SUMS to it.
 name: Release
 
 on:
@@ -23,6 +20,7 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
     steps:
       - id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
@@ -36,9 +34,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
-      contents: read
+      contents: write # attach the files to the release
       id-token: write
       attestations: write
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+      VERSION: ${{ needs.release-please.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -47,14 +48,15 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
-      - run: dotnet pack src/PowerOps.Cli -c Release -o artifacts -p:RestoreLockedMode=true
+      # A release prints its plain version; every other build adds +<commit>.
+      - run: dotnet pack src/PowerOps.Cli -c Release -o artifacts -p:RestoreLockedMode=true -p:IncludeSourceRevisionInInformationalVersion=false
+      - name: Check the package
+        run: bash .github/scripts/release-check.sh "$VERSION" artifacts
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: artifacts/*.nupkg
-      - id: login
-        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
-        with:
-          user: ${{ vars.NUGET_USER }}
-      - run: dotnet nuget push artifacts/*.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+      # No --clobber: a rerun must not replace a published file.
+      - name: Attach to the release
         env:
-          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" "artifacts/PowerOps.$VERSION.nupkg" artifacts/SHA256SUMS --repo "$GITHUB_REPOSITORY"
