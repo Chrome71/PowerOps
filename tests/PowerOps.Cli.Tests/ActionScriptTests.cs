@@ -152,6 +152,15 @@ public sealed class ActionScriptTests : IDisposable
     }
 
     [Fact]
+    public void Plan_logs_powerops_warning_lines_with_its_error_lines_and_hides_forwarded_text()
+    {
+        var run = RunPlan(exit: 0, save: false, stderr: "warning: a.zip: no ready verify.md or security-solution.md under docs/plans has this zip's SHA-256 as its solution-hash\n  | tenant 0000 at https://contoso.crm.dynamics.com\nerror: --target: pac failed\nForwarded: tenant 0000\n");
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal("warning: a.zip: no ready verify.md or security-solution.md under docs/plans has this zip's SHA-256 as its solution-hash\nerror: --target: pac failed\n", run.Out);
+    }
+
+    [Fact]
     public void Plan_in_debug_mode_prints_the_forwarded_text()
     {
         var run = RunPlan(exit: 3, save: false, stderr: "error: x\nForwarded: tenant 0000\n", debug: true);

@@ -26,8 +26,8 @@ public static class PlanStatusReport
             foreach (var r in p.Reports)
             {
                 // The state is text from the report; null (not stated, or not read) is printed as it is.
-                writer.WriteLine($"  report {Clean(r.File)}: state {(r.State is null ? "null" : $"'{Clean(r.State)}'")}, stale {(r.Stale is { } stale ? (stale ? "true" : "false") : "null")}"
-                    + (r.SolutionHash is null ? "" : $", input {(r.Input is null ? "null" : $"'{Clean(r.Input)}'")}, solution-hash {r.SolutionHash}"));
+                writer.WriteLine($"  report {Clean(r.File)}: state {(r.State is null ? "null" : $"'{Clean(r.State)}'")}, stale (plan) {(r.Stale is { } stale ? (stale ? "true" : "false") : "null")}"
+                    + (r.SolutionHash is null ? "" : $", input {(r.Input is null ? "null" : $"'{Clean(r.Input)}'")}, solution-hash {r.SolutionHash}, stale (solution) {(r.SolutionStale is { } changed ? (changed ? "true" : "false") : "unknown")}"));
             }
 
             if (p.Writes is { } j)
@@ -67,7 +67,7 @@ public static class PlanStatusReport
                 supersedes = p.Supersedes,
                 openQuestions = p.OpenQuestions,
                 bodyHash = p.BodyHash,
-                reports = p.Reports.Select(r => new { file = r.File, state = r.State, stale = r.Stale, input = r.Input, solutionHash = r.SolutionHash }),
+                reports = p.Reports.Select(r => new { file = r.File, state = r.State, stale = r.Stale, input = r.Input, solutionHash = r.SolutionHash, solutionStale = r.SolutionStale }),
                 writes = p.Writes is { } j ? new { entries = j.Entries, openCleanup = j.OpenCleanup } : null,
                 violations = p.Violations,
                 warnings = p.Warnings,

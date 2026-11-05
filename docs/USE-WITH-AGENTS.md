@@ -12,7 +12,7 @@ PowerOps ships five agent skills. Three turn an idea into a reviewed, signed-off
 - `powerops-verify` runs after the build's final checks, in a fresh context. It checks the built solution against the plan with `analyze`, `test`, `diff`, `manifest` and `settings validate`, and writes `verify.md`. It never asks you questions. `powerops-implement` fixes its findings inside the plan and runs it again, at most three runs in all.
 - `powerops-review-security` runs on every build, before `powerops deploy plan`, in a fresh context. It reads the solution against the Power Platform Well-Architected Security checklist and writes `security-solution.md`. It never asks you questions. A later build that changes the solution runs it again.
 
-Neither report gates anything. `powerops plan status` lists each with its state and whether it is stale, and you decide ([The two build roles](#the-two-build-roles)).
+Neither report gates anything. `powerops plan status` lists each with its state and whether the plan or the solution changed since it was written, and you decide ([The two build roles](#the-two-build-roles)).
 
 **Who answered.** An agent that runs the skills for you, under your brief, may answer only the product choices the brief delegates. Only you sign off a plan, accept a High finding or accept a security gap. `decisions.md` ends each answer, and each logged approval, acceptance and sign-off, with `(answered by: person)` or `(answered by: agent <session>)`, and `powerops plan status` warns on a sign-off or an acceptance marked as an agent's. The agent writes the marker itself, so the warning catches honest marking, not a false one.
 
@@ -46,7 +46,7 @@ Know these before you run `powerops-verify` and `powerops-review-security` on re
 
 - **Where the data goes.** Both roles send the plan, the solution's components and the settings file to your client's model provider, and Codex used web search in M38's Security passes. Check that against your own data rules first.
 - **Cost.** A build adds up to three Verifier runs and one Security run, which you pay from your own agent plan. On M38's small cases that was about $3 at Claude's list price: $0.69 a Verifier run and $0.88 a Security run. A real solution costs more.
-- **What a report covers.** A report describes the folder or zip it names. `stale` means the plan body changed since the report was written, and says nothing about the solution. Promote only what a report reviewed.
+- **What a report covers.** A report describes the folder or zip it names. `plan status` says `stale (plan)` when the plan body changed since the report was written, and `stale (solution)` when that folder or zip did. `deploy plan` warns for each zip that no ready report names by its SHA-256. Promote only what a report reviewed.
 - **Reports gate nothing.** `powerops-implement` lists their open findings, and you decide. M38, M39 and M55 measured the roles on small hand-written cases ([M38 report](plans/m38-agent-team/report.md), [M39 report](plans/m39-ship-roles/report.md), [M55 report](plans/m55-role-freeze/report.md)), and they say little about harder flaws.
 - **Instruction, not enforcement.** Each skill lists the commands it may run. PowerOps adds no tool narrowing on any client, so a role runs with your session's tools.
 

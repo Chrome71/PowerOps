@@ -6,6 +6,7 @@ using PowerOps.Core.Deploy;
 using PowerOps.Core.Drift;
 using PowerOps.Core.Model;
 using PowerOps.Core.Output;
+using PowerOps.Core.Plans;
 using PowerOps.Core.Readers;
 
 namespace PowerOps.Cli;
@@ -69,6 +70,38 @@ public static class DeployCommand
 
     private static string Clean(string? text) => TextReport.Clean(text);
 
+    // Advisory: changes neither the plan nor the exit code. The reports are those of the nearest folder at or above the deploy folder that holds docs/plans;
+    // the walk stops at the repository's top folder (the one holding .git), so a docs/plans above the repository is not taken for its own.
+    private static void WarnUnreviewed(string folder, IReadOnlyList<DeployZip> zips, TextWriter error)
+    {
+        string? root = Path.GetFullPath(folder);
+        while (root is not null && !Directory.Exists(Path.Combine(root, "docs", "plans")))
+        {
+            root = Path.Exists(Path.Combine(root, ".git")) ? null : Path.GetDirectoryName(root);
+        }
+
+        if (root is null)
+        {
+            return;
+        }
+
+        IReadOnlySet<string>? ready;
+        try
+        {
+            ready = PlanChecker.ReadyHashes(root);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            error.WriteLine("warning: docs/plans could not be read, so the zips were not matched with review reports");
+            return;
+        }
+
+        foreach (var zip in zips.Where(z => ready?.Contains(z.Sha256) == false))
+        {
+            error.WriteLine($"warning: {Clean(zip.File)}: no ready verify.md or security-solution.md under docs/plans has this zip's SHA-256 as its solution-hash");
+        }
+    }
+
     private sealed record Prepared(DeployPlanResult Plan, IReadOnlyList<DeployZip> Zips, DeployTarget Target);
 
     private static int Run(
@@ -102,6 +135,7 @@ public static class DeployCommand
         }
 
         var result = prepared.Plan;
+        WarnUnreviewed(folder, prepared.Zips, error);
 
         var report = new StringWriter();
         switch (format)
