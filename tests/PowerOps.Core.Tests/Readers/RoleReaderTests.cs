@@ -71,12 +71,13 @@ public class RoleReaderTests
     {
         using var t = Folder()
             .Write("roles/B.xml", NoPrivilegesXml)
-            .Write("Roles/A.XML", EmptyRoleXml)
-            .Write("Roles/nested/c.xml", "not xml {");
+            .Write("roles/A.XML", EmptyRoleXml)
+            .Write("roles/nested/c.xml", "not xml {");
 
         var roles = SolutionLoader.Load(t.Path).Roles;
 
-        Assert.Equal(["Roles/A.XML", "roles/B.xml"], roles.Select(r => r.File));
+        // One folder spelling: Windows would merge "roles" and "Roles" into one folder.
+        Assert.Equal(["roles/A.XML", "roles/B.xml"], roles.Select(r => r.File));
     }
 
     [Fact]
