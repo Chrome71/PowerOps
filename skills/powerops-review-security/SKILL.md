@@ -13,7 +13,7 @@ Review the solution built from a plan for security, and write one report. You wo
 
 The request names the plan (`docs/plans/<name>/`).
 
-Read the plan files: `plan.md`, `decisions.md` and `mockups/` if present. Also run `analyze`, `settings validate` and `diff` of the solution against the previous version named in the request. This needs the current solution, and takes the settings file and the previous solution if the request names them. Needs status `signed-off`, `implementing` or `done`. Writes `docs/plans/<name>/security-solution.md`.
+Read the plan files: `plan.md`, `decisions.md` and `mockups/` if present. Also run `analyze`, `settings validate`, and `diff` and `manifest` of the solution against the previous version named in the request. This needs the current solution, and takes the settings file and the previous solution if the request names them. Needs status `signed-off`, `implementing` or `done`. Writes `docs/plans/<name>/security-solution.md`.
 
 If the request names no plan, there is no report path: reply with `state: failed` and the missing input, and write nothing.
 
@@ -25,6 +25,8 @@ This list is instruction, not enforcement. Run nothing else.
 - `powerops analyze <current solution>`
 - `powerops settings validate <current solution> --settings <settings file>`: only with a settings file. With none, skip it, write under the header lines of the report that `settings validate` was skipped because the request named no settings file, and record what depended on that check as not verified.
 - `powerops diff <previous solution> <current solution>`: only with a previous solution. With none, skip it and write under the header lines of the report that `diff` was skipped because the request named no previous solution.
+- `powerops manifest <current solution>`: gives the digest for the report's `solution-hash:` line.
+- `powerops manifest <previous solution> <current solution>`: only with a previous solution, and only when both solutions are unpacked folders. Otherwise skip it and write under the header lines of the report why it was skipped.
 - `powerops plan facts`: only if your request says the user confirmed, in that session, that `pac` is signed in to the plan's `environment:`. Never run `pac` yourself. Without that confirmation, do not run it, and write under the header lines of the report that environment facts were not read.
 
 ## Check the status
@@ -43,6 +45,10 @@ Give each item below one outcome:
 - `not verified`: what you could not see
 
 Never infer tenant configuration from a clean export.
+
+`diff` compares only what the PowerOps command reference lists for it (`docs/COMMANDS.md#diff`): the solution's unique name, version, managed flag and publisher, root components, missing dependencies, connection references, environment variables, cloud flows, canvas apps, and the instructions and tools of Copilot Studio agents. It compares classic workflows and business rules by name, category and state only. It does not compare security roles, tables, columns, forms, views or app modules and their role maps, so its `no changes` says nothing about them, and a part that one of its `note:` lines names was not compared.
+
+Write that a security role, table, column, form, view or app role map is unchanged only when the file-by-file `manifest` comparison lists none of its files as added, removed or changed. In an unpacked solution a security role is `Roles/<name>.xml`, an app module and its role map are `AppModules/<name>/AppModule.xml`, and a table with its columns, forms and views is the folder `Entities/<table>/`. A changed `Other/Customizations.xml` counts as a change to all of them. Otherwise read that component's files in the current solution, check them against the plan, and say that you read them and did not compare them. When either solution is a zip, the comparison can't run and its files can't be read: say that the component was not verified.
 
 Well-Architected Security checklist:
 
@@ -70,16 +76,18 @@ Points:
 
 ## Write the report
 
-Write the report to the path in "The request". The first four lines are exactly:
+Write the report to the path in "The request". The first six lines are exactly:
 
 ```
 plan-hash: <bodyHash>
 model: <the model you run on, as your agent reports it, else unknown>
 fresh-context: yes|no
 state: ready|blocked|failed|dropped
+input: <the current solution's path as the request gives it, relative to the repository root, with / between folders>
+solution-hash: <the digest that the manifest command prints for the current solution, else unknown>
 ```
 
-These are the first four lines of the report. Write `fresh-context: yes` only if this runs in a context that does not contain the planning conversation. Be honest. If unsure, write `no`.
+These are the first six lines of the report. Write `fresh-context: yes` only if this runs in a context that does not contain the planning conversation. Be honest. If unsure, write `no`.
 
 | State | Meaning |
 |---|---|
@@ -92,7 +100,6 @@ Choose `blocked` before `failed` before `ready`. An optional check that can't ru
 
 Under the header lines:
 
-- A line `input: <solution path or zip file name>`. Nothing parses it.
 - Any note the commands list asks for.
 - A `## Coverage` section with one line per item of "Review", in that order, so a reader sees every item was covered: `- <item>: <outcome>`.
 - The findings:

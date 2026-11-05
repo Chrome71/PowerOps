@@ -48,7 +48,16 @@
         {
           "file": "review.md",
           "state": null,
-          "stale": true
+          "stale": true,
+          "input": null,
+          "solutionHash": null
+        },
+        {
+          "file": "verify.md",
+          "state": "ready",
+          "stale": null,
+          "input": "solutions/demo",
+          "solutionHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
         }
       ],
       "writes": null,

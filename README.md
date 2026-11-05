@@ -96,6 +96,7 @@ On GitHub Actions, use the action: it writes a job summary and annotations, and 
 | [`baseline`](docs/COMMANDS.md#analyze-and-baseline) | Accepts today's findings, so `analyze` reports only new ones |
 | [`rules`](docs/COMMANDS.md#rules) | Lists every rule with its severity, title and fix |
 | [`diff`](docs/COMMANDS.md#diff) | Compares two versions of a solution, component by component |
+| [`manifest`](docs/COMMANDS.md#manifest) | Lists a solution's files with a SHA-256 for each and one digest, or compares two unpacked folders file by file |
 | [`test`](docs/FLOW-TESTS.md) | Runs flow tests with mocked connector actions |
 | [`settings generate`](docs/COMMANDS.md#settings-generate-and-settings-validate) | Writes `pac` deployment settings with empty values to fill in |
 | [`settings validate`](docs/COMMANDS.md#settings-generate-and-settings-validate) | Finds missing, extra and empty entries in a settings file |

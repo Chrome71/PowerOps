@@ -1,0 +1,130 @@
+using PowerOps.Tests.Shared;
+
+namespace PowerOps.Cli.Tests;
+
+public class ManifestCommandTests : IDisposable
+{
+    private static readonly string Seed = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "powerops-seed");
+    private static readonly string V1 = Path.Combine(Seed, "v1");
+    private static readonly string V2 = Path.Combine(Seed, "v2");
+    private readonly string _temp = Directory.CreateTempSubdirectory("powerops-manifest-").FullName;
+
+    public void Dispose() => Directory.Delete(_temp, recursive: true);
+
+    private static (int Code, string Out, string Err) Run(params string[] args)
+    {
+        var o = new StringWriter();
+        var e = new StringWriter();
+        return (Program.Run(args, o, e), o.ToString().Replace("\r\n", "\n"), e.ToString().Replace("\r\n", "\n"));
+    }
+
+    // The paths in the output are the ones given; the golden holds the same text on every OS and checkout.
+    private static string Shown(string output) => output.Replace(V1, "powerops-seed/v1").Replace(V2, "powerops-seed/v2");
+
+    [Fact]
+    public void One_folder_prints_its_manifest_and_exits_0()
+    {
+        var (code, output, err) = Run("manifest", V1);
+
+        Assert.Equal(0, code);
+        Assert.Equal("", err);
+        Golden.Verify(Shown(output), "manifest-seed-v1.txt");
+    }
+
+    [Fact]
+    public void Two_folders_print_the_comparison_and_exit_1_when_they_differ()
+    {
+        var (code, output, err) = Run("manifest", V1, V2);
+
+        Assert.Equal(1, code);
+        Assert.Equal("", err);
+        Golden.Verify(Shown(output), "manifest-seed-v1-v2.txt");
+    }
+
+    [Fact]
+    public void Two_equal_folders_exit_0()
+    {
+        var (code, output, _) = Run("manifest", V1, V1);
+
+        Assert.Equal(0, code);
+        Assert.EndsWith("23 files the same\n", output);
+    }
+
+    [Fact]
+    public void A_zip_prints_its_digest_alone()
+    {
+        var zip = Path.Combine(_temp, "Seed.zip");
+        SolutionZip.Create(V1, zip);
+
+        var (code, output, _) = Run("manifest", zip);
+
+        Assert.Equal(0, code);
+        Assert.Matches($"^{System.Text.RegularExpressions.Regex.Escape(zip)}: zip, digest [0-9a-f]{{64}}\n$", output);
+    }
+
+    [Fact]
+    public void A_missing_path_a_plain_file_and_a_zip_in_the_two_path_form_exit_2_with_an_error_line()
+    {
+        var text = Path.Combine(_temp, "notes.txt");
+        File.WriteAllText(text, "x");
+        var zip = Path.Combine(_temp, "Seed.zip");
+        SolutionZip.Create(V1, zip);
+
+        foreach (var args in new string[][] { ["manifest", Path.Combine(_temp, "none")], ["manifest", text], ["manifest", V1, zip], ["manifest", zip, V1], ["manifest", V1, Path.Combine(_temp, "none")] })
+        {
+            var (code, output, err) = Run(args);
+
+            Assert.Equal(2, code);
+            Assert.Equal("", output);
+            Assert.StartsWith("error: ", err);
+        }
+    }
+
+    [Fact]
+    public void A_link_as_the_path_exits_2()
+    {
+        var link = Path.Combine(_temp, "link");
+        Links.Create(link, V1, folder: true);
+
+        var (code, output, err) = Run("manifest", link);
+
+        Assert.Equal(2, code);
+        Assert.Equal("", output);
+        Assert.Contains("a symbolic link, not read", err);
+    }
+
+    [Fact]
+    public void A_link_inside_is_skipped_with_a_note_on_stderr()
+    {
+        var folder = Path.Combine(_temp, "sol");
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "a.xml"), "a");
+        var outside = Path.Combine(_temp, "outside.xml");
+        File.WriteAllText(outside, "o");
+        Links.Create(Path.Combine(folder, "b.xml"), outside);
+
+        var (code, output, err) = Run("manifest", folder);
+
+        Assert.Equal(0, code);
+        Assert.Contains("folder, 1 file,", output);
+        Assert.Equal($"note: {Path.Combine(folder, "b.xml").Replace('\\', '/')}: a symbolic link, not read\n", err);
+    }
+
+    [Fact]
+    public void An_unreadable_input_exits_3_with_an_error_line()
+    {
+        var zip = Path.Combine(_temp, "Big.zip");
+        File.WriteAllBytes(zip, []);
+        using (var stream = new FileStream(zip, FileMode.Open))
+        {
+            stream.SetLength(PowerOps.Core.Readers.BoundedRead.MaxZipBytes + 1);
+        }
+
+        var (code, output, err) = Run("manifest", zip);
+
+        Assert.Equal(3, code);
+        Assert.Equal("", output);
+        Assert.StartsWith($"error: {zip}: larger than 100 MB", err);
+    }
+
+}
