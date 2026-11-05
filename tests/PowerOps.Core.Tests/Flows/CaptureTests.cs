@@ -9,9 +9,6 @@ namespace PowerOps.Core.Tests;
 public class CaptureTests
 {
     private static readonly string Folder = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "flowtests", "capture");
-    // The cloud ran an IncrementVariable (Until_step, twice, then Final_loops read 2); the simulator has no such action yet, so these are left out of the comparison and reported.
-    private static readonly string[] NotCompared = ["Until_never", "Until_step", "Final_loops"];
-
     private static readonly string[] AllStatuses = ["Succeeded", "Failed", "Skipped", "TimedOut"];
 
     private static JsonObject Read(string path) => (JsonObject)JsonNode.Parse(File.ReadAllText(path))!;
@@ -89,7 +86,7 @@ public class CaptureTests
     public void The_simulator_matches_the_cloud_run_on_every_case_it_runs()
     {
         var run = Run();
-        var unsupported = Unsupported().Concat(NotCompared).ToArray();
+        var unsupported = Unsupported();
         var definition = (JsonObject)Definition().DeepClone();
         var actions = (JsonObject)definition["actions"]!;
         var removed = unsupported.Where(actions.ContainsKey).ToDictionary(name => name, name => (JsonObject)actions[name]!["runAfter"]!.DeepClone());
@@ -134,7 +131,7 @@ public class CaptureTests
                 continue;
             }
 
-            if (call.Status == "Failed" && !JsonNode.DeepEquals(call.Error?["code"], cloud["error"]?["code"]))
+            if (call.Status is "Failed" or "Skipped" && !JsonNode.DeepEquals(call.Error?["code"], cloud["error"]?["code"]))
             {
                 mismatches.Add($"{name}: error code simulator {Show(call.Error?["code"])} vs cloud {Show(cloud["error"]?["code"])}");
             }
@@ -166,9 +163,22 @@ public class CaptureTests
             else if (types[name] is "Compose" or "ParseJson")
             {
                 var expected = cloud["outputs"]?.DeepClone();
-                if (!JsonNode.DeepEquals(expected, call.Outputs))
+                var actual = call.Outputs?.DeepClone();
+                if (name == "Values")
                 {
-                    mismatches.Add($"{name}: outputs simulator {Show(call.Outputs)} vs cloud {Show(expected)}");
+                    // the export rewrote a date-time string (docs/plans/m58-flow-conformance/capture.md): the definition has +00:00 where the imported text and the run had +02:00
+                    if (!JsonNode.DeepEquals(actual?["offset"], JsonValue.Create("2018-03-15T08:30:00+00:00")) || !JsonNode.DeepEquals(expected?["offset"], JsonValue.Create("2018-03-15T10:30:00+02:00")))
+                    {
+                        mismatches.Add($"{name}: offset simulator {Show(actual?["offset"])} vs cloud {Show(expected?["offset"])}, not the export's and the run's known values");
+                    }
+
+                    (actual as JsonObject)?.Remove("offset");
+                    (expected as JsonObject)?.Remove("offset");
+                }
+
+                if (!JsonNode.DeepEquals(expected, actual))
+                {
+                    mismatches.Add($"{name}: outputs simulator {Show(actual)} vs cloud {Show(expected)}");
                 }
             }
         }
