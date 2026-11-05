@@ -1,4 +1,4 @@
-plan-hash: 8b573e0e5dd2979894a67e3ba632b67c7625cbddecfbfa5d5cb892327d0a6653
+plan-hash: 6990fecba064e6e4da1edf946a069f8bba285f3dc0ee5588cb729e2400d3040d
 model: claude-sonnet-5-5
 fresh-context: yes
 
@@ -28,6 +28,17 @@ What held (each resolution checked in the plan text, the repo at `b8ad904` and t
 - The new text adds no URL, GUID, email or person's name (checked with grep), and row sizes still trace to Done-when lines.
 
 What I ran, all under `/tmp/claude-1000/m56-review/`: `plan status` on the new commit; the `git archive` build above with and without `SourceRevisionId`; fetches of GitHub's docs on re-running jobs (see R12) and of release-please's public source for the tag form (first pass). The R3 resolution line is corrected below, because its stated basis is not in the cited docs.
+
+## Third pass
+
+Run against HEAD `1298368` (plan.md, decisions.md Round 3, and the resolution lines) and the uncommitted `CONTRIBUTING.md` "Releases" section in the working tree (read only; I did not judge the code build in progress). `plan status` in a scratch clone of that commit gives `approved`, 0 open questions, no violations and `bodyHash` `6990fecb...3040d`, the hash in the first line. No tenant call, no GitHub write.
+
+What held:
+- R12: the Assumptions and Q13 now say the reuse of passed jobs' outputs is observed behaviour, not on the cited page, and give its limits (30 days, 50 re-runs). Done when 2 no longer promises a re-run; it promises "a written recovery that needs no re-run", and the CONTRIBUTING text has that manual route. The route's commands are consistent with the plan: the pack line is the release workflow's (locked mode, commit off), `release-check.sh <version> artifacts` matches the script's arguments in row 3, and `gh release upload <tag> <package> <SHA256SUMS>` matches the workflow's upload (no `--clobber`). The tag form is the one in Q14.
+- R13: CONTRIBUTING says a half attach is finished by removing the stray file on the release page first (nothing replaces a file, a new pack has another hash). That holds; see R17 for a better case.
+- R14: `WorkflowTests.cs:22-23` and `Flow_tests_run_on_every_event_when_set_and_the_last_step_fails_the_job` are now right (checked against the file).
+- R15: Q17, row 6 and CONTRIBUTING state that the rule covers the `powerops` calls in `action.yml` and that the warning watches `action/` only, with the reason.
+- The Round 3 edits changed only Done when 2, two citations in row 4, row 6, the first-release step 1, one Assumptions bullet and decisions Q13 and Q17. They add no URL, GUID, email or person's name to the plan folder. The CONTRIBUTING text adds no flag or command that `DocsDriftTests` or `InstallLineTests` look at (its code blocks have no `powerops` invocation line except inside prose spans with `--version`, which is a known flag, and no `dotnet tool install`); it names the tag as `PowerOps-v<version>`, which the `powerops(@| )v\d` pattern does not match.
 
 ## Findings
 
@@ -115,6 +126,7 @@ What I ran, all under `/tmp/claude-1000/m56-review/`: `plan status` on the new c
 - Finding: `gh release upload` with two files, no `--clobber`: if the package is attached and `SHA256SUMS` is not (a network failure), "Re-run failed jobs" packs again, produces a package with another hash, and its upload fails on the package that is already attached. The plan's design (never replace an asset) is right, but the plan says a failed attach can be redone with a re-run, and this case cannot be.
 - Suggested fix: Add the case to CONTRIBUTING "Releases": a partly attached release is repaired by deleting the stray asset by hand (a maintainer step) and then re-running; or upload the two files in one command and check afterwards that both are attached. State which in Done when 2 ("a failed attach that attached nothing can be redone").
 - Resolution: fixed: CONTRIBUTING says a half attach is finished by removing the stray file on the release page first, then the re-run or the manual route; decisions Q13 (Round 3)
+- Third pass: holds, with the better repair in R17.
 
 #### R14. Two citations in row 4 are wrong
 - Area: row 4
@@ -127,3 +139,15 @@ What I ran, all under `/tmp/claude-1000/m56-review/`: `plan status` on the new c
 - Finding: Five steps of `action.yml` call the CLI themselves through `powerops.sh` with `analyze` flags (`--fail-on`, `--baseline`, `--format`, `--out`), so a change there can need a newer CLI too. Q17's warning and CONTRIBUTING's rule say "scripts" and test `action/` only. Counting `action.yml` would warn after the pin PR itself (it edits that file), so leaving it out is deliberate, but the gap is not stated.
 - Suggested fix: Say in Q17 and CONTRIBUTING that the rule covers `action.yml`'s own CLI calls too, and that the warning does not see them (or have the script ignore a commit whose only change in `action.yml` is the two pin lines).
 - Resolution: fixed (stated): decisions Q17 (Round 3), row 6 and CONTRIBUTING say the rule covers `action.yml`'s own CLI calls and that the warning watches `action/` only
+
+#### R16. The pin is called "the package's line in `SHA256SUMS`" in two places
+- Area: row 6; Environments and route step 3; CONTRIBUTING
+- Finding: The route says to set `PO_RELEASE_SHA256` "to the release and its `SHA256SUMS` line", and the CONTRIBUTING text says the value is "the package's line in `SHA256SUMS`". That line is `<hash>  PowerOps.<version>.nupkg`; the pin is the 64 hex characters only. A maintainer who pastes the line gets a failed `ActionYmlTests` or a failed `action` job, which catches it, but only after a push.
+- Suggested fix: Say "the hash on the package's line of `SHA256SUMS` (the first 64 characters)" in all three places.
+- Resolution: fixed: plan, Environments and route step 3, and CONTRIBUTING say the pin is the hash on the package's line, its first 64 characters, not the whole line
+
+#### R17. For a half attach, keeping the attested package is a better repair than removing it
+- Area: row 6 (CONTRIBUTING); R13's resolution
+- Finding: The attestation is made before the upload, for the bytes of the first pack. If the package was attached and only `SHA256SUMS` is missing, the text says to remove the package and attach a new pack, which loses the attestation (and changes the hash). The package that is already there can instead stay: download it, run `sha256sum` on it into `SHA256SUMS`, and attach only that file; the attestation still verifies. Removing the package is right only when the package itself is the problem.
+- Suggested fix: Add that case to the CONTRIBUTING paragraph: package attached and `SHA256SUMS` missing: write `SHA256SUMS` from the attached package and upload it alone; `SHA256SUMS` attached and the package missing: remove `SHA256SUMS`, then re-run or use the manual route.
+- Resolution: fixed: CONTRIBUTING and decisions Q13 (Round 3) give both half-attach cases: with the package attached, write `SHA256SUMS` from it and upload that alone, keeping the attestation; with only `SHA256SUMS` attached, remove it, then re-run or attach both by hand; row 6 says the same
