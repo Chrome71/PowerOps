@@ -1,6 +1,6 @@
 ## PowerOps analyze
 
-**17 solutions, 0 errors, 61 warnings**
+**17 solutions, 0 errors, 59 warnings**
 
 ### tests/fixtures/agents/new-ui/v1-no-learn-tool.zip: PowerOpsLiveAgent 1.0.0.0
 
@@ -139,14 +139,12 @@ No findings.
 
 | Severity | Rule | File | Message | Fix |
 |---|---|---|---|---|
-| warning | [PO033](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO033.md) | customizations.xml | Role 'Column-level security sample role' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app. | Copy the role from App Opener, or give its users App Opener as well, and test the app as a user who holds only those roles. |
 | warning | [PO034](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO034.md) | customizations.xml | Role 'Column-level security sample role' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs. | Check whether the role's users need to create or write that table, and remove those privileges from the role if they don't. |
 
 ### tests/fixtures/zips/ColumnLevelSecuritySampleSolution\_managed.zip: ColumnLevelSecuritySampleSolution 1.0.0.0
 
 | Severity | Rule | File | Message | Fix |
 |---|---|---|---|---|
-| warning | [PO033](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO033.md) | customizations.xml | Role 'Column-level security sample role' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app. | Copy the role from App Opener, or give its users App Opener as well, and test the app as a user who holds only those roles. |
 | warning | [PO034](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO034.md) | customizations.xml | Role 'Column-level security sample role' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs. | Check whether the role's users need to create or write that table, and remove those privileges from the role if they don't. |
 
 ### tests/fixtures/zips/Contoso\_sample\_1\_0\_0\_1\_managed.zip: Contoso\_sample 1.0.0.1

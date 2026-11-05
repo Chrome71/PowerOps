@@ -74,6 +74,25 @@ The 15 other documented templates count as non-admin roles, `Support` and `Proxy
 ### R11. "1 of the tables ... are"
 Kept: PO025's note has the same form (`<n> of its custom pages have`), and one sentence for every count keeps the note matchable. (answered by: agent m60 build session)
 
+## Round 5 (the person's answers on the eval, 2026-11-05)
+
+The build stopped under the old Done when 8, and the person was shown the four changed baselines. They chose "update and rerun", then answered two questions in the question form.
+
+### Q10. Should PO033 only fire when the solution holds a model-driven app?
+1. Only with an app: PO033 checks a solution only when it holds a model-driven app module, so roles for flows, canvas apps or application users aren't reported, only `solution-07` and `solution-08` change, and `solution-06` stays a clean case (recommended)
+2. Keep as built: PO033 fires on every custom role, four baselines change, `solution-06` is no longer clean, and the clean-case test and M55's false-High keep rule change before the rerun
+3. In your own words
+Answer: Only with an app (Recommended) (answered by: person)
+
+### Q11. How much of the role evaluation is rerun?
+1. Full, as M55: both roles on all 8 solution cases on Claude Code and Codex, 32 runs, about USD 22 expected for Claude with a USD 30 cap, about 5M Codex tokens, two blind scorers, then the person's decision (recommended)
+2. Changed cases only: both roles on the cases whose baseline changed, on both clients
+3. In your own words
+Answer: Full, as M55 (Recommended) (answered by: person)
+
+### Q8, amended
+Superseded by Q10 and Q11: the rule changes as Q10 says, the two baselines are updated, and the rerun is part of this milestone. (answered by: person)
+
 ## Log
 
 - Learn checked 2026-11-05 with the Learn MCP tools: "Security roles and templates", "Privileges required to view and access apps", "Create or edit a security role" (minimum privileges), "Configure user security in an environment", the App for Outlook troubleshooting page (privilege names) and the User Settings table reference
@@ -90,3 +109,5 @@ Kept: PO025's note has the same form (`<n> of its custom pages have`), and one s
 - the same reviewer's second pass 2026-11-05 at `3d2e032`: R1 to R9 hold (R7 and R9 accepted as stated limits); the suite ran in a scratch copy, 3,927 tests, only the two `RoleEvalTests` of Done when 8 failing; 0 High, 0 Medium, 2 Low new (R10, R11), answered in Round 4. In all: 0 High, 3 Medium and 8 Low, none open
 - signed off 2026-11-05 by the building session under the user's delegation of 2026-10-22, with no High or Medium finding open (`powerops plan sign-off`; `signed-off-hash` equals `review.md`'s `plan-hash`)
 - stopped under Done when 8 on 2026-11-05: committed locally on `claude/m60-role-rules-a266b7`, nothing pushed, no PR opened, nothing under `tests/eval` edited. The person decides on the eval rerun and the baseline update for `solution-01`, `solution-06`, `solution-07` and `solution-08`
+- the person answered Q10 and Q11 on 2026-11-05 in this session; the plan's sign-off is void (status back to approved, review pending), and the plan is amended: Done when 3, 8 to 10, Won't build, rows 6, 8 and the new row 14, Automation (the rerun), Constraints, Assumptions, Steps
+- PO033 gated on a model-driven app in the solution, with a quiet case and the PO034-only note in `WarningRuleTests`; the PO033 and PO034 pages say so

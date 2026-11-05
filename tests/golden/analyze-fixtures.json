@@ -697,15 +697,6 @@
       ],
       "findings": [
         {
-          "ruleId": "PO033",
-          "severity": "warning",
-          "message": "Role 'Column-level security sample role' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.",
-          "file": "customizations.xml",
-          "component": "Column-level security sample role",
-          "fix": "Copy the role from App Opener, or give its users App Opener as well, and test the app as a user who holds only those roles.",
-          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO033.md"
-        },
-        {
           "ruleId": "PO034",
           "severity": "warning",
           "message": "Role 'Column-level security sample role' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs.",
@@ -730,15 +721,6 @@
         "msft_ColumnLevelSecurityData (1.2.0.28)"
       ],
       "findings": [
-        {
-          "ruleId": "PO033",
-          "severity": "warning",
-          "message": "Role 'Column-level security sample role' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.",
-          "file": "customizations.xml",
-          "component": "Column-level security sample role",
-          "fix": "Copy the role from App Opener, or give its users App Opener as well, and test the app as a user who holds only those roles.",
-          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO033.md"
-        },
         {
           "ruleId": "PO034",
           "severity": "warning",
@@ -809,7 +791,7 @@
   "summary": {
     "solutions": 17,
     "errors": 0,
-    "warnings": 61,
+    "warnings": 59,
     "baselined": 0
   }
 }

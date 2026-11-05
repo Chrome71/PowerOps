@@ -1760,7 +1760,8 @@ public class WarningRuleTests
 
     private static Solution WithApp(string[] roles, params Role[] inSolution) => B.Empty() with { AppModules = [B.App(roles: roles)], Roles = inSolution };
 
-    private static Solution WithRoles(params Role[] roles) => B.Empty() with { Roles = roles };
+    // One model-driven app with no role map, so PO033 applies and PO032 has nothing to check.
+    private static Solution WithRoles(params Role[] roles) => B.Empty() with { Roles = roles, AppModules = [B.App()] };
 
     [Fact]
     public void PO032_fires_for_an_app_shared_with_only_the_two_admin_templates_in_any_case()
@@ -1849,6 +1850,16 @@ public class WarningRuleTests
 
         Assert.Empty(Run(rule, s));
         Assert.Empty(rule.NotChecked(s));
+    }
+
+    [Fact]
+    public void PO033_is_quiet_in_a_solution_without_a_model_driven_app_and_its_note_names_only_PO034()
+    {
+        var rule = new PO033RoleWithoutAppBaseline();
+        var s = WithRoles(B.SecurityRole("Front desk", CustomRole, "prvReadpops_loan"), B.SecurityRoleUnread("None", OtherRole)) with { AppModules = [] };
+
+        Assert.Empty(Run(rule, s));
+        Assert.Equal(["PO034 not checked for role 'None': its file has no RolePrivileges element, so its privileges are not known."], rule.NotChecked(s));
     }
 
     [Fact]

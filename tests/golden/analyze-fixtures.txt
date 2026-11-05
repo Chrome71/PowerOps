@@ -74,11 +74,9 @@ tests/fixtures/powerops-seed/v2: PowerOpsSeed 1.0.0.0 (publisher powerops, prefi
   warning PO006 Workflows/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json: Flow 'Stamp work item status' hard-codes the URL 'https://contoso.sharepoint.com/sites/ops'.
 tests/fixtures/zips/ColumnLevelSecuritySampleSolution.zip: ColumnLevelSecuritySampleSolution 1.0.0.0 (publisher ColumnLevelSecuritySamplePublisher, prefix sample)
   requires msft_ColumnLevelSecurityData (1.2.0.28)
-  warning PO033 customizations.xml: Role 'Column-level security sample role' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.
   warning PO034 customizations.xml: Role 'Column-level security sample role' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs.
 tests/fixtures/zips/ColumnLevelSecuritySampleSolution_managed.zip: ColumnLevelSecuritySampleSolution 1.0.0.0 (publisher ColumnLevelSecuritySamplePublisher, prefix sample)
   requires msft_ColumnLevelSecurityData (1.2.0.28)
-  warning PO033 customizations.xml: Role 'Column-level security sample role' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.
   warning PO034 customizations.xml: Role 'Column-level security sample role' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs.
 tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip: Contoso_sample 1.0.0.1 (publisher DefaultPublisherorg8a403877, prefix new)
   warning PO005 customizations.xml: Connection reference 'new_D365connection' is not used by any flow or app.
@@ -86,4 +84,4 @@ tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip: Contoso_sample 1.0.0.1 (
   warning PO010 solution.xml: Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher.
 tests/fixtures/zips/polymorphiclookupexamplesolution.zip: polymorphiclookupexamplesolution 1.0.0.0 (publisher examplepublisher, prefix sample)
   no findings
-17 solutions, 0 errors, 61 warnings
+17 solutions, 0 errors, 59 warnings

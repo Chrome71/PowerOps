@@ -1844,34 +1844,6 @@
           }
         },
         {
-          "ruleId": "PO033",
-          "ruleIndex": 32,
-          "level": "warning",
-          "message": {
-            "text": "Role 'Column-level security sample role' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app."
-          },
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/fixtures/zips/ColumnLevelSecuritySampleSolution.zip"
-                },
-                "region": {
-                  "startLine": 1
-                }
-              },
-              "logicalLocations": [
-                {
-                  "fullyQualifiedName": "customizations.xml"
-                }
-              ]
-            }
-          ],
-          "partialFingerprints": {
-            "poFinding/v1": "db83405337118f043dcc4e75bcb365d9ff0b877304b6e34dce7f4fa430be9260"
-          }
-        },
-        {
           "ruleId": "PO034",
           "ruleIndex": 33,
           "level": "warning",
@@ -1897,34 +1869,6 @@
           ],
           "partialFingerprints": {
             "poFinding/v1": "4267405585dbf828d3adab08147cea48cee94e0fe64cafdfcf19652b05baef99"
-          }
-        },
-        {
-          "ruleId": "PO033",
-          "ruleIndex": 32,
-          "level": "warning",
-          "message": {
-            "text": "Role 'Column-level security sample role' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app."
-          },
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/fixtures/zips/ColumnLevelSecuritySampleSolution_managed.zip"
-                },
-                "region": {
-                  "startLine": 1
-                }
-              },
-              "logicalLocations": [
-                {
-                  "fullyQualifiedName": "customizations.xml"
-                }
-              ]
-            }
-          ],
-          "partialFingerprints": {
-            "poFinding/v1": "db83405337118f043dcc4e75bcb365d9ff0b877304b6e34dce7f4fa430be9260"
           }
         },
         {
