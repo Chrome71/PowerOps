@@ -446,6 +446,28 @@
           ]
         }
       },
+      "invocations": [
+        {
+          "executionSuccessful": true,
+          "toolExecutionNotifications": [
+            {
+              "level": "note",
+              "message": {
+                "text": "PO014 and PO018 not checked for canvas app 'CanvasApps/cat_devopskitsamplecanvasapp_c7ec5_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened)."
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "tests/fixtures/alm-sample"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
       "results": [
         {
           "ruleId": "PO007",

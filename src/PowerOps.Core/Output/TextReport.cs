@@ -67,6 +67,20 @@ public static class TextReport
         }
     }
 
+    /// <summary>One "note:" line per item a command did not compare (M50). At most 20; a last line counts the rest, which the JSON lists.</summary>
+    public static void WriteNotCompared(IReadOnlyList<string> lines, TextWriter error)
+    {
+        foreach (var line in lines.Take(MaxNotes))
+        {
+            error.WriteLine($"note: {Clean(line)}");
+        }
+
+        if (lines.Count > MaxNotes)
+        {
+            error.WriteLine($"note: and {lines.Count - MaxNotes} more not compared (--format json lists them all)");
+        }
+    }
+
     internal static string Summary(AnalysisResult result) =>
         $"{Count(result.Solutions.Count, "solution")}, {Count(result.Errors, "error")}, {Count(result.Warnings, "warning")}{(result.Baselined > 0 ? $", {result.Baselined} baselined" : "")}";
 

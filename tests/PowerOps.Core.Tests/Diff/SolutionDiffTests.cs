@@ -392,6 +392,95 @@ public class SolutionDiffTests
             Diff(WithAgents(B.Agent(tools: [B.Tool(mcp: false)])), WithAgents(B.Agent(tools: [B.Tool(mcp: true)]))));
     }
 
+    private static IReadOnlyList<string> NotCompared(Solution a, Solution b) => SolutionDiff.Compare(a, b).NotCompared;
+
+    private static Agent NewUi(string name = "demo_agent", params AgentComponent[] other) => B.Agent(name, instructions: null, recognizer: "CLICopilotRecognizer") with { OtherComponents = other };
+
+    private static AgentComponent Other(string? kind, string name) => new(kind, $"botcomponents/{name}/data");
+
+    [Fact]
+    public void Instructions_not_read_in_either_version_of_a_kept_agent_are_listed()
+    {
+        Assert.Equal(
+            ["agent 'demo_agent': instructions not compared: neither version has a single Custom GPT component whose instructions are text"],
+            NotCompared(WithAgents(NewUi()), WithAgents(NewUi())));
+        Assert.Equal(
+            ["agent 'demo_agent': instructions not compared: the old version has no single Custom GPT component whose instructions are text"],
+            NotCompared(WithAgents(NewUi()), WithAgents(B.Agent())));
+        Assert.Equal(
+            ["agent 'demo_agent': instructions not compared: the new version has no single Custom GPT component whose instructions are text"],
+            NotCompared(WithAgents(B.Agent()), WithAgents(NewUi("DEMO_AGENT"))));
+    }
+
+    [Fact]
+    public void Agents_are_listed_in_name_order_and_a_duplicate_name_uses_the_first()
+    {
+        var first = NewUi("demo_agent", Other("McpTool", "demo_agent.tool.Docs"));
+        var duplicate = NewUi("DEMO_AGENT", Other("IQCapability", "demo_agent.iq.mail"));
+
+        Assert.Equal(
+            [
+                "agent 'a_agent': instructions not compared: neither version has a single Custom GPT component whose instructions are text",
+                "agent 'demo_agent': instructions not compared: neither version has a single Custom GPT component whose instructions are text",
+                "agent 'demo_agent': 1 component not read as tools, so a change to it is not compared: 1 'McpTool'",
+            ],
+            NotCompared(WithAgents(first, duplicate, NewUi("a_agent")), WithAgents(first, duplicate, NewUi("a_agent"))));
+    }
+
+    [Fact]
+    public void A_long_agent_name_is_cut()
+    {
+        var name = new string('n', 150);
+
+        Assert.StartsWith($"agent '{new string('n', 100)}…': instructions not compared", Assert.Single(NotCompared(WithAgents(NewUi(name)), WithAgents(NewUi(name)))));
+    }
+
+    [Fact]
+    public void A_standard_agent_and_no_agent_list_nothing()
+    {
+        Assert.Empty(NotCompared(WithAgents(B.Agent(tools: [B.Tool()])), WithAgents(B.Agent(instructions: "Other.", tools: [B.Tool(mcp: true)]))));
+        Assert.Empty(NotCompared(B.Empty(), B.Empty()));
+    }
+
+    [Fact]
+    public void An_added_agent_gets_no_instructions_line_but_its_other_components_are_listed()
+    {
+        Assert.Equal(
+            ["agent 'demo_agent': 1 component not read as tools, so a change to it is not compared: 1 'McpTool'"],
+            NotCompared(B.Empty(), WithAgents(NewUi("demo_agent", Other("McpTool", "demo_agent.tool.Docs")))));
+        Assert.Equal(
+            ["agent 'demo_agent': 1 component not read as tools, so a change to it is not compared: 1 'McpTool'"],
+            NotCompared(WithAgents(NewUi("demo_agent", Other("McpTool", "demo_agent.tool.Docs"))), B.Empty()));
+    }
+
+    [Fact]
+    public void Other_components_are_counted_once_across_versions_by_kind_and_a_removed_one_still_counts()
+    {
+        AgentComponent[] v1 = [Other("McpTool", "a.tool.Docs"), Other("McpTool", "a.tool.Work"), Other("IQCapability", "a.iq.mail"), Other(null, "a.odd")];
+        AgentComponent[] v2 = [Other("McpTool", "A.TOOL.DOCS"), Other("IQCapability", "a.iq.mail"), Other(null, "a.odd")];
+
+        Assert.Equal(
+            [
+                "agent 'demo_agent': instructions not compared: neither version has a single Custom GPT component whose instructions are text",
+                "agent 'demo_agent': 4 components not read as tools, so a change to them is not compared: 1 'IQCapability', 2 'McpTool', 1 with no kind",
+            ],
+            NotCompared(WithAgents(NewUi("demo_agent", v1)), WithAgents(NewUi("demo_agent", v2))));
+    }
+
+    [Fact]
+    public void Unread_tool_files_are_listed_and_a_long_kind_is_cut()
+    {
+        var unread = B.Agent(unread: ["botcomponents/demo_agent.topic.Odd/data"]);
+        var odd = B.Agent("demo_two") with { OtherComponents = [Other(new string('k', 150), "demo_two.x")] };
+
+        Assert.Equal(
+            [
+                "agent 'demo_agent': 1 component not read as tools, so a change to it is not compared: 1 'TaskDialog' with keys PowerOps can't map",
+                $"agent 'demo_two': 1 component not read as tools, so a change to it is not compared: 1 '{new string('k', 100)}…'",
+            ],
+            NotCompared(WithAgents(unread, odd), WithAgents(unread, odd)));
+    }
+
     [Fact]
     public void An_added_or_removed_agent_has_no_risk_of_its_own_beyond_removed_component()
     {

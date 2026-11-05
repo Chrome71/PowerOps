@@ -38,6 +38,10 @@
 | warning | [PO011](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md) | Workflows/LikeQuote-90D90640-11BC-EC11-983F-0022483403A3.json | Flow 'Like Quote' is turned off. | Turn the flow on before export, or remove it from the solution if it is no longer needed. |
 | warning | [PO011](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md) | Workflows/Smplerligforsk-37443C82-D03D-ED11-9DB0-0022482E56BE.json | Flow 'SÆmple Ø ærlig forsøk' is turned off. | Turn the flow on before export, or remove it from the solution if it is no longer needed. |
 
+Not checked:
+
+- PO014 and PO018 not checked for canvas app 'CanvasApps/cat\_devopskitsamplecanvasapp\_c7ec5\_DocumentUri.msapp': no Src/\*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).
+
 ### tests/fixtures/coe-auditlogs: CenterofExcellenceAuditLogs 3.27.2
 
 | Severity | Rule | File | Message | Fix |

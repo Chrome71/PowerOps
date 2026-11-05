@@ -123,6 +123,9 @@ public class DriftReportTests
                   "expected": null,
                   "actual": null
                 }
+              ],
+              "notCompared": [
+                "2 Test: layers not read, so unmanaged layers there are not checked"
               ]
             }
 
@@ -135,6 +138,7 @@ public class DriftReportTests
     {
         Assert.Equal(
             "## PowerOps drift\n\n**demo: 2 drift items**\n\n" +
+            "**Not compared:**\n\n- 2 Test: layers not read, so unmanaged layers there are not checked\n\n" +
             "| Position | Environment | Source | Version | Managed | Layers read |\n|---|---|---|---|---|---|\n" +
             "| 1 | Dev | live | 1.0.0.0 | managed | yes |\n" +
             "| 2 | Test | snapshot | 2.0.0.0 | managed | no |\n\n" +
@@ -155,7 +159,7 @@ public class DriftReportTests
         Assert.Equal(6, text.Count(c => c == '\n'));
         Assert.Contains("| Te\\|st x |", md);
         Assert.DoesNotContain("Te|st", md);
-        Assert.Equal(14, md.Count(c => c == '\n'));
+        Assert.Equal(18, md.Count(c => c == '\n')); // 4 of them for the not-compared list, whose line names the environment
     }
 
     [Fact]

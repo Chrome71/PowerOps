@@ -13,7 +13,11 @@ public enum ChangeKind { Added, Removed, Changed }
 /// <summary>One difference. <paramref name="Key"/> is the identity used to match components (never a file path); <paramref name="Name"/> is a display name when the key is an id.</summary>
 public sealed record Change(ChangeKind Kind, string Component, string Key, string? Name, string? Detail, IReadOnlyList<string> Risks);
 
-public sealed record DiffResult(Solution Old, Solution New, IReadOnlyList<Change> Changes);
+public sealed record DiffResult(Solution Old, Solution New, IReadOnlyList<Change> Changes)
+{
+    /// <summary>What the two solutions hold that the diff means to compare but couldn't read, one sentence each; empty when it read all of it.</summary>
+    public IReadOnlyList<string> NotCompared { get; init; } = [];
+}
 
 /// <summary>Stable ids of the risk labels on a <see cref="Change"/>.</summary>
 public static class Risk
@@ -97,7 +101,42 @@ public static class SolutionDiff
             t => t.SchemaName, _ => null, Risk.AgentTool,
             (a, b) => Differences(("action", a.Action, b.Action), ("mcp", a.Mcp.ToString().ToLowerInvariant(), b.Mcp.ToString().ToLowerInvariant()), ("mode", a.Mode, b.Mode))));
 
-        return new DiffResult(old, @new, changes);
+        return new DiffResult(old, @new, changes) { NotCompared = NotCompared(old, @new) };
+    }
+
+    // The agents whose instructions or possible tools the reader didn't read, so a change to them can't show above (M50 decisions Q1, Q11).
+    // Agents are matched like the `agent` block (ignoring case, the first of a duplicate name); a file in both versions counts once, with the old version's kind.
+    private static List<string> NotCompared(Solution old, Solution @new)
+    {
+        var notes = new List<string>();
+        foreach (var name in old.Agents.Concat(@new.Agents).Select(a => a.SchemaName).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase))
+        {
+            var (a, b) = (Find(old, name), Find(@new, name));
+            var shown = Truncate(name, 100);
+            if (a is not null && b is not null && (a.Instructions is null || b.Instructions is null))
+            {
+                var which = a.Instructions is null && b.Instructions is null ? "neither version has a" : a.Instructions is null ? "the old version has no" : "the new version has no";
+                notes.Add($"agent '{shown}': instructions not compared: {which} single Custom GPT component whose instructions are text");
+            }
+
+            var kinds = new[] { a, b }.OfType<Agent>()
+                .SelectMany(x => x.OtherComponents.Select(c => (c.File, Kind: c.Kind is null ? "with no kind" : $"'{Truncate(c.Kind, 100)}'"))
+                    .Concat(x.UnreadFiles.Select(f => (File: f, Kind: "'TaskDialog' with keys PowerOps can't map"))))
+                .DistinctBy(c => c.File, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(c => c.Kind)
+                .OrderBy(g => g.Key, StringComparer.Ordinal)
+                .Select(g => (g.Key, Count: g.Count()))
+                .ToList();
+            if (kinds.Count > 0)
+            {
+                var n = kinds.Sum(k => k.Count);
+                notes.Add($"agent '{shown}': {n} component{(n == 1 ? "" : "s")} not read as tools, so a change to {(n == 1 ? "it" : "them")} is not compared: {string.Join(", ", kinds.Select(k => $"{k.Count} {k.Key}"))}");
+            }
+        }
+
+        return notes;
+
+        static Agent? Find(Solution s, string name) => s.Agents.FirstOrDefault(a => string.Equals(a.SchemaName, name, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string Pub(Publisher p) => $"{p.UniqueName} ({p.Prefix})";

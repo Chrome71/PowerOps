@@ -51,6 +51,47 @@ public class SarifReportTests
     }
 
     [Fact]
+    public void Not_checked_lines_are_notes_of_the_invocation_located_at_the_solution_and_validate()
+    {
+        var w = new StringWriter();
+        SarifReport.Write(new AnalysisResult([new SolutionResult("my sol/ö.zip", B.Empty(), []) { NotChecked = ["PO020 not checked for table 'x'.", "PO024 not checked for site map 'y'."] }]), w, "1.2.3");
+        var json = w.ToString();
+
+        Assert.True(IsValid(json));
+        using var doc = JsonDocument.Parse(json);
+        var invocation = Assert.Single(doc.RootElement.GetProperty("runs")[0].GetProperty("invocations").EnumerateArray());
+        Assert.True(invocation.GetProperty("executionSuccessful").GetBoolean());
+        var notes = invocation.GetProperty("toolExecutionNotifications").EnumerateArray().ToList();
+        Assert.Equal(["PO020 not checked for table 'x'.", "PO024 not checked for site map 'y'."], notes.Select(n => n.GetProperty("message").GetProperty("text").GetString()));
+        Assert.All(notes, n => Assert.Equal("note", n.GetProperty("level").GetString()));
+        var location = notes[0].GetProperty("locations")[0].GetProperty("physicalLocation");
+        Assert.Equal("my%20sol/%C3%B6.zip", location.GetProperty("artifactLocation").GetProperty("uri").GetString());
+        Assert.False(location.TryGetProperty("region", out _));
+        Assert.False(invocation.TryGetProperty("workingDirectory", out _)); // the one invocation property GitHub reads
+    }
+
+    [Fact]
+    public void A_note_of_a_solution_at_the_current_folder_has_no_location()
+    {
+        var w = new StringWriter();
+        SarifReport.Write(new AnalysisResult([new SolutionResult(".", B.Empty(), []) { NotChecked = ["PO020 not checked for table 'x'."] }]), w, "1.2.3");
+
+        Assert.True(IsValid(w.ToString()));
+        using var doc = JsonDocument.Parse(w.ToString());
+        Assert.False(doc.RootElement.GetProperty("runs")[0].GetProperty("invocations")[0].GetProperty("toolExecutionNotifications")[0].TryGetProperty("locations", out _));
+    }
+
+    [Fact]
+    public void A_run_with_nothing_unchecked_has_an_empty_notification_list_and_validates()
+    {
+        var json = Sarif("sol");
+
+        Assert.True(IsValid(json));
+        using var doc = JsonDocument.Parse(json);
+        Assert.Empty(doc.RootElement.GetProperty("runs")[0].GetProperty("invocations")[0].GetProperty("toolExecutionNotifications").EnumerateArray());
+    }
+
+    [Fact]
     public void Yaml_findings_point_at_existing_files()
     {
         var w = new StringWriter();

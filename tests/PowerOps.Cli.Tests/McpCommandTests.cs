@@ -255,8 +255,8 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         var expected = Cli(cli);
         Assert.False(result.IsError);
-        // Analyze also returns its notes: alm-sample's .msapp has no Src (M44).
-        Assert.Equal(tool == "analyze" ? 2 : 1, result.Content.Count);
+        // Analyze also returns its notes: alm-sample's .msapp has no Src (M44). Drift returns what it did not compare: the seed holds a table (M50).
+        Assert.Equal(tool is "analyze" or "drift" ? 2 : 1, result.Content.Count);
         Assert.Equal(expected.Out, Text(result));
         Assert.Equal("", OutputSchemaTests.Errors(OutputSchemaTests.Load(schema), JsonNode.Parse(Text(result))!));
     }

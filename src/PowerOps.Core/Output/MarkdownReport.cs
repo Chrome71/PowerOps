@@ -17,14 +17,24 @@ public static class MarkdownReport
             if (s.Findings.Count == 0)
             {
                 writer.Write("No findings.\n");
-                continue;
+            }
+            else
+            {
+                writer.Write("| Severity | Rule | File | Message | Fix |\n|---|---|---|---|---|\n");
+                foreach (var f in s.Findings)
+                {
+                    var severity = f.Severity == Severity.Error ? "error" : "warning";
+                    writer.Write($"| {severity} | [{f.RuleId}]({Analyzer.HelpUri(f.RuleId)}) | {Escape(f.File)} | {Escape(f.Message)} | {Escape(Analyzer.Find(f.RuleId)?.Fix)} |\n");
+                }
             }
 
-            writer.Write("| Severity | Rule | File | Message | Fix |\n|---|---|---|---|---|\n");
-            foreach (var f in s.Findings)
+            if (s.NotChecked.Count > 0)
             {
-                var severity = f.Severity == Severity.Error ? "error" : "warning";
-                writer.Write($"| {severity} | [{f.RuleId}]({Analyzer.HelpUri(f.RuleId)}) | {Escape(f.File)} | {Escape(f.Message)} | {Escape(Analyzer.Find(f.RuleId)?.Fix)} |\n");
+                writer.Write("\nNot checked:\n\n");
+                foreach (var line in s.NotChecked)
+                {
+                    writer.Write($"- {Escape(line)}\n");
+                }
             }
         }
     }

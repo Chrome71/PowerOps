@@ -85,6 +85,46 @@ public static class DriftCompare
             .ToList();
     }
 
+    /// <summary>The types <see cref="ComparePair"/> leaves out by id and compares under no kind of their own, with a name for each.</summary>
+    private static readonly (int Type, string? Name)[] Dropped = [(1, "table"), (62, "site map"), (80, "model-driven app"), (300, "canvas app"), (10087, null)];
+
+    /// <summary>What <see cref="Compare"/> did not compare, one sentence each, in a fixed order (M50 decisions Q7).</summary>
+    public static IReadOnlyList<string> NotCompared(IReadOnlyList<Snapshot> snapshots)
+    {
+        if (snapshots.Count == 0)
+        {
+            return [];
+        }
+
+        var notes = new List<string>();
+        // A pair is the first snapshot and another; only a pair with the solution installed in both compares more than that.
+        var compared = snapshots[0].Installed ? snapshots.Where(s => s.Installed).ToList() : [];
+        if (snapshots.Count == 1)
+        {
+            notes.Add("only one environment was read, so nothing was compared between environments; only its own checks ran");
+        }
+        else if (compared.Count < 2)
+        {
+            notes.Add("no environment has the solution installed together with the first, so only whether it is installed was compared");
+        }
+        else
+        {
+            notes.AddRange(Dropped.Where(d => compared.Any(s => s.Components.Any(c => c.Type == d.Type)))
+                .Select(d => $"component type {d.Type}{(d.Name is null ? "" : $" ({d.Name})")} not compared: its ids change on import, and drift compares components by id"));
+        }
+
+        // This repeats the layers-not-read item on purpose: items are what differs, this list is what wasn't checked.
+        for (var i = 0; i < snapshots.Count; i++)
+        {
+            if (snapshots[i] is { Installed: true, Managed: true, LayersRead: false } s)
+            {
+                notes.Add($"{i + 1} {s.Environment}: layers not read, so unmanaged layers there are not checked");
+            }
+        }
+
+        return notes;
+    }
+
     private static void ComparePair(Snapshot a, Snapshot b, Action<string, string, string?, string?> add)
     {
         if (a.Installed != b.Installed)
@@ -115,7 +155,7 @@ public static class DriftCompare
         // M12 manual run (2026-10-24): a model-driven app (80), its sitemap (62) and its app settings (10087) get new ids too, so they are left out the same way.
         // shortcut: 10087 was AppSetting in both of that run's environments, but codes above 10000 come from solutioncomponentdefinitions and may differ per org; match on its primaryentityname "appsetting" if one does.
         IEnumerable<(int Type, Guid Id)> Keys(Snapshot s) => s.Components
-            .Where(c => !(c.Type == WorkflowType && flowIds.Contains(c.Id)) && !referenceIds.Contains(c.Id) && c.Type is not (1 or 62 or 80 or 300 or 380 or 381 or 10087))
+            .Where(c => !(c.Type == WorkflowType && flowIds.Contains(c.Id)) && !referenceIds.Contains(c.Id) && c.Type is not (380 or 381) && !Dropped.Any(d => d.Type == c.Type))
             .Select(c => (c.Type, c.Id));
         var (ka, kb) = (Keys(a).ToHashSet(), Keys(b).ToHashSet());
         foreach (var c in ka.Except(kb))

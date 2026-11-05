@@ -29,14 +29,15 @@ public static class JsonReport
                 s.Solution.Managed,
                 new Pub(s.Solution.Publisher.UniqueName, s.Solution.Publisher.Prefix),
                 s.Requires,
-                s.Findings.Select(f => new Fin(f.RuleId, f.Severity, f.Message, f.File, f.Component, Analyzer.Find(f.RuleId)?.Fix ?? "", Analyzer.HelpUri(f.RuleId))).ToList())).ToList(),
+                s.Findings.Select(f => new Fin(f.RuleId, f.Severity, f.Message, f.File, f.Component, Analyzer.Find(f.RuleId)?.Fix ?? "", Analyzer.HelpUri(f.RuleId))).ToList(),
+                s.NotChecked)).ToList(),
             new Summary(result.Solutions.Count, result.Errors, result.Warnings, result.Baselined));
         writer.Write(JsonSerializer.Serialize(doc, Options) + "\n");
     }
 
     private sealed record Doc(int SchemaVersion, IReadOnlyList<Sol> Solutions, Summary Summary);
 
-    private sealed record Sol(string Path, string UniqueName, string Version, bool Managed, Pub Publisher, IReadOnlyList<string> Requires, IReadOnlyList<Fin> Findings);
+    private sealed record Sol(string Path, string UniqueName, string Version, bool Managed, Pub Publisher, IReadOnlyList<string> Requires, IReadOnlyList<Fin> Findings, IReadOnlyList<string> NotChecked);
 
     private sealed record Pub(string UniqueName, string Prefix);
 

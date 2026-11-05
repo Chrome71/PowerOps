@@ -599,6 +599,31 @@ public class AnalyzeCommandTests : IDisposable
     }
 
     [Fact]
+    public void NotChecked_reaches_json_and_sarif()
+    {
+        var folder = AlmWithAgent("cli-agent-json", "CLICopilotRecognizer");
+        const string Line = "PO027 to PO031 not checked for agent 'demo_agent': its recognizer is 'CLICopilotRecognizer', not GenerativeAIRecognizer or VirtualAgentsRecognizer, so it may not run on the standard harness that these rules read.";
+        var baseline = Path.Combine(_temp, "baseline.json");
+        Assert.Equal(0, Run("baseline", folder, "--out", baseline).Code);
+
+        foreach (var extra in new[] { Array.Empty<string>(), ["--baseline", baseline] })
+        {
+            using var json = JsonDocument.Parse(Run(["analyze", folder, "--format", "json", "--fail-on", "none", .. extra]).Out);
+            Assert.Contains(Line, json.RootElement.GetProperty("solutions")[0].GetProperty("notChecked").EnumerateArray().Select(e => e.GetString()));
+
+            using var sarif = JsonDocument.Parse(Run(["analyze", folder, "--format", "sarif", "--fail-on", "none", .. extra]).Out);
+            var invocation = Assert.Single(sarif.RootElement.GetProperty("runs")[0].GetProperty("invocations").EnumerateArray());
+            Assert.True(invocation.GetProperty("executionSuccessful").GetBoolean());
+            var note = Assert.Single(invocation.GetProperty("toolExecutionNotifications").EnumerateArray(), n => n.GetProperty("message").GetProperty("text").GetString() == Line);
+            Assert.Equal("note", note.GetProperty("level").GetString());
+
+            var markdown = Run(["analyze", folder, "--format", "markdown", "--fail-on", "none", .. extra]).Out;
+            Assert.Contains("\nNot checked:\n\n- ", markdown);
+            Assert.Contains("\n- PO027 to PO031 not checked for agent 'demo\\_agent'", markdown);
+        }
+    }
+
+    [Fact]
     public void An_agent_outside_the_standard_harness_prints_the_note_on_stderr_and_exits_as_before()
     {
         var plain = Run("analyze", AlmSample, "--fail-on", "error");

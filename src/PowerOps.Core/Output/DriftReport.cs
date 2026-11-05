@@ -51,7 +51,8 @@ public static class DriftReport
             solution,
             HasDrift(items),
             envs.Select((e, i) => new Env(i + 1, e.Environment, sources[i], e.Installed, e.Version, e.Managed, e.LayersRead)).ToList(),
-            items);
+            items,
+            DriftCompare.NotCompared(envs));
         writer.Write(JsonSerializer.Serialize(doc, Options) + "\n");
     }
 
@@ -60,6 +61,18 @@ public static class DriftReport
     {
         static string E(string? s) => MarkdownReport.Escape(s);
         var text = new StringBuilder($"## PowerOps drift\n\n**{E(solution)}: {E(Summary(items))}**\n\n");
+        var notCompared = DriftCompare.NotCompared(envs);
+        if (notCompared.Count > 0)
+        {
+            text.Append("**Not compared:**\n\n");
+            foreach (var line in notCompared)
+            {
+                text.Append($"- {E(line)}\n");
+            }
+
+            text.Append('\n');
+        }
+
         text.Append("| Position | Environment | Source | Version | Managed | Layers read |\n|---|---|---|---|---|---|\n");
         for (var i = 0; i < envs.Count; i++)
         {
@@ -85,7 +98,7 @@ public static class DriftReport
         return n == 0 ? "no drift" : $"{n} drift item{(n == 1 ? "" : "s")}";
     }
 
-    private sealed record Doc(int SchemaVersion, string Solution, bool Drift, IReadOnlyList<Env> Environments, IReadOnlyList<DriftItem> Items);
+    private sealed record Doc(int SchemaVersion, string Solution, bool Drift, IReadOnlyList<Env> Environments, IReadOnlyList<DriftItem> Items, IReadOnlyList<string> NotCompared);
 
     private sealed record Env(int Position, string Name, string Source, bool Installed, string? Version, bool? Managed, bool LayersRead);
 }

@@ -27,6 +27,14 @@ public class DriftCommandTests : IDisposable
 
     private sealed record Outcome(int Code, string Out, string Err, List<string> Calls);
 
+    // What drift did not compare goes to stderr (M50): the seed snapshots hold a table, and one environment compares nothing between environments.
+    private const string TableNote = "note: component type 1 (table) not compared: its ids change on import, and drift compares components by id\n";
+
+    // The capture also holds canvas apps.
+    private const string CaptureNotes = TableNote + "note: component type 300 (canvas app) not compared: its ids change on import, and drift compares components by id\n";
+
+    private const string OneEnvNote = "note: only one environment was read, so nothing was compared between environments; only its own checks ran\n";
+
     private static Outcome Run(IDictionary<string, Snapshot>? live, params string[] args)
     {
         var (o, e, calls) = (new StringWriter(), new StringWriter(), new List<string>());
@@ -73,7 +81,7 @@ public class DriftCommandTests : IDisposable
         var r = Run(Pair(Dev, Twin), [.. Args("a", "b"), "--format", "json"]);
 
         Assert.Equal(0, r.Code);
-        Assert.Equal("", r.Err);
+        Assert.Equal(TableNote, r.Err);
         Assert.Equal(["PowerOpsSeed|a", "PowerOpsSeed|b"], r.Calls);
         Assert.Equal(0, Run(Pair(Dev, Twin), Args("a", "b")).Code);
         Assert.EndsWith("no drift\n", Run(Pair(Dev, Twin), Args("a", "b")).Out);
@@ -98,7 +106,7 @@ public class DriftCommandTests : IDisposable
         {
             var r = RunLive(Capture.Fakes("edited"), [.. Args(Capture.DevEnv, Capture.TestEnv), "--format", format]);
             Assert.Equal(1, r.Code);
-            Assert.Equal("", r.Err);
+            Assert.Equal(CaptureNotes, r.Err);
             Golden.Verify(r.Out, golden);
         }
     }
@@ -109,7 +117,7 @@ public class DriftCommandTests : IDisposable
         var r = RunLive(Capture.Fakes("clean"), [.. Args(Capture.DevEnv, Capture.TestEnv), "--format", "json"]);
 
         Assert.Equal(0, r.Code);
-        Assert.Equal("", r.Err);
+        Assert.Equal(CaptureNotes, r.Err);
         Golden.Verify(r.Out, "drift-none.json");
     }
 
@@ -119,7 +127,7 @@ public class DriftCommandTests : IDisposable
         var r = Run(null, "drift", "--solution", "PowerOpsSeed", "--env", DevFile, "--env", TestFile);
 
         Assert.Equal(1, r.Code);
-        Assert.Equal("", r.Err);
+        Assert.Equal(TableNote, r.Err);
         Assert.Contains("unmanaged-layer Notify on new work item", r.Out);
     }
 
@@ -180,7 +188,7 @@ public class DriftCommandTests : IDisposable
         var r = Run(null, Args(file, DevFile));
 
         Assert.Equal(0, r.Code);
-        Assert.Equal("", r.Err);
+        Assert.Equal(TableNote, r.Err);
     }
 
     [Fact]
@@ -366,7 +374,7 @@ public class DriftCommandTests : IDisposable
         var r = Run(new Dictionary<string, Snapshot> { ["a"] = Dev }, [.. Args("a"), "--save", OneEnvSave, "--format", "json"]);
 
         Assert.Equal(0, r.Code);
-        Assert.Equal("", r.Err);
+        Assert.Equal(OneEnvNote, r.Err);
         Assert.Equal(["PowerOpsSeed|a"], r.Calls);
         Assert.Equal(SnapshotFile.Write(Dev), File.ReadAllText(Path.Combine(OneEnvSave, "PowerOpsSeed.Contoso Dev.json")));
         Golden.Verify(r.Out, "drift-one-env.json");
@@ -384,7 +392,7 @@ public class DriftCommandTests : IDisposable
         var r = Run(new Dictionary<string, Snapshot> { ["a"] = snapshot }, [.. Args("a"), "--save", OneEnvSave]);
 
         Assert.Equal(1, r.Code);
-        Assert.Equal("", r.Err);
+        Assert.Equal(OneEnvNote, r.Err);
         Assert.Contains(problem == "layer" ? "unmanaged-layer" : "reference-unbound", r.Out);
         Assert.Single(Directory.GetFiles(OneEnvSave));
     }
@@ -431,7 +439,7 @@ public class DriftCommandTests : IDisposable
         var r = Run(null, Args(Path.Combine(OneEnvSave, "PowerOpsSeed.Contoso Dev.json"), TestFile));
 
         Assert.Equal(1, r.Code);
-        Assert.Equal("", r.Err);
+        Assert.Equal(TableNote, r.Err);
         Assert.Equal(Run(null, Args(DevFile, TestFile)).Out, r.Out);
     }
 
@@ -477,7 +485,7 @@ public class DriftCommandTests : IDisposable
         var r = RunLive(fakes, Args(DevEnv, TestEnv));
 
         Assert.Equal(0, r.Code);
-        Assert.Equal("", r.Err);
+        Assert.Equal(TableNote, r.Err);
         Assert.Contains("(info)", r.Out);
         Assert.EndsWith("no drift\n", r.Out);
         Assert.Equal([["org", "who", "--environment", DevEnv], ["org", "who", "--environment", TestEnv]], fakes.PacCalls);

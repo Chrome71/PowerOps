@@ -68,6 +68,8 @@ public static class DiffCommand
             var context = new LoadContext();
             var result = SolutionDiff.Compare(SolutionLoader.Load(paths[0], context), SolutionLoader.Load(paths[1], context));
             TextReport.WriteNotes(context.SkippedLinks, error);
+            TextReport.WriteNotCompared(result.NotCompared, error);
+
             var report = new StringWriter();
             if (format == "json")
             {

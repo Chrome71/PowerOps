@@ -27,8 +27,11 @@ public static class SarifReport
         var rules = Analyzer.Rules;
         var ids = rules.Select(r => r.Id).ToList();
         var results = new List<Res>();
+        var notes = new List<Note>();
         foreach (var s in result.Solutions)
         {
+            // A check a rule did not do is a runtime condition of the run, not a result (M50 decisions Q4).
+            notes.AddRange(s.NotChecked.Select(line => new Note("note", new Msg(line), s.Path == "." ? null : [new Loc(new Phys(new Art(EscapePath(s.Path)), null), null)])));
             var zip = s.Path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
             foreach (var f in s.Findings)
             {
@@ -55,7 +58,7 @@ public static class SarifReport
                 Analyzer.HelpUri(r.Id),
                 new Msg(r.Fix),
                 new Config(Level(r.Severity)))).ToList());
-        var log = new Log("https://json.schemastore.org/sarif-2.1.0.json", "2.1.0", [new Run(new Tool(driver), results)]);
+        var log = new Log("https://json.schemastore.org/sarif-2.1.0.json", "2.1.0", [new Run(new Tool(driver), [new Invocation(true, notes)], results)]);
         writer.Write(JsonSerializer.Serialize(log, Options) + "\n");
     }
 
@@ -66,7 +69,11 @@ public static class SarifReport
 
     private sealed record Log([property: JsonPropertyName("$schema")] string Schema, string Version, IReadOnlyList<Run> Runs);
 
-    private sealed record Run(Tool Tool, IReadOnlyList<Res> Results);
+    private sealed record Run(Tool Tool, IReadOnlyList<Invocation> Invocations, IReadOnlyList<Res> Results);
+
+    private sealed record Invocation(bool ExecutionSuccessful, IReadOnlyList<Note> ToolExecutionNotifications);
+
+    private sealed record Note(string Level, Msg Message, IReadOnlyList<Loc>? Locations);
 
     private sealed record Tool(Driver Driver);
 
@@ -82,7 +89,7 @@ public static class SarifReport
 
     private sealed record Loc(Phys PhysicalLocation, IReadOnlyList<Logical>? LogicalLocations);
 
-    private sealed record Phys(Art ArtifactLocation, Region Region);
+    private sealed record Phys(Art ArtifactLocation, Region? Region);
 
     private sealed record Art(string Uri);
 

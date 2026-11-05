@@ -13,5 +13,8 @@
       "layersRead": true
     }
   ],
-  "items": []
+  "items": [],
+  "notCompared": [
+    "only one environment was read, so nothing was compared between environments; only its own checks ran"
+  ]
 }

@@ -443,7 +443,7 @@ public class WritePathsTests : IDisposable
 
         Assert.Equal(3, code);
         Assert.Equal("", output);
-        Assert.Equal($"error: {report}: {SafeWrite.LinkReason}", Assert.Single(Lines(error)));
+        Assert.Equal($"error: {report}: {SafeWrite.LinkReason}", Assert.Single(Lines(error), l => !l.StartsWith("note: ", StringComparison.Ordinal)));
         Assert.Equal("victim", File.ReadAllText(victim));
         Assert.Equal(victim, new FileInfo(report).LinkTarget);
     }
@@ -499,7 +499,7 @@ public class WritePathsTests : IDisposable
             "drift", "--solution", "PowerOpsSeed", "--env", "a", "--env", "b", "--save", save);
 
         Assert.Equal(0, code);
-        Assert.Equal("", error);
+        Assert.All(Lines(error), l => Assert.StartsWith("note: ", l)); // what drift did not compare (M50)
         Assert.True(File.Exists(Path.Combine(_temp, "snaps", "PowerOpsSeed.Alpha.json")));
         Assert.Equal([Path.Combine(_temp, "sub", "deep")], Directory.GetFileSystemEntries(Path.Combine(_temp, "sub")));
         Assert.Empty(Directory.GetFileSystemEntries(Path.Combine(_temp, "sub", "deep")));

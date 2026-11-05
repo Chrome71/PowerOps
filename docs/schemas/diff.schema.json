@@ -4,7 +4,7 @@
   "title": "powerops diff --format json",
   "description": "The JSON written by 'powerops diff --format json': the changes between two versions of a solution, grouped by component kind in a fixed order and sorted by key.",
   "type": "object",
-  "required": ["schemaVersion", "old", "new", "changes", "summary"],
+  "required": ["schemaVersion", "old", "new", "changes", "notCompared", "summary"],
   "properties": {
     "schemaVersion": { "const": 2, "description": "Version of this output format." },
     "old": { "$ref": "#/$defs/solution" },
@@ -30,6 +30,11 @@
           }
         }
       }
+    },
+    "notCompared": {
+      "type": "array",
+      "description": "What the two solutions hold that diff means to compare but couldn't read, one sentence each, also printed as note: lines on stderr: an agent whose instructions aren't read (no single Custom GPT component whose instructions are text) and an agent's components it doesn't read as tools. Empty when it read all of it. Kinds diff never compares (tables, forms and so on) are not listed; docs/COMMANDS.md names them.",
+      "items": { "type": "string" }
     },
     "summary": {
       "type": "object",
