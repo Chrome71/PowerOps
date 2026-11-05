@@ -66,6 +66,14 @@ PO034's fix says to check whether the role's users need the privilege before rem
 ### Q1, kept (R7)
 The 15 other documented templates count as non-admin roles, `Support` and `Proxy` included. The effect is a missed finding, never a false one, and judging each template's privileges would need lists Learn doesn't give. The PO032 page says so. (answered by: agent m60 build session)
 
+## Round 4 (from the review's second pass)
+
+### R10. A cited page not in the Log
+"Security roles and privileges for Dataverse" was checked on 2026-11-05 with the Learn MCP tools: it lists the table privileges Create, Read, Write, Delete, Append, Append To, Assign and Share, and says a role should grant privileges for each table related to the application. The same search found "Verifying access in code", which gives the naming pattern of table privileges (`prv` + verb + table schema name); the PO033 and PO034 pages now cite it, where they called the pattern observed only. The plan's Assumptions are unchanged: what they say is still true. (answered by: agent m60 build session)
+
+### R11. "1 of the tables ... are"
+Kept: PO025's note has the same form (`<n> of its custom pages have`), and one sentence for every count keeps the note matchable. (answered by: agent m60 build session)
+
 ## Log
 
 - Learn checked 2026-11-05 with the Learn MCP tools: "Security roles and templates", "Privileges required to view and access apps", "Create or edit a security role" (minimum privileges), "Configure user security in an environment", the App for Outlook troubleshooting page (privilege names) and the User Settings table reference
@@ -79,3 +87,6 @@ The 15 other documented templates count as non-admin roles, `Support` and `Proxy
 - the code built by an implementer subagent (Sonnet, `powerops-implementer`) in this worktree from rows 1 to 10, 12 and 13, test first; then the PO034 note was reworded so it reads for one table too (`<n> of the tables it can create or write are used by no component PowerOps reads`), in the plan, the rule page and the tests
 - goldens updated 2026-11-05 by "Update goldens", and the diff read: `rules.*` gain PO032 to PO034; `analyze-fixtures.*` go from 16 solutions and 50 warnings to 17 and 61. `alm-sample` gains PO032 (its app) and PO033 (`ALM Accelerator Sample Role`), and its PO034 note (a plugin assembly) is in the JSON, SARIF and Markdown `notChecked`; each `ColumnLevelSecuritySample` zip, which had no findings, gains PO033 and PO034 (SharePointData, Create and Write); `equipment-checkout` gives PO032 once, PO033 twice and PO034 twice. Every other fixture is unchanged, no SARIF `ruleIndex` moved, and `selftest.txt` was restored
 - eval check 2026-11-05 with the built CLI on each case, as `RoleEvalTests.LiveBaseline` runs it: `solution-02` to `solution-05` unchanged; in `solution-01`, `solution-06`, `solution-07` and `solution-08` only the `analyze` section changes, `no findings` and `0 warnings` giving way to one PO033 line per role (1, 1, 2 and 2), exit code 0 as before; `test`, `diff` and `settings validate` unchanged. So the build stops under Done when 8; nothing under `tests/eval` was edited
+- the same reviewer's second pass 2026-11-05 at `3d2e032`: R1 to R9 hold (R7 and R9 accepted as stated limits); the suite ran in a scratch copy, 3,927 tests, only the two `RoleEvalTests` of Done when 8 failing; 0 High, 0 Medium, 2 Low new (R10, R11), answered in Round 4. In all: 0 High, 3 Medium and 8 Low, none open
+- signed off 2026-11-05 by the building session under the user's delegation of 2026-10-22, with no High or Medium finding open (`powerops plan sign-off`; `signed-off-hash` equals `review.md`'s `plan-hash`)
+- stopped under Done when 8 on 2026-11-05: committed locally on `claude/m60-role-rules-a266b7`, nothing pushed, no PR opened, nothing under `tests/eval` edited. The person decides on the eval rerun and the baseline update for `solution-01`, `solution-06`, `solution-07` and `solution-08`

@@ -1,10 +1,16 @@
-plan-hash: 5dffb0946ab075d15c5a8fbc489100d8ad383dcda46db728dcc5d20b029afbf4
+plan-hash: c2da9d902d04d9032b5ca5968d0ca39b79822c43ef687476b8ceedceb34752bb
 model: claude-sonnet-5-5
 fresh-context: yes
 
 Environment facts were not read: this plan changes this repo and targets no environment, so `pac` was not used and `powerops plan facts` was not run. Checklist items 1 to 7 (solution boundaries, connection references, licences, DLP, route, managed or unmanaged, delegation) do not apply; the review covers items 8 to 11 and whether the plan is correct, complete and buildable. Open questions: 0. The plan body hash from `plan status --json` matches the hash above, and the working-tree plan equals the one committed in `132f22b`.
 
-Checked and found fine:
+Second pass, at `3d2e032` (code, tests, rule pages and goldens built). The plan body hash is the one above (confirmed with `plan status --json`; `review` is still `pending`, so `status` calls this review stale until it is set). Checks of this pass:
+- Tests in a scratch copy of `3d2e032`: 3927 run, 3920 pass, 2 fail, and the two are exactly `RoleEvalTests.Every_solution_case_has_a_baseline_file_that_matches_the_live_output` and `RoleEvalTests.Analyze_test_and_settings_validate_report_nothing_on_the_clean_solution_cases`, the expected stop under Done when 8. `dotnet format --verify-no-changes` is clean.
+- `git diff --stat 0fb8f3d 3d2e032` touches nothing under `tests/eval`, `skills/` or `plugins/`, no version file and no changelog.
+- Code against the plan: the titles, messages, fixes and the three note texts of PO032 to PO034 equal the plan's tables character for character (the same strings are in the rule pages and the goldens). `SecurityRoles` holds 17 template ids that equal Learn's list. Reading in `SolutionParser` is path-ordinal, with `DistinctBy` on the normalized id, so `X.xml` precedes `X_managed.xml` and the folder precedes `customizations.xml`. PO032 sorts apps by file, ignores case and braces on both sides, and its finding and note conditions cannot both hold. PO034 matches the used set ignoring case, takes the first spelling of a table in file order, orders tables ordinal-ignore-case, names the verbs per table, and gives findings or one note per role, never both. I found no false-finding or ordering bug.
+- Goldens: `rules.*` gain three entries; `analyze-fixtures.*` go from 16 solutions and 50 warnings to 17 and 61, which is 2 (alm-sample) + 5 (equipment-checkout) + 4 (two zips); the PO034 note of alm-sample is in the JSON, SARIF and Markdown `notChecked`; no other fixture changed. This equals the Log line.
+
+Checked and found fine at the first pass:
 - Learn: the page "Security roles and templates" lists 17 template ids, of which `SystemAdmin` and `Customizer` are the first two, and says they are unique and constant in all environments while role ids are not. The two ids in the fixture's role map equal them ignoring case and braces. "Privileges required to view and access apps" says what the plan quotes (Basic User read only; System Administrator, System Customizer and Environment Maker open every app). The App for Outlook page lists `prvReadAppModule`, `prvReadUser` and `prvReadUserQuery`. "Create or edit a security role" lists the minimum privileges as the plan says.
 - The fixture holds what Data row 9 says. It is scrubbed (publisher renamed, no URL, email, user name or environment id; role ids fake; the app's web resource id and site map component removed; the only other GUIDs are the two public template ids). Run unmodified at `132f22b`, `analyze` gives "no findings" on it, so its goldens change only by the new rules. By reading it, PO032 fires once, PO033 twice (no role holds any of the three privileges), PO034 twice (SharePointData, Create and Write, since `pops_loan` is a root component), and no note applies, as Data row 9 says.
 - The predicted deltas hold. Existing role-bearing inputs are `alm-sample` (role plus an app mapping only the two admin ids; a type-91 root component, so the PO034 note), the two `ColumnLevelSecuritySample` zips (one role each, no app module, no plugin, so PO033 and a PO034 finding), and the eval cases 01, 06, 07 and 08 (six roles, none holding the three privileges, all Write on `pops_workitem`, a root component; the two apps map their own role ids). No other fixture, zip or eval case, `Contoso_sample` and `polymorphiclookup` included, holds a role or a role map. The baselines are produced by `RoleEvalTests.LiveBaseline` as stdout plus a `stderr:` block, so only PO033 findings change `analyze` there (none of the four cases would emit a note); the `test`, `diff` and `settings validate` sections do not change. None of the keyed flaws in those four cases is about app-opening privileges, so the key's `baseline` fields do not need to change.
@@ -19,58 +25,74 @@ No findings.
 
 ### Medium
 
-#### R1. Adding the fixture breaks existing tests that the plan does not list
-- Area: 9 Testability (Data row 11, Steps 3 and 5)
-- Finding: I ran the existing suite on a copy of `132f22b` (fixture present, no code change). Eight tests fail beyond the golden ones the plan names (`ReportTests`): `SolutionDiscoveryTests.Finds_fixture_folders_and_zips_sorted` (a hard-coded list), `AnalyzeCommandTests.Json_output_parses_and_has_sixteen_solutions`, `AnalyzeCommandTests` markdown `StartsWith("## PowerOps analyze\n\n**16 solutions, ")` and its 16-element array check, and `PackedToolTests.Packed_tool_analyzes_fixtures` (16 becomes 17). Row 11 says only the goldens change, and "Update goldens" mode does not fix these. The build would stop at Step 5 with failing tests the plan never mentions.
-- Suggested fix: add to row 11 (or a row 13) the edits to these four tests (list, count 17 and the markdown prefix), and say that the "analyze-fixtures" goldens also gain one solution and the summary line changes.
-- Resolution: open
-
-#### R2. "The three privileges Learn names for opening a model-driven app" overstates the source
-- Area: 8 Security roles (Done when 3, Goal, rule page)
-- Finding: The three `prv` names come from the table of the Dynamics 365 App for Outlook troubleshooting page, which lists what that add-in needs. "Privileges required to view and access apps" names only "Read on the Model-driven App table", and "Create or edit a security role" names "Read Saved View" and "Read User" in words, with no `prv` names; both pages say App Opener is how a user opens an app. The mapping of those words to `prvReadAppModule`, `prvReadUserQuery` and `prvReadUser` is the plan's inference (the Assumptions say Learn "doesn't list App Opener's privileges by name", but Done when 3 and the Goal say Learn names them for opening an app). The rule page's "Why it matters" must not state it as Learn's. Also "a role that holds any one of the three is quiet" means the rule is far weaker than Learn's "minimum" (all of them); the page should say so.
-- Suggested fix: reword Done when 3 to "the three privileges whose names appear on Learn's App for Outlook page and that match the minimum privileges in words on the create-or-edit page", state in the PO033 page which part is Learn's and which is the inference, and say that holding any one of them silences the rule.
-- Resolution: open
-
-#### R3. PO034 will fire on a privilege pair that every observed role-editor role holds
-- Area: 8 Security roles, 11 Size (rows 7, 9, 10)
-- Finding: Create and Write on SharePointData appear in all four role-bearing exports read (the run's two roles, `alm-sample`, both `ColumnLevelSecuritySample` zips); only `alm-sample` is quiet, and only because it has a plugin assembly. So PO034 in practice flags every role made in the editor, whatever it does with the app. That is what S2 asked for, but the plan never says it, the Fix tells the maker to "remove" privileges that the plan has not checked can be removed, and nothing says whether PO033's own Fix ("copy the role from App Opener") avoids the PO034 finding: App Opener's privilege list is not known, and a role copied from it may carry Create or Write on system tables other than the one excluded (`UserEntityUISettings`). The create-or-edit page also says a new role includes App Opener privileges by default, which the observed roles evidently lack.
-- Suggested fix: say in the plan and in the PO034 page that SharePoint Data Create and Write is expected on editor-made roles and is a "may", reword the Fix to "review", not "remove", and add to Questions or Won't build that PowerOps has not checked what App Opener holds, so a role copied from it may still give a PO034 finding on a system table.
-- Resolution: open
+No findings.
 
 ### Low
 
+#### R10. PO034's Sources line cites a page the Log doesn't list as checked
+- Area: 9 Testability (row 10, the recipe's Sources rule)
+- Finding: `docs/rules/PO034.md` cites "Security roles and privileges for Dataverse" with `verified: 2026-11-05`, but the Log's list of Learn pages read that day does not include it, and the plan's own Learn part for PO034 rests on "Create or edit a security role". A Sources line must state only what its pages support, on the date they were checked.
+- Suggested fix: read that page and add it to the Log's list, or drop it from the Sources line.
+- Resolution: open
+
+#### R11. The PO034 note reads wrongly for one table
+- Area: 9 Testability (the note text in the plan, the page and the goldens)
+- Finding: The reworded note says "1 of the tables it can create or write are used by no component PowerOps reads". The verb does not agree with the count when it is 1, which is the case in the alm-sample golden.
+- Suggested fix: word it as "<n> table(s)" or "it can create or write <n> tables that no component PowerOps reads use", in the plan, the page, the rule and the goldens; or accept it as is.
+- Resolution: open
+
+### Resolved from the first pass
+
+#### R1. Adding the fixture breaks existing tests that the plan does not list
+- Area: 9 Testability (Data row 11, Steps 3 and 5)
+- Finding: Eight existing tests (`SolutionDiscoveryTests`, three `AnalyzeCommandTests`, `PackedToolTests`) hard-code 16 solutions or the fixture list.
+- Suggested fix: add them to the plan.
+- Resolution: fixed: row 13 lists them. The build changed the discovery list, the three count checks and the packed-tool count to 17, moved `Clean_zip_exits_zero` to `polymorphiclookupexamplesolution.zip`, and changed `McpCommandTests.Baseline_returns_the_file_the_cli_writes`. All pass in the scratch run.
+
+#### R2. "The three privileges Learn names for opening a model-driven app" overstates the source
+- Area: 8 Security roles (Done when 3, Goal, rule page)
+- Finding: The `prv` names come from the App for Outlook page, the others name them in words, and "any one of the three" is weaker than Learn's minimum.
+- Suggested fix: say which part is Learn's and that any one silences the rule.
+- Resolution: fixed: Done when 3, Assumptions and decisions Q2 (amended) say it, and `docs/rules/PO033.md` has a "Learn's part" paragraph and a "Limits" paragraph with the same words.
+
+#### R3. PO034 will fire on a privilege pair that every observed role-editor role holds
+- Area: 8 Security roles, 11 Size (rows 7, 9, 10)
+- Finding: Create and Write on SharePointData are on every observed editor-made role, the fix said "remove", and a role copied from App Opener may still fire.
+- Suggested fix: say it is expected, reword the fix to "check", list App Opener as not read.
+- Resolution: fixed: the fix text is "Check whether the role's users need to create or write that table, and remove those privileges from the role if they don't." in the plan, rule, page and goldens; Assumptions, Won't build and the PO034 page say it is expected and that App Opener was not read.
+
 #### R4. A stop under Done when 8 leaves one test failing on the branch
 - Area: 9 Testability (Done when 8, Step 6)
-- Finding: The four baselines change (six PO033 findings), so `RoleEvalTests.Every_solution_case_has_a_baseline_file_that_matches_the_live_output` fails once PO033 exists, and the plan forbids editing `tests/eval`. The plan says "commit locally", but not that this one test is the expected failure, that `dotnet test` therefore cannot be clean, or that no PR is opened.
-- Suggested fix: add to Step 6 and Done when 8 that the report names that test as the one expected failure, lists the exact `analyze` lines per case (I predict: PO033 warning lines for 01, 06, 07 (two roles) and 08 (two roles), "no findings" replaced, "1 warning" and so on), and that no PR is opened.
-- Resolution: open
+- Finding: The baseline test fails once PO033 exists; the plan did not say so.
+- Suggested fix: name it as the expected failure and open no PR.
+- Resolution: fixed: Done when 8 and Step 6 name `Every_solution_case_has_a_baseline_file_that_matches_the_live_output`, and `Analyze_test_and_settings_validate_report_nothing_on_the_clean_solution_cases` for `solution-06`, as expected failures, and open no PR. The scratch run fails exactly those two. The Log lists the per-case lines (1, 1, 2, 2 PO033 lines; the other four cases unchanged).
 
 #### R5. Done when 1 and Done when 7 read as contradicting
 - Area: 10 Unanswered areas
-- Finding: Done when 1 says "the existing rules give the same findings on every solution as before"; the Data section expects the goldens to change on four solutions. It means PO001 to PO031, but as written a checker could read it as "no golden changes".
-- Suggested fix: write "PO001 to PO031 give the same findings".
-- Resolution: open
+- Finding: "The existing rules give the same findings" could read as "no golden changes".
+- Suggested fix: write "PO001 to PO031".
+- Resolution: fixed: Done when 1 reads "PO001 to PO031 give the same findings on every solution as before".
 
 #### R6. `UserEntityUISettings` rests on a weak Learn source
 - Area: 8 Security roles (Assumptions, row 7)
-- Finding: Learn's User Settings reference mentions the table only inside a column description; it gives no privilege name. The exclusion rests on the create-or-edit page ("Create/Read/Write User Entity UI Settings"), and the privilege names `prvCreate…` and `prvWriteUserEntityUISettings` are inferred from the `prv<verb><table>` pattern.
-- Suggested fix: cite the create-or-edit page for the exclusion, and say the privilege name is inferred from the pattern.
-- Resolution: open
+- Finding: Learn's User Settings page doesn't give the privilege name.
+- Suggested fix: cite the create-or-edit page and say the names are inferred.
+- Resolution: fixed: row 7 and the PO034 page cite "Create or edit a security role" and say the privilege names are inferred from the pattern (Assumptions still names the User Settings reference for the table name, which is true of that page).
 
 #### R7. PO032 treats every other documented template as a non-admin user role
 - Area: 8 Security roles (row 5, Q1, Q3)
-- Finding: Of the 15 "non-admin" templates two (`Support` and `Proxy`) are service roles that no user is shared an app through, so an app mapped to {SystemAdmin, Support} is quiet though it is shared with admins only in practice. The effect is a missed finding, never a false one.
-- Suggested fix: keep it, and say on the rule page that the 15 templates all count as "other roles" without judging their privileges; or count only the user-facing templates.
-- Resolution: open
+- Finding: `Support` and `Proxy` are service roles, so {SystemAdmin, Support} is quiet.
+- Suggested fix: keep it and say so on the page.
+- Resolution: accepted: row 5, decisions Q1 (kept) and `docs/rules/PO032.md` say it is a missed finding, never a false one. The code (`IsTemplate` makes any of the 15 an "other" role) matches.
 
 #### R8. `_managed` role files and duplicates are not covered
 - Area: 9 Testability (rows 2 and 3)
-- Finding: The app-module reader prefers `AppModule.xml` over `AppModule_managed.xml` so a folder holding both reads once (`FolderFiles`). Row 2 matches `Roles/<file>.xml` ignoring case, with no such rule; whether `pac solution unpack --packagetype Both` writes a `_managed` role file was not observed, and if it does each role would be read twice and each PO033 and PO034 finding repeated. The same role can also appear in both `Roles/` and `customizations.xml`.
-- Suggested fix: add a reader test (a role in both places, and a `Name_managed.xml` file) and either dedupe by role id in the reader or note in Assumptions that no observed layout holds both.
-- Resolution: open
+- Finding: A role in `X.xml`, `X_managed.xml` and `customizations.xml` could be read three times.
+- Suggested fix: dedupe by id and test it.
+- Resolution: fixed: `DistinctBy(r => r.Id)` after an ordinal path sort and the `customizations.xml` roles (row 2, decisions Q9) and `RoleReaderTests.A_role_in_a_managed_file_and_in_customizations_is_read_once_from_the_first_file`.
 
 #### R9. A role that can create and write Model-driven App rows opens every app
 - Area: 8 Security roles (row 6)
-- Finding: "Privileges required to view and access apps" says a user with Create and Write on the Model-driven App table is a maker who can view and open all apps. PO033 checks only for Read-type privileges, so a role with `prvCreateAppModule` and `prvWriteAppModule` but no `prvReadAppModule` would still fire (unusual, since Read normally goes with them).
-- Suggested fix: either treat `prvCreateAppModule` plus `prvWriteAppModule` as quiet, or list it in the PO033 page as a known limit.
-- Resolution: open
+- Finding: PO033 would fire on a role with Create and Write on the Model-driven App table and no Read.
+- Suggested fix: make it quiet or list it as a limit.
+- Resolution: accepted: a listed limit in Won't build and on the PO033 page ("Limits"), because no observed role has that shape; the code does not special-case it.
