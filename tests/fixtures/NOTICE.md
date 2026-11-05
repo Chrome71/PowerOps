@@ -54,6 +54,16 @@ Scrubbed and trimmed before committing:
 
 Scrubbed and trimmed before committing (by a script kept outside the repository; the raw exports are not committed): the environment's default publisher prefix became `cr123`, the random parts of the agent's and the Work IQ draft's schema names became `abc123` and `def456`, the two connection ids in the connection reference names became fake values (`00000000000000000000000000000001`, `00000000-0000-0000-0000-000000000002`), the solution publisher's display name became "PowerOps Fixtures", and the agent icon (`iconbase64` in `bot.xml`) was removed. The zips are rebuilt with the same entries, stored without compression and with fixed timestamps, so their text can be searched. The files contain no tenant URLs, environment ids, user names or emails.
 
+`equipment-checkout/` holds a model-driven app and two security roles, made for this project under the repository's Apache-2.0 licence. The unmanaged solution `EquipmentCheckout` was built by the maintainer in a test environment on 2026-11-04 during the live test, exported with `pac solution export` and unpacked with `pac solution unpack`. Kept: `Roles/IT staff.xml` and `Roles/Front desk.xml` with their privileges exactly as exported, `AppModules/equipment_checkout_a1a05935/AppModule.xml`, `Other/Solution.xml` and `Other/Customizations.xml`. Expected findings: PO032 once, PO033 twice, PO034 twice.
+
+Scrubbed and trimmed before committing:
+
+- The two role ids became fake ids (`00000000-0000-0000-0000-0000000060a1` and `...60a2`) in the role files and in the root components. The app's role map keeps the two documented admin role template ids, which are Learn's public constants.
+- The publisher became `contoso` ("Contoso"). The manifest keeps only the Loan table, the two roles and the app as root components, and drops the missing dependencies and the publisher's addresses. `Customizations.xml` drops its connection reference.
+- The app module drops its site map component and its web resource id.
+- Not copied: the canvas app (with its `.msapp`, which caches the environment URL), the cloud flow, the site map, the entities' forms and views, the environment variable and `Other/Relationships`.
+- The files contain no tenant URLs, environment IDs, user names or emails.
+
 `pac/` holds `pac` 2.13.1 output captured for this project, under the same licence, by the maintainer in the test environment that holds `PowerOpsSeed` (2026-10-21). `stdout` was saved apart from `stderr`; every capture left `stderr` empty.
 
 - `org-who.txt`: `pac org who`. The environment id is on the `Environment ID:` line.

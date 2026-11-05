@@ -67,8 +67,13 @@ internal static class B
     public static MissingDependency Dep(string type, string? schema, string? id = null, string? owner = "Other (1.0)") =>
         new(new DependencyNode(type, schema, id, null, owner), new DependencyNode("29", null, "x", null, null));
 
-    public static AppModule App(string name = "demo_app", string[]? siteMaps = null, string[]? pages = null) =>
-        new(name, siteMaps ?? [], pages ?? [], $"AppModules/{name}/AppModule.xml");
+    public static AppModule App(string name = "demo_app", string[]? siteMaps = null, string[]? pages = null, string[]? roles = null) =>
+        new(name, siteMaps ?? [], pages ?? [], $"AppModules/{name}/AppModule.xml") { Roles = roles ?? [] };
+
+    /// <summary>A security role with these privileges; <see cref="SecurityRoleUnread"/> is one whose file had no `RolePrivileges` element. (<see cref="Role"/> is a Power Pages web role.)</summary>
+    public static Role SecurityRole(string name, string id, params string[] privileges) => new(id, name, privileges, $"Roles/{name}.xml");
+
+    public static Role SecurityRoleUnread(string name, string id) => new(id, name, null, $"Roles/{name}.xml");
 
     public static SiteMap SiteMap(string name = "demo_app", string[]? pages = null, string[]? genPageIds = null) =>
         new(name, pages ?? [], genPageIds ?? [], $"AppModuleSiteMaps/{name}/AppModuleSiteMap.xml");

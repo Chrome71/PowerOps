@@ -217,6 +217,27 @@
       "title": "Agent has more than 30 tools",
       "fix": "Remove tools the agent doesn't need.",
       "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO031.md"
+    },
+    {
+      "id": "PO032",
+      "severity": "warning",
+      "title": "Model-driven app is shared only with admin roles",
+      "fix": "Share the app with the security roles its users hold, and remove System Administrator and System Customizer from it unless they need the app.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO032.md"
+    },
+    {
+      "id": "PO033",
+      "severity": "warning",
+      "title": "Custom security role has no privilege to open a model-driven app",
+      "fix": "Copy the role from App Opener, or give its users App Opener as well, and test the app as a user who holds only those roles.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO033.md"
+    },
+    {
+      "id": "PO034",
+      "severity": "warning",
+      "title": "Security role can create or write a table that no component in the solution uses",
+      "fix": "Check whether the role's users need to create or write that table, and remove those privileges from the role if they don't.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO034.md"
     }
   ]
 }

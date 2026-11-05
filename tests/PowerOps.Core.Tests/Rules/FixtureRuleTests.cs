@@ -161,6 +161,26 @@ public class FixtureRuleTests
     }
 
     [Fact]
+    public void Equipment_checkout_gives_PO032_once_PO033_twice_and_PO034_twice_and_nothing_else()
+    {
+        var s = SolutionLoader.Load(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "equipment-checkout"));
+
+        Assert.Equal(["Front desk", "IT staff"], s.Roles.Select(r => r.Name).Order(StringComparer.Ordinal));
+        Assert.Equal(["627090ff-40a3-4053-8790-584edc5be201", "119f245c-3cc8-4b62-b31c-d1a046ced15d"], Assert.Single(s.AppModules).Roles);
+        Assert.Equal(
+            [
+                ("PO032", "equipment_checkout_a1a05935"),
+                ("PO033", "Front desk"),
+                ("PO033", "IT staff"),
+                ("PO034", "Front desk"),
+                ("PO034", "IT staff"),
+            ],
+            Analyzer.Run(s).Select(f => (f.RuleId, f.Component)));
+        Assert.All(Analyzer.Run(s).Where(f => f.RuleId == "PO034"), f => Assert.Contains("has Create and Write on 'SharePointData'", f.Message));
+        Assert.Empty(Analyzer.NotChecked(s));
+    }
+
+    [Fact]
     public void Alm_sample_reads_the_dependencies_of_its_canvas_app_and_is_quiet_on_PO026()
     {
         var s = SolutionLoader.Load(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "alm-sample"));
