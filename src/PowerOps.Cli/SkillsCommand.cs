@@ -9,7 +9,7 @@ namespace PowerOps.Cli;
 public static class SkillsCommand
 {
     private const int UsageError = 2;
-    private static readonly string[] ForkedSkills = ["powerops-review-plan/SKILL.md", "powerops-review-security/SKILL.md", "powerops-verify/SKILL.md"];
+    private static readonly string[] ForkedSkills = ["powerops-prototype/SKILL.md", "powerops-review-plan/SKILL.md", "powerops-review-security/SKILL.md", "powerops-verify/SKILL.md"];
     private static readonly string[] Agents = ["claude", "codex", "gemini", "copilot"];
 
     public static Command Create(TextWriter output, TextWriter error)

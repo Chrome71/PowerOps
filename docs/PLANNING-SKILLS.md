@@ -43,6 +43,7 @@ PowerOps fills the gap between "I have an idea" and "the agent may start buildin
 ```
                  powerops-plan                         powerops-review-plan
 idea ──► draft ──(user: B approve)──► approved ──(agent forks reviewer)──► review.md  (review: done)
+                        (screens: powerops-prototype ──► mockups/prototype.html, approved or skipped by the user)
                                         │                                      │
                                         │ user: "sign off", review skipped     │ user resolves findings
                                         │ (review: skipped)                    │
@@ -90,15 +91,16 @@ Header fields are left out of the hash, so status changes never invalidate a sig
 
 | Skill | Does | Writes |
 |---|---|---|
-| `powerops-plan` | Refines the idea through question rounds, reads environment facts only for an environment the user names, drafts the plan, runs the fast path, and writes HTML mockups | `plan.md`, `decisions.md`, `mockups/*.html` |
+| `powerops-plan` | Refines the idea through question rounds, reads environment facts only for an environment the user names, drafts the plan, runs the fast path, and starts `powerops-prototype` for a plan with screens | `plan.md`, `decisions.md` |
+| `powerops-prototype` | Forked on Claude Code. Writes the plan's `Screens` as one static HTML sketch with fake data, from the Theme block and the product rules, and checks it with `powerops plan status`. Never asks the user | `mockups/prototype.html` |
 | `powerops-review-plan` | Reviews an approved draft in a fresh context on the top model, against a Power Platform checklist. Never asks the user | `review.md` |
 | `powerops-implement` | Checks the gate (`powerops plan status`: status `signed-off` and the hash matches). With no signed-off plan it hands over to `powerops-plan` in fast-path mode; with one, it implements step by step, runs `powerops analyze` and `powerops test` at the end, and checks the final saved version live in Dev (a flow's real trigger, a fresh load of a published canvas app, each component's solution) before it sets `done`. After the build it runs the Verifier and then the Security reviewer, each in a fresh context, and stops by impact: a choice inside the plan goes on, and one that changes scope, data, security or cost stops with one concrete question. It never deletes in a tenant, and journals each tenant write it attempts | code and solution changes, `writes.md` |
 | `powerops-verify` | Verifies the built solution against its signed-off plan with `analyze`, `test`, `diff` and `settings validate`, in a fresh context on the top model. Anything built outside the plan is a finding. Never asks the user | `verify.md` |
 | `powerops-review-security` | Reads the built solution against the Power Platform Well-Architected Security checklist, in a fresh context on the top model, with `analyze`, `settings validate` and `diff`. Never asks the user | `security-solution.md` |
 
-- `powerops-plan` owns the fast path and mockups, because both are planning; `powerops-implement` only holds the gate.
+- `powerops-plan` owns the fast path, and `powerops-prototype` writes the mockups, because both are planning; `powerops-implement` only holds the gate.
 - The `powerops-plan` description must also match requests for a mockup, screen, wireframe or prototype of a Power Platform app. In the prototype test, "mock it up" did not trigger the skill.
-- Mockups are static HTML with inline CSS and no external resources (no scripts, fonts, images or links to other sites). They show fake data only, are labelled as a sketch, are written only to `mockups/prototype.html` in the plan folder, and are never published or uploaded anywhere. When `Screens` names content laid out freely, the what-next menu and the fast-path menu both carry a lettered option, "sketch the screens first", and `decisions.md` logs one line at approval: `prototype: approved`, `skipped` or `not chosen`. The sketch shows intent and is never checked against the build.
+- Mockups are static HTML with inline CSS and no external resources (no scripts, fonts, images or links to other sites). They show fake data only, are labelled as a sketch, are written only to `mockups/prototype.html` in the plan folder, and are never published or uploaded anywhere. When `Screens` names anything, `powerops-plan` starts `powerops-prototype` at approval (the fast path's B too) and asks you to approve the sketch or skip it with a reason; the what-next menu and the fast-path menu keep a lettered option, "sketch the screens first", to run it earlier. `decisions.md` logs one line: `prototype: approved mockups/prototype.html` or `prototype: skipped (<reason>)`. The sketch shows intent and is never checked against the build.
 - Once the gate passes, `powerops-implement` hands the build work to the Microsoft build skill for the product (named by plugin in the skill), found as a registered skill, through a routing skill, or in a checkout of power-platform-skills. Its environment-write rule names Microsoft's import tools too, and promotion between environments goes through `powerops deploy plan` and `deploy apply`.
 
 ## Plan files

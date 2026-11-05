@@ -28,6 +28,9 @@ public sealed record PlanReportFile(string File, string? State, bool? Stale, str
 /// <summary>The write journal (writes.md) of a plan folder: its table rows and those whose cleanup is still open. Both are null when the file could not be read.</summary>
 public sealed record PlanWrites(int? Entries, int? OpenCleanup);
 
+/// <summary>What the prototype gate found: Line problems (no valid prototype: line, while Screens names something), File problems (mockups/prototype.html fails a check), the person-mark Warnings, and whether the deciding line is a valid approved one.</summary>
+internal sealed record PrototypeCheck(IReadOnlyList<string> Line, IReadOnlyList<string> File, IReadOnlyList<string> Warnings, bool Approved);
+
 public static partial class PlanChecker
 {
     private const string AllowMarker = "<!-- plan-status: allow -->";
@@ -167,6 +170,13 @@ public static partial class PlanChecker
             .ToList();
         var writes = ReadWrites(folder, baseDir, warnings);
         warnings.AddRange(AgentAnswers(folder, baseDir, warnings));
+        if (doc.Header is { Status: "draft" or "approved" })
+        {
+            var prototype = PrototypeProblems(folder, doc, ReadDecisions(folder, baseDir, warnings));
+            warnings.AddRange(prototype.Line);
+            warnings.AddRange(prototype.File);
+            warnings.AddRange(prototype.Warnings);
+        }
 
         return new PlanReport(
             Display(folder, baseDir),
@@ -321,15 +331,38 @@ public static partial class PlanChecker
     private static List<string> AgentAnswers(string folder, string baseDir, ICollection<string> warnings)
     {
         var found = new List<string>();
-        var file = System.IO.Path.Combine(folder, "decisions.md");
-        if (!File.Exists(file) || ReadScannable(file, baseDir, warnings) is not { } text)
+        if (ReadDecisions(folder, baseDir, warnings) is not { } text)
         {
             return found;
         }
 
-        // The Log runs from `## Log` to the next `## ` heading. An item is a `- ` line and the non-blank lines that continue it;
-        // its warning names its first line.
-        var where = Display(file, baseDir);
+        var where = Display(System.IO.Path.Combine(folder, "decisions.md"), baseDir);
+        foreach (var (start, item) in LogItems(text).Where(i => AgentAnswerRegex().IsMatch(i.Item)))
+        {
+            if (SignOffRegex().IsMatch(item))
+            {
+                found.Add($"sign-off answered by an agent ({where}:{start}): only a person signs off a plan");
+            }
+            else if (AcceptanceRegex().IsMatch(item))
+            {
+                found.Add($"acceptance answered by an agent ({where}:{start}): only a person accepts a High finding or a security gap");
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>The text of decisions.md, or null when there is none or it is a link, binary or over 1 MB (with a warning).</summary>
+    internal static string? ReadDecisions(string folder, string baseDir, ICollection<string> warnings)
+    {
+        var file = System.IO.Path.Combine(folder, "decisions.md");
+        return File.Exists(file) ? ReadScannable(file, baseDir, warnings) : null;
+    }
+
+    // The Log runs from `## Log` to the next `## ` heading. An item is a `- ` line and the non-blank lines that continue it;
+    // Line is the number of its first line (1-based).
+    private static IEnumerable<(int Line, string Item)> LogItems(string text)
+    {
         var inLog = false;
         var (start, item) = (0, "");
         var lines = Lines(text).ToList();
@@ -339,16 +372,9 @@ public static partial class PlanChecker
             var heading = line.StartsWith("## ", StringComparison.Ordinal);
             if (heading || line.TrimStart().StartsWith("- ", StringComparison.Ordinal) || line.Trim().Length == 0)
             {
-                if (item.Length > 0 && AgentAnswerRegex().IsMatch(item))
+                if (item.Length > 0)
                 {
-                    if (SignOffRegex().IsMatch(item))
-                    {
-                        found.Add($"sign-off answered by an agent ({where}:{start}): only a person signs off a plan");
-                    }
-                    else if (AcceptanceRegex().IsMatch(item))
-                    {
-                        found.Add($"acceptance answered by an agent ({where}:{start}): only a person accepts a High finding or a security gap");
-                    }
+                    yield return (start, item);
                 }
 
                 (start, item) = inLog && !heading && line.Trim().Length > 0 ? (i + 1, line) : (0, "");
@@ -359,8 +385,6 @@ public static partial class PlanChecker
                 item += " " + line.Trim();
             }
         }
-
-        return found;
     }
 
     private static readonly string[] ReportFiles = ["review.md", "security-solution.md", "verify.md"];
@@ -573,6 +597,239 @@ public static partial class PlanChecker
             }
         }
     }
+
+    private const string PrototypePath = "mockups/prototype.html";
+    internal const int MaxPrototypeBytes = 40_960;
+
+    private static readonly string[] BannedTags = ["script", "link", "meta", "base", "iframe", "frame", "object", "embed", "img", "picture", "svg", "form", "video", "audio", "source"];
+    private static readonly string[] BannedCss = ["url(", "@import", "@font-face", "image-set(", "expression("];
+    private static readonly string[] PrototypeStates = ["empty", "loading", "error", "failed-save"];
+
+    /// <summary>The prototype gate (M70, Goal lines 1 and 2). Nothing is checked when the plan's Screens names nothing. <paramref name="decisions"/> is the text of decisions.md, or null. The file checks are text checks after comments are removed: they catch the honest mistake, and the file is never rendered. A problem names its rule and line, never the matched text.</summary>
+    internal static PrototypeCheck PrototypeProblems(string folder, PlanDocument plan, string? decisions)
+    {
+        if (ScreensText(plan) is not { } screens)
+        {
+            return new PrototypeCheck([], [], [], false);
+        }
+
+        // The last prototype: item under ## Log decides.
+        var items = LogItems(decisions ?? "").Where(i => PrototypeItemRegex().IsMatch(i.Item)).ToList();
+        var warnings = new List<string>();
+        var (valid, approved) = (false, false);
+        string? at = null;
+        if (items.Count > 0)
+        {
+            var (line, item) = items[^1];
+            at = $":{line}";
+            var rest = PrototypeItemRegex().Match(item).Groups[1].Value.Trim();
+            var marked = PersonMarkRegex().IsMatch(rest);
+            if (ApprovedRegex().IsMatch(rest))
+            {
+                valid = approved = true;
+                if (!marked)
+                {
+                    warnings.Add($"prototype approval is not marked (answered by: person) (decisions.md:{line}): only a person should approve the sketch");
+                }
+            }
+            else
+            {
+                valid = marked && SkippedRegex().Match(rest) is { Success: true } skip && skip.Groups[1].Value.Trim().Length > 0;
+            }
+        }
+
+        string[] lineProblems = valid ? [] : [$"decisions.md{at}: no valid prototype line under ## Log although Screens names something: log `prototype: approved {PrototypePath}`, or `prototype: skipped (<reason>) (answered by: person)`"];
+        return new PrototypeCheck(lineProblems, PrototypeFileProblems(folder, screens, approved), warnings, approved);
+    }
+
+    // The text of the Screens section, or null when it names nothing: no heading, an empty body, or a first non-blank line starting with "None".
+    private static string? ScreensText(PlanDocument plan)
+    {
+        var body = new List<string>();
+        var inside = false;
+        foreach (var raw in plan.Lines.Skip(plan.Close + 1))
+        {
+            var line = raw.TrimEnd('\r', '\n');
+            if (line.StartsWith("## ", StringComparison.Ordinal))
+            {
+                inside = line.Trim().Equals("## Screens", StringComparison.OrdinalIgnoreCase);
+            }
+            else if (inside)
+            {
+                body.Add(line);
+            }
+        }
+
+        var first = body.Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0);
+        return first is null || first.StartsWith("None", StringComparison.OrdinalIgnoreCase) ? null : string.Join('\n', body);
+    }
+
+    private static List<string> PrototypeFileProblems(string folder, string screens, bool approved)
+    {
+        var problems = new List<string>();
+        var file = System.IO.Path.Combine(folder, "mockups", "prototype.html");
+        if (!File.Exists(file))
+        {
+            if (approved)
+            {
+                problems.Add($"{PrototypePath}: not found although the log says approved");
+            }
+
+            return problems;
+        }
+
+        // A link anywhere on the path, a binary file or one over 1 MB is a problem, not a pass.
+        var skipped = new List<string>();
+        var text = new DirectoryInfo(System.IO.Path.GetDirectoryName(file)!).LinkTarget is null ? ReadScannable(file, folder, skipped) : null;
+        if (text is null)
+        {
+            problems.Add(skipped.Count > 0 ? skipped[0] : $"{PrototypePath}: the mockups folder is a symbolic link, not read");
+            return problems;
+        }
+
+        void Add(int line, string rule)
+        {
+            var problem = $"{PrototypePath}:{line}: {rule}";
+            if (!problems.Contains(problem))
+            {
+                problems.Add(problem);
+            }
+        }
+
+        if (new FileInfo(file).Length > MaxPrototypeBytes)
+        {
+            Add(1, $"larger than {MaxPrototypeBytes} bytes");
+        }
+
+        if (CommentRegex().Match(text) is not { Success: true } first || !RouteRegex().IsMatch(first.Value))
+        {
+            Add(1, "no route: line in the first comment");
+        }
+
+        // Comments become blanks of the same shape, so line numbers hold.
+        var html = CommentRegex().Replace(text, m => BlankRegex().Replace(m.Value, " "));
+        int LineAt(int index) => 1 + html.AsSpan(0, index).Count('\n');
+
+        void CheckCss(string css, int line)
+        {
+            foreach (var banned in BannedCss.Where(b => css.Contains(b, StringComparison.OrdinalIgnoreCase)))
+            {
+                Add(line, $"CSS {banned} is not allowed");
+            }
+        }
+
+        foreach (Match m in StyleRegex().Matches(html))
+        {
+            CheckCss(m.Groups[1].Value, LineAt(m.Groups[1].Index));
+        }
+
+        var screenNames = new List<(int Line, string Name)>();
+        var states = new List<HashSet<string>>();
+        foreach (Match tag in TagRegex().Matches(html))
+        {
+            var name = tag.Groups["tag"].Value.ToLowerInvariant();
+            if (BannedTags.Contains(name))
+            {
+                Add(LineAt(tag.Index), $"tag <{name}> is not allowed");
+            }
+
+            var attrs = tag.Groups["attrs"];
+            foreach (Match a in AttributeRegex().Matches(attrs.Value))
+            {
+                var (key, value, line) = (a.Groups["name"].Value.ToLowerInvariant(), System.Net.WebUtility.HtmlDecode(a.Groups["value"].Value).Trim(), LineAt(attrs.Index + a.Index));
+                if (key is "src" or "srcset" or "action")
+                {
+                    Add(line, $"attribute {key} is not allowed");
+                }
+                else if (key.Length > 2 && key.StartsWith("on", StringComparison.Ordinal))
+                {
+                    Add(line, "event-handler attribute (on...) is not allowed");
+                }
+                else if (key == "href" && !value.StartsWith('#'))
+                {
+                    Add(line, "href must start with #");
+                }
+                else if (key == "style")
+                {
+                    CheckCss(value, line);
+                }
+                else if (key == "data-screen")
+                {
+                    screenNames.Add((line, value));
+                    states.Add([]);
+                }
+                else if (key == "data-state" && states.Count > 0)
+                {
+                    states[^1].Add(value.ToLowerInvariant());
+                }
+            }
+        }
+
+        // "Sketch" must show in the body text: outside comments (already blank), <style> and tags.
+        if (!SketchRegex().IsMatch(TagRegex().Replace(StyleRegex().Replace(html, " "), " ")))
+        {
+            Add(1, "the word \"Sketch\" is missing from the body text");
+        }
+
+        if (screenNames.Count is < 1 or > 8)
+        {
+            Add(1, $"{screenNames.Count} data-screen attributes; need 1 to 8");
+        }
+
+        for (var i = 0; i < screenNames.Count; i++)
+        {
+            var (line, name) = screenNames[i];
+            var words = name.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Select(Regex.Escape);
+            var phrase = $@"(?<![\p{{L}}\p{{N}}]){string.Join(@"\s+", words)}(?![\p{{L}}\p{{N}}])";
+            if (name.Length == 0 || !Regex.IsMatch(screens, phrase, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
+            {
+                Add(line, "data-screen value is not a phrase of the Screens text");
+            }
+
+            if (PrototypeStates.Except(states[i]).ToList() is { Count: > 0 } missing)
+            {
+                Add(line, $"data-screen is missing data-state {string.Join(", ", missing)} before the next data-screen");
+            }
+        }
+
+        return problems;
+    }
+
+    // Everything between <!-- and --> (an unclosed comment runs to the end, as in a browser).
+    [GeneratedRegex(@"<!--.*?(?:-->|\z)", RegexOptions.Singleline)]
+    private static partial Regex CommentRegex();
+
+    [GeneratedRegex(@"[^\n]")]
+    private static partial Regex BlankRegex();
+
+    [GeneratedRegex(@"(?:^|<!--)[ \t]*route:", RegexOptions.Multiline)]
+    private static partial Regex RouteRegex();
+
+    // A start tag, whitespace allowed after the <, quoted values may hold a >.
+    [GeneratedRegex(@"<\s*(?<tag>[A-Za-z][A-Za-z0-9-]*)(?<attrs>(?:[^>""']|""[^""]*""|'[^']*')*)>?")]
+    private static partial Regex TagRegex();
+
+    [GeneratedRegex(@"(?<name>[^\s""'<>/=]+)(?:\s*=\s*(?:""(?<value>[^""]*)""|'(?<value>[^']*)'|(?<value>[^\s""'>]+)))?")]
+    private static partial Regex AttributeRegex();
+
+    [GeneratedRegex(@"<\s*style\b[^>]*>(.*?)(?:<\s*/\s*style\s*>|\z)", RegexOptions.Singleline | RegexOptions.IgnoreCase)]
+    private static partial Regex StyleRegex();
+
+    [GeneratedRegex(@"\bsketch\b", RegexOptions.IgnoreCase)]
+    private static partial Regex SketchRegex();
+
+    [GeneratedRegex(@"^\s*-\s*prototype:(.*)$", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex PrototypeItemRegex();
+
+    [GeneratedRegex(@"^approved\s+mockups/prototype\.html(?:\s|$)", RegexOptions.IgnoreCase)]
+    private static partial Regex ApprovedRegex();
+
+    // The reason is the first parenthesised text; a quote of the answer may sit between it and the mark.
+    [GeneratedRegex(@"^skipped\s*\((.*?)\).*\(answered by:\s*person\)\s*$", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex SkippedRegex();
+
+    [GeneratedRegex(@"\(answered by:\s*person\)\s*$", RegexOptions.IgnoreCase)]
+    private static partial Regex PersonMarkRegex();
 
     /// <summary>Relative to <paramref name="baseDir"/> when underneath it, otherwise the full path; forward slashes.</summary>
     public static string Display(string path, string baseDir)

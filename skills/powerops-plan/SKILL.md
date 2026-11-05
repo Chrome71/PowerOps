@@ -124,7 +124,7 @@ Each round:
 3. Right after the answers, append each question and answer to `decisions.md`.
 4. Update `plan.md`. Put assumptions and open items in the plan, not in chat.
 5. Show exactly three lines, one per change to the plan. Nothing else.
-6. Ask what next, with lettered options: **A** another round, **B** approve the draft, **C** stop for now, **D** sketch the screens first if section 11 offers it. End your turn.
+6. Ask what next, with lettered options: **A** another round, **B** approve the draft, **C** stop for now, **D** sketch the screens first. End your turn.
 
 Question order: outcome and users, then data, then automation, then environments and ALM, then constraints. Two rules:
 
@@ -133,7 +133,7 @@ Question order: outcome and users, then data, then automation, then environments
 
 **Data round.** When the plan names new data (a table, list or store), ask the six questions in section 6 of `references/data.md`. Under `standard` and `deep` they fill successive rounds of at most three. A data question waits a round when the licensing or environments question is due. Under `quick` only question 1 joins the one round: write the ledger's other cells from the request or as Assumptions, and put unknowns under Open questions. The fast path asks none and does the same.
 
-Do not ask what the facts already answer. When nothing is left to ask, say so and recommend B. The user decides.
+Do not ask what the facts already answer. When nothing is left to ask, recommend B.
 
 **Depth.** `depth` in the header sets how far the rounds go:
 
@@ -141,7 +141,7 @@ Do not ask what the facts already answer. When nothing is left to ask, say so an
 - `standard`: the rounds as written above.
 - `deep`: more rounds are fine. Also ask about edge cases, data volume and delegation, security roles and testability. Write fuller Steps.
 
-A new plan starts at the `depth` of the plan it supersedes, else of the `docs/plans/*/plan.md` with the newest modification time that has one, else `standard`. The fast path (section 8) sets `quick`.
+A new plan starts at the `depth` of the plan it supersedes, else of the newest-modified `docs/plans/*/plan.md` that has one, else `standard`. The fast path (section 8) sets `quick`.
 
 After each round, judge engagement from the answers. Mostly one-word or option-number answers, "just pick", "whatever you think", or a request to speed up: go one level down. Long answers in their own words, follow-up questions, or a request for more detail: one level up. Change it at most once per round. Write the new value in the header, log `depth: <old> -> <new> (<reason in a few words>)` under `## Log` in `decisions.md`, and mention it in one of the three change lines.
 
@@ -152,28 +152,29 @@ After each round, judge engagement from the answers. Mostly one-word or option-n
 1. Run `powerops plan status docs/plans/<name> --json`. Show the open-question count and which of the five areas (users, data, automation, environments and ALM, constraints) were never asked.
 2. If any area was never asked, ask one confirmation: approve anyway, or ask about it first. Wait.
 3. If `Steps` is empty, draft it from the plan and tell the user.
-4. Log the approval under `## Log`. If areas were skipped, log `approved without: <areas>`. If a sketch exists or D was offered, log `prototype: approved mockups/prototype.html`, `prototype: skipped` (sketch dropped) or `prototype: not chosen`.
+4. Log the approval under `## Log`. If areas were skipped, log `approved without: <areas>`.
 5. Set `status: approved` in the header.
-6. Recommend a review in a fresh context with the `powerops-review-plan` skill, and start it as follows:
-   - Claude Code: invoke the `powerops-review-plan` skill. Its installed copy runs in a forked context on the top model.
-   - Codex and other agents that can start a subagent with no chat history: start one that runs `powerops-review-plan` with the plan name.
-   - Otherwise tell the user to open a new session and run `powerops-review-plan <name>` there. Then wait.
-   - In the first two cases, add to the request that the user confirmed in this session that `pac` is signed in to the plan's `environment:`, but only if they did. Otherwise add nothing: the reviewer then reads no environment facts.
-7. If the user prefers to continue in this session, run the review here. The review then records `fresh-context: no`.
+6. If `Screens` names anything: unless a sketch passes `powerops plan status`, start `powerops-prototype <name>` (Claude Code: invoke it, which runs forked; Codex: a subagent; otherwise follow it here). Give the path and ask: approve, ask for changes (run it again with their notes), or skip with a reason. Wait, then log `prototype: approved mockups/prototype.html` or `prototype: skipped (<reason>)`. If `Screens` names nothing, log `prototype: not needed (<reason>)`. Each ends with an `(answered by: ...)` mark.
+7. Recommend a review in a fresh context with the `powerops-review-plan` skill, and start it as follows:
+   - Claude Code: invoke the `powerops-review-plan` skill. Its installed copy runs forked on the top model.
+   - Codex and other agents that can start a subagent with no chat history: start one that runs `powerops-review-plan`.
+   - Otherwise tell the user to run `powerops-review-plan <name>` in a new session. Then wait.
+   - In the first two cases, add to the request that the user confirmed in this session that `pac` is signed in to the plan's `environment:`, only if they did. Otherwise the reviewer reads no environment facts.
+8. If the user prefers to continue in this session, run the review here. The review then records `fresh-context: no`.
 
 ## 8. Fast path
 
 Use this when the user asks to build without a signed-off plan, or `powerops-implement` hands over.
 
 1. Draft `plan.md` from the request and the repo. Read no environment facts here, even when the request names an environment: the fast path is offline. Put every guess under Assumptions. The status stays `draft`. Set `depth: quick`.
-2. Ask one question: the route. Use the numbered format of a round question (section 6): two or three options, each with its trade-off in a few words, recommended first, then "In your own words". Example: unmanaged in Dev, then managed to Test and Prod through pipelines.
-3. Ask the publisher prefix too, only if the repo does not supply it. Ask nothing else. Leave `environment: null` unless the request names an environment by its friendly name; then record that name, and write "the environment named in the request" in `decisions.md`. A URL or an id stays out of the plan, so leave `environment: null` for those. Either way, note the assumed target in Assumptions.
+2. Ask one question: the route. Use the numbered format of a round question (section 6): two or three options, each with its trade-off in a few words, recommended first, then "In your own words".
+3. Ask the publisher prefix too, only if the repo does not supply it. Ask nothing else, except the sketch question (section 7 step 6). Leave `environment: null` unless the request names an environment by its friendly name; then record that name, and write "the environment named in the request" in `decisions.md`. A URL or an id stays out: leave `environment: null`. Either way, note the assumed target in Assumptions.
 4. Log the route in `decisions.md` as a normal question.
 5. Show one lettered menu:
    - **A** approve the draft, then review and sign-off as usual (section 7, from step 3).
-   - **B** approve, skip the review and sign off now. Log it (section 7 step 4), set `status: approved` and `review: skipped`, then do section 9 step 4 (no second menu: this answer is the sign-off). The Assumptions list stands in for the coverage check.
+   - **B** approve, skip the review and sign off now. Log it (section 7 step 4), set `status: approved` and `review: skipped`, run section 7 step 6 and wait for the answer, then do section 9 step 4 (no second menu: this answer is the sign-off). The Assumptions list stands in for the coverage check.
    - **C** ask question rounds instead (section 6).
-   - **D** sketch the screens first, if section 11 offers it.
+   - **D** sketch the screens first.
 
 A route answer approves nothing. A bare "approve" means A.
 
@@ -203,9 +204,8 @@ Any change to the plan body voids the sign-off. If the user wants changes, set `
 
 ## 11. Mockups
 
-Offer **D** only when `references/route.md` says `Screens` is laid out freely. On D, or when asked for a screen, wireframe, mockup or prototype, write `docs/plans/<name>/mockups/prototype.html` by its rules, give the path and show the menu again.
+Offer **D** whenever `Screens` names anything. On D, or a request for a screen, wireframe or mockup, start `powerops-prototype` (section 7 step 6), give the path and show the menu again.
 
-- Static HTML, inline CSS, fake data, a "Sketch" label. No scripts, fonts, images or external links.
 - Never publish or upload it. Apply section 4 to it.
 - Keep visual detail out of `Screens` and `Steps`.
 

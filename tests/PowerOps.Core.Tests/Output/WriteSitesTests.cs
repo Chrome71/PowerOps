@@ -35,16 +35,16 @@ public class WriteSitesTests
         // Reads only: an .msapp held in memory, opened with ZipArchiveMode.Read.
         ["src/PowerOps.Core/Readers/CanvasSource.cs: ZipArchive"] = 1,
 
-        // FileInfo: reads only. LinkTarget checks and the size check of BoundedRead (and its doc comment).
+        // FileInfo: reads only. LinkTarget checks, the size check of BoundedRead (and its doc comment) and the prototype size check.
         ["src/PowerOps.Core/Readers/BoundedRead.cs: FileInfo"] = 2,
-        ["src/PowerOps.Core/Plans/PlanChecker.cs: FileInfo"] = 3,
+        ["src/PowerOps.Core/Plans/PlanChecker.cs: FileInfo"] = 4,
         ["src/PowerOps.Cli/DeployCommand.cs: FileInfo"] = 3,
         ["src/PowerOps.Cli/ManifestCommand.cs: FileInfo"] = 1,
         ["src/PowerOps.Core/Readers/Manifest.cs: FileInfo"] = 1,
 
-        // DirectoryInfo: reads only. The folder walk of SolutionDiscovery and a LinkTarget check in PlanChecker.
+        // DirectoryInfo: reads only. The folder walk of SolutionDiscovery and LinkTarget checks in PlanChecker.
         ["src/PowerOps.Core/Readers/SolutionDiscovery.cs: DirectoryInfo"] = 2,
-        ["src/PowerOps.Core/Plans/PlanChecker.cs: DirectoryInfo"] = 1,
+        ["src/PowerOps.Core/Plans/PlanChecker.cs: DirectoryInfo"] = 2,
     };
 
     private const string SafeWriteFile = "src/PowerOps.Core/Output/SafeWrite.cs";

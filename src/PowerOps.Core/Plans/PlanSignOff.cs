@@ -41,6 +41,14 @@ public static class PlanSignOff
             errors.Add("remove tenant data before signing off");
         }
 
+        // A file that fails its checks blocks only an approved sketch; a person's skip stands without one.
+        var prototype = PlanChecker.PrototypeProblems(folder, doc, PlanChecker.ReadDecisions(folder, baseDir, warnings));
+        errors.AddRange(prototype.Line);
+        if (prototype.Approved)
+        {
+            errors.AddRange(prototype.File);
+        }
+
         if (errors.Count > 0)
         {
             return new SignOffResult(1, [], errors.Select(e => $"error: {TextReport.Clean(e)}").ToList());

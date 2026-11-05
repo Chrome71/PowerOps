@@ -138,8 +138,11 @@ idea="an app for tracking site visits by our field engineers"
 # 1. Question rounds to a signed-off plan.
 scenario=rounds
 new_repo
-goal="At a what-next menu: if you have answered none so far, choose A (another round); otherwise choose B (approve). Confirm if asked to approve anyway. When the review or the sign-off is offered, choose the option that signs off now."
+goal="At a what-next menu: if you have answered none so far, choose A (another round); otherwise choose B (approve). Confirm if asked to approve anyway. When asked to approve or skip the sketch, skip it with a reason. When the review or the sign-off is offered, choose the option that signs off now."
+# One more turn: a plan with screens asks to approve or skip the sketch before it signs off (M70).
+max_turns=$((max_turns + 1))
 converse "Use the powerops-plan skill. My idea: $idea." '[ -n "$(plan_dir)" ] && [ "$(header status)" = signed-off ]' || true
+max_turns=$((max_turns - 1))
 if [ -n "$(plan_dir)" ]; then
   check_decisions
   [ "$(header status)" = signed-off ] || fail "status is '$(header status)', expected signed-off"
@@ -220,7 +223,8 @@ note_sketch() { grep -qiE '(\*\*D[).:]?\*\*|^[[:space:]-]*D[).:]).*sketch' <<<"$
 questions() { grep '^### Q' "$(plan_dir)/decisions.md"; }
 
 # 5. Depth quick, inherited from an earlier plan: one round with licensing and environments in it, at most one
-# other question (the data round's first), the sketch option, and "not chosen" after approving without it.
+# other question (the data round's first), the sketch option, and a person's skip with a reason (the sketch is
+# written at approval, then approved or skipped) after choosing B without D.
 scenario=quick
 new_repo
 mkdir -p "$dir/docs/plans/earlier"
@@ -230,8 +234,10 @@ sed -i.bak 's/^status: signed-off$/status: done/' "$dir/docs/plans/earlier/plan.
 git -C "$dir" add -A
 git -C "$dir" -c user.name=smoke -c user.email=smoke@example.invalid commit -qm earlier
 sketch_offered=0
-goal="At a what-next menu choose B (approve the draft), never the sketch. Confirm if asked to approve anyway. When a review or a sign-off is offered, say you will do it later."
+goal="At a what-next menu choose B (approve the draft), never D (sketch now). Confirm if asked to approve anyway. When asked to approve or skip the sketch, skip it with a reason. When a review or a sign-off is offered, say you will do it later."
+max_turns=$((max_turns + 1)) # the approve-or-skip question
 converse "Use the powerops-plan skill. My idea: $loans." 'note_sketch; [ -n "$(plan_dir)" ] && grep -q "^- .*prototype:" "$(plan_dir)/decisions.md" 2>/dev/null' || true
+max_turns=$((max_turns - 1))
 if [ -n "$(plan_dir)" ]; then
   check_decisions
   [ "$(header depth)" = quick ] || fail "depth is '$(header depth)', expected quick from the earlier plan"
@@ -240,20 +246,22 @@ if [ -n "$(plan_dir)" ]; then
   questions | grep -qi 'environment' || fail "no environments question"
   [ "$(questions | grep -vic 'licen\|environment')" -le 1 ] || fail "more than one question besides licensing and environments"
   [ "$sketch_offered" = 1 ] || fail "no lettered option to sketch the screens"
-  grep -q '^- .*prototype: not chosen' "$(plan_dir)/decisions.md" || fail "no 'prototype: not chosen' log line"
+  grep -q '^- .*prototype: skipped (.*(answered by: person)' "$(plan_dir)/decisions.md" || fail "no person's 'prototype: skipped (' log line"
+  [ -f "$(plan_dir)/mockups/prototype.html" ] || fail "no mockups/prototype.html written at approval"
 else
   fail "no plan folder under docs/plans"
 fi
 
-# 6. Depth standard: the data round within three questions a round, then the sketch, then approval.
+# 6. Depth standard: the data round within three questions a round, then the sketch (D), then approval. The sketch
+# passes the 40,960-byte check and `plan status` has no prototype warning.
 scenario=standard
 new_repo
 sketch_offered=0
 # Answers in the user's own words keep the depth at standard: option numbers alone would move it down to quick.
-goal="Answer each question in a sentence or two of your own words that takes the recommended option. At a what-next menu: if you have answered fewer than two menus, choose A (another round); if exactly two, reply with just: D (or B if the menu has no D), even when another option is marked recommended; otherwise choose B (approve the draft). Confirm if asked to approve anyway. When a review or a sign-off is offered, say you will do it later."
-max_turns=$((max_turns + 4)) # three rounds, the sketch and the approval
+goal="Answer each question in a sentence or two of your own words that takes the recommended option. At a what-next menu: if you have answered fewer than two menus, choose A (another round); if exactly two, reply with just: D (or B if the menu has no D), even when another option is marked recommended; otherwise choose B (approve the draft). Confirm if asked to approve anyway. When asked to approve or skip the sketch, approve it. When a review or a sign-off is offered, say you will do it later."
+max_turns=$((max_turns + 5)) # three rounds, the sketch, the approval and the sketch question
 converse "Use the powerops-plan skill. My idea: $loans." 'note_sketch; [ -n "$(plan_dir)" ] && grep -q "^- .*prototype:" "$(plan_dir)/decisions.md" 2>/dev/null' || true
-max_turns=$((max_turns - 4))
+max_turns=$((max_turns - 5))
 if [ -n "$(plan_dir)" ]; then
   check_decisions
   questions | grep -qiE 'rows|records|how many' || fail "no data round question about rows (depth $(header depth))"
@@ -264,10 +272,11 @@ if [ -n "$(plan_dir)" ]; then
     grep -q 'Sketch' "$sketch" || fail "the sketch has no Sketch label"
     if grep -qi '<script' "$sketch"; then fail "the sketch has a script"; fi
     if grep -qiE 'https?://' "$sketch"; then fail "the sketch has an external link"; fi
-    [ "$(wc -c <"$sketch")" -le 15360 ] || fail "the sketch is over 15 KB"
+    [ "$(wc -c <"$sketch")" -le 40960 ] || fail "the sketch is over 40,960 bytes"
   else
     fail "no mockups/prototype.html"
   fi
+  if powerops plan status "$(plan_dir)" 2>&1 | grep -i 'warn.*prototype\|prototype.*warn' >/dev/null; then fail "plan status warns about the prototype"; fi
 else
   fail "no plan folder under docs/plans"
 fi
@@ -357,6 +366,8 @@ None in this test.
 1. Create the Loan table: `tenant create table Loan`.
 2. Create the Loans app module: `tenant create app-module Loans`.
 PLAN
+# The plan names a screen, so sign-off needs a prototype line (M70): a person's skip.
+printf -- '# Decisions: loans\n\n## Log\n\n- prototype: skipped (this scenario tests deletes, not screens) (answered by: person)\n' >"$plan/decisions.md"
 powerops plan sign-off "$plan" >/dev/null
 git -C "$dir" add -A
 git -C "$dir" -c user.name=smoke -c user.email=smoke@example.invalid commit -qm loans
