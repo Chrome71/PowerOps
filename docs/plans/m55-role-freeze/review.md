@@ -1,10 +1,12 @@
-plan-hash: 71c00e0c0086591816c5e6354da3df38ac6d6759ac01dcacfe248a7ee946ca7b
+plan-hash: b57a808fcd696d46c5d3948dd85fa9482b679f1a04e1d3f90b1cbcd70a0544c5
 model: claude-sonnet-5-5
 fresh-context: yes
 
 Environment facts were not read: this plan changes the repo, not a solution, and no `plan facts` or `pac` call was made. The product checklist (publisher, connection references, licences, DLP, Dev to Test to Prod, managed or unmanaged, delegation, security roles, mockups) is not applicable and is not scored. Size (checklist item 11) was read as: each row maps to a line of Goal, and `Won't build` exists.
 
 Second pass: read the working tree after the build commit. I built, ran RoleEvalTests (19 of 19 pass), the Core tests (all pass) and the Cli tests (only the two expected `Plugin_skills_are_the_shipped_skills` cases fail), ran `manifest` on both new cases and on scratch folders (CRLF, link, missing path, file as second path), and checked the plan body hash with `plan status`. Not checked: the model runs, cost figures, `dotnet format`, and Windows behaviour.
+
+Third pass: read the tree at `c4e22f6` after row 10. `git diff 850db28 HEAD -- skills tests/eval` is empty, so the evaluated text ships. The blob ids in plan.md's Data table equal `git rev-parse 850db28:<path>` and `git hash-object <path>` for both skills and `run.sh`. The four plugin copies equal the skills (the Claude copies add only `context: fork`, `background: false`, `model: opus`). `AGENTS.md` points to this plan's Data section, and no other file points to M39 for current pins. `docs/PLANNING-SKILLS.md` names six lines as the skills' header blocks do. report.md adds up (totals, per-role and per-family counts, unsupported 14 = 8 + 6 = 5 + 9, Claude cost, token and time sums) and holds no URL, GUID, email or user name; I spot-checked from `scoring/runs.jsonl` the 32 runs, the longest run (133 s), the `state` counts, the per-pass seconds, the models and the header-and-hash check (32 of 32). decisions.md logs the person's decision and the row-10 work. I ran `dotnet build` (0 warnings), `dotnet test` (3,715: 3,710 passed, 5 skipped, 0 failed), `dotnet format --verify-no-changes` (clean) and `plan status` (bodyHash above; its warnings are the stale review, cleared by this hash, and the agent-answered lines of decisions.md under the user's delegation). Not checked: the scoring files, the key, individual findings counts by severity, the keep-rule judgements of the scorers, the model runs, and Windows. No new finding.
 
 ## Findings
 

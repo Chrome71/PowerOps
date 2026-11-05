@@ -1,11 +1,11 @@
 ---
-status: approved
+status: signed-off
 review: done
 environment: null
 depth: standard
 supersedes: null
 signed-off: 2026-11-04
-signed-off-hash: 71c00e0c0086591816c5e6354da3df38ac6d6759ac01dcacfe248a7ee946ca7b
+signed-off-hash: b57a808fcd696d46c5d3948dd85fa9482b679f1a04e1d3f90b1cbcd70a0544c5
 ---
 
 # M55: The review roles get diff limits and a report header, frozen once through an evaluation
