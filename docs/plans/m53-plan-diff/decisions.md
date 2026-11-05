@@ -64,6 +64,7 @@ The first review found 0 High, 2 Medium and 6 Low (R1 to R8). Each is answered h
 - R6 (Low): row 3 states that the parser's depth limit bounds the walk, and that a flow of another layout keeps the key (it can only show a change, never hide one). `docs/COMMANDS.md` says so. (answered by: agent m53-plan-diff)
 - R7 (Low): the Goal states that the item goes only to a managed zip's upgrade, and that the milestone's "non-upgrade action" case is tested as its absence. (answered by: agent m53-plan-diff)
 - R8 (Low): `docs/COMMANDS.md` says that the label belongs to the pair, so a consumer may read it from any change. The build doesn't change, as Q4 chose. (answered by: agent m53-plan-diff)
+- R9 (Low, second pass): row 6's line numbers in `DiffCommandTests` are examples. Every expectation that lists a change over a pair at one version gains the label, including lines with no risk today. This is recorded here and not in `plan.md`, so the reviewed plan body stays as it is. (answered by: agent m53-plan-diff)
 
 ## Log
 
@@ -74,3 +75,6 @@ The first review found 0 High, 2 Medium and 6 Low (R1 to R8). Each is answered h
 - areas not asked: automation, screens, environments, solution and publisher; M53 changes this repo's code and reads no tenant
 - approved 2026-11-04 by the building session under the user's delegation of 2026-10-22, for a fresh-context review
 - fresh review (a general-purpose subagent following `powerops-review-plan`, Sonnet, fresh context) 2026-11-04 at `9cb7b7a`: 0 High, 2 Medium, 6 Low (R1 to R8); answered in `plan.md` (Goal, Done when 1, rows 1, 3 to 6) and here (Round 2)
+- code built in parallel with the review by an implementer subagent (Sonnet, `powerops-implementer`) in a separate worktree, test first, one commit per item, then changed to Round 2's R3 to R6 and R8
+- the same reviewer's second pass 2026-11-04 at `79b02a7`: R1 to R8 hold; 0 High, 0 Medium, 1 Low new (R9), answered here (Round 2). In all: 0 High, 2 Medium and 7 Low, every one fixed or accepted
+- signed off 2026-11-04 by the building session under the user's delegation of 2026-10-22, with no High or Medium finding open (`powerops plan sign-off`; `signed-off-hash` equals `review.md`'s `plan-hash`) (answered by: agent m53-plan-diff)
