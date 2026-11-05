@@ -62,6 +62,42 @@ Answer: 1. The capture holds no call to an M59 function, so there is no cloud-ma
 ### Q14. The tests that use `addHours` as their unsupported example?
 Answer: they use `dayOfYear('2026-01-01T00:00:00Z')`, a function M59 doesn't add, and the `test-failures.*` goldens change by the recipe. `docs/FLOW-TESTS.md`'s example becomes `convertToUtc`.
 
+## Round 2 (from the review)
+
+### Q5, amended (R1, R6)
+1. The 24 zones of plan row 4, each from the first full year after its last rule change through 2030, every year pinned by a test on both platforms (recommended)
+2. Every Windows id from one floor year
+Answer: 1. Nothing showed that Windows and the IANA database agree from 2007 for every zone: Russia, Brazil, Mexico and Egypt changed their rules since, and other zones change every year or two. A zone is now taken only where a test pins its January and July offsets for every year of its window and both CI platforms pass it, so the claim covers exactly what is checked. The first years follow the zones' rule history in the IANA database; the upper end is 2030, because a later date is more likely to fall under rules not yet published, and Learn's 2018 examples stay inside the window. The expected offsets and change times are written in the plan by hand from each zone's published rule, not taken from a run of the code; this machine's data gives each one, and Windows' registry is checked by the Windows job. What can still differ is named in the plan: the change times of other years, and a rule change before 2030 that one computer's data has and another's lacks.
+
+### Q4, amended (R2, R3)
+The names are the 24 ids of the table, compared exactly, and found by `TimeZoneInfo`; the ICU round trip is gone, because Windows' and Linux's ICU versions can differ and a name could then be taken on one side only. In `convertTimeZone`, a name with punctuation is `unsupported`, after that section's sentence "you might have to remove any punctuation from the time zone name"; `convertFromUtc`'s section has no such sentence, and the page both link to writes the dots, so `convertFromUtc` takes them. The test of `Türkiye Standard Time` is dropped: it would flip when one platform's data learns the name. Every name of the table is accepted in the tests of plan row 7, so a platform that lacks one fails.
+
+### Q12, amended (R4, R8)
+No test asserts the text of a whole float (`string(float('14'))`); its `14.0` is the simulator's, listed under "Not on Learn" as a capture case. The `.0` stays, because it keeps `addDays(x, float('1'))` an error, as the capture's `A10` shows the service checks the type; a copy of the value (`json(string(...))`) keeps `14.0`. `float('abc')` and `float('')` being errors is listed as the simulator's choice. Learn's `T80` example stays an error: an hour 80 is no time, and every unreadable timestamp is an error (M58 plan row 1). Done when 1 says this example is the exception.
+
+### Q15. Does the computer's own time zone change a result? (R5)
+Answer: no, and a test shows it. Every conversion result is made a `DateTime` of kind `Unspecified` before it is written, and the readers take an offset only to convert it or to refuse it. On Linux a test sets `TZ` to `America/Los_Angeles`, clears .NET's time-zone cache, and asserts the new functions and `formatDateTime`'s `zzz` give what they give in UTC; it runs in a collection of its own that no other test runs beside, because the setting is the whole process's. On Windows `TZ` doesn't set the zone, so the test is skipped there.
+
+### Q10, amended (R9)
+The double stands for Learn's "float data type" and is listed under "Not on Learn" as a capture case: a string with more digits than a single-precision float holds keeps them here. Learn's sentence that `float` can be used "only when passing custom parameters to an app" is not modelled; the simulator runs it wherever an expression is, and the plan says so.
+
+### Q16. Which choices does a capture check first? (R7)
+Answer: the four on a real flow's main path: no zone in `startOfDay`, no zone in either conversion, a whole float's `.0`, and the double's precision. The plan's "Not on Learn" list and `docs/FLOW-TESTS.md` name them first.
+
+## Round 3 (from the review's second pass)
+
+### Q5, amended again (R10, R12)
+The window's bounds are UTC instants: from 1 January 00:00 UTC of the later of the source's and the destination's first years through the end of 2030 in UTC. A clock time with no zone counts by the instant it is on the source zone's clock. Every conversion to `UTC` in the tests carries `'yyyy-MM-ddTHH:mm:ss'`, because `UTC` with `o` is `unsupported` (Q8).
+
+### Q15, amended (R11)
+The machine-zone test checks `BaseUtcOffset`, which doesn't change with the season, runs in a collection with `DisableParallelization`, and restores `TZ` and clears the cache in a `finally`.
+
+### Q4, amended again (R13)
+`convertTimeZone` refuses four of the 24 names: `W. Europe Standard Time`, `E. South America Standard Time`, `Central Standard Time (Mexico)` and `UTC-11`.
+
+### Q12, amended again (R14)
+`docs/FLOW-TESTS.md` tells a test writer to compare a whole float as a number, not by its text.
+
 ## Log
 
 - Learn read 2026-11-05: the function reference from its published source on GitHub (`MicrosoftDocs/azure-docs`, `articles/logic-apps/expression-functions-reference.md`, `ms.date` 07/21/2026), the Default Time Zones page, and .NET's `TimeZoneInfo` and ICU pages through the Learn MCP tools; quoted in the plan's Assumptions
@@ -70,3 +106,6 @@ Answer: they use `dayOfYear('2026-01-01T00:00:00Z')`, a function M59 doesn't add
 - questions answered by the building session under the user's delegation of 2026-10-22 (autonomous milestone mode)
 - areas not asked: users, screens, solution and publisher, environments; the milestone is a change to this repo with no tenant
 - approved 2026-11-05 by the building session under the user's delegation of 2026-10-22, for a fresh-context review
+- fresh review (a general-purpose subagent following `powerops-review-plan`, Sonnet, fresh context) 2026-11-05 at `a511881`: 1 High, 5 Medium, 3 Low (R1 to R9); answered in `plan.md` (Done when 1 and 2, Won't build, rows 4 to 7 and 9, Not on Learn, Assumptions) and here (Round 2)
+- the code built by an implementer subagent (Sonnet, `powerops-implementer`) in this worktree from rows 1 to 9, test first (147 new tests failed before the code), then changed to Round 2's rules
+- the same reviewer's second pass 2026-11-05: R1 to R9 hold (R4 and R8 in part, accepted); 0 High, 1 Medium, 4 Low new (R10 to R14); answered in `plan.md` (rows 5, 7, 9), `docs/FLOW-TESTS.md`, two tests, and here (Round 3)

@@ -1098,6 +1098,7 @@ public class ExpressionTests
     [InlineData("convertFromUtc(utcNow(), 'Pacific Standard Time', 'yyyy-MM-dd HH:mm')", "\"2018-04-15 06:00\"")]
     [InlineData("convertFromUtc('2008-01-01T00:00:00Z', 'Pacific Standard Time', 'yyyy-MM-dd HH:mm')", "\"2007-12-31 16:00\"")] // the first instant of the window
     [InlineData("convertFromUtc('2030-12-31T23:59:59Z', 'Tokyo Standard Time', 'yyyy-MM-dd HH:mm:ss')", "\"2031-01-01 08:59:59\"")] // the last
+    [InlineData("convertTimeZone('2007-12-31T16:00:00', 'Pacific Standard Time', 'Eastern Standard Time', 'yyyy-MM-dd HH:mm')", "\"2007-12-31 19:00\"")] // a clock time whose UTC instant is the window's first
     [InlineData("convertFromUtc('2024-01-01T00:00:00Z', 'Egypt Standard Time', 'HH:mm')", "\"02:00\"")]
     public void ConvertFromUtc_and_ConvertTimeZone(string expression, string expectedJson) => AssertEval(expression, expectedJson);
 
@@ -1127,9 +1128,11 @@ public class ExpressionTests
     [InlineData("convertTimeZone('2018-01-01T08:00:00', 'W. Europe Standard Time', 'UTC', 'HH:mm')")]
     [InlineData("convertTimeZone('2024-01-01T08:00:00Z', 'UTC-11', 'UTC', 'HH:mm')")]
     [InlineData("convertTimeZone('2024-01-01T08:00:00Z', 'UTC', 'Central Standard Time (Mexico)', 'HH:mm')")]
+    [InlineData("convertTimeZone('2024-01-01T08:00:00Z', 'UTC', 'E. South America Standard Time', 'HH:mm')")]
     [InlineData("convertTimeZone('2026-03-08T02:30:00', 'Pacific Standard Time', 'UTC', 'HH:mm')")] // a skipped clock time
     [InlineData("convertTimeZone('2026-11-01T01:30:00', 'Pacific Standard Time', 'UTC', 'HH:mm')")] // a repeated clock time
     [InlineData("convertFromUtc('2007-12-31T23:59:59Z', 'Pacific Standard Time')")] // before the zone's first year
+    [InlineData("convertTimeZone('2007-12-31T15:59:59', 'Pacific Standard Time', 'Eastern Standard Time', 'HH:mm')")] // its UTC instant is 2007-12-31T23:59:59Z
     [InlineData("convertFromUtc('2023-07-15T12:00:00Z', 'Egypt Standard Time')")]
     [InlineData("convertFromUtc('2031-01-01T00:00:00Z', 'Pacific Standard Time')")] // after 2030
     [InlineData("convertFromUtc('9999-12-31T20:00:00Z', 'Tokyo Standard Time')")]
