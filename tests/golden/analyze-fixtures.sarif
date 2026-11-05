@@ -1275,6 +1275,29 @@
           }
         },
         {
+          "ruleId": "PO016",
+          "ruleIndex": 15,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'PowerOps capture' has 120 actions and a nesting depth of 1."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/flowtests/capture/solution/Workflows/PowerOpscapture-00000000-0000-0000-0000-000000000058.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "bcc46fe5db0a494659be5a945add291ee3e27c12059192af70bcd5966cfebe70"
+          }
+        },
+        {
           "ruleId": "PO005",
           "ruleIndex": 4,
           "level": "warning",

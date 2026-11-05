@@ -117,6 +117,124 @@ public class FlowSimulatorTests
         Assert.Equal("a", (string?)run.Variables["s"]);
     }
 
+    // IncrementVariable: https://learn.microsoft.com/azure/logic-apps/logic-apps-create-variables-store-values#increment-variable
+
+    private static string Increment(string name, string? value, string runAfter) =>
+        "{\"type\":\"IncrementVariable\",\"inputs\":{\"name\":\"" + name + "\"" + (value is null ? "" : ",\"value\":" + value) + "},\"runAfter\":" + runAfter + "}";
+
+    [Theory]
+    [InlineData("integer", "0", null, "1")] // Learn: the default value is 1
+    [InlineData("integer", "5", "2", "7")]
+    [InlineData("integer", "5", "-3", "2")]
+    [InlineData("float", "1.5", null, "2.5")]
+    [InlineData("float", "1.5", "0.25", "1.75")]
+    [InlineData("float", "1", "2", "3")]
+    public void IncrementVariable_adds_the_value_or_one(string type, string start, string? by, string expected)
+    {
+        var run = Run("{\"V\":" + Var("v", type, start) + ",\"I\":" + Increment("v", by, After("V")) + "}");
+
+        Assert.Equal("Succeeded", St(run, "I"));
+        Same(expected, run.Variables["v"]);
+    }
+
+    [Theory]
+    [InlineData("string", "\"a\"", "1")] // Learn: only integer and float variables
+    [InlineData("array", "[1]", "1")]
+    [InlineData("integer", "1", "1.5")] // the result would not be an integer
+    [InlineData("integer", "1", "\"x\"")]
+    [InlineData("float", "1.5", "\"x\"")]
+    [InlineData("integer", "9223372036854775807", "1")]
+    public void IncrementVariable_of_what_Learn_does_not_settle_is_unsupported(string type, string start, string by)
+    {
+        var run = Run("{\"V\":" + Var("v", type, start) + ",\"I\":" + Increment("v", by, After("V")) + "}");
+
+        Assert.Equal(FlowRunOutcome.Unsupported, run.Outcome);
+        Assert.Contains("'I'", run.Message);
+    }
+
+    [Fact]
+    public void IncrementVariable_of_a_variable_never_initialized_fails_the_action()
+    {
+        var run = Run("{\"I\":" + Increment("v", "1", "{}") + "}");
+
+        Assert.Equal("Failed", St(run, "I"));
+        Assert.Equal("InvalidTemplate", (string?)run.Calls["I"][0].Error!["code"]);
+    }
+
+    // Skipped actions carry an error code, as in the capture run
+
+    [Fact]
+    public void An_action_in_an_untaken_branch_is_skipped_with_the_branching_code()
+    {
+        var run = Run(IfFlow.Replace("VALUE", "1"));
+
+        var error = run.Calls["Other"][0].Error!;
+        Assert.Equal("ActionBranchingConditionNotSatisfied", (string?)error["code"]);
+        Assert.Equal("The execution of template action 'Other' skipped: the branching condition for this action is not satisfied.", (string?)error["message"]);
+        Assert.Equal("ActionBranchingConditionNotSatisfied", (string?)run.Calls["Inner"][0].Error!["code"]);
+    }
+
+    [Fact]
+    public void A_switch_case_not_taken_is_skipped_with_the_branching_code()
+    {
+        var run = Run("""
+            {"S":{"type":"Switch","expression":"b","cases":{"A":{"case":"a","actions":{"InA":{"type":"Compose","inputs":1,"runAfter":{}}}}},
+              "default":{"actions":{"Def":{"type":"Compose","inputs":2,"runAfter":{}}}},"runAfter":{}}}
+            """);
+
+        Assert.Equal("Skipped", St(run, "InA"));
+        Assert.Equal("ActionBranchingConditionNotSatisfied", (string?)run.Calls["InA"][0].Error!["code"]);
+        Assert.Null(run.Calls["Def"][0].Error);
+    }
+
+    [Fact]
+    public void An_action_whose_runAfter_is_not_met_is_skipped_with_the_condition_code_and_names_the_predecessor()
+    {
+        var run = Run("""
+            {"Bad":{"type":"Compose","inputs":"@int('x')","runAfter":{}},
+             "Next":{"type":"Compose","inputs":1,"runAfter":{"Bad":["Succeeded"]}}}
+            """);
+
+        var error = run.Calls["Next"][0].Error!;
+        Assert.Equal("ActionConditionFailed", (string?)error["code"]);
+        Assert.Equal("The execution of template action 'Next' is skipped: the 'runAfter' condition for action 'Bad' is not satisfied. Expected status values 'Succeeded' and actual value 'Failed'.", (string?)error["message"]);
+    }
+
+    [Fact]
+    public void A_foreach_with_no_items_records_the_actions_in_it_as_skipped_for_want_of_items()
+    {
+        var run = Run("""
+            {"Each":{"type":"Foreach","foreach":[],"actions":{
+               "Inner":{"type":"Compose","inputs":1,"runAfter":{}},
+               "Later":{"type":"Compose","inputs":2,"runAfter":{"Inner":["Succeeded"]}}},"runAfter":{}}}
+            """);
+
+        Assert.Equal("Succeeded", St(run, "Each"));
+        foreach (var name in new[] { "Inner", "Later" })
+        {
+            Assert.Equal("Skipped", St(run, name));
+            Assert.Equal("ActionConditionFailed", (string?)run.Calls[name][0].Error!["code"]);
+            Assert.Equal($"The execution of template action '{name}' is skipped: there are no items to repeat.", (string?)run.Calls[name][0].Error!["message"]);
+        }
+    }
+
+    [Fact]
+    public void A_scope_that_fails_because_of_its_actions_gets_the_ActionFailed_code()
+    {
+        var run = Run("""
+            {"Try":{"type":"Scope","actions":{"Bad":{"type":"Compose","inputs":"@int('x')","runAfter":{}}},"runAfter":{}},
+             "Handled":{"type":"Scope","actions":{"Bad2":{"type":"Compose","inputs":"@int('x')","runAfter":{}},
+                "Catch":{"type":"Compose","inputs":1,"runAfter":{"Bad2":["Failed"]}}},"runAfter":{"Try":["Failed"]}}}
+            """);
+
+        var error = run.Calls["Try"][0].Error!;
+        Assert.Equal("Failed", St(run, "Try"));
+        Assert.Equal("ActionFailed", (string?)error["code"]);
+        Assert.Equal("An action failed. No dependent actions succeeded.", (string?)error["message"]);
+        Assert.Equal("Succeeded", St(run, "Handled"));
+        Assert.Null(run.Calls["Handled"][0].Error);
+    }
+
     // If, Switch, Scope
 
     private const string IfFlow = """
@@ -213,14 +331,14 @@ public class FlowSimulatorTests
     // Foreach
 
     [Fact]
-    public void Foreach_over_an_empty_array_leaves_the_inner_actions_without_a_call()
+    public void Foreach_over_an_empty_array_records_the_inner_actions_as_skipped()
     {
         var run = Run("{\"Arr\":" + Var("arr", "array", "[]") + """
             ,"Loop":{"type":"Foreach","foreach":"@variables('arr')","actions":{"Inner":{"type":"Compose","inputs":1,"runAfter":{}}},"runAfter":{"Arr":["Succeeded"]}}}
             """);
 
         Assert.Equal("Succeeded", St(run, "Loop"));
-        Assert.False(run.Calls.ContainsKey("Inner"));
+        Assert.Equal("Skipped", St(run, "Inner"));
         Assert.Equal("Succeeded", run.Status);
     }
 
@@ -895,10 +1013,19 @@ public class FlowSimulatorTests
         Assert.Equal("Failed", St(unknown, "C"));
     }
 
+    [Fact]
+    public void A_string_variable_with_no_value_reads_as_an_empty_string_and_another_type_as_null()
+    {
+        var run = Run("{\"S\":" + Var("s", "string") + ",\"N\":" + Var("n", "integer", runAfter: After("S")) + ",\"C\":" + Compose("[\"@variables('s')\", \"@variables('n')\"]", After("N")) + "}");
+
+        Assert.Equal(FlowRunOutcome.Finished, run.Outcome);
+        Same("""["",null]""", run.Calls["C"][0].Outputs);
+    }
+
     // outputs()
 
     [Fact]
-    public void Outputs_of_an_action_that_was_skipped_or_has_not_run_fails_the_reader()
+    public void Outputs_of_an_action_that_was_skipped_is_null_and_of_one_that_has_not_run_fails_the_reader()
     {
         var run = Run("""
             {"Z":{"type":"Compose","inputs":1,"runAfter":{}},
@@ -908,9 +1035,10 @@ public class FlowSimulatorTests
              "Later":{"type":"Compose","inputs":1,"runAfter":{"E":["Failed"]}}}
             """);
 
-        Assert.Equal("Failed", St(run, "R"));
-        Assert.Equal("InvalidTemplate", (string?)run.Calls["R"][0].Error!["code"]);
+        Assert.Equal("Succeeded", St(run, "R")); // the capture run M19: null, not an error
+        Assert.Null(run.Calls["R"][0].Outputs);
         Assert.Equal("Failed", St(run, "E"));
+        Assert.Equal("InvalidTemplate", (string?)run.Calls["E"][0].Error!["code"]);
     }
 
     [Fact]

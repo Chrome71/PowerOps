@@ -1,0 +1,1015 @@
+{
+  "flow": "PowerOps capture",
+  "ran": "2026-11-05",
+  "runStatus": "Succeeded",
+  "utcNow": "2026-11-05T00:00:00Z",
+  "actions": {
+    "Init_count": {
+      "status": "Succeeded",
+      "code": "NotSpecified",
+      "inputs": {
+        "variables": [
+          {
+            "name": "Count",
+            "type": "Integer",
+            "value": 0
+          }
+        ]
+      },
+      "outputs": {
+        "variables": [
+          {
+            "name": "Count",
+            "type": "Integer",
+            "value": 0
+          }
+        ]
+      }
+    },
+    "Init_loops": {
+      "status": "Succeeded",
+      "code": "NotSpecified",
+      "inputs": {
+        "variables": [
+          {
+            "name": "Loops",
+            "type": "Integer",
+            "value": 0
+          }
+        ]
+      },
+      "outputs": {
+        "variables": [
+          {
+            "name": "Loops",
+            "type": "Integer",
+            "value": 0
+          }
+        ]
+      }
+    },
+    "Init_names": {
+      "status": "Succeeded",
+      "code": "NotSpecified",
+      "inputs": {
+        "variables": [
+          {
+            "name": "Names",
+            "type": "Array",
+            "value": []
+          }
+        ]
+      },
+      "outputs": {
+        "variables": [
+          {
+            "name": "Names",
+            "type": "Array",
+            "value": []
+          }
+        ]
+      }
+    },
+    "Init_novalue": {
+      "status": "Succeeded",
+      "code": "NotSpecified",
+      "inputs": {
+        "variables": [
+          {
+            "name": "NoValue",
+            "type": "String"
+          }
+        ]
+      },
+      "outputs": {
+        "variables": [
+          {
+            "name": "NoValue",
+            "type": "String",
+            "value": null
+          }
+        ]
+      }
+    },
+    "Values": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": {
+        "dec": "3.14",
+        "negdec": "-3.14",
+        "word": "abc",
+        "spaced": " 1",
+        "plus": "+5",
+        "zeros": "007",
+        "big": "2147483648",
+        "digitsletters": "12abc",
+        "thousands": "1,000",
+        "empty": "",
+        "fourteen": 14,
+        "half": 1.5,
+        "notjson": "not json",
+        "badformat": "X",
+        "badlocale": "xx-YY",
+        "partialtime": "10:30",
+        "monthday": "March 15",
+        "shortmonth": "3/15/2018",
+        "spacetime": "2018-03-15 10:30:00",
+        "offset": "2018-03-15T10:30:00+02:00",
+        "offsetzero": "2018-03-15T10:30:00+00:00",
+        "jsontext": "{\"a\":1}",
+        "obj": {
+          "a": {
+            "b": 1
+          }
+        },
+        "rows": [
+          {
+            "a": 1,
+            "b": "x,y"
+          },
+          {
+            "a": 2,
+            "b": "<z>"
+          }
+        ]
+      },
+      "outputs": {
+        "dec": "3.14",
+        "negdec": "-3.14",
+        "word": "abc",
+        "spaced": " 1",
+        "plus": "+5",
+        "zeros": "007",
+        "big": "2147483648",
+        "digitsletters": "12abc",
+        "thousands": "1,000",
+        "empty": "",
+        "fourteen": 14,
+        "half": 1.5,
+        "notjson": "not json",
+        "badformat": "X",
+        "badlocale": "xx-YY",
+        "partialtime": "10:30",
+        "monthday": "March 15",
+        "shortmonth": "3/15/2018",
+        "spacetime": "2018-03-15 10:30:00",
+        "offset": "2018-03-15T10:30:00+02:00",
+        "offsetzero": "2018-03-15T10:30:00+00:00",
+        "jsontext": "{\"a\":1}",
+        "obj": {
+          "a": {
+            "b": 1
+          }
+        },
+        "rows": [
+          {
+            "a": 1,
+            "b": "x,y"
+          },
+          {
+            "a": 2,
+            "b": "<z>"
+          }
+        ]
+      }
+    },
+    "List_rows": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": {
+        "parameters": {
+          "entityName": "pops_workitems",
+          "$select": "pops_name",
+          "$top": 3,
+          "accept": "application/json;odata.metadata=minimal"
+        }
+      },
+      "outputs": {
+        "statusCode": 200,
+        "body": {
+          "value": []
+        }
+      }
+    },
+    "Has_rows": {
+      "status": "Succeeded",
+      "code": "NotSpecified",
+      "inputs": {
+        "expressionResult": false
+      }
+    },
+    "Rows_found": {
+      "status": "Skipped",
+      "code": "ActionSkipped",
+      "error": {
+        "code": "ActionBranchingConditionNotSatisfied",
+        "message": "The execution of template action 'Rows_found' skipped: the branching condition for this action is not satisfied."
+      }
+    },
+    "No_rows": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "none",
+      "outputs": "none"
+    },
+    "For_each_row": {
+      "status": "Succeeded",
+      "code": "NotSpecified",
+      "inputs": {
+        "foreachItems": []
+      }
+    },
+    "Append_name": {
+      "status": "Skipped",
+      "code": "ActionSkipped",
+      "error": {
+        "code": "ActionConditionFailed",
+        "message": "The execution of template action 'Append_name' is skipped: there are no items to repeat."
+      }
+    },
+    "Increment_count": {
+      "status": "Skipped",
+      "code": "ActionSkipped",
+      "error": {
+        "code": "ActionConditionFailed",
+        "message": "The execution of template action 'Increment_count' is skipped: the 'runAfter' condition for action 'Append_name' is not satisfied. Expected status values 'Succeeded' and actual value 'Skipped'."
+      }
+    },
+    "Final_count": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": 0,
+      "outputs": 0
+    },
+    "Final_names_length": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": 0,
+      "outputs": 0
+    },
+    "F01": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2018-03-15T00:00:00.0000000",
+      "outputs": "2018-03-15T00:00:00.0000000"
+    },
+    "F02": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2018-03-15T12:00:00",
+      "outputs": "2018-03-15T12:00:00"
+    },
+    "F03": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "Sunday January 31",
+      "outputs": "Sunday January 31"
+    },
+    "F04": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "dimanche janvier 31",
+      "outputs": "dimanche janvier 31"
+    },
+    "F05": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "dimanche janvier 31",
+      "outputs": "dimanche janvier 31"
+    },
+    "F06": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "domingo enero 31",
+      "outputs": "domingo enero 31"
+    },
+    "F07": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "6/15/2009 1:45 PM",
+      "outputs": "6/15/2009 1:45 PM"
+    },
+    "F08": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "Monday, June 15, 2009",
+      "outputs": "Monday, June 15, 2009"
+    },
+    "F09": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "6/15/2009 1:45 PM",
+      "outputs": "6/15/2009 1:45 PM"
+    },
+    "F10": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "6/15/2009 13:45:30 PM",
+      "outputs": "6/15/2009 13:45:30 PM"
+    },
+    "F11": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2009/06/15 01:45:30 PM",
+      "outputs": "2009/06/15 01:45:30 PM"
+    },
+    "F12": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "March 18, 2026",
+      "outputs": "March 18, 2026"
+    },
+    "F13": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2018-03-15T00:00:00.0000000Z",
+      "outputs": "2018-03-15T00:00:00.0000000Z"
+    },
+    "F14": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "+00:00",
+      "outputs": "+00:00"
+    },
+    "F15": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "Thursday, March 15, 2018 1:00:00 PM",
+      "outputs": "Thursday, March 15, 2018 1:00:00 PM"
+    },
+    "F16": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "31 janvier 2016",
+      "outputs": "31 janvier 2016"
+    },
+    "F17": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "10:30",
+      "outputs": "10:30"
+    },
+    "F18": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "Sunday January 31",
+      "outputs": "Sunday January 31"
+    },
+    "U01": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "08:30",
+      "outputs": "08:30"
+    },
+    "U02": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "10:30",
+      "outputs": "10:30"
+    },
+    "U03": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2018-03-15T08:30:00.0000000+00:00",
+      "outputs": "2018-03-15T08:30:00.0000000+00:00"
+    },
+    "U04": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "+00:00",
+      "outputs": "+00:00"
+    },
+    "U05": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2018-03-15 00:00:00Z",
+      "outputs": "2018-03-15 00:00:00Z"
+    },
+    "U06": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2018 ",
+      "outputs": "2018 "
+    },
+    "U07": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "Thursday, March 15, 2018 12:00:00 AM",
+      "outputs": "Thursday, March 15, 2018 12:00:00 AM"
+    },
+    "U08": {
+      "status": "Failed",
+      "code": "BadRequest",
+      "error": {
+        "code": "InvalidTemplate",
+        "message": "Unable to process template language expressions in action 'U08' inputs at line '0' and column '0': 'The template language function 'formatDateTime' format parameter 'X' is not supported. The format must be a valid single format specifier character (such as 'd' or 'g') or a valid custom format pattern (such as 'MMMM dd, yyyy' or 'hh:mm:ss.ff'). For details please review the Standard Date and Time Format Strings and the Custom Date and Time Format Strings of the .Net framework.'."
+      }
+    },
+    "U09": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "Sonntag Januar 31",
+      "outputs": "Sonntag Januar 31"
+    },
+    "U11": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "3/15/2018 12:00:00 AM",
+      "outputs": "3/15/2018 12:00:00 AM"
+    },
+    "U12": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2018-03-15T00:00:00.0000000Z",
+      "outputs": "2018-03-15T00:00:00.0000000Z"
+    },
+    "U13": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "15/06/2009 13:45",
+      "outputs": "15/06/2009 13:45"
+    },
+    "U14": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2026-11-05T10:30:00.0000000",
+      "outputs": "2026-11-05T10:30:00.0000000"
+    },
+    "U15": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2026-03-15T00:00:00.0000000",
+      "outputs": "2026-03-15T00:00:00.0000000"
+    },
+    "U16": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2018-03-15T00:00:00.0000000",
+      "outputs": "2018-03-15T00:00:00.0000000"
+    },
+    "U17": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2018-03-15T10:30:00.0000000",
+      "outputs": "2018-03-15T10:30:00.0000000"
+    },
+    "U18": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "Thu, 15 Mar 2018 00:00:00 GMT",
+      "outputs": "Thu, 15 Mar 2018 00:00:00 GMT"
+    },
+    "I01": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": 10,
+      "outputs": 10
+    },
+    "I02": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": 14,
+      "outputs": 14
+    },
+    "I03": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": 14,
+      "outputs": 14
+    },
+    "I04": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": -7,
+      "outputs": -7
+    },
+    "I05": {
+      "status": "Failed",
+      "code": "BadRequest",
+      "error": {
+        "code": "InvalidTemplate",
+        "message": "Unable to process template language expressions in action 'I05' inputs at line '0' and column '0': 'The template language function 'int' was invoked with a parameter that is not valid. The value cannot be converted to the target type.'."
+      }
+    },
+    "I06": {
+      "status": "Failed",
+      "code": "BadRequest",
+      "error": {
+        "code": "InvalidTemplate",
+        "message": "Unable to process template language expressions in action 'I06' inputs at line '0' and column '0': 'The template language function 'int' was invoked with a parameter that is not valid. The value cannot be converted to the target type.'."
+      }
+    },
+    "I07": {
+      "status": "Failed",
+      "code": "BadRequest",
+      "error": {
+        "code": "InvalidTemplate",
+        "message": "Unable to process template language expressions in action 'I07' inputs at line '0' and column '0': 'The template language function 'int' was invoked with a parameter that is not valid. The value cannot be converted to the target type.'."
+      }
+    },
+    "I08": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": 1,
+      "outputs": 1
+    },
+    "I09": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": 5,
+      "outputs": 5
+    },
+    "I10": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": 7,
+      "outputs": 7
+    },
+    "I11": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": 2147483648,
+      "outputs": 2147483648
+    },
+    "I12": {
+      "status": "Failed",
+      "code": "BadRequest",
+      "error": {
+        "code": "InvalidTemplate",
+        "message": "Unable to process template language expressions in action 'I12' inputs at line '0' and column '0': 'The template language function 'int' was invoked with a parameter that is not valid. The value cannot be converted to the target type.'."
+      }
+    },
+    "I13": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": 1000,
+      "outputs": 1000
+    },
+    "I14": {
+      "status": "Failed",
+      "code": "BadRequest",
+      "error": {
+        "code": "InvalidTemplate",
+        "message": "Unable to process template language expressions in action 'I14' inputs at line '0' and column '0': 'The template language function 'int' was invoked with a parameter that is not valid. The value cannot be converted to the target type.'."
+      }
+    },
+    "I15": {
+      "status": "Failed",
+      "code": "BadRequest",
+      "error": {
+        "code": "InvalidTemplate",
+        "message": "Unable to process template language expressions in action 'I15' inputs at line '0' and column '0': 'The template language function 'int' was invoked with a parameter that is not valid. The value cannot be converted to the target type.'."
+      }
+    },
+    "A01": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2018-03-25",
+      "outputs": "2018-03-25"
+    },
+    "A02": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2027-01-01",
+      "outputs": "2027-01-01"
+    },
+    "A03": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2028-02-29",
+      "outputs": "2028-02-29"
+    },
+    "A04": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "Thursday, March 15, 2018",
+      "outputs": "Thursday, March 15, 2018"
+    },
+    "A05": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "1:00 PM",
+      "outputs": "1:00 PM"
+    },
+    "A06": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2018-03-16T00:00:00.0000000",
+      "outputs": "2018-03-16T00:00:00.0000000"
+    },
+    "A07": {
+      "status": "Failed",
+      "code": "BadRequest",
+      "error": {
+        "code": "InvalidTemplate",
+        "message": "Unable to process template language expressions in action 'A07' inputs at line '0' and column '0': 'The template language function 'addDays' format parameter 'X' is not supported. The format must be a valid single format specifier character (such as 'd' or 'g') or a valid custom format pattern (such as 'MMMM dd, yyyy' or 'hh:mm:ss.ff'). For details please review the Standard Date and Time Format Strings and the Custom Date and Time Format Strings of the .Net framework.'."
+      }
+    },
+    "A08": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2018-03-16",
+      "outputs": "2018-03-16"
+    },
+    "A09": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "08:30",
+      "outputs": "08:30"
+    },
+    "A10": {
+      "status": "Failed",
+      "code": "BadRequest",
+      "error": {
+        "code": "InvalidTemplate",
+        "message": "Unable to process template language expressions in action 'A10' inputs at line '0' and column '0': 'The template language function 'addDays' expects its second parameter to be an integer. The provided value is of type 'Float'. Please see https://aka.ms/logicexpressions#adddays for usage details.'."
+      }
+    },
+    "A11": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2018-03-15T08:30:00.0000000+00:00",
+      "outputs": "2018-03-15T08:30:00.0000000+00:00"
+    },
+    "R01": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2026-11-19",
+      "outputs": "2026-11-19"
+    },
+    "R02": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2026-11-19",
+      "outputs": "2026-11-19"
+    },
+    "R03": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "2026-11-19",
+      "outputs": "2026-11-19"
+    },
+    "M01": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": 1,
+      "outputs": 1
+    },
+    "M02": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "it's!",
+      "outputs": "it's!"
+    },
+    "M03": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "mail a@@b",
+      "outputs": "mail a@@b"
+    },
+    "M04": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "yes",
+      "outputs": "yes"
+    },
+    "M05": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": false,
+      "outputs": false
+    },
+    "M06": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": false,
+      "outputs": false
+    },
+    "M07": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": false,
+      "outputs": false
+    },
+    "M08": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": true,
+      "outputs": true
+    },
+    "M09": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": {
+        "a": {
+          "b": 1
+        }
+      },
+      "outputs": {
+        "a": {
+          "b": 1
+        }
+      }
+    },
+    "M10": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "flag True",
+      "outputs": "flag True"
+    },
+    "M11": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "True",
+      "outputs": "True"
+    },
+    "M12": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "{\"a\":{\"b\":1}}",
+      "outputs": "{\"a\":{\"b\":1}}"
+    },
+    "M13": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "obj {\"a\":{\"b\":1}}",
+      "outputs": "obj {\"a\":{\"b\":1}}"
+    },
+    "M14": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "",
+      "outputs": ""
+    },
+    "M15": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputsSize": 4,
+      "outputsSize": 4
+    },
+    "M16": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "",
+      "outputs": ""
+    },
+    "M17": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "",
+      "outputs": ""
+    },
+    "Parse_JSON": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": {
+        "content": "{\"a\":1}",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "outputs": {
+        "body": {
+          "a": 1
+        }
+      }
+    },
+    "M18": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": 1,
+      "outputs": 1
+    },
+    "Never": {
+      "status": "Succeeded",
+      "code": "NotSpecified",
+      "inputs": {
+        "expressionResult": false
+      }
+    },
+    "Never_compose": {
+      "status": "Skipped",
+      "code": "ActionSkipped",
+      "error": {
+        "code": "ActionBranchingConditionNotSatisfied",
+        "message": "The execution of template action 'Never_compose' skipped: the branching condition for this action is not satisfied."
+      }
+    },
+    "M19": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputsSize": 4,
+      "outputsSize": 4
+    },
+    "For_each_empty": {
+      "status": "Succeeded",
+      "code": "NotSpecified",
+      "inputs": {
+        "foreachItems": []
+      }
+    },
+    "Empty_inner": {
+      "status": "Skipped",
+      "code": "ActionSkipped",
+      "error": {
+        "code": "ActionConditionFailed",
+        "message": "The execution of template action 'Empty_inner' is skipped: there are no items to repeat."
+      }
+    },
+    "Until_never": {
+      "status": "Succeeded",
+      "code": "NotSpecified"
+    },
+    "Until_step": {
+      "status": "Succeeded",
+      "code": "NotSpecified",
+      "inputs": {
+        "name": "Loops",
+        "value": 1
+      },
+      "outputs": {
+        "body": {
+          "name": "Loops",
+          "type": "Integer",
+          "value": 2
+        }
+      }
+    },
+    "Final_loops": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": 2,
+      "outputs": 2
+    },
+    "Switch_number": {
+      "status": "Succeeded",
+      "code": "NotSpecified",
+      "inputs": {
+        "expressionResult": 2
+      }
+    },
+    "Was_1": {
+      "status": "Skipped",
+      "code": "ActionSkipped",
+      "error": {
+        "code": "ActionBranchingConditionNotSatisfied",
+        "message": "The execution of template action 'Was_1' skipped: the branching condition for this action is not satisfied."
+      }
+    },
+    "Was_2": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "two",
+      "outputs": "two"
+    },
+    "Was_default": {
+      "status": "Skipped",
+      "code": "ActionSkipped",
+      "error": {
+        "code": "ActionBranchingConditionNotSatisfied",
+        "message": "The execution of template action 'Was_default' skipped: the branching condition for this action is not satisfied."
+      }
+    },
+    "Try": {
+      "status": "Failed",
+      "code": "ActionFailed",
+      "error": {
+        "code": "ActionFailed",
+        "message": "An action failed. No dependent actions succeeded."
+      }
+    },
+    "Try_bad": {
+      "status": "Failed",
+      "code": "BadRequest",
+      "error": {
+        "code": "InvalidTemplate",
+        "message": "Unable to process template language expressions in action 'Try_bad' inputs at line '0' and column '0': 'The template language function 'json' parameter is not valid. The provided value 'not json' cannot be parsed: 'Unexpected character encountered while parsing value: n. Path '', line 0, position 0.'. Please see https://aka.ms/logicexpressions#json for usage details.'."
+      }
+    },
+    "Try_next": {
+      "status": "Skipped",
+      "code": "ActionSkipped",
+      "error": {
+        "code": "ActionConditionFailed",
+        "message": "The execution of template action 'Try_next' is skipped: the 'runAfter' condition for action 'Try_bad' is not satisfied. Expected status values 'Succeeded' and actual value 'Failed'."
+      }
+    },
+    "Catch": {
+      "status": "Succeeded",
+      "code": "NotSpecified"
+    },
+    "Catch_result": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": [
+        {
+          "name": "Try_bad",
+          "code": "BadRequest",
+          "status": "Failed",
+          "error": {
+            "code": "InvalidTemplate",
+            "message": "Unable to process template language expressions in action 'Try_bad' inputs at line '0' and column '0': 'The template language function 'json' parameter is not valid. The provided value 'not json' cannot be parsed: 'Unexpected character encountered while parsing value: n. Path '', line 0, position 0.'. Please see https://aka.ms/logicexpressions#json for usage details.'."
+          }
+        },
+        {
+          "name": "Try_next",
+          "code": "ActionSkipped",
+          "status": "Skipped",
+          "error": {
+            "code": "ActionConditionFailed",
+            "message": "The execution of template action 'Try_next' is skipped: the 'runAfter' condition for action 'Try_bad' is not satisfied. Expected status values 'Succeeded' and actual value 'Failed'."
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Try_bad",
+          "code": "BadRequest",
+          "status": "Failed",
+          "error": {
+            "code": "InvalidTemplate",
+            "message": "Unable to process template language expressions in action 'Try_bad' inputs at line '0' and column '0': 'The template language function 'json' parameter is not valid. The provided value 'not json' cannot be parsed: 'Unexpected character encountered while parsing value: n. Path '', line 0, position 0.'. Please see https://aka.ms/logicexpressions#json for usage details.'."
+          }
+        },
+        {
+          "name": "Try_next",
+          "code": "ActionSkipped",
+          "status": "Skipped",
+          "error": {
+            "code": "ActionConditionFailed",
+            "message": "The execution of template action 'Try_next' is skipped: the 'runAfter' condition for action 'Try_bad' is not satisfied. Expected status values 'Succeeded' and actual value 'Failed'."
+          }
+        }
+      ]
+    },
+    "Mixed": {
+      "status": "Succeeded",
+      "code": "NotSpecified"
+    },
+    "Mixed_fail": {
+      "status": "Failed",
+      "code": "BadRequest",
+      "error": {
+        "code": "InvalidTemplate",
+        "message": "Unable to process template language expressions in action 'Mixed_fail' inputs at line '0' and column '0': 'The template language function 'int' was invoked with a parameter that is not valid. The value cannot be converted to the target type.'."
+      }
+    },
+    "Mixed_after": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "after",
+      "outputs": "after"
+    },
+    "Table_csv": {
+      "status": "Succeeded",
+      "code": "NotSpecified",
+      "inputs": {
+        "from": [
+          {
+            "a": 1,
+            "b": "x,y"
+          },
+          {
+            "a": 2,
+            "b": "<z>"
+          }
+        ],
+        "format": "Csv"
+      },
+      "outputs": {
+        "body": "a,b\r\n1,\"x,y\"\r\n2,<z>\r\n"
+      }
+    },
+    "Table_html": {
+      "status": "Succeeded",
+      "code": "NotSpecified",
+      "inputs": {
+        "from": [
+          {
+            "a": 1,
+            "b": "x,y"
+          },
+          {
+            "a": 2,
+            "b": "<z>"
+          }
+        ],
+        "format": "Html"
+      },
+      "outputs": {
+        "body": "<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>1</td><td>x,y</td></tr><tr><td>2</td><td>&lt;z&gt;</td></tr></tbody></table>"
+      }
+    },
+    "Done": {
+      "status": "Succeeded",
+      "code": "OK",
+      "inputs": "done",
+      "outputs": "done"
+    }
+  }
+}

@@ -1,0 +1,1545 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "pops_CaptureDataverse"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "Capture days (pops_CaptureDays)": {
+          "defaultValue": 14,
+          "type": "Float",
+          "metadata": {
+            "schemaName": "pops_CaptureDays",
+            "description": "Days the capture flow adds"
+          }
+        }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "Button",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          }
+        }
+      },
+      "actions": {
+        "Init_count": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "Count",
+                "type": "integer",
+                "value": 0
+              }
+            ]
+          },
+          "runAfter": {}
+        },
+        "Init_loops": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "Loops",
+                "type": "integer",
+                "value": 0
+              }
+            ]
+          },
+          "runAfter": {
+            "Init_count": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "Init_names": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "Names",
+                "type": "array",
+                "value": []
+              }
+            ]
+          },
+          "runAfter": {
+            "Init_loops": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "Init_novalue": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "NoValue",
+                "type": "string"
+              }
+            ]
+          },
+          "runAfter": {
+            "Init_names": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "Values": {
+          "type": "Compose",
+          "inputs": {
+            "dec": "3.14",
+            "negdec": "-3.14",
+            "word": "abc",
+            "spaced": " 1",
+            "plus": "+5",
+            "zeros": "007",
+            "big": "2147483648",
+            "digitsletters": "12abc",
+            "thousands": "1,000",
+            "empty": "",
+            "fourteen": 14,
+            "half": 1.5,
+            "notjson": "not json",
+            "badformat": "X",
+            "badlocale": "xx-YY",
+            "partialtime": "10:30",
+            "monthday": "March 15",
+            "shortmonth": "3/15/2018",
+            "spacetime": "2018-03-15 10:30:00",
+            "offset": "2018-03-15T08:30:00+00:00",
+            "offsetzero": "2018-03-15T10:30:00+00:00",
+            "jsontext": "{\"a\":1}",
+            "obj": {
+              "a": {
+                "b": 1
+              }
+            },
+            "rows": [
+              {
+                "a": 1,
+                "b": "x,y"
+              },
+              {
+                "a": 2,
+                "b": "<z>"
+              }
+            ]
+          },
+          "runAfter": {
+            "Init_novalue": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "List_rows": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_commondataserviceforapps",
+              "operationId": "ListRecords",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+            },
+            "parameters": {
+              "entityName": "pops_workitems",
+              "$select": "pops_name",
+              "$top": 3
+            },
+            "authentication": "@parameters('$authentication')"
+          },
+          "runAfter": {
+            "Values": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "Has_rows": {
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "greater": [
+                  "@length(outputs('List_rows')?['body/value'])",
+                  0
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Rows_found": {
+              "type": "Compose",
+              "inputs": "found"
+            }
+          },
+          "else": {
+            "actions": {
+              "No_rows": {
+                "type": "Compose",
+                "inputs": "none"
+              }
+            }
+          },
+          "runAfter": {
+            "List_rows": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "For_each_row": {
+          "type": "Foreach",
+          "foreach": "@outputs('List_rows')?['body/value']",
+          "actions": {
+            "Append_name": {
+              "type": "AppendToArrayVariable",
+              "inputs": {
+                "name": "Names",
+                "value": "@items('For_each_row')?['pops_name']"
+              },
+              "runAfter": {}
+            },
+            "Increment_count": {
+              "type": "IncrementVariable",
+              "inputs": {
+                "name": "Count",
+                "value": 1
+              },
+              "runAfter": {
+                "Append_name": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "runAfter": {
+            "Has_rows": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "Final_count": {
+          "type": "Compose",
+          "inputs": "@variables('Count')",
+          "runAfter": {
+            "For_each_row": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "Final_names_length": {
+          "type": "Compose",
+          "inputs": "@length(variables('Names'))",
+          "runAfter": {
+            "Final_count": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F01": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('03/15/2018')",
+          "runAfter": {
+            "Final_names_length": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F02": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('03/15/2018 12:00:00', 'yyyy-MM-ddTHH:mm:ss')",
+          "runAfter": {
+            "F01": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F03": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('01/31/2016', 'dddd MMMM d')",
+          "runAfter": {
+            "F02": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F04": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('01/31/2016', 'dddd MMMM d', 'fr-fr')",
+          "runAfter": {
+            "F03": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F05": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('01/31/2016', 'dddd MMMM d', 'fr-FR')",
+          "runAfter": {
+            "F04": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F06": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('01/31/2016', 'dddd MMMM d', 'es-es')",
+          "runAfter": {
+            "F05": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F07": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('2009-06-15T13:45:30', 'g')",
+          "runAfter": {
+            "F06": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F08": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('2009-06-15T13:45:30', 'D')",
+          "runAfter": {
+            "F07": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F09": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('2009-06-15T13:45:30', 'M/dd/yyyy h:mm tt')",
+          "runAfter": {
+            "F08": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F10": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('2009-06-15T13:45:30', 'M/dd/yyyy HH:mm:ss tt')",
+          "runAfter": {
+            "F09": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F11": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('2009-06-15T13:45:30', 'yyyy/MM/dd hh:mm:ss tt')",
+          "runAfter": {
+            "F10": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F12": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('2026-03-18T14:30:00Z', 'MMMM dd, yyyy')",
+          "runAfter": {
+            "F11": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F13": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('2018-03-15T00:00:00Z')",
+          "runAfter": {
+            "F12": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F14": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('2018-03-15T00:00:00Z', 'zzz')",
+          "runAfter": {
+            "F13": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F15": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('2018-03-15T13:00:00Z', 'U')",
+          "runAfter": {
+            "F14": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F16": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('01/31/2016', 'dd MMMM yyyy', 'fr-fr')",
+          "runAfter": {
+            "F15": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F17": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('2018-03-15T10:30Z', 'HH:mm')",
+          "runAfter": {
+            "F16": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "F18": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('01/31/2016', 'dddd MMMM d', outputs('Values')?['badlocale'])",
+          "runAfter": {
+            "F17": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "U01": {
+          "type": "Compose",
+          "inputs": "@formatDateTime(outputs('Values')?['offset'], 'HH:mm')",
+          "runAfter": {
+            "F18": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "U02": {
+          "type": "Compose",
+          "inputs": "@formatDateTime(outputs('Values')?['offsetzero'], 'HH:mm')",
+          "runAfter": {
+            "U01": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "U03": {
+          "type": "Compose",
+          "inputs": "@formatDateTime(outputs('Values')?['offset'])",
+          "runAfter": {
+            "U02": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "U04": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('03/15/2018', 'zzz')",
+          "runAfter": {
+            "U03": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "U05": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('03/15/2018', 'u')",
+          "runAfter": {
+            "U04": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "U06": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('03/15/2018', 'yyyy K')",
+          "runAfter": {
+            "U05": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "U07": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('03/15/2018', 'U')",
+          "runAfter": {
+            "U06": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "U08": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('2018-03-15T00:00:00Z', outputs('Values')?['badformat'])",
+          "runAfter": {
+            "U07": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "U09": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('01/31/2016', 'dddd MMMM d', 'de-DE')",
+          "runAfter": {
+            "U08": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "U11": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('2018-03-15T00:00:00Z', outputs('Values')?['empty'])",
+          "runAfter": {
+            "U09": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "U12": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('2018-03-15T00:00:00Z', 'o', outputs('Values')?['empty'])",
+          "runAfter": {
+            "U11": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "U13": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('2009-06-15T13:45:30', 'g', 'fr-fr')",
+          "runAfter": {
+            "U12": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "U14": {
+          "type": "Compose",
+          "inputs": "@formatDateTime(outputs('Values')?['partialtime'])",
+          "runAfter": {
+            "U13": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "U15": {
+          "type": "Compose",
+          "inputs": "@formatDateTime(outputs('Values')?['monthday'])",
+          "runAfter": {
+            "U14": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "U16": {
+          "type": "Compose",
+          "inputs": "@formatDateTime(outputs('Values')?['shortmonth'])",
+          "runAfter": {
+            "U15": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "U17": {
+          "type": "Compose",
+          "inputs": "@formatDateTime(outputs('Values')?['spacetime'])",
+          "runAfter": {
+            "U16": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "U18": {
+          "type": "Compose",
+          "inputs": "@formatDateTime('03/15/2018', 'r')",
+          "runAfter": {
+            "U17": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "I01": {
+          "type": "Compose",
+          "inputs": "@int('10')",
+          "runAfter": {
+            "U18": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "I02": {
+          "type": "Compose",
+          "inputs": "@int(parameters('Capture days (pops_CaptureDays)'))",
+          "runAfter": {
+            "I01": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "I03": {
+          "type": "Compose",
+          "inputs": "@int(outputs('Values')?['fourteen'])",
+          "runAfter": {
+            "I02": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "I04": {
+          "type": "Compose",
+          "inputs": "@int('-7')",
+          "runAfter": {
+            "I03": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "I05": {
+          "type": "Compose",
+          "inputs": "@int(outputs('Values')?['dec'])",
+          "runAfter": {
+            "I04": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "I06": {
+          "type": "Compose",
+          "inputs": "@int(outputs('Values')?['word'])",
+          "runAfter": {
+            "I05": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "I07": {
+          "type": "Compose",
+          "inputs": "@int(outputs('Values')?['empty'])",
+          "runAfter": {
+            "I06": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "I08": {
+          "type": "Compose",
+          "inputs": "@int(outputs('Values')?['spaced'])",
+          "runAfter": {
+            "I07": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "I09": {
+          "type": "Compose",
+          "inputs": "@int(outputs('Values')?['plus'])",
+          "runAfter": {
+            "I08": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "I10": {
+          "type": "Compose",
+          "inputs": "@int(outputs('Values')?['zeros'])",
+          "runAfter": {
+            "I09": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "I11": {
+          "type": "Compose",
+          "inputs": "@int(outputs('Values')?['big'])",
+          "runAfter": {
+            "I10": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "I12": {
+          "type": "Compose",
+          "inputs": "@int(outputs('Values')?['digitsletters'])",
+          "runAfter": {
+            "I11": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "I13": {
+          "type": "Compose",
+          "inputs": "@int(outputs('Values')?['thousands'])",
+          "runAfter": {
+            "I12": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "I14": {
+          "type": "Compose",
+          "inputs": "@int(outputs('Values')?['half'])",
+          "runAfter": {
+            "I13": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "I15": {
+          "type": "Compose",
+          "inputs": "@int(outputs('Values')?['negdec'])",
+          "runAfter": {
+            "I14": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "A01": {
+          "type": "Compose",
+          "inputs": "@addDays('2018-03-15T00:00:00Z', 10, 'yyyy-MM-dd')",
+          "runAfter": {
+            "I15": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "A02": {
+          "type": "Compose",
+          "inputs": "@addDays('2026-12-31T23:00:00Z', 1, 'yyyy-MM-dd')",
+          "runAfter": {
+            "A01": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "A03": {
+          "type": "Compose",
+          "inputs": "@addDays('2028-02-28T00:00:00Z', 1, 'yyyy-MM-dd')",
+          "runAfter": {
+            "A02": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "A04": {
+          "type": "Compose",
+          "inputs": "@addDays('2018-03-15T00:00:00Z', 0, 'D')",
+          "runAfter": {
+            "A03": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "A05": {
+          "type": "Compose",
+          "inputs": "@addDays('2018-03-15T13:00:00Z', 0, 't')",
+          "runAfter": {
+            "A04": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "A06": {
+          "type": "Compose",
+          "inputs": "@addDays('2018-03-15', 1)",
+          "runAfter": {
+            "A05": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "A07": {
+          "type": "Compose",
+          "inputs": "@addDays('2018-03-15T00:00:00Z', 1, outputs('Values')?['badformat'])",
+          "runAfter": {
+            "A06": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "A08": {
+          "type": "Compose",
+          "inputs": "@addDays('2018-03-15', 1, 'yyyy-MM-dd')",
+          "runAfter": {
+            "A07": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "A09": {
+          "type": "Compose",
+          "inputs": "@addDays(outputs('Values')?['offset'], 0, 'HH:mm')",
+          "runAfter": {
+            "A08": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "A10": {
+          "type": "Compose",
+          "inputs": "@addDays('2018-03-15T00:00:00Z', outputs('Values')?['half'])",
+          "runAfter": {
+            "A09": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "A11": {
+          "type": "Compose",
+          "inputs": "@addDays(outputs('Values')?['offset'], 0)",
+          "runAfter": {
+            "A10": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "R01": {
+          "type": "Compose",
+          "inputs": "@formatDateTime(addDays(utcNow(), int(parameters('Capture days (pops_CaptureDays)'))), 'yyyy-MM-dd')",
+          "runAfter": {
+            "A11": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "R02": {
+          "type": "Compose",
+          "inputs": "@addDays(utcNow(), parameters('Capture days (pops_CaptureDays)'), 'yyyy-MM-dd')",
+          "runAfter": {
+            "R01": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "R03": {
+          "type": "Compose",
+          "inputs": "@substring(addDays(utcNow(), parameters('Capture days (pops_CaptureDays)')), 0, 10)",
+          "runAfter": {
+            "R02": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M01": {
+          "type": "Compose",
+          "inputs": "@outputs('Values')?['obj/a/b']",
+          "runAfter": {
+            "R03": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M02": {
+          "type": "Compose",
+          "inputs": "@concat('it''s', '!')",
+          "runAfter": {
+            "M01": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M03": {
+          "type": "Compose",
+          "inputs": "mail a@@b",
+          "runAfter": {
+            "M02": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M04": {
+          "type": "Compose",
+          "inputs": "@if(equals(1, 1), 'yes', json(outputs('Values')?['notjson']))",
+          "runAfter": {
+            "M03": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M05": {
+          "type": "Compose",
+          "inputs": "@equals('A', 'a')",
+          "runAfter": {
+            "M04": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M06": {
+          "type": "Compose",
+          "inputs": "@equals(true, 1)",
+          "runAfter": {
+            "M05": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M07": {
+          "type": "Compose",
+          "inputs": "@equals(outputs('Values')?['missing'], '')",
+          "runAfter": {
+            "M06": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M08": {
+          "type": "Compose",
+          "inputs": "@equals(1, 1.0)",
+          "runAfter": {
+            "M07": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M09": {
+          "type": "Compose",
+          "inputs": "@outputs('Values')?['OBJ']",
+          "runAfter": {
+            "M08": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M10": {
+          "type": "Compose",
+          "inputs": "flag @{equals(1, 1)}",
+          "runAfter": {
+            "M09": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M11": {
+          "type": "Compose",
+          "inputs": "@string(equals(1, 1))",
+          "runAfter": {
+            "M10": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M12": {
+          "type": "Compose",
+          "inputs": "@string(outputs('Values')?['obj'])",
+          "runAfter": {
+            "M11": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M13": {
+          "type": "Compose",
+          "inputs": "obj @{outputs('Values')?['obj']}",
+          "runAfter": {
+            "M12": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M14": {
+          "type": "Compose",
+          "inputs": "@string(outputs('Values')?['missing'])",
+          "runAfter": {
+            "M13": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M15": {
+          "type": "Compose",
+          "inputs": "@first(json('[]'))",
+          "runAfter": {
+            "M14": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M16": {
+          "type": "Compose",
+          "inputs": "@last(outputs('Values')?['empty'])",
+          "runAfter": {
+            "M15": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M17": {
+          "type": "Compose",
+          "inputs": "@variables('NoValue')",
+          "runAfter": {
+            "M16": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "Parse_JSON": {
+          "type": "ParseJson",
+          "inputs": {
+            "content": "@outputs('Values')?['jsontext']",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "a": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "M17": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M18": {
+          "type": "Compose",
+          "inputs": "@body('Parse_JSON')?['a']",
+          "runAfter": {
+            "Parse_JSON": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "Never": {
+          "type": "If",
+          "expression": "@equals(1, 2)",
+          "actions": {
+            "Never_compose": {
+              "type": "Compose",
+              "inputs": "never"
+            }
+          },
+          "else": {
+            "actions": {}
+          },
+          "runAfter": {
+            "M18": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "M19": {
+          "type": "Compose",
+          "inputs": "@outputs('Never_compose')",
+          "runAfter": {
+            "Never": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "For_each_empty": {
+          "type": "Foreach",
+          "foreach": "@json('[]')",
+          "actions": {
+            "Empty_inner": {
+              "type": "Compose",
+              "inputs": "inner",
+              "runAfter": {}
+            }
+          },
+          "runAfter": {
+            "M19": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "Until_never": {
+          "type": "Until",
+          "expression": "@equals(variables('Loops'), -1)",
+          "limit": {
+            "count": 2,
+            "timeout": "PT1M"
+          },
+          "actions": {
+            "Until_step": {
+              "type": "IncrementVariable",
+              "inputs": {
+                "name": "Loops",
+                "value": 1
+              },
+              "runAfter": {}
+            }
+          },
+          "runAfter": {
+            "For_each_empty": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "Final_loops": {
+          "type": "Compose",
+          "inputs": "@variables('Loops')",
+          "runAfter": {
+            "Until_never": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "Switch_number": {
+          "type": "Switch",
+          "expression": "@length('ab')",
+          "cases": {
+            "Case_1": {
+              "case": 1,
+              "actions": {
+                "Was_1": {
+                  "type": "Compose",
+                  "inputs": "one",
+                  "runAfter": {}
+                }
+              }
+            },
+            "Case_2": {
+              "case": 2,
+              "actions": {
+                "Was_2": {
+                  "type": "Compose",
+                  "inputs": "two",
+                  "runAfter": {}
+                }
+              }
+            }
+          },
+          "default": {
+            "actions": {
+              "Was_default": {
+                "type": "Compose",
+                "inputs": "default",
+                "runAfter": {}
+              }
+            }
+          },
+          "runAfter": {
+            "Final_loops": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "Try": {
+          "type": "Scope",
+          "actions": {
+            "Try_bad": {
+              "type": "Compose",
+              "inputs": "@json(outputs('Values')?['notjson'])",
+              "runAfter": {}
+            },
+            "Try_next": {
+              "type": "Compose",
+              "inputs": "next",
+              "runAfter": {
+                "Try_bad": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "runAfter": {
+            "Switch_number": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "Catch": {
+          "type": "Scope",
+          "actions": {
+            "Catch_result": {
+              "type": "Compose",
+              "inputs": "@result('Try')",
+              "runAfter": {}
+            }
+          },
+          "runAfter": {
+            "Try": [
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "Mixed": {
+          "type": "Scope",
+          "actions": {
+            "Mixed_fail": {
+              "type": "Compose",
+              "inputs": "@int(outputs('Values')?['word'])",
+              "runAfter": {}
+            },
+            "Mixed_after": {
+              "type": "Compose",
+              "inputs": "after",
+              "runAfter": {
+                "Mixed_fail": [
+                  "Failed"
+                ]
+              }
+            }
+          },
+          "runAfter": {
+            "Catch": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "Table_csv": {
+          "type": "Table",
+          "inputs": {
+            "from": "@outputs('Values')?['rows']",
+            "format": "CSV"
+          },
+          "runAfter": {
+            "Mixed": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "Table_html": {
+          "type": "Table",
+          "inputs": {
+            "from": "@outputs('Values')?['rows']",
+            "format": "HTML"
+          },
+          "runAfter": {
+            "Table_csv": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        },
+        "Done": {
+          "type": "Compose",
+          "inputs": "done",
+          "runAfter": {
+            "Table_html": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          }
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}
