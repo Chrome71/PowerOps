@@ -5,9 +5,9 @@ A small TypeScript [Playwright](https://playwright.dev/) project that checks two
 The two tests only read:
 
 - **Canvas app**: opens the app's play link and waits for its `Gallery1` control inside the player's `fullscreen-app-host` frame.
-- **Model-driven app**: opens the `pops_sitevisit` grid and checks the "Visit Date" column header, then opens a new record's form and checks the "Visit" text box. It saves nothing.
+- **Model-driven app**: opens the `pops_sitevisit` grid and checks the "Visit Date" column header, then opens a new record's form and checks the "Visit" text box. It saves nothing. For your own app, pick a text column for `formField`: a date, lookup or choice column is a combobox on the form, not a text box, so the check doesn't find it.
 
-**This starter was not run against a live environment yet.** CI type-checks it and lists its tests, but nobody has run them against the seed apps. Still unconfirmed: the selectors (`Gallery1`, the "Visit Date" column header, the "Visit" text box), and that one saved sign-in covers both apps. See the [verification record](../../BUILD-PLAN.md#verification-record).
+**The tests were not run against the seed apps yet.** CI type-checks them and lists them. The model-driven test ran live once, in the M63 run, against another app with its names changed: the grid check passed, and the form check passed on a text column and failed on a date column. Still unconfirmed: the selectors (`Gallery1`, the "Visit Date" column header, the "Visit" text box), and that one saved sign-in covers both apps. See the [verification record](../../BUILD-PLAN.md#verification-record).
 
 ## Where it runs
 
