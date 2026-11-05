@@ -1,4 +1,4 @@
-plan-hash: 16ba0c81bb3e640f89c50891938d2f3735de3602f952591c06bcc8885d0f2ccb
+plan-hash: d81aa63ae65f68771dc7188eacac52c4590cbf7b02f04bcc7f4c92c8450dc2e8
 model: claude-sonnet-5-5
 fresh-context: yes
 
@@ -77,3 +77,51 @@ Environment facts were not read: `pac` is not confirmed signed in, so `powerops 
 - Finding: Part 2 uses the Dataverse connector in a flow, a connection reference and a read of `pops_workitems`. The plan does not say which licence covers the Dataverse connector in Dev, whether Dev's DLP policy allows it with the other connectors the flow uses, or which role the person's connection needs to read the table (a missing read privilege is a known cause of empty results).
 - Suggested fix: add one line each in "Environments and route", or mark them as checked by the person at the yes prompt.
 - Resolution: fixed: Environments and route states the licence, DLP and role evidence from the run of 2026-11-04 and has the person confirm it at the yes
+
+## Second pass
+
+Run against HEAD `fc427a1` (plan and decisions Round 2; the code is `d6a4d6a`, `86b79e6` and `b7e28e2`) by the same reviewer with a fresh read. The first-pass text above is unchanged; the `plan-hash` line now names the revised plan. Still no `powerops plan facts`, `pac`, `az`, tenant call or GitHub write.
+
+What I ran: `dotnet test` of the Core `Flows` tests (140 pass) and the CLI `TestCommandTests` (24 pass) in the worktree, and a probe of about 40 expressions in a scratch copy outside the repo (`git archive HEAD`).
+
+What held (each resolution checked in the plan, `decisions.md`, the code, the tests and `docs/FLOW-TESTS.md`):
+- R1: `formatDateTime` refuses any offset (`Kind.Local`, `+00:00` too); `addDays` with a format needs a `Z` timestamp; a test covers `+02:00`. The probe confirms.
+- R2: `int` reads `-` and digits with no leading zero within 32 bits; `' 1'`, `'+5'`, `'007'`, `'1e3'`, `'2147483648'`, `Infinity` and `NaN` are `unsupported`; a decimal string and a word are errors. The Q1 guess is limited to 32 bits and named in Done when 2. Holds, with R14 below.
+- R3: the `hh` example is handled as the plan says, and the test expects `01:45:30 PM`.
+- R4: an invalid `formatDateTime` format (`X`, `/`) is `unsupported`; `addDays` keeps the error.
+- R5: only `en-us`, `fr-fr`, `es-es` are accepted (any case); `fr`, `en_us` and `de-DE` are `unsupported`; invariant mode gives `unsupported`. The decision not to add an ICU-mismatch test is sound: the Learn-example tests fail anyway. Holds for the locale choice; see R13 for the format side.
+- R6: Done when 2 now says what is the cloud's value and what is the simulator's reading; the Core test runs the cloud's exact rewrite with an `Int` parameter; the CLI tests assert the `item/pops_name` input.
+- R7, R8, R9, R11: the scrub list, the read-only pre-checks, the build route (`pac solution pack` and `import` with a settings file), Compose-sourced failing cases, "complete = a status for every action", error-code comparison, the licence and DLP evidence and the leak scan in Step 4 are all in the plan.
+- R10: `u`, `r`, `R` and `K` are refused on a zoneless timestamp (code and docs agree).
+
+### High
+
+No findings.
+
+### Medium
+
+#### R12. A partial timestamp is read against the machine's clock
+- Area: 9 Testability (machine-dependent result; a value Learn does not state)
+- Finding: `ReadZoned` uses `DateTime.TryParse`, which accepts strings that are not full dates and fills the rest from today. Probe: `formatDateTime('10:30')` gives `2026-11-04T10:30:00.0000000` (today's date), `formatDateTime('March 15')` gives `2026-03-15T00:00:00.0000000` (this year), `formatDateTime('March 2018', 'o')` gives `2018-03-01T00:00:00.0000000`, and `formatDateTime('15 Mar 2018 10:00:00 GMT')` gives a `Z` result. A test written today passes with those values and fails on another day, and Learn states none of them (its example is `'03/15/2018'`). The same parser serves `addDays` with a format. The docs say "a timestamp ending in `Z` or with no time zone", which hides this.
+- Suggested fix: read with `DateTime.TryParseExact` against a short list (the ISO forms `yyyy-MM-ddTHH:mm:ss[.fffffff]` and `yyyy-MM-dd`, with optional `Z`, and Learn's `MM/dd/yyyy[ HH:mm:ss]`); treat any other text that `TryParse` would accept as `unsupported`, and unreadable text as an error. Add tests for `'10:30'` and `'March 15'`.
+- Resolution: fixed: both readers accept only full ISO 8601 timestamps and `MM/dd/yyyy` with an optional time; other text .NET reads as a date is `unsupported` (plan rows 1 and 3, decisions Q17); tests for `'10:30'`, `'March 15'`, `'3/15/2018'` and `'2018-03-15 10:30:00'`
+
+#### R13. `fr-fr` and `es-es` with any format still depend on the machine's ICU data
+- Area: 9 Testability (platform-dependent result)
+- Finding: R5 limited the locale names, but any format is accepted with them. Probe on this machine: `formatDateTime('2018-03-15T13:00:00', 'g', 'es-es')` gives `15/3/2018 13:00`, with `'g'` and `'fr-fr'` `15/03/2018 13:00`, `'tt'` with `fr-fr` gives `PM`. Learn shows these locales only with `'dddd MMMM d'`. Day-period text, separators and patterns of these cultures changed between CLDR versions (and Windows and Linux CI use different ICU builds), so a test using them can pass here and fail on the other platform, or differ from the service. The docs say only "follow .NET's culture data".
+- Suggested fix: for `fr-fr` and `es-es` accept only formats made of the day and month specifiers Learn demonstrates (`d`, `dd`, `ddd`, `dddd`, `M`, `MM`, `MMM`, `MMMM`, `yyyy`, `yy` and literal separators); make every other format `unsupported`. State this in the docs and add a test.
+- Resolution: fixed: with `fr-fr` and `es-es` only custom day, month and year formats are accepted; `'g'`, `'D'`, `'tt'`, `'HH:mm'`, abbreviations and `/` are `unsupported` (row 1, decisions Q14 amended)
+
+### Low
+
+#### R14. Some `int` errors are not the ones Learn states, and the docs overstate them
+- Area: 9 Testability
+- Finding: The plan, the docs and decisions Q12 say a decimal string or "a string with no number in it" is an error. The code also errors for strings that contain digits: probe `int('12abc')`, `int('1,000')` and full-width digits `int('３')` all throw `ExpressionException`. The cookbook supports only the decimal-string error. The cloud may read `'1,000'` differently.
+- Suggested fix: error only for decimal strings and for strings with no digit; make the rest `unsupported`. Change the docs sentence to match whichever code is kept.
+- Resolution: fixed: errors only for a decimal string or a string with no digit; `'12abc'`, `'1,000'` and non-ASCII digits are `unsupported`; docs match (row 4, decisions Q12 amended)
+
+#### R15. Two small mismatches
+- Area: 9 Testability, 5 Route
+- Finding: (a) The header `environment: PowerOps Test` and the Goal text "the developer environment, not the trial Test environment" use the word Test for both; a session that reads only the header can target the trial environment. (b) The CLI test `The_live_runs_date_expression_passes_with_the_value_the_cloud_gave` runs both the original with `int` and a rewrite that has `int` too, which the cloud never ran; the name claims the cloud's value for both, while the plan says only the Core test's rewrite is the cloud's.
+- Suggested fix: (a) have the pre-check name the environment type and URL host class from `pac org who` and stop if it is a trial environment. (b) Rename the test to say "the date expression gives 2026-11-18" and keep the cloud claim on the Core test.
+- Resolution: fixed: (a) the pre-check reads the type from `pac admin list` and stops unless it is Developer; (b) the CLI test is renamed and says the cloud ran only the rewrite without `int` (decisions Q18)

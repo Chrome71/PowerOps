@@ -89,6 +89,22 @@ Answer: the rewrite `addDays(utcNow(), parameters(...), 'yyyy-MM-dd')` gives the
 ### Q16. How is part 2 run and compared? (R7, R8, R9, R11)
 Answer: the plan's "Environments and route" now names Dev and the read-only checks before the yes; builds the solution as files, packs and imports it with `pac` and a deployment settings file that binds an existing connection; runs it once; takes every failing case's input from a Compose output so the flow saves; calls the capture complete when every action has a status; scrubs row data, keys, owner ids, etags, `@odata` links, timestamps, workflow fields and headers as well as ids and hosts; compares status, inputs, outputs and the error code of a failed action, not the message text; runs the leak scan and reads the fixture diff before the second PR; and states the licence, DLP and role evidence from the run of 2026-11-04, which the person confirms at the yes.
 
+## Round 3 (from the review's second pass)
+
+### Q17. Which timestamp text is read? (R12)
+1. Full ISO 8601 timestamps and `MM/dd/yyyy` with an optional time, as Learn's examples use; other text .NET reads as a date is `unsupported`; text it can't read is an error (recommended)
+2. Whatever `DateTime.TryParse` accepts
+Answer: 1. .NET fills the missing parts of `'10:30'` or `'March 15'` from today's date, so a test would pass today and fail tomorrow, with a value Learn never states. M14's reader for `addDays` without a format and `utcNow`'s fixed value had the same gap and gets the same check; every timestamp in the repo's tests and fixtures is in one of the accepted forms. The check uses `DateTimeOffset`, so it never converts through the machine's zone.
+
+### Q14, amended (R13)
+With `fr-fr` and `es-es`, only custom formats of the day, month and year fields Learn shows them with are accepted. Learn shows these locales only with `'dddd MMMM d'`; their day periods, separators, standard patterns and abbreviations come from ICU here and from the service's own data in the cloud, and they changed between CLDR versions, so `'g'` or `'tt'` with them could pass on one CI platform and fail on the other.
+
+### Q12, amended (R14)
+An error only for a decimal string (the cookbook) or a string with no digit, which has no integer version at all. `'12abc'`, `'1,000'` and non-ASCII digits are `unsupported`: the service may read them differently.
+
+### Q18. How does part 2 know it is in Dev? (R15)
+The read-only checks before the yes add `pac admin list`, whose type column must say Developer; a trial or any other type stops the session. The CLI test's name no longer claims the cloud's value: the cloud ran only the rewrite without `int`, which the Core test runs.
+
 ## Log
 
 - Learn checked 2026-11-04 with the Learn MCP tools (a researcher subagent, Sonnet, quoting the pages); the pages are in the plan's Assumptions
@@ -99,3 +115,4 @@ Answer: the plan's "Environments and route" now names Dev and the read-only chec
 - approved 2026-11-04 by the building session under the user's delegation of 2026-10-22, for a fresh-context review
 - fresh review (a general-purpose subagent following `powerops-review-plan`, Sonnet, fresh context) 2026-11-04: 1 High, 8 Medium, 2 Low (R1 to R11); answered in `plan.md` (header `environment`, Goal, Done when 1, 2 and 5, rows 1 to 4, 6 to 9, Not on Learn, Environments and route, Assumptions, Steps) and here (Round 2)
 - part 1's code built by an implementer subagent (Sonnet, `powerops-implementer`) in this worktree from rows 1 to 7, test first (54 new tests failed before the code), then changed to the review's rules
+- the same reviewer's second pass 2026-11-04 at `fc427a1`: R1 to R11 hold; 2 Medium and 2 Low new (R12 to R15); answered in `plan.md` (rows 1, 3, 4, Not on Learn, Environments and route) and here (Round 3); the code changed by the same implementer
