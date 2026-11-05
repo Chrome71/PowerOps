@@ -671,7 +671,7 @@ public static class ExpressionFunctions
                 return TimeZoneInfo.FindSystemTimeZoneById(name);
             }
         }
-        catch (Exception e) when (e is TimeZoneNotFoundException or InvalidTimeZoneException)
+        catch (Exception e) when (e is TimeZoneNotFoundException or InvalidTimeZoneException or System.Security.SecurityException or UnauthorizedAccessException or IOException)
         {
         }
 

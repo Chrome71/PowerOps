@@ -1,4 +1,4 @@
-plan-hash: 6fb658988d6ee8770d3322d8001127310b7bd06df8a8c53c83110970600a8c25
+plan-hash: 2f9b98a6ef994528219eac78492e69c84388585d1dab57c951c97b637e6eacf8
 model: claude-sonnet-5-5
 fresh-context: yes
 
@@ -118,3 +118,52 @@ No findings.
 - Finding: After the R4 resolution the only remaining false-pass path is a flow test whose expected text came from the simulator (`concat('Total ', float('14'))` gives `Total 14.0`). The plan says the text is "not Learn's" in `Not on Learn` and Q12, but row 9 lists only "`float`'s styles, locales and `.0`" for the docs, so a maker reading `docs/FLOW-TESTS.md` may not learn it.
 - Suggested fix: add to row 9 one docs sentence: do not assert the text of a float with no fraction; the simulator writes `14.0` and the service's text is not on Learn.
 - Resolution: fixed: `docs/FLOW-TESTS.md` says to compare a whole float as a number and not assert its text, and names the four choices a capture should check first; row 9 says so
+
+## Third pass
+
+Run against HEAD `046ee27` by the same reviewer with a fresh read, this time with the code and tests (`git diff a511881 HEAD` over `src`, `tests` and `docs/FLOW-TESTS.md`). The first- and second-pass text above is unchanged; the `plan-hash` line now names the current plan. The coordinator's `git` slip put the worktree on `0fb8f3d` for a moment while I worked; I re-checked that HEAD is `046ee27`, rebuilt, and re-ran everything below on it. Still no `powerops plan facts`, `pac`, `az`, tenant call or GitHub write; nothing committed.
+
+What I ran: `dotnet test --project tests/PowerOps.Core.Tests` (2,786 tests, 2,784 passed, 2 skipped, 0 failed), and a probe of about 60 expressions in a scratch project outside the repo that calls `Expression.Evaluate` on the built library (zone extremes, formats, `float` strings, Egypt clock times, extreme dates). No .NET exception escaped in any of them; every refusal was an `ExpressionException` or `UnsupportedException`.
+
+What held:
+- R10: holds. The `UTC` row of the 24-zone `Theory` and the convert-back cases give every conversion to `UTC` the format `'yyyy-MM-ddTHH:mm:ss'`; row 7 says so; `UTC` with `o` or `O` and no format stays `unsupported` (tested).
+- R11: holds. The test checks `BaseUtcOffset`, sits in a `DisableParallelization` collection, and restores `TZ` and clears the cache in a `finally`; it is skipped off Linux through `Assert.SkipUnless`. The six expressions are the ones row 7 (c) lists.
+- R12: holds. The code compares the UTC instant with 1 January 00:00 UTC of the later first year and with the end of 2030; two tests put a zoneless Pacific clock time on each side of the first bound; the probe confirms.
+- R13: holds. The code refuses any name with a character other than an ASCII letter or a space in `convertTimeZone`; all four names (`W. Europe`, `E. South America`, `Central Standard Time (Mexico)`, `UTC-11`) have a test; `convertFromUtc` takes them.
+- R14: holds. `docs/FLOW-TESTS.md` says to compare a whole float as a number, with the `Total 14.0` example, and names the four capture-first choices.
+
+The code does what rows 1 to 9 say and nothing more: the shared `Add` for the four adders, `startOfDay` and `dayOfWeek` refusing an offset, the 24-name table with exact comparison, the UTC-instant window, `Unspecified` results, `float` with its styles and locales and `.0`, and the 47 names. The tests cover every case the rows list, with the exceptions in R15. I found no unneeded code. The errors-versus-`unsupported` split matches the plan in all probed cases, including `float('0x10')` and `float('$5')` (errors) and `float(' 1')` and `float('1e999')` (`unsupported`). The Core tests changed for `addHours` as the unsupported example now use `dayOfYear`, and the goldens follow.
+
+### High
+
+No findings.
+
+### Medium
+
+No findings.
+
+### Low
+
+#### R15. Two cases row 5 lists are not in the tests, and the hostile list has no negative-offset extreme
+- Area: 9 Testability
+- Finding: Row 5's `unsupported` list has `UTC` as the destination with `'zzz'` and with `'u'`. The tests refuse `'zzz'` and `'u'` only with `Pacific Standard Time` as the destination, and `UTC` only without a format and with `o` or `O`. The code does refuse both (`FormatAs` on a result with no zone; the probe confirms), so this is a gap in the tests, not in the code. `Hostile_input_never_escapes_as_a_dotnet_exception` covers `Tokyo Standard Time` and `UTC-11` at year 1 and year 9999 but no zone with a negative offset at 9999 or a positive one at 0001 for `convertFromUtc` (the probe shows `Pacific Standard Time` at 9999 and at year 1 and `New Zealand Standard Time` at year 1 give `unsupported`, so the code is right).
+- Suggested fix: add the two `UTC`-destination cases and `convertTimeZone('9999-12-31T23:59:59', 'Pacific Standard Time', 'UTC', 'yyyy')` and the year 1 case for `New Zealand Standard Time` to the existing lists.
+- Resolution: fixed: tests refuse `convertFromUtc` to `UTC` with `'zzz'` and `'u'`; the hostile list adds New Zealand at year 1 and Pacific at year 9999
+
+#### R16. Egypt's clock-time checks are not tested, and the registry stores its end 1 ms off the IANA rule
+- Area: 9 Testability
+- Finding: Egypt's daylight saving ends at 24:00 on the last Thursday of October. The IANA data states 24:00; Windows' registry states Thursday 23:59:59.999. Row 7 pins the instants (20:59Z and 21:00Z), which both agree on, but the `IsInvalidTime` and `IsAmbiguousTime` checks that decide `unsupported` for a clock time are tested only for Pacific and AUS Eastern. The probe on Linux gives the expected results (`2026-10-29T22:30:00` converts, `23:30:00` is repeated, `2026-04-24T00:30:00` is skipped, `2026-04-23T23:30:00` converts), but nothing makes the Windows job check them, and the two data sets can differ by that millisecond at the edge of the ambiguous range.
+- Suggested fix: add the four Egypt clock times above to the repeated-or-skipped test (two `unsupported`, two converted to `19:30` and `21:30` UTC) so the Windows job checks the registry's reading; say in `docs/FLOW-TESTS.md` that a clock time within a millisecond of a change can differ.
+- Resolution: fixed: a skipped (`2026-04-24T00:30:00`) and a repeated (`2026-10-29T23:30:00`) Egypt clock time are tested as `unsupported`; both lie inside the change on either data's reading, so the Windows job checks them
+
+#### R17. `Zone` can let a .NET exception through when the zone data can't be read
+- Area: 9 Testability
+- Finding: `Zone` catches `TimeZoneNotFoundException` and `InvalidTimeZoneException`. The `FindSystemTimeZoneById` page lists a `SecurityException` for a process without permission to read the registry key, and on Linux reading the zone file can fail with an I/O or access error. Those would escape an expression as .NET exceptions, which the contract (only `ExpressionException`, `UnsupportedException` and `UnmockedException`) forbids. It needs a locked-down machine, so it is unlikely, but a sandboxed CI job is where the Action runs.
+- Suggested fix: catch `SecurityException`, `UnauthorizedAccessException` and `IOException` beside the two and refuse as `unsupported` with the same message ("the computer's zone data can't be read").
+- Resolution: fixed: `Zone` also turns a `SecurityException`, `UnauthorizedAccessException` or `IOException` from reading the zone data into `unsupported`
+
+#### R18. A `float` over 15 significant digits is rounded and written with an exponent, with no test showing it
+- Area: 9 Testability
+- Finding: `float('123456789012345678')` gives `1.2345678901234568E+17` and a number of 30 digits gives an `E+29` form. The plan names the double's precision as a capture-first choice, so this is known; but no test shows what such a value looks like, and a flow test that expects the exact digits fails (a safe direction) while one that copies the simulator's output passes and may differ in the cloud. The probe also shows `float('-0')` gives `-0.0` and `float(-0)` gives `0.0` in the expression language (no negative literal), which is harmless.
+- Suggested fix: add one `Float` case for a 17-digit string with its rounded value, and say in `docs/FLOW-TESTS.md`'s float line that digits past the 15th are rounded.
+- Resolution: fixed: a test shows `float('123456789012345678')` gives `1.2345678901234568E+17`; the double's precision is already one of the four capture-first choices in the plan and the docs

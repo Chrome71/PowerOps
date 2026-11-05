@@ -1140,6 +1140,8 @@ public class ExpressionTests
     [InlineData("convertFromUtc('2018-01-01T08:00:00Z', 'UTC')")] // UTC as destination with the o format
     [InlineData("convertFromUtc('2018-01-01T08:00:00Z', 'UTC', 'o')")]
     [InlineData("convertFromUtc('2018-01-01T08:00:00Z', 'UTC', 'O')")]
+    [InlineData("convertFromUtc('2018-01-01T08:00:00Z', 'UTC', 'zzz')")] // the result has no zone, to UTC too
+    [InlineData("convertFromUtc('2018-01-01T08:00:00Z', 'UTC', 'u')")]
     [InlineData("convertTimeZone('2018-01-01T08:00:00', 'Pacific Standard Time', 'UTC')")]
     [InlineData("convertFromUtc('2018-01-01T08:00:00', 'Pacific Standard Time', 'zzz')")] // the result has no zone
     [InlineData("convertFromUtc('2018-01-01T08:00:00Z', 'Pacific Standard Time', 'u')")]
@@ -1226,6 +1228,8 @@ public class ExpressionTests
     [InlineData("AUS Eastern Standard Time", "2026-04-05T02:00:00")]
     [InlineData("Pacific Standard Time", "2026-03-08T02:00:00")]
     [InlineData("AUS Eastern Standard Time", "2026-10-04T02:30:00")]
+    [InlineData("Egypt Standard Time", "2026-04-24T00:30:00")] // skipped
+    [InlineData("Egypt Standard Time", "2026-10-29T23:30:00")] // repeated
     public void A_repeated_or_skipped_clock_time_is_unsupported_from_every_zone(string zone, string local) =>
         Assert.Throws<UnsupportedException>(() => Eval($"convertTimeZone('{local}', '{zone}', 'UTC', 'yyyy-MM-ddTHH:mm:ss')"));
 
@@ -1240,6 +1244,7 @@ public class ExpressionTests
     [InlineData("float('12345678.-')", "-12345678")]
     [InlineData("float('.12345678')", "0.12345678")]
     [InlineData("float('-1.5')", "-1.5")]
+    [InlineData("float('123456789012345678')", "1.2345678901234568E+17")] // not on Learn, plan "Not on Learn": a double keeps about 17 digits
     [InlineData("float('14')", "14.0")]
     [InlineData("float(14)", "14.0")] // not on Learn, plan "Not on Learn": a number gives itself
     [InlineData("float(1.5)", "1.5")]
@@ -1508,6 +1513,8 @@ public class ExpressionTests
     [InlineData("convertFromUtc('9999-12-31T23:59:59Z', 'Tokyo Standard Time')")]
     [InlineData("convertFromUtc('0001-01-01T00:00:00Z', 'Tokyo Standard Time')")]
     [InlineData("convertTimeZone('0001-01-01T00:00:00', 'Tokyo Standard Time', 'UTC', 'yyyy')")]
+    [InlineData("convertTimeZone('0001-01-01T00:00:00', 'New Zealand Standard Time', 'UTC', 'yyyy')")]
+    [InlineData("convertTimeZone('9999-12-31T20:00:00', 'Pacific Standard Time', 'Tokyo Standard Time')")]
     [InlineData("convertTimeZone('9999-12-31T23:59:59', 'UTC', 'Tokyo Standard Time', 'yyyy')")]
     [InlineData("convertTimeZone('9999-12-31T23:59:59', 'Tokyo Standard Time', 'UTC', 'yyyy')")]
     [InlineData("convertTimeZone('0001-01-01T00:00:00', 'UTC', 'UTC-11', 'yyyy')")]

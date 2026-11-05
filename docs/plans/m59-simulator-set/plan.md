@@ -1,9 +1,11 @@
 ---
-status: approved
-review: pending
+status: signed-off
+review: done
 environment: null
 depth: quick
 supersedes: null
+signed-off: 2026-11-05
+signed-off-hash: 2f9b98a6ef994528219eac78492e69c84388585d1dab57c951c97b637e6eacf8
 ---
 
 # M59: A wider flow simulator set: float, the hour, minute and second adders, time-zone conversion, startOfDay and dayOfWeek
