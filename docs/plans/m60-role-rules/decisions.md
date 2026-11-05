@@ -49,6 +49,23 @@ Answer: 1. The brief says copy only what the acceptance needs. The canvas app, t
 2. Scope PO033 to roles an app maps, which skips `solution-01` and `solution-06`
 Answer: 1. The brief's step 6 says a changed baseline is the person's decision, and option 2 would still change `solution-07` and `solution-08` and would miss the run's own roles, which no app maps, so the fixture would not fire PO033. Learn says every security role must include a minimum set of privileges, so the finding on the eval roles is correct. (answered by: agent m60 build session)
 
+## Round 3 (from the review)
+
+### Q9. A role read twice? (R8)
+1. Keep each role once per id, the first in reading order: folder files in ordinal path order (`X.xml` before `X_managed.xml`), then `customizations.xml` (recommended)
+2. Read `X_managed.xml` only when `X.xml` is missing, as the app-module reader does by folder
+3. Leave it; no observed layout holds a role twice
+Answer: 1. No observed export holds a role twice, but `pac solution unpack` writes `_managed` files for app modules, so a role read twice would double every PO033 and PO034 finding. Role files are not in a folder per role, so option 2 would have to pair file names; keeping the first per id is one line and covers the zip case too. (answered by: agent m60 build session)
+
+### Q2, amended (R2)
+The three names stay, but the plan and the PO033 page say which part is Learn's: "Privileges required to view and access apps" names Read on the Model-driven App table, and "Create or edit a security role" names Read User and Read Saved View, in words; the `prv` names are from the App for Outlook troubleshooting page. Holding any one of them silences the rule, which is far weaker than Learn's minimum, and the page says so. (answered by: agent m60 build session)
+
+### Q5 and Q6, amended (R3, R6, R9)
+PO034's fix says to check whether the role's users need the privilege before removing it, not to remove it. The plan and the PO034 page say that Create and Write on SharePointData, the role editor's defaults, is expected on most editor-made roles, and that a role copied from App Opener may still give findings on system tables, because App Opener's privileges were not read. The `UserEntityUISettings` exclusion cites "Create or edit a security role", and its privilege names are inferred from the pattern. A role with Create and Write on the Model-driven App table but no `prvReadAppModule` is a listed limit of PO033, not a quiet case: no observed role has that shape. (answered by: agent m60 build session)
+
+### Q1, kept (R7)
+The 15 other documented templates count as non-admin roles, `Support` and `Proxy` included. The effect is a missed finding, never a false one, and judging each template's privileges would need lists Learn doesn't give. The PO032 page says so. (answered by: agent m60 build session)
+
 ## Log
 
 - Learn checked 2026-11-05 with the Learn MCP tools: "Security roles and templates", "Privileges required to view and access apps", "Create or edit a security role" (minimum privileges), "Configure user security in an environment", the App for Outlook troubleshooting page (privilege names) and the User Settings table reference
@@ -58,3 +75,4 @@ Answer: 1. The brief's step 6 says a changed baseline is the person's decision, 
 - questions answered by the building session under the user's delegation of 2026-10-22 (autonomous milestone mode); the D6 answer itself is the person's (2026-11-04)
 - areas not asked: users, screens, environments, solution and publisher; this is a change to this repo
 - approved 2026-11-05 by the building session under the user's delegation of 2026-10-22, for a fresh-context review
+- fresh review (a general-purpose subagent following `powerops-review-plan`, Sonnet, fresh context) 2026-11-05 at `132f22b`: 0 High, 3 Medium, 6 Low (R1 to R9); answered in `plan.md` (Done when 1, 3 and 8, Won't build, rows 2, 3, 5, 7, 11 and the new row 13, the PO034 fix, Assumptions, Step 6) and here (Round 3)
