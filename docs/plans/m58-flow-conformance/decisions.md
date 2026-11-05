@@ -1,0 +1,67 @@
+# Decisions: m58-flow-conformance
+
+## Round 1
+
+### Q1. What does `int` do with a value that is not a string?
+1. An integer number gives itself; any other non-string value is `unsupported` (recommended)
+2. Every non-string value is an error, as Learn's parameter type (String) suggests
+3. Every non-string value is `unsupported`
+Answer: 1. Learn types the argument as a String and says nothing about a number. The run's expression is `int(parameters('...'))`, and in the run `addDays` took the same parameter directly as its Integer days, so the parameter most likely gave a number; option 3 would leave the run's own expression `unsupported`, and option 2 would fail it. Returning the number is the simulator's choice, listed under "Not on Learn" and checked by the capture (`int(14)` and `int` of the Number environment variable). A decimal number, a boolean, null, an object or an array is `unsupported`, never a guess: Learn's conversion intro mentions turning a Boolean into an integer without saying how `int` does it.
+
+### Q2. How does `formatDateTime` read a timestamp with no time zone?
+1. It keeps no zone, so the default `o` format ends without `Z` (recommended)
+2. As UTC, as `addDays` reads it
+Answer: 1. Learn's own example: `formatDateTime('03/15/2018')` gives `'2018-03-15T00:00:00.0000000'`, with no `Z`. .NET's parse with `AdjustToUniversal` gives exactly that and never consults the machine's time zone.
+
+### Q3. And a timestamp with an offset?
+1. Converted to UTC before formatting (recommended)
+2. `unsupported` until the capture shows it
+Answer: 1. `addDays` already does this (`ExpressionTests.cs:767`, an M14 choice), so `formatDateTime(addDays(...))` and `formatDateTime(...)` agree. Not on Learn; the capture checks it.
+
+### Q4. Which culture formats `addDays`'s format argument?
+1. `en-us`, as `formatDateTime`'s default (recommended)
+2. The invariant culture
+Answer: 1. Learn's `utcNow` examples use the same format argument and show en-US text (`'d'` gives `9/25/2025`, `'D'` gives `Thursday, September 25, 2025`); the invariant culture would give `09/25/2025` and `Thursday, 25 September 2025`. Not on Learn for `addDays` itself; the capture checks `'D'`.
+
+### Q5. ICU writes U+202F (a narrow no-break space) before AM/PM in en-US times. What does the simulator write?
+1. A plain space (recommended)
+2. Whatever the platform's culture data gives
+Answer: 1. Learn's examples (`'g'` gives `6/15/2009 1:45 PM`, `utcNow('t')` gives `5:18 AM`) show a space, and a test file written from them would fail on Linux with option 2, and pass or fail on Windows depending on its ICU. The replacement also turns a U+202F typed into a format string into a space; that case is unlikely and carries a `shortcut:` comment. The capture checks `'g'`.
+
+### Q6. `U` and the `z` formats on a timestamp with no zone?
+1. `unsupported` (recommended)
+2. Format as if the zone were UTC
+Answer: 1. .NET converts such a value from the machine's time zone for `U` and prints the machine's offset for `z`, `zz` and `zzz`, so the result would change with the computer that runs the test. What the service does is not on Learn; the capture records it, and a later `fix(core):` can follow it. A literal `z` inside quotes in a custom format is refused too; the check is a plain `contains`, which can only refuse more, never pass a wrong value.
+
+### Q7. An empty format or locale?
+1. `unsupported` (recommended)
+2. .NET's meaning: `''` as format is `G`, `''` as locale is the invariant culture
+Answer: 1. Learn says the format defaults to `o` and the locale to `en-us` when unspecified, and doesn't say whether an empty string counts as unspecified. .NET's meanings differ from both defaults. The capture can settle it.
+
+### Q8. Does `addDays` keep reading a timestamp with no zone as UTC?
+1. Yes, for now; the capture checks `addDays('2018-03-15', 1)` (recommended)
+2. Change it now to keep no zone, as `formatDateTime` does
+Answer: 1. Learn's `formatDateTime` example suggests the service keeps no zone, so `addDays` may too, but that is an inference about another function, and changing a shipped M14 behaviour is outside M58's brief. Part 2's capture decides; a difference becomes a `fix(core):` change with its test.
+
+### Q9. The cookbook says `addDays` "also accepts fractional values". Does the simulator follow it?
+1. No: keep the reference's Integer and the existing error for `1.5`; the capture checks fractional days (recommended)
+2. Yes, now
+Answer: 1. The function reference, the primary page, types `days` as Integer, and the cookbook is marked as written with AI assistance. The existing test (`ExpressionTests.cs:775`) stays until the capture shows the service's behaviour.
+
+### Q10. Where does the acceptance case run through `powerops test`?
+1. A CLI test on a temporary copy of the seed fixture whose `Update_a_row` holds the run's expression, plus a Core test with an `Int` parameter (recommended)
+2. A new fixture solution in `tests/fixtures/`
+Answer: 1. The seed already has an environment variable bound to a flow parameter, and `TestCommandTests` already edits temporary copies (`CopyOf`, `Edit`). A new fixture would change the `analyze-fixtures.*` goldens for no gain. The seed's parameter is a String, so the CLI case gives `int` a string; the Core case gives it a number, which is what an Int parameter gives.
+
+### Q11. How is part 2 split from part 1?
+1. Two PRs: part 1 offline now; part 2, the capture, after the person's yes, based on `main` once part 1 has merged (recommended)
+Answer: 1, as the master session's brief asks. Part 1 changes no tenant and can merge alone; the capture may show differences that need `fix(core):` changes in the same PR as the fixture that shows them.
+
+## Log
+
+- Learn checked 2026-11-04 with the Learn MCP tools (a researcher subagent, Sonnet, quoting the pages); the pages are in the plan's Assumptions
+- .NET's behaviour checked 2026-11-04 with a scratch program on this machine (Linux, ICU)
+- depth: quick: the improvement plan gives the design, the brief gives the split
+- questions answered by the building session under the user's delegation of 2026-10-22 (autonomous milestone mode)
+- areas not asked: users, screens, solution and publisher; part 1 is a change to this repo, and the plan answers each for part 2
+- approved 2026-11-04 by the building session under the user's delegation of 2026-10-22, for a fresh-context review
