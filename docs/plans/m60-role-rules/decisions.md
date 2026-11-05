@@ -93,6 +93,14 @@ Answer: Full, as M55 (Recommended) (answered by: person)
 ### Q8, amended
 Superseded by Q10 and Q11: the rule changes as Q10 says, the two baselines are updated, and the rerun is part of this milestone. (answered by: person)
 
+## Round 6 (from the review's third pass)
+
+### R12. The rerun is defined by pointers to M55's plan
+Kept as pointers, and carried out from M55's own driver and scoring tools, so nothing is retyped: one run at a time per client, case by case, Verifier first, in the same order on both clients, the 30-minute limit of `run.sh`, M55's failure and replacement rule, and one valid run per case, pass and family, with conclusions called provisional. `report.md` records the client versions and the model ids each report and stream show beside M55's, since `opus` and `gpt-6-astra` are aliases. (answered by: agent m60 build session)
+
+### R13. What the person can choose after a missed floor
+The skill text doesn't change, so there is nothing to roll back. On a missed floor the person may ship as built, change the rule (for example narrow PO033 further) and rerun, or keep the old baselines by taking PO033 out of this milestone; until they answer, the PR doesn't merge. The same three choices stand when every floor holds, since passing a floor permits and never requires. (answered by: agent m60 build session)
+
 ## Log
 
 - Learn checked 2026-11-05 with the Learn MCP tools: "Security roles and templates", "Privileges required to view and access apps", "Create or edit a security role" (minimum privileges), "Configure user security in an environment", the App for Outlook troubleshooting page (privilege names) and the User Settings table reference
@@ -111,3 +119,5 @@ Superseded by Q10 and Q11: the rule changes as Q10 says, the two baselines are u
 - stopped under Done when 8 on 2026-11-05: committed locally on `claude/m60-role-rules-a266b7`, nothing pushed, no PR opened, nothing under `tests/eval` edited. The person decides on the eval rerun and the baseline update for `solution-01`, `solution-06`, `solution-07` and `solution-08`
 - the person answered Q10 and Q11 on 2026-11-05 in this session; the plan's sign-off is void (status back to approved, review pending), and the plan is amended: Done when 3, 8 to 10, Won't build, rows 6, 8 and the new row 14, Automation (the rerun), Constraints, Assumptions, Steps
 - PO033 gated on a model-driven app in the solution, with a quiet case and the PO034-only note in `WarningRuleTests`; the PO033 and PO034 pages say so
+- the same reviewer's third pass 2026-11-05 at `cd94770`: R1 to R11 hold (R4's fix replaced by Q10 and Q11); a scratch copy ran 3,928 tests with no failure; 0 High, 0 Medium, 2 Low new (R12, R13), answered in Round 6. In all: 0 High, 3 Medium and 10 Low, none open
+- signed off again 2026-11-05 by the building session under the user's delegation of 2026-10-22, with no High or Medium finding open (`powerops plan sign-off`; `signed-off-hash` equals `review.md`'s `plan-hash`)

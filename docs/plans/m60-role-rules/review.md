@@ -1,8 +1,14 @@
-plan-hash: c2da9d902d04d9032b5ca5968d0ca39b79822c43ef687476b8ceedceb34752bb
+plan-hash: 38b0b6c060841a77f83bb73fc859f42185b0620552608da1a2c5fffa989f3de2
 model: claude-sonnet-5-5
 fresh-context: yes
 
 Environment facts were not read: this plan changes this repo and targets no environment, so `pac` was not used and `powerops plan facts` was not run. Checklist items 1 to 7 (solution boundaries, connection references, licences, DLP, route, managed or unmanaged, delegation) do not apply; the review covers items 8 to 11 and whether the plan is correct, complete and buildable. Open questions: 0. The plan body hash from `plan status --json` matches the hash above, and the working-tree plan equals the one committed in `132f22b`.
+
+Third pass, at `cd94770` (after the person's Q10 and Q11 answers; the plan body hash above matches `plan status --json`). Checked in this pass:
+- Tests in a scratch copy of `cd94770`: 3928 run, 0 failed, 3923 passed, the rest skipped; `dotnet format --verify-no-changes` is clean. The built CLI on `solution-07` prints the two PO033 lines of the new baseline.
+- `git diff --stat 0fb8f3d cd94770` under `tests/eval`, `skills/` and `plugins/` shows only `tests/eval/roles/baseline/solution-07.txt` and `solution-08.txt`, each changed in its `analyze` section only (`no findings` and `0 warnings` become two PO033 warning lines and `2 warnings`); no version file or changelog changed. The cases, the key, the pilot, `run.sh` and the other baselines are untouched, as row 14 and Won't build say.
+- Code: PO033 gates on `solution.AppModules.Count > 0`; its note names only PO034 without an app; `WithRoles` now adds an app and a new test covers the no-app case. The goldens lose exactly the two PO033 lines of the two `ColumnLevelSecuritySample` zips (text, Markdown, JSON and SARIF; the SARIF `ruleIndex` values of the other results do not move), and the warnings go from 61 to 59. The PO033 and PO034 pages carry the gate and the note wording, and say a role whose app is in another solution is missed, never wrongly reported.
+- The rerun section, read against `docs/plans/m55-role-freeze/plan.md` and `report.md`: the 16 + 16 runs, the freeze, the blind scoring by two scorers, the keep rules (15% of `not-shown` flaws pooled, at most one false High on `solution-02` and `solution-06`, denominator at least 5) and the cost cap (USD 30; M55 spent about USD 8 of its Claude estimate, so the cap is safe) are carried over correctly. Dropped on purpose and consistent: M55's own-new-case result and the "unchanged statements" count, which belong to M55's new skill text, which this milestone does not change. The key's `baseline` fields stay right: no keyed flaw of `solution-07` or `solution-08` is about app-opening privileges.
 
 Second pass, at `3d2e032` (code, tests, rule pages and goldens built). The plan body hash is the one above (confirmed with `plan status --json`; `review` is still `pending`, so `status` calls this review stale until it is set). Checks of this pass:
 - Tests in a scratch copy of `3d2e032`: 3927 run, 3920 pass, 2 fail, and the two are exactly `RoleEvalTests.Every_solution_case_has_a_baseline_file_that_matches_the_live_output` and `RoleEvalTests.Analyze_test_and_settings_validate_report_nothing_on_the_clean_solution_cases`, the expected stop under Done when 8. `dotnet format --verify-no-changes` is clean.
@@ -29,17 +35,31 @@ No findings.
 
 ### Low
 
-#### R10. PO034's Sources line cites a page the Log doesn't list as checked
-- Area: 9 Testability (row 10, the recipe's Sources rule)
-- Finding: `docs/rules/PO034.md` cites "Security roles and privileges for Dataverse" with `verified: 2026-11-05`, but the Log's list of Learn pages read that day does not include it, and the plan's own Learn part for PO034 rests on "Create or edit a security role". A Sources line must state only what its pages support, on the date they were checked.
-- Suggested fix: read that page and add it to the Log's list, or drop it from the Sources line.
+#### R12. The rerun is defined by pointers into M55's plan, which in turn points at M38
+- Area: 9 Testability (Automation, "The rerun")
+- Finding: The section says the roles run "as M55's plan sets it out" and lists differences, so the executing session must read M55's plan and, for failures and replacements and the keep rules, M55's "as M38 set them". Everything needed is there, and nothing contradicts it, but the runner would have to carry over by hand these items that the new section does not restate: run order (Verifier first, one run at a time per client, same case order on both clients), client and model versions recorded and compared with M55's report (the `opus` and `gpt-6-astra` aliases may point at newer models than in M55, which affects comparability), the 30-minute limit, one valid run per case, pass and family, the replacement rule (one replacement for an infrastructure failure or a read outside the temp folder, none for a poor run), and that `report.md` calls its conclusions provisional.
+- Suggested fix: add one line listing these as carried over, and a line saying that `report.md` records the model ids and client versions next to M55's.
 - Resolution: open
 
-#### R11. The PO034 note reads wrongly for one table
-- Area: 9 Testability (the note text in the plan, the page and the goldens)
-- Finding: The reworded note says "1 of the tables it can create or write are used by no component PowerOps reads". The verb does not agree with the count when it is 1, which is the case in the alm-sample golden.
-- Suggested fix: word it as "<n> table(s)" or "it can create or write <n> tables that no component PowerOps reads use", in the plan, the page, the rule and the goldens; or accept it as is.
+#### R13. The decision after a missed floor has no stated options
+- Area: 10 Unanswered areas (Done when 9, "A missed floor")
+- Finding: M55's missed floor had a lever: the role's new skill text went back to its M39 pin. Here the skill text does not change, so a missed floor has nothing to roll back, and the plan says only that it "stops for the person". Without options the person decides ad hoc, and the build session cannot tell what each result means for the PR (for example, whether PO033's gate or the two baselines would change, or the PR ships regardless).
+- Suggested fix: state in the plan what a missed floor can lead to (for example: ship as it is and record it; change PO033 and rerun the affected passes; or drop the baseline change) and that a passed floor also permits, not requires, merging.
 - Resolution: open
+
+### Resolved from the second pass
+
+#### R10. PO034's Sources line cites a page the Log doesn't list as checked
+- Area: 9 Testability (row 10, the recipe's Sources rule)
+- Finding: `docs/rules/PO034.md` cited "Security roles and privileges for Dataverse" with `verified: 2026-11-05`, which the Log didn't list.
+- Suggested fix: read it and log it, or drop it.
+- Resolution: fixed: decisions R10 (Round 4) records that page and "Verifying access in code" as read on 2026-11-05, with what each supports; the PO034 Sources line cites both and the two Learn pages in the PO033 and PO034 pages use them for the naming pattern.
+
+#### R11. The PO034 note reads wrongly for one table
+- Area: 9 Testability (note text)
+- Finding: "1 of the tables it can create or write are used by no component" does not agree in number.
+- Suggested fix: reword or accept.
+- Resolution: accepted: decisions R11 keeps one sentence for every count, as PO025's note does (`<n> of its custom pages have`); the text is unchanged in the plan, page, code and goldens.
 
 ### Resolved from the first pass
 
@@ -65,7 +85,7 @@ No findings.
 - Area: 9 Testability (Done when 8, Step 6)
 - Finding: The baseline test fails once PO033 exists; the plan did not say so.
 - Suggested fix: name it as the expected failure and open no PR.
-- Resolution: fixed: Done when 8 and Step 6 name `Every_solution_case_has_a_baseline_file_that_matches_the_live_output`, and `Analyze_test_and_settings_validate_report_nothing_on_the_clean_solution_cases` for `solution-06`, as expected failures, and open no PR. The scratch run fails exactly those two. The Log lists the per-case lines (1, 1, 2, 2 PO033 lines; the other four cases unchanged).
+- Resolution: fixed: Done when 8 and Step 6 name `Every_solution_case_has_a_baseline_file_that_matches_the_live_output`, and `Analyze_test_and_settings_validate_report_nothing_on_the_clean_solution_cases` for `solution-06`, as expected failures, and open no PR. The scratch run fails exactly those two. The Log lists the per-case lines (1, 1, 2, 2 PO033 lines; the other four cases unchanged). Superseded at the third pass: Q10 and Q11 replaced the stop (PO033 now checks only solutions with an app, the two baselines are updated, and the full rerun is part of the milestone); the suite is green at `cd94770`.
 
 #### R5. Done when 1 and Done when 7 read as contradicting
 - Area: 10 Unanswered areas
