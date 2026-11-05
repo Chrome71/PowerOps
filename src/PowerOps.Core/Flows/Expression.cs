@@ -34,7 +34,20 @@ public static class Expression
             }
             else if (text[i + 1] == '@')
             {
-                sb.Append('@');
+                // the capture run M03: @@ escapes only at the very start; further in, both characters stay
+                if (i == 0)
+                {
+                    sb.Append('@');
+                }
+                else if (i + 2 < text.Length && text[i + 2] == '{')
+                {
+                    throw new UnsupportedException($"Cannot read '{Excerpt(text)}': '@@{{' inside a text is not supported, the capture run does not cover it.");
+                }
+                else
+                {
+                    sb.Append("@@");
+                }
+
                 i++;
             }
             else if (text[i + 1] == '{')
@@ -140,6 +153,15 @@ public static class Expression
                 return value;
             }
 
+            // the capture run M09: the exact name first, else the first property in document order that differs only by case
+            foreach (var (candidate, other) in obj)
+            {
+                if (string.Equals(candidate, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return other;
+                }
+            }
+
             if (name.Contains('/'))
             {
                 // observed in exported flows, not on Learn: 'body/value' reads body, then value
@@ -182,10 +204,19 @@ public static class Expression
     private static JsonNode? Eval(Node node, IExpressionContext context) => node switch
     {
         Literal l => l.Value,
+        Call { Name: "if", Args: [var test, var yes, var no] } => EvalIf(test, yes, no, context),
         Call c => ExpressionFunctions.Invoke(c.Name, c.Args.Select(a => Eval(a, context)).ToArray(), context),
         Access a => Read(Eval(a.Target, context), Eval(a.Key, context), a.Optional),
         _ => throw new InvalidOperationException(),
     };
+
+    // the capture run M04: if evaluates its condition and only the branch it returns; the other slot stays null, and a condition that isn't a boolean fails in the function
+    private static JsonNode? EvalIf(Node test, Node yes, Node no, IExpressionContext context)
+    {
+        var condition = Eval(test, context);
+        bool? taken = condition is JsonValue v && v.GetValueKind() is JsonValueKind.True or JsonValueKind.False ? v.GetValue<bool>() : null;
+        return ExpressionFunctions.Invoke("if", [condition, taken == true ? Eval(yes, context) : null, taken == false ? Eval(no, context) : null], context);
+    }
 
     /// <summary>The index of the <c>}</c> that closes an <c>@{</c> whose content starts at <paramref name="from"/>, skipping single-quoted literals; -1 when there is none.</summary>
     private static int FindClosingBrace(string text, int from)

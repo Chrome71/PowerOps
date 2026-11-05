@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -106,9 +107,10 @@ public static class FlowSimulator
         {
             var info = Find(action);
             CheckLoops(info, $"outputs('{action}')");
-            return _calls.TryGetValue(action, out var calls) && calls[^1].Status != "Skipped"
-                ? calls[^1].Outputs
-                : throw new ExpressionException($"Action '{action}' has not run or was skipped, so it has no outputs.");
+            // the capture run M19: the outputs of a skipped action are null
+            return _calls.TryGetValue(action, out var calls)
+                ? calls[^1].Status == "Skipped" ? null : calls[^1].Outputs
+                : throw new ExpressionException($"Action '{action}' has not run, so it has no outputs.");
         }
 
         public JsonNode? Result(string scope)
@@ -402,25 +404,37 @@ public static class FlowSimulator
             _order.Add(name);
         }
 
-        private void SkipAction(string name, JsonObject action)
+        /// <summary>Why an action is skipped: the error code and wording of the capture run (Try_next, Never_compose, Empty_inner); null records no error.</summary>
+        private sealed record Skip(string Code, Func<string, string> Message);
+
+        private static readonly Skip NotTaken = new("ActionBranchingConditionNotSatisfied", n => $"The execution of template action '{n}' skipped: the branching condition for this action is not satisfied.");
+
+        private static readonly Skip NoItems = new("ActionConditionFailed", n => $"The execution of template action '{n}' is skipped: there are no items to repeat.");
+
+        private static Skip RunAfterNotMet(string predecessor, string[] expected, string actual) =>
+            new("ActionConditionFailed", n => $"The execution of template action '{n}' is skipped: the 'runAfter' condition for action '{predecessor}' is not satisfied. Expected status values {string.Join(", ", expected.Select(e => $"'{e}'"))} and actual value '{actual}'.");
+
+        private void SkipAction(string name, JsonObject action, Skip? why)
         {
-            Record(name, new ActionCall("Skipped", null, null, null));
-            SkipChildren(action);
+            var error = why is null ? null : new JsonObject { ["code"] = why.Code, ["message"] = why.Message(name) };
+            Record(name, new ActionCall("Skipped", null, null, error));
+            SkipChildren(action, why is null ? null : NotTaken);
         }
 
-        private void SkipBlock(JsonObject block)
+        private void SkipBlock(JsonObject block, Skip? why)
         {
             foreach (var (name, action) in block)
             {
-                SkipAction(name, (JsonObject)action!);
+                SkipAction(name, (JsonObject)action!, why);
             }
         }
 
-        private void SkipChildren(JsonObject action)
+        // Nothing in the capture shows the actions inside a skipped action; they get the branching code, as the actions in an untaken branch do.
+        private void SkipChildren(JsonObject action, Skip? why)
         {
             foreach (var block in Blocks(action))
             {
-                SkipBlock(block);
+                SkipBlock(block, why);
             }
         }
 
@@ -444,7 +458,8 @@ public static class FlowSimulator
                 }
                 else
                 {
-                    SkipAction(next, (JsonObject)block[next]!);
+                    var unmet = after[next].First(p => !p.Value.Contains(done[p.Key]));
+                    SkipAction(next, (JsonObject)block[next]!, RunAfterNotMet(unmet.Key, unmet.Value, done[unmet.Key]));
                     done[next] = "Skipped";
                 }
             }
@@ -457,7 +472,7 @@ public static class FlowSimulator
 
             foreach (var (name, action) in pending)
             {
-                SkipAction(name, (JsonObject)action!);
+                SkipAction(name, (JsonObject)action!, null);
             }
 
             // Failed when an action failed that no action in the block that ran (not Skipped) handles with Failed in its runAfter.
@@ -532,6 +547,7 @@ public static class FlowSimulator
                 case "InitializeVariable":
                     return InitializeVariable(action);
                 case "SetVariable":
+                case "IncrementVariable":
                 case "AppendToStringVariable":
                 case "AppendToArrayVariable":
                     return ChangeVariable(action);
@@ -543,7 +559,10 @@ public static class FlowSimulator
                     var chosen = (def["cases"] as JsonObject)?.Select(c => c.Value).OfType<JsonObject>().FirstOrDefault(c => JsonNode.DeepEquals(c["case"], subject)) ?? def["default"] as JsonObject;
                     return Branch(def, chosen?["actions"]);
                 case "Scope":
-                    return Status(RunBlock(def["actions"] as JsonObject));
+                    // the capture run (Try): a Scope that fails because of its actions
+                    return RunBlock(def["actions"] as JsonObject) is "Failed"
+                        ? new("Failed", null, null, new JsonObject { ["code"] = "ActionFailed", ["message"] = "An action failed. No dependent actions succeeded." })
+                        : Status("Succeeded");
                 case "Foreach":
                     return Foreach(action);
                 case "Until":
@@ -579,7 +598,7 @@ public static class FlowSimulator
         {
             foreach (var block in Blocks(action).Where(b => !ReferenceEquals(b, taken)))
             {
-                SkipBlock(block);
+                SkipBlock(block, NotTaken);
             }
 
             return Status(taken is JsonObject block2 ? RunBlock(block2) : "Succeeded");
@@ -613,7 +632,7 @@ public static class FlowSimulator
             }
 
             _mockCalls[action.Name] = calls + 1;
-            SkipChildren(action.Definition);
+            SkipChildren(action.Definition, NotTaken);
             var mock = list[calls];
             return new(mock.Status, evaluated, mock.Outputs?.DeepClone(), mock.Error?.DeepClone());
         }
@@ -654,7 +673,9 @@ public static class FlowSimulator
             CheckType(name, type, variable["value"]);
             CheckDepth(variable["value"]);
             Charge(variable["value"]);
-            _vars[name] = new Var(type) { Value = variable["value"]?.DeepClone() };
+
+            // the capture run M17: a string variable initialized without a value reads as ""
+            _vars[name] = new Var(type) { Value = type == "string" && !variable.ContainsKey("value") ? JsonValue.Create("") : variable["value"]?.DeepClone() };
             return new("Succeeded", evaluated, null, null);
         }
 
@@ -671,6 +692,9 @@ public static class FlowSimulator
                     CheckDepth(value);
                     Charge(value);
                     variable.Value = value?.DeepClone();
+                    break;
+                case "IncrementVariable":
+                    variable.Value = Increment(name, variable, value);
                     break;
                 case "AppendToStringVariable":
                     if (variable.Type != "string" || Str(value) is not { } text)
@@ -701,11 +725,54 @@ public static class FlowSimulator
             return new("Succeeded", evaluated, null, null);
         }
 
+        // Learn, "Increment variable": only an integer or float variable; value is optional and defaults to 1
+        // https://learn.microsoft.com/azure/logic-apps/logic-apps-create-variables-store-values#increment-variable
+        private static JsonNode Increment(string name, Var variable, JsonNode? by)
+        {
+            if (variable.Type is not ("integer" or "float"))
+            {
+                throw new UnsupportedException($"incrementing '{name}' needs an integer or float variable.");
+            }
+
+            by ??= JsonValue.Create(1);
+            if (variable.Type == "integer")
+            {
+                // not on Learn: an integer variable takes an integer value, and a result past 64 bits is not supported
+                if (!ExpressionFunctions.TryLong(by, out var step) || !ExpressionFunctions.TryLong(variable.Value, out var current))
+                {
+                    throw new UnsupportedException($"incrementing the integer variable '{name}' needs an integer value.");
+                }
+
+                try
+                {
+                    return JsonValue.Create(checked(current + step));
+                }
+                catch (OverflowException)
+                {
+                    throw new UnsupportedException($"incrementing '{name}' gives a number past 64 bits.");
+                }
+            }
+
+            if (by is not JsonValue v || v.GetValueKind() != JsonValueKind.Number || variable.Value is not JsonValue c || c.GetValueKind() != JsonValueKind.Number)
+            {
+                throw new UnsupportedException($"incrementing the float variable '{name}' needs a number.");
+            }
+
+            var sum = double.Parse(c.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture) + double.Parse(v.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture);
+            return double.IsFinite(sum) ? JsonValue.Create(sum) : throw new UnsupportedException($"incrementing '{name}' gives a number too large for JSON.");
+        }
+
         private ActionCall Foreach(ActionInfo action)
         {
             var items = Expression.EvaluateValue(action.Definition["foreach"], this) as JsonArray ?? throw new ExpressionException("The foreach input must be an array.");
             Charge(items); // the array is evaluated again, so copied again, each time the loop runs
             var failed = false;
+            if (items.Count == 0 && action.Definition["actions"] is JsonObject unused)
+            {
+                // the capture run (Empty_inner): the actions in a Foreach with no items are recorded as skipped
+                SkipBlock(unused, NoItems);
+            }
+
             foreach (var item in items)
             {
                 if (_ended)

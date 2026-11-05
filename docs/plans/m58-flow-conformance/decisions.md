@@ -105,6 +105,30 @@ An error only for a decimal string (the cookbook) or a string with no digit, whi
 ### Q18. How does part 2 know it is in Dev? (R15)
 The read-only checks before the yes add `pac admin list`, whose type column must say Developer; a trial or any other type stops the session. The CLI test's name no longer claims the cloud's value: the cloud ran only the rewrite without `int`, which the Core test runs.
 
+## Round 4 (from the capture)
+
+### Q19. How is the capture compared, when the simulator stops a run at its first refused action?
+1. A data-driven Core test (`CaptureTests`) that takes the refused actions out, runs the rest with the run's List rows outputs as the mock, compares action by action, and runs each refused action alone to check it stays `unsupported` (recommended)
+2. Flow test files in `tests/fixtures/flowtests/capture/`, as the plan's Steps say
+Answer: 1. A flow test runs the whole flow, so the first of the 29 refused actions would end it as `unsupported` and compare nothing after it. The record is the run itself (`run.json`), which a flow test file can't load. The plan's body is hashed, so the change is recorded here and in `capture.md`.
+
+### Q20. How was the solution built?
+Answer: as files in the export layout, zipped and imported with `pac solution import`, instead of `pac solution pack` from the unpacked layout. Same import, one tool fewer; the fixture is the service's own export, unpacked with `pac solution unpack`, so nothing in the repository is hand-written solution XML.
+
+### Q21. Where are the "Not on Learn" items marked (row 9)?
+Answer: in `capture.md`, "M14 and M58 Not on Learn items". Marking them in `plan.md` or M14's plan would change a signed-off body and its hash.
+
+### Q22. What happens to the cases the simulator refuses?
+1. They stay `unsupported`; their cloud values are recorded in `capture.md` and `expected-unsupported.json` for M59 (recommended)
+2. Support them now from the record
+Answer: 1. One run shows one value per case, and several (partial timestamps, `int`'s 64-bit reading) depend on the run's day or on parsing rules wider than the case; supporting them is new behaviour, outside part 2's brief. The test fails if one of them starts to run, so M59 has to look at the record.
+
+### Q8, Q14 and Q12, settled by the capture
+- Q8: `addDays` without a format keeps the timestamp's zone: none stays none, and an offset is converted and written as `+00:00` (`A06`, `A11`). Changed in a `fix(core):` commit.
+- Q14: an unknown locale name gave English text, not an error, so it is now `unsupported` (`F18`).
+- Q12: the cloud reads `int(' 1')`, `int('+5')`, `int('007')`, `int('1,000')` and `int('2147483648')`; they stay `unsupported` (Q22). Decimal strings, a word and `''` are errors there too, so the errors stand.
+- Q1, Q4, Q5 and Q9 hold: `int(14)` and `int` of the Number variable gave 14, `D` and `t` gave en-US text with a plain space, and fractional days were an error.
+
 ## Log
 
 - Learn checked 2026-11-04 with the Learn MCP tools (a researcher subagent, Sonnet, quoting the pages); the pages are in the plan's Assumptions
@@ -118,3 +142,6 @@ The read-only checks before the yes add `pac admin list`, whose type column must
 - the same reviewer's second pass 2026-11-04 at `fc427a1`: R1 to R11 hold; 2 Medium and 2 Low new (R12 to R15); answered in `plan.md` (rows 1, 3, 4, Not on Learn, Environments and route) and here (Round 3); the code changed by the same implementer
 - the same reviewer's third pass 2026-11-04 at `4475468`: R12 to R15 hold; the full suite passed (3,565, 5 skipped); 0 High, 0 Medium, 1 Low new (R16), fixed in `docs/FLOW-TESTS.md`. In all: 1 High, 10 Medium and 5 Low, every one fixed
 - signed off 2026-11-04 by the building session under the user's delegation of 2026-10-22, with no High or Medium finding open (`powerops plan sign-off`; `signed-off-hash` equals `review.md`'s `plan-hash`). Status stays signed-off: part 2, the capture, waits on the person's yes
+- the person said yes to part 2 in Dev in the M58 session on 2026-11-04; the read-only checks passed first (`pac org who`, `pac admin list` type Developer, `pac solution list` with the seed, one Connected Dataverse connection)
+- the capture ran 2026-11-05 (UTC): import, one run, the run history read with the person's existing `az` sign-in, two exports and the seed and M12 exports; nothing deleted; what was left is in `capture.md`
+- the capture's differences fixed by the same implementer (Sonnet, `powerops-implementer`) in `fix(core):` commits, each with a unit test; `CaptureTests` passes with nothing excluded but the 29 refused actions (Round 4)

@@ -81,11 +81,12 @@ public class ExpressionTests
     [InlineData("", "")]
     [InlineData("@@", "@")]
     [InlineData("@@x", "@x")]
-    [InlineData("a@@b", "a@b")] // not on Learn; plan "Not on Learn"
+    [InlineData("a@@b", "a@@b")] // the capture run M03: @@ escapes only at the start of a string
+    [InlineData("mail a@@b", "mail a@@b")]
     [InlineData("a@b", "a@b")]
     [InlineData("end@", "end@")]
     [InlineData(" @", " @")]
-    [InlineData("My age is @@{parameters('myAge')}", "My age is @{parameters('myAge')}")]
+    [InlineData("@@{parameters('myAge')}", "@{parameters('myAge')}")]
     [InlineData("My age is @{variables('numItems')}", "My age is 20")]
     [InlineData("@{concat('a','b')}-@{concat('c','d')}", "ab-cd")]
     [InlineData("@{concat('}', 'x')}", "}x")]
@@ -103,6 +104,10 @@ public class ExpressionTests
 
         Assert.Equal(expected, Assert.IsAssignableFrom<JsonValue>(result).GetValue<string>());
     }
+
+    [Fact]
+    public void A_double_at_before_a_brace_inside_a_text_is_unsupported() =>
+        Assert.Throws<UnsupportedException>(() => Expression.Evaluate("My age is @@{parameters('myAge')}", Ctx)); // the capture does not cover it
 
     [Fact]
     public void Text_with_unterminated_interpolation_is_unsupported() =>
@@ -249,7 +254,7 @@ public class ExpressionTests
     [InlineData("triggerOutputs()['body']['empty']?['x']", "null")]
     [InlineData("triggerOutputs()['body']?['nope']", "null")]
     [InlineData("triggerOutputs()?['body']['value']?[5]", "null")]
-    [InlineData("triggerOutputs()?['BODY']", "null")] // not on Learn; plan "Not on Learn"
+    [InlineData("triggerOutputs()?['BOD']", "null")] // a name that differs by more than case
     [InlineData("variables('nothing')?['x']", "null")]
     public void Property_and_index_access(string expression, string expectedJson) => AssertEval(expression, expectedJson);
 
@@ -260,7 +265,7 @@ public class ExpressionTests
     [InlineData("triggerOutputs().nope")]
     [InlineData("triggerOutputs()['body']['value'][5]")]
     [InlineData("triggerOutputs()['body']['value'][-1]")]
-    [InlineData("triggerOutputs()['BODY']")] // not on Learn; plan "Not on Learn"
+    [InlineData("triggerOutputs()['BOD']")] // a name that differs by more than case
     [InlineData("triggerOutputs()['body']['text'][0]")]
     [InlineData("triggerOutputs()['body']['value']['x']")]
     [InlineData("triggerOutputs()['body'][0]")]
@@ -459,6 +464,7 @@ public class ExpressionTests
     [InlineData("contains(createArray('a', 'b'), 'B')", "false")]
     [InlineData("contains(createArray(1, 2), 2)", "true")]
     [InlineData("contains(createArray(1, 2), 3)", "false")]
+    [InlineData("contains(createArray(true), 1)", "false")]
     [InlineData("contains(triggerOutputs()['body'], 'text')", "true")]
     [InlineData("contains(triggerOutputs()['body'], 'Text')", "false")]
     [InlineData("contains(triggerOutputs()['body'], 'empty')", "true")] // a key whose value is null is still a key
@@ -489,7 +495,7 @@ public class ExpressionTests
     [Theory]
     [InlineData("first('hello')", "\"h\"")]
     [InlineData("first(createArray(0, 1, 2))", "0")]
-    [InlineData("first('')", "null")] // not on Learn; plan "Not on Learn"
+    [InlineData("first('')", "\"\"")] // the capture run M16: last('') gave ""
     [InlineData("first(json('[]'))", "null")] // not on Learn; plan "Not on Learn"
     public void First(string expression, string expectedJson) => AssertEval(expression, expectedJson);
 
@@ -500,7 +506,7 @@ public class ExpressionTests
     [Theory]
     [InlineData("last('abcd')", "\"d\"")]
     [InlineData("last(createArray(0, 1, 2, 3))", "3")]
-    [InlineData("last('')", "null")] // not on Learn; plan "Not on Learn"
+    [InlineData("last('')", "\"\"")] // the capture run M16
     [InlineData("last(json('[]'))", "null")] // not on Learn; plan "Not on Learn"
     public void Last(string expression, string expectedJson) => AssertEval(expression, expectedJson);
 
@@ -520,21 +526,39 @@ public class ExpressionTests
     [InlineData("length(triggerOutputs()['body'])")] // Learn: a string or an array
     public void Length_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
 
+    // ---- property names: exact first, else ignoring case (the capture run M09)
+
+    [Theory]
+    [InlineData("outputs('Get_user')['body']['FULLNAME']", "\"Contoso Corporation\"")]
+    [InlineData("outputs('Get_user')?['BODY']?['username']", "\"ContosoInc\"")]
+    [InlineData("outputs('Get_user')['body/fullname']", "\"Contoso Corporation\"")]
+    [InlineData("json('{\"a\":1,\"A\":2}')['A']", "2")] // an exact match wins
+    [InlineData("json('{\"a\":1,\"A\":2}')['a']", "1")]
+    [InlineData("json('{\"AB\":2,\"ab\":1}')['Ab']", "2")] // none exact: the first in document order
+    public void A_property_is_read_by_its_exact_name_else_ignoring_case(string expression, string expectedJson) => AssertEval(expression, expectedJson);
+
+    [Fact]
+    public void A_property_that_differs_by_more_than_case_does_not_exist() =>
+        Assert.Throws<ExpressionException>(() => Eval("outputs('Get_user')['bod']"));
+
     // ---- logical functions
 
     // equals: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#equals
     [Theory]
-    [InlineData("equals(true, 1)", "true")]
+    [InlineData("equals(true, 1)", "false")] // the capture run M06: a boolean equals only a boolean
     [InlineData("equals('abc', 'abcd')", "false")]
     [InlineData("equals('abc', 'abc')", "true")]
     [InlineData("equals('abc', 'ABC')", "false")] // not on Learn; plan "Not on Learn" (ordinal)
     [InlineData("equals(1, 1.0)", "true")] // numbers by value
     [InlineData("equals(1, 2)", "false")]
-    [InlineData("equals(false, 0)", "true")] // not on Learn; plan "Not on Learn"
+    [InlineData("equals(false, 0)", "false")]
+    [InlineData("equals(true, 'true')", "false")]
     [InlineData("equals(true, 0)", "false")]
     [InlineData("equals(true, true)", "true")]
     [InlineData("equals(true, false)", "false")]
-    [InlineData("equals(null, '')", "true")] // Learn's logical-functions intro: null is converted to ""
+    [InlineData("equals(null, '')", "false")] // the capture run M07: null equals only null, although Learn's logical-functions intro says null is converted to ""
+    [InlineData("equals(null, 0)", "false")]
+    [InlineData("equals(triggerOutputs()['body']['empty'], '')", "false")]
     [InlineData("equals(null, null)", "true")]
     [InlineData("equals(null, 'a')", "false")]
     [InlineData("equals('1', 1)", "false")]
@@ -586,22 +610,25 @@ public class ExpressionTests
     [InlineData("if(equals(1, 2), 'yes', 'no')", "\"no\"")]
     [InlineData("if(true, createArray(1), null)", "[1]")]
     [InlineData("if(false, 1, null)", "null")]
+    [InlineData("if(equals(1, 1), 'yes', json('not json'))", "\"yes\"")] // the capture run M04: only the branch it returns is evaluated
+    [InlineData("if(false, triggerOutputs()['nope'], 'no')", "\"no\"")]
     public void If(string expression, string expectedJson) => AssertEval(expression, expectedJson);
 
     [Theory]
     [InlineData("if('true', 1, 2)")]
     [InlineData("if(1, 1, 2)")]
     [InlineData("if(true, 1)")]
+    [InlineData("if(true, triggerOutputs()['nope'], 2)")] // the branch it returns is evaluated
+    [InlineData("if(triggerOutputs()['nope'], 1, 2)")]
     public void If_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
 
     [Fact]
-    public void Arguments_are_all_evaluated_eagerly_including_the_untaken_branch()
+    public void And_and_or_evaluate_every_argument_but_if_only_the_branch_it_returns()
     {
-        // not on Learn; plan "Not on Learn": the untaken branch is still evaluated, so it can fail the expression
-        Assert.Throws<ExpressionException>(() => Eval("if(true, 'ok', triggerOutputs()['nope'])"));
+        // not on Learn; plan "Not on Learn": and and or still evaluate every argument (the capture did not cover them), so one can fail the expression
         Assert.Throws<ExpressionException>(() => Eval("or(true, triggerOutputs()['nope'])"));
         Assert.Throws<ExpressionException>(() => Eval("and(false, triggerOutputs()['nope'])"));
-        Assert.Throws<UnmockedException>(() => Eval("if(true, 'ok', parameters('other'))"));
+        AssertEval("if(true, 'ok', parameters('other'))", "\"ok\"");
     }
 
     [Fact]
@@ -766,9 +793,10 @@ public class ExpressionTests
     [InlineData("addDays('2018-03-15T00:00:00Z', 10)", "\"2018-03-25T00:00:00.0000000Z\"")]
     [InlineData("addDays('2018-03-15T00:00:00Z', -5)", "\"2018-03-10T00:00:00.0000000Z\"")]
     [InlineData("addDays(utcNow(), 1)", "\"2018-04-16T13:00:00.0000000Z\"")]
-    [InlineData("addDays('2018-03-15T10:30:00+02:00', 0)", "\"2018-03-15T08:30:00.0000000Z\"")]
+    [InlineData("addDays('2018-03-15T10:30:00+02:00', 0)", "\"2018-03-15T08:30:00.0000000+00:00\"")] // the capture run A11: converted to UTC, labelled +00:00
     [InlineData("addDays('2018-03-15T00:00:00.1234567Z', 1)", "\"2018-03-16T00:00:00.1234567Z\"")]
-    [InlineData("addDays('2018-03-15', 1)", "\"2018-03-16T00:00:00.0000000Z\"")] // read as UTC
+    [InlineData("addDays('2018-03-15', 1)", "\"2018-03-16T00:00:00.0000000\"")] // the capture run A06: no zone in, no zone out
+    [InlineData("addDays('2018-03-15T10:30:00+00:00', 0)", "\"2018-03-15T10:30:00.0000000+00:00\"")]
     public void AddDays(string expression, string expectedJson) => AssertEval(expression, expectedJson);
 
     [Theory]
@@ -842,7 +870,6 @@ public class ExpressionTests
     [InlineData("formatDateTime(5)")]
     [InlineData("formatDateTime('not a date')")]
     [InlineData("formatDateTime('2018-03-15T00:00:00Z', 5)")]
-    [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'o', 'xx-YY')")]
     [InlineData("formatDateTime()")]
     [InlineData("formatDateTime('a', 'b', 'c', 'd')")]
     public void FormatDateTime_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
@@ -852,6 +879,7 @@ public class ExpressionTests
     [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'o', '')")]
     [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'X')")] // Learn doesn't say an invalid format is an error here
     [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'o', 'de-DE')")] // a known locale Learn doesn't show
+    [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'o', 'xx-YY')")] // Learn says an error; the capture run F18 gave English text
     // fr-fr and es-es only with day, month and year formats, as Learn shows them
     [InlineData("formatDateTime('01/31/2016', 'g', 'fr-fr')")]
     [InlineData("formatDateTime('01/31/2016', 'D', 'fr-fr')")]
