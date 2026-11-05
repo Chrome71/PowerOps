@@ -948,20 +948,366 @@ public class ExpressionTests
     [InlineData("int(json('{}'))")]
     public void Int_of_what_Learn_does_not_settle_is_unsupported(string expression) => Assert.Throws<UnsupportedException>(() => Eval(expression));
 
+    // addHours, addMinutes, addSeconds: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#addHours (and #addMinutes, #addSeconds)
+    [Theory]
+    [InlineData("addHours('2018-03-15T00:00:00Z', 10)", "\"2018-03-15T10:00:00.0000000Z\"")]
+    [InlineData("addHours('2018-03-15T15:00:00Z', -5)", "\"2018-03-15T10:00:00.0000000Z\"")]
+    [InlineData("addMinutes('2018-03-15T00:10:00Z', 10)", "\"2018-03-15T00:20:00.0000000Z\"")]
+    [InlineData("addMinutes('2018-03-15T00:20:00Z', -5)", "\"2018-03-15T00:15:00.0000000Z\"")]
+    [InlineData("addSeconds('2018-03-15T00:00:00Z', 10)", "\"2018-03-15T00:00:10.0000000Z\"")]
+    [InlineData("addSeconds('2018-03-15T00:00:30Z', -5)", "\"2018-03-15T00:00:25.0000000Z\"")]
+    [InlineData("addHours(utcNow(), 1)", "\"2018-04-15T14:00:00.0000000Z\"")]
+    [InlineData("addHours('2018-03-15T10:00:00', 1)", "\"2018-03-15T11:00:00.0000000\"")] // not on Learn: no zone in, no zone out, as addDays
+    [InlineData("addMinutes('2018-03-15', 90)", "\"2018-03-15T01:30:00.0000000\"")]
+    [InlineData("addHours('2018-03-15T10:30:00+02:00', 1)", "\"2018-03-15T09:30:00.0000000+00:00\"")] // as the capture run A11 for addDays
+    [InlineData("addSeconds('2018-03-15T10:30:00+02:00', 0)", "\"2018-03-15T08:30:00.0000000+00:00\"")]
+    public void AddHours_AddMinutes_AddSeconds(string expression, string expectedJson) => AssertEval(expression, expectedJson);
+
+    [Theory]
+    [InlineData("addHours('2018-03-15T00:00:00Z', 10, 'yyyy-MM-dd HH:mm:ss')", "\"2018-03-15 10:00:00\"")]
+    [InlineData("addHours('2018-03-15T20:00:00Z', 5, 'yyyy-MM-dd HH:mm:ss')", "\"2018-03-16 01:00:00\"")]
+    [InlineData("addMinutes('2018-03-15T00:10:00Z', 10, 'yyyy-MM-dd HH:mm:ss')", "\"2018-03-15 00:20:00\"")]
+    [InlineData("addSeconds('2018-03-15T00:00:30Z', -5, 'yyyy-MM-dd HH:mm:ss')", "\"2018-03-15 00:00:25\"")]
+    [InlineData("addHours('2018-03-15T00:00:00Z', 0, 'D')", "\"Thursday, March 15, 2018\"")]
+    public void AddHours_AddMinutes_AddSeconds_with_a_format(string expression, string expectedJson) => AssertEval(expression, expectedJson);
+
+    [Theory]
+    [InlineData("addHours('2018-03-15T00:00:00Z', 1.5)")]
+    [InlineData("addHours('2018-03-15T00:00:00Z', '1')")]
+    [InlineData("addMinutes('2018-03-15T00:00:00Z', 1.5)")]
+    [InlineData("addSeconds('2018-03-15T00:00:00Z', 'x')")]
+    [InlineData("addHours('2018-03-15T00:00:00Z', 1, 'X')")]
+    [InlineData("addMinutes('2018-03-15T00:00:00Z', 1, 'X')")]
+    [InlineData("addSeconds('2018-03-15T00:00:00Z', 1, 'X')")]
+    [InlineData("addHours('2018-03-15T00:00:00Z', 1, 5)")]
+    [InlineData("addHours('not a date', 1)")]
+    [InlineData("addHours(5, 1)")]
+    [InlineData("addHours('2018-03-15T00:00:00Z')")]
+    [InlineData("addMinutes()")]
+    [InlineData("addSeconds('2018-03-15T00:00:00Z', 1, 'yyyy', 'en-us')")]
+    [InlineData("addHours('2018-03-15T00:00:00Z', 9223372036854775807)")]
+    [InlineData("addMinutes('2018-03-15T00:00:00Z', -9223372036854775808)")]
+    [InlineData("addSeconds('2018-03-15T00:00:00Z', 9223372036854775807)")]
+    [InlineData("addHours('9999-12-31T23:00:00Z', 2)")]
+    [InlineData("addMinutes('9999-12-31T23:59:00Z', 1)")]
+    [InlineData("addSeconds('0001-01-01T00:00:00Z', -1)")]
+    public void AddHours_AddMinutes_AddSeconds_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
+
+    [Theory]
+    [InlineData("addHours('2018-03-15T00:00:00Z', 1, '')")]
+    [InlineData("addHours('2018-03-15', 1, 'yyyy-MM-dd')")] // a format needs a timestamp ending in Z
+    [InlineData("addMinutes('2018-03-15T10:30:00+02:00', 0, 'HH:mm')")]
+    [InlineData("addSeconds('2018-03-15T10:30:00+00:00', 0, 'HH:mm')")]
+    public void AddHours_AddMinutes_AddSeconds_with_a_format_is_unsupported_for(string expression) => Assert.Throws<UnsupportedException>(() => Eval(expression));
+
+    // startOfDay: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#startOfDay
+    [Theory]
+    [InlineData("startOfDay('2018-03-15T13:30:30Z')", "\"2018-03-15T00:00:00.0000000Z\"")]
+    [InlineData("startOfDay('2018-03-15T00:00:00Z')", "\"2018-03-15T00:00:00.0000000Z\"")]
+    [InlineData("startOfDay('2018-03-15T23:59:59.9999999Z')", "\"2018-03-15T00:00:00.0000000Z\"")]
+    [InlineData("startOfDay('2018-03-15T13:30:30')", "\"2018-03-15T00:00:00.0000000\"")] // not on Learn: no zone stays none
+    [InlineData("startOfDay('03/15/2018 12:00:00')", "\"2018-03-15T00:00:00.0000000\"")]
+    [InlineData("startOfDay('2018-03-15T13:30:30Z', 'yyyy-MM-dd')", "\"2018-03-15\"")]
+    [InlineData("startOfDay('2018-03-15T13:30:30Z', 'D')", "\"Thursday, March 15, 2018\"")]
+    [InlineData("startOfDay('2018-03-15T13:30:30Z', 'HH:mm')", "\"00:00\"")]
+    public void StartOfDay(string expression, string expectedJson) => AssertEval(expression, expectedJson);
+
+    [Theory]
+    [InlineData("startOfDay(5)")]
+    [InlineData("startOfDay('not a date')")]
+    [InlineData("startOfDay('2018-03-15T13:30:30Z', 'X')")]
+    [InlineData("startOfDay('2018-03-15T13:30:30Z', 5)")]
+    [InlineData("startOfDay()")]
+    [InlineData("startOfDay('2018-03-15T13:30:30Z', 'yyyy', 'en-us')")]
+    public void StartOfDay_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
+
+    [Theory]
+    [InlineData("startOfDay('2018-03-15T01:00:00+02:00')")] // the day depends on the zone it is taken in
+    [InlineData("startOfDay('2018-03-15T01:00:00+00:00')")]
+    [InlineData("startOfDay('2018-03-15T13:30:30', 'yyyy-MM-dd')")] // a format needs a timestamp ending in Z
+    [InlineData("startOfDay('2018-03-15T13:30:30Z', '')")]
+    public void StartOfDay_is_unsupported_for(string expression) => Assert.Throws<UnsupportedException>(() => Eval(expression));
+
+    // dayOfWeek: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#dayOfWeek
+    [Theory]
+    [InlineData("dayOfWeek('2018-03-15T13:27:36Z')", "4")]
+    [InlineData("dayOfWeek('2018-03-18T00:00:00Z')", "0")] // a Sunday
+    [InlineData("dayOfWeek('2018-03-17T23:59:59Z')", "6")] // a Saturday
+    [InlineData("dayOfWeek('2018-03-15T23:59:59')", "4")]
+    [InlineData("dayOfWeek('03/15/2018')", "4")]
+    public void DayOfWeek(string expression, string expectedJson) => AssertEval(expression, expectedJson);
+
+    [Theory]
+    [InlineData("dayOfWeek(5)")]
+    [InlineData("dayOfWeek('not a date')")]
+    [InlineData("dayOfWeek()")]
+    [InlineData("dayOfWeek('2018-03-15T13:27:36Z', 'yyyy')")]
+    public void DayOfWeek_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
+
+    [Theory]
+    [InlineData("dayOfWeek('2018-03-15T01:00:00+02:00')")]
+    [InlineData("dayOfWeek('2018-03-15T01:00:00+00:00')")]
+    public void DayOfWeek_of_an_offset_is_unsupported(string expression) => Assert.Throws<UnsupportedException>(() => Eval(expression));
+
+    // time-zone names, taken only as Windows writes them: https://learn.microsoft.com/windows-hardware/manufacture/desktop/default-time-zones
+    [Theory]
+    [InlineData("UTC", "08:00")]
+    [InlineData("Pacific Standard Time", "00:00")]
+    [InlineData("W. Europe Standard Time", "09:00")]
+    [InlineData("Central Standard Time (Mexico)", "02:00")]
+    [InlineData("UTC-11", "21:00")]
+    public void A_windows_time_zone_name_is_taken(string zone, string expected) =>
+        AssertEval($"convertFromUtc('2024-01-01T08:00:00Z', '{zone}', 'HH:mm')", $"\"{expected}\"");
+
+    [Theory]
+    [InlineData("America/Los_Angeles")]
+    [InlineData("Etc/UTC")]
+    [InlineData("pacific standard time")]
+    [InlineData("utc")]
+    [InlineData("Coordinated Universal Time")]
+    [InlineData("Hawaiian Standard Time")] // .NET knows it, the simulator's table does not
+    [InlineData("Bogus")]
+    [InlineData("")]
+    public void Any_other_time_zone_name_is_unsupported(string zone)
+    {
+        Assert.Throws<UnsupportedException>(() => Eval($"convertFromUtc('2024-01-01T08:00:00Z', '{zone}', 'HH:mm')"));
+        Assert.Throws<UnsupportedException>(() => Eval($"convertTimeZone('2024-01-01T08:00:00Z', 'UTC', '{zone}', 'HH:mm')"));
+        Assert.Throws<UnsupportedException>(() => Eval($"convertTimeZone('2024-01-01T08:00:00', '{zone}', 'UTC', 'HH:mm')"));
+    }
+
+    [Fact]
+    public void A_time_zone_name_that_is_not_a_string_is_an_error()
+    {
+        Assert.Throws<ExpressionException>(() => Eval("convertFromUtc('2018-01-01T08:00:00Z', 5)"));
+        Assert.Throws<ExpressionException>(() => Eval("convertTimeZone('2018-01-01T08:00:00Z', 5, 'UTC')"));
+    }
+
+    // convertFromUtc and convertTimeZone: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#convertFromUtc (and #convertTimeZone)
+    [Theory]
+    [InlineData("convertFromUtc('2018-01-01T08:00:00.0000000Z', 'Pacific Standard Time')", "\"2018-01-01T00:00:00.0000000\"")]
+    [InlineData("convertFromUtc('2018-01-01T08:00:00.0000000Z', 'Pacific Standard Time', 'D')", "\"Monday, January 1, 2018\"")]
+    [InlineData("convertTimeZone('2018-01-01T08:00:00.0000000Z', 'UTC', 'Pacific Standard Time')", "\"2018-01-01T00:00:00.0000000\"")]
+    [InlineData("convertTimeZone('2018-01-01T08:00:00.0000000Z', 'UTC', 'Pacific Standard Time', 'D')", "\"Monday, January 1, 2018\"")] // Learn's example has T80; Q12
+    // not on Learn, plan "Not on Learn": a timestamp with no zone is a time on the source zone's clock
+    [InlineData("convertFromUtc('2018-01-01T08:00:00', 'Pacific Standard Time')", "\"2018-01-01T00:00:00.0000000\"")]
+    [InlineData("convertFromUtc('2018-01-01T08:00:00', 'UTC', 'yyyy-MM-ddTHH:mm:ss')", "\"2018-01-01T08:00:00\"")]
+    [InlineData("convertTimeZone('2018-07-01T09:00:00', 'Pacific Standard Time', 'Eastern Standard Time')", "\"2018-07-01T12:00:00.0000000\"")]
+    [InlineData("convertFromUtc('2018-01-01T08:00:00', 'W. Europe Standard Time')", "\"2018-01-01T09:00:00.0000000\"")] // convertFromUtc takes punctuation in a name
+    [InlineData("convertTimeZone('2018-07-01T09:00:00', 'Pacific Standard Time', 'UTC', 'yyyy-MM-ddTHH:mm:ss')", "\"2018-07-01T16:00:00\"")]
+    [InlineData("convertTimeZone('07/01/2018', 'UTC', 'Pacific Standard Time', 'yyyy-MM-dd HH:mm')", "\"2018-06-30 17:00\"")]
+    [InlineData("convertFromUtc(utcNow(), 'Pacific Standard Time', 'yyyy-MM-dd HH:mm')", "\"2018-04-15 06:00\"")]
+    [InlineData("convertFromUtc('2008-01-01T00:00:00Z', 'Pacific Standard Time', 'yyyy-MM-dd HH:mm')", "\"2007-12-31 16:00\"")] // the first instant of the window
+    [InlineData("convertFromUtc('2030-12-31T23:59:59Z', 'Tokyo Standard Time', 'yyyy-MM-dd HH:mm:ss')", "\"2031-01-01 08:59:59\"")] // the last
+    [InlineData("convertTimeZone('2007-12-31T16:00:00', 'Pacific Standard Time', 'Eastern Standard Time', 'yyyy-MM-dd HH:mm')", "\"2007-12-31 19:00\"")] // a clock time whose UTC instant is the window's first
+    [InlineData("convertFromUtc('2024-01-01T00:00:00Z', 'Egypt Standard Time', 'HH:mm')", "\"02:00\"")]
+    public void ConvertFromUtc_and_ConvertTimeZone(string expression, string expectedJson) => AssertEval(expression, expectedJson);
+
+    [Fact]
+    public void Learns_second_convertTimeZone_example_has_an_hour_80_and_is_an_error() =>
+        Assert.Throws<ExpressionException>(() => Eval("convertTimeZone('2018-01-01T80:00:00.0000000Z', 'UTC', 'Pacific Standard Time', 'D')"));
+
+    [Theory]
+    [InlineData("convertFromUtc(5, 'UTC')")]
+    [InlineData("convertFromUtc('not a date', 'Pacific Standard Time')")]
+    [InlineData("convertFromUtc('2018-01-01T08:00:00Z', 'Pacific Standard Time', 'X')")]
+    [InlineData("convertFromUtc('2018-01-01T08:00:00Z', 'Pacific Standard Time', 5)")]
+    [InlineData("convertFromUtc('2018-01-01T08:00:00Z')")]
+    [InlineData("convertFromUtc('2018-01-01T08:00:00Z', 'Pacific Standard Time', 'D', 'en-us')")]
+    [InlineData("convertTimeZone(5, 'UTC', 'Pacific Standard Time')")]
+    [InlineData("convertTimeZone('not a date', 'UTC', 'Pacific Standard Time')")]
+    [InlineData("convertTimeZone('2018-01-01T08:00:00Z', 'UTC', 'Pacific Standard Time', 'X')")]
+    [InlineData("convertTimeZone('2018-01-01T08:00:00Z', 'UTC')")]
+    [InlineData("convertTimeZone('2018-01-01T08:00:00Z', 'UTC', 'Pacific Standard Time', 'D', 'en-us')")]
+    public void Conversion_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
+
+    [Theory]
+    [InlineData("convertFromUtc('2018-01-01T08:00:00+02:00', 'Pacific Standard Time')")] // an offset
+    [InlineData("convertTimeZone('2018-01-01T08:00:00+00:00', 'UTC', 'Pacific Standard Time')")]
+    [InlineData("convertTimeZone('2018-01-01T08:00:00Z', 'Pacific Standard Time', 'Eastern Standard Time')")] // Z with another source: the two disagree
+    [InlineData("convertTimeZone('2018-01-01T08:00:00Z', 'UTC', 'W. Europe Standard Time')")] // convertTimeZone: Learn says to remove punctuation from a name
+    [InlineData("convertTimeZone('2018-01-01T08:00:00', 'W. Europe Standard Time', 'UTC', 'HH:mm')")]
+    [InlineData("convertTimeZone('2024-01-01T08:00:00Z', 'UTC-11', 'UTC', 'HH:mm')")]
+    [InlineData("convertTimeZone('2024-01-01T08:00:00Z', 'UTC', 'Central Standard Time (Mexico)', 'HH:mm')")]
+    [InlineData("convertTimeZone('2024-01-01T08:00:00Z', 'UTC', 'E. South America Standard Time', 'HH:mm')")]
+    [InlineData("convertTimeZone('2026-03-08T02:30:00', 'Pacific Standard Time', 'UTC', 'HH:mm')")] // a skipped clock time
+    [InlineData("convertTimeZone('2026-11-01T01:30:00', 'Pacific Standard Time', 'UTC', 'HH:mm')")] // a repeated clock time
+    [InlineData("convertFromUtc('2007-12-31T23:59:59Z', 'Pacific Standard Time')")] // before the zone's first year
+    [InlineData("convertTimeZone('2007-12-31T15:59:59', 'Pacific Standard Time', 'Eastern Standard Time', 'HH:mm')")] // its UTC instant is 2007-12-31T23:59:59Z
+    [InlineData("convertFromUtc('2023-07-15T12:00:00Z', 'Egypt Standard Time')")]
+    [InlineData("convertFromUtc('2031-01-01T00:00:00Z', 'Pacific Standard Time')")] // after 2030
+    [InlineData("convertFromUtc('9999-12-31T20:00:00Z', 'Tokyo Standard Time')")]
+    [InlineData("convertTimeZone('2031-01-01T10:00:00', 'Tokyo Standard Time', 'Pacific Standard Time')")]
+    [InlineData("convertFromUtc('2018-01-01T08:00:00Z', 'UTC')")] // UTC as destination with the o format
+    [InlineData("convertFromUtc('2018-01-01T08:00:00Z', 'UTC', 'o')")]
+    [InlineData("convertFromUtc('2018-01-01T08:00:00Z', 'UTC', 'O')")]
+    [InlineData("convertFromUtc('2018-01-01T08:00:00Z', 'UTC', 'zzz')")] // the result has no zone, to UTC too
+    [InlineData("convertFromUtc('2018-01-01T08:00:00Z', 'UTC', 'u')")]
+    [InlineData("convertTimeZone('2018-01-01T08:00:00', 'Pacific Standard Time', 'UTC')")]
+    [InlineData("convertFromUtc('2018-01-01T08:00:00', 'Pacific Standard Time', 'zzz')")] // the result has no zone
+    [InlineData("convertFromUtc('2018-01-01T08:00:00Z', 'Pacific Standard Time', 'u')")]
+    [InlineData("convertFromUtc('2018-01-01T08:00:00Z', 'Pacific Standard Time', 'K')")]
+    [InlineData("convertFromUtc('2018-01-01T08:00:00Z', 'Pacific Standard Time', '')")]
+    [InlineData("convertTimeZone('2018-01-01T08:00:00Z', 'UTC', 'Pacific Standard Time', '')")]
+    public void Conversion_is_unsupported_for(string expression) => Assert.Throws<UnsupportedException>(() => Eval(expression));
+
+    // Every zone the simulator takes, in the middle of January and of July of every year from its first year (the one after its last rule change) to 2030.
+    // The offsets are what each zone's rules give; Windows and Linux CI both check them against their own data.
+    [Theory]
+    [InlineData("UTC", "+00:00", "+00:00", 2008)]
+    [InlineData("Pacific Standard Time", "-08:00", "-07:00", 2008)]
+    [InlineData("Mountain Standard Time", "-07:00", "-06:00", 2008)]
+    [InlineData("US Mountain Standard Time", "-07:00", "-07:00", 2008)]
+    [InlineData("Central Standard Time", "-06:00", "-05:00", 2008)]
+    [InlineData("Eastern Standard Time", "-05:00", "-04:00", 2008)]
+    [InlineData("Central Standard Time (Mexico)", "-06:00", "-06:00", 2023)]
+    [InlineData("E. South America Standard Time", "-03:00", "-03:00", 2020)]
+    [InlineData("GMT Standard Time", "+00:00", "+01:00", 2008)]
+    [InlineData("W. Europe Standard Time", "+01:00", "+02:00", 2008)]
+    [InlineData("Romance Standard Time", "+01:00", "+02:00", 2008)]
+    [InlineData("Central Europe Standard Time", "+01:00", "+02:00", 2008)]
+    [InlineData("South Africa Standard Time", "+02:00", "+02:00", 2008)]
+    [InlineData("Egypt Standard Time", "+02:00", "+03:00", 2024)]
+    [InlineData("Russian Standard Time", "+03:00", "+03:00", 2015)]
+    [InlineData("Arabian Standard Time", "+04:00", "+04:00", 2008)]
+    [InlineData("India Standard Time", "+05:30", "+05:30", 2008)]
+    [InlineData("Nepal Standard Time", "+05:45", "+05:45", 2008)]
+    [InlineData("China Standard Time", "+08:00", "+08:00", 2008)]
+    [InlineData("Singapore Standard Time", "+08:00", "+08:00", 2008)]
+    [InlineData("Tokyo Standard Time", "+09:00", "+09:00", 2008)]
+    [InlineData("AUS Eastern Standard Time", "+11:00", "+10:00", 2009)]
+    [InlineData("New Zealand Standard Time", "+13:00", "+12:00", 2008)]
+    [InlineData("UTC-11", "-11:00", "-11:00", 2008)]
+    public void Every_supported_zone_gives_its_offset_from_its_first_year_to_2030(string zone, string january, string july, int firstYear)
+    {
+        for (var year = firstYear; year <= 2030; year++)
+        {
+            foreach (var (month, offset) in new[] { (1, january), (7, july) })
+            {
+                var utc = new DateTime(year, month, 15, 12, 0, 0, DateTimeKind.Unspecified);
+                var expected = utc + TimeSpan.Parse(offset.TrimStart('+'), CultureInfo.InvariantCulture);
+                AssertEval($"convertFromUtc('{year}-{month:00}-15T12:00:00Z', '{zone}', 'yyyy-MM-ddTHH:mm:ss')", $"\"{expected:yyyy-MM-ddTHH:mm:ss}\"");
+            }
+        }
+    }
+
+    // The minute before and the minute of each 2026 change: the UTC instant and the clock time it shows.
+    [Theory]
+    [InlineData("Pacific Standard Time", "2026-03-08T09:59:00Z", "2026-03-08T01:59:00")]
+    [InlineData("Pacific Standard Time", "2026-03-08T10:00:00Z", "2026-03-08T03:00:00")]
+    [InlineData("Pacific Standard Time", "2026-11-01T08:59:00Z", "2026-11-01T01:59:00")]
+    [InlineData("Pacific Standard Time", "2026-11-01T09:00:00Z", "2026-11-01T01:00:00")]
+    [InlineData("W. Europe Standard Time", "2026-03-29T00:59:00Z", "2026-03-29T01:59:00")]
+    [InlineData("W. Europe Standard Time", "2026-03-29T01:00:00Z", "2026-03-29T03:00:00")]
+    [InlineData("W. Europe Standard Time", "2026-10-25T00:59:00Z", "2026-10-25T02:59:00")]
+    [InlineData("W. Europe Standard Time", "2026-10-25T01:00:00Z", "2026-10-25T02:00:00")]
+    [InlineData("AUS Eastern Standard Time", "2026-04-04T15:59:00Z", "2026-04-05T02:59:00")]
+    [InlineData("AUS Eastern Standard Time", "2026-04-04T16:00:00Z", "2026-04-05T02:00:00")]
+    [InlineData("AUS Eastern Standard Time", "2026-10-03T15:59:00Z", "2026-10-04T01:59:00")]
+    [InlineData("AUS Eastern Standard Time", "2026-10-03T16:00:00Z", "2026-10-04T03:00:00")]
+    [InlineData("Egypt Standard Time", "2026-04-23T21:59:00Z", "2026-04-23T23:59:00")]
+    [InlineData("Egypt Standard Time", "2026-04-23T22:00:00Z", "2026-04-24T01:00:00")]
+    [InlineData("Egypt Standard Time", "2026-10-29T20:59:00Z", "2026-10-29T23:59:00")]
+    [InlineData("Egypt Standard Time", "2026-10-29T21:00:00Z", "2026-10-29T23:00:00")]
+    public void Daylight_saving_boundaries_of_2026_convert_from_utc(string zone, string utc, string local) =>
+        AssertEval($"convertFromUtc('{utc}', '{zone}', 'yyyy-MM-ddTHH:mm:ss')", $"\"{local}\"");
+
+    // Back to UTC with convertTimeZone, for the spring changes (the clock times before and after the skipped hour); its names take no punctuation, so not W. Europe.
+    [Theory]
+    [InlineData("Pacific Standard Time", "2026-03-08T01:59:00", "2026-03-08T09:59:00")]
+    [InlineData("Pacific Standard Time", "2026-03-08T03:00:00", "2026-03-08T10:00:00")]
+    [InlineData("AUS Eastern Standard Time", "2026-10-04T01:59:00", "2026-10-03T15:59:00")]
+    [InlineData("AUS Eastern Standard Time", "2026-10-04T03:00:00", "2026-10-03T16:00:00")]
+    public void Daylight_saving_boundaries_of_2026_convert_back_to_utc(string zone, string local, string utc) =>
+        AssertEval($"convertTimeZone('{local}', '{zone}', 'UTC', 'yyyy-MM-ddTHH:mm:ss')", $"\"{utc}\"");
+
+    // The autumn changes repeat an hour of clock time, and the skipped hour of each spring change has no time at all.
+    [Theory]
+    [InlineData("Pacific Standard Time", "2026-11-01T01:59:00")]
+    [InlineData("Pacific Standard Time", "2026-11-01T01:00:00")]
+    [InlineData("AUS Eastern Standard Time", "2026-04-05T02:59:00")]
+    [InlineData("AUS Eastern Standard Time", "2026-04-05T02:00:00")]
+    [InlineData("Pacific Standard Time", "2026-03-08T02:00:00")]
+    [InlineData("AUS Eastern Standard Time", "2026-10-04T02:30:00")]
+    [InlineData("Egypt Standard Time", "2026-04-24T00:30:00")] // skipped
+    [InlineData("Egypt Standard Time", "2026-10-29T23:30:00")] // repeated
+    public void A_repeated_or_skipped_clock_time_is_unsupported_from_every_zone(string zone, string local) =>
+        Assert.Throws<UnsupportedException>(() => Eval($"convertTimeZone('{local}', '{zone}', 'UTC', 'yyyy-MM-ddTHH:mm:ss')"));
+
+    // float: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#float
+    [Theory]
+    [InlineData("float('10,000.333')", "10000.333")]
+    [InlineData("float('10.000,333', 'de-DE')", "10000.333")]
+    [InlineData("float('12,3,4,5678')", "12345678")] // Learn's "unexpectedly valid inputs"
+    [InlineData("float('1234567,8+')", "12345678")]
+    [InlineData("float('12345,6,78,-')", "-12345678")]
+    [InlineData("float('-12,345,678,')", "-12345678")]
+    [InlineData("float('12345678.-')", "-12345678")]
+    [InlineData("float('.12345678')", "0.12345678")]
+    [InlineData("float('-1.5')", "-1.5")]
+    [InlineData("float('123456789012345678')", "1.2345678901234568E+17")] // not on Learn, plan "Not on Learn": a double keeps about 17 digits
+    [InlineData("float('14')", "14.0")]
+    [InlineData("float(14)", "14.0")] // not on Learn, plan "Not on Learn": a number gives itself
+    [InlineData("float(1.5)", "1.5")]
+    [InlineData("float('10.000,333', 'DE-de')", "10000.333")]
+    [InlineData("float('1,000.5', 'en-US')", "1000.5")]
+    [InlineData("float('1,000.5', 'EN-us')", "1000.5")]
+    [InlineData("equals(float('14'), 14)", "true")]
+    [InlineData("string(float('1.5'))", "\"1.5\"")]
+    public void Float(string expression, string expectedJson) => AssertEval(expression, expectedJson);
+
+    [Fact]
+    public void A_float_with_no_fraction_is_not_an_integer()
+    {
+        Assert.Throws<ExpressionException>(() => Eval("addDays('2018-03-15T00:00:00Z', float('1'))")); // the capture run A10 refused a Float
+        Assert.Throws<UnsupportedException>(() => Eval("int(float('14'))"));
+    }
+
+    [Theory]
+    [InlineData("float('abc')")]
+    [InlineData("float('')")]
+    [InlineData("float('1,000.5.5')")]
+    [InlineData("float()")]
+    [InlineData("float('1', 'en-US', 'x')")]
+    [InlineData("float('1', 5)")]
+    public void Float_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
+
+    [Theory]
+    [InlineData("float(' 1')")] // Learn doesn't say whether the service reads spaces, an exponent or parentheses
+    [InlineData("float('1e3')")]
+    [InlineData("float('(5)')")]
+    [InlineData("float('NaN')")]
+    [InlineData("float('Infinity')")]
+    [InlineData("float('-Infinity')")]
+    [InlineData("float('1e999')")]
+    [InlineData("float('1', 'fr-FR')")]
+    [InlineData("float('1', 'xx-YY')")]
+    [InlineData("float('1', '')")]
+    [InlineData("float(true)")]
+    [InlineData("float(null)")]
+    [InlineData("float(createArray(1))")]
+    [InlineData("float(json('{}'))")]
+    public void Float_of_what_Learn_does_not_settle_is_unsupported(string expression) => Assert.Throws<UnsupportedException>(() => Eval(expression));
+
+    [Fact]
+    public void Float_of_a_400_digit_string_is_unsupported() =>
+        Assert.Throws<UnsupportedException>(() => Eval($"float('{new string('9', 400)}')"));
+
     // ---- the list of functions
 
     [Fact]
-    public void Names_are_exactly_the_39_functions_sorted()
+    public void Names_are_exactly_the_47_functions_sorted()
     {
         string[] expected =
         [
-            "addDays", "and", "body", "concat", "contains", "createArray", "decodeBase64", "empty", "equals", "first",
-            "formatDateTime", "greater", "greaterOrEquals", "guid", "if", "int", "item", "items", "json", "last", "length",
-            "lessOrEquals", "min", "not", "or", "outputs", "parameters", "replace", "result", "split", "string",
-            "substring", "toLower", "triggerBody", "triggerOutputs", "trim", "utcNow", "variables", "workflow",
+            "addDays", "addHours", "addMinutes", "addSeconds", "and", "body", "concat", "contains", "convertFromUtc",
+            "convertTimeZone", "createArray", "dayOfWeek", "decodeBase64", "empty", "equals", "first", "float",
+            "formatDateTime", "greater", "greaterOrEquals", "guid", "if", "int", "item", "items", "json", "last",
+            "length", "lessOrEquals", "min", "not", "or", "outputs", "parameters", "replace", "result", "split",
+            "startOfDay", "string", "substring", "toLower", "triggerBody", "triggerOutputs", "trim", "utcNow",
+            "variables", "workflow",
         ];
 
-        Assert.Equal(39, expected.Length);
+        Assert.Equal(47, expected.Length);
         Assert.Equal(expected, ExpressionFunctions.Names);
         Assert.Equal(ExpressionFunctions.Names.Order(StringComparer.Ordinal), ExpressionFunctions.Names);
     }
@@ -1157,6 +1503,24 @@ public class ExpressionTests
     [InlineData("addDays('9999-12-31T23:59:59Z', 1)")]
     [InlineData("addDays('0001-01-01T00:00:00Z', -1)")]
     [InlineData("addDays('0001-01-01T00:00:00+14:00', 1)")]
+    [InlineData("addHours('2026-01-01T00:00:00Z', 9223372036854775807)")]
+    [InlineData("addMinutes('2026-01-01T00:00:00Z', -9223372036854775808)")]
+    [InlineData("addSeconds('9999-12-31T23:59:59Z', 1)")]
+    [InlineData("addSeconds('0001-01-01T00:00:00+14:00', 1)")]
+    [InlineData("startOfDay('0001-01-01T00:00:00+14:00')")]
+    [InlineData("dayOfWeek('0001-01-01T00:00:00+14:00')")]
+    [InlineData("startOfDay('9999-12-31T23:59:59.9999999Z', 'o')")]
+    [InlineData("convertFromUtc('9999-12-31T23:59:59Z', 'Tokyo Standard Time')")]
+    [InlineData("convertFromUtc('0001-01-01T00:00:00Z', 'Tokyo Standard Time')")]
+    [InlineData("convertTimeZone('0001-01-01T00:00:00', 'Tokyo Standard Time', 'UTC', 'yyyy')")]
+    [InlineData("convertTimeZone('0001-01-01T00:00:00', 'New Zealand Standard Time', 'UTC', 'yyyy')")]
+    [InlineData("convertTimeZone('9999-12-31T20:00:00', 'Pacific Standard Time', 'Tokyo Standard Time')")]
+    [InlineData("convertTimeZone('9999-12-31T23:59:59', 'UTC', 'Tokyo Standard Time', 'yyyy')")]
+    [InlineData("convertTimeZone('9999-12-31T23:59:59', 'Tokyo Standard Time', 'UTC', 'yyyy')")]
+    [InlineData("convertTimeZone('0001-01-01T00:00:00', 'UTC', 'UTC-11', 'yyyy')")]
+    [InlineData("float('1e999')")]
+    [InlineData("float('-1e999')")]
+    [InlineData("float('0.000000000000000000000000000000000001', 'de-DE')")]
     [InlineData("createArray(1)[9223372036854775807]")]
     [InlineData("createArray(1)[-9223372036854775808]")]
     [InlineData("createArray(1)?[9223372036854775807]")]
