@@ -35,3 +35,6 @@
 | [PO029](PO029.md) | warning | Agent authentication is None |
 | [PO030](PO030.md) | warning | Agent tool uses the maker's credentials |
 | [PO031](PO031.md) | warning | Agent has more than 30 tools |
+| [PO032](PO032.md) | warning | Model-driven app is shared only with admin roles |
+| [PO033](PO033.md) | warning | Custom security role has no privilege to open a model-driven app |
+| [PO034](PO034.md) | warning | Security role can create or write a table that no component in the solution uses |

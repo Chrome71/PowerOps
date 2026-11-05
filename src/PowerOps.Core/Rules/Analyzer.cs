@@ -37,6 +37,9 @@ public static class Analyzer
         new PO029AgentWithoutAuthentication(),
         new PO030ToolMakerConnection(),
         new PO031AgentToolCount(),
+        new PO032AppSharedWithAdminsOnly(),
+        new PO033RoleWithoutAppBaseline(),
+        new PO034RoleWritesUnusedTable(),
     }.OrderBy(r => r.Id, StringComparer.Ordinal).ToList();
 
     public static string HelpUri(string ruleId) => $"{Output.SarifReport.Repo}/blob/main/docs/rules/{ruleId}.md";

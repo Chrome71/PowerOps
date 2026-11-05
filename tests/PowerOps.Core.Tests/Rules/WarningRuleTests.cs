@@ -1751,4 +1751,215 @@ public class WarningRuleTests
         Assert.Equal(0, notes);
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"took {sw.Elapsed}");
     }
+
+    private const string SystemAdmin = "{627090FF-40A3-4053-8790-584EDC5BE201}";
+    private const string Customizer = "{119F245C-3CC8-4B62-B31C-D1A046CED15D}";
+    private const string BasicUser = "236750cd-45ae-4939-ab12-b24b920ced93";
+    private static readonly string CustomRole = B.Guid(0x60a1);
+    private static readonly string OtherRole = B.Guid(0x60a2);
+
+    private static Solution WithApp(string[] roles, params Role[] inSolution) => B.Empty() with { AppModules = [B.App(roles: roles)], Roles = inSolution };
+
+    private static Solution WithRoles(params Role[] roles) => B.Empty() with { Roles = roles };
+
+    [Fact]
+    public void PO032_fires_for_an_app_shared_with_only_the_two_admin_templates_in_any_case()
+    {
+        // As Learn writes the ids (upper case, braces) and as the reader gives them (lower case, none).
+        var lower = new[] { SystemAdmin, Customizer }.Select(r => r.Trim('{', '}').ToLowerInvariant()).ToArray();
+        foreach (var roles in new[] { new[] { SystemAdmin, Customizer }, lower, [SystemAdmin], [lower[1], Customizer] })
+        {
+            var s = WithApp(roles);
+
+            var f = Assert.Single(Run(new PO032AppSharedWithAdminsOnly(), s));
+
+            Assert.Equal("PO032", f.RuleId);
+            Assert.Equal(Severity.Warning, f.Severity);
+            Assert.Equal("App 'demo_app' is shared only with System Administrator or System Customizer, so users without an admin role may not be able to open it.", f.Message);
+            Assert.Equal("demo_app", f.Component);
+            Assert.Equal("AppModules/demo_app/AppModule.xml", f.File);
+            Assert.Empty(new PO032AppSharedWithAdminsOnly().NotChecked(s));
+        }
+    }
+
+    [Fact]
+    public void PO032_is_quiet_when_a_role_in_the_solution_or_another_template_is_also_mapped_and_for_an_empty_role_map()
+    {
+        var rule = new PO032AppSharedWithAdminsOnly();
+        var custom = B.SecurityRole("Front desk", CustomRole, "prvReadAppModule");
+        var solutions = new[]
+        {
+            WithApp([SystemAdmin.ToLowerInvariant().Trim('{', '}'), CustomRole], custom),
+            WithApp([SystemAdmin.ToLowerInvariant().Trim('{', '}'), BasicUser]),
+            WithApp([]),
+        };
+
+        foreach (var s in solutions)
+        {
+            Assert.Empty(Run(rule, s));
+            Assert.Empty(rule.NotChecked(s));
+        }
+    }
+
+    [Fact]
+    public void PO032_says_not_checked_for_ids_that_are_neither_a_template_nor_a_role_in_the_solution()
+    {
+        var rule = new PO032AppSharedWithAdminsOnly();
+        var withAdmin = WithApp([SystemAdmin.ToLowerInvariant().Trim('{', '}'), CustomRole, OtherRole, CustomRole]);
+        var only = WithApp([CustomRole]);
+
+        Assert.Empty(Run(rule, withAdmin));
+        Assert.Equal(["PO032 not checked for app 'demo_app': 2 of its role map ids are neither a documented role template nor a role in the solution."], rule.NotChecked(withAdmin));
+        Assert.Empty(Run(rule, only));
+        Assert.Equal(["PO032 not checked for app 'demo_app': 1 of its role map ids are neither a documented role template nor a role in the solution."], rule.NotChecked(only));
+    }
+
+    [Fact]
+    public void PO033_fires_for_a_role_with_a_table_privilege_and_none_of_the_three_app_opening_ones()
+    {
+        var s = WithRoles(B.SecurityRole("Front desk", CustomRole, "prvReadpops_loan", "prvExportToExcel"));
+
+        var f = Assert.Single(Run(new PO033RoleWithoutAppBaseline(), s));
+
+        Assert.Equal("PO033", f.RuleId);
+        Assert.Equal(Severity.Warning, f.Severity);
+        Assert.Equal("Role 'Front desk' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.", f.Message);
+        Assert.Equal("Front desk", f.Component);
+        Assert.Equal("Roles/Front desk.xml", f.File);
+        Assert.Empty(new PO033RoleWithoutAppBaseline().NotChecked(s));
+    }
+
+    [Theory]
+    [InlineData("prvReadAppModule")]
+    [InlineData("prvReadUser")]
+    [InlineData("prvreaduserquery")]
+    public void PO033_is_quiet_when_the_role_holds_any_one_of_the_three(string baseline)
+    {
+        Assert.Empty(Run(new PO033RoleWithoutAppBaseline(), WithRoles(B.SecurityRole("Front desk", CustomRole, "prvReadpops_loan", baseline))));
+    }
+
+    [Fact]
+    public void PO033_is_quiet_for_a_role_with_no_table_privileges_and_for_a_template_role()
+    {
+        var rule = new PO033RoleWithoutAppBaseline();
+        var s = WithRoles(
+            B.SecurityRole("Empty", CustomRole),
+            B.SecurityRole("Misc", OtherRole, "prvExportToExcel"),
+            B.SecurityRole("Basic User", BasicUser, "prvReadpops_loan"));
+
+        Assert.Empty(Run(rule, s));
+        Assert.Empty(rule.NotChecked(s));
+    }
+
+    [Fact]
+    public void PO033_and_PO034_share_one_note_for_a_role_whose_privileges_are_not_known()
+    {
+        var s = WithRoles(B.SecurityRoleUnread("None", CustomRole), B.SecurityRoleUnread("Basic User", BasicUser));
+
+        Assert.Empty(Run(new PO033RoleWithoutAppBaseline(), s));
+        Assert.Empty(Run(new PO034RoleWritesUnusedTable(), s));
+        Assert.Equal(["PO033 and PO034 not checked for role 'None': its file has no RolePrivileges element, so its privileges are not known."], new PO033RoleWithoutAppBaseline().NotChecked(s));
+        Assert.Empty(new PO034RoleWritesUnusedTable().NotChecked(s));
+    }
+
+    [Fact]
+    public void PO034_fires_once_for_a_table_naming_create_and_write()
+    {
+        var s = WithRoles(B.SecurityRole("Front desk", CustomRole, "prvCreateSharePointData", "prvWriteSharePointData", "prvReadSharePointData"));
+
+        var f = Assert.Single(Run(new PO034RoleWritesUnusedTable(), s));
+
+        Assert.Equal("PO034", f.RuleId);
+        Assert.Equal(Severity.Warning, f.Severity);
+        Assert.Equal("Role 'Front desk' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs.", f.Message);
+        Assert.Equal("Front desk", f.Component);
+        Assert.Equal("Roles/Front desk.xml", f.File);
+        Assert.Empty(new PO034RoleWritesUnusedTable().NotChecked(s));
+    }
+
+    [Fact]
+    public void PO034_fires_once_per_table_with_the_verbs_that_table_has_in_table_order()
+    {
+        var s = WithRoles(B.SecurityRole("Front desk", CustomRole, "prvWriteZeta", "prvCreateAlpha", "prvWriteALPHA", "prvCreateBeta"));
+
+        Assert.Equal(
+            [
+                "Role 'Front desk' has Create and Write on 'Alpha', which no component in the solution uses, so it may grant more than the solution needs.",
+                "Role 'Front desk' has Create on 'Beta', which no component in the solution uses, so it may grant more than the solution needs.",
+                "Role 'Front desk' has Write on 'Zeta', which no component in the solution uses, so it may grant more than the solution needs.",
+            ],
+            Run(new PO034RoleWritesUnusedTable(), s).Select(f => f.Message));
+    }
+
+    [Fact]
+    public void PO034_is_quiet_for_a_table_the_solution_uses()
+    {
+        var role = B.SecurityRole("Front desk", CustomRole, "prvCreatepops_Loan", "prvWritepops_Loan");
+        var flowText = B.Flow() with { ClientData = """{"entityName":"pops_loans","x":"POPS_LOAN"}""" };
+        var used = new[]
+        {
+            WithRoles(role) with { RootComponents = [new RootComponent("1", "POPS_loan", null)] },
+            WithRoles(role) with { MissingDependencies = [B.Dep("1", "pops_loan")] },
+            WithRoles(role) with { CanvasApps = [B.CodeApp("demo_code", tables: ["Pops_Loan"])] },
+            WithRoles(role) with { Workflows = [flowText] },
+        };
+
+        foreach (var s in used)
+        {
+            Assert.Empty(Run(new PO034RoleWritesUnusedTable(), s));
+            Assert.Empty(new PO034RoleWritesUnusedTable().NotChecked(s));
+        }
+    }
+
+    [Fact]
+    public void PO034_is_quiet_for_user_entity_ui_settings_for_read_and_delete_and_for_a_template_role()
+    {
+        var rule = new PO034RoleWritesUnusedTable();
+        var s = WithRoles(
+            B.SecurityRole("Front desk", CustomRole, "prvWriteUserEntityUISettings", "prvReadpops_x", "prvDeletepops_x", "prvAssignpops_x"),
+            B.SecurityRole("Basic User", BasicUser, "prvWritepops_x"));
+
+        Assert.Empty(Run(rule, s));
+        Assert.Empty(rule.NotChecked(s));
+    }
+
+    [Fact]
+    public void PO034_gives_a_note_instead_of_findings_when_the_solution_holds_a_component_it_cannot_read()
+    {
+        var rule = new PO034RoleWritesUnusedTable();
+        var role = B.SecurityRole("Front desk", CustomRole, "prvCreatepops_a", "prvWritepops_b");
+        var cases = new (Solution Solution, string Reason)[]
+        {
+            (WithRoles(role) with { RootComponents = [new RootComponent("91", null, null)] }, "a plugin assembly"),
+            (WithRoles(role) with { CanvasApps = [B.CodeApp("demo_code") with { Tables = null }] }, "a canvas app with no readable CdsDependencies"),
+            (WithRoles(role) with { Workflows = [B.Flow() with { ClientData = null }] }, "a workflow with no readable definition"),
+            (WithRoles(role) with { Agents = [B.Agent()] }, "a Copilot Studio agent"),
+            (WithRoles(role) with { RootComponents = [new RootComponent("91", null, null)], Agents = [B.Agent()] }, "a plugin assembly"),
+        };
+
+        foreach (var (s, reason) in cases)
+        {
+            Assert.Empty(Run(rule, s));
+            Assert.Equal([$"PO034 not checked for role 'Front desk': it has Create or Write on 2 tables that no read component uses, and the solution holds {reason}, whose table use PowerOps doesn't read."], rule.NotChecked(s));
+        }
+    }
+
+    [Fact]
+    public void PO034_gives_no_note_when_no_table_is_left()
+    {
+        var rule = new PO034RoleWritesUnusedTable();
+        var s = WithRoles(B.SecurityRole("Front desk", CustomRole, "prvWritepops_a")) with { RootComponents = [new RootComponent("91", null, null), new RootComponent("1", "pops_a", null)] };
+
+        Assert.Empty(Run(rule, s));
+        Assert.Empty(rule.NotChecked(s));
+    }
+
+    [Fact]
+    public void The_role_rules_give_findings_in_file_order()
+    {
+        var s = WithRoles(B.SecurityRole("Zed", CustomRole, "prvWritepops_a"), B.SecurityRole("Abe", OtherRole, "prvWritepops_a"));
+
+        Assert.Equal(["Roles/Abe.xml", "Roles/Zed.xml"], Run(new PO033RoleWithoutAppBaseline(), s).Select(f => f.File));
+        Assert.Equal(["Roles/Abe.xml", "Roles/Zed.xml"], Run(new PO034RoleWritesUnusedTable(), s).Select(f => f.File));
+    }
 }

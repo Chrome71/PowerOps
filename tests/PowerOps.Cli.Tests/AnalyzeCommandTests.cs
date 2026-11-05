@@ -33,7 +33,7 @@ public class AnalyzeCommandTests : IDisposable
     [Fact]
     public void Clean_zip_exits_zero()
     {
-        var zip = Path.Combine(Fixtures, "zips", "ColumnLevelSecuritySampleSolution.zip");
+        var zip = Path.Combine(Fixtures, "zips", "polymorphiclookupexamplesolution.zip");
 
         var (code, output, _) = Run("analyze", zip, "--fail-on", "warning");
 
@@ -172,13 +172,13 @@ public class AnalyzeCommandTests : IDisposable
     }
 
     [Fact]
-    public void Json_output_parses_and_has_sixteen_solutions()
+    public void Json_output_parses_and_has_seventeen_solutions()
     {
         var (code, output, _) = Run("analyze", Fixtures, "--format", "json", "--fail-on", "none");
 
         Assert.Equal(0, code);
         using var doc = JsonDocument.Parse(output);
-        Assert.Equal(16, doc.RootElement.GetProperty("summary").GetProperty("solutions").GetInt32());
+        Assert.Equal(17, doc.RootElement.GetProperty("summary").GetProperty("solutions").GetInt32());
     }
 
     [Fact]
@@ -187,7 +187,7 @@ public class AnalyzeCommandTests : IDisposable
         var (code, output, _) = Run("analyze", Fixtures, "--format", "markdown", "--fail-on", "none");
 
         Assert.Equal(0, code);
-        Assert.StartsWith("## PowerOps analyze\n\n**16 solutions, ", output);
+        Assert.StartsWith("## PowerOps analyze\n\n**17 solutions, ", output);
     }
 
     [Fact]
@@ -212,7 +212,7 @@ public class AnalyzeCommandTests : IDisposable
         Assert.Equal(0, code);
         Assert.Equal("", output);
         using var doc = JsonDocument.Parse(File.ReadAllText(file));
-        Assert.Equal(16, doc.RootElement.GetProperty("solutions").GetArrayLength());
+        Assert.Equal(17, doc.RootElement.GetProperty("solutions").GetArrayLength());
     }
 
     [Fact]
