@@ -9,7 +9,7 @@
 Answer: 1, answered by the person on 2026-11-04 ("GitHub Releases only (Recommended)"), not by an agent. NuGet's steps leave `release.yml`: they would fail the first release (no Trusted Publishing policy exists), and the name `PowerOps` is not ours on nuget.org.
 
 ### Q2. How does a build name itself?
-1. The SDK's default: a build from a git checkout prints `<version>+<full commit>`; the release build turns the commit off and prints the plain version, its tag without the `v` (recommended)
+1. The SDK's default: a build from a git checkout prints `<version>+<full commit>`; the release build turns the commit off and prints the plain version (recommended)
 2. The commit always, in the release too
 3. A build number or date of our own
 Answer: 1. Learn documents the default (`IncludeSourceRevisionInInformationalVersion` is `true`, and Source Link fills `SourceRevisionId` with the commit), so the change is one deleted line and one property on the release's pack. The plain version then means one thing: the package of that release, which a reader can check against `SHA256SUMS` and the attestation. Known limits: a tree without `.git` (a source archive) prints the plain version, and uncommitted changes add no mark; neither is a release package, and the docs say the release is the checked artifact.
@@ -52,7 +52,7 @@ Answer: 1. The brief forbids a tag, a release and any publish, and asks for the 
 Answer: 1. The dll's path in a tool package is the package's documented layout; the tool store's folder layout is the SDK's internal one. Git Bash on the Windows runner and Ubuntu runners have `unzip`. A test builds a zip in that layout, so the check runs without a real release. The package's bytes are checked before it is unpacked.
 
 ### Q10. How does the release job check the version it ships?
-1. Install the package from `artifacts` only and require `--version` to print the tag's version (recommended)
+1. Install the package from `artifacts` only and require `--version` to print release-please's version (recommended)
 2. Check the file name only
 Answer: 1. `--version` is what Done when 1 promises, so the job checks that output, not a file name. The file name check stays as the first half, so an empty `artifacts` fails with a clear line.
 
@@ -65,6 +65,39 @@ Answer: 1. The pack's own code (the repo at the tag and locked packages) is not 
 1. No: the improvement plan (M50 to M68) is not in the repo; the one runbook line that would be wrong after this change (`:622`) is corrected (recommended)
 2. Yes
 Answer: 1. As in M52 (its decisions Q11).
+
+## Round 2 (from the review)
+
+### Q2, amended (R5)
+The Action's own source build is a build of a commit too, but the runner unpacks an action pinned by commit into a folder named after its ref, with no `.git`, so the SDK finds no commit. `install.sh` passes `-p:SourceRevisionId=<ref>` when that folder's name is 40 lowercase hex, and nothing otherwise: a branch or tag ref gets the plain version, as before, and the docs already say to pin a full commit. The folder layout is the runner's, not a documented contract; if it changes, the build prints the plain version again, which is today's behaviour.
+
+### Q3, amended (R6)
+"The Action's runs are unaffected" held only within one run or one Action ref. The promotion example plans on the pull request and applies after the merge, in another run; if the Action's ref (or its release pin) moves between them, the apply is refused with "plan again with this version". That is the check working, not a regression: a plan from another build was never meant to apply. The docs say a plan is valid only for the build that made it, and CONTRIBUTING says not to move the pin while a promotion waits for its apply.
+
+### Q13. How is a failed `publish` repaired? (R3)
+1. "Re-run failed jobs" on that run, after fixing a cause outside the repo; a cause in the files at the tag needs a fix on `main` and a new release (recommended)
+2. A `workflow_dispatch` trigger with a tag input that runs `publish` for an existing release
+Answer: 1. GitHub's docs: a re-run of failed jobs reuses the outputs of the jobs that passed, so `publish` sees `release_created` and the same tag and version. A dispatch route is a second way to publish, with its own input to check and its own test, for a case that re-running covers. A release whose files at the tag can't pass is a broken release either way; the person decides what to do with it.
+
+### Q14. What is the release tag? (R1)
+1. release-please's tag, as it is configured now: `PowerOps-v<version>` (`include-component-in-tag` defaults to true, and the component is the package name). `publish` takes `tag_name` and `version` from release-please's outputs and never parses the tag; the Action builds the download URL from `PowerOps-v<pinned version>` (recommended)
+2. Set `include-component-in-tag` to false, so the tag is `v<version>`
+Answer: 1. Option 2 changes how release-please names the release, and so the title it gives PR #4 and perhaps its branch, which this milestone must not touch; it would also need checking against a real release. With option 1 the release job holds whatever the tag is, and the one place that assumes the form is the Action's URL, which the pin's pull request tests: CI's `action` job downloads the pinned release there. The first version's plan said "the tag without the `v`"; that was wrong and is gone.
+
+### Q15. Does ci's `action` job get a Windows leg? (R10)
+1. No: a matrix renames the required `action` check, which the ruleset requires by name; `install.sh`'s Windows leg first runs in a workflow with a pin, and the follow-ups list it (recommended)
+2. Yes, now
+Answer: 1. The brief keeps the eight checks. `ActionScriptTests` cover the script's logic on Linux; on Windows, it avoids the known traps (relative names after `cd`, the hash from stdin).
+
+### Q16. Does `pin-drift` drop `src` from the doc-pin paths once a release is pinned? (R8)
+1. No: the README's quick start clones the pinned commit and builds from `src`, and both pins must name one commit, so a change under `src` still makes that pin stale (recommended)
+2. Yes
+Answer: 1. After a release, the docs' pins should move to a commit that pins the release, so the warning is the reminder.
+
+### Q17. What stops the Action's scripts from needing a newer CLI than the pinned release? (R4)
+1. The rule, in CONTRIBUTING: a script change that needs a newer command or flag waits for the release that has it and its pin; and `pin-drift` warns when commits under `action/` came after the pinned release's tag (recommended)
+2. A test that the flags the scripts use exist in `Program.Root`
+Answer: 1. Option 2 checks the source, not the pinned release, so it can't see the gap. The warning fires in exactly the window of risk and goes quiet when a newer release is pinned. With a pin, CI's `action` job runs the pinned release with the pull request's scripts for `analyze` and `test`; the deploy steps need a tenant, so the rule covers them.
 
 ## Record
 
