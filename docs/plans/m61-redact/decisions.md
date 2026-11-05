@@ -25,12 +25,12 @@ Answer: 1. The `diff` wording already exists for current values, so a reader see
 Answer: 1. Over a finished report, the pattern would remove the help links (`helpUri`, the Markdown's rule links) that the milestone lets stay, and it would miss the URLs the Markdown writer has already defused with a zero-width space inside `://`. On the model, every writer gets the same redacted text, and the help links, which come from the rule list and not from the solution, are never touched. Stderr has no model: every line goes through one writer, so a wrapper covers all of them, the debug stack trace included. (answered by: agent m61-redact)
 
 ### Q4. What happens to the baseline and to SARIF fingerprints?
-(The fingerprint half of the answer is superseded by round 2's R1.)
-1. The baseline is matched before redaction; fingerprints are taken over the redacted text, with an occurrence suffix for equal keys (recommended)
+(Rewritten after round 2's R1 and R10: the first answer recommended an occurrence suffix, which would have changed the default output.)
+1. The baseline is matched before redaction; fingerprints are taken over the redacted text, equal keys left equal (recommended)
 2. Fingerprints over the unredacted text
-3. Fingerprints over the redacted text, equal keys left equal
+3. Option 1, with an occurrence suffix for equal keys
 
-Answer: 1. `Run` applies the baseline before `emit` sees the result, so redaction after it changes nothing about which findings are dropped. A fingerprint over the unredacted key (option 2) would carry a hash of the URL, and `COMMANDS.md` already warns that a hash of a short or known value is not hidden from someone who guesses it. With option 3, two different URLs in one flow give two results with one fingerprint, which code scanning can merge into one alert. The suffix is added only to the second and later equal keys, so an output without equal keys, every golden included, keeps its fingerprints. Switching `--redact` on or off changes the fingerprints of the redacted findings once; `COMMANDS.md` says so. (answered by: agent m61-redact)
+Answer: 1. `Run` applies the baseline before `emit` sees the result, so redaction after it changes nothing about which findings are dropped. A fingerprint over the unredacted key (option 2) would carry a hash of the URL, and `COMMANDS.md` already warns that a hash of a short or known value is not hidden from someone who guesses it. With option 1, two findings that differ only in a URL share one fingerprint, which code scanning can show as one alert; both sit in one file and need the same fix, and unredacted output already gives equal findings one fingerprint (`tests/golden/analyze-fixtures.sarif` holds four values more than once). Option 3 would change those existing pairs in the default output, which D7 rules out (round 2, R1), or need a flag for one mode only. Switching `--redact` on or off changes the fingerprints of the redacted findings once; `COMMANDS.md` says so, and that two findings can share one. (answered by: agent m61-redact)
 
 ### Q5. Does the Action get an input?
 1. Yes: `redact`, default `'false'`, covering every `analyze` run and the PR diff (recommended)
@@ -76,6 +76,8 @@ The review (`review.md`, plan hash `af129aed…`) found 1 High, 2 Medium and 5 L
 - R6 (Low): the README says that only your account can open the folder afterwards and gives `icacls .auth /reset /t` to undo it (row 9). `umask 077` is not added: the private folder covers a re-save. The `/inheritance:r` spelling stays as Q8 says, and M63 checks it. (answered by: agent m61-redact)
 - R7 (Low): no change. The Learn links are public documentation, as in other plans, and the sentinel URL is a fake. (answered by: agent m61-redact)
 - R8 (Low): "Values in outputs" says the MCP tools return unredacted text (row 7), Users says so too, and HANDOFF step 3 says that a `.gitignore` entry does not untrack a file and that a pushed file stays in history (row 10). (answered by: agent m61-redact)
+- R9 (Low, second pass): `COMMANDS.md`'s `--redact` text says that two findings that differed only in their URL share one SARIF fingerprint and can show as one alert. (answered by: agent m61-redact)
+- R10 (Low, second pass): Q4 is rewritten with the shared fingerprint as its recommended option and the suffix as the rejected one. Both fixes are outside `plan.md`, so the reviewed plan body stays as it is. (answered by: agent m61-redact)
 
 ## Log
 
