@@ -12,8 +12,11 @@ internal static class Agents
     public static IEnumerable<Agent> Placed(Solution solution) =>
         solution.Agents.Where(InStandardHarness).OrderBy(a => a.File, StringComparer.Ordinal);
 
-    /// <summary>The tools in ordinal order of their file.</summary>
-    public static IEnumerable<AgentTool> Tools(Agent agent) => agent.Tools.OrderBy(t => t.File, StringComparer.Ordinal);
+    /// <summary>The `TaskDialog` tools in ordinal order of their file; the `McpTool` tools of the GitHub Copilot harness's layout are not read (M51 decisions Q7).</summary>
+    public static IEnumerable<AgentTool> Tools(Agent agent) => agent.Tools.Where(t => t.Kind == "TaskDialog").OrderBy(t => t.File, StringComparer.Ordinal);
+
+    /// <summary>The instructions of the agent's Custom GPT component, or null when it has none; those from configuration.json are not read (M51 decisions Q7).</summary>
+    public static string? Instructions(Agent agent) => agent.InstructionsFromConfiguration ? null : agent.Instructions;
 
     /// <summary>One note per agent that is not read, naming all five rules.</summary>
     public static IEnumerable<string> HarnessNotes(Solution solution) =>

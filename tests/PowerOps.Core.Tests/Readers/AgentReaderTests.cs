@@ -68,8 +68,9 @@ public class AgentReaderTests
         {
             var both = Both(t);
             var (folder, zip) = (Assert.Single(both[0].Agents), Assert.Single(both[1].Agents));
-            Assert.Equal(folder with { Tools = [], UnreadFiles = [], OtherComponents = [] }, zip with { Tools = [], UnreadFiles = [], OtherComponents = [] });
+            Assert.Equal(folder with { Tools = [], UnreadFiles = [], OtherComponents = [], Capabilities = [] }, zip with { Tools = [], UnreadFiles = [], OtherComponents = [], Capabilities = [] });
             Assert.Equal(folder.Tools, zip.Tools);
+            Assert.Equal(folder.Capabilities, zip.Capabilities);
             Assert.Equal(folder.UnreadFiles, zip.UnreadFiles);
             Assert.Equal(folder.OtherComponents, zip.OtherComponents);
             return folder;
@@ -237,24 +238,27 @@ public class AgentReaderTests
     }
 
     [Fact]
-    public void Components_of_another_kind_are_listed_with_their_kind_in_file_order_and_are_not_tools()
+    public void Components_of_a_kind_no_reader_knows_are_listed_with_their_kind_in_file_order_and_are_not_tools()
     {
-        var agent = One(Comp(Comp(Comp(Comp(Comp(Comp(Comp(Agent(Base()),
+        var agent = One(Comp(Comp(Comp(Comp(Comp(Comp(Comp(Comp(Comp(Agent(Base()),
             "demo_agent.tool.Docs", "9", "kind: McpTool\nauthMode: Invoker\nconnectorId: /providers/Microsoft.PowerApps/apis/shared_demo\n"),
             "demo_agent.iq.mail", "9", "kind:  'IQCapability'  # Work IQ\ncapability: mail\naccess: Write\n"),
-            "demo_agent.tool.Quoted", "9", "kind: \"McpTool\"\nnote: TaskDialog\n"), // holds TaskDialog, so it is parsed
+            "demo_agent.tool.Widget", "9", "kind:  'ConnectorTool'  # a kind no reader knows\nname: x\n"),
+            "demo_agent.tool.Quoted", "9", "kind: \"Widget\"\nnote: TaskDialog\n"), // holds TaskDialog, so it is parsed
             "demo_agent.topic.Greeting", "9", Topic),
             "demo_agent.agent.Child", "9", "kind: AgentDialog\n"),
             "demo_agent.topic.Orders", "9", FlowTool),
-            "demo_agent.topic.NoKind", "9", "not: [yaml")); // no kind line and malformed: listed, not parsed
+            "demo_agent.topic.NoKind", "9", "not: [yaml"), // no kind line and malformed: listed, not parsed
+            "demo_agent.topic.Gadget", "9", "kind: Gadget\n"));
 
-        Assert.Equal(["demo_agent.topic.Orders"], agent.Tools.Select(x => x.SchemaName));
+        Assert.Equal(["demo_agent.tool.Docs", "demo_agent.topic.Orders"], agent.Tools.Select(x => x.SchemaName));
+        Assert.Equal(["demo_agent.iq.mail"], agent.Capabilities.Select(x => x.SchemaName));
         Assert.Empty(agent.UnreadFiles);
         Assert.Equal(
             [
-                new AgentComponent("IQCapability", "botcomponents/demo_agent.iq.mail/data"),
-                new AgentComponent("McpTool", "botcomponents/demo_agent.tool.Docs/data"),
-                new AgentComponent("McpTool", "botcomponents/demo_agent.tool.Quoted/data"),
+                new AgentComponent("Widget", "botcomponents/demo_agent.tool.Quoted/data"),
+                new AgentComponent("ConnectorTool", "botcomponents/demo_agent.tool.Widget/data"),
+                new AgentComponent("Gadget", "botcomponents/demo_agent.topic.Gadget/data"),
                 new AgentComponent(null, "botcomponents/demo_agent.topic.NoKind/data"),
             ],
             agent.OtherComponents);
@@ -508,5 +512,282 @@ public class AgentReaderTests
     public void An_unreadable_component_of_an_agent_that_is_not_read_is_still_refused_when_its_xml_is_malformed()
     {
         Refused(Comp(Agent(Base()), "demo_agent.topic.A", "9", null, parent: null, xml: "<botcomponent><oops>"), "botcomponents/demo_agent.topic.A/botcomponent.xml");
+    }
+
+    // ---- M51: the layout of Copilot Studio's new authoring UI ----
+
+    private const string Cli = "CLICopilotRecognizer";
+
+    private static string CliConfig(string agentSettings) => """{"$kind":"BotConfiguration","recognizer":{"$kind":"CLICopilotRecognizer"},"agentSettings":""" + agentSettings + "}";
+
+    private static string Segments(params string[] values) =>
+        """{"instructions":{"$kind":"Instructions","segments":[""" + string.Join(",", values.Select(v => "{\"$kind\":\"StaticSegment\",\"value\":" + System.Text.Json.JsonSerializer.Serialize(v) + "}")) + "]}}";
+
+    private static AgentConfiguration? Configuration(string config) => One(Agent(Base(), config: config)).Configuration;
+
+    [Theory]
+    [InlineData("Be brief.", "Be brief.")]
+    [InlineData("", "")]
+    [InlineData("Line one.\nLine two.\n", "Line one.\nLine two.\n")]
+    public void One_static_segment_is_the_instructions(string value, string expected) =>
+        Assert.Equal(new AgentConfiguration(Cli, null, expected), Configuration(CliConfig(Segments(value))));
+
+    [Fact]
+    public void Several_static_segments_are_joined_with_no_separator()
+    {
+        Assert.Equal(new AgentConfiguration(Cli, null, "First.Second. Third"), Configuration(CliConfig(Segments("First.", "Second.", " Third"))));
+    }
+
+    [Fact]
+    public void An_empty_segments_array_gives_empty_instructions()
+    {
+        Assert.Equal(new AgentConfiguration(Cli, null, ""), Configuration(CliConfig("""{"instructions":{"segments":[]}}""")));
+    }
+
+    [Theory]
+    [InlineData("""{"$kind":"AgentSettings"}""")] // no instructions key
+    [InlineData("""{"model":{"series":"x"}}""")]
+    [InlineData("[]")] // agentSettings is not an object
+    [InlineData("\"text\"")]
+    [InlineData("null")]
+    public void Without_an_agentSettings_object_holding_instructions_both_fields_keep_their_defaults(string agentSettings)
+    {
+        Assert.Equal(new AgentConfiguration(Cli, null), Configuration(CliConfig(agentSettings)));
+        Assert.Equal(new AgentConfiguration(Cli, null), Configuration("""{"recognizer":{"$kind":"CLICopilotRecognizer"}}"""));
+    }
+
+    [Theory]
+    [InlineData("""{"instructions":{}}""")] // no segments
+    [InlineData("""{"instructions":{"segments":{"$kind":"StaticSegment","value":"x"}}}""")] // segments is an object
+    [InlineData("""{"instructions":{"segments":"x"}}""")]
+    [InlineData("""{"instructions":{"segments":["x"]}}""")] // an item is a string
+    [InlineData("""{"instructions":{"segments":[{"value":"x"}]}}""")] // no $kind
+    [InlineData("""{"instructions":{"segments":[{"$kind":1,"value":"x"}]}}""")] // $kind is a number
+    [InlineData("""{"instructions":{"segments":[{"$kind":"StaticSegment","value":"x"},{"$kind":"ToolReference","value":"y"}]}}""")] // another $kind
+    [InlineData("""{"instructions":{"segments":[{"$kind":"StaticSegment","value":7}]}}""")] // value is a number
+    [InlineData("""{"instructions":{"segments":[{"$kind":"StaticSegment"}]}}""")] // no value
+    [InlineData("""{"instructions":{"segments":[{"$kind":"StaticSegment","value":"\ud800"}]}}""")] // not valid UTF-16
+    [InlineData("""{"instructions":"text"}""")]
+    [InlineData("""{"instructions":null}""")]
+    public void Instructions_in_a_shape_the_reader_does_not_know_are_unread(string agentSettings)
+    {
+        Assert.Equal(new AgentConfiguration(Cli, null, null, true), Configuration(CliConfig(agentSettings)));
+    }
+
+    [Fact]
+    public void An_agent_with_no_custom_gpt_component_takes_its_instructions_from_configuration_json()
+    {
+        var agent = One(Agent(Base(), config: CliConfig(Segments("Be brief."))));
+
+        Assert.Equal("Be brief.", agent.Instructions);
+        Assert.Equal("bots/demo_agent/configuration.json", agent.InstructionsFile);
+        Assert.True(agent.InstructionsFromConfiguration);
+        Assert.False(agent.InstructionsConflict);
+    }
+
+    [Fact]
+    public void Unread_or_absent_configuration_instructions_give_null_instructions_and_no_file()
+    {
+        foreach (var config in new[] { CliConfig("""{"instructions":{}}"""), CliConfig("{}"), Config })
+        {
+            var agent = One(Agent(Base(), config: config));
+
+            Assert.Null(agent.Instructions);
+            Assert.Null(agent.InstructionsFile);
+            Assert.False(agent.InstructionsFromConfiguration);
+            Assert.False(agent.InstructionsConflict);
+        }
+
+        Assert.Null(One(Agent(Base(), config: null)).Instructions);
+    }
+
+    [Theory]
+    [InlineData("Answer questions about orders.")]
+    [InlineData("Answer questions about orders.\r\n")]
+    public void A_custom_gpt_component_beside_equal_segment_instructions_is_no_conflict(string segment)
+    {
+        var agent = One(Comp(Agent(Base(), config: CliConfig(Segments(segment))), "demo_agent.gpt.default", "15", Gpt));
+
+        Assert.Equal("Answer questions about orders.", agent.Instructions);
+        Assert.Equal("botcomponents/demo_agent.gpt.default/data", agent.InstructionsFile);
+        Assert.False(agent.InstructionsFromConfiguration);
+        Assert.False(agent.InstructionsConflict);
+    }
+
+    [Fact]
+    public void A_block_scalar_and_crlf_line_breaks_are_no_conflict()
+    {
+        var agent = One(Comp(Agent(Base(), config: CliConfig(Segments("Line one.\r\nLine two."))), "demo_agent.gpt.default", "15", "kind: GptComponentMetadata\ninstructions: |\n  Line one.\n  Line two.\n"));
+
+        Assert.Equal("Line one.\nLine two.\n", agent.Instructions);
+        Assert.False(agent.InstructionsConflict);
+    }
+
+    [Theory]
+    [InlineData("""{"instructions":{"segments":[{"$kind":"StaticSegment","value":"Other text."}]}}""")] // differs
+    [InlineData("""{"instructions":{"segments":[{"$kind":"Other","value":"Answer questions about orders."}]}}""")] // unread
+    [InlineData("""{"instructions":{}}""")]
+    public void A_custom_gpt_component_beside_different_or_unread_segment_instructions_is_a_conflict_and_the_component_wins(string agentSettings)
+    {
+        var agent = One(Comp(Agent(Base(), config: CliConfig(agentSettings)), "demo_agent.gpt.default", "15", Gpt));
+
+        Assert.Equal("Answer questions about orders.", agent.Instructions);
+        Assert.Equal("botcomponents/demo_agent.gpt.default/data", agent.InstructionsFile);
+        Assert.False(agent.InstructionsFromConfiguration);
+        Assert.True(agent.InstructionsConflict);
+    }
+
+    [Theory]
+    [InlineData("""{"$kind":"AgentSettings"}""")] // no instructions key
+    [InlineData("[]")] // no agentSettings object
+    public void A_custom_gpt_component_beside_configuration_without_instructions_is_no_conflict(string agentSettings)
+    {
+        Assert.False(One(Comp(Agent(Base(), config: CliConfig(agentSettings)), "demo_agent.gpt.default", "15", Gpt)).InstructionsConflict);
+        Assert.False(One(Comp(Agent(Base()), "demo_agent.gpt.default", "15", Gpt)).InstructionsConflict);
+        Assert.False(One(Comp(Agent(Base(), config: null), "demo_agent.gpt.default", "15", Gpt)).InstructionsConflict);
+    }
+
+    [Fact]
+    public void Two_custom_gpt_components_beside_segment_instructions_give_null_and_no_conflict()
+    {
+        var agent = One(Comp(Comp(Agent(Base(), config: CliConfig(Segments("Text."))), "demo_agent.gpt.a", "15", Gpt), "demo_agent.gpt.b", "15", Gpt));
+
+        Assert.Null(agent.Instructions);
+        Assert.Null(agent.InstructionsFile);
+        Assert.False(agent.InstructionsFromConfiguration);
+        Assert.False(agent.InstructionsConflict);
+    }
+
+    [Fact]
+    public void A_custom_gpt_component_with_instructions_that_are_not_text_gives_null_and_no_conflict()
+    {
+        var agent = One(Comp(Agent(Base(), config: CliConfig(Segments("Text."))), "demo_agent.gpt.default", "15", "kind: GptComponentMetadata\ninstructions:\n  nested: text\n"));
+
+        Assert.Null(agent.Instructions);
+        Assert.False(agent.InstructionsFromConfiguration);
+        Assert.False(agent.InstructionsConflict);
+    }
+
+    [Fact]
+    public void A_custom_gpt_component_with_no_instructions_key_beside_segment_text_gives_empty_instructions_and_a_conflict()
+    {
+        var agent = One(Comp(Agent(Base(), config: CliConfig(Segments("Text."))), "demo_agent.gpt.default", "15", "kind: GptComponentMetadata\n"));
+
+        Assert.Equal("", agent.Instructions);
+        Assert.True(agent.InstructionsConflict);
+    }
+
+    private const string Docs = "kind: McpTool\nauthMode: Invoker\nconnectionReference: demo_agent.cr.shared_docs.abc\nconnectorId: /providers/Microsoft.PowerApps/apis/shared_docs\noperationId: search\n";
+
+    [Fact]
+    public void An_mcptool_component_is_a_tool_with_its_mode_connection_reference_and_operation_id()
+    {
+        var agent = One(Comp(Agent(Base()), "demo_agent.tool.Docs", "9", Docs));
+
+        var tool = Assert.Single(agent.Tools);
+        Assert.Equal(new AgentTool("demo_agent.tool.Docs", null, true, "Invoker", "botcomponents/demo_agent.tool.Docs/data", "demo_agent.cr.shared_docs.abc", "search", "McpTool"), tool);
+        Assert.Empty(agent.OtherComponents);
+        Assert.Empty(agent.UnreadFiles);
+    }
+
+    [Theory]
+    [InlineData("kind: McpTool\n")]
+    [InlineData("kind: McpTool\nauthMode:\n  a: b\nconnectionReference:\n  a: b\noperationId: \"\"\n")] // not text
+    public void An_mcptool_with_no_readable_fields_is_a_tool_with_null_fields(string data)
+    {
+        var tool = Assert.Single(One(Comp(Agent(Base()), "demo_agent.tool.Docs", "9", data)).Tools);
+
+        Assert.Equal(new AgentTool("demo_agent.tool.Docs", null, true, null, "botcomponents/demo_agent.tool.Docs/data", null, null, "McpTool"), tool);
+    }
+
+    [Fact]
+    public void An_mcptool_whose_text_holds_taskdialog_is_still_read_by_its_yaml_kind()
+    {
+        var agent = One(Comp(Agent(Base()), "demo_agent.tool.Docs", "9", "kind: \"McpTool\"\nauthMode: Maker\nnote: TaskDialog\n"));
+
+        Assert.Equal(["demo_agent.tool.Docs"], agent.Tools.Select(t => t.SchemaName));
+        Assert.Equal("McpTool", agent.Tools[0].Kind);
+        Assert.Equal("Maker", agent.Tools[0].Mode);
+    }
+
+    [Fact]
+    public void Taskdialog_and_mcptool_tools_of_one_agent_are_both_read_and_a_taskdialog_leaves_the_new_fields_null()
+    {
+        var agent = One(Comp(Comp(Agent(Base()), "demo_agent.tool.Docs", "9", Docs), "demo_agent.topic.Orders", "9", McpTool));
+
+        Assert.Equal(["demo_agent.tool.Docs", "demo_agent.topic.Orders"], agent.Tools.Select(t => t.SchemaName));
+        var task = agent.Tools[1];
+        Assert.Equal("TaskDialog", task.Kind);
+        Assert.Null(task.ConnectionReference);
+        Assert.Null(task.OperationId);
+        Assert.Equal("McpTool", agent.Tools[0].Kind);
+    }
+
+    [Fact]
+    public void Malformed_mcptool_and_iqcapability_yaml_is_refused_with_the_path()
+    {
+        Refused(Comp(Agent(Base()), "demo_agent.tool.Docs", "9", "kind: McpTool\nauthMode: [unclosed\n"), "botcomponents/demo_agent.tool.Docs/data");
+        Refused(Comp(Agent(Base()), "demo_agent.iq.mail", "9", "kind: IQCapability\ncapability: [unclosed\n"), "botcomponents/demo_agent.iq.mail/data");
+    }
+
+    [Theory]
+    [InlineData("kind: McpTool\n\"\": x\n", "McpTool")]
+    [InlineData("kind: McpTool\nnote: TaskDialog\n\"\": x\n", "McpTool")]
+    [InlineData("kind: IQCapability\ncapability: mail\naccess: Write\n\"\": x\n", "IQCapability")]
+    [InlineData("kind: IQCapability\nnote: TaskDialog\n\"\": x\n", "IQCapability")]
+    public void Unmappable_mcptool_or_iqcapability_yaml_is_listed_as_its_kind_and_not_as_unread(string data, string kind)
+    {
+        var agent = One(Comp(Agent(Base()), "demo_agent.tool.Odd", "9", data));
+
+        Assert.Empty(agent.Tools);
+        Assert.Empty(agent.Capabilities);
+        Assert.Empty(agent.UnreadFiles);
+        Assert.Equal([new AgentComponent(kind, "botcomponents/demo_agent.tool.Odd/data")], agent.OtherComponents);
+    }
+
+    [Fact]
+    public void Unmappable_yaml_of_another_kind_that_holds_taskdialog_is_still_unread()
+    {
+        var agent = One(Comp(Agent(Base()), "demo_agent.tool.Odd", "9", "kind: AdaptiveDialog\nnote: TaskDialog\n\"\": x\n"));
+
+        Assert.Equal(["botcomponents/demo_agent.tool.Odd/data"], agent.UnreadFiles);
+        Assert.Empty(agent.OtherComponents);
+    }
+
+    private static TempFolder SixCapabilities(TempFolder t)
+    {
+        foreach (var name in new[] { "teams", "mail", "sites", "calendar", "people", "files" })
+        {
+            Comp(t, $"demo_agent.iq.{name}", "9", $"kind: IQCapability\ncapability: {name}\naccess: Write");
+        }
+
+        return t;
+    }
+
+    [Fact]
+    public void Iqcapability_components_are_workloads_in_ordinal_order_of_their_file()
+    {
+        var agent = One(SixCapabilities(Agent(Base())));
+
+        Assert.Equal(
+            ["calendar", "files", "mail", "people", "sites", "teams"],
+            agent.Capabilities.Select(c => c.Capability));
+        Assert.Equal(new AgentCapability("demo_agent.iq.calendar", "calendar", "Write", "botcomponents/demo_agent.iq.calendar/data"), agent.Capabilities[0]);
+        Assert.Empty(agent.OtherComponents);
+        Assert.Empty(agent.Tools);
+    }
+
+    [Theory]
+    [InlineData("kind: IQCapability\ncapability: mail\n")]
+    [InlineData("kind: IQCapability\naccess: Write\n")]
+    [InlineData("kind: IQCapability\ncapability: mail\naccess:\n  a: b\n")]
+    [InlineData("kind: IQCapability\ncapability:\n  a: b\naccess: Write\n")]
+    [InlineData("kind: IQCapability\ncapability: mail\naccess: \"\"\n")]
+    public void An_iqcapability_without_text_capability_and_access_stays_in_other_components(string data)
+    {
+        var agent = One(Comp(Agent(Base()), "demo_agent.iq.mail", "9", data));
+
+        Assert.Empty(agent.Capabilities);
+        Assert.Equal([new AgentComponent("IQCapability", "botcomponents/demo_agent.iq.mail/data")], agent.OtherComponents);
     }
 }

@@ -33,7 +33,7 @@
     },
     "notCompared": {
       "type": "array",
-      "description": "What the two solutions hold that diff means to compare but couldn't read, one sentence each, also printed as note: lines on stderr: an agent whose instructions aren't read (no single Custom GPT component whose instructions are text) and an agent's components it doesn't read as tools. Empty when it read all of it. Kinds diff never compares (tables, forms and so on) are not listed; docs/COMMANDS.md names them.",
+      "description": "What the two solutions hold that diff means to compare but couldn't read, one sentence each, also printed as note: lines on stderr: an agent whose instructions aren't read in one version (no single Custom GPT component whose instructions are text, and no configuration.json segments it reads), an agent whose configuration.json instructions differ from its Custom GPT component's or can't be read (only the component's are compared), and an agent's components it doesn't read as tools or Work IQ workloads. Empty when it read all of it: an empty list means the instructions, tools and Work IQ workloads of each agent were read, not that the agent is equal, because its authentication mode, recognizer, other settings, components of other types and the names, descriptions and states of its tools are never compared. Kinds diff never compares (tables, forms and so on) are not listed; docs/COMMANDS.md names them.",
       "items": { "type": "string" }
     },
     "summary": {

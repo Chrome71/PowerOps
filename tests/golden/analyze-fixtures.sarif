@@ -453,6 +453,51 @@
             {
               "level": "note",
               "message": {
+                "text": "PO027 to PO031 not checked for agent 'cr123_loanhelper_abc123': its recognizer is 'CLICopilotRecognizer', not GenerativeAIRecognizer or VirtualAgentsRecognizer, so it may not run on the standard harness that these rules read."
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "tests/fixtures/agents/new-ui/v1-no-learn-tool.zip"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "level": "note",
+              "message": {
+                "text": "PO027 to PO031 not checked for agent 'cr123_loanhelper_abc123': its recognizer is 'CLICopilotRecognizer', not GenerativeAIRecognizer or VirtualAgentsRecognizer, so it may not run on the standard harness that these rules read."
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "tests/fixtures/agents/new-ui/v1.zip"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "level": "note",
+              "message": {
+                "text": "PO027 to PO031 not checked for agent 'cr123_loanhelper_abc123': its recognizer is 'CLICopilotRecognizer', not GenerativeAIRecognizer or VirtualAgentsRecognizer, so it may not run on the standard harness that these rules read."
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "tests/fixtures/agents/new-ui/v2.zip"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "level": "note",
+              "message": {
                 "text": "PO014 and PO018 not checked for canvas app 'CanvasApps/cat_devopskitsamplecanvasapp_c7ec5_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened)."
               },
               "locations": [
@@ -469,6 +514,174 @@
         }
       ],
       "results": [
+        {
+          "ruleId": "PO009",
+          "ruleIndex": 8,
+          "level": "warning",
+          "message": {
+            "text": "Component 'cr123_draft_def456.cr.shared_workiqmcp.shared-workiqmcp-00000000-0000-0000-0000-000000000002' does not use the publisher prefix 'pops'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/agents/new-ui/v1-no-learn-tool.zip"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "customizations.xml"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "a284c70dcdd3dbef69b4b10e30ced1fdb36b8b051ea65c7fd3d0173d20d3aa20"
+          }
+        },
+        {
+          "ruleId": "PO009",
+          "ruleIndex": 8,
+          "level": "warning",
+          "message": {
+            "text": "Component 'cr123_loanhelper_abc123.cr.shared_microsoftlearndocsmcpserver.00000000000000000000000000000001' does not use the publisher prefix 'pops'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/agents/new-ui/v1-no-learn-tool.zip"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "customizations.xml"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "7737b84bd390dde06b5f1d71284087cb632c7e6750007f9feec8c237ca002925"
+          }
+        },
+        {
+          "ruleId": "PO009",
+          "ruleIndex": 8,
+          "level": "warning",
+          "message": {
+            "text": "Component 'cr123_draft_def456.cr.shared_workiqmcp.shared-workiqmcp-00000000-0000-0000-0000-000000000002' does not use the publisher prefix 'pops'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/agents/new-ui/v1.zip"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "customizations.xml"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "a284c70dcdd3dbef69b4b10e30ced1fdb36b8b051ea65c7fd3d0173d20d3aa20"
+          }
+        },
+        {
+          "ruleId": "PO009",
+          "ruleIndex": 8,
+          "level": "warning",
+          "message": {
+            "text": "Component 'cr123_loanhelper_abc123.cr.shared_microsoftlearndocsmcpserver.00000000000000000000000000000001' does not use the publisher prefix 'pops'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/agents/new-ui/v1.zip"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "customizations.xml"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "7737b84bd390dde06b5f1d71284087cb632c7e6750007f9feec8c237ca002925"
+          }
+        },
+        {
+          "ruleId": "PO009",
+          "ruleIndex": 8,
+          "level": "warning",
+          "message": {
+            "text": "Component 'cr123_draft_def456.cr.shared_workiqmcp.shared-workiqmcp-00000000-0000-0000-0000-000000000002' does not use the publisher prefix 'pops'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/agents/new-ui/v2.zip"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "customizations.xml"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "a284c70dcdd3dbef69b4b10e30ced1fdb36b8b051ea65c7fd3d0173d20d3aa20"
+          }
+        },
+        {
+          "ruleId": "PO009",
+          "ruleIndex": 8,
+          "level": "warning",
+          "message": {
+            "text": "Component 'cr123_loanhelper_abc123.cr.shared_microsoftlearndocsmcpserver.00000000000000000000000000000001' does not use the publisher prefix 'pops'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/agents/new-ui/v2.zip"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "customizations.xml"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "7737b84bd390dde06b5f1d71284087cb632c7e6750007f9feec8c237ca002925"
+          }
+        },
         {
           "ruleId": "PO007",
           "ruleIndex": 6,

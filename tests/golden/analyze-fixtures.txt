@@ -1,3 +1,12 @@
+tests/fixtures/agents/new-ui/v1-no-learn-tool.zip: PowerOpsLiveAgent 1.0.0.0 (publisher powerops, prefix pops)
+  warning PO009 customizations.xml: Component 'cr123_draft_def456.cr.shared_workiqmcp.shared-workiqmcp-00000000-0000-0000-0000-000000000002' does not use the publisher prefix 'pops'.
+  warning PO009 customizations.xml: Component 'cr123_loanhelper_abc123.cr.shared_microsoftlearndocsmcpserver.00000000000000000000000000000001' does not use the publisher prefix 'pops'.
+tests/fixtures/agents/new-ui/v1.zip: PowerOpsLiveAgent 1.0.0.0 (publisher powerops, prefix pops)
+  warning PO009 customizations.xml: Component 'cr123_draft_def456.cr.shared_workiqmcp.shared-workiqmcp-00000000-0000-0000-0000-000000000002' does not use the publisher prefix 'pops'.
+  warning PO009 customizations.xml: Component 'cr123_loanhelper_abc123.cr.shared_microsoftlearndocsmcpserver.00000000000000000000000000000001' does not use the publisher prefix 'pops'.
+tests/fixtures/agents/new-ui/v2.zip: PowerOpsLiveAgent 1.0.0.0 (publisher powerops, prefix pops)
+  warning PO009 customizations.xml: Component 'cr123_draft_def456.cr.shared_workiqmcp.shared-workiqmcp-00000000-0000-0000-0000-000000000002' does not use the publisher prefix 'pops'.
+  warning PO009 customizations.xml: Component 'cr123_loanhelper_abc123.cr.shared_microsoftlearndocsmcpserver.00000000000000000000000000000001' does not use the publisher prefix 'pops'.
 tests/fixtures/alm-makers: ALMAcceleratorforMakers 0.0.0.0 (publisher catteam, prefix cat)
   requires EnvironmentVariables (1.0.2.77)
   warning PO007 environmentvariabledefinitions/cat_DependentEnvironmentUrl/environmentvariabledefinition.xml: Environment variable 'cat_DependentEnvironmentUrl' has a default value that looks like a URL.
@@ -64,4 +73,4 @@ tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip: Contoso_sample 1.0.0.1 (
   warning PO010 solution.xml: Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher.
 tests/fixtures/zips/polymorphiclookupexamplesolution.zip: polymorphiclookupexamplesolution 1.0.0.0 (publisher examplepublisher, prefix sample)
   no findings
-12 solutions, 0 errors, 43 warnings
+15 solutions, 0 errors, 49 warnings
