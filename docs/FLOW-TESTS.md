@@ -27,5 +27,19 @@ Exit codes: `0` every test passed, `1` a test `failed`, `unmocked` or `unsupport
 Limits. The simulator is written from Microsoft Learn's pages on the Workflow Definition Language, the action and function references and error handling. It has not been compared with a real run yet, so a pass here is not a guarantee about the cloud, and some behaviours Learn does not describe are the simulator's own choices: the list is "Not on Learn" in [the plan](plans/m14-flowtest/plan.md).
 
 - Not simulated: retry policies, concurrency (a Foreach runs one item at a time), timeouts and secure inputs and outputs. `TimedOut` never occurs.
-- Only 37 functions and the action types listed in the plan are supported; anything else, such as `addHours`, `Select` or `Table`, is `unsupported`. Functions and action types are checked when the run reaches them, so a path the run does not take is not checked: a test of one path can pass while another path holds something unsupported.
+- Only the functions below and the action types listed in the plan are supported; anything else, such as `addHours`, `Select` or `Table`, is `unsupported`. Functions and action types are checked when the run reaches them, so a path the run does not take is not checked: a test of one path can pass while another path holds something unsupported.
 - Every function argument is evaluated, `if`, `and` and `or` included. A guard such as `if(empty(x), '', x['a'])` fails when `x` is empty. Use `x?['a']` or a separate action.
+
+## Supported functions
+
+- Workflow: `outputs(action)`, `body(action)`, `triggerOutputs()`, `triggerBody()`, `variables(name)`, `parameters(name)`, `items(loop)`, `item()`, `workflow()`, `result(scope)`
+- String: `concat(value, value, ...)`, `substring(text, start, length?)`, `replace(text, old, new)`, `split(text, separator)`, `toLower(text)`, `trim(text)`, `guid()`
+- Collection: `contains(collection, value)`, `empty(value)`, `first(collection)`, `last(collection)`, `length(collection)`
+- Logical: `equals(value, value)`, `greater(value, value)`, `greaterOrEquals(value, value)`, `lessOrEquals(value, value)`, `if(test, valueIfTrue, valueIfFalse)`, `and(test, ...)`, `or(test, ...)`, `not(test)`
+- Conversion: `json(value)`, `string(value)`, `int(value)`, `decodeBase64(text)`, `createArray(value, ...)`
+- Math: `min(number, number, ...)`, `min(array)`
+- Date and time: `utcNow()`, `formatDateTime(timestamp, format?, locale?)`, `addDays(timestamp, days, format?)`
+
+Forms not listed are `unsupported`, such as `utcNow(format)` and `guid(format)`. The format and locale arguments follow .NET's standard and custom date and time format strings and its culture data, which Learn's reference links to. The default locale is `en-us`. ICU writes a U+202F before AM/PM in some formats; the simulator writes a space, as Learn's examples show. `formatDateTime` keeps a timestamp with no time zone without one, while `addDays` reads it as UTC. A format with `z` or `U` on a timestamp with no time zone, an empty format and an empty locale are `unsupported`. `int` takes a string of digits with an optional sign, and an integer number as it is.
+
+The simulator's other choices are under "Not on Learn" in [the M14 plan](plans/m14-flowtest/plan.md) and [the M58 plan](plans/m58-flow-conformance/plan.md).
