@@ -1,0 +1,32 @@
+# What an agent client must provide
+
+PowerOps's skills and MCP server rely on five things from the agent client that runs them (its harness). This page names each one, says what PowerOps uses it for and what happens without it, and lists what is known for each client. Each client fact names its evidence: a run of the [verification record](BUILD-PLAN.md#verification-record) (M19, M20, M21), the client's docs, the client's code that was read but not run, or the [Agent support](PLANNING-SKILLS.md#agent-support) table. "Not checked" means none of these says. Where a client keeps the skills, and how it starts the two build roles in a fresh context, is in that table too.
+
+## The five primitives
+
+| Primitive | What PowerOps uses it for | Without it |
+|---|---|---|
+| Questions | The planning skills ask at most three questions, each with two or three choices and the recommended one first. `powerops-implement` stops with one concrete question when a choice changes scope, data, security or cost | Numbered text in the chat. When an orchestrating agent answers for the person, `decisions.md` marks the answer `agent`, and an agent never signs off a plan, accepts a High finding or accepts a security gap ([Who answered](USE-WITH-AGENTS.md#planning-skills)). Where an autopilot answers the question tool itself, the planning skill stops |
+| Forms | `deploy_apply` with `apply: true` imports only after the user types the target's name in an MCP elicitation form | A cancel or a decline imports nothing, and a client that can't show a form gets a refusal with the CLI command. The yes then belongs to the Action's apply job in a GitHub environment with required reviewers, or to the person who runs `powerops deploy apply --apply` at their own shell |
+| Blocking hooks | A `PreToolUse` hook runs `powerops deploy gate`, which exits 2 to block a Microsoft import that is not the reviewed plan's first import | Deny rules for pac's MCP import tools are the control that stops an import ([Gate Microsoft's imports](HANDOFF.md#gate-microsofts-imports)). With neither, the skills' rule to import only with `deploy apply` is an instruction, not a control |
+| Environment passthrough | The MCP server runs `pac` and `az` with the user's sign-in. On Linux, `pac` reaches its saved sign-in through `DBUS_SESSION_BUS_ADDRESS` or `XDG_RUNTIME_DIR` | `pac` asks for a new sign-in, and the reads of the tenant fail. Pass the variables in the server's entry, or run the commands in a shell |
+| A long-call timeout | `deploy apply` waits up to 60 minutes for each import, so the MCP call must be allowed to last that long | The client ends the call, and the import runs on to its end; another `apply` call to that server is refused until then. Raise the timeout, and after a call that ended during an import, follow [Recovery](RECOVERY.md) |
+
+## Per client
+
+| Client | Questions | Forms | Blocking hooks | Environment passthrough | Long-call timeout |
+|---|---|---|---|---|---|
+| Claude Code, interactive | `AskUserQuestion` (Agent support) | A dialog with Accept and Decline (2.1.312, M20) | `PreToolUse`; exit 2 blocks (its docs). `onFailure: "block"` (2.1.295 or later) also blocks a hook that can't start or times out | `deploy_plan` read the target on Linux in the M20 session with no added variables; a run without them was not tested | Its docs: a stdio call ends after 30 minutes with no response or progress; raise `CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT`. A form open for over 34 minutes didn't end the call (M20) |
+| `claude -p` | Not checked | Cancelled (2.1.303, M19), so `apply` imports nothing | Exit 2 blocks (2.1.312, M21) | Not checked | Not checked |
+| Codex TUI | `request_user_input` in Plan mode only; numbered text elsewhere (Agent support) | One text field with no Decline; Esc cancels (TUI 0.163.0, M20) | `.codex/hooks.json`; exit 2 blocks (its docs). No `onFailure`, so a hook that times out lets the call through. A new or changed hook runs only after you trust it | Only a few variables reach the server. The plugin adds `DBUS_SESSION_BUS_ADDRESS` and `XDG_RUNTIME_DIR`; your own entry needs `env_vars` (M20) | 60 seconds in its docs, 300 in its code. The plugin sets `tool_timeout_sec = 3600`; your own entry needs it |
+| `codex exec` | Not checked | Cancelled; declined under the `never` approval policy (read in its code at `rust-v0.163.0`, not run) | Exit 2 blocks (0.163.0, M21) | Not checked | Not checked |
+
+Copilot CLI, Antigravity CLI and Pi with local Qwen (provisional) and Gemini CLI (provisional, untested): only their question tools are known, from the M39 client checks and the [Agent support](PLANNING-SKILLS.md#agent-support) table; their forms, hooks, passthrough and timeouts are not checked.
+
+Treat "not checked" as absent: import by the Action route or your own command, and don't rely on the gate there. The details for Claude Code and Codex, with their sources, are in [MCP server](USE-WITH-AGENTS.md#mcp-server) and [Gate Microsoft's imports](HANDOFF.md#gate-microsofts-imports).
+
+## Without a person at the keyboard
+
+- **A headless run** (`claude -p`, `codex exec`) can plan, analyze, test and run `deploy_apply` without `apply`, but its forms are cancelled, so it never imports through the MCP tool. The import goes by the Action's apply job in a GitHub environment with required reviewers ([the example](examples/README.md)), or the person runs `powerops deploy apply --apply`. Nothing checks who runs that command, so an agent never runs it as a way around the form.
+- **An orchestrator that starts an interactive client** so that the person can answer the form: the person answers it, never the orchestrator, and nothing should answer forms for them (such as a Claude Code `Elicitation` hook). The client's start-up prompts come first: in M19, Claude Code 2.1.303's interactive session stopped at its folder-trust prompt, so it sent no form. Answer or approve those prompts, such as the folder-trust prompt, before relying on the form, or let the person answer the form in their own session.
+- **Questions under an orchestrator** are answered under the person's brief: product choices only, each marked `agent` in `decisions.md`. A sign-off, the acceptance of a High finding and the acceptance of a security gap wait for the person.
