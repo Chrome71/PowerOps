@@ -16,7 +16,7 @@ public static class DiffCommand
         format.AcceptOnlyFromAmong("text", "json", "markdown");
         var outFile = new Option<string?>("--out") { Description = "Write the report to this file instead of stdout." };
 
-        var redact = new Option<bool>("--redact") { Description = "Replace URLs in findings, notes and stderr with a placeholder." };
+        var redact = new Option<bool>("--redact") { Description = "Print a changed defaultValue only as added, removed or changed, and replace URLs in the report and stderr with a placeholder." };
 
         var command = new Command("diff", "Compare two versions of a solution component by component (offline, read-only).") { oldPath, newPath, format, outFile, redact };
         command.SetAction(parse => Execute(parse.GetValue(oldPath)!, parse.GetValue(newPath)!, parse.GetValue(format)!, parse.GetValue(outFile), parse.GetValue(redact), output, error));

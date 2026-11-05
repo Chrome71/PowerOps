@@ -74,14 +74,11 @@ public static class SolutionDiff
         changes.AddRange(Keyed("environmentVariable", old.EnvironmentVariables, @new.EnvironmentVariables,
             v => v.SchemaName, _ => null, Risk.EnvironmentVariable,
             (a, b) => Join(
-                redact
-                    ? Join(
-                        Differences(("type", a.Type, b.Type), ("required", a.IsRequired.ToString().ToLowerInvariant(), b.IsRequired.ToString().ToLowerInvariant())),
-                        Presence("defaultValue", a.DefaultValue, b.DefaultValue))
-                    : Differences(
-                        ("type", a.Type, b.Type),
-                        ("required", a.IsRequired.ToString().ToLowerInvariant(), b.IsRequired.ToString().ToLowerInvariant()),
-                        ("defaultValue", a.DefaultValue, b.DefaultValue)),
+                Differences(
+                    ("type", a.Type, b.Type),
+                    ("required", a.IsRequired.ToString().ToLowerInvariant(), b.IsRequired.ToString().ToLowerInvariant()),
+                    ("defaultValue", redact ? null : a.DefaultValue, redact ? null : b.DefaultValue)),
+                redact ? Presence("defaultValue", a.DefaultValue, b.DefaultValue) : null,
                 // Current values are environment-specific and may be sensitive, so they are never printed.
                 Presence("currentValue", a.CurrentValue, b.CurrentValue))));
 
