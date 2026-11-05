@@ -14,6 +14,7 @@ Plan hash: `0000000000000000000000000000000000000000000000000000000000000000`
 |---|---|---|---|---|
 | PowerOpsSeed | warning | deletes | pops\_sharedoffice365\_6a2f1 | The upgrade deletes this connection reference because the zip no longer has it. |
 | PowerOpsSeed | warning | unmanaged-layer | Notify on new work item | An unmanaged layer stays on top of the imported change. |
+| PowerOpsSeed | info | components-not-checked | 1 table(s) | The target solution holds 1 table(s); the zip names them by schema name and the target by id, so their deletion is checked by count only and one replaced under another name is not seen. |
 
 | Solution | Flow | Before | Expected |
 |---|---|---|---|

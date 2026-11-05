@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using System.Xml;
 using System.Xml.Linq;
 
+using PowerOps.Core.Deploy;
 using PowerOps.Core.Model;
 using PowerOps.Core.Readers;
 
@@ -28,6 +29,7 @@ public static class Risk
     public const string EnvironmentVariable = "environment-variable";
     public const string AgentTool = "agent-tool";
     public const string AgentInstructions = "agent-instructions";
+    public const string SameVersion = "same-version";
 
     public static string Describe(string id) => id switch
     {
@@ -37,6 +39,7 @@ public static class Risk
         EnvironmentVariable => "An environment variable was added or removed.",
         AgentTool => "An agent tool was added or removed.",
         AgentInstructions => "An agent's instructions changed.",
+        SameVersion => "The two solutions differ but carry the same version number, so importing the new one is not an upgrade: deploy plan skips it; raise the version.",
         _ => id,
     };
 }
@@ -100,6 +103,12 @@ public static class SolutionDiff
         changes.AddRange(Keyed("agentTool", old.Agents.SelectMany(a => a.Tools), @new.Agents.SelectMany(a => a.Tools),
             t => t.SchemaName, _ => null, Risk.AgentTool,
             (a, b) => Differences(("action", a.Action, b.Action), ("mcp", a.Mcp.ToString().ToLowerInvariant(), b.Mcp.ToString().ToLowerInvariant()), ("mode", a.Mode, b.Mode), ("connectionReference", a.ConnectionReference, b.ConnectionReference), ("operationId", a.OperationId, b.OperationId))));
+
+        // deploy plan skips a zip whose version equals the installed one and matches it by unique name, so the same test decides here (M53).
+        if (changes.Count > 0 && string.Equals(old.UniqueName, @new.UniqueName, StringComparison.OrdinalIgnoreCase) && DeployPlan.EqualVersions(old.Version, @new.Version))
+        {
+            changes = [.. changes.Select(c => c with { Risks = [.. c.Risks, Risk.SameVersion] })];
+        }
 
         return new DiffResult(old, @new, changes) { NotCompared = NotCompared(old, @new) };
     }
@@ -243,7 +252,7 @@ public static class SolutionDiff
         try
         {
             // DeepEquals ignores property order and whitespace; array order still counts. operationMetadataId is a designer-generated
-            // GUID that can change on a re-save without a real edit, so it is dropped first (the analyzer's flow parser skips it too).
+            // GUID that can change on a re-save without a real edit, so it is dropped first, but only from an action's or trigger's metadata.
             return JsonNode.DeepEquals(WithoutOperationMetadataIds(JsonNode.Parse(a)), WithoutOperationMetadataIds(JsonNode.Parse(b)));
         }
         catch (Exception e) when (e is JsonException or ArgumentException or InvalidOperationException)
@@ -252,28 +261,46 @@ public static class SolutionDiff
         }
     }
 
-    private static JsonNode? WithoutOperationMetadataIds(JsonNode? node)
+    // Only properties.definition's triggers and actions are cleaned; the same holders FlowDefinition.WalkActions walks, to any depth.
+    private static JsonNode? WithoutOperationMetadataIds(JsonNode? root)
     {
-        switch (node)
+        if (root is JsonObject r && r["properties"] is JsonObject p && p["definition"] is JsonObject definition)
         {
-            case JsonObject o:
-                o.Remove("operationMetadataId");
-                foreach (var child in o.Select(p => p.Value).ToList())
+            if (definition["triggers"] is JsonObject triggers)
+            {
+                foreach (var t in triggers.Select(x => x.Value).OfType<JsonObject>().ToList())
                 {
-                    WithoutOperationMetadataIds(child);
+                    (t["metadata"] as JsonObject)?.Remove("operationMetadataId");
                 }
+            }
 
-                break;
-            case JsonArray arr:
-                foreach (var child in arr.ToList())
-                {
-                    WithoutOperationMetadataIds(child);
-                }
-
-                break;
+            StripActions(definition);
         }
 
-        return node;
+        return root;
+    }
+
+    private static void StripActions(JsonNode? holder)
+    {
+        if (holder is not JsonObject h || h["actions"] is not JsonObject actions)
+        {
+            return;
+        }
+
+        foreach (var a in actions.Select(x => x.Value).OfType<JsonObject>().ToList())
+        {
+            (a["metadata"] as JsonObject)?.Remove("operationMetadataId");
+            StripActions(a);
+            StripActions(a["else"]);
+            StripActions(a["default"]);
+            if (a["cases"] is JsonObject cases)
+            {
+                foreach (var c in cases.Select(x => x.Value).ToList())
+                {
+                    StripActions(c);
+                }
+            }
+        }
     }
 
     /// <summary>The app name, the AppVersion timestamp, and the meta XML without it (parsed, so insignificant whitespace does not count).</summary>
