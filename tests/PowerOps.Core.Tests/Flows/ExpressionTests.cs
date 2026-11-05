@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 using PowerOps.Core.Flows;
+using PowerOps.Tests.Shared;
 
 namespace PowerOps.Core.Tests;
 
@@ -779,26 +781,178 @@ public class ExpressionTests
     [InlineData("addDays('9999-12-31T00:00:00Z', 1)")]
     public void AddDays_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
 
-    [Fact]
-    public void AddDays_with_a_format_is_unsupported() =>
-        Assert.Throws<UnsupportedException>(() => Eval("addDays('2018-03-15T00:00:00Z', 1, 'yyyy')"));
+    // addDays with a format: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#addDays
+    [Theory]
+    [InlineData("addDays('2018-03-15T00:00:00Z', 10, 'yyyy-MM-dd')", "\"2018-03-25\"")]
+    [InlineData("addDays('2026-12-31T23:00:00Z', 1, 'yyyy-MM-dd')", "\"2027-01-01\"")]
+    [InlineData("addDays('2028-02-28T00:00:00Z', 1, 'yyyy-MM-dd')", "\"2028-02-29\"")]
+    [InlineData("addDays('2018-03-15T00:00:00Z', 0, 'D')", "\"Thursday, March 15, 2018\"")]
+    [InlineData("addDays('2018-03-15T13:00:00Z', 0, 't')", "\"1:00 PM\"")]
+    [InlineData("addDays('2018-03-15T00:00:00Z', 1, 'yyyy')", "\"2018\"")]
+    public void AddDays_with_a_format(string expression, string expectedJson) => AssertEval(expression, expectedJson);
+
+    [Theory]
+    [InlineData("addDays('2018-03-15T00:00:00Z', 1, 'X')")]
+    [InlineData("addDays('2018-03-15T00:00:00Z', 1, 5)")]
+    [InlineData("addDays('2018-03-15T00:00:00Z', 1, 'yyyy', 'en-us')")]
+    public void AddDays_with_a_format_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
+
+    [Theory]
+    [InlineData("addDays('2018-03-15T00:00:00Z', 1, '')")]
+    [InlineData("addDays('2018-03-15', 1, 'yyyy-MM-dd')")] // a format needs a timestamp ending in Z
+    [InlineData("addDays('2018-03-15T10:30:00+02:00', 0, 'HH:mm')")]
+    [InlineData("addDays('2018-03-15T10:30:00+00:00', 0, 'HH:mm')")]
+    public void AddDays_with_a_format_is_unsupported_for(string expression) => Assert.Throws<UnsupportedException>(() => Eval(expression));
+
+    // formatDateTime: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#formatDateTime
+    // and https://learn.microsoft.com/power-automate/date-time-values and https://learn.microsoft.com/power-automate/expression-cookbook#date-and-time
+    [Theory]
+    [InlineData("formatDateTime('03/15/2018')", "\"2018-03-15T00:00:00.0000000\"")]
+    [InlineData("formatDateTime('03/15/2018 12:00:00', 'yyyy-MM-ddTHH:mm:ss')", "\"2018-03-15T12:00:00\"")]
+    [InlineData("formatDateTime('01/31/2016', 'dddd MMMM d')", "\"Sunday January 31\"")]
+    [InlineData("formatDateTime('01/31/2016', 'dddd MMMM d', 'fr-fr')", "\"dimanche janvier 31\"")]
+    [InlineData("formatDateTime('01/31/2016', 'dddd MMMM d', 'fr-FR')", "\"dimanche janvier 31\"")]
+    [InlineData("formatDateTime('01/31/2016', 'dddd MMMM d', 'es-es')", "\"domingo enero 31\"")]
+    [InlineData("formatDateTime('2009-06-15T13:45:30', 'g')", "\"6/15/2009 1:45 PM\"")] // a plain space
+    [InlineData("formatDateTime('2009-06-15T13:45:30', 'D')", "\"Monday, June 15, 2009\"")]
+    [InlineData("formatDateTime('2009-06-15T13:45:30', 'M/dd/yyyy h:mm tt')", "\"6/15/2009 1:45 PM\"")]
+    [InlineData("formatDateTime('2009-06-15T13:45:30', 'M/dd/yyyy HH:mm:ss tt')", "\"6/15/2009 13:45:30 PM\"")]
+    // Learn's page shows 1:45:30, but hh is two digits in .NET's custom format reference; the capture checks it
+    [InlineData("formatDateTime('2009-06-15T13:45:30', 'yyyy/MM/dd hh:mm:ss tt')", "\"2009/06/15 01:45:30 PM\"")]
+    [InlineData("formatDateTime('2026-03-18T14:30:00Z', 'MMMM dd, yyyy')", "\"March 18, 2026\"")]
+    [InlineData("formatDateTime('2018-03-15T00:00:00Z')", "\"2018-03-15T00:00:00.0000000Z\"")]
+    [InlineData("formatDateTime('03/15/2018', 'o')", "\"2018-03-15T00:00:00.0000000\"")]
+    [InlineData("formatDateTime('2018-03-15T10:30Z', 'HH:mm')", "\"10:30\"")]
+    [InlineData("formatDateTime('01/31/2016', 'dd MMMM yyyy', 'fr-fr')", "\"31 janvier 2016\"")]
+    [InlineData("formatDateTime('01/31/2016', 'dddd MMMM d', 'FR-fr')", "\"dimanche janvier 31\"")]
+    [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'zzz')", "\"+00:00\"")]
+    [InlineData("formatDateTime('2018-03-15T13:00:00Z', 'U')", "\"Thursday, March 15, 2018 1:00:00 PM\"")]
+    [InlineData("formatDateTime(utcNow(), 'yyyy-MM-dd')", "\"2018-04-15\"")]
+    public void FormatDateTime(string expression, string expectedJson) => AssertEval(expression, expectedJson);
+
+    [Theory]
+    [InlineData("g")]
+    [InlineData("t")]
+    [InlineData("T")]
+    [InlineData("U")]
+    public void FormatDateTime_writes_a_plain_space_before_AM_or_PM(string format) =>
+        Assert.DoesNotContain('\u202F', Eval($"formatDateTime('2009-06-15T13:45:30Z', '{format}')")!.GetValue<string>());
+
+    [Theory]
+    [InlineData("formatDateTime(5)")]
+    [InlineData("formatDateTime('not a date')")]
+    [InlineData("formatDateTime('2018-03-15T00:00:00Z', 5)")]
+    [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'o', 'xx-YY')")]
+    [InlineData("formatDateTime()")]
+    [InlineData("formatDateTime('a', 'b', 'c', 'd')")]
+    public void FormatDateTime_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
+
+    [Theory]
+    [InlineData("formatDateTime('2018-03-15T00:00:00Z', '')")]
+    [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'o', '')")]
+    [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'X')")] // Learn doesn't say an invalid format is an error here
+    [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'o', 'de-DE')")] // a known locale Learn doesn't show
+    // fr-fr and es-es only with day, month and year formats, as Learn shows them
+    [InlineData("formatDateTime('01/31/2016', 'g', 'fr-fr')")]
+    [InlineData("formatDateTime('01/31/2016', 'D', 'fr-fr')")]
+    [InlineData("formatDateTime('01/31/2016', 'tt', 'fr-fr')")]
+    [InlineData("formatDateTime('01/31/2016', 'HH:mm', 'es-es')")]
+    [InlineData("formatDateTime('01/31/2016', 'ddd d MMM', 'es-es')")]
+    [InlineData("formatDateTime('01/31/2016', 'dd/MM/yyyy', 'fr-fr')")]
+    // other text that TryParse reads borrows parts from today's date
+    [InlineData("formatDateTime('10:30')")]
+    [InlineData("formatDateTime('March 15')")]
+    [InlineData("formatDateTime('3/15/2018')")]
+    [InlineData("formatDateTime('2018-03-15 10:30:00')")]
+    [InlineData("addDays('10:30', 1)")]
+    [InlineData("addDays('March 15', 1, 'yyyy-MM-dd')")]
+    [InlineData("formatDateTime('2018-03-15T10:30:00+02:00', 'HH:mm')")] // Learn doesn't say whether an offset is kept
+    [InlineData("formatDateTime('2018-03-15T00:00:00+00:00')")]
+    // .NET would take this computer's time zone for these on a timestamp with no zone
+    [InlineData("formatDateTime('03/15/2018', 'U')")]
+    [InlineData("formatDateTime('03/15/2018', 'u')")]
+    [InlineData("formatDateTime('03/15/2018', 'r')")]
+    [InlineData("formatDateTime('03/15/2018', 'R')")]
+    [InlineData("formatDateTime('03/15/2018', 'K')")]
+    [InlineData("formatDateTime('03/15/2018', 'yyyy K')")]
+    [InlineData("formatDateTime('03/15/2018', 'zzz')")]
+    [InlineData("formatDateTime('03/15/2018', 'HH:mm z')")]
+    public void FormatDateTime_is_unsupported_for(string expression) => Assert.Throws<UnsupportedException>(() => Eval(expression));
+
+    // int: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#int
+    // and https://learn.microsoft.com/power-automate/expression-cookbook
+    [Theory]
+    [InlineData("int('10')", "10")]
+    [InlineData("int('42')", "42")]
+    [InlineData("int('-7')", "-7")]
+    [InlineData("int('0')", "0")]
+    [InlineData("int('-0')", "0")]
+    [InlineData("int('2147483647')", "2147483647")]
+    [InlineData("int(14)", "14")] // not on Learn, plan "Not on Learn": an integer number gives itself
+    public void Int(string expression, string expectedJson) => AssertEval(expression, expectedJson);
+
+    [Theory]
+    [InlineData("int('3.14')")] // the cookbook: a decimal string is an error, not truncated
+    [InlineData("int('-3.14')")]
+    [InlineData("int('abc')")]
+    [InlineData("int('')")]
+    [InlineData("int('-')")]
+    [InlineData("int('NaN')")]
+    [InlineData("int()")]
+    [InlineData("int('1', '2')")]
+    public void Int_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
+
+    [Theory]
+    [InlineData("int(' 1')")] // Learn doesn't say how int reads a sign, spaces, leading zeros, an exponent or a number past 32 bits
+    [InlineData("int('+5')")]
+    [InlineData("int('007')")]
+    [InlineData("int('1e3')")]
+    [InlineData("int('2147483648')")]
+    [InlineData("int('99999999999999999999')")]
+    [InlineData("int('12abc')")]
+    [InlineData("int('1,000')")]
+    [InlineData("int('\uFF13')")] // a full-width 3
+    [InlineData("int(2147483648)")]
+    [InlineData("int(1.5)")]
+    [InlineData("int(true)")]
+    [InlineData("int(null)")]
+    [InlineData("int(createArray(1))")]
+    [InlineData("int(json('{}'))")]
+    public void Int_of_what_Learn_does_not_settle_is_unsupported(string expression) => Assert.Throws<UnsupportedException>(() => Eval(expression));
 
     // ---- the list of functions
 
     [Fact]
-    public void Names_are_exactly_the_37_functions_sorted()
+    public void Names_are_exactly_the_39_functions_sorted()
     {
         string[] expected =
         [
             "addDays", "and", "body", "concat", "contains", "createArray", "decodeBase64", "empty", "equals", "first",
-            "greater", "greaterOrEquals", "guid", "if", "item", "items", "json", "last", "length", "lessOrEquals",
-            "min", "not", "or", "outputs", "parameters", "replace", "result", "split", "string", "substring",
-            "toLower", "triggerBody", "triggerOutputs", "trim", "utcNow", "variables", "workflow",
+            "formatDateTime", "greater", "greaterOrEquals", "guid", "if", "int", "item", "items", "json", "last", "length",
+            "lessOrEquals", "min", "not", "or", "outputs", "parameters", "replace", "result", "split", "string",
+            "substring", "toLower", "triggerBody", "triggerOutputs", "trim", "utcNow", "variables", "workflow",
         ];
 
-        Assert.Equal(37, expected.Length);
+        Assert.Equal(39, expected.Length);
         Assert.Equal(expected, ExpressionFunctions.Names);
         Assert.Equal(ExpressionFunctions.Names.Order(StringComparer.Ordinal), ExpressionFunctions.Names);
+    }
+
+    [Fact]
+    public void Flow_tests_doc_lists_exactly_the_supported_functions()
+    {
+        var lines = File.ReadAllLines(Path.Combine(Golden.RepoRoot, "docs", "FLOW-TESTS.md"))
+            .SkipWhile(line => line != "## Supported functions")
+            .Skip(1)
+            .TakeWhile(line => !line.StartsWith("## ", StringComparison.Ordinal));
+        var listed = Regex.Matches(string.Join('\n', lines), "`([^`\n]*)`")
+            .Select(span => Regex.Match(span.Groups[1].Value, @"^([A-Za-z0-9]+)\("))
+            .Where(match => match.Success)
+            .Select(match => match.Groups[1].Value)
+            .Distinct()
+            .Order(StringComparer.Ordinal);
+
+        Assert.Equal(ExpressionFunctions.Names, listed);
     }
 
     [Fact]

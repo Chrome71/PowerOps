@@ -93,6 +93,42 @@ public class TestCommandTests : IDisposable
         Assert.Contains("\"schemaVersion\": 1", File.ReadAllText(file));
     }
 
+    // The cloud ran only the rewrite without int (M58 plan); the Core test runs that exact form.
+    [Theory]
+    [InlineData("@formatDateTime(addDays(utcNow(), int(parameters('Default Status (pops_DefaultStatus)'))), 'yyyy-MM-dd')")]
+    [InlineData("@addDays(utcNow(), int(parameters('Default Status (pops_DefaultStatus)')), 'yyyy-MM-dd')")]
+    public void The_live_runs_date_expression_gives_2026_11_18_through_powerops_test(string expression)
+    {
+        const string original = "@parameters('Default Status (pops_DefaultStatus)')";
+        var copy = CopyOf(Seed, "seed");
+        Edit(copy, "Stampworkitemstatus-*.json", text =>
+        {
+            var changed = text.Replace(original, expression, StringComparison.Ordinal);
+            Assert.NotEqual(text, changed);
+            return changed;
+        });
+        var tests = Folder("date");
+        Write(tests, "date.flowtest.json", """
+            {
+              "flow": "Stamp work item status",
+              "trigger": { "body": { "pops_workitemid": "00000000-0000-0000-0000-000000000001" } },
+              "utcNow": "2026-11-04T09:00:00Z",
+              "environmentVariables": { "pops_DefaultStatus": "14" },
+              "mocks": { "Update_a_row": { "status": "Succeeded" } },
+              "assertions": [
+                { "kind": "runStatus", "equals": "Succeeded" },
+                { "kind": "inputs", "action": "Update_a_row", "path": ["parameters", "item/pops_name"], "equals": "2026-11-18" }
+              ]
+            }
+            """);
+
+        var (code, output, err) = Run(copy, "--tests", tests);
+
+        Assert.Equal(0, code);
+        Assert.Equal("", err);
+        Assert.Contains("PASS date.flowtest.json: Stamp work item status", output);
+    }
+
     [Fact]
     public void The_tests_folder_defaults_to_the_path()
     {
