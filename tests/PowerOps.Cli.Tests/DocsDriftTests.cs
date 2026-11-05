@@ -322,4 +322,65 @@ public partial class DocsDriftTests
         Assert.NotEmpty(QuickStartProblems(readme.Replace("--source \"$po/PowerOps/artifacts\"", "--source PowerOps/artifacts")));
         Assert.NotEmpty(QuickStartProblems(readme.Replace("powerops analyze solutions --format", "powerops analyze --format")));
     }
+
+    // Each page and the link it must hold; HANDOFF's is on its step 8 line, where a reader meets an apply that stops.
+    private static readonly (string Page, string Link, string Line)[] Links =
+    [
+        ("docs/HANDOFF.md", "](RECOVERY.md", "8. **Import.**"), ("docs/examples/README.md", "](../RECOVERY.md", ""), ("docs/USE-WITH-AGENTS.md", "](HARNESS.md", ""),
+        ("docs/HARNESS.md", "](RECOVERY.md", ""), ("README.md", "](docs/RECOVERY.md", ""), ("README.md", "](docs/HARNESS.md", ""),
+    ];
+
+    internal static List<string> LinkProblems(Func<string, string> page) =>
+        [.. Links.Where(l => !page(l.Page).Split('\n').Any(x => x.StartsWith(l.Line, StringComparison.Ordinal) && x.Contains(l.Link, StringComparison.Ordinal))).Select(l => $"{l.Page} does not link {l.Link[2..]}")];
+
+    // The backticked numbers of the "Exit codes:" sentence in the deploy apply section of COMMANDS.md.
+    internal static List<string> ApplyExitCodes(string commands)
+    {
+        var section = commands.Split("\n## ").FirstOrDefault(s => s.StartsWith("deploy apply\n", StringComparison.Ordinal)) ?? "";
+        var start = section.IndexOf("Exit codes:", StringComparison.Ordinal);
+        return start < 0 ? [] : [.. Regex.Matches(section[start..].Split('\n')[0], @"`(\d+)`").Select(m => m.Groups[1].Value)];
+    }
+
+    // The runbook needs a table row (| `3` | ...) for each exit code of deploy apply and each row status of its schema, and names each
+    // report status in an exit code's row. It checks that the rows exist, not what they say.
+    internal static List<string> RecoveryProblems(string runbook, string commands, string schema)
+    {
+        var properties = JsonDocument.Parse(schema).RootElement.GetProperty("properties");
+        static IEnumerable<string> Values(JsonElement e) => e.GetProperty("enum").EnumerateArray().Select(v => v.GetString()!);
+        var codes = ApplyExitCodes(commands);
+        var rows = codes.Concat(Values(properties.GetProperty("solutions").GetProperty("items").GetProperty("properties").GetProperty("import")));
+        var lines = runbook.Split('\n');
+        var exitRows = string.Join('\n', lines.Where(l => codes.Any(c => l.StartsWith($"| `{c}` |", StringComparison.Ordinal))));
+        return [.. codes.Count == 0 ? ["no exit codes in the deploy apply section of COMMANDS.md"] : (string[])[],
+            .. rows.Where(v => !lines.Any(l => l.StartsWith($"| `{v}` |", StringComparison.Ordinal))).Select(v => $"no row for `{v}`"),
+            .. Values(properties.GetProperty("status")).Where(v => !exitRows.Contains($"`{v}`", StringComparison.Ordinal)).Select(v => $"`{v}` is in no exit code's row")];
+    }
+
+    private static string ApplySchema() => File.ReadAllText(Repo("docs", "schemas", "deploy-apply.schema.json"));
+
+    [Fact]
+    public void The_recovery_and_harness_pages_are_linked_and_the_runbook_covers_every_apply_outcome()
+    {
+        Assert.Contains(Pages(), p => p.Name == "docs/HARNESS.md");
+        Assert.Empty(LinkProblems(Page));
+        Assert.Contains("3", ApplyExitCodes(Page("docs/COMMANDS.md")));
+        Assert.Empty(RecoveryProblems(Page("docs/RECOVERY.md"), Page("docs/COMMANDS.md"), ApplySchema()));
+    }
+
+    [Fact]
+    public void The_recovery_checks_catch_a_missing_link_row_or_status()
+    {
+        var runbook = Page("docs/RECOVERY.md");
+        var commands = Page("docs/COMMANDS.md");
+
+        Assert.Equal(["docs/HANDOFF.md does not link RECOVERY.md"], LinkProblems(n => n == "docs/HANDOFF.md" ? Page(n).Replace("](RECOVERY.md", "](OTHER.md") + "\nSee [the runbook](RECOVERY.md).\n" : Page(n)));
+        Assert.Equal(["docs/USE-WITH-AGENTS.md does not link HARNESS.md"], LinkProblems(n => n == "docs/USE-WITH-AGENTS.md" ? Page(n).Replace("](HARNESS.md", "](OTHER.md") : Page(n)));
+        Assert.Equal(["no row for `unknown`"], RecoveryProblems(runbook.Replace("| `unknown` |", "| unknown |"), commands, ApplySchema()));
+        Assert.Equal(["no row for `3`", "`failed` is in no exit code's row"], RecoveryProblems(runbook.Replace("| `3` |", "| 3 |"), commands, ApplySchema()));
+        Assert.Equal(["no row for `4`"], RecoveryProblems(runbook, commands.Replace("Exit codes: `0`", "Exit codes: `4` a new outcome, `0`"), ApplySchema()));
+        Assert.Equal(["`refused` is in no exit code's row"], RecoveryProblems(runbook.Replace("`refused`", "refused"), commands, ApplySchema()));
+        Assert.Equal(["`planned` is in no exit code's row"], RecoveryProblems(runbook.Replace("| `0` | `planned` or `imported` |", "| `0` | `imported` |"), commands, ApplySchema()));
+        Assert.Equal(["README.md does not link docs/HARNESS.md"], LinkProblems(n => n == "README.md" ? Page(n).Replace("](docs/HARNESS.md", "](docs/OTHER.md") : Page(n)));
+        Assert.Contains("no exit codes in the deploy apply section of COMMANDS.md", RecoveryProblems(runbook, "", ApplySchema()));
+    }
 }
