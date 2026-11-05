@@ -440,6 +440,24 @@ public class FlowTestTests
         Assert.Equal(FlowTestOutcome.Passed, result.Outcome);
     }
 
+    // The run of 2026-11-04 wrote 2026-11-18 with 14 days (M58 plan).
+    [Theory]
+    [InlineData("@formatDateTime(addDays(utcNow(), int(parameters('Default Status (pops_DefaultStatus)'))), 'yyyy-MM-dd')")]
+    [InlineData("@addDays(utcNow(), parameters('Default Status (pops_DefaultStatus)'), 'yyyy-MM-dd')")]
+    public void The_live_runs_date_expression_passes_with_an_integer_parameter(string expression)
+    {
+        var flow = Flow(
+            "F",
+            "{\"C\":{\"type\":\"Compose\",\"inputs\":\"" + expression + "\",\"runAfter\":{}}}",
+            parameters: "{\"" + StatusParameter + "\":{\"type\":\"Int\",\"metadata\":{\"schemaName\":\"pops_DefaultStatus\"}}}");
+
+        var result = Run(
+            Test("\"utcNow\":\"2026-11-04T09:00:00Z\",", assertions: """[{"kind":"outputs","action":"C","equals":"2026-11-18"}]"""),
+            Sol("S", "1.0.0.0", [flow], Variable("14", null)));
+
+        Assert.Equal(FlowTestOutcome.Passed, result.Outcome);
+    }
+
     [Fact]
     public void An_environment_variable_key_that_names_no_parameter_of_the_flow_fails_the_test()
     {
