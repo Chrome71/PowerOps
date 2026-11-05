@@ -243,7 +243,7 @@ public static class SolutionDiff
         try
         {
             // DeepEquals ignores property order and whitespace; array order still counts. operationMetadataId is a designer-generated
-            // GUID that can change on a re-save without a real edit, so it is dropped first (the analyzer's flow parser skips it too).
+            // GUID that can change on a re-save without a real edit, so it is dropped first, but only from an action's or trigger's metadata.
             return JsonNode.DeepEquals(WithoutOperationMetadataIds(JsonNode.Parse(a)), WithoutOperationMetadataIds(JsonNode.Parse(b)));
         }
         catch (Exception e) when (e is JsonException or ArgumentException or InvalidOperationException)
@@ -252,28 +252,46 @@ public static class SolutionDiff
         }
     }
 
-    private static JsonNode? WithoutOperationMetadataIds(JsonNode? node)
+    // Only properties.definition's triggers and actions are cleaned; the same holders FlowDefinition.WalkActions walks, to any depth.
+    private static JsonNode? WithoutOperationMetadataIds(JsonNode? root)
     {
-        switch (node)
+        if (root is JsonObject r && r["properties"] is JsonObject p && p["definition"] is JsonObject definition)
         {
-            case JsonObject o:
-                o.Remove("operationMetadataId");
-                foreach (var child in o.Select(p => p.Value).ToList())
+            if (definition["triggers"] is JsonObject triggers)
+            {
+                foreach (var t in triggers.Select(x => x.Value).OfType<JsonObject>().ToList())
                 {
-                    WithoutOperationMetadataIds(child);
+                    (t["metadata"] as JsonObject)?.Remove("operationMetadataId");
                 }
+            }
 
-                break;
-            case JsonArray arr:
-                foreach (var child in arr.ToList())
-                {
-                    WithoutOperationMetadataIds(child);
-                }
-
-                break;
+            StripActions(definition);
         }
 
-        return node;
+        return root;
+    }
+
+    private static void StripActions(JsonNode? holder)
+    {
+        if (holder is not JsonObject h || h["actions"] is not JsonObject actions)
+        {
+            return;
+        }
+
+        foreach (var a in actions.Select(x => x.Value).OfType<JsonObject>().ToList())
+        {
+            (a["metadata"] as JsonObject)?.Remove("operationMetadataId");
+            StripActions(a);
+            StripActions(a["else"]);
+            StripActions(a["default"]);
+            if (a["cases"] is JsonObject cases)
+            {
+                foreach (var c in cases.Select(x => x.Value).ToList())
+                {
+                    StripActions(c);
+                }
+            }
+        }
     }
 
     /// <summary>The app name, the AppVersion timestamp, and the meta XML without it (parsed, so insignificant whitespace does not count).</summary>

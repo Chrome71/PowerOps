@@ -169,6 +169,34 @@ public class SolutionDiffTests
         Assert.Single(Diff(a, S(f => f.Add(B.Flow() with { ClientData = Template.Replace("{0}", "a").Replace("{1}", "b").Replace("\"Compose\"", "\"Response\"") }))));
     }
 
+    private static string[] FlowDiff(string template) =>
+        Diff(S(f => f.Add(B.Flow() with { ClientData = template.Replace("{0}", "aaaaaaaa-0000-0000-0000-000000000001") })),
+            S(f => f.Add(B.Flow() with { ClientData = template.Replace("{0}", "bbbbbbbb-0000-0000-0000-000000000002") })));
+
+    [Theory]
+    [InlineData("""{"properties":{"definition":{"actions":{"A":{"type":"Compose","inputs":{"operationMetadataId":"{0}"}}}}}}""")]
+    [InlineData("""{"properties":{"definition":{"actions":{"A":{"type":"Compose","inputs":{"metadata":{"operationMetadataId":"{0}"}}}}}}}""")]
+    [InlineData("""{"properties":{"definition":{"triggers":{"T":{"type":"Request","inputs":{"operationMetadataId":"{0}"}}}}}}""")]
+    [InlineData("""{"properties":{"definition":{"actions":{"A":{"type":"Compose","operationMetadataId":"{0}"}}}}}""")]
+    [InlineData("""{"properties":{"definition":{"actions":{"A":{"type":"Compose","metadata":{"other":{"operationMetadataId":"{0}"}}}}}}}""")]
+    [InlineData("""{"properties":{"definition":{"operationMetadataId":"{0}"}}}""")]
+    [InlineData("""{"properties":{"operationMetadataId":"{0}"}}""")]
+    [InlineData("""{"operationMetadataId":"{0}"}""")]
+    [InlineData("""{"properties":{"connectionReferences":{"c":{"operationMetadataId":"{0}"}},"parameters":{"p":{"operationMetadataId":"{0}"}}}}""")]
+    [InlineData("""{"definition":{"actions":{"A":{"metadata":{"operationMetadataId":"{0}"}}}}}""")]
+    public void An_operationMetadataId_outside_the_metadata_of_an_action_or_trigger_is_compared(string template) =>
+        Assert.Equal(["Changed workflow 11111111-1111-1111-1111-111111111111 [Flow]: definition changed"], FlowDiff(template));
+
+    [Theory]
+    [InlineData("""{"properties":{"definition":{"triggers":{"T":{"metadata":{"operationMetadataId":"{0}"}}}}}}""")]
+    [InlineData("""{"properties":{"definition":{"actions":{"S":{"type":"Scope","actions":{"A":{"metadata":{"operationMetadataId":"{0}"}}}}}}}}""")]
+    [InlineData("""{"properties":{"definition":{"actions":{"C":{"type":"If","else":{"actions":{"E":{"metadata":{"operationMetadataId":"{0}"}}}}}}}}}""")]
+    [InlineData("""{"properties":{"definition":{"actions":{"W":{"type":"Switch","cases":{"X":{"actions":{"K":{"metadata":{"operationMetadataId":"{0}"}}}}}}}}}}""")]
+    [InlineData("""{"properties":{"definition":{"actions":{"W":{"type":"Switch","default":{"actions":{"D":{"metadata":{"operationMetadataId":"{0}"}}}}}}}}}""")]
+    [InlineData("""{"properties":{"definition":{"actions":{"S":{"actions":{"C":{"else":{"actions":{"W":{"cases":{"X":{"actions":{"D":{"default":{"actions":{"Z":{"metadata":{"operationMetadataId":"{0}"}}}}}}}}}}}}}}}}}}""")]
+    public void An_operationMetadataId_in_the_metadata_of_an_action_or_trigger_at_any_nesting_is_not_a_change(string template) =>
+        Assert.Empty(FlowDiff(template));
+
     [Fact]
     public void A_changed_value_or_array_order_in_the_flow_definition_is_a_change()
     {
@@ -191,7 +219,7 @@ public class SolutionDiffTests
     [Fact]
     public void A_flow_definition_with_a_lone_surrogate_key_is_compared_as_raw_text()
     {
-        // The key parses, but removing operationMetadataId from its object throws InvalidOperationException.
+        // The key parses, but reading the node (a lookup or the comparison) throws InvalidOperationException.
         var a = S(f => f.Add(B.Flow() with { ClientData = """{"\ud800":1}""" }));
 
         Assert.Empty(Diff(a, S(f => f.Add(B.Flow() with { ClientData = """{"\ud800":1}""" }))));
