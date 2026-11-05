@@ -631,13 +631,42 @@ public static class ExpressionFunctions
             : throw new UnsupportedException("startOfDay() with a format needs a timestamp in UTC, ending in Z.");
     }
 
-    // not on Learn, plan "Not on Learn": only a Windows id written as Windows writes it; ICU's mapping is the same data on Windows and Linux, so a name is taken on both or neither
+    // The zones whose results the tests pin on Windows and Linux, each from the first year after its last rule change
+    private static readonly Dictionary<string, int> Zones = new(StringComparer.Ordinal)
+    {
+        ["UTC"] = 2008,
+        ["Pacific Standard Time"] = 2008,
+        ["Mountain Standard Time"] = 2008,
+        ["US Mountain Standard Time"] = 2008,
+        ["Central Standard Time"] = 2008,
+        ["Eastern Standard Time"] = 2008,
+        ["Central Standard Time (Mexico)"] = 2023,
+        ["E. South America Standard Time"] = 2020,
+        ["GMT Standard Time"] = 2008,
+        ["W. Europe Standard Time"] = 2008,
+        ["Romance Standard Time"] = 2008,
+        ["Central Europe Standard Time"] = 2008,
+        ["South Africa Standard Time"] = 2008,
+        ["Egypt Standard Time"] = 2024,
+        ["Russian Standard Time"] = 2015,
+        ["Arabian Standard Time"] = 2008,
+        ["India Standard Time"] = 2008,
+        ["Nepal Standard Time"] = 2008,
+        ["China Standard Time"] = 2008,
+        ["Singapore Standard Time"] = 2008,
+        ["Tokyo Standard Time"] = 2008,
+        ["AUS Eastern Standard Time"] = 2009,
+        ["New Zealand Standard Time"] = 2008,
+        ["UTC-11"] = 2008,
+    };
+
+    // not on Learn, plan "Not on Learn": Windows and Linux hold different past rules, so only the zones the tests check on both are taken
     private static TimeZoneInfo Zone(string function, string name)
     {
         NeedCultureData(function);
         try
         {
-            if (TimeZoneInfo.TryConvertWindowsIdToIanaId(name, out var iana) && TimeZoneInfo.TryConvertIanaIdToWindowsId(iana, out var back) && back == name)
+            if (Zones.ContainsKey(name))
             {
                 return TimeZoneInfo.FindSystemTimeZoneById(name);
             }
@@ -646,7 +675,7 @@ public static class ExpressionFunctions
         {
         }
 
-        throw new UnsupportedException($"{function}() with the time zone '{name}' is not supported: only Windows time-zone ids such as 'Pacific Standard Time', as Windows writes them.");
+        throw new UnsupportedException($"{function}() with the time zone '{name}' is not supported: only the Windows time zones the simulator checks on Windows and Linux: {string.Join(", ", Zones.Keys)}.");
     }
 
     // convertFromUtc(timestamp, destination, format?) and convertTimeZone(timestamp, source, destination, format?); the result has no zone (Learn)
@@ -657,6 +686,11 @@ public static class ExpressionFunctions
         var destinationName = Str(function, a[fromUtc ? 1 : 2]);
         var format = a.Length > (fromUtc ? 2 : 3) ? Str(function, a[^1]) : "o";
         var time = ReadDate(function, Str(function, a[0]));
+        if (!fromUtc && !(sourceName + destinationName).All(c => char.IsAsciiLetter(c) || c == ' '))
+        {
+            throw new UnsupportedException("convertTimeZone() with a time zone name that has punctuation is not supported: Learn says you might have to remove any punctuation from it.");
+        }
+
         if (time.Kind == DateTimeKind.Utc && sourceName != "UTC")
         {
             throw new UnsupportedException($"{function}() of a timestamp ending in Z with the source time zone '{sourceName}' is not supported: Learn doesn't say which of the two wins.");
@@ -670,11 +704,11 @@ public static class ExpressionFunctions
             throw new UnsupportedException($"{function}() of the clock time '{clock:o}' in '{sourceName}' is not supported: a daylight-saving change skips or repeats it, and Learn doesn't say which time the service takes.");
         }
 
-        // Windows' registry keeps fewer past rules than IANA's data, and .NET clamps at the end of the calendar
+        // Windows' registry keeps fewer past rules than IANA's data, and the rules after 2030 may change
         var utc = TimeZoneInfo.ConvertTimeToUtc(clock, source);
-        if (utc.Year is < 2007 or > 9998)
+        if (utc < new DateTime(Math.Max(Zones[sourceName], Zones[destinationName]), 1, 1, 0, 0, 0, DateTimeKind.Utc) || utc >= new DateTime(2031, 1, 1, 0, 0, 0, DateTimeKind.Utc))
         {
-            throw new UnsupportedException($"{function}() of an instant before 2007 or after 9998 is not supported: time-zone data differs between Windows and Linux there.");
+            throw new UnsupportedException($"{function}() of an instant outside the years the simulator checks for these zones (from the zone's first year to 2030) is not supported.");
         }
 
         if (destinationName == "UTC" && format is "o" or "O")
