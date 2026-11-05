@@ -1,4 +1,4 @@
-plan-hash: b77110d71ca1a20510dbcf406e634da9af335398ff5d68b1b3f8beb39025f59d
+plan-hash: 8b573e0e5dd2979894a67e3ba632b67c7625cbddecfbfa5d5cb892327d0a6653
 model: claude-sonnet-5-5
 fresh-context: yes
 
@@ -14,6 +14,20 @@ Checked and found sound:
 - The cited lines exist and say what the plan says, except as noted in R7: `Directory.Build.props:11-12`, `action.yml:63,75,88,111,121,143,157,170,188` (nine `PO_DLL`), `ActionYmlTests.cs:76`, `DeployCommandTests:450`, `DeployApplyCommandTests:1155`, `README.md:49`, `docs/GITHUB-ACTION.md:22`, `docs/USE-WITH-AGENTS.md:26`, `docs/BUILD-PLAN.md:622`, `PluginManifestTests.Plugin_version_is_the_release_version`, the `WorkflowTests` and `DocsDriftTests` test names.
 - Immutable releases are off (`enabled: false`), no release or tag exists, and release PR #4 is open and titled for 0.1.0; it changes the manifest, the changelog, `Directory.Build.props` and both `plugin.json` files, as the plan says. The plan touches none of the version lines, and does not need to touch PR #4.
 - The permission set of the new `publish` job, the token reaching only the upload step through `env`, no `--clobber`, and the pinned `SHA256` over the downloaded bytes (not the release's `SHA256SUMS`) are sound designs.
+
+## Second pass
+
+Run against HEAD `fc47193` (plan.md, decisions.md Round 2, and the resolution lines), by the same reviewer with a fresh read of the revised plan and decisions. `plan status` in a scratch clone of that commit gives `approved`, 0 open questions, no violations, and `bodyHash` `8b573e0e...a6653`, the hash in the first line. Still no `powerops plan facts`, `pac`, `az`, tenant call or GitHub write (read-only GETs and public doc fetches only).
+
+What held (each resolution checked in the plan text, the repo at `b8ad904` and the cited sources):
+- R1: Q14 keeps release-please's tag (`PowerOps-v<version>`), and no step parses the tag any more: `publish` takes `tag_name` and `version` from the release-please step (the action's README lists `version` as an output), `TAG` and `VERSION` reach the steps through job `env` (the `needs` context is allowed there), `release-check.sh` takes the version, and only the Action's URL and the `pin-drift` tag check assume the form. Nothing touches the config, so PR #4 is untouched. The remaining risk (the form is derived from release-please's source and PR #4's title, not from a real release) is caught loudly by the pin PR's CI, as Q14 says.
+- R2: the checks are now in `.github/scripts/release-check.sh` with bash and stub-`dotnet` tests, including `sha256sum -c` and the `<version>+<commit>` mismatch. The install form it uses (`--tool-path <new folder> --source <folder> PowerOps --version <v>`) is the one I ran for the first pass and it works; `InstallLineTests` only scans `*.yml` under `.github`, and the line has `--source` anyway.
+- R4: row 5 and Q17 add the rule and a warning for commits under `action/` after the pinned release's tag. `pin-drift.yml` checks out with `fetch-depth: 0`, which also fetches tags, so the tag test works in the job. The pin PR edits `action.yml`, not `action/`, so it does not trigger the warning itself. See R15 for what the path leaves out.
+- R5: ran it. In a `git archive` copy placed in a folder named after the commit (no `.git`), the build prints `0.0.0`; with `-p:SourceRevisionId=<commit>` it prints `0.0.0+<commit>`; with the property false as well it prints `0.0.0` again. The runner's layout (`_actions/<owner>/<repo>/<ref>`) is labelled as not documented, and the failure mode is today's behaviour. The split on `/` or `\` covers Git Bash paths.
+- R6, R9, R10 (b) and (c), R11: Constraints are corrected, the docs list now includes `docs/COMMANDS.md:91` and `docs/FOUNDATION.md` (lines 50, 194 and the Decisions table at 109-116 exist as cited), row 4 requires exactly one `tools/*/any/powerops.dll` and checks the version and hash forms before any download, and row 1 handles a `.git` file, a failing `git` and `--no-build`. R8 (accepted, Q16) and R10 (a) (accepted, Q15) are reasonable: a matrix would rename the `action` check, and the README's quick start does build from `src`.
+- The new text adds no URL, GUID, email or person's name (checked with grep), and row sizes still trace to Done-when lines.
+
+What I ran, all under `/tmp/claude-1000/m56-review/`: `plan status` on the new commit; the `git archive` build above with and without `SourceRevisionId`; fetches of GitHub's docs on re-running jobs (see R12) and of release-please's public source for the tag form (first pass). The R3 resolution line is corrected below, because its stated basis is not in the cited docs.
 
 ## Findings
 
@@ -38,6 +52,7 @@ Checked and found sound:
 - Finding: release-please creates the GitHub Release first, then `publish` packs and uploads. If `publish` fails (R1, a NuGet-style outage, a failed attestation, the version check), the release exists without the package. A re-run of the workflow does not help: the release-please step finds nothing left to release (the PR is already tagged), so `release_created` is false and `publish` is skipped. The first release is the person's step, so this path is the likely one. The plan says "a rerun cannot replace a published asset" but gives no recovery, and the pin cannot be set without the assets.
 - Suggested fix: Either add a `workflow_dispatch` trigger with a tag input that runs `publish` for an existing release (the job's `if` accepts it; keep `no --clobber`), or document the manual recovery in CONTRIBUTING "Releases" with the exact commands (check out the tag, the same pack command, `gh release upload`) and say that the pin takes its hash from the asset that ended up attached. Add a `WorkflowTests` case for whichever is chosen.
 - Resolution: fixed (docs): GitHub reuses the outputs of the jobs that passed when failed jobs are re-run, so "Re-run failed jobs" runs `publish` for the same release; CONTRIBUTING says so, and that a cause in the files at the tag needs a new release (Done when 2, row 6, decisions Q13). No dispatch route
+- Second pass: the resolution does not hold as written; see R12 (the behaviour it relies on is not in the cited docs).
 
 #### R4. Scripts from one commit drive a CLI from an older release once a pin is set
 - Area: 5; Done when 3; row 4
@@ -56,6 +71,12 @@ Checked and found sound:
 - Finding: Constraints say "the Action plans and applies with one pin, so its runs are unaffected". The shipped example `docs/examples/promote-dev-to-test.yml` plans on the pull request and applies after the merge, from the artifact the PR run kept, in a later workflow run. If the pin (or, in source mode after R5, the Action's commit) moves between those two runs, `deploy apply` refuses with "plan again with this version". Before this change every build said `0.0.0`, so it never happened. A first pin move right after the first release is the likely time.
 - Suggested fix: Say it in `docs/GITHUB-ACTION.md` and `CONTRIBUTING.md` (Releases): a plan is valid only for the build that made it, so do not move the pin while a promotion is open, and re-run the plan job when you did. Correct the Constraints sentence to the cases where it is true (one job, or one run).
 - Resolution: fixed: Constraints corrected; `docs/GITHUB-ACTION.md` and CONTRIBUTING say a plan is valid only for the build that made it (row 6, decisions Q3 amended)
+
+#### R12. The recovery for a failed `publish` rests on a behaviour the cited docs do not state
+- Area: 5 (route); Done when 2; Assumptions; decisions Q13; row 6
+- Finding: Q13 and the Assumptions say GitHub's "Re-running workflows and jobs" page states that re-running failed jobs reuses the outputs of the jobs that passed. I read that page (and its current "re-run workflows and jobs" version): it says a re-run uses the same commit SHA and ref, the original actor's privileges, at most 50 re-runs, up to 30 days; it says nothing about outputs of passed jobs or about `needs`. The behaviour is widely relied on, but the plan's recovery (Done when 2, the first-release steps, CONTRIBUTING) and its decision to drop the dispatch route depend on it, and it was never observed here. If it were wrong, `publish` would see an empty `release_created` and be skipped, which is the failure the finding described. It also has two limits the text omits: the 30 days, and a run's 50 re-runs.
+- Suggested fix: Reword Q13 and the Assumptions to say the behaviour is observed in practice and not documented on the page, with the 30-day limit; and give CONTRIBUTING a last-resort manual path for when a re-run is not possible: check out the tag, run the same pack and `release-check.sh`, `gh release upload`, and take the pin's hash from the asset that ended up attached. Keep the per-step tests as they are.
+- Resolution: fixed: the Assumptions and decisions Q13 (amended in Round 3) say the reuse of outputs is observed, not documented, with the 30-day and 50-run limits; CONTRIBUTING gives a manual route that needs no re-run (check out the tag, the same pack, `release-check.sh`, `gh release upload`), and says a file attached by hand has no attestation; Done when 2 and row 6 changed
 
 ### Low
 
@@ -88,3 +109,21 @@ Checked and found sound:
 - Finding: "skipped when the repo root has no `.git`": in a git worktree `.git` is a file, so test for a file or a folder; the case also needs `git` on PATH (skip with `Tools`-style handling, not an exception). It compares the built assembly with the current `HEAD`, so `dotnet test --no-build` after a new commit fails locally though nothing is wrong.
 - Suggested fix: Check `File.Exists || Directory.Exists`, skip when `git rev-parse HEAD` fails, and say in the test's comment that it needs a fresh build.
 - Resolution: fixed in row 1: a `.git` file or folder, a skip when `git rev-parse HEAD` fails, and a comment that the case needs a build of the current commit
+
+#### R13. A half-finished attach cannot be repaired by a re-run
+- Area: row 3; Environments and route
+- Finding: `gh release upload` with two files, no `--clobber`: if the package is attached and `SHA256SUMS` is not (a network failure), "Re-run failed jobs" packs again, produces a package with another hash, and its upload fails on the package that is already attached. The plan's design (never replace an asset) is right, but the plan says a failed attach can be redone with a re-run, and this case cannot be.
+- Suggested fix: Add the case to CONTRIBUTING "Releases": a partly attached release is repaired by deleting the stray asset by hand (a maintainer step) and then re-running; or upload the two files in one command and check afterwards that both are attached. State which in Done when 2 ("a failed attach that attached nothing can be redone").
+- Resolution: fixed: CONTRIBUTING says a half attach is finished by removing the stray file on the release page first, then the re-run or the manual route; decisions Q13 (Round 3)
+
+#### R14. Two citations in row 4 are wrong
+- Area: row 4
+- Finding: `WorkflowTests.ActionBuild()` is lines 22-23 (line 21 is blank), not 21-22; and the test at `ActionYmlTests.cs:76` is `Flow_tests_run_on_every_event_when_set_and_the_last_step_fails_the_job`, not `The_flow_tests_...`. The first pass asked for exact lines because an implementer follows them.
+- Suggested fix: Correct both.
+- Resolution: fixed: `WorkflowTests.cs:22-23` and `Flow_tests_run_on_every_event_when_set_and_the_last_step_fails_the_job`
+
+#### R15. The `action/` path of the new warning leaves out the CLI calls in `action.yml`
+- Area: row 5; decisions Q17
+- Finding: Five steps of `action.yml` call the CLI themselves through `powerops.sh` with `analyze` flags (`--fail-on`, `--baseline`, `--format`, `--out`), so a change there can need a newer CLI too. Q17's warning and CONTRIBUTING's rule say "scripts" and test `action/` only. Counting `action.yml` would warn after the pin PR itself (it edits that file), so leaving it out is deliberate, but the gap is not stated.
+- Suggested fix: Say in Q17 and CONTRIBUTING that the rule covers `action.yml`'s own CLI calls too, and that the warning does not see them (or have the script ignore a commit whose only change in `action.yml` is the two pin lines).
+- Resolution: fixed (stated): decisions Q17 (Round 3), row 6 and CONTRIBUTING say the rule covers `action.yml`'s own CLI calls and that the warning watches `action/` only

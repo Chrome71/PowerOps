@@ -99,6 +99,14 @@ Answer: 1. After a release, the docs' pins should move to a commit that pins the
 2. A test that the flags the scripts use exist in `Program.Root`
 Answer: 1. Option 2 checks the source, not the pinned release, so it can't see the gap. The warning fires in exactly the window of risk and goes quiet when a newer release is pinned. With a pin, CI's `action` job runs the pinned release with the pull request's scripts for `analyze` and `test`; the deploy steps need a tenant, so the rule covers them.
 
+## Round 3 (from the review's second pass)
+
+### Q13, amended (R12, R13)
+GitHub's "Re-run workflows and jobs" page does not say that a re-run of failed jobs reuses the outputs of the jobs that passed; it says a re-run keeps the commit and ref, within 30 days and 50 re-runs. So "Re-run failed jobs" stays the first try, described as observed behaviour, and CONTRIBUTING gives a manual route that needs no re-run: check out the tag, the same pack command, `release-check.sh`, then `gh release upload` of both files. A half attach (the package without `SHA256SUMS`) can't be finished by either, because a new pack has another hash and no upload replaces a file: the maintainer removes the stray file on the release page first. A file attached by hand has no attestation. Still no dispatch route: the manual route covers the same case without a second trigger to secure.
+
+### Q17, amended (R15)
+`action.yml`'s own steps call the CLI too (`analyze` through `powerops.sh`), so the rule covers them, and CONTRIBUTING says so. The warning counts commits under `action/` only, because the pin's own pull request edits `action.yml`; it does not see a change in `action.yml`'s calls, and CONTRIBUTING says that as well.
+
 ## Record
 
 - questions answered by the building session under the user's delegation of 2026-10-22 (autonomous milestone mode), except Q1, which the person answered
