@@ -1,8 +1,10 @@
-plan-hash: c7807fda0297cf38c5e3523cf5703160385002b4e48edec5a86a35b191710bf5
+plan-hash: f59bfd1731e26526ca87c59ab9e97d70dc3f637a26c068b77f17ed18c7fd06de
 model: claude-sonnet-5-5
 fresh-context: yes
 
 This is the second pass, at 4f87e42 (plan body hash recomputed and equal to the one in the first line; first pass was at the hash `af129aed…`). Each resolution of R1 to R8 was checked against `plan.md`, `decisions.md` (Round 2) and the docs of commits 84b1926 and 4f87e42 (`COMMANDS.md`, `GITHUB-ACTION.md`, `HANDOFF.md`, the Playwright README) against plan rows 7 to 10, and the new text was checked for new problems (R9, R10). Uncommitted code was not reviewed.
+
+A third pass at 12fb9fb confirmed that the change of the plan body is wording only (the body hash was recomputed and equals the one in the first line): `git diff 4f87e42 12fb9fb` on `plan.md` shows the header's `review: done`, three rewordings (Done when 1, the test column of row 1, row 11), and the `plan-status: allow` marker on the two Learn-link lines of Assumptions; nothing else. The resolutions of R9 and R10 were checked against `COMMANDS.md` and decisions Q4 and hold.
 
 Environment facts were not read: the plan names no environment (`environment: null`), changes this repo's own code and docs, and the request did not confirm a `pac` sign-in; `pac` and `powerops plan facts` were not run. The recomputed body hash equals the one given. `powerops plan status` was not run (the header says `approved`, `openQuestions` is 0, nothing stands under `Questions for your admin`). Checklist items 1 to 9 and 11 (boundaries, connection references, licences, DLP, route, managed state, delegation, roles, size) do not apply to a change to this repo's code. Item 10 applies and found nothing open.
 
@@ -54,7 +56,7 @@ The review checks the plan against the code at `dd3215e` (the plan commit; code 
 
 #### R7. URLs in the plan folder
 - Area: scan (URLs, GUIDs, emails, names)
-- Finding: `plan.md` holds three public Microsoft Learn links (Assumptions) and the fake sentinel URL `https://m61sentinel.crm.dynamics.com`; `decisions.md` holds none. None is from a tenant, no GUID, email or person's name was found. Reported because the skill asks for any URL; the values are not repeated beyond the fake sentinel, which is a `contoso`-style fake.
+- Finding: `plan.md` holds three public Microsoft Learn links (Assumptions) and the fake sentinel environment URL of row 11; `decisions.md` holds none. None is from a tenant, no GUID, email or person's name was found. Reported because the skill asks for any URL; the values are not repeated here.
 - Suggested fix: none needed for the Learn links (public documentation, as in other plans); keep the sentinel fake.
 - Resolution: Accepted: no change needed (public Learn links, fake sentinel; nothing from a tenant). Second pass: holds.
 

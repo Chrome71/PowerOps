@@ -1,8 +1,8 @@
 ---
-status: approved
+status: signed-off
 review: done
-signed-off: null
-signed-off-hash: null
+signed-off: 2026-11-05
+signed-off-hash: f59bfd1731e26526ca87c59ab9e97d70dc3f637a26c068b77f17ed18c7fd06de
 environment: null
 depth: quick
 supersedes: null
