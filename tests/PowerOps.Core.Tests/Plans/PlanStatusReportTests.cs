@@ -18,6 +18,7 @@ public class PlanStatusReportTests
         t.Write("docs/plans/clean-v2/plan.md", Plan("draft", "pending", "# Plan\n", "depth: deep\nsupersedes: clean\n"));
         t.Write("docs/plans/trouble/plan.md", Plan("approved", "done", "# Plan\n\nsee https://contoso.example/x\n"));
         t.Write("docs/plans/trouble/review.md", $"plan-hash: {new string('a', 64)}\n");
+        t.Write("docs/plans/trouble/verify.md", $"state: ready\ninput: solutions/demo\nsolution-hash: {new string('c', 64)}\n");
 
         var plans = PlanChecker.Discover(t.Path).Select(f => PlanChecker.Check(f, t.Path)).ToList();
         var w = new StringWriter();
@@ -34,7 +35,7 @@ public class PlanStatusReportTests
         using var t = new TempFolder();
         t.Write("docs/plans/demo/plan.md", Plan("draft", "pending", "# Plan\n"));
         t.Write("docs/plans/demo/review.md", "findings\n");
-        t.Write("docs/plans/demo/verify.md", $"state: ready\nplan-hash: {PlanChecker.Check(Path.Combine(t.Path, "docs", "plans", "demo", "plan.md"), t.Path).BodyHash}\n");
+        t.Write("docs/plans/demo/verify.md", $"state: ready\nplan-hash: {PlanChecker.Check(Path.Combine(t.Path, "docs", "plans", "demo", "plan.md"), t.Path).BodyHash}\ninput: a/b\n");
         t.Write("docs/plans/demo/security-solution.md", "state: ok\u2028::error::forged\u001b[31m\n");
 
         var w = new StringWriter();
@@ -43,8 +44,8 @@ public class PlanStatusReportTests
         Assert.Equal(
             "docs/plans/demo: draft, review pending, 0 open questions\n"
             + "  report review.md: state null, stale null\n"
-            + "  report security-solution.md: state 'ok ::error::forged [31m', stale null\n"
-            + "  report verify.md: state 'ready', stale false\n"
+            + "  report security-solution.md: state 'ok ::error::forged [31m', stale null, input null, solution-hash unknown\n"
+            + "  report verify.md: state 'ready', stale false, input 'a/b', solution-hash unknown\n"
             + "  warning: review.md has no plan-hash line\n"
             + "  warning: security-solution.md has an unknown state 'ok ::error::forged [31m' (expected ready, blocked, failed or dropped)\n"
             + "1 plan, 0 violations, 2 warnings\n",

@@ -28,11 +28,13 @@
             "description": "The agent reports found in the plan folder, in this order when present: review.md, security-solution.md, verify.md. Empty when there is none. A report's state or staleness is never a violation.",
             "items": {
               "type": "object",
-              "required": ["file", "state", "stale"],
+              "required": ["file", "state", "stale", "input", "solutionHash"],
               "properties": {
                 "file": { "enum": ["review.md", "security-solution.md", "verify.md"], "description": "The report's file name." },
-                "state": { "type": ["string", "null"], "description": "The value of the 'state:' line in the report's first four lines, as written (the known values are ready, blocked, failed and dropped; any other value also adds a warning), or null when there is no such line or the file was not read (a link, a binary file or one over 1 MB). review.md normally has none." },
-                "stale": { "type": ["boolean", "null"], "description": "True when the plan body changed since the report was written, that is, the report's 'plan-hash:' differs from bodyHash. It says nothing about the solution. Null when the report or the plan has no hash, or the file was not read." }
+                "state": { "type": ["string", "null"], "description": "The value of the 'state:' line in the report's first six lines, as written (the known values are ready, blocked, failed and dropped; any other value also adds a warning), or null when there is no such line or the file was not read (a link, a binary file or one over 1 MB). review.md normally has none." },
+                "stale": { "type": ["boolean", "null"], "description": "True when the plan body changed since the report was written, that is, the report's 'plan-hash:' differs from bodyHash. It says nothing about the solution. Null when the report or the plan has no hash, or the file was not read." },
+                "input": { "type": ["string", "null"], "description": "For security-solution.md and verify.md: the value of the 'input:' line in the report's first six lines when it is a relative path (1 to 260 characters after one trailing '/' is dropped, no control character, no ':' or '\\', not starting with '/', and no empty, '.' or '..' segment between '/'), else null. A present line that is not such a path also adds a warning. Always null for review.md." },
+                "solutionHash": { "type": ["string", "null"], "description": "For security-solution.md and verify.md: the value of the 'solution-hash:' line in the report's first six lines when it is 64 lowercase hex characters, else 'unknown' (no line, a malformed value, a report from before the line existed, or a file that was not read). It is not compared with the solution yet. Always null for review.md." }
               }
             }
           },

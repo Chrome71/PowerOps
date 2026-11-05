@@ -266,7 +266,7 @@ public sealed class McpCommandTests : IAsyncLifetime
     {
         var plans = PlanFolder("status: draft\nreview: pending");
         var folder = Path.Combine(plans, "docs", "plans", "x");
-        File.WriteAllText(Path.Combine(folder, "verify.md"), $"state: ready\nplan-hash: {new string('a', 64)}\n");
+        File.WriteAllText(Path.Combine(folder, "verify.md"), $"state: ready\nplan-hash: {new string('a', 64)}\ninput: solutions/demo\nsolution-hash: {new string('b', 64)}\n");
         File.WriteAllText(Path.Combine(folder, "security-solution.md"), "state: blocked\n");
 
         var result = await Call("plan_status", new() { ["path"] = plans });
@@ -279,6 +279,8 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Equal(["blocked", "ready"], reports.Select(r => (string?)r!["state"]));
         Assert.Null(reports[0]!["stale"]);
         Assert.True((bool?)reports[1]!["stale"]);
+        Assert.Equal([null, "solutions/demo"], reports.Select(r => (string?)r!["input"]));
+        Assert.Equal(["unknown", new string('b', 64)], reports.Select(r => (string?)r!["solutionHash"]));
     }
 
     [Fact]

@@ -1,0 +1,5 @@
+powerops-seed/v1: folder, 23 files, digest 311c3e2af5450e327ff7f967a150de31c22b812c96787866b25d5e85b79a161a
+powerops-seed/v2: folder, 23 files, digest 303b92bfab89600332f10694900f8df448ada85fba07b742c3bad6932c39759e
+changed Other/Customizations.xml
+changed Workflows/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json
+21 files the same

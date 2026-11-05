@@ -188,11 +188,11 @@ public class PlanCheckerTests : IDisposable
     }
 
     [Fact]
-    public void A_review_plan_hash_after_the_fourth_line_still_counts_but_a_verify_one_does_not()
+    public void A_review_plan_hash_after_the_sixth_line_still_counts_but_a_verify_one_does_not()
     {
         Write(Plan());
-        Report("review.md", $"a\nb\nc\nd\ne\nplan-hash: {Other}\n");
-        Report("verify.md", $"state: ready\nb\nc\nd\nplan-hash: {Other}\n");
+        Report("review.md", $"a\nb\nc\nd\ne\nf\ng\nplan-hash: {Other}\n");
+        Report("verify.md", $"state: ready\nb\nc\nd\ne\nf\nplan-hash: {Other}\n");
 
         var reports = Check();
 
@@ -201,16 +201,151 @@ public class PlanCheckerTests : IDisposable
     }
 
     [Fact]
-    public void A_report_reads_state_and_plan_hash_from_its_first_four_lines_only()
+    public void A_report_reads_state_and_plan_hash_from_its_first_six_lines_only()
     {
         Write(Plan());
-        Report("security-solution.md", $"a\nb\nc\nplan-hash: {Hash}\nstate: ready\n");
-        Report("verify.md", "a\nb\nc\nd\nstate: ready\n");
+        Report("security-solution.md", $"a\nb\nc\nd\nplan-hash: {Hash}\nstate: ready\n");
+        Report("verify.md", "a\nb\nc\nd\ne\nf\nstate: ready\n");
 
         var reports = Check();
 
-        Assert.Equal([("security-solution.md", null, false), ("verify.md", null, null)], reports.Reports.Select(Row));
+        Assert.Equal([("security-solution.md", "ready", false), ("verify.md", null, null)], reports.Reports.Select(Row));
         Assert.Empty(reports.Warnings);
+    }
+
+    private static readonly string SolutionHash = new string('0', 63) + "f";
+
+    private static string Six(string input = "input: solutions/demo", string? hash = null) =>
+        $"plan-hash: {Hash}\nmodel: m\nfresh-context: yes\nstate: ready\n{input}\nsolution-hash: {hash ?? SolutionHash}\n";
+
+    [Fact]
+    public void A_six_line_report_gives_its_input_and_solution_hash_and_review_md_gives_none()
+    {
+        Write(Plan());
+        Report("review.md", $"plan-hash: {Hash}\ninput: solutions/demo\nsolution-hash: {SolutionHash}\n");
+        Report("security-solution.md", Six());
+        Report("verify.md", Six("input: out/Demo.zip"));
+
+        var reports = Check();
+
+        Assert.Equal([("review.md", null, null), ("security-solution.md", "solutions/demo", SolutionHash), ("verify.md", "out/Demo.zip", SolutionHash)],
+            reports.Reports.Select(r => (r.File, r.Input, r.SolutionHash)));
+        Assert.Empty(reports.Warnings);
+    }
+
+    [Fact]
+    public void A_legacy_four_line_report_reads_unknown_and_its_input_on_line_five_or_six_is_still_read()
+    {
+        Write(Plan());
+        Report("security-solution.md", $"plan-hash: {Hash}\nmodel: m\nfresh-context: yes\nstate: ready\ninput: solutions/demo\n");
+        Report("verify.md", $"plan-hash: {Hash}\nmodel: m\nfresh-context: yes\nstate: ready\n\ninput: a/b\n");
+
+        var reports = Check();
+
+        Assert.Equal([("security-solution.md", "solutions/demo", "unknown"), ("verify.md", "a/b", "unknown")], reports.Reports.Select(r => (r.File, r.Input, r.SolutionHash)));
+        Assert.Empty(reports.Warnings);
+    }
+
+    [Fact]
+    public void A_report_with_neither_line_has_a_null_input_and_unknown_hash_and_no_warning()
+    {
+        Write(Plan());
+        Report("verify.md", "state: ready\n");
+
+        var report = Assert.Single(Check().Reports);
+
+        Assert.Null(report.Input);
+        Assert.Equal("unknown", report.SolutionHash);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("ABCDEF")]
+    [InlineData("0123")]
+    [InlineData("sha256:0000000000000000000000000000000000000000000000000000000000000000")]
+    [InlineData("0000000000000000000000000000000000000000000000000000000000000000f")]
+    [InlineData("000000000000000000000000000000000000000000000000000000000000000F")]
+    [InlineData("000000000000000000000000000000000000000000000000000000000000000g")]
+    public void A_malformed_solution_hash_reads_unknown_without_a_warning(string hash)
+    {
+        Write(Plan());
+        Report("verify.md", $"state: ready\nsolution-hash: {hash}\n");
+
+        var report = Assert.Single(Check().Reports);
+
+        Assert.Equal("unknown", report.SolutionHash);
+        Assert.Empty(Check().Warnings);
+    }
+
+    [Theory]
+    [InlineData("a")]
+    [InlineData("solutions/demo")]
+    [InlineData("solutions/demo/")]
+    [InlineData("out/Demo_1.0.0.0.zip")]
+    [InlineData("a b/c")]
+    [InlineData(".hidden/x")]
+    public void A_relative_path_is_a_locator(string input)
+    {
+        Write(Plan());
+        Report("verify.md", $"state: ready\ninput: {input}\n");
+
+        var reports = Check();
+
+        Assert.Equal(input, Assert.Single(reports.Reports).Input);
+        Assert.Empty(reports.Warnings);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("/")]
+    [InlineData("/etc/x")]
+    [InlineData("C:/x")]
+    [InlineData("C:x")]
+    [InlineData("a\\b")]
+    [InlineData("a//b")]
+    [InlineData("a//")]
+    [InlineData("./a")]
+    [InlineData("a/./b")]
+    [InlineData("../a")]
+    [InlineData("a/..")]
+    [InlineData("a\tb")]
+    public void A_value_that_is_not_a_locator_reads_null_and_warns_once(string input)
+    {
+        Write(Plan());
+        Report("security-solution.md", $"state: ready\ninput: {input}\n");
+
+        var reports = Check();
+
+        Assert.Null(Assert.Single(reports.Reports).Input);
+        Assert.Equal(["security-solution.md has an input: line that is not a relative path"], reports.Warnings);
+    }
+
+    [Fact]
+    public void A_locator_is_at_most_260_characters_after_one_trailing_slash_is_dropped()
+    {
+        Write(Plan());
+        Report("verify.md", $"state: ready\ninput: {new string('a', 260)}/\n");
+        var ok = Check();
+        Report("verify.md", $"state: ready\ninput: {new string('a', 261)}\n");
+        var tooLong = Check();
+
+        Assert.Equal(new string('a', 260) + "/", Assert.Single(ok.Reports).Input);
+        Assert.Empty(ok.Warnings);
+        Assert.Null(Assert.Single(tooLong.Reports).Input);
+        Assert.Single(tooLong.Warnings);
+    }
+
+    [Fact]
+    public void Review_md_has_no_input_or_solution_hash_even_with_the_lines_and_never_warns_about_them()
+    {
+        Write(Plan());
+        Report("review.md", $"plan-hash: {Hash}\ninput: /bad\nsolution-hash: {SolutionHash}\n");
+
+        var report = Assert.Single(Check().Reports);
+
+        Assert.Null(report.Input);
+        Assert.Null(report.SolutionHash);
+        Assert.Empty(Check().Warnings);
     }
 
     [Fact]

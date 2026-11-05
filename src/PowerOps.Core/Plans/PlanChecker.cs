@@ -22,8 +22,8 @@ public sealed record PlanReport(
     IReadOnlyList<PlanReportFile> Reports,
     PlanWrites? Writes);
 
-/// <summary>One agent report in a plan folder. State and Stale are null when the report does not say, or could not be read.</summary>
-public sealed record PlanReportFile(string File, string? State, bool? Stale);
+/// <summary>One agent report in a plan folder. State and Stale are null when the report does not say, or could not be read. Input (a relative path) and SolutionHash (64 lowercase hex characters, else "unknown") are null for review.md; for the two solution reports Input is null when there is no valid input: line.</summary>
+public sealed record PlanReportFile(string File, string? State, bool? Stale, string? Input = null, string? SolutionHash = null);
 
 /// <summary>The write journal (writes.md) of a plan folder: its table rows and those whose cleanup is still open. Both are null when the file could not be read.</summary>
 public sealed record PlanWrites(int? Entries, int? OpenCleanup);
@@ -250,7 +250,7 @@ public static partial class PlanChecker
 
     private static readonly string[] ReportStates = ["ready", "blocked", "failed", "dropped"];
 
-    // State and plan-hash come from a report's first four lines (review.md's plan-hash, as before, from the first such line anywhere).
+    // State, plan-hash, input and solution-hash come from a report's first six lines (review.md's plan-hash, as before, from the first such line anywhere).
     // A stale or unknown-state report only warns: the report is data, and neither one gates anything.
     private static List<PlanReportFile> ReadReports(string folder, string baseDir, string? bodyHash, ICollection<string> warnings)
     {
@@ -265,11 +265,11 @@ public static partial class PlanChecker
 
             if (ReadScannable(file, baseDir, warnings) is not { } text)
             {
-                reports.Add(new PlanReportFile(name, null, null));
+                reports.Add(new PlanReportFile(name, null, null, null, name == "review.md" ? null : UnknownHash));
                 continue;
             }
 
-            var head = Lines(text).Take(4).Select(l => l.Trim()).ToList();
+            var head = Lines(text).Take(6).Select(l => l.Trim()).ToList();
             var state = HeadValue(head, "state:");
             bool? stale = null;
             if (bodyHash is not null && name == "review.md")
@@ -302,10 +302,37 @@ public static partial class PlanChecker
                 warnings.Add($"{name} has an unknown state '{state}' (expected {string.Join(", ", ReportStates[..^1])} or {ReportStates[^1]})");
             }
 
-            reports.Add(new PlanReportFile(name, state, stale));
+            string? input = null;
+            string? solutionHash = null;
+            if (name != "review.md")
+            {
+                solutionHash = HeadValue(head, "solution-hash:") is { Length: 64 } h && h.All(c => c is (>= '0' and <= '9') or (>= 'a' and <= 'f')) ? h : UnknownHash;
+                if (HeadValue(head, "input:") is { } value)
+                {
+                    input = IsLocator(value) ? value : null;
+                    if (input is null)
+                    {
+                        warnings.Add($"{name} has an input: line that is not a relative path");
+                    }
+                }
+            }
+
+            reports.Add(new PlanReportFile(name, state, stale, input, solutionHash));
         }
 
         return reports;
+    }
+
+    private const string UnknownHash = "unknown";
+
+    // A relative path with / between names, as the roles write it: no drive, no backslash, no leading /, no empty, . or .. segment.
+    private static bool IsLocator(string value)
+    {
+        var path = value.EndsWith('/') ? value[..^1] : value;
+        return path.Length is >= 1 and <= 260
+            && !path.StartsWith('/')
+            && !path.Any(c => char.IsControl(c) || c is ':' or '\\')
+            && path.Split('/').All(s => s.Length > 0 && s is not ("." or ".."));
     }
 
     private static string? HeadValue(List<string> head, string key) =>

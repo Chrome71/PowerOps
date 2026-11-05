@@ -150,13 +150,13 @@ public class PlanCommandTests : IDisposable
     public void A_stale_verify_report_is_a_warning_and_a_listed_report_and_the_exit_code_stays_zero()
     {
         Plan("status: draft\nreview: pending");
-        File.WriteAllText(Path.Combine(PlanDir(), "verify.md"), $"state: ready\nplan-hash: {new string('a', 64)}\n");
+        File.WriteAllText(Path.Combine(PlanDir(), "verify.md"), $"state: ready\nplan-hash: {new string('a', 64)}\ninput: solutions/demo\n");
 
         var (code, output, _) = Run("plan", "status", _temp);
         var (_, json, _) = Run("plan", "status", _temp, "--json");
 
         Assert.Equal(0, code);
-        Assert.Contains("  report verify.md: state 'ready', stale true\n", output.Replace("\r\n", "\n"));
+        Assert.Contains("  report verify.md: state 'ready', stale true, input 'solutions/demo', solution-hash unknown\n", output.Replace("\r\n", "\n"));
         Assert.Contains("  warning: verify.md was written for a different version of the plan (stale report)\n", output.Replace("\r\n", "\n"));
         Assert.EndsWith("0 violations, 1 warning\n", output.Replace("\r\n", "\n"));
         using var doc = JsonDocument.Parse(json);
@@ -164,6 +164,8 @@ public class PlanCommandTests : IDisposable
         Assert.Equal("verify.md", report.GetProperty("file").GetString());
         Assert.Equal("ready", report.GetProperty("state").GetString());
         Assert.True(report.GetProperty("stale").GetBoolean());
+        Assert.Equal("solutions/demo", report.GetProperty("input").GetString());
+        Assert.Equal("unknown", report.GetProperty("solutionHash").GetString());
     }
 
     [Fact]
