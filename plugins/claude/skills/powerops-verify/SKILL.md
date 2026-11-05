@@ -35,6 +35,8 @@ This list is instruction, not enforcement. Run nothing else. Never fire a flow o
 - `powerops test <current solution> --tests <test folder>`
 - `powerops diff <previous solution> <current solution>`
 - `powerops settings validate <current solution> --settings <settings file>`
+- `powerops manifest <current solution>`: gives the digest for the report's `solution-hash:` line.
+- `powerops manifest <previous solution> <current solution>`: compares two unpacked solution folders file by file. Skip it when either solution is a zip, and say so in `## Checks`.
 
 ## Check the status
 
@@ -43,24 +45,28 @@ This list is instruction, not enforcement. Run nothing else. Never fire a flow o
 
 ## Verify
 
-1. Run `analyze`, `test`, `diff` and `settings validate` with the paths from the request.
+1. Run `analyze`, `test`, `diff`, `settings validate` and both `manifest` commands with the paths from the request.
 2. Compare the result with the plan's `Steps`, `Data`, `Automation` and `Screens`. Anything built outside the plan is a finding.
-3. Live checks use the Lead's evidence. With none, record them as not verified. That does not make the state `failed`.
-4. If `<zip>.findings.json` lies beside the exported zip, cite it as evidence. It is the output of `powercat-overflow` or `powercat-overpage` from microsoft/power-cat-skills.
-5. Run nothing from power-cat-skills: its skills ask questions and upload to a hosted viewer.
+3. `diff` compares only what the PowerOps command reference lists for it (`docs/COMMANDS.md#diff`): the solution's unique name, version, managed flag and publisher, root components, missing dependencies, connection references, environment variables, cloud flows, canvas apps, and the instructions and tools of Copilot Studio agents. It compares classic workflows and business rules by name, category and state only. It does not compare security roles, tables, columns, forms, views or app modules and their role maps, so its `no changes` says nothing about them, and a part that one of its `note:` lines names was not compared.
+4. Write that a security role, table, column, form, view or app role map is unchanged only when the file-by-file `manifest` comparison lists none of its files as added, removed or changed. In an unpacked solution a security role is `Roles/<name>.xml`, an app module and its role map are `AppModules/<name>/AppModule.xml`, and a table with its columns, forms and views is the folder `Entities/<table>/`. A changed `Other/Customizations.xml` counts as a change to all of them. Otherwise read that component's files in the current solution, check them against the plan, and say that you read them and did not compare them. When either solution is a zip, the comparison can't run and its files can't be read: say that the component was not verified.
+5. Live checks use the Lead's evidence. With none, record them as not verified. That does not make the state `failed`.
+6. If `<zip>.findings.json` lies beside the exported zip, cite it as evidence. It is the output of `powercat-overflow` or `powercat-overpage` from microsoft/power-cat-skills.
+7. Run nothing from power-cat-skills: its skills ask questions and upload to a hosted viewer.
 
 ## Write the report
 
-The first four lines of `verify.md` are exactly:
+The first six lines of `verify.md` are exactly:
 
 ```
 plan-hash: <bodyHash>
 model: <the model you run on, as your agent reports it, else unknown>
 fresh-context: yes|no
 state: ready|blocked|failed|dropped
+input: <the current solution's path as the request gives it, relative to the repository root, with / between folders>
+solution-hash: <the digest that the manifest command prints for the current solution, else unknown>
 ```
 
-These are the first four lines of the report. Write `fresh-context: yes` only if this runs in a context that does not contain the planning conversation. Be honest. If unsure, write `no`.
+These are the first six lines of the report. Write `fresh-context: yes` only if this runs in a context that does not contain the planning conversation. Be honest. If unsure, write `no`.
 
 | State | Meaning |
 |---|---|
@@ -73,8 +79,7 @@ Choose `blocked` before `failed` before `ready`. An optional check that can't ru
 
 Under the header lines:
 
-- A line `input: <solution path or zip file name>`. Nothing parses it.
-- A `## Checks` section with one line per check, in this order: `analyze`, `test`, `diff`, `settings validate`, the comparison with the plan, the live checks. Each line is `- <check>: <outcome>`, where the outcome is `done`, `failed` (say which check could not run and why), `not applicable` (say why) or `not verified` (say why).
+- A `## Checks` section with one line per check, in this order: `analyze`, `test`, `diff`, `manifest`, `settings validate`, the comparison with the plan, the live checks. Each line is `- <check>: <outcome>`, where the outcome is `done`, `failed` (say which check could not run and why), `not applicable` (say why) or `not verified` (say why).
 - The findings:
 
 ```

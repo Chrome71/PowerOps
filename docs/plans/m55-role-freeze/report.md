@@ -166,4 +166,4 @@ The longest run took 133 seconds, against the limit of 1,800. Runs were about as
 
 ## Decision
 
-Waiting for the person, at step 6.
+On 2026-11-04 the person kept both roles' new text after reading these results and the keep rules in chat, logged in `decisions.md` with `(answered by: person)`. The blob ids above are pinned in the Data section of `plan.md`, and `AGENTS.md` points there.
