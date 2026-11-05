@@ -5,7 +5,7 @@ using System.Text.Json.Nodes;
 
 namespace PowerOps.Core.Flows;
 
-/// <summary>The 39 functions of the expression language that flow tests support, each written from its section of Learn's expression functions reference.</summary>
+/// <summary>The 47 functions of the expression language that flow tests support, each written from its section of Learn's expression functions reference.</summary>
 public static class ExpressionFunctions
 {
     /// <summary>Learn's limit on the result of <c>concat</c>, applied to every string the simulator builds.</summary>
@@ -65,6 +65,7 @@ public static class ExpressionFunctions
         ["decodeBase64"] = (a, _) => DecodeBase64(Str("decodeBase64", Count("decodeBase64", a, 1)[0])),
         ["createArray"] = (a, _) => new JsonArray(Count("createArray", a, 1, int.MaxValue).Select(x => x?.DeepClone()).ToArray()),
         ["int"] = (a, _) => ToInt(Count("int", a, 1)[0]),
+        ["float"] = (a, _) => ToFloat(Count("float", a, 1, 2)),
 
         // Math
         ["min"] = (a, _) => Min(a),
@@ -72,7 +73,14 @@ public static class ExpressionFunctions
         // Date and time
         ["utcNow"] = (a, c) => a.Length > 0 ? throw new UnsupportedException("utcNow() with a format argument is not supported.") : JsonValue.Create(Format(Timestamp("utcNow", c.UtcNow()))),
         ["formatDateTime"] = (a, c) => FormatDateTime(Count("formatDateTime", a, 1, 3), c),
-        ["addDays"] = (a, c) => AddDays(a, c),
+        ["addDays"] = (a, c) => Add("addDays", a, c, TimeSpan.TicksPerDay),
+        ["addHours"] = (a, c) => Add("addHours", a, c, TimeSpan.TicksPerHour),
+        ["addMinutes"] = (a, c) => Add("addMinutes", a, c, TimeSpan.TicksPerMinute),
+        ["addSeconds"] = (a, c) => Add("addSeconds", a, c, TimeSpan.TicksPerSecond),
+        ["startOfDay"] = (a, c) => StartOfDay(Count("startOfDay", a, 1, 2), c),
+        ["dayOfWeek"] = (a, _) => JsonValue.Create((int)ReadDate("dayOfWeek", Str("dayOfWeek", Count("dayOfWeek", a, 1)[0])).DayOfWeek),
+        ["convertFromUtc"] = (a, c) => ConvertZone("convertFromUtc", Count("convertFromUtc", a, 2, 3), c),
+        ["convertTimeZone"] = (a, c) => ConvertZone("convertTimeZone", Count("convertTimeZone", a, 3, 4), c),
     };
 
     /// <summary>The supported function names, sorted.</summary>
@@ -529,7 +537,7 @@ public static class ExpressionFunctions
             : throw new UnsupportedException($"formatDateTime() with the locale '{name}' takes only day, month and year formats, as Learn shows: other parts of its culture data can differ between ICU and the service.");
     }
 
-    /// <summary>Learn: a standard or custom .NET date format; for addDays an invalid one is an error.</summary>
+    /// <summary>Learn: a standard or custom .NET date format; for every date function but formatDateTime an invalid one is an error.</summary>
     private static JsonNode? FormatAs(string function, DateTime time, string format, CultureInfo culture, IExpressionContext context)
     {
         if (format.Length == 0)
@@ -549,7 +557,7 @@ public static class ExpressionFunctions
             // shortcut: ICU writes U+202F before AM/PM where Learn's examples have a space; a U+202F typed in a format becomes a space too, fine until a flow needs one
             text = time.ToString(format, culture).Replace('\u202F', ' ');
         }
-        catch (FormatException) when (function == "addDays")
+        catch (FormatException) when (function != "formatDateTime")
         {
             throw new ExpressionException($"{function}() cannot use the format '{format}'.");
         }
@@ -567,39 +575,158 @@ public static class ExpressionFunctions
         return JsonValue.Create(text);
     }
 
-    private static JsonNode? AddDays(JsonNode?[] a, IExpressionContext context)
+    // Learn: addDays, addHours, addMinutes and addSeconds share their parameters and format text
+    private static JsonNode? Add(string function, JsonNode?[] a, IExpressionContext context, long ticksPerUnit)
     {
-        Count("addDays", a, 2, 3);
+        Count(function, a, 2, 3);
         DateTime start;
         var kind = DateTimeKind.Utc;
         if (a.Length == 3)
         {
-            NeedCultureData("addDays");
-            start = ReadZoned("addDays", Str("addDays", a[0]));
+            NeedCultureData(function);
+            start = ReadZoned(function, Str(function, a[0]));
             if (start.Kind != DateTimeKind.Utc)
             {
-                throw new UnsupportedException("addDays() with a format needs a timestamp in UTC, ending in Z.");
+                throw new UnsupportedException($"{function}() with a format needs a timestamp in UTC, ending in Z.");
             }
         }
         else
         {
-            var text = Str("addDays", a[0]);
-            start = Timestamp("addDays", text);
-            kind = ReadZoned("addDays", text).Kind;
+            var text = Str(function, a[0]);
+            start = Timestamp(function, text);
+            kind = ReadZoned(function, text).Kind;
         }
 
         DateTime end;
         try
         {
-            end = start.AddDays(Int("addDays", a[1]));
+            end = start.AddTicks(checked(Int(function, a[1]) * ticksPerUnit));
         }
-        catch (ArgumentOutOfRangeException)
+        catch (Exception e) when (e is OverflowException or ArgumentOutOfRangeException)
         {
-            throw new ExpressionException("addDays() gives a date outside the supported range.");
+            throw new ExpressionException($"{function}() gives a date outside the supported range.");
         }
 
         // not on Learn, plan "Not on Learn": the format uses en-us, as utcNow's format examples on Learn do
-        return a.Length == 3 ? FormatAs("addDays", end, Str("addDays", a[2]), EnUs!, context) : JsonValue.Create(Labelled(end, kind));
+        return a.Length == 3 ? FormatAs(function, end, Str(function, a[2]), EnUs!, context) : JsonValue.Create(Labelled(end, kind));
+    }
+
+    // Kind Utc for a Z, Unspecified for no zone; an offset's day and clock time depend on the zone it is taken in, which neither Learn nor the capture settles
+    private static DateTime ReadDate(string function, string text) =>
+        ReadZoned(function, text) is { Kind: not DateTimeKind.Local } time
+            ? time
+            : throw new UnsupportedException($"{function}() of a timestamp with an offset is not supported: Learn doesn't say which zone its day or clock time is taken in.");
+
+    private static JsonNode? StartOfDay(JsonNode?[] a, IExpressionContext context)
+    {
+        var day = ReadDate("startOfDay", Str("startOfDay", a[0])).Date;
+        if (a.Length == 1)
+        {
+            return JsonValue.Create(day.ToString("o", CultureInfo.InvariantCulture)); // not on Learn, plan "Not on Learn": no zone stays none
+        }
+
+        NeedCultureData("startOfDay");
+        return day.Kind == DateTimeKind.Utc
+            ? FormatAs("startOfDay", day, Str("startOfDay", a[1]), EnUs!, context)
+            : throw new UnsupportedException("startOfDay() with a format needs a timestamp in UTC, ending in Z.");
+    }
+
+    // not on Learn, plan "Not on Learn": only a Windows id written as Windows writes it; ICU's mapping is the same data on Windows and Linux, so a name is taken on both or neither
+    private static TimeZoneInfo Zone(string function, string name)
+    {
+        NeedCultureData(function);
+        try
+        {
+            if (TimeZoneInfo.TryConvertWindowsIdToIanaId(name, out var iana) && TimeZoneInfo.TryConvertIanaIdToWindowsId(iana, out var back) && back == name)
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(name);
+            }
+        }
+        catch (Exception e) when (e is TimeZoneNotFoundException or InvalidTimeZoneException)
+        {
+        }
+
+        throw new UnsupportedException($"{function}() with the time zone '{name}' is not supported: only Windows time-zone ids such as 'Pacific Standard Time', as Windows writes them.");
+    }
+
+    // convertFromUtc(timestamp, destination, format?) and convertTimeZone(timestamp, source, destination, format?); the result has no zone (Learn)
+    private static JsonNode? ConvertZone(string function, JsonNode?[] a, IExpressionContext context)
+    {
+        var fromUtc = function == "convertFromUtc";
+        var sourceName = fromUtc ? "UTC" : Str(function, a[1]);
+        var destinationName = Str(function, a[fromUtc ? 1 : 2]);
+        var format = a.Length > (fromUtc ? 2 : 3) ? Str(function, a[^1]) : "o";
+        var time = ReadDate(function, Str(function, a[0]));
+        if (time.Kind == DateTimeKind.Utc && sourceName != "UTC")
+        {
+            throw new UnsupportedException($"{function}() of a timestamp ending in Z with the source time zone '{sourceName}' is not supported: Learn doesn't say which of the two wins.");
+        }
+
+        var source = Zone(function, sourceName);
+        var destination = Zone(function, destinationName);
+        var clock = DateTime.SpecifyKind(time, DateTimeKind.Unspecified);
+        if (source.IsInvalidTime(clock) || source.IsAmbiguousTime(clock))
+        {
+            throw new UnsupportedException($"{function}() of the clock time '{clock:o}' in '{sourceName}' is not supported: a daylight-saving change skips or repeats it, and Learn doesn't say which time the service takes.");
+        }
+
+        // Windows' registry keeps fewer past rules than IANA's data, and .NET clamps at the end of the calendar
+        var utc = TimeZoneInfo.ConvertTimeToUtc(clock, source);
+        if (utc.Year is < 2007 or > 9998)
+        {
+            throw new UnsupportedException($"{function}() of an instant before 2007 or after 9998 is not supported: time-zone data differs between Windows and Linux there.");
+        }
+
+        if (destinationName == "UTC" && format is "o" or "O")
+        {
+            throw new UnsupportedException($"{function}() to 'UTC' with the format 'o' is not supported: Learn doesn't say whether the result carries a Z.");
+        }
+
+        var result = DateTime.SpecifyKind(TimeZoneInfo.ConvertTimeFromUtc(utc, destination), DateTimeKind.Unspecified);
+        return FormatAs(function, result, format, EnUs!, context);
+    }
+
+    private static JsonNode? ToFloat(JsonNode?[] a)
+    {
+        var culture = CultureInfo.InvariantCulture;
+        if (a.Length > 1)
+        {
+            // not on Learn: the locales of Learn's examples; any other name is unsupported, as formatDateTime's are
+            var name = Str("float", a[1]);
+            NeedCultureData("float");
+            culture = name.ToLowerInvariant() is "en-us" or "de-de" ? Culture(name)! : throw new UnsupportedException($"float() with the locale '{name}' is not supported: Learn shows only en-US and de-DE.");
+        }
+
+        double value;
+        if (IsNumber(a[0]))
+        {
+            value = Double(a[0]!); // not on Learn, plan "Not on Learn": a number gives itself
+        }
+        else if (IsString(a[0]))
+        {
+            // the styles Learn's examples need: a sign before or after, a decimal point, thousands separators
+            const NumberStyles Styles = NumberStyles.AllowLeadingSign | NumberStyles.AllowTrailingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowThousands;
+            var text = a[0]!.GetValue<string>();
+            if (!double.TryParse(text, Styles, culture, out value))
+            {
+                throw double.TryParse(text, NumberStyles.Any, culture, out _)
+                    ? new UnsupportedException($"float() of '{text}' is not supported: Learn doesn't say whether the service reads spaces, an exponent or parentheses.")
+                    : new ExpressionException($"float() cannot convert '{text}' to a number.");
+            }
+        }
+        else
+        {
+            throw new UnsupportedException($"float() of {Describe(a[0])} is not supported.");
+        }
+
+        if (!double.IsFinite(value))
+        {
+            throw new UnsupportedException("float() of NaN, an infinity or a number past the double range is not supported.");
+        }
+
+        // not on Learn, plan "Not on Learn": a float with no fraction is written 14.0, so a function that needs an integer refuses it
+        var written = value.ToString("R", CultureInfo.InvariantCulture);
+        return JsonNode.Parse(written.Contains('.') || written.Contains('E') ? written : written + ".0");
     }
 
     // the capture runs A06 and A11: the result keeps no zone for a timestamp with none, and shows an offset as +00:00 once converted to UTC
