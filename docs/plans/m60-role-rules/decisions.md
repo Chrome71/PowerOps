@@ -101,6 +101,16 @@ Kept as pointers, and carried out from M55's own driver and scoring tools, so no
 ### R13. What the person can choose after a missed floor
 The skill text doesn't change, so there is nothing to roll back. On a missed floor the person may ship as built, change the rule (for example narrow PO033 further) and rerun, or keep the old baselines by taking PO033 out of this milestone; until they answer, the PR doesn't merge. The same three choices stand when every floor holds, since passing a floor permits and never requires. (answered by: agent m60 build session)
 
+## Round 7 (the person's decision on the rerun, 2026-11-05)
+
+### Q12. Every keep rule holds in the rerun (`report.md`). What ships?
+
+1. Ship as built: PO032 to PO034 and the two updated baselines (Recommended)
+2. Change the rule and rerun
+3. Keep the old baselines by taking PO033 out of this milestone
+
+Answer: Ship as built (Recommended) (answered by: person)
+
 ## Log
 
 - Learn checked 2026-11-05 with the Learn MCP tools: "Security roles and templates", "Privileges required to view and access apps", "Create or edit a security role" (minimum privileges), "Configure user security in an environment", the App for Outlook troubleshooting page (privilege names) and the User Settings table reference
@@ -121,3 +131,4 @@ The skill text doesn't change, so there is nothing to roll back. On a missed flo
 - PO033 gated on a model-driven app in the solution, with a quiet case and the PO034-only note in `WarningRuleTests`; the PO033 and PO034 pages say so
 - the same reviewer's third pass 2026-11-05 at `cd94770`: R1 to R11 hold (R4's fix replaced by Q10 and Q11); a scratch copy ran 3,928 tests with no failure; 0 High, 0 Medium, 2 Low new (R12, R13), answered in Round 6. In all: 0 High, 3 Medium and 10 Low, none open
 - signed off again 2026-11-05 by the building session under the user's delegation of 2026-10-22, with no High or Medium finding open (`powerops plan sign-off`; `signed-off-hash` equals `review.md`'s `plan-hash`)
+- the rerun 2026-11-05 from a clean clone of the freeze `bdb3a2e` (0 warnings, format clean, 3,928 tests with none failing): 32 runs from 13:55 to 14:40 UTC on Claude Code (`opus`) and Codex (`gpt-6-astra`), both at high effort. Two Codex runs stopped at the service's "model is at capacity" and started again as the same runs, not replacements. Two blind scorers (a Sonnet subagent and Codex, read-only) agreed on all 64 pairs. Every keep rule holds: the Verifier found 12 of 12 of its `not-shown` flaws, the Security reviewer 14 of 14, and no clean-case run had a High. 6 of the 8 runs on `solution-07` and `solution-08` made the PO033 warning a Medium finding, which is unkeyed. Claude cost $8.33; Codex used 4.5M tokens. Details are in `report.md`
