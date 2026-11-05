@@ -113,7 +113,7 @@ public class DiffReportTests
 
         w = new StringWriter();
         DiffReport.WriteText(Many(1), w);
-        Assert.Equal("Demo 1.0.0.0 → Demo 1.0.0.0\n  added connectionReference demo_ref00000 [risk: connection-reference]\n1 change (1 added, 0 removed, 0 changed)\n", w.ToString());
+        Assert.Equal("Demo 1.0.0.0 → Demo 1.0.0.0\n  added connectionReference demo_ref00000 [risk: connection-reference, same-version]\n1 change (1 added, 0 removed, 0 changed)\n", w.ToString());
     }
 
     [Fact]

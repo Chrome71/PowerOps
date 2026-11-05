@@ -54,6 +54,19 @@ public class DeployPlanTests
 
     private static MissingDependency Dep(string? owner, string schema = "x_comp") => B.Dep("1", schema, null, owner);
 
+    [Theory]
+    [InlineData("1.0.0.0", "1.0.0.0", true)]
+    [InlineData("1.0.0.0", "1.0.0.00", true)]
+    [InlineData("1.0.0.0", "1.0.0.1", false)]
+    [InlineData("1.0.0", "1.0.0", false)]
+    [InlineData("1.0", "1.0.0.0", false)]
+    [InlineData("a.b.c.d", "a.b.c.d", false)]
+    [InlineData("", "", false)]
+    [InlineData(null, null, false)]
+    [InlineData(null, "1.0.0.0", false)]
+    public void EqualVersions_is_true_only_for_four_numeric_parts_equal_as_numbers(string? a, string? b, bool expected) =>
+        Assert.Equal(expected, DeployPlan.EqualVersions(a, b));
+
     // ---- names -------------------------------------------------------------------------------------------------
 
     [Theory]
@@ -359,12 +372,15 @@ public class DeployPlanTests
     }
 
     [Fact]
-    public void Equal_or_lower_counts_of_tables_and_canvas_apps_are_quiet()
+    public void Equal_or_lower_counts_of_tables_and_canvas_apps_give_no_deletes_but_do_give_the_information_item()
     {
         var snap = Installed(new SnapshotComponent(1, G1, null), new(300, G1, null));
         var zip = Sol("App", "2.0.0.0") with { RootComponents = [new("1", "a", null), new("1", "b", null), new("300", "x", null)] };
 
-        Assert.Empty(Of(Plan(zip, snap), PlanKind.Deletes));
+        var r = Plan(zip, snap);
+
+        Assert.Empty(Of(r, PlanKind.Deletes));
+        Assert.Equal(["1 canvas app(s)", "1 table(s)"], Of(r, PlanKind.ComponentsNotChecked).Select(i => i.Subject));
     }
 
     // ---- components-not-checked --------------------------------------------------------------------------------
@@ -376,25 +392,96 @@ public class DeployPlanTests
             components: [new(61, G1, null), new(61, G2, null), new(2, G3, null), new(1, G1, null), new(300, G2, null), new(29, G2, null), new(380, G3, null), new(381, G3, null), new(20, G1, null)],
             references: [new(G1, "demo_ref", "c", true)]);
 
-        var item = One(Plan(Sol("App", "2.0.0.0") with { RootComponents = [new("1", "a", null), new("300", "b", null)] }, snap), PlanKind.ComponentsNotChecked);
+        var items = Of(Plan(Sol("App", "2.0.0.0") with { RootComponents = [new("1", "a", null), new("300", "b", null)] }, snap), PlanKind.ComponentsNotChecked);
 
         // The components with G1 as id are the reference's, whatever their type; the two left are of types 61 and 2.
-        Assert.Equal((PlanSeverity.Info, "2"), (item.Severity, item.Subject));
+        var item = Assert.Single(items, i => i.Subject == "2");
+        Assert.Equal(PlanSeverity.Info, item.Severity);
         Assert.Contains("2, 61", item.Message);
     }
 
     [Fact]
-    public void The_checked_set_alone_and_the_other_actions_give_no_components_not_checked()
+    public void The_checked_set_alone_gives_only_the_table_and_canvas_app_items_and_the_other_actions_give_none()
     {
         var checkedOnly = Snap("App", components: [new(1, G1, null), new(300, G2, null), new(29, G3, null), new(380, G3, null), new(381, G3, null), new(2, G2, null)],
             references: [new(G2, "demo_ref", "c", true)]);
         var other = Installed(new SnapshotComponent(61, G1, null));
         var zip = Sol("App", "2.0.0.0") with { RootComponents = [new("1", "a", null), new("300", "b", null)] };
 
-        Assert.Empty(Of(Plan(zip, checkedOnly), PlanKind.ComponentsNotChecked));
+        Assert.Equal(["1 canvas app(s)", "1 table(s)"], Of(Plan(zip, checkedOnly), PlanKind.ComponentsNotChecked).Select(i => i.Subject));
         Assert.Empty(Of(Plan(zip with { Managed = false }, other with { Managed = false }), PlanKind.ComponentsNotChecked));
         Assert.Empty(Of(Plan(zip with { Version = "1.0.0.0" }, other), PlanKind.ComponentsNotChecked));
         Assert.Empty(Of(Plan(zip), PlanKind.ComponentsNotChecked));
+    }
+
+    private static string[] NotChecked(DeployPlanResult r) => Of(r, PlanKind.ComponentsNotChecked).Select(i => i.Subject).ToArray();
+
+    [Fact]
+    public void A_same_count_replacement_names_the_tables_it_cannot_check_and_gives_no_deletes()
+    {
+        var snap = Installed(new SnapshotComponent(1, G1, null), new(1, G2, null));
+        var zip = Sol("App", "2.0.0.0") with { RootComponents = [new("1", "demo_new1", null), new("1", "demo_new2", null)] };
+
+        var r = Plan(zip, snap);
+
+        Assert.Empty(Of(r, PlanKind.Deletes));
+        var item = One(r, PlanKind.ComponentsNotChecked);
+        Assert.Equal((PlanSeverity.Info, "App", "2 table(s)"), (item.Severity, item.Solution, item.Subject));
+        Assert.Equal("The target solution holds 2 table(s); the zip names them by schema name and the target by id, so their deletion is checked by count only and one replaced under another name is not seen.", item.Message);
+    }
+
+    [Fact]
+    public void A_lower_count_gives_both_the_deletes_lower_bound_and_the_information_item()
+    {
+        var snap = Installed(new SnapshotComponent(1, G1, null), new(1, G2, null), new(1, G3, null));
+        var zip = Sol("App", "2.0.0.0") with { RootComponents = [new("1", "demo_a", null)] };
+
+        var r = Plan(zip, snap);
+
+        Assert.Equal(["2 table(s)"], Of(r, PlanKind.Deletes).Select(i => i.Subject));
+        Assert.Equal(["3 table(s)"], NotChecked(r));
+    }
+
+    [Fact]
+    public void A_target_with_canvas_apps_and_no_tables_gives_only_the_canvas_app_item()
+    {
+        var r = Plan(Sol("App", "2.0.0.0"), Installed(new SnapshotComponent(300, G1, null)));
+
+        var item = One(r, PlanKind.ComponentsNotChecked);
+        Assert.Equal("1 canvas app(s)", item.Subject);
+        Assert.Contains("holds 1 canvas app(s);", item.Message);
+        Assert.DoesNotContain("table", item.Message);
+    }
+
+    [Fact]
+    public void A_target_with_neither_tables_nor_canvas_apps_gives_no_item_for_them()
+    {
+        Assert.Empty(NotChecked(Plan(Sol("App", "2.0.0.0"), Installed())));
+    }
+
+    [Fact]
+    public void A_skip_an_install_and_an_unmanaged_upgrade_give_no_table_or_canvas_app_item()
+    {
+        var snap = Installed(new SnapshotComponent(1, G1, null), new(300, G2, null));
+
+        Assert.Empty(NotChecked(Plan(Sol("App", "1.0.0.0"), snap)));
+        Assert.Empty(NotChecked(Plan(Sol("App", "0.9.0.0"), snap)));
+        Assert.Empty(NotChecked(Plan(Sol("App", "2.0.0.0"))));
+        Assert.Empty(NotChecked(Plan(Sol("App", "2.0.0.0", managed: false), snap with { Managed = false })));
+    }
+
+    [Fact]
+    public void The_table_and_canvas_app_items_are_information_and_do_not_block()
+    {
+        var snap = Installed(new SnapshotComponent(1, G1, null), new(300, G2, null));
+        DeployZip[] zips = [Zip(Sol("App", "2.0.0.0"))];
+        var target = Target(zips, [snap]);
+
+        var r = DeployPlan.Build(zips, target);
+
+        Assert.All(Of(r, PlanKind.ComponentsNotChecked), i => Assert.Equal(PlanSeverity.Info, i.Severity));
+        Assert.Equal(2, NotChecked(r).Length);
+        Assert.False(r.Blocked);
     }
 
     // ---- layers ------------------------------------------------------------------------------------------------
@@ -849,6 +936,7 @@ public class DeployPlanTests
         Assert.Equal((PlanAction.Upgrade, new InstalledState("1.0.0.0", true, true)), (s.Action, s.Installed));
         Assert.Equal(["Notify on new work item"], Of(r, PlanKind.UnmanagedLayer).Select(i => i.Subject));
         Assert.Equal(["1 table(s)"], Of(r, PlanKind.Deletes).Select(i => i.Subject));
+        Assert.Equal(["1 table(s)"], Of(r, PlanKind.ComponentsNotChecked).Select(i => i.Subject));
         Assert.Equal([new PlannedFlow("Notify on new work item", "on", true, "on", "on")], s.Flows);
         Assert.Empty(Of(r, PlanKind.Settings));
         Assert.False(r.Blocked);

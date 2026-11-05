@@ -61,7 +61,7 @@ public class DiffCommandTests : IDisposable
 
         Assert.Equal(1, code);
         Assert.Equal("", output);
-        Assert.Contains("\"schemaVersion\": 2", File.ReadAllText(file));
+        Assert.Contains("\"schemaVersion\": 3", File.ReadAllText(file));
     }
 
     [Fact]
@@ -87,9 +87,9 @@ public class DiffCommandTests : IDisposable
         // Unlike powerops-seed, the YAML v2 canvas app was edited (a button added) and republished.
         Assert.Equal(
             [
-                "  added connectionReference pops_SpareDataverse [risk: connection-reference]",
-                "  changed workflow Stamp work item status (4c8dd007-dfcb-f111-a05c-0022480697a8): definition changed",
-                "  changed canvasApp pops_workitems_2af60: definition changed; republished (AppVersion 2026-10-19T17:09:47.0000000Z → 2026-10-20T04:41:27.0000000Z)",
+                "  added connectionReference pops_SpareDataverse [risk: connection-reference, same-version]",
+                "  changed workflow Stamp work item status (4c8dd007-dfcb-f111-a05c-0022480697a8): definition changed [risk: same-version]",
+                "  changed canvasApp pops_workitems_2af60: definition changed; republished (AppVersion 2026-10-19T17:09:47.0000000Z → 2026-10-20T04:41:27.0000000Z) [risk: same-version]",
             ],
             output.Split('\n').Where(l => l.StartsWith("  ", StringComparison.Ordinal)));
     }
@@ -196,7 +196,7 @@ public class DiffCommandTests : IDisposable
             "agent 'demo_agent': 1 component not read as tools, so a change to it is not compared: 1 'Widget'",
         ];
 
-        foreach (var (a, b, line) in new[] { (old, @new, "removed agentTool demo_agent.tool.Work [risk: removed-component, agent-tool]"), (@new, old, "added agentTool demo_agent.tool.Work [risk: agent-tool]") })
+        foreach (var (a, b, line) in new[] { (old, @new, "removed agentTool demo_agent.tool.Work [risk: removed-component, agent-tool, same-version]"), (@new, old, "added agentTool demo_agent.tool.Work [risk: agent-tool, same-version]") })
         {
             var (code, output, err) = Run("diff", a, b);
             Assert.Equal(1, code); // the McpTool tools are read, the segments are not
@@ -224,17 +224,17 @@ public class DiffCommandTests : IDisposable
         var (code, output, err) = Run("diff", Path.Combine(NewUi, from), Path.Combine(NewUi, to));
 
         Assert.Equal(1, code);
-        Assert.Contains("  changed agent cr123_loanhelper_abc123: instructions changed [risk: agent-instructions]\n", output.ReplaceLineEndings("\n"));
+        Assert.Contains("  changed agent cr123_loanhelper_abc123: instructions changed [risk: agent-instructions, same-version]\n", output.ReplaceLineEndings("\n"));
         Assert.Contains("1 change (0 added, 0 removed, 1 changed)", output);
         Assert.Equal("", err);
         using var json = System.Text.Json.JsonDocument.Parse(Run("diff", Path.Combine(NewUi, from), Path.Combine(NewUi, to), "--format", "json").Out);
         Assert.Empty(json.RootElement.GetProperty("notCompared").EnumerateArray());
-        Assert.Equal(["agent-instructions"], json.RootElement.GetProperty("changes")[0].GetProperty("risks").EnumerateArray().Select(e => e.GetString()));
+        Assert.Equal(["agent-instructions", "same-version"], json.RootElement.GetProperty("changes")[0].GetProperty("risks").EnumerateArray().Select(e => e.GetString()));
     }
 
     [Theory]
-    [InlineData("v1.zip", "v1-no-learn-tool.zip", "  removed agentTool cr123_loanhelper_abc123.tool.MicrosoftLearnDocsMCP-MicrosoftLearnDocsMCPServer_Liw [risk: removed-component, agent-tool]\n", "1 change (0 added, 1 removed, 0 changed)")]
-    [InlineData("v1-no-learn-tool.zip", "v1.zip", "  added agentTool cr123_loanhelper_abc123.tool.MicrosoftLearnDocsMCP-MicrosoftLearnDocsMCPServer_Liw [risk: agent-tool]\n", "1 change (1 added, 0 removed, 0 changed)")]
+    [InlineData("v1.zip", "v1-no-learn-tool.zip", "  removed agentTool cr123_loanhelper_abc123.tool.MicrosoftLearnDocsMCP-MicrosoftLearnDocsMCPServer_Liw [risk: removed-component, agent-tool, same-version]\n", "1 change (0 added, 1 removed, 0 changed)")]
+    [InlineData("v1-no-learn-tool.zip", "v1.zip", "  added agentTool cr123_loanhelper_abc123.tool.MicrosoftLearnDocsMCP-MicrosoftLearnDocsMCPServer_Liw [risk: agent-tool, same-version]\n", "1 change (1 added, 0 removed, 0 changed)")]
     public void A_removed_or_added_learn_tool_of_a_new_ui_agent_exits_one_with_the_tool_risks_and_no_note(string from, string to, string line, string summary)
     {
         var (code, output, err) = Run("diff", Path.Combine(NewUi, from), Path.Combine(NewUi, to));

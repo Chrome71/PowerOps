@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "old": {
     "uniqueName": "PowerOpsSeed",
     "version": "1.0.0.0"
@@ -15,7 +15,8 @@
       "key": "demo_agent",
       "detail": "instructions changed",
       "risks": [
-        "agent-instructions"
+        "agent-instructions",
+        "same-version"
       ]
     },
     {
@@ -23,14 +24,17 @@
       "component": "agentTool",
       "key": "demo_agent.topic.Orders",
       "detail": "mode: Invoker → Maker",
-      "risks": []
+      "risks": [
+        "same-version"
+      ]
     },
     {
       "kind": "added",
       "component": "agentTool",
       "key": "demo_agent.topic.Refunds",
       "risks": [
-        "agent-tool"
+        "agent-tool",
+        "same-version"
       ]
     }
   ],

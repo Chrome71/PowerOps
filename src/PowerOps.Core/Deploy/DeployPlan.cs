@@ -332,7 +332,14 @@ public static class DeployPlan
             (CanvasAppType, "canvas app(s)", "the managed upgrade removes canvas apps the zip no longer has"),
         })
         {
-            var gone = snap.Components.Count(c => c.Type == type) - solution.RootComponents.Count(c => c.Type == type.ToString(CultureInfo.InvariantCulture));
+            var held = snap.Components.Count(c => c.Type == type);
+            if (held > 0)
+            {
+                add(PlanKind.ComponentsNotChecked, $"{held} {noun}",
+                    $"The target solution holds {held} {noun}; the zip names them by schema name and the target by id, so their deletion is checked by count only and one replaced under another name is not seen.");
+            }
+
+            var gone = held - solution.RootComponents.Count(c => c.Type == type.ToString(CultureInfo.InvariantCulture));
             if (gone > 0)
             {
                 add(PlanKind.Deletes, $"{gone} {noun}", $"The upgrade deletes at least {gone} of them; {effect}.");
@@ -438,6 +445,10 @@ public static class DeployPlan
         var numbers = new long[4];
         return parts.Select((p, i) => long.TryParse(p, NumberStyles.None, CultureInfo.InvariantCulture, out numbers[i])).All(ok => ok) ? numbers : null;
     }
+
+    /// <summary>True when both are four numeric parts and equal as numbers (<c>1.0.0.0</c> and <c>1.0.0.00</c>): the test that makes <c>deploy plan</c> skip a zip. Anything else, equal text included, is not equal.</summary>
+    internal static bool EqualVersions(string? a, string? b) =>
+        ParseVersion(a) is { } x && ParseVersion(b) is { } y && Compare(x, y) == 0;
 
     private static int Compare(long[] a, long[] b) => a.Zip(b, (x, y) => x.CompareTo(y)).FirstOrDefault(c => c != 0);
 }
