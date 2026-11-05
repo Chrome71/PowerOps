@@ -380,6 +380,30 @@
       "notChecked": []
     },
     {
+      "path": "tests/fixtures/flowtests/capture/solution",
+      "uniqueName": "PowerOpsCapture",
+      "version": "1.0.0.0",
+      "managed": false,
+      "publisher": {
+        "uniqueName": "powerops",
+        "prefix": "pops"
+      },
+      "requires": [
+        "Active"
+      ],
+      "findings": [
+        {
+          "ruleId": "PO016",
+          "severity": "warning",
+          "message": "Flow 'PowerOps capture' has 120 actions and a nesting depth of 1.",
+          "file": "Workflows/PowerOpscapture-00000000-0000-0000-0000-000000000058.json",
+          "component": "PowerOps capture",
+          "fix": "Move self-contained parts of the flow into child flows, and reduce nested scopes, conditions and loops.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO016.md"
+        }
+      ]
+    },
+    {
       "path": "tests/fixtures/powerops-seed-yaml/v1",
       "uniqueName": "PowerOpsSeed",
       "version": "1.0.0.0",
@@ -564,9 +588,9 @@
     }
   ],
   "summary": {
-    "solutions": 12,
+    "solutions": 13,
     "errors": 0,
-    "warnings": 43,
+    "warnings": 44,
     "baselined": 0
   }
 }

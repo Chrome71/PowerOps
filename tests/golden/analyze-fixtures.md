@@ -1,6 +1,6 @@
 ## PowerOps analyze
 
-**12 solutions, 0 errors, 43 warnings**
+**13 solutions, 0 errors, 44 warnings**
 
 ### tests/fixtures/alm-makers: ALMAcceleratorforMakers 0.0.0.0
 
@@ -59,6 +59,12 @@ Not checked:
 ### tests/fixtures/core-portal: msgov\_coreportal 1.0.0.0
 
 No findings.
+
+### tests/fixtures/flowtests/capture/solution: PowerOpsCapture 1.0.0.0
+
+| Severity | Rule | File | Message | Fix |
+|---|---|---|---|---|
+| warning | [PO016](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO016.md) | Workflows/PowerOpscapture-00000000-0000-0000-0000-000000000058.json | Flow 'PowerOps capture' has 120 actions and a nesting depth of 1. | Move self-contained parts of the flow into child flows, and reduce nested scopes, conditions and loops. |
 
 ### tests/fixtures/powerops-seed-yaml/v1: PowerOpsSeed 1.0.0.0
 
