@@ -1,12 +1,3 @@
-tests/fixtures/agents/new-ui/v1-no-learn-tool.zip: PowerOpsLiveAgent 1.0.0.0 (publisher powerops, prefix pops)
-  warning PO009 customizations.xml: Component 'cr123_draft_def456.cr.shared_workiqmcp.shared-workiqmcp-00000000-0000-0000-0000-000000000002' does not use the publisher prefix 'pops'.
-  warning PO009 customizations.xml: Component 'cr123_loanhelper_abc123.cr.shared_microsoftlearndocsmcpserver.00000000000000000000000000000001' does not use the publisher prefix 'pops'.
-tests/fixtures/agents/new-ui/v1.zip: PowerOpsLiveAgent 1.0.0.0 (publisher powerops, prefix pops)
-  warning PO009 customizations.xml: Component 'cr123_draft_def456.cr.shared_workiqmcp.shared-workiqmcp-00000000-0000-0000-0000-000000000002' does not use the publisher prefix 'pops'.
-  warning PO009 customizations.xml: Component 'cr123_loanhelper_abc123.cr.shared_microsoftlearndocsmcpserver.00000000000000000000000000000001' does not use the publisher prefix 'pops'.
-tests/fixtures/agents/new-ui/v2.zip: PowerOpsLiveAgent 1.0.0.0 (publisher powerops, prefix pops)
-  warning PO009 customizations.xml: Component 'cr123_draft_def456.cr.shared_workiqmcp.shared-workiqmcp-00000000-0000-0000-0000-000000000002' does not use the publisher prefix 'pops'.
-  warning PO009 customizations.xml: Component 'cr123_loanhelper_abc123.cr.shared_microsoftlearndocsmcpserver.00000000000000000000000000000001' does not use the publisher prefix 'pops'.
 tests/fixtures/alm-makers: ALMAcceleratorforMakers 0.0.0.0 (publisher catteam, prefix cat)
   requires EnvironmentVariables (1.0.2.77)
   warning PO007 environmentvariabledefinitions/cat_DependentEnvironmentUrl/environmentvariabledefinition.xml: Environment variable 'cat_DependentEnvironmentUrl' has a default value that looks like a URL.
@@ -50,6 +41,9 @@ tests/fixtures/coe-auditlogs: CenterofExcellenceAuditLogs 3.27.2 (publisher powe
   warning PO017 Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json: Flow 'Deprecated | [Child] Admin | Sync Logs' runs loop 'Apply_to_each_Audit_Log' inside loop 'Apply_to_each_cluster'.
 tests/fixtures/core-portal: msgov_coreportal 1.0.0.0 (publisher msgovsolutions, prefix msgov)
   no findings
+tests/fixtures/flowtests/capture/solution: PowerOpsCapture 1.0.0.0 (publisher powerops, prefix pops)
+  requires Active
+  warning PO016 Workflows/PowerOpscapture-00000000-0000-0000-0000-000000000058.json: Flow 'PowerOps capture' has 120 actions and a nesting depth of 1.
 tests/fixtures/powerops-seed-yaml/v1: PowerOpsSeed 1.0.0.0 (publisher powerops, prefix pops)
   no findings
 tests/fixtures/powerops-seed-yaml/v2: PowerOpsSeed 1.0.0.0 (publisher powerops, prefix pops)
@@ -73,4 +67,4 @@ tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip: Contoso_sample 1.0.0.1 (
   warning PO010 solution.xml: Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher.
 tests/fixtures/zips/polymorphiclookupexamplesolution.zip: polymorphiclookupexamplesolution 1.0.0.0 (publisher examplepublisher, prefix sample)
   no findings
-15 solutions, 0 errors, 49 warnings
+13 solutions, 0 errors, 44 warnings

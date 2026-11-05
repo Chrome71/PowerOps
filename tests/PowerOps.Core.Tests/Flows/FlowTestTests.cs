@@ -487,7 +487,7 @@ public class FlowTestTests
           "C": {"type":"Compose","inputs":{"a":{"b/c":[10,20]},"n":1,"f":2.50},"runAfter":{"Init":["Succeeded"]}},
           "Each": {"type":"Foreach","foreach":[1,2],"actions":{"Conn":{"type":"OpenApiConnection","inputs":{"parameters":{"id":"@item()"}},"runAfter":{}}},"runAfter":{"C":["Succeeded"]}},
           "Resp": {"type":"Response","inputs":{"statusCode":200,"headers":{"x":"y"},"body":{"ok":true}},"runAfter":{"Each":["Succeeded"]}},
-          "Never": {"type":"Foreach","foreach":[],"actions":{"Inner":{"type":"Compose","inputs":1,"runAfter":{}}},"runAfter":{"Resp":["Succeeded"]}},
+          "Never": {"type":"Until","expression":"@equals(1, 1)","limit":{"count":0},"actions":{"Inner":{"type":"Compose","inputs":1,"runAfter":{}}},"runAfter":{"Resp":["Succeeded"]}},
           "Skipme": {"type":"Compose","inputs":1,"runAfter":{"Resp":["Failed"]}}
         }
         """;

@@ -172,13 +172,13 @@ public class AnalyzeCommandTests : IDisposable
     }
 
     [Fact]
-    public void Json_output_parses_and_has_fifteen_solutions()
+    public void Json_output_parses_and_has_sixteen_solutions()
     {
         var (code, output, _) = Run("analyze", Fixtures, "--format", "json", "--fail-on", "none");
 
         Assert.Equal(0, code);
         using var doc = JsonDocument.Parse(output);
-        Assert.Equal(15, doc.RootElement.GetProperty("summary").GetProperty("solutions").GetInt32());
+        Assert.Equal(16, doc.RootElement.GetProperty("summary").GetProperty("solutions").GetInt32());
     }
 
     [Fact]
@@ -187,7 +187,7 @@ public class AnalyzeCommandTests : IDisposable
         var (code, output, _) = Run("analyze", Fixtures, "--format", "markdown", "--fail-on", "none");
 
         Assert.Equal(0, code);
-        Assert.StartsWith("## PowerOps analyze\n\n**15 solutions, ", output);
+        Assert.StartsWith("## PowerOps analyze\n\n**16 solutions, ", output);
     }
 
     [Fact]
@@ -212,7 +212,7 @@ public class AnalyzeCommandTests : IDisposable
         Assert.Equal(0, code);
         Assert.Equal("", output);
         using var doc = JsonDocument.Parse(File.ReadAllText(file));
-        Assert.Equal(15, doc.RootElement.GetProperty("solutions").GetArrayLength());
+        Assert.Equal(16, doc.RootElement.GetProperty("solutions").GetArrayLength());
     }
 
     [Fact]

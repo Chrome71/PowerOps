@@ -29,6 +29,14 @@ Scrubbed before committing:
 - Renamed the publisher display name to "PowerOps Fixtures".
 - `contoso.sharepoint.com` is a placeholder. The files contain no tenant URLs, environment IDs or user names; the remaining GUIDs are component IDs.
 
+`flowtests/capture/` holds the cloud comparison of the plan `m58-flow-conformance`, made for this project under the same licence. `solution/` is the unmanaged solution `PowerOpsCapture`, written for the capture (one manually triggered flow, "PowerOps capture", with 120 actions, one Number environment variable and one Dataverse connection reference), imported into the maintainer's Dev environment on 2026-11-05, run once, exported with `pac solution export` (pac 2.14.1) and unpacked with `pac solution unpack`. `run.json` is that run's history, read through the Power Automate management API: each action's status, code, error code and message, inputs and outputs. `expected-unsupported.json` lists the actions the simulator refuses, with the reason for each.
+
+Scrubbed before committing:
+
+- Renamed the publisher display name to "PowerOps Fixtures". The flow's id is the fake `00000000-0000-0000-0000-000000000058`, chosen before the import.
+- From the run: removed every header, the run id, tracking ids, and start and end times, the List rows action's `host` (it named a subscription) and its `@odata.context` (it named the organisation's host). The List rows action returned no rows, so no row data is kept.
+- `utcNow` in `run.json` is the run's day with the time set to midnight. The only links left are Microsoft's public `aka.ms` help links inside the service's error messages.
+
 `powerops-seed-yaml/` is the same `PowerOpsSeed` solution in the Dataverse Git integration YAML layout, made for this project under the same licence. The solution was bound to an Azure DevOps repo with a solution binding (folder `seed`), and v1 and v2 were committed from the test environment. The files are the working tree of each commit under `seed/PowerOpsSeed/`, without the Git history. Expected findings: none for `v1/`; PO005 and PO006, as in `powerops-seed/v2`, plus PO014 for `v2/`, where the canvas app gains a button whose `OnSelect` is `Launch("https://contoso.sharepoint.com/sites/ops")`.
 
 Scrubbed and trimmed before committing:

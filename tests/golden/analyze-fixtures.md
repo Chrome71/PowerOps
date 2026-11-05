@@ -1,39 +1,6 @@
 ## PowerOps analyze
 
-**15 solutions, 0 errors, 49 warnings**
-
-### tests/fixtures/agents/new-ui/v1-no-learn-tool.zip: PowerOpsLiveAgent 1.0.0.0
-
-| Severity | Rule | File | Message | Fix |
-|---|---|---|---|---|
-| warning | [PO009](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md) | customizations.xml | Component 'cr123\_draft\_def456.cr.shared\_workiqmcp.shared-workiqmcp-00000000-0000-0000-0000-000000000002' does not use the publisher prefix 'pops'. | Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency. |
-| warning | [PO009](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md) | customizations.xml | Component 'cr123\_loanhelper\_abc123.cr.shared\_microsoftlearndocsmcpserver.00000000000000000000000000000001' does not use the publisher prefix 'pops'. | Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency. |
-
-Not checked:
-
-- PO027 to PO031 not checked for agent 'cr123\_loanhelper\_abc123': its recognizer is 'CLICopilotRecognizer', not GenerativeAIRecognizer or VirtualAgentsRecognizer, so it may not run on the standard harness that these rules read.
-
-### tests/fixtures/agents/new-ui/v1.zip: PowerOpsLiveAgent 1.0.0.0
-
-| Severity | Rule | File | Message | Fix |
-|---|---|---|---|---|
-| warning | [PO009](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md) | customizations.xml | Component 'cr123\_draft\_def456.cr.shared\_workiqmcp.shared-workiqmcp-00000000-0000-0000-0000-000000000002' does not use the publisher prefix 'pops'. | Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency. |
-| warning | [PO009](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md) | customizations.xml | Component 'cr123\_loanhelper\_abc123.cr.shared\_microsoftlearndocsmcpserver.00000000000000000000000000000001' does not use the publisher prefix 'pops'. | Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency. |
-
-Not checked:
-
-- PO027 to PO031 not checked for agent 'cr123\_loanhelper\_abc123': its recognizer is 'CLICopilotRecognizer', not GenerativeAIRecognizer or VirtualAgentsRecognizer, so it may not run on the standard harness that these rules read.
-
-### tests/fixtures/agents/new-ui/v2.zip: PowerOpsLiveAgent 1.0.0.0
-
-| Severity | Rule | File | Message | Fix |
-|---|---|---|---|---|
-| warning | [PO009](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md) | customizations.xml | Component 'cr123\_draft\_def456.cr.shared\_workiqmcp.shared-workiqmcp-00000000-0000-0000-0000-000000000002' does not use the publisher prefix 'pops'. | Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency. |
-| warning | [PO009](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO009.md) | customizations.xml | Component 'cr123\_loanhelper\_abc123.cr.shared\_microsoftlearndocsmcpserver.00000000000000000000000000000001' does not use the publisher prefix 'pops'. | Recreate the component under the solution's publisher, or keep it in a solution of the publisher that owns it and add that solution as a dependency. |
-
-Not checked:
-
-- PO027 to PO031 not checked for agent 'cr123\_loanhelper\_abc123': its recognizer is 'CLICopilotRecognizer', not GenerativeAIRecognizer or VirtualAgentsRecognizer, so it may not run on the standard harness that these rules read.
+**13 solutions, 0 errors, 44 warnings**
 
 ### tests/fixtures/alm-makers: ALMAcceleratorforMakers 0.0.0.0
 
@@ -92,6 +59,12 @@ Not checked:
 ### tests/fixtures/core-portal: msgov\_coreportal 1.0.0.0
 
 No findings.
+
+### tests/fixtures/flowtests/capture/solution: PowerOpsCapture 1.0.0.0
+
+| Severity | Rule | File | Message | Fix |
+|---|---|---|---|---|
+| warning | [PO016](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO016.md) | Workflows/PowerOpscapture-00000000-0000-0000-0000-000000000058.json | Flow 'PowerOps capture' has 120 actions and a nesting depth of 1. | Move self-contained parts of the flow into child flows, and reduce nested scopes, conditions and loops. |
 
 ### tests/fixtures/powerops-seed-yaml/v1: PowerOpsSeed 1.0.0.0
 

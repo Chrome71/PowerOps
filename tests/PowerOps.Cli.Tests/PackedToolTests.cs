@@ -49,7 +49,7 @@ public class PackedToolTests
             var analyze = Run(exe, ["analyze", fixtures, "--format", "json", "--fail-on", "warning"]);
             Assert.True(analyze.Code == 1, analyze.Out + analyze.Err);
             using var doc = JsonDocument.Parse(analyze.Out);
-            Assert.Equal(15, doc.RootElement.GetProperty("solutions").GetArrayLength());
+            Assert.Equal(16, doc.RootElement.GetProperty("solutions").GetArrayLength());
 
             Assert.Equal(2, Run(exe, ["analyze", Path.Combine(temp, "missing")]).Code);
 
