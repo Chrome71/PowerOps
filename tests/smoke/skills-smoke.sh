@@ -23,6 +23,8 @@ trap 'rm -rf "$work"' EXIT
 failures=0
 
 fail() { echo "FAIL [$scenario]: $*"; failures=$((failures + 1)); }
+# The sketch's size and screen count go in the log: the 40 KB cap (M70) was set before any sketch was measured.
+sketch_size() { echo "sketch [$scenario]: $(wc -c <"$sketch") bytes, $(grep -o 'data-screen="' "$sketch" | wc -l) screens"; }
 
 # Build the CLI once and put a `powerops` wrapper on PATH for the agent.
 dotnet build "$repo_root/src/PowerOps.Cli" -c Release -p:RestoreLockedMode=true -o "$work/bin" --nologo -v quiet >"$work/build.log" 2>&1 ||
@@ -175,8 +177,8 @@ check_fast_path() {
     first="$reply"
     reply="$(agent_turn "$answer")" || fail "the agent call failed"
     printf -- '--- user ---\n%s\n--- agent ---\n%s\n' "$answer" "$reply"
-    # The A/B/C menu may come with the route question or right after the answer.
-    [ "$(menu_letters "$first"$'\n'"$reply")" = ABC ] || fail "no lettered A/B/C menu"
+    # The A/B/C menu may come with the route question or right after the answer; D joins it when Screens names anything.
+    case "$(menu_letters "$first"$'\n'"$reply")" in ABC | ABCD) ;; *) fail "no lettered A/B/C menu" ;; esac
     [ "$(header status)" = draft ] || fail "status is '$(header status)' after a route answer, expected draft"
   else
     fail "no drafted plan under docs/plans"
@@ -248,7 +250,8 @@ if [ -n "$(plan_dir)" ]; then
   [ "$(questions | grep -vic 'licen\|environment')" -le 1 ] || fail "more than one question besides licensing and environments"
   [ "$sketch_offered" = 1 ] || fail "no lettered option to sketch the screens"
   grep -q '^- .*prototype: skipped (.*(answered by: person)' "$(plan_dir)/decisions.md" || fail "no person's 'prototype: skipped (' log line"
-  [ -f "$(plan_dir)/mockups/prototype.html" ] || fail "no mockups/prototype.html written at approval"
+  sketch="$(plan_dir)/mockups/prototype.html"
+  if [ -f "$sketch" ]; then sketch_size; else fail "no mockups/prototype.html written at approval"; fi
 else
   fail "no plan folder under docs/plans"
 fi
@@ -270,6 +273,7 @@ if [ -n "$(plan_dir)" ]; then
   grep -q '^- .*prototype: approved mockups/prototype.html' "$(plan_dir)/decisions.md" || fail "no 'prototype: approved' log line"
   sketch="$(plan_dir)/mockups/prototype.html"
   if [ -f "$sketch" ]; then
+    sketch_size
     grep -q 'Sketch' "$sketch" || fail "the sketch has no Sketch label"
     if grep -qi '<script' "$sketch"; then fail "the sketch has a script"; fi
     if grep -qiE 'https?://' "$sketch"; then fail "the sketch has an external link"; fi

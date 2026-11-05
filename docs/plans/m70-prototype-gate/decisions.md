@@ -82,3 +82,6 @@ Answer: Keep D as "sketch now": it starts the same skill before approval (answer
 - review 1 (Sonnet 5.5, fresh context): 3 High, 7 Medium, 3 Low; R7 and R9 asked as round 4, the rest fixed in the plan
 - review 2 (second pass): R1 to R13 closed; R14 (Low) accepted, since `Screens` names have no fixed shape; R15 (Low) fixed in row 9 (answered by: agent this session)
 - signed off 2026-11-05 by the person: "A: sign off now", R14 acceptance included (answered by: person)
+- smoke on Claude Code 2026-11-05, two runs with the person's yes to the second: the first was void (`claude -p` loaded an older PowerOps plugin installed for the user, fixed by `--setting-sources project,local`); the second passed every check but one, the fast path's "lettered A/B/C menu", because a model-driven app has screens and so the menu rightly showed D too (the check now takes ABC or ABCD, tested on that run's log, not rerun)
+- sketch sizes from that run: `quick` 24,103 bytes and `standard` 19,407 bytes, 4 screens each, under the 40,960-byte cap; no run drew more than 4 screens, so 8 screens at 40 KB stays unmeasured
+- status set to done after the build, header only, so the hash holds
