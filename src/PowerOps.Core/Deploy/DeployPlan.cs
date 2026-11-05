@@ -332,7 +332,14 @@ public static class DeployPlan
             (CanvasAppType, "canvas app(s)", "the managed upgrade removes canvas apps the zip no longer has"),
         })
         {
-            var gone = snap.Components.Count(c => c.Type == type) - solution.RootComponents.Count(c => c.Type == type.ToString(CultureInfo.InvariantCulture));
+            var held = snap.Components.Count(c => c.Type == type);
+            if (held > 0)
+            {
+                add(PlanKind.ComponentsNotChecked, $"{held} {noun}",
+                    $"The target solution holds {held} {noun}; the zip names them by schema name and the target by id, so their deletion is checked by count only and one replaced under another name is not seen.");
+            }
+
+            var gone = held - solution.RootComponents.Count(c => c.Type == type.ToString(CultureInfo.InvariantCulture));
             if (gone > 0)
             {
                 add(PlanKind.Deletes, $"{gone} {noun}", $"The upgrade deletes at least {gone} of them; {effect}.");
