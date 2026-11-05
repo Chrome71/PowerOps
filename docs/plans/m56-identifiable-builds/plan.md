@@ -1,9 +1,11 @@
 ---
-status: approved
-review: pending
+status: signed-off
+review: done
 environment: null
 depth: quick
 supersedes: null
+signed-off: 2026-11-04
+signed-off-hash: 5198c4d58ccc31ec44414328cac092f046b705987c7c176977f3132c1246b8f1
 ---
 
 # M56: Identifiable builds

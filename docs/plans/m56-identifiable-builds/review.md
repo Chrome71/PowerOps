@@ -1,4 +1,4 @@
-plan-hash: 6990fecba064e6e4da1edf946a069f8bba285f3dc0ee5588cb729e2400d3040d
+plan-hash: 5198c4d58ccc31ec44414328cac092f046b705987c7c176977f3132c1246b8f1
 model: claude-sonnet-5-5
 fresh-context: yes
 
@@ -39,6 +39,10 @@ What held:
 - R14: `WorkflowTests.cs:22-23` and `Flow_tests_run_on_every_event_when_set_and_the_last_step_fails_the_job` are now right (checked against the file).
 - R15: Q17, row 6 and CONTRIBUTING state that the rule covers the `powerops` calls in `action.yml` and that the warning watches `action/` only, with the reason.
 - The Round 3 edits changed only Done when 2, two citations in row 4, row 6, the first-release step 1, one Assumptions bullet and decisions Q13 and Q17. They add no URL, GUID, email or person's name to the plan folder. The CONTRIBUTING text adds no flag or command that `DocsDriftTests` or `InstallLineTests` look at (its code blocks have no `powerops` invocation line except inside prose spans with `--version`, which is a known flag, and no `dotnet tool install`); it names the tag as `PowerOps-v<version>`, which the `powerops(@| )v\d` pattern does not match.
+
+## Fourth pass
+
+Run against HEAD `39ab2d9`; `plan status` gives `approved`, no violations and `bodyHash` `5198c4d5...b8f1`, the hash in the first line. The plan body differs from the third pass only in Environments and route step 3 and row 6, and decisions Q13 changed: step 3, row 6 and the CONTRIBUTING text now say the pin is the first 64 characters of the package's line of `SHA256SUMS` (R16), and a half attach with the package present is finished by writing `SHA256SUMS` from the attached package and uploading it alone, which keeps the attestation, while a lone `SHA256SUMS` is removed first (R17). Both match what R16 and R17 asked, the commands agree with the workflow's file names, and nothing else changed. R16 and R17 hold; no new findings.
 
 ## Findings
 

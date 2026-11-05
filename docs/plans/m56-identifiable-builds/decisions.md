@@ -112,3 +112,7 @@ GitHub's "Re-run workflows and jobs" page does not say that a re-run of failed j
 - questions answered by the building session under the user's delegation of 2026-10-22 (autonomous milestone mode), except Q1, which the person answered
 - areas not asked: users, screens, solution and publisher; the change is to this repo's build and release, and the plan answers each or marks it not applicable
 - approved 2026-11-04 by the building session under the user's delegation of 2026-10-22, for a fresh-context review
+- fresh review (a general-purpose subagent following `powerops-review-plan`, Sonnet, fresh context) 2026-11-04: first pass 1 High, 5 Medium, 5 Low (R1 to R11); answered in `plan.md` and in Round 2 here (Q2 and Q3 amended, Q13 to Q17 added). R8 and R10(a) accepted with reasons, the rest fixed
+- the same reviewer's second pass: R1 to R11 hold except R3's basis; 1 Medium and 3 Low new (R12 to R15), answered in Round 3 (Q13 and Q17 amended). Third pass: R12 to R15 hold; 2 Low new (R16, R17), fixed. Fourth pass: R16 and R17 hold, no new finding. In all: 1 High, 6 Medium and 10 Low, every one fixed but R8 and R10(a), with no High or Medium open
+- the code (rows 1 to 5 and 7) built by an implementer subagent (Sonnet, `powerops-implementer`) in this worktree; the docs (row 6) by the building session; read by the building session before commit
+- signed off 2026-11-04 by the building session under the user's delegation of 2026-10-22, with no High or Medium finding open (`powerops plan sign-off`; `signed-off-hash` equals `review.md`'s `plan-hash`)
