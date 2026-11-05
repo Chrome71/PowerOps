@@ -797,9 +797,12 @@ public class ExpressionTests
     [InlineData("addDays('2018-03-15T00:00:00Z', 1, 'yyyy', 'en-us')")]
     public void AddDays_with_a_format_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
 
-    [Fact]
-    public void AddDays_with_an_empty_format_is_unsupported() =>
-        Assert.Throws<UnsupportedException>(() => Eval("addDays('2018-03-15T00:00:00Z', 1, '')"));
+    [Theory]
+    [InlineData("addDays('2018-03-15T00:00:00Z', 1, '')")]
+    [InlineData("addDays('2018-03-15', 1, 'yyyy-MM-dd')")] // a format needs a timestamp ending in Z
+    [InlineData("addDays('2018-03-15T10:30:00+02:00', 0, 'HH:mm')")]
+    [InlineData("addDays('2018-03-15T10:30:00+00:00', 0, 'HH:mm')")]
+    public void AddDays_with_a_format_is_unsupported_for(string expression) => Assert.Throws<UnsupportedException>(() => Eval(expression));
 
     // formatDateTime: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#formatDateTime
     // and https://learn.microsoft.com/power-automate/date-time-values and https://learn.microsoft.com/power-automate/expression-cookbook#date-and-time
@@ -818,7 +821,8 @@ public class ExpressionTests
     [InlineData("formatDateTime('2009-06-15T13:45:30', 'yyyy/MM/dd hh:mm:ss tt')", "\"2009/06/15 01:45:30 PM\"")]
     [InlineData("formatDateTime('2026-03-18T14:30:00Z', 'MMMM dd, yyyy')", "\"March 18, 2026\"")]
     [InlineData("formatDateTime('2018-03-15T00:00:00Z')", "\"2018-03-15T00:00:00.0000000Z\"")]
-    [InlineData("formatDateTime('2018-03-15T10:30:00+02:00', 'HH:mm')", "\"08:30\"")] // not on Learn, plan "Not on Learn": an offset becomes UTC
+    [InlineData("formatDateTime('03/15/2018', 'o')", "\"2018-03-15T00:00:00.0000000\"")]
+    [InlineData("formatDateTime('01/31/2016', 'dddd MMMM d', 'FR-fr')", "\"dimanche janvier 31\"")]
     [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'zzz')", "\"+00:00\"")]
     [InlineData("formatDateTime('2018-03-15T13:00:00Z', 'U')", "\"Thursday, March 15, 2018 1:00:00 PM\"")]
     [InlineData("formatDateTime(utcNow(), 'yyyy-MM-dd')", "\"2018-04-15\"")]
@@ -835,7 +839,6 @@ public class ExpressionTests
     [Theory]
     [InlineData("formatDateTime(5)")]
     [InlineData("formatDateTime('not a date')")]
-    [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'X')")]
     [InlineData("formatDateTime('2018-03-15T00:00:00Z', 5)")]
     [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'o', 'xx-YY')")]
     [InlineData("formatDateTime()")]
@@ -845,7 +848,17 @@ public class ExpressionTests
     [Theory]
     [InlineData("formatDateTime('2018-03-15T00:00:00Z', '')")]
     [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'o', '')")]
-    [InlineData("formatDateTime('03/15/2018', 'U')")] // .NET would take this computer's time zone
+    [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'X')")] // Learn doesn't say an invalid format is an error here
+    [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'o', 'de-DE')")] // a known locale Learn doesn't show
+    [InlineData("formatDateTime('2018-03-15T10:30:00+02:00', 'HH:mm')")] // Learn doesn't say whether an offset is kept
+    [InlineData("formatDateTime('2018-03-15T00:00:00+00:00')")]
+    // .NET would take this computer's time zone for these on a timestamp with no zone
+    [InlineData("formatDateTime('03/15/2018', 'U')")]
+    [InlineData("formatDateTime('03/15/2018', 'u')")]
+    [InlineData("formatDateTime('03/15/2018', 'r')")]
+    [InlineData("formatDateTime('03/15/2018', 'R')")]
+    [InlineData("formatDateTime('03/15/2018', 'K')")]
+    [InlineData("formatDateTime('03/15/2018', 'yyyy K')")]
     [InlineData("formatDateTime('03/15/2018', 'zzz')")]
     [InlineData("formatDateTime('03/15/2018', 'HH:mm z')")]
     public void FormatDateTime_is_unsupported_for(string expression) => Assert.Throws<UnsupportedException>(() => Eval(expression));
@@ -856,29 +869,37 @@ public class ExpressionTests
     [InlineData("int('10')", "10")]
     [InlineData("int('42')", "42")]
     [InlineData("int('-7')", "-7")]
-    [InlineData("int('+5')", "5")]
-    [InlineData("int('007')", "7")]
+    [InlineData("int('0')", "0")]
+    [InlineData("int('-0')", "0")]
+    [InlineData("int('2147483647')", "2147483647")]
     [InlineData("int(14)", "14")] // not on Learn, plan "Not on Learn": an integer number gives itself
-    [InlineData("int('9223372036854775807')", "9223372036854775807")]
     public void Int(string expression, string expectedJson) => AssertEval(expression, expectedJson);
 
     [Theory]
     [InlineData("int('3.14')")] // the cookbook: a decimal string is an error, not truncated
+    [InlineData("int('-3.14')")]
     [InlineData("int('abc')")]
     [InlineData("int('')")]
-    [InlineData("int(' 1')")]
-    [InlineData("int('99999999999999999999')")]
+    [InlineData("int('-')")]
     [InlineData("int()")]
     [InlineData("int('1', '2')")]
     public void Int_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
 
     [Theory]
+    [InlineData("int(' 1')")] // Learn doesn't say how int reads a sign, spaces, leading zeros, an exponent or a number past 32 bits
+    [InlineData("int('+5')")]
+    [InlineData("int('007')")]
+    [InlineData("int('1e3')")]
+    [InlineData("int('2147483648')")]
+    [InlineData("int('99999999999999999999')")]
+    [InlineData("int('NaN')")]
+    [InlineData("int(2147483648)")]
     [InlineData("int(1.5)")]
     [InlineData("int(true)")]
     [InlineData("int(null)")]
     [InlineData("int(createArray(1))")]
     [InlineData("int(json('{}'))")]
-    public void Int_of_another_kind_of_value_is_unsupported(string expression) => Assert.Throws<UnsupportedException>(() => Eval(expression));
+    public void Int_of_what_Learn_does_not_settle_is_unsupported(string expression) => Assert.Throws<UnsupportedException>(() => Eval(expression));
 
     // ---- the list of functions
 
