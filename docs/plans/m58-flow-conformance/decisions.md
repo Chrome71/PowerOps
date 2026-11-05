@@ -57,6 +57,38 @@ Answer: 1. The seed already has an environment variable bound to a flow paramete
 1. Two PRs: part 1 offline now; part 2, the capture, after the person's yes, based on `main` once part 1 has merged (recommended)
 Answer: 1, as the master session's brief asks. Part 1 changes no tenant and can merge alone; the capture may show differences that need `fix(core):` changes in the same PR as the fixture that shows them.
 
+## Round 2 (from the review)
+
+### Q3, amended (R1)
+A timestamp with an offset other than `Z` is `unsupported` in `formatDateTime` and in `addDays` with a format. Learn says the default format "preserves time zone information", which reads against converting to UTC, and the conversion was an unchecked M14 choice; a test written from the simulator's `08:30` could pass where the service gives `10:30`. `addDays` without a format keeps its M14 reading (Q8). `addDays` with a format also refuses a timestamp with no zone: with it, `addDays('2018-03-15', 0, 'o')` and `formatDateTime('2018-03-15')` would disagree. The run's expression is not affected: `utcNow()` gives text ending in `Z`.
+
+### Q6, amended (R10)
+`u`, `r`, `R` and formats holding `K` are refused on a timestamp with no zone too: they label the value as UTC or print nothing, and the service's label is not on Learn. `o` stays, because Learn's `formatDateTime('03/15/2018')` example shows it.
+
+### Q1, kept (R2)
+`int` of an integer number still gives itself, now only within 32 bits. Without it, the run's original expression with a Number environment variable is `unsupported`, the F4 finding this milestone exists to close. It is the one value part 1 gives that no Microsoft page states; the plan's Done when 2 says so, and the capture runs `int` on the Number environment variable.
+
+### Q12. Which strings does `int` read? (R2)
+1. Only an optional `-` and digits with no leading zero, within 32 bits; a decimal string or a string with no number is an error; anything else `unsupported` (recommended)
+2. .NET's 64-bit integer parse with a leading sign
+Answer: 1. Learn's section gives `int('10')` and "the limits for the integer data type" with no numbers; the cookbook gives the decimal-string error. Spaces, `+`, leading zeros, exponents and the width of the integer type are not on Learn, so they are refused. A word (`'abc'`) has no integer version at all, so it is an error.
+
+### Q13. An invalid format in `formatDateTime`? (R4)
+1. `unsupported`; an error only in `addDays`, whose section says so (recommended)
+2. An error in both
+Answer: 1. `formatDateTime`'s format row lacks the sentence "If the format isn't a valid value, an error is generated" that `addDays` and `utcNow` have.
+
+### Q14. Which locales? (R5)
+1. `en-us`, `fr-fr` and `es-es`, as Learn shows them; a name .NET doesn't know is an error; any other known name `unsupported`; no culture data at all (invariant globalization) `unsupported` (recommended)
+2. Every locale .NET knows
+Answer: 1. Culture data comes from ICU on both platforms and from the service's own data in the cloud; a culture Learn doesn't show could give other text, and a pass would then be a guess. An unknown name is an error because Learn says so. Invariant mode used to break the type's static initializer; now it gives `unsupported` with the reason.
+
+### Q15. What does Done when 2 prove? (R6)
+Answer: the rewrite `addDays(utcNow(), parameters(...), 'yyyy-MM-dd')` gives the cloud's 2026-11-18 (the Core test runs it exactly so, with an `Int` parameter); the original with `int` gives the same through `powerops test`, on the simulator's reading of `int` (Q1), until part 2 runs it in the cloud. The assertion is the input `item/pops_name` of `Update_a_row`.
+
+### Q16. How is part 2 run and compared? (R7, R8, R9, R11)
+Answer: the plan's "Environments and route" now names Dev and the read-only checks before the yes; builds the solution as files, packs and imports it with `pac` and a deployment settings file that binds an existing connection; runs it once; takes every failing case's input from a Compose output so the flow saves; calls the capture complete when every action has a status; scrubs row data, keys, owner ids, etags, `@odata` links, timestamps, workflow fields and headers as well as ids and hosts; compares status, inputs, outputs and the error code of a failed action, not the message text; runs the leak scan and reads the fixture diff before the second PR; and states the licence, DLP and role evidence from the run of 2026-11-04, which the person confirms at the yes.
+
 ## Log
 
 - Learn checked 2026-11-04 with the Learn MCP tools (a researcher subagent, Sonnet, quoting the pages); the pages are in the plan's Assumptions
@@ -65,3 +97,5 @@ Answer: 1, as the master session's brief asks. Part 1 changes no tenant and can 
 - questions answered by the building session under the user's delegation of 2026-10-22 (autonomous milestone mode)
 - areas not asked: users, screens, solution and publisher; part 1 is a change to this repo, and the plan answers each for part 2
 - approved 2026-11-04 by the building session under the user's delegation of 2026-10-22, for a fresh-context review
+- fresh review (a general-purpose subagent following `powerops-review-plan`, Sonnet, fresh context) 2026-11-04: 1 High, 8 Medium, 2 Low (R1 to R11); answered in `plan.md` (header `environment`, Goal, Done when 1, 2 and 5, rows 1 to 4, 6 to 9, Not on Learn, Environments and route, Assumptions, Steps) and here (Round 2)
+- part 1's code built by an implementer subagent (Sonnet, `powerops-implementer`) in this worktree from rows 1 to 7, test first (54 new tests failed before the code), then changed to the review's rules
