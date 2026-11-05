@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Compares the first parent of HEAD (the base branch tip, on a pull_request merge checkout) with the work tree
-# and writes the Markdown to PO_COMMENT. Inputs come only from the environment: PO_DLL, PO_PATH, PO_COMMENT, RUNNER_TEMP.
+# and writes the Markdown to PO_COMMENT. Inputs come only from the environment: PO_DLL, PO_PATH, PO_REDACT, PO_COMMENT, RUNNER_TEMP.
 # It always exits 0; a failure becomes a fixed text in PO_COMMENT, without the tool's own text.
 set -euo pipefail
 
@@ -27,7 +27,9 @@ if [ "$code" -ne 0 ]; then fail "worktree" "$code"; fi
 
 stderr="$(mktemp)"
 trap 'rm -f "$stderr"' EXIT
-dotnet "$PO_DLL" diff "$base/$PO_PATH" "$PO_PATH" --format markdown --out "$PO_COMMENT" 2>"$stderr" || code=$?
+args=(diff "$base/$PO_PATH" "$PO_PATH" --format markdown --out "$PO_COMMENT")
+if [ "${PO_REDACT:-}" = "true" ]; then args+=(--redact); fi
+dotnet "$PO_DLL" "${args[@]}" 2>"$stderr" || code=$?
 # A solution can put any text in a name, and a log line that starts with :: is a workflow command, so only powerops' own lines reach the log.
 grep -E '^(error|note):' "$stderr" || true
 # Exit 0 (same) and 1 (different) are results; anything else is a failure.
