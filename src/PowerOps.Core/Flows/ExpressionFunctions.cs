@@ -371,10 +371,26 @@ public static class ExpressionFunctions
         return numbers.Aggregate((lowest, next) => CompareNumbers(next!, lowest!) < 0 ? next : lowest);
     }
 
-    private static DateTime Timestamp(string function, string text) =>
-        DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
+    // Learn's forms: ISO 8601 with or without seconds or fraction, and MM/dd/yyyy; other text TryParse takes borrows parts from today's date
+    private static readonly string[] TimestampForms = ["yyyy-MM-dd'T'HH:mm:ss.FFFFFFFK", "yyyy-MM-dd'T'HH:mm:ssK", "yyyy-MM-dd'T'HH:mmK", "yyyy-MM-dd", "MM/dd/yyyy", "MM/dd/yyyy HH:mm:ss"];
+
+    private static void CheckForm(string function, string text)
+    {
+        if (!DateTimeOffset.TryParseExact(text, TimestampForms, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out _))
+        {
+            throw DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out _)
+                ? new UnsupportedException($"{function}() of '{text}' is not supported: only full ISO 8601 timestamps and MM/dd/yyyy are read.")
+                : new ExpressionException($"{function}() cannot read '{text}' as a timestamp.");
+        }
+    }
+
+    private static DateTime Timestamp(string function, string text)
+    {
+        CheckForm(function, text);
+        return DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
             ? parsed.UtcDateTime
             : throw new ExpressionException($"{function}() cannot read '{text}' as a timestamp.");
+    }
 
     /// <summary>Learn's default format, "o": <c>2018-03-25T00:00:00.0000000Z</c> for UTC.</summary>
     private static string Format(DateTime utc) => utc.ToString("o", CultureInfo.InvariantCulture);
@@ -426,7 +442,7 @@ public static class ExpressionFunctions
 
         // Learn's cookbook: a decimal string is an error, not truncated
         var dot = digits.IndexOf('.');
-        if ((dot > 0 && Digits(digits[..dot]) && Digits(digits[(dot + 1)..])) || !double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
+        if ((dot > 0 && Digits(digits[..dot]) && Digits(digits[(dot + 1)..])) || !text.Any(char.IsDigit))
         {
             throw new ExpressionException($"int() cannot convert '{text}' to an integer.");
         }
@@ -447,17 +463,47 @@ public static class ExpressionFunctions
         }
 
         var format = a.Length > 1 ? Str("formatDateTime", a[1]) : "o";
-        var culture = a.Length > 2 ? Locale(Str("formatDateTime", a[2])) : EnUs!;
+        var culture = a.Length > 2 ? Locale(Str("formatDateTime", a[2]), format) : EnUs!;
         return FormatAs("formatDateTime", time, format, culture, context);
     }
 
     // Kind: Utc for a Z, Local for an offset (+00:00 too), Unspecified for no zone.
-    private static DateTime ReadZoned(string function, string text) =>
-        DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var time)
+    private static DateTime ReadZoned(string function, string text)
+    {
+        CheckForm(function, text);
+        return DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var time)
             ? time
             : throw new ExpressionException($"{function}() cannot read '{text}' as a timestamp.");
+    }
 
-    private static CultureInfo Locale(string name)
+    // Learn shows fr-fr and es-es only with 'dddd MMMM d'; day periods, separators and standard patterns can differ between ICU and the service
+    private static bool DayMonthYear(string format)
+    {
+        if (format.Length < 2)
+        {
+            return false;
+        }
+
+        for (var at = 0; at < format.Length;)
+        {
+            var end = at;
+            while (end < format.Length && format[end] == format[at])
+            {
+                end++;
+            }
+
+            if (!(char.IsAsciiLetter(format[at]) ? format[at..end] is "d" or "dd" or "dddd" or "M" or "MM" or "MMMM" or "yy" or "yyyy" : format[at] is ' ' or '-' or ',' or '.'))
+            {
+                return false;
+            }
+
+            at = end;
+        }
+
+        return true;
+    }
+
+    private static CultureInfo Locale(string name, string format)
     {
         if (name.Length == 0)
         {
@@ -465,9 +511,15 @@ public static class ExpressionFunctions
         }
 
         var culture = Culture(name) ?? throw new ExpressionException($"formatDateTime() does not know the locale '{name}'.");
-        return name.ToLowerInvariant() is "en-us" or "fr-fr" or "es-es"
+        var lower = name.ToLowerInvariant();
+        if (lower is not ("en-us" or "fr-fr" or "es-es"))
+        {
+            throw new UnsupportedException($"formatDateTime() with the locale '{name}' is not supported: Learn shows only en-us, fr-fr and es-es, and other cultures' data can differ between ICU and the service.");
+        }
+
+        return lower == "en-us" || DayMonthYear(format)
             ? culture
-            : throw new UnsupportedException($"formatDateTime() with the locale '{name}' is not supported: Learn shows only en-us, fr-fr and es-es, and other cultures' data can differ between ICU and the service.");
+            : throw new UnsupportedException($"formatDateTime() with the locale '{name}' takes only day, month and year formats, as Learn shows: other parts of its culture data can differ between ICU and the service.");
     }
 
     /// <summary>Learn: a standard or custom .NET date format; for addDays an invalid one is an error.</summary>

@@ -43,9 +43,10 @@ Limits. The simulator is written from Microsoft Learn's pages on the Workflow De
 Forms not listed are `unsupported`, such as `utcNow(format)` and `guid(format)`. The format and locale arguments follow .NET's standard and custom date and time format strings and its culture data, which Learn's reference links to. ICU writes a U+202F before AM/PM in some formats; the simulator writes a space, as Learn's examples show.
 
 - `formatDateTime` takes a timestamp ending in `Z` or with no time zone; a timestamp with an offset is `unsupported`. `addDays` with a format needs a timestamp ending in `Z`; without a format it reads a timestamp with no time zone as UTC.
-- The locales are `en-us` (the default), `fr-fr` and `es-es`. Any other locale .NET knows is `unsupported`, and a name it does not know is an error.
+- A timestamp must be a full ISO 8601 timestamp (`yyyy-MM-ddTHH:mm`, with optional seconds, fraction and zone, or `yyyy-MM-dd`) or `MM/dd/yyyy` with an optional `HH:mm:ss`. Other text that reads as a date is `unsupported`.
+- The locales are `en-us` (the default), `fr-fr` and `es-es`. With `fr-fr` and `es-es` only day, month and year formats are accepted. Any other locale .NET knows is `unsupported`, and a name it does not know is an error.
 - An invalid format is an error in `addDays` and `unsupported` in `formatDateTime`.
 - These are `unsupported`: the formats `U`, `u`, `r`, `R` and any format with `z` or `K` on a timestamp with no time zone, an empty format, an empty locale, and a .NET that runs without culture data.
-- `int` takes a string of digits with an optional `-` and no leading zero, or an integer number, within 32 bits. A decimal string or a string with no number in it is an error. Other strings are `unsupported`.
+- `int` takes a string of digits with an optional `-` and no leading zero, or an integer number, within 32 bits. A decimal string or a string with no digit is an error. Other strings are `unsupported`.
 
 The simulator's other choices are under "Not on Learn" in [the M14 plan](plans/m14-flowtest/plan.md) and [the M58 plan](plans/m58-flow-conformance/plan.md).

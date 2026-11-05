@@ -93,10 +93,11 @@ public class TestCommandTests : IDisposable
         Assert.Contains("\"schemaVersion\": 1", File.ReadAllText(file));
     }
 
+    // The cloud ran only the rewrite without int (M58 plan); the Core test runs that exact form.
     [Theory]
     [InlineData("@formatDateTime(addDays(utcNow(), int(parameters('Default Status (pops_DefaultStatus)'))), 'yyyy-MM-dd')")]
     [InlineData("@addDays(utcNow(), int(parameters('Default Status (pops_DefaultStatus)')), 'yyyy-MM-dd')")]
-    public void The_live_runs_date_expression_passes_with_the_value_the_cloud_gave(string expression)
+    public void The_live_runs_date_expression_gives_2026_11_18_through_powerops_test(string expression)
     {
         const string original = "@parameters('Default Status (pops_DefaultStatus)')";
         var copy = CopyOf(Seed, "seed");

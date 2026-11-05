@@ -822,6 +822,8 @@ public class ExpressionTests
     [InlineData("formatDateTime('2026-03-18T14:30:00Z', 'MMMM dd, yyyy')", "\"March 18, 2026\"")]
     [InlineData("formatDateTime('2018-03-15T00:00:00Z')", "\"2018-03-15T00:00:00.0000000Z\"")]
     [InlineData("formatDateTime('03/15/2018', 'o')", "\"2018-03-15T00:00:00.0000000\"")]
+    [InlineData("formatDateTime('2018-03-15T10:30Z', 'HH:mm')", "\"10:30\"")]
+    [InlineData("formatDateTime('01/31/2016', 'dd MMMM yyyy', 'fr-fr')", "\"31 janvier 2016\"")]
     [InlineData("formatDateTime('01/31/2016', 'dddd MMMM d', 'FR-fr')", "\"dimanche janvier 31\"")]
     [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'zzz')", "\"+00:00\"")]
     [InlineData("formatDateTime('2018-03-15T13:00:00Z', 'U')", "\"Thursday, March 15, 2018 1:00:00 PM\"")]
@@ -850,6 +852,20 @@ public class ExpressionTests
     [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'o', '')")]
     [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'X')")] // Learn doesn't say an invalid format is an error here
     [InlineData("formatDateTime('2018-03-15T00:00:00Z', 'o', 'de-DE')")] // a known locale Learn doesn't show
+    // fr-fr and es-es only with day, month and year formats, as Learn shows them
+    [InlineData("formatDateTime('01/31/2016', 'g', 'fr-fr')")]
+    [InlineData("formatDateTime('01/31/2016', 'D', 'fr-fr')")]
+    [InlineData("formatDateTime('01/31/2016', 'tt', 'fr-fr')")]
+    [InlineData("formatDateTime('01/31/2016', 'HH:mm', 'es-es')")]
+    [InlineData("formatDateTime('01/31/2016', 'ddd d MMM', 'es-es')")]
+    [InlineData("formatDateTime('01/31/2016', 'dd/MM/yyyy', 'fr-fr')")]
+    // other text that TryParse reads borrows parts from today's date
+    [InlineData("formatDateTime('10:30')")]
+    [InlineData("formatDateTime('March 15')")]
+    [InlineData("formatDateTime('3/15/2018')")]
+    [InlineData("formatDateTime('2018-03-15 10:30:00')")]
+    [InlineData("addDays('10:30', 1)")]
+    [InlineData("addDays('March 15', 1, 'yyyy-MM-dd')")]
     [InlineData("formatDateTime('2018-03-15T10:30:00+02:00', 'HH:mm')")] // Learn doesn't say whether an offset is kept
     [InlineData("formatDateTime('2018-03-15T00:00:00+00:00')")]
     // .NET would take this computer's time zone for these on a timestamp with no zone
@@ -881,6 +897,7 @@ public class ExpressionTests
     [InlineData("int('abc')")]
     [InlineData("int('')")]
     [InlineData("int('-')")]
+    [InlineData("int('NaN')")]
     [InlineData("int()")]
     [InlineData("int('1', '2')")]
     public void Int_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
@@ -892,7 +909,9 @@ public class ExpressionTests
     [InlineData("int('1e3')")]
     [InlineData("int('2147483648')")]
     [InlineData("int('99999999999999999999')")]
-    [InlineData("int('NaN')")]
+    [InlineData("int('12abc')")]
+    [InlineData("int('1,000')")]
+    [InlineData("int('\uFF13')")] // a full-width 3
     [InlineData("int(2147483648)")]
     [InlineData("int(1.5)")]
     [InlineData("int(true)")]
