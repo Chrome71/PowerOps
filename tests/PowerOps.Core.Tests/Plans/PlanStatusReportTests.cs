@@ -1,4 +1,5 @@
 using PowerOps.Core.Plans;
+using PowerOps.Core.Readers;
 using PowerOps.Core.Tests.Readers;
 using PowerOps.Tests.Shared;
 
@@ -18,7 +19,9 @@ public class PlanStatusReportTests
         t.Write("docs/plans/clean-v2/plan.md", Plan("draft", "pending", "# Plan\n", "depth: deep\nsupersedes: clean\n"));
         t.Write("docs/plans/trouble/plan.md", Plan("approved", "done", "# Plan\n\nsee https://contoso.example/x\n"));
         t.Write("docs/plans/trouble/review.md", $"plan-hash: {new string('a', 64)}\n");
-        t.Write("docs/plans/trouble/verify.md", $"state: ready\ninput: solutions/demo\nsolution-hash: {new string('c', 64)}\n");
+        t.Write("solutions/demo/Other/Solution.xml", "<ImportExportXml />\n");
+        var digest = Manifest.Read(Path.Combine(t.Path, "solutions", "demo")).Digest;
+        t.Write("docs/plans/trouble/verify.md", $"state: ready\ninput: solutions/demo\nsolution-hash: {digest}\n");
 
         var plans = PlanChecker.Discover(t.Path).Select(f => PlanChecker.Check(f, t.Path)).ToList();
         var w = new StringWriter();
@@ -43,9 +46,9 @@ public class PlanStatusReportTests
 
         Assert.Equal(
             "docs/plans/demo: draft, review pending, 0 open questions\n"
-            + "  report review.md: state null, stale null\n"
-            + "  report security-solution.md: state 'ok ::error::forged [31m', stale null, input null, solution-hash unknown\n"
-            + "  report verify.md: state 'ready', stale false, input 'a/b', solution-hash unknown\n"
+            + "  report review.md: state null, stale (plan) null\n"
+            + "  report security-solution.md: state 'ok ::error::forged [31m', stale (plan) null, input null, solution-hash unknown, stale (solution) unknown\n"
+            + "  report verify.md: state 'ready', stale (plan) false, input 'a/b', solution-hash unknown, stale (solution) unknown\n"
             + "  warning: review.md has no plan-hash line\n"
             + "  warning: security-solution.md has an unknown state 'ok ::error::forged [31m' (expected ready, blocked, failed or dropped)\n"
             + "1 plan, 0 violations, 2 warnings\n",
@@ -69,7 +72,7 @@ public class PlanStatusReportTests
 
         Assert.Equal(
             "docs/plans/a: draft, review pending, 0 open questions\n"
-            + "  report review.md: state null, stale null\n"
+            + "  report review.md: state null, stale (plan) null\n"
             + "  writes writes.md: 1 entry, 1 open cleanup\n"
             + "  warning: review.md has no plan-hash line\n"
             + "docs/plans/b: draft, review pending, 0 open questions\n"

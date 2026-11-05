@@ -266,7 +266,7 @@ It also lists `writes.md` (its rows and open cleanups) and warns, without a viol
 | 2 | Usage error, or a malformed plan header |
 | 3 | Internal error |
 
-`--json` prints each plan's status, review state, `environment`, `depth`, `supersedes`, counted open questions (the list items under `## Open questions` and `## Questions for your admin`), body hash, `reports` and violations. `reports` lists `review.md`, `security-solution.md` and `verify.md`, in that order, when present, each with its `state` and whether it is `stale` ([Command reference](COMMANDS.md#plan-and-skills)). It warns, but does not fail, when a report's `plan-hash` differs from the current body (a stale report, `review.md` included) or a report's `state` is not `ready`, `blocked`, `failed` or `dropped`.
+`--json` prints each plan's status, review state, `environment`, `depth`, `supersedes`, counted open questions (the list items under `## Open questions` and `## Questions for your admin`), body hash, `reports` and violations. `reports` lists `review.md`, `security-solution.md` and `verify.md`, in that order, when present, each with its `state`, whether it is `stale` (the plan changed) and, for the two solution reports, whether it is `solutionStale` (the solution its `input:` names changed) ([Command reference](COMMANDS.md#plan-and-skills)). It warns, but does not fail, when a report's `plan-hash` differs from the current body (a stale report, `review.md` included), when a solution report's `solution-hash` differs from that solution's digest, or when a report's `state` is not `ready`, `blocked`, `failed` or `dropped`.
 
 ## Agent support
 
@@ -331,7 +331,7 @@ These limits are why the reports gate nothing:
 - **The setup.** M38 ran the roles with an allowlist and no MCP servers. A shipped role runs with the session's tools, so M38's results on stray writes and outside reads don't carry over.
 - **Where the data goes.** Both roles send the plan, the solution's components and the settings file to the client's model provider, and Codex used web search in M38's Security passes. A team checks that against its own data rules first. Pi with local Qwen keeps it on the machine. It ran both roles in the client checks, but nobody scored those reports.
 - **Cost.** A build adds up to three Verifier runs and one Security run, which the maker pays from their own agent plan. On M38's small cases that is about $3 at Claude's list price: $0.69 a Verifier run and $0.88 a Security run. A real solution costs more.
-- **What a report covers.** A report describes the folder or zip it names, and `stale` says nothing about the solution. The person promotes only what was reviewed.
+- **What a report covers.** A report describes the folder or zip it names. `plan status` says when the plan or that solution changed since, and `deploy plan` warns for each zip no ready report names. The person promotes only what was reviewed.
 - **A first build.** With no previous solution and no settings file, the Security reviewer skips both checks and ended `ready` or `blocked`. The Verifier can't change without a rerun, and it ended `failed` or `blocked`, because the plan's steps call for those checks. That state describes the missing inputs, not a broken solution. Local Qwen's two `blocked` reports are the exception: each raised a High that the same solution didn't get with all its inputs, and nobody scored them.
 
 ## Decisions (2026-10-19, maintainer)
