@@ -163,6 +163,7 @@ The longest run took 133 seconds, against the limit of 1,800. Runs were about as
 - The two new cases share one table, one app and two roles, and their XML is hand-written, close to what `pac solution unpack` writes. A real export has more files in `Other/Customizations.xml` and more reasons for it to change, which sends a role to re-read more.
 - The strict and the plain reading of paragraph B's folder sentence give different counts on solution-05 and solution-07. Neither changes a keep rule.
 - A temp folder of its own is a mitigation, not proof that a reviewer was blind. Codex's sandbox restricts writes, not reads.
+- After the freeze, M51 reached `main` and this branch: `diff` now also compares a Copilot Studio agent's Work IQ workloads, and an `McpTool`'s connection reference and operation id. Paragraph A's list in both skills doesn't name them, so it says less than `diff` compares. The six kinds it names as not compared are still not compared. Naming the new parts changes the roles' text, so it waits for a rerun.
 
 ## Decision
 
