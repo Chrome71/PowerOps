@@ -480,7 +480,7 @@ public partial class SkillsCommandTests : IDisposable
         Assert.Equal(0, code);
         foreach (var root in new[] { ".claude", ".agents" })
         {
-            foreach (var name in ProductReferences.Concat(["data.md", "route.md"]))
+            foreach (var name in ProductReferences.Concat(["data.md", "route.md", "design.md", "logic.md"]))
             {
                 var file = P(root, "skills", "powerops-plan", "references", name);
                 Assert.Equal(SkillsCommand.Shipped()[$"powerops-plan/references/{name}"], File.ReadAllText(file));
@@ -505,8 +505,8 @@ public partial class SkillsCommandTests : IDisposable
         Assert.Equal(2, Regex.Count(plan, Regex.Escape(Sketch)));
         Assert.True(plan.LastIndexOf(Sketch, StringComparison.Ordinal) > plan.IndexOf("## 8. Fast path", StringComparison.Ordinal));
         string[] log = ["If a sketch exists or D was offered, log `prototype: approved mockups/prototype.html`", "`prototype: skipped`", "`prototype: not chosen`", "Keep visual detail out of `Screens` and `Steps`"];
-        string[] data = ["## 6. The data round", "1. Where does the data live today?", "6. What is out of this version?"];
-        string[] routeText = ["## 1. The route", "## 2. The sketch", "at most 6 screens and 15 KB", "control map", .. ProductReferences.Select(f => $"`{f}`")];
+        string[] data = ["## 6. The data round", "1. Where does the data live today?", "6. What is out of this version?", "`logic.md`"];
+        string[] routeText = ["## 1. The route", "## 2. The sketch", "at most 6 screens and 15 KB", "control map", "`design.md`", .. ProductReferences.Select(f => $"`{f}`")];
         string[] review = ["Per product, when the plan names it", "more than 12 data visuals", "accordion"];
         string[] implement = ["## 5. Power BI", "\"not applicable\"", "`powerbi-report-author validate`", "`semantic-model-authoring`", "`powerbi-report-cli`", "`pcf`", "`pac pcf push`", "the sketch's path, not a screenshot"];
 
@@ -518,7 +518,16 @@ public partial class SkillsCommandTests : IDisposable
             Assert.Contains("## Sources\n\nChecked on 2026-11-03", shipped[$"powerops-plan/references/{file}"]);
         }
 
+        // M69: the two cross-product references, each with its dated sources.
+        foreach (var file in new[] { "design.md", "logic.md" })
+        {
+            Assert.Contains("## Sources\n\nChecked on 2026-11-05", shipped[$"powerops-plan/references/{file}"]);
+        }
+
         Assert.Contains("12 data visuals", shipped["powerops-plan/references/power-bi.md"]);
+        Assert.All(new[] { "Deployment pipelines don't support PBIR reports", "`allowPurgeData`" }, s => Assert.Contains(s, shipped["powerops-plan/references/power-bi.md"]));
+        Assert.Contains("`copilot-studio-plugin`", shipped["powerops-plan/references/copilot-studio.md"]);
+        Assert.Contains("`logic.md`", route);
         Assert.All(review, s => Assert.Contains(s, shipped["powerops-review-plan/SKILL.md"]));
         Assert.All(implement, s => Assert.Contains(s, shipped["powerops-implement/SKILL.md"]));
     }

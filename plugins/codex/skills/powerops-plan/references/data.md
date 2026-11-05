@@ -68,6 +68,8 @@ One card per flow under `Automation`:
 - Retry and concurrency, only if not the default
 - How it is tested
 
+Where each business rule lives, a status column's state model, approvals and the writes a retry repeats: read `logic.md` beside this file.
+
 For cost, a reference line, not a required one: actions a day = runs a day x (1 + straight actions + for each loop, 1 + inner actions x items), against the daily action limit of the owner's licence. Every trigger and action counts, and an action inside a loop counts once per item.
 
 ## 6. The data round

@@ -125,6 +125,11 @@ public partial class HandoffDocTests
         Assert.All(skills, s => Assert.Contains(s.Value, rows[s.Key]));
         Assert.Contains("needs a yes", rows["Power BI"]);
         Assert.Contains("(step 11)", rows["Copilot Studio agent"]);
+
+        // M69: Microsoft's successor plugin, and the deployment pipelines limit on PBIR.
+        Assert.All(new[] { "copilot-studio-plugin", "`migrate`", "`delete`" }, s => Assert.Contains(s, rows["Copilot Studio agent"]));
+        Assert.Contains("Deployment pipelines don't support PBIR reports", rows["Power BI"]);
+        Assert.All(new[] { "delete every same-named model", "`unpublish_all_orphan_items`", "`enable_hard_delete`", "`allowPurgeData`" }, s => Assert.Contains(s, section));
     }
 
     [Fact]
@@ -143,8 +148,29 @@ public partial class HandoffDocTests
         var step = Page().Split('\n').Single(l => l.StartsWith("11. **An agent was imported.**", StringComparison.Ordinal));
 
         Assert.All(
-            new[] { "Application Insights", "manual authentication", "Direct Line and web channel security", "channels", "sharing", "Publish the agent before you share it", "publish it again after a value changes", "ask first", "waiting" },
+            new[] { "Application Insights", "manual authentication", "Direct Line and web channel security", "channels", "sharing", "Publish the agent before you share it", "publish it again after a value changes", "ask first", "waiting", "Key Vault", "Authentication for agents", "connected agent", "Add required objects" },
             item => Assert.Contains(item, step));
+    }
+
+    // M69: debug-flow stops on a flow with no runs, and manage-flows' publish-and-test also runs the flow.
+    [Fact]
+    public void Step_10_turns_a_flow_on_by_publish_alone()
+    {
+        var step = Page().Split('\n').Single(l => l.StartsWith("10. **A flow is off.**", StringComparison.Ordinal));
+
+        Assert.All(new[] { "`debug-flow`", "no runs", "`publish_flow`", "publish-and-test", "ask first" }, item => Assert.Contains(item, step));
+    }
+
+    // M69: the tenant writes that no route of the gate covers, from the 2026-11-05 specialist research.
+    [Fact]
+    public void The_page_lists_the_writes_no_gate_sees()
+    {
+        var page = Page();
+        var section = page[page.IndexOf("What it doesn't do:", StringComparison.Ordinal)..page.IndexOf("\nSources: ", page.IndexOf("What it doesn't do:", StringComparison.Ordinal), StringComparison.Ordinal)];
+
+        Assert.All(
+            new[] { "`copy_flow`", "`publish_flow`", "`update_flow`", "`pa app share`", "`pa connection create`", "`manage_agents`", "`manage_workflows`", "`pac copilot quarantine`", "`merge-translation`", "Power BI Authoring MCP" },
+            item => Assert.Contains(item, section));
     }
 
     // M54: the page claimed a delete rule that the skill did not carry (C-3 of the 2026-11-04 live test).

@@ -16,7 +16,7 @@ These are PowerOps's planning rules. Each product file cites Learn for what Lear
 - A report or dashboard over a semantic model: Power BI, which lives outside the solution (`power-bi.md`).
 - An agent that answers or acts in chat: a Copilot Studio agent, on the standard harness unless the job needs another (`copilot-studio.md`).
 
-Write the route in `Screens`, one line per app or page with its reason.
+Write the route in `Screens`, one line per app or page with its reason. When `Screens` names any screen, page, site or report, also read `design.md`: the plan's one Theme block, its accessibility target and the states of each screen. Where an app's business rules, status columns or approvals live: `logic.md`.
 
 ## 2. The sketch
 
@@ -25,7 +25,7 @@ Offer **D** when `Screens` names content the maker lays out freely:
 | Product | Offer |
 |---|---|
 | Canvas | Yes, with the "doesn't map" list in `canvas.md` |
-| Custom pages | Yes: the canvas list applies, and custom pages don't use the modern theme |
+| Custom pages | Yes: the canvas list applies, custom pages don't use the modern theme, and their Fluent UI (v8) controls are deprecated (`canvas.md`) |
 | Power Pages, Bootstrap site | Yes, after the Bootstrap version is known (`power-pages.md`) |
 | Power Pages, code site | Yes: name the UI library |
 | Generative pages | Yes: the user attaches a screenshot of the sketch in the page builder |
@@ -55,3 +55,7 @@ Checked on 2026-11-03:
 - [Power Apps code apps overview](https://learn.microsoft.com/power-apps/developer/code-apps/overview): the admin setting and Microsoft Entra sign-in.
 - [What is Power Pages?](https://learn.microsoft.com/power-pages/introduction) and [Power Pages security](https://learn.microsoft.com/power-pages/security/power-pages-security): external-facing sites and anonymous users.
 - [Use modern themes in canvas apps](https://learn.microsoft.com/power-apps/maker/canvas-apps/controls/modern-controls/modern-theming): Paste theme takes YAML.
+
+Checked on 2026-11-05:
+
+- [Upgrade Fluent UI controls to modern controls](https://learn.microsoft.com/power-apps/maker/canvas-apps/controls/modern-controls/upgrade-fluent-ui-controls-to-modern): Fluent UI (v8) controls in custom pages are deprecated.

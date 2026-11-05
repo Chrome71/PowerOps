@@ -14,7 +14,8 @@ Read this when a plan names a Power BI semantic model, report or dashboard. Powe
 - **Incremental refresh** for large fact tables that grow.
 - **Licence fit.** Pro gives a 1 GB model, 8 scheduled refreshes a day, no XMLA write and no deployment pipelines. More needs Premium Per User or Fabric capacity: put that under Constraints.
 - **Security.** Name the route: workspace roles, or row-level security with its roles.
-- **Files and route.** The model and report are a Power BI project (PBIP) in Git, with one named deploy route: fabric-cicd, Git integration or deployment pipelines.
+- **Files and route.** The model and report are a Power BI project (PBIP) in Git, with one named deploy route: fabric-cicd, Git integration or deployment pipelines. Deployment pipelines don't support PBIR reports, and PBIR is the default report format, so a PBIR report goes by fabric-cicd or Git integration; Git integration marks reports and semantic models as preview. Deployment pipelines also don't support a DirectQuery or composite model that uses auto date/time or variation tables.
+- **Sensitivity labels** aren't supported in a PBIP: a plan that needs one sets it in the service after the deploy, a write that needs a yes.
 - **The solution** holds only an embedded dashboard and its environment variable, when a model-driven app shows the report.
 
 ## 2. Design
@@ -37,6 +38,8 @@ One 1920 by 1080 page per report page, a box per visual with its title and the f
 
 `powerbi-report-cli` asks for approval of its report plan and design brief before it builds, and `semantic-model-authoring` builds the model. Both come after this plan's sign-off.
 
+Some routes delete by design: `semantic-model-authoring`'s cleanup of same-named models after a retried deploy, fabric-cicd's orphan cleanup (and its `enable_hard_delete` flag), and a deployment pipelines deploy with `allowPurgeData`, which deletes the target's data when the schemas don't match. A plan that uses one makes the delete a step for the person: `powerops-implement` never deletes.
+
 ## Sources
 
 Checked on 2026-11-03:
@@ -52,3 +55,11 @@ Checked on 2026-11-03:
 - [Power BI embedded system dashboard](https://learn.microsoft.com/power-apps/maker/model-driven-apps/create-edit-powerbi-embedded-page): the environment variable.
 - [Power BI agentic overview](https://learn.microsoft.com/power-bi/developer/agentic/power-bi-agentic-overview): the two skills.
 - [powerbi-authoring plugin](https://github.com/microsoft/skills-for-fabric/tree/4c3986d/plugins/powerbi-authoring) (MIT) at `4c3986d`: the 12-visual warning in `skills/powerbi-report-cli/references/design/anti-patterns.md`, and the approval gate.
+
+Checked on 2026-11-05:
+
+- [Understand the deployment process](https://learn.microsoft.com/fabric/cicd/deployment-pipelines/understand-the-deployment-process): PBIR reports not supported, and the DirectQuery or composite model with auto date/time or variation tables.
+- [The report folder](https://learn.microsoft.com/power-bi/developer/projects/projects-report): PBIR generally available and the default. [Fabric Git integration](https://learn.microsoft.com/fabric/cicd/git-integration/intro-to-git-integration): Report and Semantic model in preview.
+- [Power BI Desktop projects](https://learn.microsoft.com/power-bi/developer/projects/projects-overview): sensitivity labels not supported.
+- [fabric-cicd](https://learn.microsoft.com/power-bi/developer/projects/projects-deploy-fabric-cicd) and [its optional features](https://microsoft.github.io/fabric-cicd/latest/how_to/optional_feature/): orphan cleanup and `enable_hard_delete`. [Pipelines - Deploy All](https://learn.microsoft.com/rest/api/power-bi/pipelines/deploy-all): `allowPurgeData`.
+- `semantic-model-authoring` at the same commit: "delete every duplicate" after a retried deploy.
