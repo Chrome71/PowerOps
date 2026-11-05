@@ -4,5 +4,5 @@ FAIL changed-expectation.flowtest.json: BuildRequestCancellation
 UNMOCKED missing-mock.flowtest.json: ReadEnvironmentVariable
   Action 'GetDefinitions_2': it never runs in a test, so the test needs a mock for it.
 UNSUPPORTED unsupported-function.flowtest.json: BuildRequestCancellation
-  Action 'List_records': Unsupported function 'addHours' in expression 'addHours('2026-01-01T00:00:00Z', 1)'.
+  Action 'List_records': Unsupported function 'dayOfYear' in expression 'dayOfYear('2026-01-01T00:00:00Z')'.
 3 tests: 0 passed, 1 failed, 1 unmocked, 1 unsupported

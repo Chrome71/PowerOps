@@ -165,4 +165,24 @@ public sealed class ActionYmlTests
 
         Assert.Single(script, l => l.TrimStart().StartsWith("dotnet build src/PowerOps.Cli -c Release -p:RestoreLockedMode=true", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void Every_step_that_runs_analyze_or_the_diff_passes_redact_through()
+    {
+        var steps = Steps().Where(s => Text(s, "run") is { } run && (run.Contains("analyze", StringComparison.Ordinal) || run.Contains("diff.sh", StringComparison.Ordinal))).ToList();
+
+        Assert.Equal(["Job summary", "Annotations", "Write SARIF", "Gate the apply", "Diff", "Apply fail-on"], steps.Select(s => Text(s, "name")!));
+        foreach (var step in steps)
+        {
+            Assert.Equal("${{ inputs.redact }}", ((Dictionary<object, object>)step["env"])["PO_REDACT"]);
+            if (Text(step, "name") != "Diff")
+            {
+                Assert.Contains("if [ \"$PO_REDACT\" = \"true\" ]; then args+=(--redact); fi", Text(step, "run"));
+            }
+        }
+
+        Assert.Contains("--redact", File.ReadAllText(Path.Combine(Golden.RepoRoot, "action", "diff.sh")));
+        var action = new DeserializerBuilder().Build().Deserialize<Dictionary<string, object>>(File.ReadAllText(Path.Combine(Golden.RepoRoot, "action.yml")));
+        Assert.Equal("false", ((Dictionary<object, object>)((Dictionary<object, object>)action["inputs"])["redact"])["default"]);
+    }
 }

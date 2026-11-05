@@ -152,6 +152,15 @@ public sealed class ActionScriptTests : IDisposable
     }
 
     [Fact]
+    public void Plan_logs_powerops_warning_lines_with_its_error_lines_and_hides_forwarded_text()
+    {
+        var run = RunPlan(exit: 0, save: false, stderr: "warning: a.zip: no ready verify.md or security-solution.md under docs/plans has this zip's SHA-256 as its solution-hash\n  | tenant 0000 at https://contoso.crm.dynamics.com\nerror: --target: pac failed\nForwarded: tenant 0000\n");
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal("warning: a.zip: no ready verify.md or security-solution.md under docs/plans has this zip's SHA-256 as its solution-hash\nerror: --target: pac failed\n", run.Out);
+    }
+
+    [Fact]
     public void Plan_in_debug_mode_prints_the_forwarded_text()
     {
         var run = RunPlan(exit: 3, save: false, stderr: "error: x\nForwarded: tenant 0000\n", debug: true);
@@ -615,6 +624,21 @@ public sealed class ActionScriptTests : IDisposable
         Assert.Equal(File.ReadAllText(Path.Combine(seed, "v1", "Other", "Solution.xml")), File.ReadAllText(Path.Combine(baseTree, "sol", "Other", "Solution.xml")));
         Assert.Equal(File.ReadAllText(Path.Combine(seed, "v2", "Other", "Solution.xml")), File.ReadAllText(Path.Combine(clone, "sol", "Other", "Solution.xml")));
         Assert.Equal("## PowerOps diff\n\nthe diff\n", File.ReadAllText(run.Comment));
+    }
+
+    [Theory]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    [InlineData("", false)]
+    public void Diff_adds_redact_only_when_PO_REDACT_is_true(string redact, bool expected)
+    {
+        Tools.Require("bash", "git");
+        var clone = MakeMergeClone();
+
+        var run = RunDiff(clone, exit: 1, redact: redact);
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal(expected, run.DotnetCalls.Single().EndsWith(" --redact", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -1282,7 +1306,7 @@ public sealed class ActionScriptTests : IDisposable
         return run with { Summary = summary, Output = ReadOrEmpty(output) };
     }
 
-    private Result RunDiff(string workDir, int exit, string? stderr = null)
+    private Result RunDiff(string workDir, int exit, string? stderr = null, string? redact = null)
     {
         Tools.Require("bash", "git");
         var temp = NewDir("diff");
@@ -1301,6 +1325,7 @@ public sealed class ActionScriptTests : IDisposable
             ["PO_COMMENT"] = comment,
             ["RUNNER_TEMP"] = temp,
             ["STUB_EXIT"] = exit.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["PO_REDACT"] = redact ?? "",
         });
         return run with { Comment = comment };
     }

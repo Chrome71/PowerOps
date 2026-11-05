@@ -156,7 +156,7 @@ public class PlanCommandTests : IDisposable
         var (_, json, _) = Run("plan", "status", _temp, "--json");
 
         Assert.Equal(0, code);
-        Assert.Contains("  report verify.md: state 'ready', stale true, input 'solutions/demo', solution-hash unknown\n", output.Replace("\r\n", "\n"));
+        Assert.Contains("  report verify.md: state 'ready', stale (plan) true, input 'solutions/demo', solution-hash unknown, stale (solution) unknown\n", output.Replace("\r\n", "\n"));
         Assert.Contains("  warning: verify.md was written for a different version of the plan (stale report)\n", output.Replace("\r\n", "\n"));
         Assert.EndsWith("0 violations, 1 warning\n", output.Replace("\r\n", "\n"));
         using var doc = JsonDocument.Parse(json);
@@ -166,6 +166,67 @@ public class PlanCommandTests : IDisposable
         Assert.True(report.GetProperty("stale").GetBoolean());
         Assert.Equal("solutions/demo", report.GetProperty("input").GetString());
         Assert.Equal("unknown", report.GetProperty("solutionHash").GetString());
+    }
+
+    private string SolutionDigest()
+    {
+        var solution = Path.Combine(_temp, "solutions", "demo");
+        Directory.CreateDirectory(Path.Combine(solution, "Other"));
+        File.WriteAllText(Path.Combine(solution, "Other", "Solution.xml"), "<ImportExportXml />\n");
+        return PowerOps.Core.Readers.Manifest.Read(solution).Digest;
+    }
+
+    private static JsonElement OnlyReport(JsonDocument doc) => doc.RootElement.GetProperty("plans")[0].GetProperty("reports")[0];
+
+    [Fact]
+    public void An_unchanged_solution_reads_false_in_text_and_json()
+    {
+        Plan("status: draft\nreview: pending");
+        File.WriteAllText(Path.Combine(PlanDir(), "verify.md"), $"state: ready\ninput: solutions/demo\nsolution-hash: {SolutionDigest()}\n");
+
+        var (code, output, _) = Run("plan", "status", _temp);
+        var (_, json, _) = Run("plan", "status", _temp, "--json");
+
+        Assert.Equal(0, code);
+        Assert.Contains(", stale (solution) false\n", output.Replace("\r\n", "\n"));
+        Assert.EndsWith("0 violations, 0 warnings\n", output.Replace("\r\n", "\n"));
+        using var doc = JsonDocument.Parse(json);
+        Assert.False(OnlyReport(doc).GetProperty("solutionStale").GetBoolean());
+    }
+
+    [Fact]
+    public void A_changed_solution_reads_true_with_a_warning_and_the_exit_code_stays_zero()
+    {
+        Plan("status: draft\nreview: pending");
+        File.WriteAllText(Path.Combine(PlanDir(), "verify.md"), $"state: ready\ninput: solutions/demo\nsolution-hash: {SolutionDigest()}\n");
+        File.WriteAllText(Path.Combine(_temp, "solutions", "demo", "Other", "Solution.xml"), "<ImportExportXml><x /></ImportExportXml>\n");
+
+        var (code, output, _) = Run("plan", "status", _temp);
+        var (_, json, _) = Run("plan", "status", _temp, "--json");
+
+        Assert.Equal(0, code);
+        Assert.Contains(", stale (solution) true\n", output.Replace("\r\n", "\n"));
+        Assert.Contains("  warning: verify.md was written for a different version of the solution in 'solutions/demo' (stale solution)\n", output.Replace("\r\n", "\n"));
+        using var doc = JsonDocument.Parse(json);
+        Assert.True(OnlyReport(doc).GetProperty("solutionStale").GetBoolean());
+    }
+
+    [Fact]
+    public void A_legacy_report_reads_unknown_and_null_with_no_stale_solution_warning()
+    {
+        Plan("status: draft\nreview: pending");
+        File.WriteAllText(Path.Combine(PlanDir(), "verify.md"), "plan-hash: " + new string('a', 64) + "\nmodel: m\nfresh-context: yes\nstate: ready\n");
+
+        var (code, output, _) = Run("plan", "status", _temp);
+        var (_, json, _) = Run("plan", "status", _temp, "--json");
+
+        Assert.Equal(0, code);
+        Assert.Contains(", solution-hash unknown, stale (solution) unknown\n", output.Replace("\r\n", "\n"));
+        Assert.DoesNotContain("stale solution", output);
+        using var doc = JsonDocument.Parse(json);
+        var report = OnlyReport(doc);
+        Assert.Equal("unknown", report.GetProperty("solutionHash").GetString());
+        Assert.Equal(JsonValueKind.Null, report.GetProperty("solutionStale").ValueKind);
     }
 
     [Fact]

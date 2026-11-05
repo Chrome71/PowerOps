@@ -25,16 +25,17 @@
           "bodyHash": { "type": ["string", "null"], "description": "SHA-256 hash of the plan body, or null when the header is malformed." },
           "reports": {
             "type": "array",
-            "description": "The agent reports found in the plan folder, in this order when present: review.md, security-solution.md, verify.md. Empty when there is none. A report's state or staleness is never a violation.",
+            "description": "The agent reports found in the plan folder, in this order when present: review.md, security-solution.md, verify.md. Empty when there is none. A report's state or staleness is never a violation: a stale plan (stale) or a stale solution (solutionStale) only warns.",
             "items": {
               "type": "object",
-              "required": ["file", "state", "stale", "input", "solutionHash"],
+              "required": ["file", "state", "stale", "input", "solutionHash", "solutionStale"],
               "properties": {
                 "file": { "enum": ["review.md", "security-solution.md", "verify.md"], "description": "The report's file name." },
                 "state": { "type": ["string", "null"], "description": "The value of the 'state:' line in the report's first six lines, as written (the known values are ready, blocked, failed and dropped; any other value also adds a warning), or null when there is no such line or the file was not read (a link, a binary file or one over 1 MB). review.md normally has none." },
-                "stale": { "type": ["boolean", "null"], "description": "True when the plan body changed since the report was written, that is, the report's 'plan-hash:' differs from bodyHash. It says nothing about the solution. Null when the report or the plan has no hash, or the file was not read." },
+                "stale": { "type": ["boolean", "null"], "description": "True when the plan body changed since the report was written, that is, the report's 'plan-hash:' differs from bodyHash. It says nothing about the solution: see solutionStale for that. Null when the report or the plan has no hash, or the file was not read." },
                 "input": { "type": ["string", "null"], "description": "For security-solution.md and verify.md: the value of the 'input:' line in the report's first six lines when it is a relative path (1 to 260 characters after one trailing '/' is dropped, no control character, no ':' or '\\', not starting with '/', and no empty, '.' or '..' segment between '/'), else null. A present line that is not such a path also adds a warning. Always null for review.md." },
-                "solutionHash": { "type": ["string", "null"], "description": "For security-solution.md and verify.md: the value of the 'solution-hash:' line in the report's first six lines when it is 64 lowercase hex characters, else 'unknown' (no line, a malformed value, a report from before the line existed, or a file that was not read). It is not compared with the solution yet. Always null for review.md." }
+                "solutionHash": { "type": ["string", "null"], "description": "For security-solution.md and verify.md: the value of the 'solution-hash:' line in the report's first six lines when it is 64 lowercase hex characters, else 'unknown' (no line, a malformed value, a report from before the line existed, or a file that was not read). Always null for review.md." },
+                "solutionStale": { "type": ["boolean", "null"], "description": "For security-solution.md and verify.md: true when the solution the report's input names now has another digest than its solution-hash, false when it has the same, null when nothing was compared: a report without a valid input and solution-hash, or a solution that is not there or could not be read (a warning says why, except for a path that is not there). Always null for review.md." }
               }
             }
           },

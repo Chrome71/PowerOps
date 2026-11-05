@@ -771,4 +771,219 @@ public class PlanCheckerTests : IDisposable
         _t.Write("docs/plans/demo/decisions.md", "# Decisions: demo\n\n## Log\n\n- signed off 2026-11-04 by the building session\n- accepted R2\n");
         Assert.Empty(Check().Warnings);
     }
+
+    // ---- the solution a report names (M62) ----
+
+    private const string StaleWarning = "verify.md was written for a different version of the solution in '{0}' (stale solution)";
+
+    private static string Digest(string path) => PowerOps.Core.Readers.Manifest.Read(path).Digest;
+
+    private string Solution(string text = "<a/>\n")
+    {
+        _t.Write("solutions/demo/Other/Solution.xml", text);
+        return Path.Combine(_t.Path, "solutions", "demo");
+    }
+
+    private PlanReportFile VerifyReport() => Assert.Single(Check().Reports, r => r.File == "verify.md");
+
+    [Fact]
+    public void A_folder_with_the_recorded_digest_is_fresh_and_a_changed_one_is_stale_with_a_warning()
+    {
+        Write(Plan());
+        var digest = Digest(Solution());
+        Report("verify.md", Six(hash: digest));
+
+        var fresh = Check();
+
+        Assert.Equal(false, Assert.Single(fresh.Reports).SolutionStale);
+        Assert.Empty(fresh.Warnings);
+
+        Solution("<b/>\n");
+        var stale = Check();
+
+        Assert.Equal(true, Assert.Single(stale.Reports).SolutionStale);
+        Assert.Equal([string.Format(CultureInfo.InvariantCulture, StaleWarning, "solutions/demo")], stale.Warnings);
+        Assert.Empty(stale.Violations);
+    }
+
+    [Fact]
+    public void A_zip_with_the_recorded_digest_is_fresh_and_a_changed_one_is_stale()
+    {
+        Write(Plan());
+        var zip = Path.Combine(_t.Path, "out", "Demo.zip");
+        Directory.CreateDirectory(Path.GetDirectoryName(zip)!);
+        File.WriteAllBytes(zip, [1, 2, 3]);
+        Report("verify.md", Six("input: out/Demo.zip", Digest(zip)));
+
+        Assert.Equal(false, VerifyReport().SolutionStale);
+
+        File.WriteAllBytes(zip, [1, 2, 4]);
+
+        Assert.Equal(true, VerifyReport().SolutionStale);
+        Assert.Equal([string.Format(CultureInfo.InvariantCulture, StaleWarning, "out/Demo.zip")], Check().Warnings);
+    }
+
+    [Fact]
+    public void Both_solution_reports_are_compared_and_review_md_stays_null()
+    {
+        Write(Plan());
+        var digest = Digest(Solution());
+        Report("review.md", $"plan-hash: {Hash}\ninput: solutions/demo\nsolution-hash: {digest}\n");
+        Report("security-solution.md", Six(hash: digest));
+        Report("verify.md", Six(hash: Other));
+
+        Assert.Equal([("review.md", null), ("security-solution.md", false), ("verify.md", true)], Check().Reports.Select(r => (r.File, r.SolutionStale)));
+    }
+
+    [Fact]
+    public void A_legacy_report_and_an_unknown_hash_read_null_without_a_new_warning()
+    {
+        Write(Plan());
+        Solution();
+        Report("security-solution.md", $"plan-hash: {Hash}\nmodel: m\nfresh-context: yes\nstate: ready\ninput: the built app: v2\n");
+        Report("verify.md", "state: ready\ninput: solutions/demo\n");
+
+        var reports = Check();
+
+        Assert.All(reports.Reports, r => Assert.Null(r.SolutionStale));
+        Assert.Equal(["security-solution.md has an input: line that is not a relative path"], reports.Warnings);
+    }
+
+    [Fact]
+    public void A_report_with_a_valid_hash_and_no_input_line_reads_null_without_a_warning()
+    {
+        Write(Plan());
+        Report("verify.md", $"state: ready\nsolution-hash: {SolutionHash}\n");
+
+        var reports = Check();
+
+        Assert.Null(Assert.Single(reports.Reports).SolutionStale);
+        Assert.Empty(reports.Warnings);
+    }
+
+    [Fact]
+    public void A_solution_that_is_not_there_reads_null_without_a_warning()
+    {
+        Write(Plan());
+        Report("verify.md", Six("input: solutions/missing"));
+
+        var reports = Check();
+
+        Assert.Null(Assert.Single(reports.Reports).SolutionStale);
+        Assert.Empty(reports.Warnings);
+    }
+
+    [Theory]
+    [InlineData("solutions/link")]
+    [InlineData("linked/demo")]
+    public void A_link_on_the_way_to_the_solution_reads_null_with_a_warning(string input)
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "symbolic links need a privilege on Windows");
+        Write(Plan());
+        var solution = Solution();
+        Directory.CreateSymbolicLink(Path.Combine(_t.Path, "solutions", "link"), solution);
+        Directory.CreateSymbolicLink(Path.Combine(_t.Path, "linked"), Path.Combine(_t.Path, "solutions"));
+        Report("verify.md", Six($"input: {input}", Digest(solution)));
+
+        var reports = Check();
+
+        Assert.Null(Assert.Single(reports.Reports).SolutionStale);
+        Assert.Equal([$"verify.md: input '{input}' passes through a symbolic link, so the solution was not compared"], reports.Warnings);
+    }
+
+    [Fact]
+    public void Two_reports_naming_the_same_linked_input_each_warn_under_their_own_name()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "symbolic links need a privilege on Windows");
+        Write(Plan());
+        Directory.CreateSymbolicLink(Path.Combine(_t.Path, "link"), Solution());
+        Report("security-solution.md", Six("input: link"));
+        Report("verify.md", Six("input: link"));
+
+        Assert.Equal(
+            ["security-solution.md: input 'link' passes through a symbolic link, so the solution was not compared", "verify.md: input 'link' passes through a symbolic link, so the solution was not compared"],
+            Check().Warnings);
+    }
+
+    [Theory]
+    [InlineData("CON", true)]
+    [InlineData("nul", true)]
+    [InlineData("Aux.txt", true)]
+    [InlineData("com1.zip", true)]
+    [InlineData("LPT9", true)]
+    [InlineData("name.", true)]
+    [InlineData("name ", true)]
+    [InlineData("COM0", false)]
+    [InlineData("CONSOLE", false)]
+    [InlineData("a.con", false)]
+    [InlineData("Demo.zip", false)]
+    public void A_windows_reserved_name_is_a_device_name_or_ends_in_a_dot_or_a_space(string name, bool reserved) =>
+        Assert.Equal(reserved, PlanChecker.WindowsReservedName(name));
+
+    [Fact]
+    public void On_windows_an_input_with_a_reserved_name_is_not_read()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "only Windows opens a device for these names");
+        Write(Plan());
+        Report("verify.md", Six("input: solutions/NUL"));
+
+        var reports = Check();
+
+        Assert.Null(Assert.Single(reports.Reports).SolutionStale);
+        Assert.Equal(["verify.md: input 'solutions/NUL' could not be read, so the solution was not compared"], reports.Warnings);
+    }
+
+    [Fact]
+    public void A_plan_folder_outside_docs_plans_reads_null_with_a_warning_and_no_path()
+    {
+        _t.Write("elsewhere/plan.md", Plan()).Write("elsewhere/verify.md", Six());
+
+        var report = PlanChecker.Check(Path.Combine(_t.Path, "elsewhere", "plan.md"), _t.Path);
+
+        Assert.Null(Assert.Single(report.Reports).SolutionStale);
+        Assert.Equal(["verify.md: the plan folder is not in docs/plans, so the solution was not compared"], report.Warnings);
+    }
+
+    [Fact]
+    public void An_input_that_is_not_a_folder_or_a_zip_reads_null_with_a_warning()
+    {
+        Write(Plan());
+        _t.Write("notes/readme.txt", "x");
+        Report("verify.md", Six("input: notes/readme.txt"));
+
+        var reports = Check();
+
+        Assert.Null(Assert.Single(reports.Reports).SolutionStale);
+        Assert.Equal(["verify.md: input 'notes/readme.txt' could not be read, so the solution was not compared"], reports.Warnings);
+    }
+
+    [Fact]
+    public void Ready_hashes_is_null_without_docs_plans_and_holds_the_hash_of_each_ready_solution_report()
+    {
+        Assert.Null(PlanChecker.ReadyHashes(_t.Path));
+
+        var (a, b, c, d) = (new string('1', 64), new string('2', 64), new string('3', 64), new string('4', 64));
+        _t.Write("docs/plans/one/plan.md", Plan());
+        _t.Write("docs/plans/one/verify.md", $"state: ready\nsolution-hash: {a}\n");
+        _t.Write("docs/plans/one/security-solution.md", $"state: blocked\nsolution-hash: {b}\n");
+        _t.Write("docs/plans/one/review.md", $"state: ready\nsolution-hash: {c}\n");
+        _t.Write("docs/plans/two/plan.md", Plan());
+        _t.Write("docs/plans/two/security-solution.md", $"state: ready\nsolution-hash: {d}\n");
+        _t.Write("docs/plans/two/verify.md", "state: ready\n");
+
+        var ready = PlanChecker.ReadyHashes(_t.Path);
+
+        Assert.NotNull(ready);
+        Assert.Equal([a, d], ready.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void Ready_hashes_reads_docs_plans_even_when_the_root_holds_a_plan_md()
+    {
+        _t.Write("plan.md", Plan());
+        _t.Write("docs/plans/x/plan.md", Plan());
+        _t.Write("docs/plans/x/verify.md", $"state: ready\nsolution-hash: {SolutionHash}\n");
+
+        Assert.Equal([SolutionHash], PlanChecker.ReadyHashes(_t.Path));
+    }
 }

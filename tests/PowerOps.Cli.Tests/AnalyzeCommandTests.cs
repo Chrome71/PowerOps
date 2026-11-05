@@ -671,4 +671,53 @@ public class AnalyzeCommandTests : IDisposable
         Assert.StartsWith("note: ", note);
         Assert.EndsWith(": PO027 not checked for agent 'demo_agent': 'botcomponents/demo_agent.topic.Odd/data' is valid YAML whose keys PowerOps can't map, so the tool it may hold isn't read, and PO030 and PO031 don't check it either.", note);
     }
+
+    [Theory]
+    [InlineData("text")]
+    [InlineData("json")]
+    [InlineData("sarif")]
+    [InlineData("markdown")]
+    public void Redact_replaces_urls_on_stdout_and_in_the_out_file_and_keeps_them_without_the_flag(string format)
+    {
+        var seed = Path.Combine(Fixtures, "powerops-seed-yaml", "v2");
+        var file = Path.Combine(_temp, "report.out");
+
+        var plain = Run("analyze", seed, "--format", format, "--fail-on", "none");
+        var redacted = Run("analyze", seed, "--format", format, "--fail-on", "none", "--redact");
+        Assert.Equal(0, Run("analyze", seed, "--format", format, "--fail-on", "none", "--redact", "--out", file).Code);
+
+        Assert.Contains("contoso.sharepoint.com", plain.Out);
+        Assert.DoesNotContain("contoso.sharepoint.com", redacted.Out);
+        Assert.Contains("redacted URL", redacted.Out);
+        Assert.DoesNotContain("contoso.sharepoint.com", File.ReadAllText(file));
+        Assert.Equal(redacted.Out, File.ReadAllText(file));
+        if (format is "json" or "sarif")
+        {
+            Assert.Contains("\"helpUri\"", redacted.Out);
+        }
+    }
+
+    [Fact]
+    public void Redact_replaces_urls_on_stderr()
+    {
+        var (code, _, err) = Run("analyze", "https://m61sentinel.example/x", "--redact");
+
+        Assert.Equal(2, code);
+        Assert.Contains("path not found: [redacted URL]", err);
+        Assert.DoesNotContain("m61sentinel", err);
+        Assert.Contains("m61sentinel", Run("analyze", "https://m61sentinel.example/x").Err);
+    }
+
+    [Fact]
+    public void Redact_still_drops_baselined_findings()
+    {
+        var seed = Path.Combine(Fixtures, "powerops-seed-yaml", "v2");
+        var baseline = Path.Combine(_temp, "baseline.json");
+        Assert.Equal(0, Run("baseline", seed, "--out", baseline).Code);
+
+        var (code, output, _) = Run("analyze", seed, "--baseline", baseline, "--redact", "--fail-on", "warning");
+
+        Assert.Equal(0, code);
+        Assert.Contains("no findings", output);
+    }
 }

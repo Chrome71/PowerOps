@@ -43,7 +43,7 @@
       "flow": "BuildRequestCancellation",
       "solution": "ALMAcceleratorforMakers",
       "result": "unsupported",
-      "message": "Action 'List_records': Unsupported function 'addHours' in expression 'addHours('2026-01-01T00:00:00Z', 1)'.",
+      "message": "Action 'List_records': Unsupported function 'dayOfYear' in expression 'dayOfYear('2026-01-01T00:00:00Z')'.",
       "assertions": []
     }
   ],

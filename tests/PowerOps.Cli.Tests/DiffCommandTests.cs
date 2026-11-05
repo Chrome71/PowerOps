@@ -286,4 +286,54 @@ public class DiffCommandTests : IDisposable
 
         Golden.Verify(Run("diff", old, @new, "--format", "markdown").Out, "diff-agents.md");
     }
+
+    private string EnvPair(string name, string defaultValue)
+    {
+        var folder = Path.Combine(_temp, name);
+        Directory.CreateDirectory(Path.Combine(folder, "Other"));
+        File.WriteAllText(Path.Combine(folder, "Other", "Solution.xml"), """
+            <ImportExportXml><SolutionManifest>
+              <UniqueName>Demo</UniqueName><Version>1.0.0.0</Version><Managed>0</Managed>
+              <Publisher><UniqueName>demopub</UniqueName><CustomizationPrefix>demo</CustomizationPrefix></Publisher>
+            </SolutionManifest></ImportExportXml>
+            """);
+        var envDir = Path.Combine(folder, "environmentvariabledefinitions", "demo_A");
+        Directory.CreateDirectory(envDir);
+        File.WriteAllText(
+            Path.Combine(envDir, "environmentvariabledefinition.xml"),
+            $"""<environmentvariabledefinition schemaname="demo_A"><defaultvalue>{defaultValue}</defaultvalue></environmentvariabledefinition>""");
+        return folder;
+    }
+
+    [Theory]
+    [InlineData("text")]
+    [InlineData("json")]
+    [InlineData("markdown")]
+    public void Redact_prints_a_changed_default_as_a_word_and_keeps_both_values_without_the_flag(string format)
+    {
+        var (old, @new) = (EnvPair("old", "https://m61sentinel-old.example"), EnvPair("new", "https://m61sentinel-new.example"));
+        var file = Path.Combine(_temp, "report.out");
+
+        var plain = Run("diff", old, @new, "--format", format);
+        var redacted = Run("diff", old, @new, "--format", format, "--redact");
+        Assert.Equal(1, Run("diff", old, @new, "--format", format, "--redact", "--out", file).Code);
+
+        Assert.Contains("m61sentinel-old", plain.Out);
+        Assert.Contains("m61sentinel-new", plain.Out);
+        Assert.DoesNotContain("m61sentinel", redacted.Out);
+        Assert.Contains("defaultValue changed", redacted.Out);
+        Assert.Equal(redacted.Out, File.ReadAllText(file));
+        Assert.Equal("", redacted.Err);
+    }
+
+    [Fact]
+    public void Redact_replaces_urls_on_stderr()
+    {
+        var (code, _, err) = Run("diff", "https://m61sentinel.example/x", V1, "--redact");
+
+        Assert.Equal(2, code);
+        Assert.Contains("path not found: [redacted URL]", err);
+        Assert.DoesNotContain("m61sentinel", err);
+        Assert.Contains("m61sentinel", Run("diff", "https://m61sentinel.example/x", V1).Err);
+    }
 }

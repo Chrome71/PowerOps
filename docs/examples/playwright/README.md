@@ -41,6 +41,21 @@ export MODEL_DRIVEN_APP_URL='<model-driven app link>'
 
 In PowerShell: `$env:CANVAS_APP_URL = '<canvas app web link>'`, and the same for the other.
 
+Make the `.auth` folder private before the sign-in is saved into it, so that only your account can read it:
+
+```sh
+mkdir -p .auth && chmod 700 .auth
+```
+
+In PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Force .auth | Out-Null
+icacls .auth /inheritance:r /grant:r "$(whoami):(OI)(CI)F"
+```
+
+The `icacls` command removes the entries `.auth` inherits from the folders above it and gives full access to your account alone. Every file Playwright writes into the folder inherits that entry. `whoami` names your account with its domain or computer name, which `icacls` needs for a work or school account. Afterwards only your account can open the folder, so backup or antivirus software that runs as the system cannot read it; `icacls .auth /reset /t` gives the folder and its files their inherited entries back.
+
 Then open a browser that saves your sign-in when you close it:
 
 ```sh
@@ -53,6 +68,7 @@ In PowerShell, end the command with `"$env:CANVAS_APP_URL"` instead.
 2. Wait until the app shows its gallery.
 3. Paste the model-driven app's link into the same window's address bar and wait until the app shows its grid.
 4. Close the window. Playwright writes `.auth/state.json`. Check that the file exists: Playwright says nothing if it could not write it.
+5. On Linux, make the file private too, after each save: `chmod 600 .auth/state.json`. Check with `ls -ld .auth .auth/state.json`: the folder shows `drwx------` and the file `-rw-------`. On Windows, check with `icacls .auth\state.json`: it lists one entry, your account.
 
 `.auth/state.json` holds your session cookies and tokens for the sign-in page and both apps. Treat it like a password: never commit it (`.gitignore` excludes it), never share or upload it, and delete it when you are done. When the sign-in expires, a test waits on the sign-in page until it times out: do these steps again.
 

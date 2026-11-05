@@ -50,14 +50,16 @@
           "state": null,
           "stale": true,
           "input": null,
-          "solutionHash": null
+          "solutionHash": null,
+          "solutionStale": null
         },
         {
           "file": "verify.md",
           "state": "ready",
           "stale": null,
           "input": "solutions/demo",
-          "solutionHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          "solutionHash": "80ba4af1b5246c76749057dd2d751b8f98ac193d5d7e423e16e0330610a80a7f",
+          "solutionStale": false
         }
       ],
       "writes": null,

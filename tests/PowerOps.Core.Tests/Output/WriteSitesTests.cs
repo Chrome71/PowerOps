@@ -37,7 +37,7 @@ public class WriteSitesTests
 
         // FileInfo: reads only. LinkTarget checks and the size check of BoundedRead (and its doc comment).
         ["src/PowerOps.Core/Readers/BoundedRead.cs: FileInfo"] = 2,
-        ["src/PowerOps.Core/Plans/PlanChecker.cs: FileInfo"] = 2,
+        ["src/PowerOps.Core/Plans/PlanChecker.cs: FileInfo"] = 3,
         ["src/PowerOps.Cli/DeployCommand.cs: FileInfo"] = 3,
         ["src/PowerOps.Cli/ManifestCommand.cs: FileInfo"] = 1,
         ["src/PowerOps.Core/Readers/Manifest.cs: FileInfo"] = 1,

@@ -317,6 +317,20 @@ public class SolutionDiffTests
             Diff(a, b));
     }
 
+    [Theory]
+    [InlineData(null, "x", "defaultValue added", "defaultValue: (none) → x")]
+    [InlineData("x", null, "defaultValue removed", "defaultValue: x → (none)")]
+    [InlineData("x", "y", "defaultValue changed", "defaultValue: x → y")]
+    public void Redacted_default_values_read_added_removed_or_changed_and_the_other_fields_as_before(string? before, string? after, string redacted, string plain)
+    {
+        var a = B.Empty() with { EnvironmentVariables = [B.Env("demo_v", def: before, cur: "c")] };
+        var b = B.Empty() with { EnvironmentVariables = [B.Env("demo_v", required: true, def: after, cur: "d") with { Type = "100000002" }] };
+
+        Assert.Equal($"type: 100000000 → 100000002; required: false → true; {plain}; currentValue changed", SolutionDiff.Compare(a, b).Changes.Single().Detail);
+        Assert.Equal($"type: 100000000 → 100000002; required: false → true; {redacted}; currentValue changed", SolutionDiff.Compare(a, b, redact: true).Changes.Single().Detail);
+        Assert.Empty(SolutionDiff.Compare(a, a, redact: true).Changes);
+    }
+
     private static string App(string name, string version, string display = "App") =>
         $"<CanvasApp><Name>{name}</Name><AppVersion>{version}</AppVersion><DisplayName>{display}</DisplayName></CanvasApp>";
 

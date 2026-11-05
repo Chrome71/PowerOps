@@ -281,6 +281,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.True((bool?)reports[1]!["stale"]);
         Assert.Equal([null, "solutions/demo"], reports.Select(r => (string?)r!["input"]));
         Assert.Equal(["unknown", new string('b', 64)], reports.Select(r => (string?)r!["solutionHash"]));
+        Assert.All(reports, r => Assert.Null(r!["solutionStale"]));
     }
 
     [Fact]

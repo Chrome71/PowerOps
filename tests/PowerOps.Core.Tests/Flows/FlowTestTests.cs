@@ -293,12 +293,12 @@ public class FlowTestTests
     [Fact]
     public void An_unknown_function_is_unsupported()
     {
-        var actions = """{"C":{"type":"Compose","inputs":"@addHours(utcNow(), 1)","runAfter":{}}}""";
+        var actions = """{"C":{"type":"Compose","inputs":"@dayOfYear('2026-01-01T00:00:00Z')","runAfter":{}}}""";
 
         var result = RunOne(Test("\"utcNow\":\"2026-01-01T00:00:00.0000000Z\","), Flow("F", actions));
 
         Assert.Equal(FlowTestOutcome.Unsupported, result.Outcome);
-        Assert.Contains("addHours", result.Message);
+        Assert.Contains("dayOfYear", result.Message);
     }
 
     [Fact]

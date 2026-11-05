@@ -16,12 +16,21 @@ steps:
       path: solutions        # default: .
       fail-on: error         # error | warning | none
       # baseline: powerops-baseline.json
+      # redact: 'true'     # replace URLs in findings and the diff; see "Public outputs"
       # tests: flowtests     # *.flowtest.json files to run; see "Merge gate: flow tests"
 ```
 
 These snippets pin a commit of `main`. Pin the full SHA of the newest commit of `main` when you copy them; the pin in these snippets is `main` as of 2026-10-29. The action runs the PowerOps release that its `action.yml` pins (`PO_RELEASE` and `PO_RELEASE_SHA256` in its `Install PowerOps` step): it downloads that release's `PowerOps.<version>.nupkg`, refuses it unless its SHA-256 is the pinned one, and runs it, so the commit you pin fixes the bytes that run. Until a release is pinned (none is published yet) it builds PowerOps from source instead, in locked mode: a package that differs from the committed `packages.lock.json` files fails the build. The download needs `curl`, `sha256sum` and `unzip`, which GitHub's Linux and Windows images have. `powerops --version` prints the release's version, or for a source build the version and the pinned commit, and that text is the `tool` of every plan file and apply report. A plan file applies only with the build that made it: if the action's pin moves between the run that plans and the run that applies (a pull request's plan and the apply after its merge, as in the [promotion example](examples/README.md)), the apply is refused with "plan again with this version" until the plan runs again. Pull requests from forks cannot upload SARIF (their token has no `security-events` permission); they still get the job summary and the annotations. The `category` input (default `powerops`) is the code scanning category of the SARIF upload; set it to tell several analyses in one repository apart.
 
 The log of the analysis, flow test and diff steps keeps only powerops' own `error:` and `note:` lines (a `note:` names a link inside a solution that was not followed or read); other text, which a solution could fill, stays out of the log. When the analysis exits with code 3 or more without an `error:` line (a crash, a missing .NET), its log gets `error: powerops exited with code N`.
+
+## Public outputs
+
+In a public repository the job summary, the annotations and the job log can be read by anyone, the pull request comment is public, and code scanning holds the SARIF findings. They quote what the reports quote ([Values in outputs](COMMANDS.md#values-in-outputs)): the URL of a PO006 or PO014 finding, and an environment variable's default value in the diff. This is guidance; the action enforces none of it:
+
+- Run the action on committed files where you can. Their values are already in the repository, so its outputs show nothing new.
+- When the action analyzes or diffs files that are not in the repository, such as an export the job downloads or builds, set `redact: 'true'`. It adds `--redact` to every `analyze` run and to the pull request diff, so each URL becomes `[redacted URL]` and a changed default shows as `defaultValue changed`. The first run with it, and the first without it after that, close the code scanning alerts of the findings it changes and open new ones.
+- `redact` changes neither the deploy plan, which prints no setting value or connection id, nor the flow test report, which quotes values: run the flow tests on committed files only ([Merge gate](#merge-gate-flow-tests)).
 
 ## Merge gate: flow tests
 

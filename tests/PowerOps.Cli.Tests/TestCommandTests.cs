@@ -180,7 +180,7 @@ public class TestCommandTests : IDisposable
     public void A_changed_expectation_a_missing_mock_and_an_unsupported_function_each_exit_one_and_match_the_goldens()
     {
         var alm = CopyOf(Alm, "alm");
-        Edit(alm, "BuildRequestCancellation-*.json", text => text.Replace("createdon desc", "@addHours('2026-01-01T00:00:00Z', 1)", StringComparison.Ordinal));
+        Edit(alm, "BuildRequestCancellation-*.json", text => text.Replace("createdon desc", "@dayOfYear('2026-01-01T00:00:00Z')", StringComparison.Ordinal));
         var tests = Folder("failures");
         Write(tests, "changed-expectation.flowtest.json", """
             {

@@ -5,6 +5,7 @@ using System.Xml.Linq;
 
 using PowerOps.Core.Deploy;
 using PowerOps.Core.Model;
+using PowerOps.Core.Output;
 using PowerOps.Core.Readers;
 
 namespace PowerOps.Core.Diff;
@@ -49,7 +50,8 @@ public static class SolutionDiff
 {
     private const string Arrow = " → ";
 
-    public static DiffResult Compare(Solution old, Solution @new)
+    /// <summary>With <paramref name="redact"/> (M61) an environment variable's default value is reported as added, removed or changed, and URLs in keys, names, details and not-compared lines are replaced.</summary>
+    public static DiffResult Compare(Solution old, Solution @new, bool redact = false)
     {
         var changes = new List<Change>();
 
@@ -75,9 +77,10 @@ public static class SolutionDiff
                 Differences(
                     ("type", a.Type, b.Type),
                     ("required", a.IsRequired.ToString().ToLowerInvariant(), b.IsRequired.ToString().ToLowerInvariant()),
-                    ("defaultValue", a.DefaultValue, b.DefaultValue)),
+                    ("defaultValue", redact ? null : a.DefaultValue, redact ? null : b.DefaultValue)),
+                redact ? Presence("defaultValue", a.DefaultValue, b.DefaultValue) : null,
                 // Current values are environment-specific and may be sensitive, so they are never printed.
-                a.CurrentValue == b.CurrentValue ? null : a.CurrentValue is null ? "currentValue added" : b.CurrentValue is null ? "currentValue removed" : "currentValue changed")));
+                Presence("currentValue", a.CurrentValue, b.CurrentValue))));
 
         changes.AddRange(Keyed("workflow", old.Workflows, @new.Workflows,
             w => w.Id.Length > 0 ? w.Id : w.Name, w => w.Name, null,
@@ -110,8 +113,19 @@ public static class SolutionDiff
             changes = [.. changes.Select(c => c with { Risks = [.. c.Risks, Risk.SameVersion] })];
         }
 
-        return new DiffResult(old, @new, changes) { NotCompared = NotCompared(old, @new) };
+        var notCompared = NotCompared(old, @new);
+        if (redact)
+        {
+            changes = [.. changes.Select(c => c with { Key = Redaction.Text(c.Key), Name = c.Name is null ? null : Redaction.Text(c.Name), Detail = c.Detail is null ? null : Redaction.Text(c.Detail) })];
+            notCompared = [.. notCompared.Select(Redaction.Text)];
+        }
+
+        return new DiffResult(old, @new, changes) { NotCompared = notCompared };
     }
+
+    /// <summary>"field added", "field removed" or "field changed" for a value that is never printed; null when it is the same.</summary>
+    private static string? Presence(string field, string? old, string? @new) =>
+        old == @new ? null : old is null ? $"{field} added" : @new is null ? $"{field} removed" : $"{field} changed";
 
     // One part per Work IQ workload that differs, matched by schema name like every keyed match here; a side that is missing (or that the reader couldn't read) shows as "(none)".
     private static string? Workloads(Agent a, Agent b)

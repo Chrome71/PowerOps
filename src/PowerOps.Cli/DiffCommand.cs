@@ -16,13 +16,20 @@ public static class DiffCommand
         format.AcceptOnlyFromAmong("text", "json", "markdown");
         var outFile = new Option<string?>("--out") { Description = "Write the report to this file instead of stdout." };
 
-        var command = new Command("diff", "Compare two versions of a solution component by component (offline, read-only).") { oldPath, newPath, format, outFile };
-        command.SetAction(parse => Execute(parse.GetValue(oldPath)!, parse.GetValue(newPath)!, parse.GetValue(format)!, parse.GetValue(outFile), output, error));
+        var redact = new Option<bool>("--redact") { Description = "Print a changed defaultValue only as added, removed or changed, and replace URLs in the report and stderr with a placeholder." };
+
+        var command = new Command("diff", "Compare two versions of a solution component by component (offline, read-only).") { oldPath, newPath, format, outFile, redact };
+        command.SetAction(parse => Execute(parse.GetValue(oldPath)!, parse.GetValue(newPath)!, parse.GetValue(format)!, parse.GetValue(outFile), parse.GetValue(redact), output, error));
         return command;
     }
 
-    private static int Execute(string oldPath, string newPath, string format, string? outFile, TextWriter output, TextWriter error)
+    private static int Execute(string oldPath, string newPath, string format, string? outFile, bool redact, TextWriter output, TextWriter error)
     {
+        if (redact)
+        {
+            error = new Redaction.Writer(error);
+        }
+
         var paths = new[] { oldPath, newPath };
         for (var i = 0; i < paths.Length; i++)
         {
@@ -42,6 +49,12 @@ public static class DiffCommand
             catch (InvalidDataException ex)
             {
                 error.WriteLine($"error: {TextReport.Clean(ex.Message)}");
+                return 3;
+            }
+            catch (Exception ex)
+            {
+                // What Program.Run would write for it, but through the (possibly redacting) writer.
+                error.WriteLine(Environment.GetEnvironmentVariable("POWEROPS_DEBUG") == "1" ? ex.ToString() : $"error: {TextReport.Clean(ex.Message)}");
                 return 3;
             }
 
@@ -66,7 +79,7 @@ public static class DiffCommand
         try
         {
             var context = new LoadContext();
-            var result = SolutionDiff.Compare(SolutionLoader.Load(paths[0], context), SolutionLoader.Load(paths[1], context));
+            var result = SolutionDiff.Compare(SolutionLoader.Load(paths[0], context), SolutionLoader.Load(paths[1], context), redact);
             TextReport.WriteNotes(context.SkippedLinks, error);
             TextReport.WriteNotCompared(result.NotCompared, error);
 
