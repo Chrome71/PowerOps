@@ -433,11 +433,14 @@ public partial class SkillsCommandTests : IDisposable
     }
 
     [Fact]
-    public void Plan_skill_is_ASCII_only()
+    public void Plan_skill_stays_under_its_word_ceiling()
     {
+        // M41: the 2,483 words the skill had before the ledger, plus 300. On ASCII text a split on whitespace counts as wc -w does.
         var text = SkillsCommand.Shipped()["powerops-plan/SKILL.md"];
+        var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
 
         Assert.All(text, c => Assert.True(c < 128, $"non-ASCII character U+{(int)c:X4}"));
+        Assert.InRange(words, 1, 2783);
     }
 
     [Fact]

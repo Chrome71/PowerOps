@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using PowerOps.Core.Drift;
 using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
@@ -62,4 +63,17 @@ internal static class Capture
             return LiveFakes.Ok(Read($"{env}-read{read}.json"));
         },
     };
+}
+
+public class DriftCaptureTests
+{
+    // The drift goldens read the captures through this fake, so only this test shows that it answers no rows for a wrong component name.
+    [Fact]
+    public void The_layer_fake_answers_like_the_live_table_with_no_rows_for_a_wrong_name()
+    {
+        var f = Capture.Fakes("clean");
+        var url = new Uri("https://contoso-test.crm.dynamics.com/api/data/v9.2/msdyn_componentlayers?fetchXml=" + Uri.EscapeDataString(DriftQueries.Layers(Guid.Parse("4c8dd007-dfcb-f111-a05c-0022480697a8"), "workflow")));
+
+        Assert.Equal("""{"value":[]}""", f.WebFn(url).Body);
+    }
 }
