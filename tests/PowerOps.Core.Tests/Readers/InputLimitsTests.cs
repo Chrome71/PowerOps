@@ -297,10 +297,9 @@ public class InputLimitsTests(ITestOutputHelper log)
         Assert.Contains("entries", ex.Message);
     }
 
-    // .NET also takes the Zip64 count when the classic record's disk number is 0xFFFF, which the guard doesn't look at,
-    // so the guard sees 1 entry and only the count check after opening refuses the 5.
+    // .NET takes the Zip64 count when the classic record's disk number is 0xFFFF, even with a classic count of 1.
     [Fact]
-    public void Zip64_count_behind_a_disk_number_of_ffff_is_refused_after_opening()
+    public void Zip64_count_behind_a_disk_number_of_ffff_is_refused_by_the_guard_and_at_the_cap_passes()
     {
         using var t = new TempFolder();
         var path = Path.Combine(t.Path, "x.zip");
@@ -330,12 +329,15 @@ public class InputLimitsTests(ITestOutputHelper log)
         BitConverter.GetBytes((ushort)1).CopyTo(tail, 76 + 8);
         BitConverter.GetBytes((ushort)1).CopyTo(tail, 76 + 10);
         File.WriteAllBytes(path, [.. bytes.AsSpan(0, eocd), .. tail]);
-        var budget = new ReadBudget(maxEntries: 2);
+        using (var opened = ZipFile.OpenRead(path))
+        {
+            Assert.Equal(5, opened.Entries.Count);
+        }
 
-        ZipGuard.Check(path, budget);
-        var ex = Assert.Throws<InvalidDataException>(() => ZipReader.Read(path, budget));
+        var ex = Assert.Throws<InvalidDataException>(() => ZipGuard.Check(path, new ReadBudget(maxEntries: 4)));
+        ZipGuard.Check(path, new ReadBudget(maxEntries: 5));
 
-        Assert.Equal($"{path}: more than 2 entries.", ex.Message);
+        Assert.Equal($"{path}: more than 4 entries.", ex.Message);
     }
 
     [Fact]

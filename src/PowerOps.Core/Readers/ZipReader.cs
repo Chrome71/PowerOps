@@ -29,7 +29,7 @@ public static class ZipReader
     /// <exception cref="InvalidDataException">More entries than the budget allows, or two kept names that are equal without case; the message starts with <paramref name="zipPath"/>.</exception>
     internal static Dictionary<string, ZipArchiveEntry> Entries(IReadOnlyCollection<ZipArchiveEntry> all, string zipPath, ReadBudget budget, Func<string, bool>? keep = null)
     {
-        // ZipGuard reads the Zip64 count only when the classic count, size or offset is at its limit; .NET also reads it when the disk number is, so it can find more entries than the guard saw.
+        // Second line of defence: ZipGuard counts from the zip's tail before .NET opens it, and this catches any count it misreads.
         if (all.Count > budget.MaxEntries)
         {
             throw new InvalidDataException($"{zipPath}: more than {budget.MaxEntries} entries.");
