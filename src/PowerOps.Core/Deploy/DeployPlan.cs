@@ -119,7 +119,7 @@ public static class DeployPlan
 
     /// <summary>The text the plan hash is taken of.</summary>
     /// <exception cref="InvalidDataException">A zip has no snapshot in the target read.</exception>
-    public static string HashText(IReadOnlyList<DeployZip> zips, DeployTarget target) => Render(target.Id, Inputs(zips, target));
+    internal static string HashText(IReadOnlyList<DeployZip> zips, DeployTarget target) => Render(target.Id, Inputs(zips, target));
 
     /// <exception cref="InvalidDataException">A zip's unique name or version, the target's version of it or a cloud flow id is unusable; the message names the zip file and never a value.</exception>
     public static DeployPlanResult Build(IReadOnlyList<DeployZip> zips, DeployTarget target)
