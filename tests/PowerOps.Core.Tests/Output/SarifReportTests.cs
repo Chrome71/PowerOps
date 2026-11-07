@@ -145,6 +145,38 @@ public class SarifReportTests
         Assert.Equal("Other/Customizations.xml", loc.GetProperty("physicalLocation").GetProperty("artifactLocation").GetProperty("uri").GetString());
     }
 
+    private static string ResultUri(string json) =>
+        JsonDocument.Parse(json).RootElement.GetProperty("runs")[0].GetProperty("results")[0].GetProperty("locations")[0]
+            .GetProperty("physicalLocation").GetProperty("artifactLocation").GetProperty("uri").GetString()!;
+
+    [Fact]
+    public void A_rooted_solution_path_is_an_absolute_file_uri_with_escaped_segments()
+    {
+        var (root, uri) = OperatingSystem.IsWindows() ? ("C:/pr/my sol", "file:///C:/pr/my%20sol") : ("/tmp/pr/my sol", "file:///tmp/pr/my%20sol");
+        var finding = new Finding("PO001", Severity.Error, "m", "Other/Solution.xml", "c");
+
+        Assert.Equal(uri + "/Other/Solution.xml", ResultUri(Sarif(root, finding)));
+        Assert.Equal(uri + "/%2541%23.zip", ResultUri(Sarif(root + "/%41#.zip", finding)));
+        var w = new StringWriter();
+        SarifReport.Write(new AnalysisResult([new SolutionResult(root, B.Empty(), []) { NotChecked = ["PO020 not checked for table 'x'."] }]), w, "1.2.3");
+        Assert.True(IsValid(w.ToString()));
+        using var doc = JsonDocument.Parse(w.ToString());
+        Assert.Equal(uri, doc.RootElement.GetProperty("runs")[0].GetProperty("invocations")[0].GetProperty("toolExecutionNotifications")[0]
+            .GetProperty("locations")[0].GetProperty("physicalLocation").GetProperty("artifactLocation").GetProperty("uri").GetString());
+    }
+
+    [Theory]
+    [InlineData("../pr/sol")]
+    [InlineData("sub/../../pr/sol")]
+    public void A_solution_path_through_dot_dot_is_the_absolute_file_uri_of_the_resolved_path(string path)
+    {
+        var uri = ResultUri(Sarif(path, new Finding("PO001", Severity.Error, "m", "Other/Solution.xml", "c")));
+
+        Assert.StartsWith("file:///", uri);
+        Assert.DoesNotContain("..", uri);
+        Assert.Equal(Path.GetFullPath(Path.Combine("..", "pr", "sol", "Other", "Solution.xml")), new Uri(uri).LocalPath);
+    }
+
     [Fact]
     public void Zip_solution_points_at_the_zip_and_names_the_inner_file()
     {

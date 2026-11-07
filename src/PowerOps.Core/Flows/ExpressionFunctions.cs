@@ -117,11 +117,11 @@ public static class ExpressionFunctions
 
     /// <summary>Parses JSON text and rejects a duplicate property at once: a JsonObject would find it only when first read, as an ArgumentException.</summary>
     /// <exception cref="JsonException">The text is not valid JSON, is nested deeper than 64 levels, has a duplicate property or holds a string with a lone surrogate, escaped in the text or a real one in the string.</exception>
-    internal static JsonNode? ParseJson(string text)
+    internal static JsonNode? ParseJson(string text, int maxDepth = 0)
     {
         try
         {
-            var node = JsonNode.Parse(text, null, new JsonDocumentOptions { AllowDuplicateProperties = false });
+            var node = JsonNode.Parse(text, null, new JsonDocumentOptions { MaxDepth = maxDepth, AllowDuplicateProperties = false });
             CheckText(node);
             return node;
         }

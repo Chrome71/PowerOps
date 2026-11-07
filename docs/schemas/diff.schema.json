@@ -25,7 +25,7 @@
           "detail": { "type": "string", "description": "For a changed item, 'field: old → new' parts joined with '; '." },
           "risks": {
             "type": "array",
-            "description": "Risk labels. removed-component: a managed upgrade deletes the component. flow-state: a cloud flow was turned on or off. connection-reference and environment-variable: one was added or removed. agent-tool: an agent tool was added or removed. agent-instructions: an agent's instructions changed. same-version: the two solutions differ but carry the same version number, so importing the new one is not an upgrade: deploy plan skips it.",
+            "description": "Risk labels. removed-component: a managed upgrade deletes the component. flow-state: a cloud flow was turned on or off. connection-reference and environment-variable: one was added or removed. agent-tool: an agent tool was added or removed, or its mode (whose credentials it uses) changed. agent-instructions: an agent's instructions changed. same-version: the two solutions differ but carry the same version number, so importing the new one is not an upgrade: deploy plan skips it.",
             "items": { "enum": ["removed-component", "flow-state", "connection-reference", "environment-variable", "agent-tool", "agent-instructions", "same-version"] }
           }
         }
