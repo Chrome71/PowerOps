@@ -52,14 +52,21 @@ public static class PlanFacts
             return Unavailable("`pac solution list` printed no solution table", SignInFix);
         }
 
+        var rows = lines.Skip(header + 1).Where(l => l.Length > 0).ToList();
         var solutions = new List<Solution>();
-        foreach (var tokens in lines.Skip(header + 1).Select(l => l.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)))
+        foreach (var tokens in rows.Select(l => l.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)))
         {
             // Friendly names contain spaces, so read from both ends instead of by column.
             if (tokens.Length >= 3 && bool.TryParse(tokens[^1], out var managed))
             {
                 solutions.Add(new Solution(tokens[0], tokens[^2], managed));
             }
+        }
+
+        // Rows of which none parse are a changed table, not an empty environment.
+        if (rows.Count > 0 && solutions.Count == 0)
+        {
+            return Unavailable("`pac solution list` rows could not be read", SignInFix);
         }
 
         return Serialize(new { schemaVersion = JsonOutput.SchemaVersion, available = true, environment, solutions });
