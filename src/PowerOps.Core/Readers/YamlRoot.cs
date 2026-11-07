@@ -24,9 +24,7 @@ internal sealed class YamlRoot
 
         // Symlinks are never followed, and .git, node_modules, bin and obj are neither listed nor counted.
         var links = new List<string>();
-        foreach (var p in Budget.LimitFiles(SolutionDiscovery.EnumerateFiles(Folder, links), folder)
-            .Select(f => Path.GetRelativePath(Folder, f).Replace('\\', '/'))
-            .Order(StringComparer.Ordinal))
+        foreach (var p in SolutionDiscovery.ListFiles(Folder, folder, Budget, links).Order(StringComparer.Ordinal))
         {
             if (!Paths.TryAdd(p, p))
             {
@@ -34,7 +32,7 @@ internal sealed class YamlRoot
             }
         }
 
-        _links = links.Select(l => System.IO.Path.GetRelativePath(Folder, l).Replace('\\', '/')).ToList();
+        _links = links;
     }
 
     public ReadBudget Budget { get; }
@@ -44,7 +42,7 @@ internal sealed class YamlRoot
     {
         foreach (var link in _links.Where(belongs).Where(_reported.Add))
         {
-            sink.Add(System.IO.Path.Combine(Folder, link).Replace('\\', '/'));
+            sink.Add(SolutionDiscovery.ForwardSlashes(System.IO.Path.Combine(Folder, link)));
         }
     }
 
