@@ -201,6 +201,19 @@ public class FlowSimulatorTests
     }
 
     [Fact]
+    public void An_action_that_runs_after_TimedOut_is_skipped_when_its_predecessor_succeeds()
+    {
+        var run = Run("""
+            {"A":{"type":"Compose","inputs":1,"runAfter":{}},
+             "B":{"type":"Compose","inputs":2,"runAfter":{"A":["TimedOut"]}}}
+            """);
+
+        Assert.Equal("Skipped", St(run, "B"));
+        Assert.Equal("ActionConditionFailed", (string?)run.Calls["B"][0].Error!["code"]);
+        Assert.Contains("Expected status values 'TimedOut' and actual value 'Succeeded'", (string?)run.Calls["B"][0].Error!["message"]);
+    }
+
+    [Fact]
     public void A_foreach_with_no_items_records_the_actions_in_it_as_skipped_for_want_of_items()
     {
         var run = Run("""
