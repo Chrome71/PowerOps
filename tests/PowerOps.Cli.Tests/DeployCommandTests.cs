@@ -188,6 +188,7 @@ public class DeployCommandTests : IDisposable
     [InlineData("no-target", "--target is required")]
     [InlineData("save-is-a-folder", "--save names an existing folder")]
     [InlineData("out-is-a-folder", "--out names an existing folder")]
+    [InlineData("save-and-out-are-one-file", "--save and --out name the same file")]
     [InlineData("symbolic-link", "symbolic links are not read")]
     public void A_usage_error_exits_2_before_the_target_is_read(string problem, string message)
     {
@@ -243,6 +244,10 @@ public class DeployCommandTests : IDisposable
             case "out-is-a-folder":
                 SmallZip(Folder, "ok");
                 args = [.. args, "--out", Out];
+                break;
+            case "save-and-out-are-one-file":
+                SmallZip(Folder, "ok");
+                args = [.. args, "--save", Path.Combine(Out, "p.json"), "--out", Path.Combine(Out, ".", "p.json")];
                 break;
             default:
                 var real = SmallZip(Stage, "Real");

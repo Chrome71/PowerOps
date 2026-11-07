@@ -129,6 +129,14 @@ public static class DeployCommand
             }
         }
 
+        // The report written last would replace the plan file.
+        // shortcut: two spellings through a linked folder are not seen as one file; resolve both as SafeWrite does if that is ever needed.
+        if (!string.IsNullOrEmpty(save) && !string.IsNullOrEmpty(outFile)
+            && string.Equals(Path.GetFullPath(save), Path.GetFullPath(outFile), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+        {
+            problems.Add("--save and --out name the same file");
+        }
+
         if (Prepare(folder, target, problems, error, read, out var code) is not { } prepared)
         {
             return code;
