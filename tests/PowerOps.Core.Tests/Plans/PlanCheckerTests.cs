@@ -46,6 +46,19 @@ public class PlanCheckerTests : IDisposable
     }
 
     [Fact]
+    public void A_root_plan_md_does_not_hide_the_plans_under_docs_plans()
+    {
+        _t.Write("plan.md", Plan()).Write("docs/plans/a/plan.md", Plan("approved", "skipped"));
+        var a = Path.Combine(_t.Path, "docs", "plans", "a");
+        PlanSignOff.Run(a, _t.Path, DateOnly.Parse("2026-10-19", CultureInfo.InvariantCulture));
+
+        Assert.Equal([Path.Combine(a, "plan.md")], PlanChecker.Discover(_t.Path));
+        Assert.Equal([Path.Combine(a, "plan.md")], PlanChecker.Discover(a + Path.DirectorySeparatorChar));
+        Assert.Equal([Path.Combine(_t.Path, "plan.md")], PlanChecker.Discover(Path.Combine(_t.Path, "plan.md")));
+        Assert.Equal("signed-off", PlanChecker.Check(PlanChecker.Discover(_t.Path)[0], _t.Path).Status);
+    }
+
+    [Fact]
     public void Malformed_header_is_one_violation_and_still_scans_for_tenant_data()
     {
         Write("---\nstatus: nope\nreview: done\n---\nsee https://contoso.example/x\n");
