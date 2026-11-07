@@ -72,7 +72,7 @@ Body edited after sign-off ──► `powerops plan status` exits 1: "changed si
 | implementing | done | `powerops-implement`, after the steps, the final `analyze` and `test` and the live checks of the saved version in Dev, or the user accepting each remaining gap by name | `status` only; progress lives in commit messages, not in `plan.md` |
 | any | draft | `powerops-plan`, when the user asks for more rounds or edits the plan | `status` |
 
-Header fields are left out of the hash, so status changes never invalidate a sign-off; edits to the body do. The state is visible in the files and checkable in CI.
+Header fields are left out of the hash, so status changes never invalidate a sign-off; edits to the body do. The state is visible in the files and checkable in CI. The limit: every header field is left out, `environment` too, so a plan whose `environment` changes from `Dev` to a production environment after sign-off still passes `plan status`, and `powerops-implement` writes to the environment the header names. Read a header change after sign-off in the diff before you build from it.
 
 ### Removed or simplified, and why
 
@@ -128,7 +128,7 @@ supersedes: null         # folder name of the earlier plan this one builds on, o
 ---
 ```
 
-`status` is one of `draft | approved | signed-off | implementing | done` (see [Workflow](#workflow)). The hash covers the body only, so header changes never affect it.
+`status` is one of `draft | approved | signed-off | implementing | done` (see [Workflow](#workflow)). The hash covers the body only, so header changes never affect it, a changed `environment` included (see the limit under [Workflow](#workflow)).
 
 `review.md` starts with three lines:
 
