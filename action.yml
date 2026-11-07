@@ -72,11 +72,7 @@ runs:
         PO_PATH: ${{ inputs.path }}
         PO_BASELINE: ${{ inputs.baseline }}
         PO_REDACT: ${{ inputs.redact }}
-      run: |
-        args=(analyze "$PO_PATH" --fail-on none)
-        if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
-        if [ "$PO_REDACT" = "true" ]; then args+=(--redact); fi
-        bash "$GITHUB_ACTION_PATH/action/powerops.sh" "${args[@]}" --format markdown | bash "$GITHUB_ACTION_PATH/action/summary.sh"
+      run: bash "$GITHUB_ACTION_PATH/action/analyze.sh" none --format markdown | bash "$GITHUB_ACTION_PATH/action/summary.sh"
 
     - name: Annotations
       shell: bash
@@ -86,11 +82,7 @@ runs:
         PO_PATH: ${{ inputs.path }}
         PO_BASELINE: ${{ inputs.baseline }}
         PO_REDACT: ${{ inputs.redact }}
-      run: |
-        args=(analyze "$PO_PATH" --fail-on none)
-        if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
-        if [ "$PO_REDACT" = "true" ]; then args+=(--redact); fi
-        bash "$GITHUB_ACTION_PATH/action/powerops.sh" "${args[@]}" --format json | bash "$GITHUB_ACTION_PATH/action/annotate.sh"
+      run: bash "$GITHUB_ACTION_PATH/action/analyze.sh" none --format json | bash "$GITHUB_ACTION_PATH/action/annotate.sh"
 
     - name: Write SARIF
       id: sarif
@@ -102,10 +94,7 @@ runs:
         PO_BASELINE: ${{ inputs.baseline }}
         PO_REDACT: ${{ inputs.redact }}
       run: |
-        args=(analyze "$PO_PATH" --fail-on none)
-        if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
-        if [ "$PO_REDACT" = "true" ]; then args+=(--redact); fi
-        bash "$GITHUB_ACTION_PATH/action/powerops.sh" "${args[@]}" --format sarif --out "$RUNNER_TEMP/powerops.sarif"
+        bash "$GITHUB_ACTION_PATH/action/analyze.sh" none --format sarif --out "$RUNNER_TEMP/powerops.sarif"
         echo "written=true" >> "$GITHUB_OUTPUT"
 
     - name: Upload SARIF
@@ -159,11 +148,7 @@ runs:
         PO_BASELINE: ${{ inputs.baseline }}
         PO_REDACT: ${{ inputs.redact }}
         PO_FAIL_ON: ${{ inputs.fail-on }}
-      run: |
-        args=(analyze "$PO_PATH" --fail-on "$PO_FAIL_ON")
-        if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
-        if [ "$PO_REDACT" = "true" ]; then args+=(--redact); fi
-        bash "$GITHUB_ACTION_PATH/action/powerops.sh" "${args[@]}"
+      run: bash "$GITHUB_ACTION_PATH/action/analyze.sh" "$PO_FAIL_ON"
 
     - name: Deploy apply
       id: apply
@@ -199,7 +184,9 @@ runs:
         GH_TOKEN: ${{ github.token }}
       run: bash "$GITHUB_ACTION_PATH/action/comment.sh"
 
+    # With plan-file set, Gate the apply already ran this analysis.
     - name: Apply fail-on
+      if: inputs.plan-file == ''
       shell: bash
       env:
         PO_DLL: ${{ steps.powerops.outputs.dll }}
@@ -207,11 +194,7 @@ runs:
         PO_BASELINE: ${{ inputs.baseline }}
         PO_REDACT: ${{ inputs.redact }}
         PO_FAIL_ON: ${{ inputs.fail-on }}
-      run: |
-        args=(analyze "$PO_PATH" --fail-on "$PO_FAIL_ON")
-        if [ -n "$PO_BASELINE" ]; then args+=(--baseline "$PO_BASELINE"); fi
-        if [ "$PO_REDACT" = "true" ]; then args+=(--redact); fi
-        bash "$GITHUB_ACTION_PATH/action/powerops.sh" "${args[@]}"
+      run: bash "$GITHUB_ACTION_PATH/action/analyze.sh" "$PO_FAIL_ON"
 
     - name: Apply plan result
       if: always() && ((steps.plan.outputs.exit-code != '' && steps.plan.outputs.exit-code != '0') || (steps.apply.outputs.exit-code != '' && steps.apply.outputs.exit-code != '0'))
