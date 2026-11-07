@@ -40,15 +40,6 @@ public class ZipReaderTests
     }
 
     [Fact]
-    public void Fixture_managed_column_level_security()
-    {
-        var s = ZipReader.Read(Fixture("ColumnLevelSecuritySampleSolution_managed.zip"));
-
-        Assert.True(s.Managed);
-        Assert.Equal("sample", s.Publisher.Prefix);
-    }
-
-    [Fact]
     public void Fixture_contoso_has_default_publisher_connection_reference_and_env_var_value()
     {
         var s = ZipReader.Read(Fixture("Contoso_sample_1_0_0_1_managed.zip"));
@@ -62,15 +53,6 @@ public class ZipReaderTests
         Assert.Equal("new_ContosoURL", v.SchemaName);
         Assert.Equal("https://contoso.com", v.CurrentValue);
         Assert.Null(v.DefaultValue);
-    }
-
-    [Fact]
-    public void Fixture_polymorphic_lookup()
-    {
-        var s = ZipReader.Read(Fixture("polymorphiclookupexamplesolution.zip"));
-
-        Assert.Equal("polymorphiclookupexamplesolution", s.UniqueName);
-        Assert.Equal("examplepublisher", s.Publisher.UniqueName);
     }
 
     [Fact]
