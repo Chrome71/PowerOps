@@ -427,7 +427,7 @@ public static class DeployCommand
 
         if (flowRefs.Count == 0)
         {
-            return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Imported, null, Done(), []);
+            return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Imported, imports.Count == 0 ? "Nothing was imported: every solution was skipped." : null, Done(), []);
         }
 
         DeployTarget second;

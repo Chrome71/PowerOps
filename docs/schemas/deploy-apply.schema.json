@@ -13,9 +13,9 @@
     "hash": { "type": "string", "pattern": "^([0-9a-f]{64})?$", "description": "The reviewed plan file's hash, never the new plan's. Empty when the plan file was made by another powerops version." },
     "status": {
       "enum": ["refused", "planned", "imported", "failed"],
-      "description": "refused: nothing was imported (exit 1), because the plan file is blocked or from another version, the new plan's hash differs, or the new plan is blocked. planned: a dry run (exit 0). imported: the imports ran; see message and flows for exit 1 and 3. failed: an import failed, pac was not found, or a file changed before its import, or an import timed out, which leaves its row unknown (exit 3); there is no rollback."
+      "description": "refused: nothing was imported (exit 1), because the plan file is blocked or from another version, the new plan's hash differs, or the new plan is blocked. planned: a dry run (exit 0). imported: the imports ran, or, with the message 'Nothing was imported: every solution was skipped.', none was needed and nothing changed; see message and flows for exit 1 and 3. failed: an import failed, pac was not found, or a file changed before its import, or an import timed out, which leaves its row unknown (exit 3); there is no rollback."
     },
-    "message": { "type": ["string", "null"], "description": "Why a run stopped, or null. For a failure it says there is no rollback and names the imported solutions; after good imports, a second read that failed starts with 'The imports succeeded.'." },
+    "message": { "type": ["string", "null"], "description": "Why a run stopped, or null. For a failure it says there is no rollback and names the imported solutions; after good imports, a second read that failed starts with 'The imports succeeded.'. With status imported, 'Nothing was imported: every solution was skipped.' means every solution was a skip and nothing changed." },
     "appliedAt": {
       "type": ["string", "null"],
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
