@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using PowerOps.Core.Readers;
 using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
@@ -7,6 +8,7 @@ namespace PowerOps.Cli.Tests;
 public class AnalyzeCommandTests : IDisposable
 {
     private static readonly string Fixtures = Path.Combine(Golden.RepoRoot, "tests", "fixtures");
+    private static readonly int FixtureCount = SolutionDiscovery.Find(Fixtures).Count;
     private readonly string _temp = Directory.CreateTempSubdirectory("powerops-cli-").FullName;
 
     public void Dispose() => Directory.Delete(_temp, recursive: true);
@@ -172,13 +174,13 @@ public class AnalyzeCommandTests : IDisposable
     }
 
     [Fact]
-    public void Json_output_parses_and_has_seventeen_solutions()
+    public void Json_output_parses_and_counts_the_solutions_found()
     {
         var (code, output, _) = Run("analyze", Fixtures, "--format", "json", "--fail-on", "none");
 
         Assert.Equal(0, code);
         using var doc = JsonDocument.Parse(output);
-        Assert.Equal(17, doc.RootElement.GetProperty("summary").GetProperty("solutions").GetInt32());
+        Assert.Equal(FixtureCount, doc.RootElement.GetProperty("summary").GetProperty("solutions").GetInt32());
     }
 
     [Fact]
@@ -187,7 +189,7 @@ public class AnalyzeCommandTests : IDisposable
         var (code, output, _) = Run("analyze", Fixtures, "--format", "markdown", "--fail-on", "none");
 
         Assert.Equal(0, code);
-        Assert.StartsWith("## PowerOps analyze\n\n**17 solutions, ", output);
+        Assert.StartsWith($"## PowerOps analyze\n\n**{FixtureCount} solutions, ", output);
     }
 
     [Fact]
@@ -212,7 +214,7 @@ public class AnalyzeCommandTests : IDisposable
         Assert.Equal(0, code);
         Assert.Equal("", output);
         using var doc = JsonDocument.Parse(File.ReadAllText(file));
-        Assert.Equal(17, doc.RootElement.GetProperty("solutions").GetArrayLength());
+        Assert.Equal(FixtureCount, doc.RootElement.GetProperty("solutions").GetArrayLength());
     }
 
     [Fact]
