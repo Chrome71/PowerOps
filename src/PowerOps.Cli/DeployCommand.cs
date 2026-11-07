@@ -53,7 +53,7 @@ public static class DeployCommand
         TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> target, string? approvedHash, bool mcp)
     {
         var planFile = new Argument<string>("plan-file") { Description = "A plan file written by deploy plan --save. The zips and settings files are read from its folder." };
-        var targetOption = new Option<string?>("--target") { Description = "The environment the plan was made for (an id or URL, as pac --environment). Never printed." };
+        var targetOption = new Option<string?>("--target") { Description = "The environment the plan was made for (an id or URL, as pac --environment). The plan file's target is the environment's display name, which this doesn't take. Never printed." };
         var apply = new Option<bool>("--apply") { Description = "Import the solutions. Without it the command is a dry run that writes nothing." };
         var format = new Option<string>("--format") { Description = "Report format.", DefaultValueFactory = _ => "text" };
         format.AcceptOnlyFromAmong("text", "json");
@@ -137,7 +137,7 @@ public static class DeployCommand
             problems.Add("--save and --out name the same file");
         }
 
-        if (Prepare(folder, target, problems, error, read, out var code) is not { } prepared)
+        if (Prepare(folder, target, problems, error, read, null, out var code) is not { } prepared)
         {
             return code;
         }
@@ -240,7 +240,7 @@ public static class DeployCommand
     // `problems` holds the usage problems found so far; error lines go to `error`.
     private static (Ready? Ready, Stopped? Stop) DryRun(
         string planFile, string? target, List<string> problems, string tool, TextWriter error,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, string? approvedHash = null)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, string? approvedHash = null, bool hintPlanTarget = false)
     {
         if (problems.Count > 0)
         {
@@ -265,7 +265,7 @@ public static class DeployCommand
             return (null, new Stopped(1, reviewed.Target, reviewed.Hash, ApplyStatus.Refused, "a blocked plan is never applied", []));
         }
 
-        if (Prepare(folder, target, [], error, read, out var code) is not { } now)
+        if (Prepare(folder, target, [], error, read, hintPlanTarget ? reviewed.Target : null, out var code) is not { } now)
         {
             return (null, new Stopped(code));
         }
@@ -375,7 +375,7 @@ public static class DeployCommand
             return code;
         }
 
-        var (ready, stop) = DryRun(planFile, target, problems, tool, error, read, approvedHash);
+        var (ready, stop) = DryRun(planFile, target, problems, tool, error, read, approvedHash, hintPlanTarget: true);
         if (stop is not null)
         {
             return stop.Name is null ? stop.Code : Finish(stop.Code, stop.Name, stop.Hash, stop.Status, stop.Message, stop.Solutions!, []);
@@ -427,7 +427,7 @@ public static class DeployCommand
 
         if (flowRefs.Count == 0)
         {
-            return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Imported, null, Done(), []);
+            return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Imported, imports.Count == 0 ? "Nothing was imported: every solution was skipped." : null, Done(), []);
         }
 
         DeployTarget second;
@@ -735,9 +735,10 @@ public static class DeployCommand
 
     // The folder's usage checks (their problems join `problems`), then the zips and settings files loaded, the target read and the plan built.
     // Returns null with the exit code (2 usage, 3 unreadable input or a failed read) when any of them fails; the caller prints nothing more.
+    // `planTarget` is the reviewed plan's target name, or null: a failed read of exactly that name gets a hint, since the plan's name is not an id or URL.
     private static Prepared? Prepare(
         string folder, string? target, List<string> problems, TextWriter error,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, out int code)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, string? planTarget, out int code)
     {
         code = 0;
         var zips = new List<(string Name, string Path)>();
@@ -793,6 +794,11 @@ public static class DeployCommand
         {
             error.WriteLine($"error: --target: {Clean(ex.Message)}");
             Forward(error, ex.Forwarded);
+            if (planTarget is not null && string.Equals(target, planTarget, StringComparison.OrdinalIgnoreCase))
+            {
+                error.WriteLine($"error: --target takes the environment's id or URL, as pac --environment does; '{Clean(planTarget)}' is the plan's display name for it");
+            }
+
             code = ex.ExitCode;
             return null;
         }

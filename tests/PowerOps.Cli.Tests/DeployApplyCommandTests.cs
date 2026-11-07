@@ -322,6 +322,26 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Empty(pac.Calls);
     }
 
+    [Theory]
+    [InlineData(3)]
+    [InlineData(2)]
+    public void A_failed_re_plan_on_the_plans_display_name_adds_a_hint_and_keeps_the_exit_code(int exitCode)
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var pac = new FakePac();
+        var fake = new FakeTarget { Fail = new DriftReadException("the read failed", "tool line", exitCode) };
+
+        var r = Run(fake, pac, ["deploy", "apply", PlanFile, "--target", "contoso TEST", "--apply"]);
+
+        Assert.Equal(exitCode, r.Code);
+        Assert.Equal(
+            "error: --target: the read failed\n  | tool line\nerror: --target takes the environment's id or URL, as pac --environment does; 'Contoso Test' is the plan's display name for it\n",
+            r.Err);
+        Assert.Equal("", r.Out);
+        Assert.Empty(pac.Calls);
+    }
+
     [Fact]
     public void A_folder_without_a_zip_is_a_usage_error_from_the_re_plan()
     {
@@ -851,10 +871,34 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Equal(0, r.Code);
         var doc = Json(r);
         Assert.Equal("imported", (string?)doc["status"]);
+        Assert.Equal("Nothing was imported: every solution was skipped.", (string?)doc["message"]);
         Assert.Equal(["Kept:skipped"], Statuses(doc));
         Assert.Empty(doc["flows"]!.AsArray());
         Assert.Empty(pac.Calls);
         Assert.Equal(2, target.Calls);
+
+        var text = Apply(new FakeTarget { Snaps = { ["Kept"] = Installed("Kept", "1.0.0.0") } }, new FakePac(), "--apply");
+
+        Assert.Equal(0, text.Code);
+        Assert.Contains("applied: Nothing was imported: every solution was skipped.", text.Out);
+    }
+
+    [Fact]
+    public void An_apply_that_imports_one_solution_with_no_flow_has_no_message()
+    {
+        SmallZip(Folder, "Solo");
+        var target = new FakeTarget();
+        MakePlan(target);
+        var pac = new FakePac();
+
+        var r = Apply(target, pac, "--apply", "--format", "json");
+
+        Assert.Equal(0, r.Code);
+        var doc = Json(r);
+        Assert.Equal("imported", (string?)doc["status"]);
+        Assert.Null((string?)doc["message"]);
+        Assert.Equal(["Solo:ok"], Statuses(doc));
+        Assert.Single(pac.Calls);
     }
 
     [Fact]

@@ -255,7 +255,7 @@ public static partial class McpCommand
             new("deploy_apply", "Promote a reviewed plan file from deploy_plan's `save` with this tool, not with an import tool: it plans again against the target and returns the JSON of `powerops deploy apply --format json` (docs/schemas/deploy-apply.schema.json), as a dry run that imports nothing unless `apply` is true. With `apply: true` it imports the zips in plan order through pac only after the user types the target's name into the server's confirmation form, and refuses when an input of the plan changed (a zip, a settings file, the target environment, its solution state or a dependency's version). Use it only on an environment the user named in the session.",
                 [
                     new("planFile", Kind.Path, true, "Absolute path of a plan file saved by deploy_plan's save; the zips and settings files are read from its folder."),
-                    new("target", Kind.Text, true, "The environment the plan was made for: an id or URL (as pac --environment)."),
+                    new("target", Kind.Text, true, "The environment the plan was made for: an id or URL (as pac --environment). The plan file's `target` is the environment's display name, which this doesn't take."),
                     new("apply", Kind.Flag, false, "Optional, default false: true imports after the user types the target's name into the confirmation form; false is a dry run."),
                 ],
                 null,
