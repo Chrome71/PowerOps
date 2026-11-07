@@ -54,6 +54,8 @@ dotnet pack src/PowerOps.Cli -c Release -o artifacts &&
 powerops --version
 ```
 
+Windows PowerShell 5.1 can't parse `&&`: there, run `dotnet pack` and `dotnet tool install` one at a time, the second only if the first succeeded.
+
 Releases, checksums, updating and Windows notes are in [Install PowerOps](docs/INSTALL.md).
 
 ## Quick start
