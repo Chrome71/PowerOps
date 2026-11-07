@@ -12,7 +12,7 @@ PowerOps is an open-source .NET 10 CLI toolkit for Microsoft Power Platform: ana
 - `tests/eval/`: the set that measures agent roles: its cases, key, baseline and run script
 - `skills/`: the planning skills and the two report roles (`SKILL.md` files)
 - `action/`: the scripts the composite GitHub Action (`action.yml`) runs
-- `docs/`: plan and roadmap
+- `docs/`: plan and roadmap; install details are in `docs/INSTALL.md`
 - `plugins/`: the Claude Code and Codex plugins that `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json` list. Their `skills/` folders are generated copies of `skills/` (see "Update goldens")
 
 ## Commands
