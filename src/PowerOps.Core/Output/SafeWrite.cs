@@ -214,7 +214,7 @@ public static class SafeWrite
         }
     }
 
-    /// <summary>True when a file can be created in the folder of <paramref name="path"/>: makes a temp file there and deletes it. Prints and throws nothing, so a command can check before it does work whose report it writes last.</summary>
+    /// <summary>True when a file can be created in the folder of <paramref name="path"/> (makes a temp file there and deletes it) and, when <paramref name="path"/> exists, it opens for writing as <see cref="WriteText(string, string, IEnumerable{string}, string?)"/> opens it. Prints and throws nothing, so a command can check before it does work whose report it writes last.</summary>
     public static bool CanCreateBeside(string path)
     {
         try
@@ -234,6 +234,13 @@ public static class SafeWrite
             if (IsInDev(full))
             {
                 return true;
+            }
+
+            // WriteText opens an existing target before it replaces it, and throws when that open is refused (a read-only file).
+            // shortcut: a named pipe outside /dev is opened here once more than WriteText opens it, so a reader that stops at the first close misses the report; tell pipes apart first if that is ever needed.
+            if (File.Exists(full) && new FileInfo(full).LinkTarget is null)
+            {
+                File.OpenHandle(full, FileMode.Open, FileAccess.Write, FileShare.ReadWrite).Dispose();
             }
 
             var temp = TempName(full);

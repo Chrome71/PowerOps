@@ -182,7 +182,7 @@ public class DeployApplyCommandTests : DeployTestBase
             var r = Apply(fake, pac, "--apply", "--out", outFile);
 
             Assert.Equal(2, r.Code);
-            Assert.Equal("error: a file cannot be created in the folder of --out\n", r.Err);
+            Assert.Equal("error: --out cannot be written: it is read-only, or no file can be created in its folder\n", r.Err);
             Assert.Equal("", r.Out);
             Assert.Equal(0, fake.Calls);
             Assert.Empty(pac.Calls);
@@ -191,6 +191,56 @@ public class DeployApplyCommandTests : DeployTestBase
         finally
         {
             File.SetUnixFileMode(folder, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
+    // The folder takes new files, but the report itself is read-only: WriteText would throw after the imports.
+    [Fact]
+    public void A_read_only_out_exits_2_before_any_import()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var outFile = Path.Combine(Dir("reports"), "apply.txt");
+        File.WriteAllText(outFile, "old");
+        if (OperatingSystem.IsWindows())
+        {
+            File.SetAttributes(outFile, FileAttributes.ReadOnly);
+        }
+        else
+        {
+            File.SetUnixFileMode(outFile, UnixFileMode.UserRead | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
+        }
+
+        try
+        {
+            Assert.SkipWhen(CanWrite(outFile), "This user can write the file anyway.");
+            var (fake, pac) = (SeedTarget(), new FakePac());
+
+            var r = Apply(fake, pac, "--apply", "--out", outFile);
+
+            Assert.Equal(2, r.Code);
+            Assert.Equal("error: --out cannot be written: it is read-only, or no file can be created in its folder\n", r.Err);
+            Assert.Equal("", r.Out);
+            Assert.Equal(0, fake.Calls);
+            Assert.Empty(pac.Calls);
+            Assert.Equal("old", File.ReadAllText(outFile));
+        }
+        finally
+        {
+            File.SetAttributes(outFile, FileAttributes.Normal);
+        }
+    }
+
+    private static bool CanWrite(string file)
+    {
+        try
+        {
+            File.OpenHandle(file, FileMode.Open, FileAccess.Write).Dispose();
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
         }
     }
 

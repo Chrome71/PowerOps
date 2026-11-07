@@ -389,6 +389,42 @@ public class SafeWriteTests : IDisposable
         Assert.Empty(Temps(_temp));
     }
 
+    // deploy apply asks before its imports; a file WriteText cannot open for writing must be a no then, not a throw after them.
+    [Fact]
+    public void CanCreateBeside_is_false_for_an_existing_file_that_cannot_be_written()
+    {
+        var path = Put("out.json", "old");
+        ReadOnly(path, true);
+        try
+        {
+            Assert.SkipWhen(CanWrite(path), "This user can write there anyway.");
+
+            Assert.False(SafeWrite.CanCreateBeside(path));
+            Assert.Throws<UnauthorizedAccessException>(() => SafeWrite.WriteText(path, "new", []));
+            Assert.Equal("old", File.ReadAllText(path));
+            Assert.Empty(Temps(_temp));
+        }
+        finally
+        {
+            ReadOnly(path, false);
+        }
+
+        Assert.True(SafeWrite.CanCreateBeside(path));
+    }
+
+    // 0444 on Unix; the read-only attribute on Windows, which also keeps Directory.Delete from removing the file until it is cleared.
+    private static void ReadOnly(string path, bool on)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            File.SetAttributes(path, on ? FileAttributes.ReadOnly : FileAttributes.Normal);
+        }
+        else
+        {
+            File.SetUnixFileMode(path, on ? UnixFileMode.UserRead | UnixFileMode.GroupRead | UnixFileMode.OtherRead : UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
+    }
+
     [Fact]
     public void WriteText_over_an_input_throws_with_the_path_first_and_leaves_the_bytes()
     {

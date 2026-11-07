@@ -328,7 +328,7 @@ public static class DeployCommand
         }
         else if (outFile is not null && !SafeWrite.CanCreateBeside(outFile))
         {
-            problems.Add("a file cannot be created in the folder of --out");
+            problems.Add("--out cannot be written: it is read-only, or no file can be created in its folder");
         }
 
         var tool = AnalyzeCommand.ToolVersion();
