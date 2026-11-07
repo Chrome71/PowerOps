@@ -64,6 +64,8 @@ npx playwright open --save-storage=.auth/state.json "$CANVAS_APP_URL"
 
 In PowerShell, end the command with `"$env:CANVAS_APP_URL"` instead.
 
+It opens a Chromium window with the Playwright Inspector beside it. Sign in in that Chromium window, not in your usual browser.
+
 1. Sign in yourself in that window, with your password, code and MFA as usual.
 2. Wait until the app shows its gallery.
 3. Paste the model-driven app's link into the same window's address bar and wait until the app shows its grid.
