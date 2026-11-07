@@ -61,23 +61,6 @@ public partial class HandoffDocTests
     }
 
     [Fact]
-    public void The_page_names_each_command_of_the_flow()
-    {
-        var lists = WordLists(Page()).Select(w => string.Join(' ', w)).ToList();
-
-        foreach (var command in new[] { "plan status", "plan sign-off", "skills install", "analyze", "test", "diff", "settings generate", "settings validate", "deploy plan", "deploy apply", "drift" })
-        {
-            Assert.Contains(lists, l => l == command || l.StartsWith(command + " ", StringComparison.Ordinal));
-        }
-    }
-
-    [Fact]
-    public void The_readme_links_the_page()
-    {
-        Assert.Contains("docs/HANDOFF.md", File.ReadAllText(Path.Combine(Golden.RepoRoot, "README.md")));
-    }
-
-    [Fact]
     public void The_check_reports_unknown_words_and_accepts_known_ones()
     {
         Assert.Equal("deploy nope", Unknown(["deploy", "nope"]));

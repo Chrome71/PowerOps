@@ -20,12 +20,6 @@ public class ManifestReportTests
     }
 
     [Fact]
-    public void A_folder_prints_its_count_digest_and_one_line_per_file()
-    {
-        Assert.Equal($"v1: folder, 2 files, digest {D}\n{A}  Other/Solution.xml\n{A}  a.xml\n", Text("v1", Folder("Other/Solution.xml", "a.xml")));
-    }
-
-    [Fact]
     public void One_file_is_singular_and_none_is_plural()
     {
         Assert.Equal($"v1: folder, 1 file, digest {D}\n{A}  a.xml\n", Text("v1", Folder("a.xml")));

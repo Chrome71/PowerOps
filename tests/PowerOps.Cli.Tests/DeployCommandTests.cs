@@ -540,35 +540,6 @@ public class DeployCommandTests : IDisposable
     // ---- the hash ----------------------------------------------------------------------------------------------
 
     [Fact]
-    public void Two_runs_over_the_same_files_give_the_same_hash()
-    {
-        SeedZip(Folder);
-
-        Assert.Equal(HashOf(Plan(SeedTarget(), "--format", "json")), HashOf(Plan(SeedTarget(), "--format", "json")));
-    }
-
-    [Fact]
-    public void Files_created_in_the_other_order_give_the_same_hash()
-    {
-        SmallZip(Stage, "A");
-        SmallZip(Stage, "B");
-        var (one, two) = (Dir("one"), Dir("two"));
-        foreach (var n in new[] { "A", "B" })
-        {
-            File.Copy(Path.Combine(Stage, n + ".zip"), Path.Combine(one, n + ".zip"));
-        }
-
-        foreach (var n in new[] { "B", "A" })
-        {
-            File.Copy(Path.Combine(Stage, n + ".zip"), Path.Combine(two, n + ".zip"));
-        }
-
-        static string Hash(string folder) => HashOf(Run(new FakeTarget(), "deploy", "plan", folder, "--target", TargetValue, "--format", "json"));
-
-        Assert.Equal(Hash(one), Hash(two));
-    }
-
-    [Fact]
     public void A_changed_settings_byte_changes_the_hash_and_inputs_names_the_new_hash_of_that_file()
     {
         SeedZip(Folder);

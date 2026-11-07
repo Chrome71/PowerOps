@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
+using PowerOps.Core.Readers;
 using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
@@ -49,7 +50,7 @@ public class PackedToolTests
             var analyze = Run(exe, ["analyze", fixtures, "--format", "json", "--fail-on", "warning"]);
             Assert.True(analyze.Code == 1, analyze.Out + analyze.Err);
             using var doc = JsonDocument.Parse(analyze.Out);
-            Assert.Equal(17, doc.RootElement.GetProperty("solutions").GetArrayLength());
+            Assert.Equal(SolutionDiscovery.Find(fixtures).Count, doc.RootElement.GetProperty("solutions").GetArrayLength());
 
             Assert.Equal(2, Run(exe, ["analyze", Path.Combine(temp, "missing")]).Code);
 

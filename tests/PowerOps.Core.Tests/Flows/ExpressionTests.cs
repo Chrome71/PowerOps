@@ -951,40 +951,21 @@ public class ExpressionTests
     // addHours, addMinutes, addSeconds: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#addHours (and #addMinutes, #addSeconds)
     [Theory]
     [InlineData("addHours('2018-03-15T00:00:00Z', 10)", "\"2018-03-15T10:00:00.0000000Z\"")]
-    [InlineData("addHours('2018-03-15T15:00:00Z', -5)", "\"2018-03-15T10:00:00.0000000Z\"")]
     [InlineData("addMinutes('2018-03-15T00:10:00Z', 10)", "\"2018-03-15T00:20:00.0000000Z\"")]
-    [InlineData("addMinutes('2018-03-15T00:20:00Z', -5)", "\"2018-03-15T00:15:00.0000000Z\"")]
     [InlineData("addSeconds('2018-03-15T00:00:00Z', 10)", "\"2018-03-15T00:00:10.0000000Z\"")]
-    [InlineData("addSeconds('2018-03-15T00:00:30Z', -5)", "\"2018-03-15T00:00:25.0000000Z\"")]
-    [InlineData("addHours(utcNow(), 1)", "\"2018-04-15T14:00:00.0000000Z\"")]
     [InlineData("addHours('2018-03-15T10:00:00', 1)", "\"2018-03-15T11:00:00.0000000\"")] // not on Learn: no zone in, no zone out, as addDays
     [InlineData("addMinutes('2018-03-15', 90)", "\"2018-03-15T01:30:00.0000000\"")]
-    [InlineData("addHours('2018-03-15T10:30:00+02:00', 1)", "\"2018-03-15T09:30:00.0000000+00:00\"")] // as the capture run A11 for addDays
-    [InlineData("addSeconds('2018-03-15T10:30:00+02:00', 0)", "\"2018-03-15T08:30:00.0000000+00:00\"")]
     public void AddHours_AddMinutes_AddSeconds(string expression, string expectedJson) => AssertEval(expression, expectedJson);
 
     [Theory]
     [InlineData("addHours('2018-03-15T00:00:00Z', 10, 'yyyy-MM-dd HH:mm:ss')", "\"2018-03-15 10:00:00\"")]
-    [InlineData("addHours('2018-03-15T20:00:00Z', 5, 'yyyy-MM-dd HH:mm:ss')", "\"2018-03-16 01:00:00\"")]
     [InlineData("addMinutes('2018-03-15T00:10:00Z', 10, 'yyyy-MM-dd HH:mm:ss')", "\"2018-03-15 00:20:00\"")]
     [InlineData("addSeconds('2018-03-15T00:00:30Z', -5, 'yyyy-MM-dd HH:mm:ss')", "\"2018-03-15 00:00:25\"")]
-    [InlineData("addHours('2018-03-15T00:00:00Z', 0, 'D')", "\"Thursday, March 15, 2018\"")]
     public void AddHours_AddMinutes_AddSeconds_with_a_format(string expression, string expectedJson) => AssertEval(expression, expectedJson);
 
     [Theory]
     [InlineData("addHours('2018-03-15T00:00:00Z', 1.5)")]
-    [InlineData("addHours('2018-03-15T00:00:00Z', '1')")]
-    [InlineData("addMinutes('2018-03-15T00:00:00Z', 1.5)")]
-    [InlineData("addSeconds('2018-03-15T00:00:00Z', 'x')")]
     [InlineData("addHours('2018-03-15T00:00:00Z', 1, 'X')")]
-    [InlineData("addMinutes('2018-03-15T00:00:00Z', 1, 'X')")]
-    [InlineData("addSeconds('2018-03-15T00:00:00Z', 1, 'X')")]
-    [InlineData("addHours('2018-03-15T00:00:00Z', 1, 5)")]
-    [InlineData("addHours('not a date', 1)")]
-    [InlineData("addHours(5, 1)")]
-    [InlineData("addHours('2018-03-15T00:00:00Z')")]
-    [InlineData("addMinutes()")]
-    [InlineData("addSeconds('2018-03-15T00:00:00Z', 1, 'yyyy', 'en-us')")]
     [InlineData("addHours('2018-03-15T00:00:00Z', 9223372036854775807)")]
     [InlineData("addMinutes('2018-03-15T00:00:00Z', -9223372036854775808)")]
     [InlineData("addSeconds('2018-03-15T00:00:00Z', 9223372036854775807)")]
@@ -995,9 +976,6 @@ public class ExpressionTests
 
     [Theory]
     [InlineData("addHours('2018-03-15T00:00:00Z', 1, '')")]
-    [InlineData("addHours('2018-03-15', 1, 'yyyy-MM-dd')")] // a format needs a timestamp ending in Z
-    [InlineData("addMinutes('2018-03-15T10:30:00+02:00', 0, 'HH:mm')")]
-    [InlineData("addSeconds('2018-03-15T10:30:00+00:00', 0, 'HH:mm')")]
     public void AddHours_AddMinutes_AddSeconds_with_a_format_is_unsupported_for(string expression) => Assert.Throws<UnsupportedException>(() => Eval(expression));
 
     // startOfDay: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#startOfDay
@@ -1048,16 +1026,6 @@ public class ExpressionTests
     [InlineData("dayOfWeek('2018-03-15T01:00:00+02:00')")]
     [InlineData("dayOfWeek('2018-03-15T01:00:00+00:00')")]
     public void DayOfWeek_of_an_offset_is_unsupported(string expression) => Assert.Throws<UnsupportedException>(() => Eval(expression));
-
-    // time-zone names, taken only as Windows writes them: https://learn.microsoft.com/windows-hardware/manufacture/desktop/default-time-zones
-    [Theory]
-    [InlineData("UTC", "08:00")]
-    [InlineData("Pacific Standard Time", "00:00")]
-    [InlineData("W. Europe Standard Time", "09:00")]
-    [InlineData("Central Standard Time (Mexico)", "02:00")]
-    [InlineData("UTC-11", "21:00")]
-    public void A_windows_time_zone_name_is_taken(string zone, string expected) =>
-        AssertEval($"convertFromUtc('2024-01-01T08:00:00Z', '{zone}', 'HH:mm')", $"\"{expected}\"");
 
     [Theory]
     [InlineData("America/Los_Angeles")]

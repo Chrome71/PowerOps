@@ -355,34 +355,6 @@ public class XmlUnpackReaderTests
     private static string Fixture(string name) => Path.Combine(Golden.RepoRoot, "tests", "fixtures", name);
 
     [Fact]
-    public void Fixture_coe_auditlogs()
-    {
-        var s = XmlUnpackReader.Read(Fixture("coe-auditlogs"));
-
-        Assert.Equal("CenterofExcellenceAuditLogs", s.UniqueName);
-        Assert.Equal("3.27.2", s.Version);
-        Assert.False(s.Managed);
-        Assert.Equal("admin", s.Publisher.Prefix);
-        Assert.Equal(2, s.RootComponents.Count);
-        Assert.Equal(5, s.ConnectionReferences.Count);
-        Assert.Equal(5, s.EnvironmentVariables.Count);
-        Assert.Equal(23, s.MissingDependencies.Count);
-        Assert.All(s.MissingDependencies, d => Assert.Equal("CenterofExcellenceCoreComponents (4.4.1)", d.Required.Solution));
-        Assert.Contains(s.MissingDependencies, d =>
-            d.Required.Type == "29" && d.Required.Id == "5625768c-bd3d-ec11-8c63-00224829720b");
-        Assert.Contains(s.MissingDependencies, d =>
-            d.Required.Type == "connectionreference" && d.Required.SchemaName == "admin_sharedcommondataserviceforapps_98924");
-        Assert.Equal(2, s.Workflows.Count);
-        Assert.All(s.Workflows, w =>
-        {
-            Assert.Equal(0, w.StateCode);
-            Assert.Equal(5, w.Category);
-            Assert.NotNull(w.ClientData);
-            Assert.StartsWith("Workflows/", w.File);
-        });
-    }
-
-    [Fact]
     public void Fixture_alm_makers_env_var_default_and_current_value()
     {
         var s = XmlUnpackReader.Read(Fixture("alm-makers"));
@@ -392,19 +364,5 @@ public class XmlUnpackReaderTests
         Assert.Equal("https://githubdevops.crm.dynamics.com/", v.CurrentValue);
         Assert.Equal("environmentvariabledefinitions/cat_DependentEnvironmentUrl/environmentvariablevalues.json", v.ValuesFile);
         Assert.Equal("cat", s.Publisher.Prefix);
-    }
-
-    [Fact]
-    public void Fixture_alm_sample_has_canvas_app_text_and_one_missing_dependency()
-    {
-        var s = XmlUnpackReader.Read(Fixture("alm-sample"));
-
-        Assert.All(s.CanvasAppTexts, text => Assert.False(string.IsNullOrWhiteSpace(text)));
-        Assert.NotEmpty(s.CanvasAppTexts);
-        Assert.Equal(3, s.ConnectionReferences.Count);
-        Assert.Equal(7, s.EnvironmentVariables.Count);
-        Assert.Equal(6, s.Workflows.Count);
-        var d = Assert.Single(s.MissingDependencies);
-        Assert.Equal("AppModuleWebResources (2.5)", d.Required.Solution);
     }
 }

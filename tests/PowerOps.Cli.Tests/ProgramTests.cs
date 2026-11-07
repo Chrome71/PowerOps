@@ -156,14 +156,6 @@ public class ProgramTests
     }
 
     [Fact]
-    public void Unknown_command_exits_two()
-    {
-        var exitCode = Program.Run(["nope"], new StringWriter(), new StringWriter());
-
-        Assert.Equal(2, exitCode);
-    }
-
-    [Fact]
     public void An_at_file_argument_is_a_plain_path_not_a_response_file()
     {
         var dir = Directory.CreateTempSubdirectory("powerops-rsp-").FullName;

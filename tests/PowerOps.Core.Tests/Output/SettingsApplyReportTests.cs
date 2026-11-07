@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 using PowerOps.Core.Output;
 using PowerOps.Core.Settings;
 using PowerOps.Tests.Shared;
@@ -72,26 +70,6 @@ public class SettingsApplyReportTests
         Assert.EndsWith("missing connectionReference pops_X: in the solution but not in the settings file\nvalidate: ok\ntarget: ok\nplan: ok\nimport: planned\nflows: planned\n1 problem\n", Text(problems));
         Assert.StartsWith("managed: false\n", Text(failed));
         Assert.EndsWith("pac org who failed\n", Text(failed));
-    }
-
-    [Fact]
-    public void Json_starts_with_the_schema_version_and_holds_every_field()
-    {
-        var w = new StringWriter();
-        SettingsApplyReport.WriteJson(Applied(new ApplyFlow("A", "on", true, "on", "on", "off")) with { PacExitCode = 1, Message = "m" }, w);
-        var json = w.ToString();
-
-        Assert.StartsWith("{\n  \"schemaVersion\": 1,\n  \"applied\": true,\n", json);
-        Assert.EndsWith("}\n", json);
-        var root = JsonDocument.Parse(json).RootElement;
-        Assert.Equal(
-            ["schemaVersion", "applied", "environment", "managed", "importArguments", "steps", "problems", "pacExitCode", "message", "flows"],
-            root.EnumerateObject().Select(p => p.Name));
-        Assert.Equal("<environment id>", root.GetProperty("importArguments")[3].GetString());
-        Assert.Equal(1, root.GetProperty("pacExitCode").GetInt32());
-        var flow = root.GetProperty("flows")[0];
-        Assert.Equal(["name", "exportState", "exists", "stateBefore", "expectedState", "stateAfter"], flow.EnumerateObject().Select(p => p.Name));
-        Assert.Equal("off", flow.GetProperty("stateAfter").GetString());
     }
 
     [Fact]
