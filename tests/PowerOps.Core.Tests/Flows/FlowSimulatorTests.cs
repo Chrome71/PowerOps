@@ -415,6 +415,19 @@ public class FlowSimulatorTests
         Assert.Equal("abc", (string?)run.Variables["s"]);
     }
 
+    [Fact]
+    public void A_block_of_40000_independent_actions_runs_within_10_seconds()
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        var run = Run("{" + string.Join(",", Enumerable.Range(0, 40_000).Select(i => "\"C" + i + "\":" + Compose("1"))) + "}");
+
+        // Loose on purpose: finding the next ready action by rescanning every name took 11.8 s here; this only catches that again.
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), watch.Elapsed.ToString());
+        Assert.Equal(FlowRunOutcome.Finished, run.Outcome);
+        Assert.Equal(40_000, run.Calls.Count);
+    }
+
     [Theory]
     [InlineData("""{"Outside":{"type":"Compose","inputs":1,"runAfter":{}},"S":{"type":"Scope","actions":{"X":{"type":"Compose","inputs":1,"runAfter":{"Outside":["Succeeded"]}}},"runAfter":{}}}""", "Outside")]
     [InlineData("""{"A":{"type":"Compose","inputs":1,"runAfter":{}},"B":{"type":"Compose","inputs":1,"runAfter":{"A":["Done"]}}}""", "Done")]

@@ -445,13 +445,25 @@ public static class FlowSimulator
             block ??= [];
             var after = block.ToDictionary(p => p.Key, p => ReadRunAfter(block, p.Key, (JsonObject)p.Value!));
             var done = new Dictionary<string, string>();
-            while (!_ended)
+
+            // Kahn's algorithm: the ready set is ordered by definition index, so the first ready action in definition order still goes first.
+            var names = block.Select(p => p.Key).ToList();
+            var index = names.Select((n, i) => (n, i)).ToDictionary(p => p.n, p => p.i);
+            var unmetCount = names.Select(n => after[n].Count).ToArray();
+            var dependents = names.Select(_ => new List<int>()).ToArray();
+            for (var i = 0; i < names.Count; i++)
             {
-                var next = block.Select(p => p.Key).FirstOrDefault(n => !done.ContainsKey(n) && after[n].Keys.All(done.ContainsKey));
-                if (next is null)
+                foreach (var predecessor in after[names[i]].Keys)
                 {
-                    break;
+                    dependents[index[predecessor]].Add(i);
                 }
+            }
+
+            var ready = new SortedSet<int>(Enumerable.Range(0, names.Count).Where(i => unmetCount[i] == 0));
+            while (!_ended && ready.Count > 0)
+            {
+                var next = names[ready.Min];
+                ready.Remove(ready.Min);
 
                 if (after[next].All(p => p.Value.Contains(done[p.Key])))
                 {
@@ -462,6 +474,14 @@ public static class FlowSimulator
                     var unmet = after[next].First(p => !p.Value.Contains(done[p.Key]));
                     SkipAction(next, (JsonObject)block[next]!, RunAfterNotMet(unmet.Key, unmet.Value, done[unmet.Key]));
                     done[next] = "Skipped";
+                }
+
+                foreach (var dependent in dependents[index[next]])
+                {
+                    if (--unmetCount[dependent] == 0)
+                    {
+                        ready.Add(dependent);
+                    }
                 }
             }
 
