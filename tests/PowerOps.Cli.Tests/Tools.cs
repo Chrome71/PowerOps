@@ -18,7 +18,7 @@ internal static class Tools
     public static void Require(params string[] programs)
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "The scripts need bash.");
-        var missing = Missing(programs.Select(program => program == "bash" ? Bash : program), Environment.GetEnvironmentVariable("PATH"));
+        var missing = Missing(programs, Environment.GetEnvironmentVariable("PATH"));
         if (missing is not null && Environment.GetEnvironmentVariable("POWEROPS_REQUIRE_TOOLS") == "1")
         {
             Assert.Fail(FailMessage(missing));
