@@ -20,6 +20,10 @@ public class OutputHygieneTests
     [InlineData("see https://contoso.example/x", "see https:/" + Zwsp + "/contoso.example/x")]
     [InlineData("a:b and :/ and /", "a:b and :/ and /")]
     [InlineData("x|y", "x\\|y")]
+    [InlineData("&commat;octocat", "\\&commat;octocat")]
+    [InlineData("see www.evil.example", "see www" + Zwsp + ".evil.example")]
+    [InlineData("WWW.evil.example", "WWW" + Zwsp + ".evil.example")]
+    [InlineData("www and www2.x", "www and www2.x")]
     public void Markdown_cells_defuse_mentions_references_and_links(string text, string expected) => Assert.Equal(expected, MarkdownReport.Escape(text));
 
     [Fact]

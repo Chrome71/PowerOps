@@ -39,10 +39,10 @@ public static class MarkdownReport
         }
     }
 
-    internal const string Specials = "\\|*_[]<>`";
+    internal const string Specials = "\\|*_[]<>`&";
 
     // Everything from the solution is untrusted: TextReport.Clean turns control characters into spaces and drops bidi and other format characters, Markdown/HTML syntax is backslash-escaped, and a zero-width
-    // space after '@' and '#' and inside '://' stops a mention, an issue reference or an autolink. Clean runs first and never over this output: it strips that space.
+    // space after '@' and '#' and inside '://' and after 'www' before '.' stops a mention, an issue reference or an autolink; '&' is escaped so an entity such as &commat; cannot decode into '@'. Clean runs first and never over this output: it strips that space.
     internal static string Escape(string? text)
     {
         text = TextReport.Clean(text);
@@ -62,6 +62,10 @@ public static class MarkdownReport
             {
                 result.Append(":/\u200B");
                 i++;
+            }
+            else if (c == '.' && i >= 3 && string.Compare(text, i - 3, "www", 0, 3, StringComparison.OrdinalIgnoreCase) == 0)
+            {
+                result.Append('\u200B').Append(c);
             }
             else
             {
