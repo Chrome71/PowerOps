@@ -124,10 +124,11 @@ public static partial class PlanChecker
         {
             doc = PlanDocument.Parse(ReadPlan(planFile));
         }
-        catch (InvalidDataException ex)
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
         {
-            // One unreadable plan.md is that plan's violation; the other plans are still checked.
-            return new PlanReport(Display(folder, baseDir), null, null, null, null, null, null, 0, null, false, [ex.Message.Replace(planFile, Display(planFile, baseDir), StringComparison.Ordinal)], [], [], null);
+            // One unreadable plan.md is that plan's violation; the other plans are still checked. The runtime's own messages hold the full path, so they are not printed.
+            var problem = ex is InvalidDataException ? ex.Message.Replace(planFile, Display(planFile, baseDir), StringComparison.Ordinal) : $"{Display(planFile, baseDir)}: could not be read";
+            return new PlanReport(Display(folder, baseDir), null, null, null, null, null, null, 0, null, false, [problem], [], [], null);
         }
 
         var violations = new List<string>();
@@ -513,6 +514,10 @@ public static partial class PlanChecker
             catch (InvalidDataException)
             {
                 skipped = "larger than 1 MB";
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                skipped = "could not be read";
             }
         }
 

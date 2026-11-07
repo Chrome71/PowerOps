@@ -59,6 +59,52 @@ public class PlanCheckerTests : IDisposable
     }
 
     [Fact]
+    [System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
+    public void An_unreadable_plan_is_its_own_violation_and_the_other_plans_are_still_checked()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Unix modes.");
+        _t.Write("docs/plans/a/plan.md", Plan()).Write("docs/plans/b/plan.md", Plan()).Write("docs/plans/b/notes.md", "x");
+        var locked = new[] { Path.Combine(_t.Path, "docs", "plans", "a", "plan.md"), Path.Combine(_t.Path, "docs", "plans", "b", "notes.md") };
+        foreach (var file in locked)
+        {
+            File.SetUnixFileMode(file, UnixFileMode.None);
+        }
+
+        try
+        {
+            Assert.SkipWhen(CanRead(locked[0]), "This user can read the file anyway.");
+
+            var reports = PlanChecker.Discover(_t.Path).Select(f => PlanChecker.Check(f, _t.Path)).ToList();
+
+            Assert.Equal(["docs/plans/a", "docs/plans/b"], reports.Select(r => r.Path));
+            Assert.Equal(["docs/plans/a/plan.md: could not be read"], reports[0].Violations);
+            Assert.False(reports[0].Malformed);
+            Assert.Empty(reports[1].Violations);
+            Assert.Equal(["docs/plans/b/notes.md: could not be read, not read"], reports[1].Warnings);
+        }
+        finally
+        {
+            foreach (var file in locked)
+            {
+                File.SetUnixFileMode(file, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            }
+        }
+    }
+
+    private static bool CanRead(string file)
+    {
+        try
+        {
+            File.OpenRead(file).Dispose();
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    [Fact]
     public void Malformed_header_is_one_violation_and_still_scans_for_tenant_data()
     {
         Write("---\nstatus: nope\nreview: done\n---\nsee https://contoso.example/x\n");
