@@ -8,7 +8,7 @@ using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
 
-// Runs action/install.sh, action/plan.sh, action/apply.sh, action/check-apply.sh, action/diff.sh, action/comment.sh, action/test.sh, action/powerops.sh, action/annotate.sh and action/summary.sh with bash, against stub `gh`, `dotnet` and `curl` programs
+// Runs action/install.sh, action/plan.sh, action/apply.sh, action/check-apply.sh, action/diff.sh, action/comment.sh, action/test.sh, action/powerops.sh, action/analyze.sh, action/annotate.sh and action/summary.sh with bash, against stub `gh`, `dotnet` and `curl` programs
 // that come first on PATH. Skipped on Windows and where bash (or jq or git, which a test needs) is not found.
 public sealed class ActionScriptTests : IDisposable
 {
@@ -367,6 +367,22 @@ public sealed class ActionScriptTests : IDisposable
 
         Assert.Equal(exit, run.Code);
         Assert.Equal(string.Concat(stderr.Split('\n').Where(l => l.StartsWith("error:", StringComparison.Ordinal) || l.StartsWith("note:", StringComparison.Ordinal)).Select(l => l + "\n")), run.Err);
+    }
+
+    [Theory]
+    [InlineData("", "false", "powerops.dll analyze sol dir --fail-on warning --format sarif --out a b.sarif")]
+    [InlineData("base line.json", "true", "powerops.dll analyze sol dir --fail-on warning --baseline base line.json --redact --format sarif --out a b.sarif")]
+    public void Analyze_builds_the_arguments_from_the_environment_and_passes_the_exit_code(string baseline, string redact, string call)
+    {
+        Tools.Require("bash");
+        var temp = NewDir("analyze");
+        WriteStub(temp, "dotnet", DotnetStub);
+        File.WriteAllText(Path.Combine(temp, "markdown.md"), "");
+
+        var run = Run("analyze.sh", temp, temp, new() { ["PO_DLL"] = "powerops.dll", ["PO_PATH"] = "sol dir", ["PO_BASELINE"] = baseline, ["PO_REDACT"] = redact, ["STUB_EXIT"] = "1" }, stdin: null, args: ["warning", "--format", "sarif", "--out", "a b.sarif"]);
+
+        Assert.Equal(1, run.Code);
+        Assert.Equal(call, Assert.Single(run.DotnetCalls));
     }
 
     private const string AnnotateJson = """

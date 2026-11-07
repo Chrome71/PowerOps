@@ -85,19 +85,8 @@ public static class SettingsCommand
             }
 
             var loaded = SolutionLoader.Load(path);
-            if (ReadSettings(file, error) is not { } text)
+            if (Problems(loaded, file, error) is not { } problems)
             {
-                return InternalError;
-            }
-
-            IReadOnlyList<SettingsProblem> problems;
-            try
-            {
-                problems = DeploymentSettings.Validate(loaded, text);
-            }
-            catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
-            {
-                error.WriteLine($"error: {TextReport.Clean(file)}: {TextReport.Clean(ex.Message)}");
                 return InternalError;
             }
 
@@ -113,6 +102,25 @@ public static class SettingsCommand
             return problems.Count > 0 ? 1 : 0;
         }));
         return command;
+    }
+
+    // The problems of the settings file for the solution; null after an error line that starts with the path.
+    private static IReadOnlyList<SettingsProblem>? Problems(Solution loaded, string file, TextWriter error)
+    {
+        if (ReadSettings(file, error) is not { } text)
+        {
+            return null;
+        }
+
+        try
+        {
+            return DeploymentSettings.Validate(loaded, text);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            error.WriteLine($"error: {TextReport.Clean(file)}: {TextReport.Clean(ex.Message)}");
+            return null;
+        }
     }
 
     // The settings file, capped at 1 MB as deploy's settings files are; null after an error line that starts with the path.
@@ -178,19 +186,8 @@ public static class SettingsCommand
             }
 
             var loaded = SolutionLoader.Load(path);
-            if (ReadSettings(file, error) is not { } text)
+            if (Problems(loaded, file, error) is not { } problems)
             {
-                return InternalError;
-            }
-
-            IReadOnlyList<SettingsProblem> problems;
-            try
-            {
-                problems = DeploymentSettings.Validate(loaded, text);
-            }
-            catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
-            {
-                error.WriteLine($"error: {TextReport.Clean(file)}: {TextReport.Clean(ex.Message)}");
                 return InternalError;
             }
 

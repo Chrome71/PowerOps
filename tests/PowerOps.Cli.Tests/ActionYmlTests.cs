@@ -33,10 +33,13 @@ public sealed class ActionYmlTests
         Assert.DoesNotContain("always()", Text(steps[apply], "if"));
         Assert.DoesNotContain("continue-on-error", steps[gate].Keys.Cast<string>());
 
-        var run = Text(steps[gate], "run")!;
-        Assert.Contains("--fail-on \"$PO_FAIL_ON\"", run);
-        Assert.Contains("--baseline", run);
-        Assert.DoesNotContain("${{", run);
+        // Apply fail-on runs the same analysis, so it is skipped when the gate ran.
+        var failOn = steps.Single(s => Text(s, "name") == "Apply fail-on");
+        Assert.Equal("inputs.plan-file == ''", Text(failOn, "if"));
+        Assert.All(new[] { steps[gate], failOn }, s => Assert.Equal("bash \"$GITHUB_ACTION_PATH/action/analyze.sh\" \"$PO_FAIL_ON\"", Text(s, "run")));
+        var script = File.ReadAllText(Path.Combine(Golden.RepoRoot, "action", "analyze.sh"));
+        Assert.Contains("--fail-on \"$1\"", script);
+        Assert.Contains("--baseline \"$PO_BASELINE\"", script);
     }
 
     [Fact]
@@ -95,11 +98,12 @@ public sealed class ActionYmlTests
         {
             var step = steps.Single(s => Text(s, "name") == name);
 
-            Assert.Contains("action/powerops.sh", Text(step, "run"));
+            Assert.Contains("action/analyze.sh", Text(step, "run"));
             Assert.Equal("${{ steps.powerops.outputs.dll }}", ((Dictionary<object, object>)step["env"])["PO_DLL"]);
         }
 
         Assert.All(steps.Where(s => Text(s, "run") is not null), s => Assert.DoesNotContain("powerops.dll", Text(s, "run")));
+        Assert.Contains("/powerops.sh\" \"${args[@]}\" \"$@\"", File.ReadAllText(Path.Combine(Golden.RepoRoot, "action", "analyze.sh")));
     }
 
     [Fact]
@@ -175,12 +179,10 @@ public sealed class ActionYmlTests
         foreach (var step in steps)
         {
             Assert.Equal("${{ inputs.redact }}", ((Dictionary<object, object>)step["env"])["PO_REDACT"]);
-            if (Text(step, "name") != "Diff")
-            {
-                Assert.Contains("if [ \"$PO_REDACT\" = \"true\" ]; then args+=(--redact); fi", Text(step, "run"));
-            }
+            Assert.Contains(Text(step, "name") == "Diff" ? "action/diff.sh" : "action/analyze.sh", Text(step, "run"));
         }
 
+        Assert.Contains("if [ \"$PO_REDACT\" = \"true\" ]; then args+=(--redact); fi", File.ReadAllText(Path.Combine(Golden.RepoRoot, "action", "analyze.sh")));
         Assert.Contains("--redact", File.ReadAllText(Path.Combine(Golden.RepoRoot, "action", "diff.sh")));
         var action = new DeserializerBuilder().Build().Deserialize<Dictionary<string, object>>(File.ReadAllText(Path.Combine(Golden.RepoRoot, "action.yml")));
         Assert.Equal("false", ((Dictionary<object, object>)((Dictionary<object, object>)action["inputs"])["redact"])["default"]);

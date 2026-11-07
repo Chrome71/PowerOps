@@ -54,10 +54,12 @@ internal static class ZipGuard
                 continue;
             }
 
+            var disk = BinaryPrimitives.ReadUInt16LittleEndian(tail.AsSpan(i + 4));
             var entries = (ulong)BinaryPrimitives.ReadUInt16LittleEndian(tail.AsSpan(i + 10));
             var directorySize = BinaryPrimitives.ReadUInt32LittleEndian(tail.AsSpan(i + 12));
             var directoryOffset = BinaryPrimitives.ReadUInt32LittleEndian(tail.AsSpan(i + 16));
-            if (entries == ushort.MaxValue || directorySize == uint.MaxValue || directoryOffset == uint.MaxValue)
+            // .NET reads the Zip64 record when the disk number, count or offset is at its limit; the size is checked as well.
+            if (disk == ushort.MaxValue || entries == ushort.MaxValue || directorySize == uint.MaxValue || directoryOffset == uint.MaxValue)
             {
                 entries = Math.Max(entries, Zip64Entries(file, length, tailStart + i));
             }
