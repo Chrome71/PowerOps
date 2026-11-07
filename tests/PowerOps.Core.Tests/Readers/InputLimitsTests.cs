@@ -297,6 +297,47 @@ public class InputLimitsTests(ITestOutputHelper log)
         Assert.Contains("entries", ex.Message);
     }
 
+    // .NET also takes the Zip64 count when the classic record's disk number is 0xFFFF, which the guard doesn't look at,
+    // so the guard sees 1 entry and only the count check after opening refuses the 5.
+    [Fact]
+    public void Zip64_count_behind_a_disk_number_of_ffff_is_refused_after_opening()
+    {
+        using var t = new TempFolder();
+        var path = Path.Combine(t.Path, "x.zip");
+        using (var zip = ZipFile.Open(path, ZipArchiveMode.Create))
+        {
+            foreach (var name in new[] { "solution.xml", "customizations.xml", "a", "b", "c" })
+            {
+                zip.CreateEntry(name);
+            }
+        }
+
+        var bytes = File.ReadAllBytes(path);
+        var eocd = bytes.Length - 22;
+        var tail = new byte[56 + 20 + 22];
+        BitConverter.GetBytes(0x06064b50u).CopyTo(tail, 0);
+        BitConverter.GetBytes(44UL).CopyTo(tail, 4);
+        BitConverter.GetBytes(5UL).CopyTo(tail, 24);
+        BitConverter.GetBytes(5UL).CopyTo(tail, 32);
+        BitConverter.GetBytes((ulong)BitConverter.ToUInt32(bytes, eocd + 12)).CopyTo(tail, 40);
+        BitConverter.GetBytes((ulong)BitConverter.ToUInt32(bytes, eocd + 16)).CopyTo(tail, 48);
+        BitConverter.GetBytes(0x07064b50u).CopyTo(tail, 56);
+        BitConverter.GetBytes((ulong)eocd).CopyTo(tail, 56 + 8);
+        BitConverter.GetBytes(1u).CopyTo(tail, 56 + 16);
+        bytes.AsSpan(eocd, 22).CopyTo(tail.AsSpan(76));
+        BitConverter.GetBytes(ushort.MaxValue).CopyTo(tail, 76 + 4);
+        BitConverter.GetBytes(ushort.MaxValue).CopyTo(tail, 76 + 6);
+        BitConverter.GetBytes((ushort)1).CopyTo(tail, 76 + 8);
+        BitConverter.GetBytes((ushort)1).CopyTo(tail, 76 + 10);
+        File.WriteAllBytes(path, [.. bytes.AsSpan(0, eocd), .. tail]);
+        var budget = new ReadBudget(maxEntries: 2);
+
+        ZipGuard.Check(path, budget);
+        var ex = Assert.Throws<InvalidDataException>(() => ZipReader.Read(path, budget));
+
+        Assert.Equal($"{path}: more than 2 entries.", ex.Message);
+    }
+
     [Fact]
     public void Zip_without_a_central_directory_record_is_left_to_ZipFile()
     {
