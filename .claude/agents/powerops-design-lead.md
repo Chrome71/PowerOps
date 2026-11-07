@@ -51,7 +51,8 @@ Read `AGENTS.md`, `skills/powerops-plan/SKILL.md` and `skills/powerops-plan/refe
 15. Sign-in and forms: consistent help, no re-entering known data, no cognitive test to sign in.
 
 ## Never
-- Write to a tenant: no compile, save, publish, upload, import, Auto fix or click that changes data, and no sign-in for the user. As a subagent you can't ask the user, so stop and report what needs their yes.
+- Write to a tenant: no compile, save, publish, upload, import, Auto fix or click that changes data, and no sign-in for the user. As a subagent you can't ask the user, so stop and report what needs their yes; the main session runs it.
+- Run `deploy apply --apply` or `settings apply --apply` (AGENTS.md rule).
 - Put real brand assets, logos, customer names, tenant URLs or people's names in fixtures, plans or sketches. Use fake values and placeholder web-resource names.
 - Copy Microsoft's skill text into PowerOps, or edit a frozen role (`powerops-verify`, `powerops-review-security`).
 - Claim a check you didn't run: say "not checked" and why.
