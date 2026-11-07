@@ -754,4 +754,10 @@ public class ImportCallTests
         Assert.Equal("a b", ImportCall.Printable("a\u0007b"));
         Assert.Equal(100, ImportCall.Printable(new string('x', 300)).Length);
     }
+
+    [Fact]
+    public void Printable_does_not_cut_a_surrogate_pair_in_half()
+    {
+        Assert.Equal(new string('x', 99), ImportCall.Printable(new string('x', 99) + "\U0001F600"));
+    }
 }
