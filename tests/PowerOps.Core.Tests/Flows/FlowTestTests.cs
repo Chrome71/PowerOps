@@ -259,7 +259,26 @@ public class FlowTestTests
 
             Assert.Equal(FlowTestOutcome.Failed, result.Outcome);
             Assert.Contains("definition", result.Message);
+            Assert.DoesNotContain("deeper", result.Message);
         }
+    }
+
+    [Fact]
+    public void A_flow_that_analyze_reads_but_nested_deeper_than_64_levels_says_so()
+    {
+        var actions = Compose;
+        for (var i = 0; i < 40; i++)
+        {
+            actions = $"{{\"S{i}\":{{\"type\":\"Scope\",\"actions\":{actions},\"runAfter\":{{}}}}}}";
+        }
+
+        var deep = Flow("F", actions);
+        FlowDefinition.Parse(deep.ClientData!);
+
+        var result = RunOne(Pass(), deep);
+
+        Assert.Equal(FlowTestOutcome.Failed, result.Outcome);
+        Assert.Equal("The flow 'F' has a definition nested deeper than 64 levels, the most a flow test reads.", result.Message);
     }
 
     [Fact]
@@ -271,6 +290,7 @@ public class FlowTestTests
 
         Assert.Equal(FlowTestOutcome.Failed, result.Outcome);
         Assert.Contains("definition", result.Message);
+        Assert.DoesNotContain("deeper", result.Message);
     }
 
     // Outcomes

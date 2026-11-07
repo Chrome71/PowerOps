@@ -290,9 +290,15 @@ public static class FlowTestRunner
         }
 
         var (solution, workflow) = (solutions[matches[0].Index], matches[0].Flow);
-        if (Definition(workflow) is not { } definition)
+        if (Definition(workflow, out var tooDeep) is not { } definition)
         {
-            return Stop(FlowTestOutcome.Failed, $"The flow '{workflow.Name}' has no readable definition (clientdata with properties.definition).", workflow.Name, solution.UniqueName);
+            return Stop(
+                FlowTestOutcome.Failed,
+                tooDeep
+                    ? $"The flow '{workflow.Name}' has a definition nested deeper than 64 levels, the most a flow test reads."
+                    : $"The flow '{workflow.Name}' has no readable definition (clientdata with properties.definition).",
+                workflow.Name,
+                solution.UniqueName);
         }
 
         var parameters = new Dictionary<string, JsonNode?>();
@@ -359,20 +365,37 @@ public static class FlowTestRunner
     private static bool IsFlow(Workflow w, string reference) =>
         w.Name == reference || (System.Guid.TryParse(reference, out var id) && System.Guid.TryParse(w.Id, out var own) && id == own);
 
-    private static JsonObject? Definition(Workflow w)
+    // ParseJson's default 64 levels bound the simulator's recursion; analyze reads 256, so a flow that parses only deeper is too deep, not unreadable.
+    private static JsonObject? Definition(Workflow w, out bool tooDeep)
     {
+        tooDeep = false;
         if (w.ClientData is null)
         {
             return null;
         }
 
+        var text = w.ClientData.TrimStart('﻿');
         try
         {
-            return ((ExpressionFunctions.ParseJson(w.ClientData.TrimStart('﻿')) as JsonObject)?["properties"] as JsonObject)?["definition"] as JsonObject;
+            return ((ExpressionFunctions.ParseJson(text) as JsonObject)?["properties"] as JsonObject)?["definition"] as JsonObject;
         }
         catch (Exception e) when (e is JsonException or ArgumentException)
         {
+            tooDeep = Parses(text, 256);
             return null;
+        }
+    }
+
+    private static bool Parses(string text, int maxDepth)
+    {
+        try
+        {
+            ExpressionFunctions.ParseJson(text, maxDepth);
+            return true;
+        }
+        catch (Exception e) when (e is JsonException or ArgumentException)
+        {
+            return false;
         }
     }
 
