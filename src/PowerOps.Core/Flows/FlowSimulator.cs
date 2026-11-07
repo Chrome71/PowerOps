@@ -141,6 +141,7 @@ public static class FlowSimulator
                 result.Add(entry);
             }
 
+            Charge(result); // the copies above count against the run's budget, as every other copy does
             return result;
         }
 

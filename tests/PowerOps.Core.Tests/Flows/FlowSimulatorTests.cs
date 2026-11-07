@@ -658,6 +658,21 @@ public class FlowSimulatorTests
     }
 
     [Fact]
+    public void A_Foreach_that_reads_result_of_a_Scope_each_time_hits_the_copy_budget()
+    {
+        var items = string.Join(',', Enumerable.Repeat("1", 3_000));
+
+        var run = Run(
+            "{\"S\":{\"type\":\"Scope\",\"actions\":{\"C\":" + Compose("\"@triggerBody()?['items']\"") + "},\"runAfter\":{}},"
+            + "\"Loop\":{\"type\":\"Foreach\",\"foreach\":\"@triggerBody()?['items']\",\"runAfter\":" + After("S")
+            + ",\"actions\":{\"R\":" + Compose("\"@length(result('S'))\"") + "}}}",
+            In("{\"body\":{\"items\":[" + items + "]}}"));
+
+        Assert.Equal(FlowRunOutcome.Unsupported, run.Outcome);
+        Assert.Contains("pass 256 MB", run.Message);
+    }
+
+    [Fact]
     public void Twenty_thousand_appends_of_1000_characters_hit_the_copy_budget_within_10_seconds()
     {
         var items = string.Join(',', Enumerable.Repeat("1", 20_000));
