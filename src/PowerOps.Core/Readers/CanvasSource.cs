@@ -49,38 +49,15 @@ internal static class CanvasSource
             ZipGuard.Check(memory, path, budget);
             using var zip = new ZipArchive(memory, ZipArchiveMode.Read);
 
-            // The guard checks the declared count; this catches a central directory that holds more than it declared.
-            if (zip.Entries.Count > budget.MaxEntries)
-            {
-                throw new InvalidDataException($"{path}: more than {budget.MaxEntries} entries.");
-            }
-
-            var sources = new SortedDictionary<string, ZipArchiveEntry>(StringComparer.Ordinal);
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var entry in zip.Entries)
-            {
-                var name = entry.FullName.Replace('\\', '/');
-                if (name.EndsWith('/') || !ZipReader.IsSafe(name)
-                    || !name.StartsWith("Src/", StringComparison.OrdinalIgnoreCase) || !name.EndsWith(".pa.yaml", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue; // directories, rooted and `..` names, and everything but the source files are never read
-                }
-
-                if (!seen.Add(name))
-                {
-                    throw new InvalidDataException($"{path}: {name} is listed more than once (names are compared without case).");
-                }
-
-                sources.Add(name, entry);
-            }
-
+            // Everything but the source files is never read.
+            var sources = ZipReader.Entries(zip.Entries, path, budget, name => name.StartsWith("Src/", StringComparison.OrdinalIgnoreCase) && name.EndsWith(".pa.yaml", StringComparison.OrdinalIgnoreCase));
             if (sources.Count == 0)
             {
                 return null;
             }
 
             var formulas = new List<CanvasFormula>();
-            foreach (var (name, entry) in sources)
+            foreach (var (name, entry) in sources.OrderBy(e => e.Key, StringComparer.Ordinal))
             {
                 formulas.AddRange(ReadEntry(entry, $"{path}: {name}", app, path, budget));
             }
