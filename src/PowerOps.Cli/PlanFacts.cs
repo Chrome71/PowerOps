@@ -29,12 +29,7 @@ public static class PlanFacts
             return whoFailure;
         }
 
-        var environment = who.Stdout.Split('\n')
-            .Select(l => l.Trim())
-            .Where(l => l.StartsWith("Friendly Name:", StringComparison.Ordinal))
-            .Select(l => l["Friendly Name:".Length..].Trim())
-            .FirstOrDefault(n => n.Length > 0);
-        if (environment is null)
+        if (SettingsCommand.Field(who.Stdout, "Friendly Name:") is not { } environment)
         {
             return Unavailable("`pac org who` printed no environment name", SignInFix);
         }
