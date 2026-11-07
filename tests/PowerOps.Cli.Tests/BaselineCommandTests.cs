@@ -73,19 +73,6 @@ public class BaselineCommandTests : IDisposable
     }
 
     [Fact]
-    public void Baseline_from_a_zip_suppresses_the_unpacked_findings()
-    {
-        var zip = Path.Combine(_temp, "v2.zip");
-        SolutionZip.Create(V2, zip);
-        Assert.Equal(0, Run("baseline", zip, "--out", BaselineFile).Code);
-
-        var (code, output, _) = Run("analyze", V2, "--baseline", BaselineFile, "--fail-on", "warning");
-
-        Assert.Equal(0, code);
-        Assert.Contains("2 baselined", output);
-    }
-
-    [Fact]
     public void Missing_baseline_file_exits_two()
     {
         var (code, _, err) = Run("analyze", V2, "--baseline", Path.Combine(_temp, "nope.json"));

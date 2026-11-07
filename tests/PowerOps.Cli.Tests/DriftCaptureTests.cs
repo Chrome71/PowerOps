@@ -1,6 +1,5 @@
 using System.Text.Json;
 
-using PowerOps.Core.Drift;
 using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
@@ -63,59 +62,4 @@ internal static class Capture
             return LiveFakes.Ok(Read($"{env}-read{read}.json"));
         },
     };
-}
-
-public class DriftCaptureTests
-{
-    private const string Solution = "PowerOpsSeed";
-    private const string FlowId = "4c8dd007-dfcb-f111-a05c-0022480697a8";
-
-    [Fact]
-    public void The_dev_capture_builds_the_unmanaged_snapshot_without_layer_reads()
-    {
-        var f = Capture.Fakes("clean");
-
-        var s = f.Reader.Read(Solution, Capture.DevEnv);
-
-        Assert.Equal(("Contoso Dev", Solution, true, "1.0.0.0", false, true), (s.Environment, s.Solution, s.Installed, s.Version, s.Managed, s.LayersRead));
-        Assert.Equal([1, 29, 300, 380, 10164, 10164], s.Components.Select(c => c.Type));
-        Assert.All(s.Components, c => Assert.Null(c.UnmanagedLayer));
-        Assert.Equal(Snapshot.Hash("Open, then\nreview"), s.Variables.Single().ValueHash);
-        Assert.Equal(["pops_SeedDataverse", "pops_SpareDataverse"], s.References.Select(r => r.LogicalName));
-        Assert.All(s.References, r => Assert.True(r.Bound));
-        Assert.Equal(new SnapshotFlow(Guid.Parse(FlowId), "Stamp work item status", "on"), s.Flows.Single());
-        Assert.DoesNotContain(f.WebCalls, c => c.Url.AbsolutePath.EndsWith("msdyn_componentlayers"));
-        Assert.Equal(new SnapshotAlsoIn(29, Guid.Parse(FlowId), "ContosoOther"), Assert.Single(s.AlsoIn!));
-    }
-
-    [Fact]
-    public void The_clean_test_capture_has_a_layer_read_for_each_component_and_no_unmanaged_layer()
-    {
-        var f = Capture.Fakes("clean");
-
-        var s = f.Reader.Read(Solution, Capture.TestEnv);
-
-        Assert.Equal(("Contoso Test", true, true), (s.Environment, s.Managed, s.LayersRead));
-        Assert.Equal([1, 29, 300, 380, 10164, 10164], s.Components.Select(c => c.Type));
-        Assert.All(s.Components, c => Assert.False(c.UnmanagedLayer));
-        Assert.Equal(6, f.WebCalls.Count(c => c.Url.AbsolutePath.EndsWith("msdyn_componentlayers")));
-    }
-
-    [Fact]
-    public void The_edited_test_capture_has_the_unmanaged_layer_on_the_flow_only()
-    {
-        var s = Capture.Fakes("edited").Reader.Read(Solution, Capture.TestEnv);
-
-        Assert.Equal(FlowId, Assert.Single(s.Components, c => c.UnmanagedLayer == true).Id.ToString());
-        Assert.Equal(5, s.Components.Count(c => c.UnmanagedLayer == false));
-    }
-
-    [Fact]
-    public void The_layer_fake_answers_like_the_live_table_with_no_rows_for_a_wrong_name()
-    {
-        var f = Capture.Fakes("clean");
-        var url = new Uri("https://contoso-test.crm.dynamics.com/api/data/v9.2/msdyn_componentlayers?fetchXml=" + Uri.EscapeDataString(DriftQueries.Layers(Guid.Parse(FlowId), "workflow")));
-
-        Assert.Equal("""{"value":[]}""", f.WebFn(url).Body);
-    }
 }

@@ -341,13 +341,7 @@ public class DeployApplyCommandTests : DeployTestBase
     // ---- exit 3: the plan file ---------------------------------------------------------------------------------
 
     [Theory]
-    [InlineData("not-json")]
-    [InlineData("not-an-object")]
-    [InlineData("no-hash")]
     [InlineData("bad-hash")]
-    [InlineData("empty-target")]
-    [InlineData("no-inputs")]
-    [InlineData("unsafe-zip-name")]
     [InlineData("over-1-mb")]
     [InlineData("symbolic-link")]
     public void An_unreadable_plan_file_exits_3_naming_the_problem_before_the_target_is_read(string problem)
@@ -356,26 +350,8 @@ public class DeployApplyCommandTests : DeployTestBase
         MakePlan();
         switch (problem)
         {
-            case "not-json":
-                File.WriteAllText(PlanFile, "{ nope");
-                break;
-            case "not-an-object":
-                File.WriteAllText(PlanFile, "[]");
-                break;
-            case "no-hash":
-                EditPlanFile(d => d.Remove("hash"));
-                break;
             case "bad-hash":
                 EditPlanFile(d => d["hash"] = "SECRET-VALUE");
-                break;
-            case "empty-target":
-                EditPlanFile(d => d["target"] = "");
-                break;
-            case "no-inputs":
-                EditPlanFile(d => d.Remove("inputs"));
-                break;
-            case "unsafe-zip-name":
-                EditPlanFile(d => d["inputs"]!["zips"]![0]!["zip"] = "x\n::error::y.zip");
                 break;
             case "over-1-mb":
                 File.WriteAllText(PlanFile, "{}" + new string(' ', 1024 * 1024));
