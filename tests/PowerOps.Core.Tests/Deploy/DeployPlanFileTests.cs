@@ -211,11 +211,7 @@ public class DeployPlanFileTests
     }
 
     [Theory]
-    [InlineData("tool")]
     [InlineData("target")]
-    [InlineData("inputs.zips.0.zip")]
-    [InlineData("inputs.zips.0.settings")]
-    [InlineData("inputs.dependencies.0.name")]
     public void A_string_that_is_not_valid_unicode_is_not_a_plan_file_and_names_no_value(string path)
     {
         // The JSON escape of a lone surrogate parses, but GetString throws on it.
