@@ -932,7 +932,8 @@ public sealed partial class RoleEvalTests
         return Convert.ToHexStringLower(System.Security.Cryptography.SHA1.HashData([.. head, .. bytes]));
     }
 
-    private static byte[] LfBytes(string path) => Encoding.UTF8.GetBytes(File.ReadAllText(path).Replace("\r\n", "\n"));
+    // Latin-1 maps every byte to one char, so only CR LF changes: a BOM or any encoding is hashed as git hashes it.
+    private static byte[] LfBytes(string path) => Encoding.Latin1.GetBytes(Encoding.Latin1.GetString(File.ReadAllBytes(path)).Replace("\r\n", "\n"));
 
     [Fact]
     public void The_kept_roles_text_is_the_pinned_or_a_recorded_blob()
