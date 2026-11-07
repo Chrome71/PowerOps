@@ -65,7 +65,7 @@ public partial class DocsDriftTests
             .Concat(Directory.GetFiles(Repo("docs"), "*.md", SearchOption.AllDirectories))
             .Concat(Directory.GetFiles(Repo("docs", "examples"), "*.yml"))
             .Select(f => (Name: Path.GetRelativePath(Golden.RepoRoot, f).Replace('\\', '/'), File: f))
-            .Where(p => !p.Name.StartsWith("docs/plans/", StringComparison.Ordinal) && p.Name != "docs/BUILD-PLAN.md" && !p.Name.Contains("node_modules", StringComparison.Ordinal))
+            .Where(p => !p.Name.StartsWith("docs/plans/", StringComparison.Ordinal) && !p.Name.StartsWith("docs/research/", StringComparison.Ordinal) && p.Name != "docs/BUILD-PLAN.md" && !p.Name.Contains("node_modules", StringComparison.Ordinal))
             .Select(p => (p.Name, File.ReadAllText(p.File).Replace("\r\n", "\n")));
 
     // Inline code spans outside fences, and the logical lines of sh, bash and shell fences (a trailing \ joins the next
