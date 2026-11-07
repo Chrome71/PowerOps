@@ -400,6 +400,7 @@ public class DeployCommandTests : IDisposable
 
         Assert.Equal(exitCode, r.Code);
         Assert.Equal("error: --target: the read failed\n  | tool line 1\n  | tool line 2\n", r.Err);
+        Assert.DoesNotContain("display name", r.Err);
         Assert.Equal("", r.Out);
         Assert.False(File.Exists(save));
         Assert.False(File.Exists(outFile));

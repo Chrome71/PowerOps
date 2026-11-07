@@ -292,7 +292,7 @@
         },
         "target": {
           "type": "string",
-          "description": "The environment the plan was made for: an id or URL (as pac --environment)."
+          "description": "The environment the plan was made for: an id or URL (as pac --environment). The plan file\u0027s \u0060target\u0060 is the environment\u0027s display name, which this doesn\u0027t take."
         },
         "apply": {
           "type": "boolean",
