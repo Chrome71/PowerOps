@@ -9,6 +9,9 @@ fail() {
   exit 0
 }
 
+# An earlier use of the action in this job may have left plan.sh's marker; the diff goes to the summary only through comment.sh.
+if [ -n "${RUNNER_TEMP:-}" ]; then rm -f "$RUNNER_TEMP/powerops-plan-in-summary"; fi
+
 # git cat-file works in a shallow clone, where the parent commit itself is not present.
 commit="$(git cat-file -p HEAD)" || fail "no base commit" 1
 parent="$(printf '%s\n' "$commit" | awk '/^parent / { print $2; exit } /^$/ { exit }')"
