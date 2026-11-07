@@ -51,15 +51,17 @@ public static class Manifest
         var root = Path.GetFullPath(folder);
         var links = new List<string>();
         var files = new List<ManifestEntry>();
-        foreach (var file in budget.LimitFiles(SolutionDiscovery.EnumerateFiles(root, links), folder))
+        var relative = SolutionDiscovery.ListFiles(root, folder, budget, links);
+        foreach (var rel in relative)
         {
+            var file = Path.Combine(root, rel);
             var bytes = BoundedRead.ReadAllBytes(file, budget.MaxFileBytes);
             budget.Consume(bytes.Length, file);
-            files.Add(new ManifestEntry(Path.GetRelativePath(root, file).Replace('\\', '/'), DeployPlan.Sha256Hex(Normalize(bytes))));
+            files.Add(new ManifestEntry(rel, DeployPlan.Sha256Hex(Normalize(bytes))));
         }
 
         files.Sort((a, b) => string.CompareOrdinal(a.Path, b.Path));
-        links.ForEach(l => skippedLinks?.Add(Path.Combine(folder, Path.GetRelativePath(root, l)).Replace('\\', '/')));
+        links.ForEach(l => skippedLinks?.Add(SolutionDiscovery.ForwardSlashes(Path.Combine(folder, l))));
 
         var lines = new StringBuilder();
         files.ForEach(f => lines.Append(f.Sha256).Append("  ").Append(f.Path).Append('\n'));

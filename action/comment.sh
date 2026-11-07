@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Posts the Markdown in PO_COMMENT as one pull request comment, or updates the one from an earlier run.
 # Inputs come only from the environment: PO_COMMENT, PO_FORK (true or false), PO_PR, GITHUB_REPOSITORY,
-# GITHUB_STEP_SUMMARY and GH_TOKEN (read by gh). It always exits 0: a comment that cannot be posted is a warning.
+# GITHUB_STEP_SUMMARY, GH_TOKEN (read by gh) and, optionally, RUNNER_TEMP. It always exits 0: a comment that cannot be posted is a warning.
 set -euo pipefail
 
 if [ ! -f "$PO_COMMENT" ]; then
@@ -16,7 +16,10 @@ trap 'rm -f "$body"' EXIT
 in_summary=0
 to_summary() {
   if [ "$in_summary" -eq 0 ]; then
-    cat "$PO_COMMENT" >> "$GITHUB_STEP_SUMMARY"
+    # plan.sh already wrote the plan to the summary; the diff is only ever written here.
+    if [ -z "${RUNNER_TEMP:-}" ] || [ ! -e "$RUNNER_TEMP/powerops-plan-in-summary" ]; then
+      cat "$PO_COMMENT" >> "$GITHUB_STEP_SUMMARY"
+    fi
     in_summary=1
   fi
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Compares the first parent of HEAD (the base branch tip, on a pull_request merge checkout) with the work tree
-# and writes the Markdown to PO_COMMENT. Inputs come only from the environment: PO_DLL, PO_PATH, PO_REDACT, PO_COMMENT, RUNNER_TEMP.
+# and writes the Markdown to PO_COMMENT. Inputs come only from the environment: PO_DLL, PO_PATH, PO_REDACT, PO_COMMENT, RUNNER_TEMP, GITHUB_SHA.
 # It always exits 0; a failure becomes a fixed text in PO_COMMENT, without the tool's own text.
 set -euo pipefail
 
@@ -9,12 +9,17 @@ fail() {
   exit 0
 }
 
+# An earlier use of the action in this job may have left plan.sh's marker; the diff goes to the summary only through comment.sh.
+if [ -n "${RUNNER_TEMP:-}" ]; then rm -f "$RUNNER_TEMP/powerops-plan-in-summary"; fi
+
 # git cat-file works in a shallow clone, where the parent commit itself is not present.
 commit="$(git cat-file -p HEAD)" || fail "no base commit" 1
 parent="$(printf '%s\n' "$commit" | awk '/^parent / { print $2; exit } /^$/ { exit }')"
 if ! [[ "$parent" =~ ^[0-9a-f]{40,64}$ ]]; then
   fail "no base commit" 1
 fi
+# Only the merge commit's first parent is the base; a PR-head checkout would diff against its previous commit.
+[ "$(git rev-parse HEAD)" = "${GITHUB_SHA:-}" ] || fail "checkout is not the merge commit" 1
 
 code=0
 git fetch --no-tags --depth=1 origin "$parent" || code=$?

@@ -83,6 +83,20 @@ public static class SolutionDiscovery
     // Like Options, but lists the links too, so they can be reported.
     private static readonly EnumerationOptions WithLinks = new() { IgnoreInaccessible = true, AttributesToSkip = 0, MatchCasing = MatchCasing.CaseInsensitive };
 
+    /// <summary>
+    /// The files of an unpacked folder as paths relative to <paramref name="root"/>, capped by <paramref name="budget"/>; <paramref name="links"/> receives the relative path of each link, which is not followed.
+    /// Separators become <c>/</c> only where <c>\</c> is one (Windows): on Linux a backslash is part of a file name.
+    /// </summary>
+    internal static List<string> ListFiles(string root, string folder, ReadBudget budget, ICollection<string> links)
+    {
+        var raw = new List<string>();
+        var paths = budget.LimitFiles(EnumerateFiles(root, raw), folder).Select(f => Path.GetRelativePath(root, f)).ToList();
+        raw.ForEach(l => links.Add(ForwardSlashes(Path.GetRelativePath(root, l))));
+        return paths.Select(ForwardSlashes).ToList();
+    }
+
+    internal static string ForwardSlashes(string path) => Path.DirectorySeparatorChar == '\\' ? path.Replace('\\', '/') : path;
+
     /// <summary>The files under <paramref name="folder"/>, without descending into <see cref="Skipped"/> folders or following symlinks. A link inside (file or folder) is added to <paramref name="links"/>, so the caller can say it was not read.</summary>
     internal static IEnumerable<string> EnumerateFiles(string folder, ICollection<string>? links = null)
     {

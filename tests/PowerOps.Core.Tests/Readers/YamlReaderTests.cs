@@ -42,6 +42,19 @@ public class YamlReaderTests
     private static string SolutionYml(TempFolder t) => Path.Combine(t.Path, "solutions", "Demo", "solution.yml");
 
     [Fact]
+    public void Two_files_whose_names_differ_only_in_case_are_refused()
+    {
+        using var t = Layout();
+        Assert.SkipWhen(t.IgnoresCase, "this file system ignores case, so the two files cannot both exist");
+        t.Write("workflows/A.yml", "a: 1").Write("workflows/a.yml", "a: 1");
+
+        var e = Assert.Throws<InvalidDataException>(() => SolutionLoader.Load(SolutionYml(t)));
+
+        Assert.StartsWith(t.Path, e.Message);
+        Assert.EndsWith("workflows/a.yml is listed more than once (names are compared without case).", e.Message);
+    }
+
+    [Fact]
     public void Inline_managed_one_is_managed()
     {
         using var t = Layout(managed: "1");

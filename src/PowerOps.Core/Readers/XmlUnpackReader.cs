@@ -18,10 +18,8 @@ public static class XmlUnpackReader
 
         // Symlinks are never followed, and .git, node_modules, bin and obj are neither listed nor counted.
         var links = new List<string>();
-        var paths = budget.LimitFiles(SolutionDiscovery.EnumerateFiles(root, links), folder)
-            .Select(f => Path.GetRelativePath(root, f).Replace('\\', '/'))
-            .ToList();
-        links.ForEach(l => skippedLinks?.Add(Path.Combine(folder, Path.GetRelativePath(root, l)).Replace('\\', '/')));
+        var paths = SolutionDiscovery.ListFiles(root, folder, budget, links);
+        links.ForEach(l => skippedLinks?.Add(SolutionDiscovery.ForwardSlashes(Path.Combine(folder, l))));
 
         return SolutionParser.Parse(new SolutionFiles(
             paths,

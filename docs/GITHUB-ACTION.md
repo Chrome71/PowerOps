@@ -66,7 +66,7 @@ Run it once, so GitHub knows the check. Then, in the repository's settings, add 
 - Put no path, branch or commit-message filter on the workflow: a workflow skipped by one leaves its required check pending, and the PR cannot be merged. Put no `if:` on the job either: a job skipped by a condition reports success, so the PR could merge untested.
 - With a merge queue, add `merge_group` to `on:`. Otherwise the required check is never reported for the queued merge, and the merge fails.
 
-A pull request runs its own workflow file and test files, so a PR could remove the gate: protect `.github/workflows/` and the tests folder with CODEOWNERS and required code-owner reviews, or with a ruleset. Workflows of a fork PR may wait for a maintainer's approval (the repository's Actions setting for fork pull request workflows); until then the check is pending.
+A pull request runs its own workflow file and test files, so a PR could remove the gate: protect `.github/workflows/`, the baseline file and the tests folder with CODEOWNERS and required code-owner reviews, or with a ruleset. Workflows of a fork PR may wait for a maintainer's approval (the repository's Actions setting for fork pull request workflows); until then the check is pending.
 
 ## Pull request comment
 

@@ -91,6 +91,16 @@ public sealed class ActionScriptTests : IDisposable
     }
 
     [Fact]
+    public void A_plan_already_in_the_job_summary_is_not_appended_again()
+    {
+        var run = RunComment(list: "[]", ghExit: "1", planInSummary: true);
+
+        Assert.Equal(0, run.Code);
+        Assert.Contains("::warning::", run.Out);
+        Assert.False(File.Exists(run.Summary));
+    }
+
+    [Fact]
     public void A_failing_update_gives_a_warning_and_one_copy_in_the_job_summary()
     {
         var run = RunComment(list: """[{"id":9,"user":{"login":"github-actions[bot]"},"body":"<!-- powerops -->\nold"}]""", ghFailOn: "PATCH");
@@ -125,6 +135,7 @@ public sealed class ActionScriptTests : IDisposable
         Assert.Equal("## PowerOps deploy plan\n\nthe plan\n", File.ReadAllText(run.Summary));
         Assert.Equal("## PowerOps deploy plan\n\nthe plan\n", File.ReadAllText(run.Comment));
         Assert.Equal($"deploy plan {run.Folder} --target Contoso Test --save {run.Folder}/powerops-plan.json --format markdown --out {run.Comment} --planned-by action", run.DotnetCalls.Single().Replace("powerops.dll ", ""));
+        Assert.True(File.Exists(Path.Combine(run.Temp, "powerops-plan-in-summary")));
     }
 
     [Fact]
@@ -658,6 +669,31 @@ public sealed class ActionScriptTests : IDisposable
     }
 
     [Fact]
+    public void Diff_removes_a_plan_marker_left_by_an_earlier_use_of_the_action_in_the_job()
+    {
+        Tools.Require("bash", "git");
+        var clone = MakeMergeClone();
+
+        var run = RunDiff(clone, exit: 1, staleMarker: true);
+
+        Assert.Equal(0, run.Code);
+        Assert.False(File.Exists(Path.Combine(run.Temp, "powerops-plan-in-summary")));
+    }
+
+    [Fact]
+    public void Diff_refuses_a_checkout_that_is_not_the_merge_commit()
+    {
+        Tools.Require("bash", "git");
+        var clone = MakeMergeClone();
+
+        var run = RunDiff(clone, exit: 1, sha: new string('a', 40));
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal("## PowerOps diff\n\nThe diff of the base and head solution could not run (checkout is not the merge commit, exit code 1). See the job log.\n", File.ReadAllText(run.Comment));
+        Assert.Empty(run.DotnetCalls);
+    }
+
+    [Fact]
     public void Diff_with_a_failed_fetch_writes_the_fixed_text()
     {
         Tools.Require("bash", "git");
@@ -1182,7 +1218,7 @@ public sealed class ActionScriptTests : IDisposable
         exit "${STUB_EXIT:-0}"
         """;
 
-    private Result RunComment(string list, string? markdown = "## PowerOps diff\n\nbody\n", string fork = "false", string ghExit = "0", string ghFailOn = "")
+    private Result RunComment(string list, string? markdown = "## PowerOps diff\n\nbody\n", string fork = "false", string ghExit = "0", string ghFailOn = "", bool planInSummary = false)
     {
         Tools.Require("bash", "jq");
         var temp = NewDir("comment");
@@ -1195,8 +1231,14 @@ public sealed class ActionScriptTests : IDisposable
         }
 
         var summary = Path.Combine(temp, "summary.md");
+        if (planInSummary)
+        {
+            File.WriteAllText(Path.Combine(temp, "powerops-plan-in-summary"), "");
+        }
+
         var run = Run("comment.sh", temp, temp, new()
         {
+            ["RUNNER_TEMP"] = temp,
             ["PO_COMMENT"] = comment,
             ["PO_FORK"] = fork,
             ["PO_PR"] = "7",
@@ -1230,6 +1272,7 @@ public sealed class ActionScriptTests : IDisposable
             ["PO_FOLDER"] = folder,
             ["PO_TARGET"] = "Contoso Test",
             ["PO_COMMENT"] = comment,
+            ["RUNNER_TEMP"] = temp,
             ["GITHUB_OUTPUT"] = output,
             ["GITHUB_STEP_SUMMARY"] = summary,
             ["RUNNER_DEBUG"] = debug ? "1" : "",
@@ -1306,7 +1349,7 @@ public sealed class ActionScriptTests : IDisposable
         return run with { Summary = summary, Output = ReadOrEmpty(output) };
     }
 
-    private Result RunDiff(string workDir, int exit, string? stderr = null, string? redact = null)
+    private Result RunDiff(string workDir, int exit, string? stderr = null, string? redact = null, string? sha = null, bool staleMarker = false)
     {
         Tools.Require("bash", "git");
         var temp = NewDir("diff");
@@ -1315,6 +1358,11 @@ public sealed class ActionScriptTests : IDisposable
         if (stderr is not null)
         {
             File.WriteAllText(Path.Combine(temp, "stderr.txt"), stderr);
+        }
+
+        if (staleMarker)
+        {
+            File.WriteAllText(Path.Combine(temp, "powerops-plan-in-summary"), "");
         }
 
         var comment = Path.Combine(temp, "comment.md");
@@ -1326,6 +1374,7 @@ public sealed class ActionScriptTests : IDisposable
             ["RUNNER_TEMP"] = temp,
             ["STUB_EXIT"] = exit.ToString(System.Globalization.CultureInfo.InvariantCulture),
             ["PO_REDACT"] = redact ?? "",
+            ["GITHUB_SHA"] = sha ?? Head(workDir),
         });
         return run with { Comment = comment };
     }
@@ -1356,6 +1405,12 @@ public sealed class ActionScriptTests : IDisposable
     {
         Git(repo, "add", "-A");
         Git(repo, "commit", "-q", "-m", message);
+    }
+
+    private static string Head(string workDir)
+    {
+        var start = new ProcessStartInfo("git", ["rev-parse", "HEAD"]) { WorkingDirectory = workDir, RedirectStandardOutput = true, RedirectStandardError = true };
+        return Execute(start).Out.Trim();
     }
 
     private static void Git(string workDir, params string[] args)
