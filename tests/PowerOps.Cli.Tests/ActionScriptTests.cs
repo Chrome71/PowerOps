@@ -658,6 +658,19 @@ public sealed class ActionScriptTests : IDisposable
     }
 
     [Fact]
+    public void Diff_refuses_a_checkout_that_is_not_the_merge_commit()
+    {
+        Tools.Require("bash", "git");
+        var clone = MakeMergeClone();
+
+        var run = RunDiff(clone, exit: 1, sha: new string('a', 40));
+
+        Assert.Equal(0, run.Code);
+        Assert.Equal("## PowerOps diff\n\nThe diff of the base and head solution could not run (checkout is not the merge commit, exit code 1). See the job log.\n", File.ReadAllText(run.Comment));
+        Assert.Empty(run.DotnetCalls);
+    }
+
+    [Fact]
     public void Diff_with_a_failed_fetch_writes_the_fixed_text()
     {
         Tools.Require("bash", "git");
@@ -1306,7 +1319,7 @@ public sealed class ActionScriptTests : IDisposable
         return run with { Summary = summary, Output = ReadOrEmpty(output) };
     }
 
-    private Result RunDiff(string workDir, int exit, string? stderr = null, string? redact = null)
+    private Result RunDiff(string workDir, int exit, string? stderr = null, string? redact = null, string? sha = null)
     {
         Tools.Require("bash", "git");
         var temp = NewDir("diff");
@@ -1326,6 +1339,7 @@ public sealed class ActionScriptTests : IDisposable
             ["RUNNER_TEMP"] = temp,
             ["STUB_EXIT"] = exit.ToString(System.Globalization.CultureInfo.InvariantCulture),
             ["PO_REDACT"] = redact ?? "",
+            ["GITHUB_SHA"] = sha ?? Head(workDir),
         });
         return run with { Comment = comment };
     }
@@ -1356,6 +1370,12 @@ public sealed class ActionScriptTests : IDisposable
     {
         Git(repo, "add", "-A");
         Git(repo, "commit", "-q", "-m", message);
+    }
+
+    private static string Head(string workDir)
+    {
+        var start = new ProcessStartInfo("git", ["rev-parse", "HEAD"]) { WorkingDirectory = workDir, RedirectStandardOutput = true, RedirectStandardError = true };
+        return Execute(start).Out.Trim();
     }
 
     private static void Git(string workDir, params string[] args)

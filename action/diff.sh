@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Compares the first parent of HEAD (the base branch tip, on a pull_request merge checkout) with the work tree
-# and writes the Markdown to PO_COMMENT. Inputs come only from the environment: PO_DLL, PO_PATH, PO_REDACT, PO_COMMENT, RUNNER_TEMP.
+# and writes the Markdown to PO_COMMENT. Inputs come only from the environment: PO_DLL, PO_PATH, PO_REDACT, PO_COMMENT, RUNNER_TEMP, GITHUB_SHA.
 # It always exits 0; a failure becomes a fixed text in PO_COMMENT, without the tool's own text.
 set -euo pipefail
 
@@ -15,6 +15,8 @@ parent="$(printf '%s\n' "$commit" | awk '/^parent / { print $2; exit } /^$/ { ex
 if ! [[ "$parent" =~ ^[0-9a-f]{40,64}$ ]]; then
   fail "no base commit" 1
 fi
+# Only the merge commit's first parent is the base; a PR-head checkout would diff against its previous commit.
+[ "$(git rev-parse HEAD)" = "${GITHUB_SHA:-}" ] || fail "checkout is not the merge commit" 1
 
 code=0
 git fetch --no-tags --depth=1 origin "$parent" || code=$?
