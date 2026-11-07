@@ -45,6 +45,12 @@ public sealed partial class RoleEvalTests
     [GeneratedRegex(@"^[a-z0-9]+(-[a-z0-9]+)*$")]
     private static partial Regex NamePattern();
 
+    [GeneratedRegex(@"^\| `([^`]+)` \| `([0-9a-f]{40})` \|\s*$", RegexOptions.Multiline)]
+    private static partial Regex PinnedRow();
+
+    [GeneratedRegex(@"^- \d{4}-\d{2}-\d{2}: comparison recorded: `([^`]+)` is now blob `([0-9a-f]{40})`", RegexOptions.Multiline)]
+    private static partial Regex RecordedLine();
+
     [GeneratedRegex(@"^[ \t]*```\w*\n(.*?)^[ \t]*```", RegexOptions.Multiline | RegexOptions.Singleline)]
     private static partial Regex Fence();
 
@@ -918,5 +924,32 @@ public sealed partial class RoleEvalTests
         Assert.Empty(PreviousManifestProblems(Seed, grown));
         Assert.NotEmpty(PreviousManifestProblems(Seed, grown.Replace("<UniqueName>S</UniqueName>", "<UniqueName>T</UniqueName>")));
         Assert.NotEmpty(PreviousManifestProblems(Seed, grown.Replace("<RootComponent type=\"20\" id=\"{a}\" behavior=\"0\" />", "")));
+    }
+
+    private static string BlobId(byte[] bytes)
+    {
+        var head = Encoding.ASCII.GetBytes($"blob {bytes.Length}\0");
+        return Convert.ToHexStringLower(System.Security.Cryptography.SHA1.HashData([.. head, .. bytes]));
+    }
+
+    private static byte[] LfBytes(string path) => Encoding.UTF8.GetBytes(File.ReadAllText(path).Replace("\r\n", "\n"));
+
+    [Fact]
+    public void The_kept_roles_text_is_the_pinned_or_a_recorded_blob()
+    {
+        var freeze = Path.Combine(Golden.RepoRoot, "docs", "plans", "m55-role-freeze");
+        var pinned = PinnedRow().Matches(File.ReadAllText(Path.Combine(freeze, "plan.md"))).ToDictionary(m => m.Groups[1].Value, m => m.Groups[2].Value);
+        var recorded = RecordedLine().Matches(File.ReadAllText(Path.Combine(freeze, "decisions.md"))).Select(m => (Path: m.Groups[1].Value, Id: m.Groups[2].Value)).ToList();
+        Assert.Equal(3, pinned.Count);
+
+        foreach (var (path, id) in pinned)
+        {
+            var bytes = LfBytes(Path.Combine([Golden.RepoRoot, .. path.Split('/')]));
+            var actual = BlobId(bytes);
+            Assert.True(actual == id || recorded.Contains((path, actual)), $"{path}: a kept role's text changed; rerun its eval or record the comparison in m55's decisions.md (AGENTS.md). Its blob id is {actual}.");
+
+            bytes[0] ^= 1;
+            Assert.NotEqual(id, BlobId(bytes));
+        }
     }
 }
