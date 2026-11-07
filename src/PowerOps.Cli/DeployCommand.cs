@@ -838,6 +838,12 @@ public static class DeployCommand
             }
         }
 
+        // The plan file names each zip once ignoring case, as the file systems of Windows do, so deploy apply would refuse the plan.
+        foreach (var clash in zips.Where(z => !bad.Contains(z.Name)).GroupBy(z => z.Name, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
+        {
+            problems.Add($"{string.Join(" and ", clash.Select(z => Clean(z.Name)))}: zip file names may not differ only in case");
+        }
+
         var expected = zips.Where(z => !bad.Contains(z.Name)).Select(z => (Zip: z.Name, Settings: System.IO.Path.GetFileNameWithoutExtension(z.Name) + SettingsSuffix)).ToList();
         foreach (var s in settings.Where(s => !bad.Contains(s.Name) && !expected.Any(e => e.Settings == s.Name)))
         {

@@ -184,6 +184,7 @@ public class DeployCommandTests : IDisposable
     [InlineData("settings-without-zip", "no zip file has this settings file name")]
     [InlineData("settings-differs-in-case", "differs only in case from Case.settings.json, the settings file name of Case.zip")]
     [InlineData("same-unique-name", "hold the same solution")]
+    [InlineData("zips-differ-in-case", "Core.zip and core.zip: zip file names may not differ only in case")]
     [InlineData("no-target", "--target is required")]
     [InlineData("save-is-a-folder", "--save names an existing folder")]
     [InlineData("out-is-a-folder", "--out names an existing folder")]
@@ -225,6 +226,11 @@ public class DeployCommandTests : IDisposable
             case "same-unique-name":
                 SmallZip(Folder, "One", unique: "Same");
                 SmallZip(Folder, "Two", unique: "same");
+                break;
+            case "zips-differ-in-case":
+                SmallZip(Folder, "Core", unique: "One");
+                SmallZip(Folder, "core", unique: "Two");
+                Assert.SkipWhen(Directory.GetFiles(Folder).Length < 2, "This file system ignores case in file names.");
                 break;
             case "no-target":
                 SmallZip(Folder, "ok");
