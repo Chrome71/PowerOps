@@ -40,6 +40,19 @@ public sealed class PO034RoleWritesUnusedTable : IRule, INotChecked
         used.UnionWith(s.MissingDependencies.Where(d => d.Required.Type == "1" && d.Required.SchemaName is not null).Select(d => d.Required.SchemaName!));
         used.UnionWith(s.CanvasApps.SelectMany(c => c.Tables ?? []));
 
+        // Whether a table appears in some flow, found once per table and shared by every role.
+        var inFlow = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        bool InFlow(string table)
+        {
+            if (!inFlow.TryGetValue(table, out var found))
+            {
+                // shortcut: a case-insensitive substring of the flow's clientdata, which can only hide a finding, never add one; upgrade to reading the flow's table names if a missed finding is reported.
+                inFlow[table] = found = s.Workflows.Any(w => w.ClientData?.Contains(table, StringComparison.OrdinalIgnoreCase) == true);
+            }
+
+            return found;
+        }
+
         foreach (var role in SecurityRoles.Custom(s).Where(r => r.Privileges is not null))
         {
             var tables = new Dictionary<string, (string Table, bool Create, bool Write)>(StringComparer.OrdinalIgnoreCase);
@@ -55,8 +68,7 @@ public sealed class PO034RoleWritesUnusedTable : IRule, INotChecked
                 tables[table] = (first, c || create is not null, w || create is null);
             }
 
-            // shortcut: a case-insensitive substring of the flow's clientdata, which can only hide a finding, never add one; upgrade to reading the flow's table names if a missed finding is reported.
-            var left = tables.Values.Where(t => !s.Workflows.Any(w => w.ClientData?.Contains(t.Table, StringComparison.OrdinalIgnoreCase) == true))
+            var left = tables.Values.Where(t => !InFlow(t.Table))
                 .OrderBy(t => t.Table, StringComparer.OrdinalIgnoreCase)
                 .Select(t => (t.Table, t.Create && t.Write ? "Create and Write" : t.Create ? "Create" : "Write"))
                 .ToList();
