@@ -230,8 +230,8 @@ public class DeployCommandTests : IDisposable
                 break;
             case "zips-differ-in-case":
                 SmallZip(Folder, "Core", unique: "One");
+                Assert.SkipWhen(File.Exists(Path.Combine(Folder, "CORE.ZIP")), "This file system ignores case, so the two zips cannot both exist.");
                 SmallZip(Folder, "core", unique: "Two");
-                Assert.SkipWhen(Directory.GetFiles(Folder).Length < 2, "This file system ignores case in file names.");
                 break;
             case "no-target":
                 SmallZip(Folder, "ok");
