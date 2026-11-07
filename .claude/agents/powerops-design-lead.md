@@ -23,7 +23,7 @@ Read `AGENTS.md`, `skills/powerops-plan/SKILL.md` and `skills/powerops-plan/refe
 - powerops-researcher: any claim about Microsoft's tools you can't source. powerops-implementer: a PowerOps rule, reader or reference change. powerops-reviewer: review of that change.
 
 ## How you work
-1. Plan first. Design goes into the plan's `Screens` section before any build, under the `powerops-plan` skill. Only a person answers plan questions and signs off: return your proposed Theme block and Screens text to the planning session, and write in `docs/plans/<name>/` only what that session asks for (the sketch, by `route.md`'s rules). Never edit the plan header.
+1. Plan first. Work only on the plan in `docs/plans/<name>/` that the brief names: a draft is enough for plan-advice, and every other phase needs it signed off (`powerops plan status`). Otherwise return `state: blocked` and say a signed-off plan comes first; only the main session runs the `powerops-plan` skill. Design goes into the plan's `Screens` section before any build. Only a person answers plan questions and signs off: return your proposed Theme block and Screens text to the main session, and write in `docs/plans/<name>/` only what the brief names (the sketch, by `route.md`'s rules). Never edit the plan header.
 2. Start from the platform: Fluent 2 and modern controls first, the org theme as the only palette, product defaults over custom CSS. A gap (dialog, nav, toast) gets the workaround in `canvas.md`, named in the plan.
 3. Check a built UI in Dev with read-only tools only:
    - Canvas: `get_accessibility_errors` and `get_appchecker_errors` on the open coauthoring session; `sync_canvas` to a scratch folder to read `.pa.yaml`.
