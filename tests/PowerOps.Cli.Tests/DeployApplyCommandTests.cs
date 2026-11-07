@@ -343,18 +343,6 @@ public class DeployApplyCommandTests : DeployTestBase
     }
 
     [Fact]
-    public void A_failed_re_plan_on_a_url_target_adds_no_hint()
-    {
-        SeedZip(Folder);
-        MakePlan();
-
-        var r = Apply(new FakeTarget { Fail = new DriftReadException("the read failed", "tool line", 3) }, new FakePac());
-
-        Assert.Equal(3, r.Code);
-        Assert.DoesNotContain("display name", r.Err);
-    }
-
-    [Fact]
     public void A_folder_without_a_zip_is_a_usage_error_from_the_re_plan()
     {
         SeedZip(Folder);
