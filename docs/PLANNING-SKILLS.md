@@ -245,7 +245,7 @@ When `available` is false, the skill says what `reason` and `fix` say (for examp
 
 - `powerops skills install [--agent ...]` installs the skills (below).
 - `powerops plan facts` prints the names-only environment facts above.
-- `powerops plan sign-off <plan>` writes `status: signed-off`, the date and the body hash into the plan header. It refuses unless `status` is `approved` and `review` is `done` or `skipped`. A sign-off written by hand fails `plan status`.
+- `powerops plan sign-off <plan>` writes `status: signed-off`, the date and the body hash into the plan header. It refuses unless `status` is `approved` and `review` is `done` or `skipped`. A sign-off written by hand with no hash, or with a hash that does not match the body, fails `plan status`. That catches accidents, not deliberate forgery: `plan status --json` prints the `bodyHash` of every plan, draft or not, so a hash copied from it into the header passes. Only a key kept outside the repository could tell the tool's sign-off from a copy, and PowerOps keeps none.
 - `powerops plan status [path]` checks every `docs/plans/*/plan.md` under `path` and runs in CI, not just in the agent. It never uses git or the network.
 
 **What `plan status` checks:**
@@ -338,7 +338,7 @@ These limits are why the reports gate nothing:
 
 1. **Smoke test schedule.** The simulated-user smoke test runs as a weekly scheduled job on the maintainer's model credentials, stored as CI secrets. It does not run in per-build CI. A manual run before each release is still allowed.
 2. **M3 scope.** M3 ships with Claude Code and Codex supported. Gemini CLI and Copilot are marked provisional, untested.
-3. **Sign-off by hand.** A sign-off written without the tool (no `powerops` on PATH, or skills installed through `npx skills add`) fails `plan status` with the hint "run `powerops plan sign-off`". There is no warn-only mode.
+3. **Sign-off by hand.** A sign-off written without the tool (no `powerops` on PATH, or skills installed through `npx skills add`) fails `plan status` with the hint "run `powerops plan sign-off`". There is no warn-only mode. A hash copied from `plan status --json` still passes (see `plan sign-off` under the new commands).
 
 ## Open questions
 

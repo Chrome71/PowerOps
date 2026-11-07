@@ -662,7 +662,7 @@ Record the run in the verification record as a line "M32 (date)": the system and
 4. **Planning skills come before the YAML layout.** They ship to PowerOps users as M3 (v0.4). Every later milestone is planned with them, which dogfoods them early.
 5. **Planning-skills smoke test runs weekly, not per build.** The simulated-user smoke test is a scheduled job on the maintainer's model credentials, stored as CI secrets. A manual run before each release is still allowed.
 6. **v0.4.0 supports Claude Code and Codex.** Gemini CLI and Copilot ship marked provisional, untested.
-7. **No warn-only sign-off.** A sign-off written by hand without `powerops plan sign-off` fails `plan status` with the hint "run `powerops plan sign-off`".
+7. **No warn-only sign-off.** A sign-off written by hand without `powerops plan sign-off` fails `plan status` with the hint "run `powerops plan sign-off`". This catches accidents, not forgery: a hash copied from `plan status --json` passes ([PLANNING-SKILLS.md](PLANNING-SKILLS.md)).
 8. **The agent base comes before the YAML layout and `diff` (2026-10-20).** The main users are agents in the user's Claude Code or Codex. Versioning the JSON output and adding fix hints is cheapest before the first NuGet release and before `diff` adds a new output; later rules and commands are then built to the same contract and recipes. Each milestone also rechecks the rule docs' sources with `/verify-research`, because the platform changes fast.
 
 ## Decisions, Phase 3 (2026-10-21)
