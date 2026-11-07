@@ -1,10 +1,10 @@
 namespace PowerOps.Cli.Tests;
 
-// Programs the script tests need. Bash is the one the tests start: macOS's own /bin/bash (3.2) on every Mac, whatever else is first on PATH.
+// Programs the script tests need.
 internal static class Tools
 {
     // shortcut: on Windows this is the bare name, which CreateProcess looks up in System32 (WSL's bash) before PATH; nothing reaches it because Require skips on Windows first.
-    public static readonly string Bash = OperatingSystem.IsMacOS() ? "/bin/bash" : "bash";
+    public const string Bash = "bash";
 
     // The first program that is not a file on path (a rooted name is checked as it is), or null.
     public static string? Missing(IEnumerable<string> programs, string? path) =>
