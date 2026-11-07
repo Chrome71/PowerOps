@@ -26,6 +26,18 @@ public class ManifestTests
     }
 
     [Fact]
+    public void A_backslash_in_a_file_name_is_not_a_folder_separator_on_Linux()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "a backslash separates folders on Windows");
+        using var t = new TempFolder().Write("a/b.txt", "one").Write("a\\b.txt", "two");
+
+        var m = Manifest.Read(t.Path);
+
+        Assert.Equal(["a/b.txt", "a\\b.txt"], m.Files.Select(f => f.Path));
+        Assert.Equal(m.Files.Count, Manifest.Compare(m, m).Same);
+    }
+
+    [Fact]
     public void The_digest_is_the_hash_of_the_sorted_hash_and_path_lines()
     {
         using var t = new TempFolder();

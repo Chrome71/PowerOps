@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 using PowerOps.Core.Flows;
@@ -14,9 +15,11 @@ internal static partial class RuleHelpers
     [GeneratedRegex(@"https?://(?!globaldisco\.)[a-z0-9-]+\.crm\d*\.dynamics\.com|https?://[a-z0-9-]+\.sharepoint\.com/(?:sites|teams)/[^/""'\s?#]+", RegexOptions.IgnoreCase)]
     public static partial Regex EnvironmentUrl();
 
-    /// <summary>Modern cloud flows (category 5) with clientdata, parsed once per call. Invalid JSON throws InvalidDataException naming the flow file.</summary>
+    private static readonly ConditionalWeakTable<Solution, List<(Workflow Workflow, FlowDefinition Flow)>> Parsed = new();
+
+    /// <summary>Modern cloud flows (category 5) with clientdata, parsed once per solution and kept while the solution lives, so the rules that call it share one parse. Invalid JSON throws InvalidDataException naming the flow file, and nothing is kept.</summary>
     public static IEnumerable<(Workflow Workflow, FlowDefinition Flow)> CloudFlows(Solution s) =>
-        s.Workflows
+        Parsed.GetValue(s, static s => s.Workflows
             .Where(w => w.Category == 5 && w.ClientData is not null)
             .Select(w =>
             {
@@ -28,7 +31,8 @@ internal static partial class RuleHelpers
                 {
                     throw new InvalidDataException($"{w.File}: {e.Message}", e);
                 }
-            });
+            })
+            .ToList());
 
     /// <summary>True when a MissingDependency names this schema name or id as required: another solution provides it.</summary>
     public static bool IsDeclared(Solution s, string value) =>

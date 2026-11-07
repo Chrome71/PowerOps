@@ -1,7 +1,8 @@
 $ powerops analyze solution/current
 solution/current: PowerOpsSeed 1.2.0.0 (publisher powerops, prefix pops)
-  no findings
-1 solution, 0 errors, 0 warnings
+  warning PO033 Roles/WorkItemAuditor.xml: Role 'Work Item Auditor' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.
+  warning PO033 Roles/WorkItemEditor.xml: Role 'Work Item Editor' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.
+1 solution, 0 errors, 2 warnings
 exit code: 0
 
 $ powerops test solution/current --tests flowtests

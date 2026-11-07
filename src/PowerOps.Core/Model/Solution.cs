@@ -23,7 +23,8 @@ public sealed record Solution(
     IReadOnlyList<AppModule>? AppModules = null,
     IReadOnlyList<SiteMap>? SiteMaps = null,
     IReadOnlyList<CanvasAppMeta>? CanvasApps = null,
-    IReadOnlyList<Agent>? Agents = null)
+    IReadOnlyList<Agent>? Agents = null,
+    IReadOnlyList<Role>? Roles = null)
 {
     /// <summary>The formulas of the canvas apps' `.pa.yaml` source: the YAML layout's `Src` folders, and the `Src/*.pa.yaml` inside each `.msapp` of the XML layouts.</summary>
     public IReadOnlyList<CanvasFormula> CanvasFormulas { get; init; } = CanvasFormulas ?? [];
@@ -48,6 +49,9 @@ public sealed record Solution(
 
     /// <summary>The Copilot Studio agents of `bots/&lt;folder&gt;/bot.xml`, in path order; empty when the solution has none.</summary>
     public IReadOnlyList<Agent> Agents { get; init; } = Agents ?? [];
+
+    /// <summary>The security roles of `Roles/*.xml` or the `customizations.xml` `Roles` element; empty when the solution has none.</summary>
+    public IReadOnlyList<Role> Roles { get; init; } = Roles ?? [];
 }
 
 public sealed record Publisher(string UniqueName, string Prefix);
@@ -78,7 +82,14 @@ public sealed record Workflow(string Id, string Name, int Category, int? StateCo
 public sealed record PowerPageComponent(string Id, int Type, string Name, string? SiteId, bool Active, JsonElement Content, string File);
 
 /// <summary>A model-driven app: `SiteMaps` are the `schemaName`s of its type-62 components, `Pages` the names of its `appelements` custom pages.</summary>
-public sealed record AppModule(string UniqueName, IReadOnlyList<string> SiteMaps, IReadOnlyList<string> Pages, string File);
+public sealed record AppModule(string UniqueName, IReadOnlyList<string> SiteMaps, IReadOnlyList<string> Pages, string File)
+{
+    /// <summary>The normalized ids of the roles in its `AppModuleRoleMaps` (role template ids or role ids), empty ones skipped; empty when it has no role map.</summary>
+    public IReadOnlyList<string> Roles { get; init; } = [];
+}
+
+/// <summary>A security role: `Id` is normalized, `Name` trimmed, `Privileges` the trimmed names of its `RolePrivilege` elements in file order, null when the role has no `RolePrivileges` element. `File` is its `Roles/&lt;name&gt;.xml` or the `customizations.xml`.</summary>
+public sealed record Role(string Id, string Name, IReadOnlyList<string>? Privileges, string File);
 
 /// <summary>A site map: `Pages` are the `Page` targets of its `SubArea`s, `GenPageIds` the normalized `GenPageId` targets (generative pages).</summary>
 public sealed record SiteMap(string UniqueName, IReadOnlyList<string> Pages, IReadOnlyList<string> GenPageIds, string File);

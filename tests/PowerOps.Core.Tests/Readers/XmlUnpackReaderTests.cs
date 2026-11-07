@@ -8,6 +8,29 @@ public class XmlUnpackReaderTests
 {
     private static Solution Read(TempFolder t) => XmlUnpackReader.Read(t.Path);
 
+    [Fact]
+    public void Two_files_whose_names_differ_only_in_case_are_refused()
+    {
+        using var t = new TempFolder().Write("Other/Solution.xml", SolutionXml.Manifest());
+        Assert.SkipWhen(t.IgnoresCase, "this file system ignores case, so the two files cannot both exist");
+        t.Write("Workflows/A.data.xml", "<a/>").Write("Workflows/a.data.xml", "<a/>");
+
+        var e = Assert.Throws<InvalidDataException>(() => Read(t));
+
+        Assert.Equal("Workflows/A.data.xml: Workflows/a.data.xml is listed more than once (names are compared without case).", e.Message);
+    }
+
+    [Fact]
+    public void A_backslash_in_a_file_name_is_part_of_the_name_on_Linux()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "a backslash separates folders on Windows");
+        using var t = new TempFolder().Write("Other/Solution.xml", SolutionXml.Manifest()).Write("Workflows\\a.data.xml", "<a/>");
+
+        var s = Read(t);
+
+        Assert.Empty(s.Workflows);
+    }
+
     [Theory]
     [InlineData("0", false)]
     [InlineData("1", true)]

@@ -1,20 +1,32 @@
 # PowerOps
 
-A free, open-source, cross-platform toolkit that brings software-engineering discipline (analysis, diffing, testing, repeatable deployment) to Microsoft Power Platform. It works alongside `pac`; it does not replace it.
+Check, compare, test and deploy Microsoft Power Platform solutions from the command line.
 
-It finds what would break a solution's import or a run, compares two versions of a solution, runs flow tests offline with mocked connector actions, and says what importing solution zips into an environment would do before anything is imported. Agents in Claude Code and Codex can run it through its planning skills and its MCP server.
+PowerOps is a free, open-source toolkit for Windows and Linux. It works alongside `pac`; it does not replace it. It brings software-engineering discipline (analysis, diffing, testing, repeatable deployment) to Power Platform.
 
 **Status:** early development, not yet released. The [commands](#commands) below are built.
 
+## What it does
+
+- Finds what would break a solution's import or a run, before you import it (`analyze`).
+- Compares two versions of a solution, component by component (`diff`).
+- Runs flow tests offline, with mocked connector actions (`test`).
+- Says what importing solution zips would do to an environment (`deploy plan`), then imports only the plan you reviewed (`deploy apply`).
+- Works from an AI agent in Claude Code or Codex, through planning skills and an MCP server.
+
+## What you need
+
+The .NET 10 SDK. `pac`, and `az` for `drift` and `deploy`, are needed only for the commands that read an environment.
+
 ## Install
 
-### With your agent
+### With your AI agent
 
 Paste this into Claude Code, Codex or another coding agent. It installs the CLI and the skills, checks that they run, and tells you what is left for you.
 
 ```text
 Install PowerOps (https://github.com/Chrome71/PowerOps), a CLI and agent skills for Microsoft
-Power Platform. If a step fails, read the Install section of its README.
+Power Platform. If a step fails, read https://github.com/Chrome71/PowerOps/blob/main/docs/INSTALL.md
 1. Check that `dotnet --list-sdks` shows a 10.0 SDK (10.0.100 or later). If not, stop and tell me.
 2. Clone the repo into a new temporary folder <clone> and install the CLI from that clone only:
    `dotnet pack <clone>/src/PowerOps.Cli -c Release -o <clone>/artifacts`, then
@@ -32,9 +44,9 @@ such as my PATH or shell profile. Last, report what you installed and what is le
 such as starting a new agent session so the plugin loads.
 ```
 
-### By hand
+### Install it yourself
 
-PowerOps is not on NuGet: it ships as GitHub Releases. Until the first release is published, install it from a clone (needs the .NET 10 SDK):
+From a clone of this repo (needs the .NET 10 SDK):
 
 ```sh
 dotnet pack src/PowerOps.Cli -c Release -o artifacts &&
@@ -42,30 +54,9 @@ dotnet pack src/PowerOps.Cli -c Release -o artifacts &&
 powerops --version
 ```
 
-`--source` makes the install use only `artifacts`. Leave it out and the install looks the name `PowerOps` up on nuget.org, where it is not registered, so it could install whatever package someone registers under it.
+Windows PowerShell 5.1 can't parse `&&`: there, run `dotnet pack` and `dotnet tool install` one at a time, the second only if the first succeeded.
 
-PowerShell 7 runs that block as written. Windows PowerShell 5.1 has no `&&`, so the block doesn't parse there: run its two commands one at a time, the second only if the first succeeded.
-
-From the first release on, each [release](https://github.com/Chrome71/PowerOps/releases) carries the tool package `PowerOps.<version>.nupkg` and `SHA256SUMS`. Download both into an empty folder, check the package, and install it from that folder only:
-
-```sh
-sha256sum -c SHA256SUMS
-dotnet tool install --global --source . PowerOps --version <version>
-```
-
-On Windows without `sha256sum`, compare `(Get-FileHash PowerOps.<version>.nupkg).Hash` with the package's line in `SHA256SUMS` (it prints upper case). `gh attestation verify PowerOps.<version>.nupkg --repo Chrome71/PowerOps` checks that the release workflow built it. A release prints its plain version for `powerops --version`; a build from a clone prints the version and its commit, `<version>+<commit>`, so a plan or report names the build that made it.
-
-Update a build from a clone: uninstall, then pack and install again. Its package keeps the version of the last release (`0.0.0` until the first), whatever the commit, so installing or updating over the installed tool keeps the old build. Run this as its own command, not chained to the install: uninstalling fails when the tool is not installed.
-
-On Windows the uninstall also fails, with `Access to the path ... is denied`, while a `powerops mcp` server runs from the tool's folder, and each Claude Code or Codex session that uses PowerOps starts one. Close those sessions first. Codex's daemon can keep a server running after its session ends: `codex app-server daemon stop` ends it, and `Get-Process powerops` shows whether any is left. The plugin updates separately: see [Use from an agent](docs/USE-WITH-AGENTS.md#planning-skills).
-
-```sh
-dotnet tool uninstall --global PowerOps
-dotnet pack src/PowerOps.Cli -c Release -o artifacts &&
-  dotnet tool install --global --source artifacts PowerOps
-```
-
-PowerOps supports Windows and Linux. CI builds and tests both on every pull request, and the hand runbook has been run on Windows ([what is not verified](docs/FOUNDATION.md#8-research-topics-still-open)). macOS is not supported or tested: it may work, but it is out of scope.
+Releases, checksums, updating and Windows notes are in [Install PowerOps](docs/INSTALL.md).
 
 ## Quick start
 
@@ -74,6 +65,8 @@ Run `analyze` where your solutions are. It finds the unpacked XML folders and ex
 ```sh
 powerops analyze
 ```
+
+### Run it in CI
 
 In any CI system that has the .NET 10 SDK, build PowerOps from a clone, then one command writes a SARIF report and fails the build on errors:
 
@@ -115,18 +108,9 @@ On GitHub Actions, use the action: it writes a job summary and annotations, and 
 
 Every option, output format and exit code is in the [command reference](docs/COMMANDS.md).
 
-## Use from an agent
+## Use it with an AI agent
 
-PowerOps ships five agent skills. Three turn an idea into a reviewed, signed-off plan before any code or solution change is made, and two check the build against that plan and read it for security before it is promoted. It also ships an MCP server whose tools run the commands. Add the skills to a repo with `powerops skills install`, or install them as a plugin for Claude Code or Codex: [Use from an agent](docs/USE-WITH-AGENTS.md). With Microsoft's power-platform-skills or Dataverse-skills, follow the [hand-off](docs/HANDOFF.md).
-
-## Build from source
-
-Requires the .NET 10 SDK.
-
-```sh
-dotnet build
-dotnet test
-```
+PowerOps ships five agent skills: three turn an idea into a reviewed, signed-off plan, and two check the build against that plan and read it for security. It also ships an MCP server whose tools run the commands. Add the skills with `powerops skills install`, or install them as a plugin for Claude Code or Codex: see [Use from an agent](docs/USE-WITH-AGENTS.md). With Microsoft's power-platform-skills or Dataverse-skills, follow the [hand-off](docs/HANDOFF.md).
 
 ## Documentation
 
@@ -136,11 +120,16 @@ dotnet test
 - [Rules](docs/rules/README.md)
 - [JSON schemas](docs/schemas/README.md)
 - [Use from an agent: planning skills, plugin and MCP server](docs/USE-WITH-AGENTS.md)
+- [Install: releases, checksums, updating, Windows notes](docs/INSTALL.md)
 - [Hand-off to Microsoft's skills](docs/HANDOFF.md)
 - [Recovery after an import that stops](docs/RECOVERY.md)
 - [What an agent client must provide](docs/HARNESS.md)
 - [Example workflows: Dev to Test promotion, an environment per pull request](docs/examples/README.md)
 - [Planning skills design](docs/PLANNING-SKILLS.md)
 - [Foundation plan and roadmap](docs/FOUNDATION.md)
-- [Contributing](CONTRIBUTING.md)
-- [License (Apache 2.0)](LICENSE)
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Coding agents working on PowerOps itself read [AGENTS.md](AGENTS.md).
+
+License: [Apache 2.0](LICENSE).

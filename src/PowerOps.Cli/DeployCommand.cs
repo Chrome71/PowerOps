@@ -129,6 +129,14 @@ public static class DeployCommand
             }
         }
 
+        // The report written last would replace the plan file.
+        // shortcut: two spellings through a linked folder are not seen as one file; resolve both as SafeWrite does if that is ever needed.
+        if (!string.IsNullOrEmpty(save) && !string.IsNullOrEmpty(outFile)
+            && string.Equals(Path.GetFullPath(save), Path.GetFullPath(outFile), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+        {
+            problems.Add("--save and --out name the same file");
+        }
+
         if (Prepare(folder, target, problems, error, read, out var code) is not { } prepared)
         {
             return code;
@@ -328,7 +336,7 @@ public static class DeployCommand
         }
         else if (outFile is not null && !SafeWrite.CanCreateBeside(outFile))
         {
-            problems.Add("a file cannot be created in the folder of --out");
+            problems.Add("--out cannot be written: it is read-only, or no file can be created in its folder");
         }
 
         var tool = AnalyzeCommand.ToolVersion();
@@ -836,6 +844,12 @@ public static class DeployCommand
                 problems.Add($"{Clean(f.Name)}: symbolic links are not read");
                 bad.Add(f.Name);
             }
+        }
+
+        // The plan file names each zip once ignoring case, as the file systems of Windows do, so deploy apply would refuse the plan.
+        foreach (var clash in zips.Where(z => !bad.Contains(z.Name)).GroupBy(z => z.Name, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
+        {
+            problems.Add($"{string.Join(" and ", clash.Select(z => Clean(z.Name)))}: zip file names may not differ only in case");
         }
 
         var expected = zips.Where(z => !bad.Contains(z.Name)).Select(z => (Zip: z.Name, Settings: System.IO.Path.GetFileNameWithoutExtension(z.Name) + SettingsSuffix)).ToList();

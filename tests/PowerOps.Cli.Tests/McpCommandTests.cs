@@ -304,8 +304,9 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.False(result.IsError);
         Assert.Equal(2, result.Content.Count);
         Assert.Equal(File.ReadAllText(file), Text(result));
-        // The note of alm-sample's .msapp, which has no Src (M44).
-        Assert.EndsWith(": PO014 and PO018 not checked for canvas app 'CanvasApps/cat_devopskitsamplecanvasapp_c7ec5_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).", Text(result, 1));
+        // The note of alm-sample's .msapp, which has no Src (M44), and, last, the PO034 note for its role (M60: it holds a plugin assembly).
+        Assert.EndsWith("whose table use isn't read.", Text(result, 1));
+        Assert.Contains(": PO014 and PO018 not checked for canvas app 'CanvasApps/cat_devopskitsamplecanvasapp_c7ec5_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).", Text(result, 1));
     }
 
     // 3

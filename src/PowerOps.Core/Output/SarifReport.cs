@@ -31,11 +31,11 @@ public static class SarifReport
         foreach (var s in result.Solutions)
         {
             // A check a rule did not do is a runtime condition of the run, not a result (M50 decisions Q4).
-            notes.AddRange(s.NotChecked.Select(line => new Note("note", new Msg(line), s.Path == "." ? null : [new Loc(new Phys(new Art(EscapePath(s.Path)), null), null)])));
+            notes.AddRange(s.NotChecked.Select(line => new Note("note", new Msg(line), s.Path == "." ? null : [new Loc(new Phys(new Art(ArtifactUri(s.Path)), null), null)])));
             var zip = s.Path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
             foreach (var f in s.Findings)
             {
-                var uri = EscapePath(zip ? s.Path : s.Path == "." ? f.File : s.Path + "/" + f.File);
+                var uri = ArtifactUri(zip ? s.Path : s.Path == "." ? f.File : s.Path + "/" + f.File);
                 var key = string.Join("|", s.Solution.UniqueName, f.RuleId, f.Component, f.Message);
                 results.Add(new Res(
                     f.RuleId,
@@ -66,6 +66,19 @@ public static class SarifReport
 
     // Solution paths and file names come from the solution; percent-encode each segment.
     private static string EscapePath(string path) => string.Join("/", path.Split('/').Select(Uri.EscapeDataString));
+
+    // A path outside the current folder (rooted, or through "..", which SARIF consumers reject) is an absolute file: URI, which code scanning makes relative to its checkout.
+    private static string ArtifactUri(string path)
+    {
+        if (!Path.IsPathRooted(path) && !path.Split('/').Contains(".."))
+        {
+            return EscapePath(path);
+        }
+
+        var segments = Path.GetFullPath(path).Replace(Path.DirectorySeparatorChar, '/').Split('/');
+        // Uri's own file path escaping decodes "%41" to "A", so escape each segment; a Windows drive keeps its colon (file:///C:/x).
+        return "file://" + (segments[0].Length > 0 ? "/" : "") + string.Join("/", segments.Select((x, i) => i == 0 ? x : Uri.EscapeDataString(x)));
+    }
 
     private sealed record Log([property: JsonPropertyName("$schema")] string Schema, string Version, IReadOnlyList<Run> Runs);
 

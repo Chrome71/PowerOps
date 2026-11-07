@@ -91,3 +91,12 @@ PO030 warning Agent tool uses the maker's credentials
 PO031 warning Agent has more than 30 tools
   fix: Remove tools the agent doesn't need.
   https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO031.md
+PO032 warning Model-driven app is shared only with admin roles
+  fix: Share the app with the security roles its users hold, and remove System Administrator and System Customizer from it unless they need the app.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO032.md
+PO033 warning Custom security role has no privilege to open a model-driven app
+  fix: Copy the role from App Opener, or give its users App Opener as well, and test the app as a user who holds only those roles.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO033.md
+PO034 warning Security role can create or write a table that no component in the solution uses
+  fix: Check whether the role's users need to create or write that table, and remove those privileges from the role if they don't.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO034.md

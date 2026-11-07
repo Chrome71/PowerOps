@@ -184,9 +184,11 @@ public class DeployCommandTests : IDisposable
     [InlineData("settings-without-zip", "no zip file has this settings file name")]
     [InlineData("settings-differs-in-case", "differs only in case from Case.settings.json, the settings file name of Case.zip")]
     [InlineData("same-unique-name", "hold the same solution")]
+    [InlineData("zips-differ-in-case", "Core.zip and core.zip: zip file names may not differ only in case")]
     [InlineData("no-target", "--target is required")]
     [InlineData("save-is-a-folder", "--save names an existing folder")]
     [InlineData("out-is-a-folder", "--out names an existing folder")]
+    [InlineData("save-and-out-are-one-file", "--save and --out name the same file")]
     [InlineData("symbolic-link", "symbolic links are not read")]
     public void A_usage_error_exits_2_before_the_target_is_read(string problem, string message)
     {
@@ -226,6 +228,11 @@ public class DeployCommandTests : IDisposable
                 SmallZip(Folder, "One", unique: "Same");
                 SmallZip(Folder, "Two", unique: "same");
                 break;
+            case "zips-differ-in-case":
+                SmallZip(Folder, "Core", unique: "One");
+                Assert.SkipWhen(File.Exists(Path.Combine(Folder, "CORE.ZIP")), "This file system ignores case, so the two zips cannot both exist.");
+                SmallZip(Folder, "core", unique: "Two");
+                break;
             case "no-target":
                 SmallZip(Folder, "ok");
                 args = ["deploy", "plan", Folder];
@@ -237,6 +244,10 @@ public class DeployCommandTests : IDisposable
             case "out-is-a-folder":
                 SmallZip(Folder, "ok");
                 args = [.. args, "--out", Out];
+                break;
+            case "save-and-out-are-one-file":
+                SmallZip(Folder, "ok");
+                args = [.. args, "--save", Path.Combine(Out, "p.json"), "--out", Path.Combine(Out, ".", "p.json")];
                 break;
             default:
                 var real = SmallZip(Stage, "Real");

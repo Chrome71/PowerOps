@@ -15,6 +15,16 @@ internal sealed class TempFolder : IDisposable
         return this;
     }
 
+    /// <summary>True when this file system ignores case in names (Windows, usual macOS), so two names that differ only in case cannot both exist.</summary>
+    public bool IgnoresCase
+    {
+        get
+        {
+            Write("case-probe.tmp", "");
+            return File.Exists(System.IO.Path.Combine(Path, "CASE-PROBE.TMP"));
+        }
+    }
+
     public void Dispose() => Directory.Delete(Path, recursive: true);
 }
 

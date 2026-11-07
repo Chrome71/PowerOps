@@ -25,6 +25,7 @@
       "key": "demo_agent.topic.Orders",
       "detail": "mode: Invoker → Maker",
       "risks": [
+        "agent-tool",
         "same-version"
       ]
     },

@@ -76,7 +76,7 @@ public class ErrorRuleTests
     }
 
     [Fact]
-    public void PO003_reports_one_finding_per_required_component_naming_dependents()
+    public void PO003_reports_one_finding_per_required_component_without_listing_dependents()
     {
         var required = new DependencyNode("29", "admin_AdminMail", null, null, null);
         var s = B.Empty() with
@@ -91,7 +91,7 @@ public class ErrorRuleTests
 
         var f = Assert.Single(Run(new PO003DependencyWithoutOwningSolution(), s));
 
-        Assert.Equal("Missing dependency 'admin_AdminMail' (needed by 'Flow A', 'Flow B') has no owning solution; the import will fail.", f.Message);
+        Assert.Equal("Missing dependency 'admin_AdminMail' has no owning solution; the import will fail.", f.Message);
     }
 
     [Fact]

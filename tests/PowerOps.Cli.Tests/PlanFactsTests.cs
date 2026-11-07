@@ -221,6 +221,24 @@ public class PlanFactsTests
         Assert.Equal("`pac solution list` printed no solution table", Parse(json).GetProperty("reason").GetString());
     }
 
+    // A changed table is not an empty environment: an extra last column leaves no row whose last token is the Managed flag.
+    [Fact]
+    public void Solution_rows_that_none_parse_are_unavailable_and_a_header_alone_is_an_empty_list()
+    {
+        var changed = SolutionList.Replace("Managed", "Managed Updated").Replace(" False", " False 2026-01-01").Replace(" True", " True 2026-01-01");
+        var (json, _) = Run(call => Ok(call == "org who" ? OrgWho : changed));
+
+        var root = Parse(json);
+        Assert.False(root.GetProperty("available").GetBoolean());
+        Assert.Equal("`pac solution list` rows could not be read", root.GetProperty("reason").GetString());
+        Assert.Equal(PlanFacts.SignInFix, root.GetProperty("fix").GetString());
+
+        var headerOnly = SolutionList[..(SolutionList.IndexOf("Managed", StringComparison.Ordinal) + "Managed".Length)] + "\n\n";
+        var empty = Parse(Run(call => Ok(call == "org who" ? OrgWho : headerOnly)).Json);
+        Assert.True(empty.GetProperty("available").GetBoolean());
+        Assert.Empty(empty.GetProperty("solutions").EnumerateArray());
+    }
+
     [Fact]
     public void Second_command_failing_after_the_first_succeeded_is_unavailable()
     {

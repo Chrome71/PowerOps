@@ -57,10 +57,21 @@ public static partial class PlanChecker
         return Directory.Exists(path) && File.Exists(file) ? file : null;
     }
 
-    /// <summary>The plan files under <paramref name="path"/>: the path itself, a plan.md in it, or every docs/plans/*/plan.md (ordinal order). A plan folder that is a link is left out and added to <paramref name="skippedLinks"/>.</summary>
+    /// <summary>The plan files under <paramref name="path"/>: the path itself when it is a file, the plan.md of a folder directly inside a docs/plans folder, or else every docs/plans/*/plan.md (ordinal order), so a plan.md at a repository root does not hide them. A plan folder that is a link is left out and added to <paramref name="skippedLinks"/>.</summary>
     /// <exception cref="InvalidDataException"><paramref name="path"/>, its docs folder or its docs/plans folder is a link; the message starts with that path.</exception>
     public static IReadOnlyList<string> Discover(string path, ICollection<string>? skippedLinks = null) =>
-        ResolvePlanFile(path) is { } single ? [single] : PlansUnder(path, skippedLinks);
+        ResolvePlanFile(path) is { } single && (File.Exists(path) || RepoRoot(System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(path))) is not null)
+            ? [single]
+            : PlansUnder(path, skippedLinks);
+
+    // The repository root of a plan folder (a full path) directly inside docs/plans; null for any other folder.
+    private static string? RepoRoot(string folder) =>
+        System.IO.Path.GetDirectoryName(folder) is { } plans
+        && System.IO.Path.GetDirectoryName(plans) is { } docs
+        && System.IO.Path.GetFileName(plans).Equals("plans", StringComparison.OrdinalIgnoreCase)
+        && System.IO.Path.GetFileName(docs).Equals("docs", StringComparison.OrdinalIgnoreCase)
+            ? System.IO.Path.GetDirectoryName(docs)
+            : null;
 
     // Every docs/plans/*/plan.md under a repository root, whether or not the root holds a plan.md itself.
     private static IReadOnlyList<string> PlansUnder(string root, ICollection<string>? skippedLinks)
@@ -113,10 +124,11 @@ public static partial class PlanChecker
         {
             doc = PlanDocument.Parse(ReadPlan(planFile));
         }
-        catch (InvalidDataException ex)
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
         {
-            // One unreadable plan.md is that plan's violation; the other plans are still checked.
-            return new PlanReport(Display(folder, baseDir), null, null, null, null, null, null, 0, null, false, [ex.Message.Replace(planFile, Display(planFile, baseDir), StringComparison.Ordinal)], [], [], null);
+            // One unreadable plan.md is that plan's violation; the other plans are still checked. The runtime's own messages hold the full path, so they are not printed.
+            var problem = ex is InvalidDataException ? ex.Message.Replace(planFile, Display(planFile, baseDir), StringComparison.Ordinal) : $"{Display(planFile, baseDir)}: could not be read";
+            return new PlanReport(Display(folder, baseDir), null, null, null, null, null, null, 0, null, false, [problem], [], [], null);
         }
 
         var violations = new List<string>();
@@ -184,12 +196,7 @@ public static partial class PlanChecker
             return null;
         }
 
-        var plans = System.IO.Path.GetDirectoryName(folder);
-        var docs = plans is null ? null : System.IO.Path.GetDirectoryName(plans);
-        if (plans is null || docs is null
-            || !System.IO.Path.GetFileName(plans).Equals("plans", StringComparison.OrdinalIgnoreCase)
-            || !System.IO.Path.GetFileName(docs).Equals("docs", StringComparison.OrdinalIgnoreCase)
-            || System.IO.Path.GetDirectoryName(docs) is not { } root)
+        if (RepoRoot(folder) is not { } root)
         {
             warnings.Add($"{report.File}: the plan folder is not in docs/plans, so the solution was not compared");
             return null;
@@ -507,6 +514,10 @@ public static partial class PlanChecker
             catch (InvalidDataException)
             {
                 skipped = "larger than 1 MB";
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                skipped = "could not be read";
             }
         }
 

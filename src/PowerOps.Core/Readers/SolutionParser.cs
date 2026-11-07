@@ -59,7 +59,11 @@ internal static partial class SolutionParser
         var paths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var p in files.Paths.OrderBy(p => p, StringComparer.Ordinal))
         {
-            paths.TryAdd(p, p);
+            if (!paths.TryAdd(p, p))
+            {
+                // The file system may keep both names (Linux), but the import treats them as one.
+                throw new InvalidDataException($"{paths[p]}: {p} is listed more than once (names are compared without case).");
+            }
         }
 
         if (!paths.TryGetValue(files.ManifestFile, out var manifestPath))
@@ -111,6 +115,13 @@ internal static partial class SolutionParser
             .Select(p => ReadAppModule(LoadRoot(files, p, "AppModule"), p))
             .Concat((customizations?.Element("AppModules")?.Elements("AppModule") ?? []).Select(e => ReadAppModule(e, customizationsPath!)))
             .ToList();
+        var roles = paths.Values
+            .Where(p => RolePath().IsMatch(p))
+            .Order(StringComparer.Ordinal)
+            .Select(p => ReadRole(LoadRoot(files, p, "Role"), p))
+            .Concat((customizations?.Element("Roles")?.Elements("Role") ?? []).Select(e => ReadRole(e, customizationsPath!)))
+            .DistinctBy(r => r.Id) // a role once, from the first file that holds it (`X.xml` before `X_managed.xml`, then customizations.xml)
+            .ToList();
         var siteMaps = FolderFiles(paths.Values, SiteMapPath())
             .Select(p => ReadSiteMap(LoadRoot(files, p, "AppModuleSiteMap"), p))
             .Concat((customizations?.Element("AppModuleSiteMaps")?.Elements("AppModuleSiteMap") ?? []).Select(e => ReadSiteMap(e, customizationsPath!)))
@@ -149,6 +160,7 @@ internal static partial class SolutionParser
             SiteMaps = siteMaps,
             CanvasApps = canvasApps,
             Agents = ReadAgents(files, paths),
+            Roles = roles,
         };
     }
 
@@ -421,6 +433,15 @@ internal static partial class SolutionParser
             .Where(c => ((string?)c.Attribute("type"))?.Trim() == "62")
             .Select(c => (string?)c.Attribute("schemaName"))),
         Trimmed(e.Element("appelements")?.Elements("appelement").Select(a => a.Element("canvasappid")?.Element("name")?.Value)),
+        file)
+    {
+        Roles = (e.Element("AppModuleRoleMaps")?.Elements("Role") ?? []).Select(r => NormalizeId((string?)r.Attribute("id"))).OfType<string>().ToList(),
+    };
+
+    private static Role ReadRole(XElement e, string file) => new(
+        NormalizeId((string?)e.Attribute("id")) ?? throw new InvalidDataException($"{file}: missing id attribute."),
+        Opt(((string?)e.Attribute("name"))?.Trim()) ?? throw new InvalidDataException($"{file}: missing name attribute."),
+        e.Element("RolePrivileges") is { } privileges ? Trimmed(privileges.Elements("RolePrivilege").Select(p => (string?)p.Attribute("name"))) : null,
         file);
 
     // The platform types a SubArea as GenPageId, then Entity, then Page (decisions Q4); names are exact, as XML is case-sensitive.
@@ -873,6 +894,9 @@ internal static partial class SolutionParser
 
     [GeneratedRegex(@"^AppModules/([^/]+)/AppModule(_managed)?\.xml$", RegexOptions.IgnoreCase)]
     private static partial Regex AppModulePath();
+
+    [GeneratedRegex(@"^Roles/[^/]+\.xml$", RegexOptions.IgnoreCase)]
+    private static partial Regex RolePath();
 
     [GeneratedRegex(@"^AppModuleSiteMaps/([^/]+)/AppModuleSiteMap(_managed)?\.xml$", RegexOptions.IgnoreCase)]
     private static partial Regex SiteMapPath();
