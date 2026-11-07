@@ -472,11 +472,8 @@ public class SolutionDiffTests
     }
 
     [Fact]
-    public void A_tool_whose_mode_mcp_flag_or_action_changed_is_one_detail_with_no_risk()
+    public void A_tool_whose_mcp_flag_or_action_changed_is_one_detail_with_no_risk()
     {
-        Assert.Equal(
-            ["Changed agentTool demo_agent.topic.Orders: mode: Invoker → Maker (same-version)"],
-            Diff(WithAgents(B.Agent(tools: [B.Tool(mode: "Invoker")])), WithAgents(B.Agent(tools: [B.Tool(mode: "Maker")]))));
         Assert.Equal(
             ["Changed agentTool demo_agent.topic.Orders: action: A → B (same-version)"],
             Diff(WithAgents(B.Agent(tools: [B.Tool(action: "A")])), WithAgents(B.Agent(tools: [B.Tool(action: "B")]))));
@@ -621,10 +618,19 @@ public class SolutionDiffTests
             ["Changed agentTool demo_agent.tool.Docs: operationId: search → fetch (same-version)"],
             Diff(WithAgents(B.Agent(tools: [Mcp()])), WithAgents(B.Agent(tools: [Mcp(operation: "fetch")]))));
         Assert.Equal(
-            ["Changed agentTool demo_agent.tool.Docs: mode: Invoker → Maker; connectionReference: demo_agent.cr.a → demo_agent.cr.b; operationId: search → (none) (same-version)"],
+            ["Changed agentTool demo_agent.tool.Docs: mode: Invoker → Maker; connectionReference: demo_agent.cr.a → demo_agent.cr.b; operationId: search → (none) (agent-tool,same-version)"],
             Diff(WithAgents(B.Agent(tools: [Mcp()])), WithAgents(B.Agent(tools: [Mcp("Maker", "demo_agent.cr.b", null)]))));
         Assert.Empty(Diff(WithAgents(B.Agent(tools: [Mcp()])), WithAgents(B.Agent(tools: [Mcp()]))));
     }
+
+    [Theory]
+    [InlineData("Invoker", "Maker")]
+    [InlineData("Maker", "Invoker")]
+    [InlineData(null, "Maker")]
+    public void A_tool_whose_mode_changed_carries_agent_tool(string? before, string? after) =>
+        Assert.Equal(
+            [$"Changed agentTool demo_agent.topic.Orders: mode: {before ?? "(none)"} → {after} (agent-tool,same-version)"],
+            Diff(WithAgents(B.Agent(tools: [B.Tool(mode: before)])), WithAgents(B.Agent(tools: [B.Tool(mode: after)]))));
 
     [Fact]
     public void A_configuration_conflict_in_a_kept_agent_is_listed_for_the_old_the_new_or_both_versions_and_never_for_an_added_agent()
@@ -717,7 +723,7 @@ public class SolutionDiffTests
     [Fact]
     public void The_agent_risk_ids_have_descriptions()
     {
-        Assert.Equal("An agent tool was added or removed.", Risk.Describe(Risk.AgentTool));
+        Assert.Equal("An agent tool was added or removed, or its mode (whose credentials it uses) changed.", Risk.Describe(Risk.AgentTool));
         Assert.Equal("An agent's instructions changed.", Risk.Describe(Risk.AgentInstructions));
     }
 
@@ -745,7 +751,7 @@ public class SolutionDiffTests
         var tools = WithAgents(B.Agent(tools: [B.Tool(mode: "Invoker"), B.Tool(mode: "Maker")]));
 
         Assert.Empty(Diff(tools, WithAgents(B.Agent(tools: [B.Tool(mode: "Invoker")]))));
-        Assert.Equal(["Changed agentTool demo_agent.topic.Orders: mode: Maker → Invoker (same-version)"], Diff(WithAgents(B.Agent(tools: [B.Tool(mode: "Maker")])), tools));
+        Assert.Equal(["Changed agentTool demo_agent.topic.Orders: mode: Maker → Invoker (agent-tool,same-version)"], Diff(WithAgents(B.Agent(tools: [B.Tool(mode: "Maker")])), tools));
     }
 
     [Fact]
