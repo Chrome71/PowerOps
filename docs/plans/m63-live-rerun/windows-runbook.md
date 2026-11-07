@@ -96,7 +96,7 @@ $zip = 'C:\powerops-m63\scratch\upgrade\RoomBooking_managed.zip'
 $set = 'C:\powerops-m63\scratch\upgrade\RoomBooking_managed.settings.json'
 $plan = 'C:\powerops-m63\scratch\upgrade\powerops-plan-upgrade.json'
 function Gate($envName) {
-  $cmd = "pac solution import --environment $envName --path `"$zip`" --settings-file `"$set`" --async 2>&1"
+  $cmd = "pac solution import --environment $envName --path `"$zip`" --settings-file `"$set`" --stage-and-upgrade --async 2>&1"
   @{ hook_event_name = 'PreToolUse'; tool_name = 'Bash'; tool_input = @{ command = $cmd }; cwd = 'C:\powerops-m63' } |
     ConvertTo-Json -Compress | powerops deploy gate $plan
   "exit $LASTEXITCODE"
@@ -105,7 +105,9 @@ Gate '<Test>'
 Gate '<Dev>'
 ```
 
-Expected: `exit 0` for Test, and for Dev one `error: deploy gate: ...` line naming the other environment and `exit 2`.
+The command carries `--stage-and-upgrade` because the plan's first step upgrades a managed zip, and the gate allows a call only when the flag matches the step ([deploy gate](../../COMMANDS.md#deploy-gate)).
+
+Expected: `exit 0` and no output for Test. For Dev, `exit 2` after `error: the plan was made for <Test>, --target is <Dev>; nothing was imported` and `error: deploy gate: the dry run did not pass`.
 
 ## 7. Playwright, with the `icacls` hand check
 
