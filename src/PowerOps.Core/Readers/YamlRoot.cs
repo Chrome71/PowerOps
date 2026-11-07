@@ -28,7 +28,10 @@ internal sealed class YamlRoot
             .Select(f => Path.GetRelativePath(Folder, f).Replace('\\', '/'))
             .Order(StringComparer.Ordinal))
         {
-            Paths.TryAdd(p, p);
+            if (!Paths.TryAdd(p, p))
+            {
+                throw new InvalidDataException($"{folder}: {p} is listed more than once (names are compared without case).");
+            }
         }
 
         _links = links.Select(l => System.IO.Path.GetRelativePath(Folder, l).Replace('\\', '/')).ToList();

@@ -59,7 +59,11 @@ internal static partial class SolutionParser
         var paths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var p in files.Paths.OrderBy(p => p, StringComparer.Ordinal))
         {
-            paths.TryAdd(p, p);
+            if (!paths.TryAdd(p, p))
+            {
+                // The file system may keep both names (Linux), but the import treats them as one.
+                throw new InvalidDataException($"{paths[p]}: {p} is listed more than once (names are compared without case).");
+            }
         }
 
         if (!paths.TryGetValue(files.ManifestFile, out var manifestPath))
