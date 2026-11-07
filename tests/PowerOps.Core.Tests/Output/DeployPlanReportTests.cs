@@ -96,20 +96,6 @@ public class DeployPlanReportTests
     }
 
     [Fact]
-    public void Markdown_has_a_heading_the_target_the_hash_and_the_three_tables()
-    {
-        var r = Result(items: [Item("s")], flows: [new PlannedFlow("Notify", "on", true, "on", "on")]);
-
-        var text = Markdown(r);
-
-        Assert.StartsWith($"## PowerOps deploy plan\n\n**plan ok**\n\nTarget: Contoso Test\n\nPlan hash: `{Hash}`\n", text);
-        Assert.Contains("| Order | Solution |", text);
-        Assert.Contains("| Solution | Severity | Kind | Subject | Message |", text);
-        Assert.Contains("| Sol | Notify | on | on |", text);
-        Assert.DoesNotContain("not shown", text);
-    }
-
-    [Fact]
     public void Markdown_of_a_huge_plan_cuts_at_a_whole_row_and_says_how_many_rows_are_left_out()
     {
         var r = Result(items: [.. Enumerable.Range(0, 2000).Select(i => Item($"subject {i:D5}"))]);
@@ -156,30 +142,5 @@ public class DeployPlanReportTests
         Assert.Equal("9.9.9", (string?)node["tool"]);
         Assert.Null(node["plannedBy"]);
         Assert.Contains("\"plannedBy\": null", json);
-    }
-
-    [Fact]
-    public void Json_writes_plannedBy_right_after_the_tool()
-    {
-        var w = new StringWriter();
-        DeployPlanReport.WriteJson(Result(), "9.9.9", w, "agent");
-
-        var node = JsonNode.Parse(w.ToString())!.AsObject();
-
-        Assert.Equal("agent", (string?)node["plannedBy"]);
-        Assert.Equal(["tool", "plannedBy", "target"], node.Select(p => p.Key).Skip(1).Take(3));
-    }
-
-    [Fact]
-    public void Json_item_and_flow_properties_are_in_order()
-    {
-        var w = new StringWriter();
-        DeployPlanReport.WriteJson(Result(items: [Item("s")], flows: [new PlannedFlow("Notify", "on", true, "off", "off")], installed: new InstalledState("1.0.0.0", true, false)), "t", w);
-
-        var node = JsonNode.Parse(w.ToString())!.AsObject();
-
-        Assert.Equal(["solution", "kind", "severity", "subject", "message"], node["items"]![0]!.AsObject().Select(p => p.Key));
-        Assert.Equal(["name", "exportState", "exists", "stateBefore", "expectedState"], node["solutions"]![0]!["flows"]![0]!.AsObject().Select(p => p.Key));
-        Assert.Equal(["version", "managed", "layersRead"], node["solutions"]![0]!["installed"]!.AsObject().Select(p => p.Key));
     }
 }

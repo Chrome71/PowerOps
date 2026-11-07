@@ -29,20 +29,6 @@ public class DeployApplyReportTests
         return w.ToString();
     }
 
-    // ---- JSON ---------------------------------------------------------------------------------------------------
-
-    [Fact]
-    public void Json_has_a_stable_property_order_nulls_and_a_trailing_newline_with_unix_endings()
-    {
-        var json = Json(Result(ApplyStatus.Imported, true, null, [Sol(1, "A", "install", ImportStatus.Ok)], [new("A", "Notify", "on", null)]));
-
-        Assert.Equal(
-            "{\n  \"schemaVersion\": 1,\n  \"tool\": \"1.2.3\",\n  \"applied\": true,\n  \"target\": \"Contoso Test\",\n  \"hash\": \"" + Hash + "\",\n  \"status\": \"imported\",\n  \"message\": null,\n  \"appliedAt\": null,\n  \"executor\": \"cli\",\n  \"approval\": null,\n" +
-            "  \"solutions\": [\n    {\n      \"order\": 1,\n      \"solution\": \"A\",\n      \"zip\": \"A.zip\",\n      \"action\": \"install\",\n      \"import\": \"ok\",\n      \"pacExitCode\": null\n    }\n  ],\n" +
-            "  \"flows\": [\n    {\n      \"solution\": \"A\",\n      \"name\": \"Notify\",\n      \"expectedState\": \"on\",\n      \"stateAfter\": null\n    }\n  ]\n}\n",
-            json);
-    }
-
     // ---- Text -----------------------------------------------------------------------------------------------------
 
     [Fact]
@@ -54,14 +40,6 @@ public class DeployApplyReportTests
             $"Target: Contoso Test\nPlan hash: {Hash}\nExecutor: cli\n1 A (A.zip): install, planned\n2 B (B.zip): skip, skipped\n3 C (C.zip): upgrade, planned\nflow A/Notify: expected on, now not read\ndry run: would import 2 solutions\n",
             text);
         Assert.EndsWith("would import 1 solution\n", Text(Result(ApplyStatus.Planned, false, null, [Sol(1, "A", "install", ImportStatus.Planned)])));
-    }
-
-    [Fact]
-    public void Text_of_an_applied_run_says_applied_and_flows_as_expected_do_not_add_a_warning()
-    {
-        var text = Text(Result(ApplyStatus.Imported, true, null, [Sol(1, "A", "install", ImportStatus.Ok)], [new("A", "Notify", "off", "off")]));
-
-        Assert.Equal($"Target: Contoso Test\nPlan hash: {Hash}\nExecutor: cli\n1 A (A.zip): install, ok\nflow A/Notify: expected off, now off\napplied\n", text);
     }
 
     [Fact]

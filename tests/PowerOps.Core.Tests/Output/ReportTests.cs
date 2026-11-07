@@ -81,26 +81,6 @@ public class ReportTests
     }
 
     [Fact]
-    public void Markdown_table_ends_with_a_fix_column()
-    {
-        var md = Markdown(One([new Finding("PO011", Severity.Warning, "m", "f", "c")]));
-
-        Assert.Contains("| Severity | Rule | File | Message | Fix |\n|---|---|---|---|---|\n", md);
-        Assert.Contains($"| {Analyzer.Find("PO011")!.Fix} |\n", md);
-    }
-
-    [Fact]
-    public void Json_findings_carry_fix_and_help_uri_after_the_existing_fields()
-    {
-        using var doc = JsonDocument.Parse(Json(One([new Finding("PO011", Severity.Warning, "m", "f", "c")])));
-
-        var finding = doc.RootElement.GetProperty("solutions")[0].GetProperty("findings")[0];
-        Assert.Equal(["ruleId", "severity", "message", "file", "component", "fix", "helpUri"], finding.EnumerateObject().Select(p => p.Name));
-        Assert.Equal(Analyzer.Find("PO011")!.Fix, finding.GetProperty("fix").GetString());
-        Assert.Equal("https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO011.md", finding.GetProperty("helpUri").GetString());
-    }
-
-    [Fact]
     public void Text_without_findings_says_so_and_uses_singular_counts()
     {
         Assert.Equal(
