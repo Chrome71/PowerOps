@@ -15,6 +15,8 @@ Read this when a plan names a Power Pages site. Write the answers in `Users`, `D
 
 For a Bootstrap site, write a small hand-written CSS subset that uses Bootstrap's class names, never the bundled stylesheet. For a code site, name the UI library in the header comment. Whether `create-site` uses an outside sketch is untested.
 
+The look in `route.md` maps to Bootstrap: grid columns for one column on a phone and master-detail wider, `card` for surfaces (`panel` in Bootstrap 3), a badge for status (`label` in Bootstrap 3, `badge rounded-pill` in 5), and `alert` for the error and failed-save states. The colour tokens and the font become the Styling workspace's theme: its colour palette, background, fonts and button styles. Custom CSS only for what Styling can't set.
+
 ## Sources
 
 Checked on 2026-11-03:
@@ -26,3 +28,7 @@ Checked on 2026-11-03:
 - [Authentication in Power Pages](https://learn.microsoft.com/power-pages/security/authentication/): local authentication is not recommended.
 - [Security best practices](https://learn.microsoft.com/power-pages/security/security-best-practices): no local authentication for production sites.
 - [Go-live checklist](https://learn.microsoft.com/power-pages/go-live/checklist): turn off local authentication; consider load testing for thousands of users a month.
+
+Checked on 2026-11-08:
+
+- [Style your site](https://learn.microsoft.com/power-pages/getting-started/style-site): each Styling theme's colour palette, background colour, font styles, button styles and section margins.

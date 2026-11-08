@@ -32,7 +32,15 @@ Plan at most 12 data visuals a page, or give the reason. Learn says to limit vis
 
 ## 3. The sketch
 
-One 1920 by 1080 page per report page, a box per visual with its title and the fields it shows, and no chart library. A report stores each visual's position, so the boxes map directly; how the charts look can't be promised.
+One 1920 by 1080 page per report page, a box per visual with its title and the fields it shows, and no chart library. A report stores each visual's position, so the boxes map directly; how the charts look can't be promised. New pages under the Fluent 2 base theme are 1920 by 1080 by default, with a grey background and padded, rounded visuals. The page follows the look in `route.md`, as a report:
+
+- **Header band.** A band across the top, about 96 px high: the report title, a subtitle with the page's question and the data's as-of date, and room for the page navigator when there is more than one page.
+- **Grid.** 24 px outer margins and 16 or 24 px gutters on 12 columns. Every visual's edges sit on the grid, and visuals in a row share their top and height. Build with gridlines and snap to grid on.
+- **KPI cards with context.** A row of 3 to 5 cards under the header: the value, its label, and a reference label with the comparison (target, prior period or change) in words and with its sign, never colour alone.
+- **Slicers.** In the same place and order on every page: a row under the header band, a left rail, or the filter pane.
+- **Reading order.** The KPIs, then the trend, then the breakdown, then the detail. The visual that answers the page's question is the largest.
+- **Type.** The theme's text classes carry the type scale: `title` and `largeTitle` for titles, `callout` for card values, `label` for the rest.
+- **Boxes.** A stand-in shape in each box (a few bars or a line drawn with `div`s) so each visual's weight shows.
 
 ## 4. Microsoft's gates
 
@@ -63,3 +71,10 @@ Checked on 2026-11-05:
 - [Power BI Desktop projects](https://learn.microsoft.com/power-bi/developer/projects/projects-overview): sensitivity labels not supported.
 - [fabric-cicd](https://learn.microsoft.com/power-bi/developer/projects/projects-deploy-fabric-cicd) and [its optional features](https://microsoft.github.io/fabric-cicd/latest/how_to/optional_feature/): orphan cleanup and `enable_hard_delete`. [Pipelines - Deploy All](https://learn.microsoft.com/rest/api/power-bi/pipelines/deploy-all): `allowPurgeData`.
 - `semantic-model-authoring` at the same commit: "delete every duplicate" after a retried deploy.
+
+Checked on 2026-11-08:
+
+- [Visual defaults in Power BI reports](https://learn.microsoft.com/power-bi/create-reports/power-bi-reports-visual-defaults): the Fluent 2 base theme for new reports, 1920 by 1080 new pages, grey backgrounds, padding and rounded corners.
+- [Use gridlines and snap-to-grid](https://learn.microsoft.com/power-bi/create-reports/desktop-gridlines-snap-to-grid).
+- [Create a card visual](https://learn.microsoft.com/power-bi/visuals/power-bi-visualization-card): callout and reference labels in each card.
+- [Create custom report themes](https://learn.microsoft.com/power-bi/create-reports/report-themes-create-custom): the `title`, `largeTitle`, `callout` and `label` text classes.
