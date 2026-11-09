@@ -64,7 +64,7 @@ public static partial class DeployPlanFile
 
             var version = Prop(root, "schemaVersion", JsonValueKind.Number, "schemaVersion").TryGetInt32(out var v) ? v : throw Bad("schemaVersion is not an integer");
             var fileTool = Prop(root, "tool", JsonValueKind.String, "tool").GetString()!;
-            if (version != JsonOutput.SchemaVersion || fileTool != tool)
+            if (version != JsonOutput.DeployPlanSchemaVersion || fileTool != tool)
             {
                 var shown = TextReport.Clean(fileTool.Length > MaxToolText ? fileTool[..MaxToolText] : fileTool);
                 return new PlanFileRead(null, $"the plan was made by powerops {shown}; this is {tool}; plan again with this version");

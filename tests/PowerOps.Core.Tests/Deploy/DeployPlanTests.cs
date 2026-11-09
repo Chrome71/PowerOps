@@ -754,7 +754,7 @@ public class DeployPlanTests
     public void Kinds_are_in_the_documented_order()
     {
         Assert.Equal(
-            ["cycle", "missing-dependency", "dependency-not-checked", "managed-conflict", "settings", "deletes", "unmanaged-layer", "layers-not-read", "components-not-checked", "same-version-differs"],
+            ["cycle", "missing-dependency", "dependency-not-checked", "managed-conflict", "settings", "deletes", "unmanaged-layer", "layers-not-read", "components-not-checked", "same-version-differs", "agent"],
             PlanKind.Order);
         Assert.Equal(["install", "upgrade", "skip"], new[] { PlanAction.Install, PlanAction.Upgrade, PlanAction.Skip });
         Assert.Equal(["block", "warning", "info"], new[] { PlanSeverity.Block, PlanSeverity.Warning, PlanSeverity.Info });
@@ -914,6 +914,48 @@ public class DeployPlanTests
 
         Assert.Equal(DeployPlan.Build([zip], upper).Hash, DeployPlan.Build([zip], lower).Hash);
         Assert.Equal(PlanAction.Install, DeployPlan.Build([zip], upper).Solutions[0].Action);
+    }
+
+    // ---- agents ------------------------------------------------------------------------------------------------
+
+    private const string AgentSentence = "The zip holds Copilot Studio agent '{0}'. The import may leave it published in the target (seen in one live run; Learn describes publishing as a separate step). If the plan forbids a published agent there, don't import until the person has said yes to that and the plan is amended.";
+
+    private static Solution WithAgents(string version = "1.0.0.0", params string[] agents) =>
+        Sol("App", version) with { Agents = [.. agents.Select(a => B.Agent(a))] };
+
+    [Fact]
+    public void An_installed_zip_with_an_agent_gets_a_warning_item_that_does_not_block()
+    {
+        var r = Plan(WithAgents(agents: "demo_Helper"));
+
+        var item = One(r, PlanKind.Agent);
+        Assert.Equal(new PlanItem("App", "agent", PlanSeverity.Warning, "demo_Helper", string.Format(AgentSentence, "demo_Helper")), item);
+        Assert.Equal(PlanKind.AgentEffect, item.Message["The zip holds Copilot Studio agent 'demo_Helper'. ".Length..]);
+        Assert.False(r.Blocked);
+    }
+
+    [Fact]
+    public void An_upgrade_with_an_agent_gets_the_item_too()
+    {
+        var r = Plan(WithAgents("2.0.0.0", "demo_Helper"), Snap("App"));
+
+        Assert.Equal(PlanAction.Upgrade, r.Solutions[0].Action);
+        Assert.Equal(["demo_Helper"], Of(r, PlanKind.Agent).Select(i => i.Subject));
+    }
+
+    [Fact]
+    public void Two_agents_give_two_items_in_subject_order_and_one_name_in_two_cases_gives_one()
+    {
+        var r = Plan(WithAgents(agents: ["demo_Zed", "demo_Alpha", "DEMO_ZED"]));
+
+        Assert.Equal(["demo_Alpha", "demo_Zed"], Of(r, PlanKind.Agent).Select(i => i.Subject));
+    }
+
+    [Fact]
+    public void A_skipped_zip_and_a_zip_with_no_agent_give_no_agent_item()
+    {
+        Assert.Empty(Of(Plan(WithAgents(agents: "demo_Helper"), Snap("App")), PlanKind.Agent));
+        Assert.Empty(Of(Plan(Sol("App")), PlanKind.Agent));
     }
 
     // ---- the recorded target ----------------------------------------------------------------------------------

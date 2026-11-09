@@ -65,17 +65,21 @@ public static class PlanKind
     public const string LayersNotRead = "layers-not-read";
     public const string ComponentsNotChecked = "components-not-checked";
     public const string SameVersionDiffers = "same-version-differs";
+    public const string Agent = "agent";
+
+    /// <summary>What every <c>agent</c> item says after "The zip holds Copilot Studio agent '&lt;name&gt;'. ".</summary>
+    public const string AgentEffect = "The import may leave it published in the target (seen in one live run; Learn describes publishing as a separate step). If the plan forbids a published agent there, don't import until the person has said yes to that and the plan is amended.";
 
     /// <summary>All kinds in report order.</summary>
     public static readonly string[] Order =
     [
-        Cycle, MissingDependency, DependencyNotChecked, ManagedConflict, Settings, Deletes, UnmanagedLayer, LayersNotRead, ComponentsNotChecked, SameVersionDiffers,
+        Cycle, MissingDependency, DependencyNotChecked, ManagedConflict, Settings, Deletes, UnmanagedLayer, LayersNotRead, ComponentsNotChecked, SameVersionDiffers, Agent,
     ];
 
     internal static string SeverityOf(string kind) => kind switch
     {
         Cycle or MissingDependency or ManagedConflict or Settings => PlanSeverity.Block,
-        DependencyNotChecked or Deletes or UnmanagedLayer => PlanSeverity.Warning,
+        DependencyNotChecked or Deletes or UnmanagedLayer or Agent => PlanSeverity.Warning,
         _ => PlanSeverity.Info,
     };
 }
@@ -179,6 +183,11 @@ public static class DeployPlan
                 }
 
                 AddSettings(e, Add);
+                foreach (var agent in zip.Solution.Agents.Select(a => a.SchemaName).Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    Add(PlanKind.Agent, agent, AgentMessage(agent));
+                }
+
                 flows.AddRange(e.Flows.Select(f => FlowState.Plan(f.Flow, snap.Flows.FirstOrDefault(x => x.Id == f.Id)?.State ?? FlowState.Missing))
                     .Select(f => new PlannedFlow(f.Name, f.ExportState, f.Exists, f.StateBefore, f.ExpectedState)));
             }
@@ -208,6 +217,9 @@ public static class DeployPlan
             .ToList();
         return new DeployPlanResult(target.Name, Sha256Hex(Encoding.UTF8.GetBytes(Render(target.Id, inputs))), sorted.Any(x => x.Severity == PlanSeverity.Block), inputs, solutions, sorted);
     }
+
+    /// <summary>The message of an <c>agent</c> item.</summary>
+    internal static string AgentMessage(string name) => $"The zip holds Copilot Studio agent '{name}'. {PlanKind.AgentEffect}";
 
     // Validates the zip and picks its action.
     private static Entry Prepare(DeployZip zip, DeployTarget target)

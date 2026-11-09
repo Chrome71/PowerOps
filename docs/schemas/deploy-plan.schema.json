@@ -6,7 +6,7 @@
   "type": "object",
   "required": ["schemaVersion", "tool", "plannedBy", "target", "hash", "blocked", "inputs", "solutions", "items"],
   "properties": {
-    "schemaVersion": { "const": 1, "description": "Version of this output format." },
+    "schemaVersion": { "const": 2, "description": "Version of this output format." },
     "tool": { "type": "string", "description": "The version 'powerops --version' prints. Plan and apply must run the same version." },
     "plannedBy": { "enum": ["agent", "person", "action", null], "description": "Who made the plan, as the caller reports it with --planned-by (the MCP tool deploy_plan says agent, the Action says action); null when not given. Not a hash input, and nothing reads it to decide anything." },
     "target": { "type": "string", "description": "The target environment's friendly name. Never its id or URL." },
@@ -98,10 +98,10 @@
         "properties": {
           "solution": { "type": "string", "description": "The unique name of the solution the item belongs to." },
           "kind": {
-            "enum": ["cycle", "missing-dependency", "dependency-not-checked", "managed-conflict", "settings", "deletes", "unmanaged-layer", "layers-not-read", "components-not-checked", "same-version-differs"]
+            "enum": ["cycle", "missing-dependency", "dependency-not-checked", "managed-conflict", "settings", "deletes", "unmanaged-layer", "layers-not-read", "components-not-checked", "same-version-differs", "agent"]
           },
           "severity": { "enum": ["block", "warning", "info"], "description": "Any 'block' item blocks the plan." },
-          "subject": { "type": "string", "description": "What the item is about: a solution, flow, variable or reference name, or a component. Never a setting's value or a connection id." },
+          "subject": { "type": "string", "description": "What the item is about: a solution, flow, variable, reference or Copilot Studio agent name, or a component. Never a setting's value or a connection id." },
           "message": { "type": "string" }
         }
       }
