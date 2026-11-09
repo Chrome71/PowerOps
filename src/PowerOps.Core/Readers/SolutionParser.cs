@@ -159,7 +159,7 @@ internal static partial class SolutionParser
             AppModules = appModules,
             SiteMaps = siteMaps,
             CanvasApps = canvasApps,
-            Agents = ReadAgents(files, paths),
+            Agents = ReadAgents(files, paths, customizations),
             Roles = roles,
         };
     }
@@ -192,6 +192,8 @@ internal static partial class SolutionParser
 
         public List<AgentComponent> Other { get; } = [];
 
+        public List<AgentComponent> Dialogs { get; } = [];
+
         public List<AgentCapability> Capabilities { get; } = [];
     }
 
@@ -203,8 +205,10 @@ internal static partial class SolutionParser
     /// Only a type-15 (Custom GPT) and a type-9 (Topic (V2)) component of a read agent has its `data` read, and a type-9 `data` only when its text holds `TaskDialog` or its first column-0 `kind:` line is `McpTool` or `IQCapability`, so topics add no refusals.
     /// An agent with no Custom GPT component takes its instructions from `configuration.json` (M51 plan, Data rows 1 to 4).
     /// </summary>
-    private static List<Agent> ReadAgents(SolutionFiles files, Dictionary<string, string> paths)
+    private static List<Agent> ReadAgents(SolutionFiles files, Dictionary<string, string> paths, XElement? customizations)
     {
+        // Table files are read only when a tool names a literal entity set (M74).
+        var tables = new Lazy<Dictionary<string, string>>(() => ReadEntitySets(files, paths, customizations));
         var agents = new List<AgentParts>();
         var byName = new Dictionary<string, AgentParts>(StringComparer.OrdinalIgnoreCase);
         foreach (var path in paths.Values.Where(p => BotPath().IsMatch(p)).Order(StringComparer.Ordinal))
@@ -236,6 +240,11 @@ internal static partial class SolutionParser
             // Read from its first `kind:` line, not parsed, so topics add no refusals (M50 decisions Q3).
             var lineKind = type == 9 && TopKind().Match(text) is { Success: true } m ? Opt(m.Groups[1].Value.Trim().Trim('"', '\'').Trim()) : null;
             var newKind = lineKind is "McpTool" or "IQCapability";
+            if (lineKind is "AdaptiveDialog" or "AgentDialog" && ActionNode().Match(text) is { Success: true } node)
+            {
+                agent.Dialogs.Add(new AgentComponent(node.Groups[1].Value, data));
+            }
+
             if (type == 9 && !text.Contains("TaskDialog", StringComparison.Ordinal) && !newKind)
             {
                 if (!KnownKind(lineKind))
@@ -273,7 +282,9 @@ internal static partial class SolutionParser
                         YamlText(yaml, "action", "kind"),
                         YamlText(yaml, "action", "operationDetails", "kind") == "ModelContextProtocolMetadata",
                         YamlText(yaml, "action", "connectionProperties", "mode"),
-                        data));
+                        data,
+                        Table: ReadToolTable(yaml, tables),
+                        FlowId: NormalizeId(YamlText(yaml, "action", "flowId"))));
                 }
                 else if (kind == "McpTool")
                 {
@@ -307,6 +318,7 @@ internal static partial class SolutionParser
                 [.. a.Unread.Order(StringComparer.Ordinal)])
             {
                 OtherComponents = [.. a.Other.OrderBy(c => c.File, StringComparer.Ordinal)],
+                ActionDialogs = [.. a.Dialogs.OrderBy(c => c.File, StringComparer.Ordinal)],
                 Capabilities = [.. a.Capabilities.OrderBy(c => c.File, StringComparer.Ordinal)],
                 InstructionsFromConfiguration = configured is not null,
                 InstructionsConflict = text is not null && a.Configuration is { } c && (c.InstructionsUnread || c.Instructions is not null && Normalize(c.Instructions) != Normalize(text)),
@@ -317,11 +329,41 @@ internal static partial class SolutionParser
         static string Normalize(string value) => value.Replace("\r\n", "\n").TrimEnd('\n');
     }
 
+    // The item of the top-level `inputs` list named `entityName`; null when there is none.
+    private static ToolTable? ReadToolTable(XElement yaml, Lazy<Dictionary<string, string>> tables)
+    {
+        var item = yaml.Elements("inputs").FirstOrDefault(i => YamlText(i, "propertyName") == "entityName");
+        if (item is null)
+        {
+            return null;
+        }
+
+        var set = YamlText(item, "kind") == "ManualTaskInput" && YamlText(item, "value") is { } value && !value.StartsWith('=') ? value : null;
+        return new ToolTable(set, set is not null && tables.Value.TryGetValue(set, out var name) ? name : null);
+    }
+
+    // Entity set name to table name, ignoring case: each `Entities/<table>/Entity.xml` in ordinal path order, then the customizations file's `Entities/Entity`; the first table to claim a set wins.
+    private static Dictionary<string, string> ReadEntitySets(SolutionFiles files, Dictionary<string, string> paths, XElement? customizations)
+    {
+        var tables = paths.Values.Where(p => EntityPath().IsMatch(p)).Order(StringComparer.Ordinal).Select(p => LoadXml(files, p))
+            .Concat(customizations?.Element("Entities")?.Elements("Entity") ?? []);
+        var sets = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entity in tables.SelectMany(t => t.Element("EntityInfo")?.Elements("entity") ?? []))
+        {
+            if (Text(entity, "EntitySetName") is { } set && Opt((string?)entity.Attribute("Name")) is { } name)
+            {
+                sets.TryAdd(set, name);
+            }
+        }
+
+        return sets;
+    }
+
     private static XElement? ReadAgentYaml(SolutionFiles files, string path, string text)
     {
         try
         {
-            return YamlXml.Read(text, n => files.Budget.CountNode(path, n));
+            return YamlXml.Read(text, n => files.Budget.CountNode(path, n), attributes: false);
         }
         // Valid YAML the converter can't map is an unknown shape, not a refusal (M48 decisions Q6).
         catch (YamlShapeException)
@@ -705,7 +747,8 @@ internal static partial class SolutionParser
             category,
             int.TryParse(Text(e, "StateCode"), out var state) ? state : null,
             jsonPath ?? jsonName ?? definedIn,
-            jsonPath is null ? null : files.ReadText(jsonPath));
+            jsonPath is null ? null : files.ReadText(jsonPath),
+            Text(e, "PrimaryEntity") is { } entity && !entity.Equals("none", StringComparison.OrdinalIgnoreCase) ? entity : null);
     }
 
     private static EnvironmentVariable ReadEnvironmentVariable(SolutionFiles files, Dictionary<string, string> paths, string path)
@@ -885,6 +928,13 @@ internal static partial class SolutionParser
     // A `#` after white space starts a YAML comment, which is not part of the kind.
     [GeneratedRegex(@"^kind:(.*?)(?:\s#.*)?\r?$", RegexOptions.Multiline)]
     private static partial Regex TopKind();
+
+    // A topic or child agent node that can reach a table: an `Invoke…` node (a flow, connector, skill or AI model) or an HTTP request, in block or flow style; a match inside a message can only add a note.
+    [GeneratedRegex("""(?<![\w.])kind:[ \t]*["']?(Invoke[A-Za-z]*|HttpRequestAction)\b""")]
+    private static partial Regex ActionNode();
+
+    [GeneratedRegex(@"^Entities/[^/]+/Entity\.xml$", RegexOptions.IgnoreCase)]
+    private static partial Regex EntityPath();
 
     [GeneratedRegex(@"^CanvasApps/[^/]+\.meta\.xml$", RegexOptions.IgnoreCase)]
     private static partial Regex CanvasMetaPath();

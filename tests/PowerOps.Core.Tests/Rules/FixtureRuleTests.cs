@@ -164,4 +164,29 @@ public class FixtureRuleTests
         Assert.DoesNotContain(Analyzer.Run(s), f => f.RuleId == "PO026");
         Assert.DoesNotContain(Analyzer.NotChecked(s), n => n.StartsWith("PO026", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void Dataverse_tools_fixture_reads_every_tool_with_its_table_and_gives_only_PO030_and_PO034()
+    {
+        var s = SolutionLoader.Load(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "agents", "dataverse-tools"));
+
+        var agent = Assert.Single(s.Agents);
+        Assert.Equal(
+            [
+                ("demo_Helper.action.MicrosoftDataverse-AddNewRow", "demo_Ticket"),
+                ("demo_Helper.action.MicrosoftDataverse-ListRowsQueues", "demo_Queue"),
+                ("demo_Helper.action.MicrosoftDataverse-ListRowsTickets", "demo_Ticket"),
+                ("demo_Helper.action.MicrosoftDataverse-UpdateRow", "demo_Ticket"),
+            ],
+            agent.Tools.Select(t => (t.SchemaName, t.Table!.Name!)));
+        Assert.Empty(agent.UnreadFiles);
+        Assert.Empty(agent.OtherComponents);
+        Assert.Empty(agent.ActionDialogs);
+        Assert.Equal(2, Assert.Single(s.Workflows).Category);
+        Assert.Equal(
+            [("PO030", "demo_Helper.action.MicrosoftDataverse-UpdateRow"), ("PO034", "Service desk")],
+            Analyzer.Run(s).Select(f => (f.RuleId, f.Component)));
+        Assert.Contains("has Create and Write on 'SharePointData'", Analyzer.Run(s).Single(f => f.RuleId == "PO034").Message);
+        Assert.Empty(Analyzer.NotChecked(s));
+    }
 }

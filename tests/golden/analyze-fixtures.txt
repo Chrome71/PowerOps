@@ -1,3 +1,6 @@
+tests/fixtures/agents/dataverse-tools: PowerOpsAgentTools 1.0.0.0 (publisher demopub, prefix demo)
+  warning PO030 botcomponents/demo_Helper.action.MicrosoftDataverse-UpdateRow/data: Tool 'demo_Helper.action.MicrosoftDataverse-UpdateRow' of agent 'demo_Helper' uses the maker's credentials, so every user acts with the maker's permissions.
+  warning PO034 Roles/Service desk.xml: Role 'Service desk' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs.
 tests/fixtures/agents/new-ui/v1-no-learn-tool.zip: PowerOpsLiveAgent 1.0.0.0 (publisher powerops, prefix pops)
   warning PO009 customizations.xml: Component 'cr123_draft_def456.cr.shared_workiqmcp.shared-workiqmcp-00000000-0000-0000-0000-000000000002' does not use the publisher prefix 'pops'.
   warning PO009 customizations.xml: Component 'cr123_loanhelper_abc123.cr.shared_microsoftlearndocsmcpserver.00000000000000000000000000000001' does not use the publisher prefix 'pops'.
@@ -84,4 +87,4 @@ tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip: Contoso_sample 1.0.0.1 (
   warning PO010 solution.xml: Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher.
 tests/fixtures/zips/polymorphiclookupexamplesolution.zip: polymorphiclookupexamplesolution 1.0.0.0 (publisher examplepublisher, prefix sample)
   no findings
-17 solutions, 0 errors, 59 warnings
+18 solutions, 0 errors, 61 warnings

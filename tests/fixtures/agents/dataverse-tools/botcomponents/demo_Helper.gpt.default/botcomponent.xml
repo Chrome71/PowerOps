@@ -1,0 +1,10 @@
+<botcomponent schemaname="demo_Helper.gpt.default">
+  <componenttype>15</componenttype>
+  <iscustomizable>0</iscustomizable>
+  <name>Ticket Helper</name>
+  <parentbotid>
+    <schemaname>demo_Helper</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

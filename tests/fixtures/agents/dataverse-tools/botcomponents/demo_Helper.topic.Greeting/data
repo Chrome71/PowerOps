@@ -1,0 +1,19 @@
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    triggerQueries:
+      - Hello
+      - Hi
+
+  actions:
+    - kind: SendActivity
+      id: sendMessage_a1b2c3
+      activity: Hello, I am the ticket helper.
+
+    - kind: Question
+      id: question_d4e5f6
+      variable: init:Topic.TicketNumber
+      prompt: Which ticket do you mean?
+      entity: StringPrebuiltEntity

@@ -68,8 +68,9 @@ public class AgentReaderTests
         {
             var both = Both(t);
             var (folder, zip) = (Assert.Single(both[0].Agents), Assert.Single(both[1].Agents));
-            Assert.Equal(folder with { Tools = [], UnreadFiles = [], OtherComponents = [], Capabilities = [] }, zip with { Tools = [], UnreadFiles = [], OtherComponents = [], Capabilities = [] });
+            Assert.Equal(folder with { Tools = [], UnreadFiles = [], OtherComponents = [], Capabilities = [], ActionDialogs = [] }, zip with { Tools = [], UnreadFiles = [], OtherComponents = [], Capabilities = [], ActionDialogs = [] });
             Assert.Equal(folder.Tools, zip.Tools);
+            Assert.Equal(folder.ActionDialogs, zip.ActionDialogs);
             Assert.Equal(folder.Capabilities, zip.Capabilities);
             Assert.Equal(folder.UnreadFiles, zip.UnreadFiles);
             Assert.Equal(folder.OtherComponents, zip.OtherComponents);
@@ -110,7 +111,7 @@ public class AgentReaderTests
             Assert.Equal(
                 [
                     new AgentTool("demo_agent.topic.Child", "InvokeConnectedAgentTaskAction", false, null, "botcomponents/demo_agent.topic.Child/data"),
-                    new AgentTool("demo_agent.topic.Flow", "InvokeFlowTaskAction", false, null, "botcomponents/demo_agent.topic.Flow/data"),
+                    new AgentTool("demo_agent.topic.Flow", "InvokeFlowTaskAction", false, null, "botcomponents/demo_agent.topic.Flow/data", FlowId: "00000000-0000-0000-0000-000000000001"),
                     new AgentTool("demo_agent.topic.Orders", "InvokeExternalAgentTaskAction", true, "Maker", "botcomponents/demo_agent.topic.Orders/data"),
                     new AgentTool("demo_agent.topic.Weather", "InvokeConnectorTaskAction", false, "Invoker", "botcomponents/demo_agent.topic.Weather/data"),
                 ],
@@ -222,7 +223,7 @@ public class AgentReaderTests
     public void An_unread_file_is_listed_under_its_own_agent_only(string oddAgent, string okAgent)
     {
         using var t = Comp(Comp(Comp(Agent(Agent(Base()), "demo_two", Bot("demo_two")),
-            $"{oddAgent}.topic.Odd", "9", "kind: TaskDialog\n" + OddKeyAttribute, oddAgent),
+            $"{oddAgent}.topic.Odd", "9", "kind: TaskDialog\n" + OddKey, oddAgent),
             $"{okAgent}.topic.Ok", "9", FlowTool, okAgent),
             $"{okAgent}.topic.Flow", "9", ConnectorTool, okAgent);
 
@@ -312,13 +313,19 @@ public class AgentReaderTests
         Assert.Equal(["demo_agent.topic.A", "demo_agent.topic.B"], agent.Tools.Select(x => x.SchemaName));
     }
 
-    public const string OddKeyAttribute = "'@odata.nextLink':\n  a: b\n";
+    public const string OddKey = "? [a, b]\n: c\n";
+
+    // Keys the layout converter refuses and agent files read as elements (M74).
+    public static TheoryData<string> ReadableKeys => new()
+    {
+        "'@odata.nextLink':\n  a: b\n",
+        "'#text':\n  a: b\n",
+        "'@xmlns': http://www.w3.org/2000/xmlns/\n",
+    };
 
     public static TheoryData<string> OddKeys => new()
     {
-        OddKeyAttribute,
-        "'#text':\n  a: b\n",
-        "? [a, b]\n: c\n",
+        OddKey,
         "\"\": x\n",
     };
 
@@ -345,10 +352,41 @@ public class AgentReaderTests
         Assert.Empty(agent.UnreadFiles); // PO028 notes it
     }
 
+    [Theory]
+    [MemberData(nameof(ReadableKeys))]
+    public void A_key_starting_with_at_or_hash_is_an_element_in_an_agent_tool_file(string extra)
+    {
+        var data = "kind: TaskDialog\naction:\n  kind: InvokeExternalAgentTaskAction\n  connectionProperties:\n    mode: Maker\n" + extra;
+
+        var agent = One(Comp(Agent(Base()), "demo_agent.topic.Orders", "9", data));
+
+        var tool = Assert.Single(agent.Tools);
+        Assert.Equal("Maker", tool.Mode);
+        Assert.Empty(agent.UnreadFiles);
+    }
+
+    [Theory]
+    [MemberData(nameof(ReadableKeys))]
+    public void A_key_starting_with_at_or_hash_is_an_element_in_a_custom_gpt_file(string extra)
+    {
+        var agent = One(Comp(Agent(Base()), "demo_agent.gpt.default", "15", "kind: GptComponentMetadata\ninstructions: Answer.\n" + extra));
+
+        Assert.Equal("Answer.", agent.Instructions);
+        Assert.Empty(agent.UnreadFiles);
+    }
+
+    [Fact]
+    public void A_tool_file_of_many_odata_mappings_is_charged_to_the_node_budget()
+    {
+        var many = "kind: TaskDialog\n" + string.Concat(Enumerable.Range(0, 2000).Select(i => $"'@odata.id':\n  k{i}: 1\n"));
+
+        Refused(Comp(Agent(Base()), "demo_agent.topic.Orders", "9", many), "botcomponents/demo_agent.topic.Orders/data", maxNodes: 1000);
+    }
+
     [Fact]
     public void Unread_files_are_the_tool_data_paths_in_ordinal_order_and_a_mappable_tool_is_not_one()
     {
-        const string Odd = "kind: TaskDialog\n" + OddKeyAttribute;
+        const string Odd = "kind: TaskDialog\n" + OddKey;
         var agent = One(Comp(Comp(Comp(Agent(Base()),
             "demo_agent.topic.Z", "9", Odd),
             "demo_agent.topic.A", "9", Odd),
@@ -365,15 +403,6 @@ public class AgentReaderTests
         var deep = "kind: TaskDialog\n" + string.Concat(Enumerable.Range(0, levels).Select(i => new string(' ', i) + "a:\n")) + new string(' ', levels) + "b: 1\n";
 
         Refused(Comp(Agent(Base()), "demo_agent.topic.Orders", "9", deep), "botcomponents/demo_agent.topic.Orders/data");
-    }
-
-    [Fact]
-    public void A_tool_with_a_reserved_xml_name_key_is_skipped_as_unread_not_refused()
-    {
-        var agent = One(Comp(Agent(Base()), "demo_agent.topic.Orders", "9", "kind: TaskDialog\n'@xmlns': http://www.w3.org/2000/xmlns/\n"));
-
-        Assert.Empty(agent.Tools);
-        Assert.Equal(["botcomponents/demo_agent.topic.Orders/data"], agent.UnreadFiles);
     }
 
     [Fact]
@@ -789,5 +818,121 @@ public class AgentReaderTests
 
         Assert.Empty(agent.Capabilities);
         Assert.Equal([new AgentComponent("IQCapability", "botcomponents/demo_agent.iq.mail/data")], agent.OtherComponents);
+    }
+
+    private static string EntityXml(string name, string set) =>
+        $"<Entity><Name>{name}</Name><EntityInfo><entity Name=\"{name}\"><attributes><attribute><Name>x</Name></attribute></attributes><EntitySetName>{set}</EntitySetName></entity></EntityInfo></Entity>";
+
+    private static string CustomizationsEntity(string name, string set) =>
+        SolutionXml.Customizations($"<Entities>{EntityXml(name, set)}</Entities>");
+
+    private static string DataverseTool(string input) =>
+        "kind: TaskDialog\ninputs:\n  - kind: ManualTaskInput\n    propertyName: organization\n    value: current\n\n" + input
+        + "\naction:\n  kind: InvokeConnectorTaskAction\n  connectionProperties:\n    mode: Invoker\n  operationId: ListRecordsWithOrganization\n";
+
+    private const string TicketInput = "  - kind: ManualTaskInput\n    propertyName: entityName\n    value: demo_tickets\n";
+
+    [Fact]
+    public void A_literal_entity_name_gives_the_entity_set_and_the_table_from_an_entity_file()
+    {
+        var t = Comp(Agent(Base()), "demo_agent.tool.List", "9", DataverseTool(TicketInput))
+            .Write("Entities/demo_Ticket/Entity.xml", EntityXml("demo_Ticket", "demo_tickets"))
+            .Write("Entities/demo_Queue/Entity.xml", EntityXml("demo_Queue", "demo_queues"));
+
+        var tool = Assert.Single(One(t).Tools);
+
+        Assert.Equal(new ToolTable("demo_tickets", "demo_Ticket"), tool.Table);
+        Assert.Null(tool.FlowId);
+    }
+
+    [Fact]
+    public void The_table_comes_from_customizations_and_an_entity_file_wins_when_both_hold_the_entity_set()
+    {
+        var fromCustomizations = Comp(Agent(Base().Write("Other/Customizations.xml", CustomizationsEntity("demo_FromCustomizations", "DEMO_TICKETS"))), "demo_agent.tool.List", "9", DataverseTool(TicketInput));
+        Assert.Equal(new ToolTable("demo_tickets", "demo_FromCustomizations"), Assert.Single(One(fromCustomizations).Tools).Table);
+
+        var both = Comp(Agent(Base().Write("Other/Customizations.xml", CustomizationsEntity("demo_FromCustomizations", "demo_tickets"))), "demo_agent.tool.List", "9", DataverseTool(TicketInput))
+            .Write("Entities/demo_Ticket/Entity.xml", EntityXml("demo_Ticket", "demo_tickets"));
+
+        Assert.Equal(new ToolTable("demo_tickets", "demo_Ticket"), Assert.Single(One(both).Tools).Table);
+    }
+
+    [Fact]
+    public void Of_two_entity_files_that_claim_one_entity_set_the_first_in_path_order_wins()
+    {
+        var t = Comp(Agent(Base()), "demo_agent.tool.List", "9", DataverseTool(TicketInput))
+            .Write("Entities/demo_B/Entity.xml", EntityXml("demo_B", "DEMO_TICKETS"))
+            .Write("Entities/demo_A/Entity.xml", EntityXml("demo_A", "demo_tickets"));
+
+        Assert.Equal(new ToolTable("demo_tickets", "demo_A"), Assert.Single(One(t).Tools).Table);
+    }
+
+    [Theory]
+    [InlineData("  - kind: AutomaticTaskInput\n    propertyName: entityName\n    value: demo_tickets\n")]
+    [InlineData("  - kind: ManualTaskInput\n    propertyName: entityName\n    value: =Topic.Table\n")]
+    [InlineData("  - kind: ManualTaskInput\n    propertyName: entityName\n    value:\n      kind: Expression\n")]
+    [InlineData("  - kind: ManualTaskInput\n    propertyName: entityName\n")]
+    public void An_entity_name_that_is_not_a_literal_gives_a_null_entity_set(string input)
+    {
+        var t = Comp(Agent(Base()), "demo_agent.tool.List", "9", DataverseTool(input))
+            .Write("Entities/demo_Ticket/Entity.xml", EntityXml("demo_Ticket", "demo_tickets"));
+
+        Assert.Equal(new ToolTable(null, null), Assert.Single(One(t).Tools).Table);
+    }
+
+    [Fact]
+    public void An_entity_set_with_no_table_gives_a_null_name_and_no_entity_name_input_gives_no_table()
+    {
+        var t = Comp(Agent(Base()), "demo_agent.tool.List", "9", DataverseTool(TicketInput)).Write("Entities/demo_Queue/Entity.xml", EntityXml("demo_Queue", "demo_queues"));
+        Assert.Equal(new ToolTable("demo_tickets", null), Assert.Single(One(t).Tools).Table);
+
+        Assert.Null(Assert.Single(One(Comp(Agent(Base()), "demo_agent.tool.List", "9", DataverseTool(""))).Tools).Table);
+        Assert.Null(Assert.Single(One(Comp(Agent(Base()), "demo_agent.tool.Weather", "9", ConnectorTool)).Tools).Table);
+    }
+
+    [Fact]
+    public void A_flow_tool_has_its_flow_id_normalized()
+    {
+        var tool = Assert.Single(One(Comp(Agent(Base()), "demo_agent.tool.Flow", "9", "kind: TaskDialog\naction:\n  kind: InvokeFlowTaskAction\n  flowId: \"{00000000-0000-0000-0000-0000000000AB}\"\n")).Tools);
+
+        Assert.Equal("00000000-0000-0000-0000-0000000000ab", tool.FlowId);
+        Assert.Null(tool.Table);
+    }
+
+    [Fact]
+    public void A_malformed_entity_file_is_refused_with_its_path_only_when_a_tool_has_a_literal_entity_name()
+    {
+        const string Path = "Entities/demo_Ticket/Entity.xml";
+        Refused(Comp(Agent(Base()), "demo_agent.tool.List", "9", DataverseTool(TicketInput)).Write(Path, "<Entity><Name>"), Path);
+
+        Assert.Single(One(Comp(Agent(Base()), "demo_agent.tool.Flow", "9", FlowTool).Write(Path, "<Entity><Name>")).Tools);
+        Assert.Single(One(Comp(Agent(Base()), "demo_agent.tool.List", "9", DataverseTool("  - kind: AutomaticTaskInput\n    propertyName: entityName\n")).Write(Path, "<Entity><Name>")).Tools);
+    }
+
+    [Fact]
+    public void An_entity_file_is_charged_to_the_node_budget_and_refused_with_its_path()
+    {
+        const string Path = "Entities/demo_Ticket/Entity.xml";
+        var attributes = string.Concat(Enumerable.Range(0, 2000).Select(i => $"<attribute><Name>c{i}</Name></attribute>"));
+        var big = $"<Entity><Name>demo_Ticket</Name><EntityInfo><entity Name=\"demo_Ticket\"><attributes>{attributes}</attributes><EntitySetName>demo_tickets</EntitySetName></entity></EntityInfo></Entity>";
+
+        Refused(Comp(Agent(Base()), "demo_agent.tool.List", "9", DataverseTool(TicketInput)).Write(Path, big), Path, maxNodes: 1000);
+    }
+
+    [Theory]
+    [InlineData("kind: AdaptiveDialog\nbeginDialog:\n  actions:\n    - kind: InvokeFlowAction\n      flowId: x\n", "InvokeFlowAction")]
+    [InlineData("kind: AdaptiveDialog\nactions:\n  kind: InvokeConnectorAction\n  note: TaskDialog\n", "InvokeConnectorAction")]
+    [InlineData("kind: AdaptiveDialog\nmessage: see TaskDialog\nactions:\n  - kind: SendActivity\n  - kind: InvokeConnectorAction\n", "InvokeConnectorAction")]
+    [InlineData("kind: AgentDialog\nactions:\n  - kind: HttpRequestAction\n", "HttpRequestAction")]
+    [InlineData("kind: AdaptiveDialog\nactions:\n  - kind: \"InvokeFlowAction\" # a note\n", "InvokeFlowAction")]
+    [InlineData("kind: AdaptiveDialog\r\nactions:\r\n  - kind: HttpRequestAction\r\n", "HttpRequestAction")]
+    [InlineData("kind: AdaptiveDialog\nactions: [{ kind: SendActivity }, { kind: InvokeFlowAction, flowId: x }]\n", "InvokeFlowAction")]
+    public void A_topic_or_child_agent_with_an_action_node_is_listed_with_the_first_node_kind(string data, string kind)
+    {
+        var agent = One(Comp(Comp(Agent(Base()), "demo_agent.topic.Act", "9", data), "demo_agent.topic.Plain", "9", "kind: AdaptiveDialog\nactions:\n  - kind: SendActivity\n  - kind: Question\n"));
+
+        Assert.Equal([new AgentComponent(kind, "botcomponents/demo_agent.topic.Act/data")], agent.ActionDialogs);
+        Assert.Empty(agent.UnreadFiles);
+        Assert.Empty(agent.OtherComponents);
     }
 }

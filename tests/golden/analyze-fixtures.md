@@ -1,6 +1,13 @@
 ## PowerOps analyze
 
-**17 solutions, 0 errors, 59 warnings**
+**18 solutions, 0 errors, 61 warnings**
+
+### tests/fixtures/agents/dataverse-tools: PowerOpsAgentTools 1.0.0.0
+
+| Severity | Rule | File | Message | Fix |
+|---|---|---|---|---|
+| warning | [PO030](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO030.md) | botcomponents/demo\_Helper.action.MicrosoftDataverse-UpdateRow/data | Tool 'demo\_Helper.action.MicrosoftDataverse-UpdateRow' of agent 'demo\_Helper' uses the maker's credentials, so every user acts with the maker's permissions. | Set the tool to use end-user credentials, unless every user may act with the maker's permissions or a trigger calls the tool. |
+| warning | [PO034](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO034.md) | Roles/Service desk.xml | Role 'Service desk' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs. | Check whether the role's users need to create or write that table, and remove those privileges from the role if they don't. |
 
 ### tests/fixtures/agents/new-ui/v1-no-learn-tool.zip: PowerOpsLiveAgent 1.0.0.0
 

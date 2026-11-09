@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Role id="{00000000-0000-0000-0000-0000000000a1}" name="Service desk" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <IsCustomizable>1</IsCustomizable>
+  <IsAutoAssigned>0</IsAutoAssigned>
+  <RolePrivileges>
+    <RolePrivilege name="prvCreateaccount" level="Global" />
+    <RolePrivilege name="prvCreatedemo_Queue" level="Global" />
+    <RolePrivilege name="prvCreatedemo_Ticket" level="Global" />
+    <RolePrivilege name="prvCreateSharePointData" level="Global" />
+    <RolePrivilege name="prvReadaccount" level="Global" />
+    <RolePrivilege name="prvReaddemo_Queue" level="Global" />
+    <RolePrivilege name="prvReaddemo_Ticket" level="Global" />
+    <RolePrivilege name="prvReadSharePointData" level="Global" />
+    <RolePrivilege name="prvWriteaccount" level="Global" />
+    <RolePrivilege name="prvWritedemo_Queue" level="Global" />
+    <RolePrivilege name="prvWritedemo_Ticket" level="Global" />
+    <RolePrivilege name="prvWriteSharePointData" level="Global" />
+  </RolePrivileges>
+</Role>

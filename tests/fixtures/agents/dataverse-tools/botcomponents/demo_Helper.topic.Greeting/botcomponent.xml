@@ -1,0 +1,10 @@
+<botcomponent schemaname="demo_Helper.topic.Greeting">
+  <componenttype>9</componenttype>
+  <iscustomizable>0</iscustomizable>
+  <name>Greeting</name>
+  <parentbotid>
+    <schemaname>demo_Helper</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

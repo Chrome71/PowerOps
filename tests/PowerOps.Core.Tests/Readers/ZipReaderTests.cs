@@ -78,6 +78,24 @@ public class ZipReaderTests
     }
 
     [Fact]
+    public void Reads_the_primary_entity_of_a_workflow_in_customizations_and_none_is_null()
+    {
+        using var t = Zip(out var zip,
+            ("solution.xml", SolutionXml.Manifest()),
+            ("customizations.xml", SolutionXml.Customizations("""
+                <Workflows>
+                  <Workflow WorkflowId="{AA-11}" Name="Rule"><Category>2</Category><PrimaryEntity>account</PrimaryEntity></Workflow>
+                  <Workflow WorkflowId="{BB-22}" Name="Flow"><Category>5</Category><PrimaryEntity>none</PrimaryEntity></Workflow>
+                </Workflows>
+                """)));
+
+        var wfs = ZipReader.Read(zip).Workflows;
+
+        Assert.Equal("account", Assert.Single(wfs, w => w.Id == "aa-11").PrimaryEntity);
+        Assert.Null(Assert.Single(wfs, w => w.Id == "bb-22").PrimaryEntity);
+    }
+
+    [Fact]
     public void Ignores_entries_with_parent_segments_or_rooted_paths()
     {
         const string envDef = "<environmentvariabledefinition schemaname=\"evil_A\" />";

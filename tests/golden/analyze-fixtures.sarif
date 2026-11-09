@@ -572,6 +572,52 @@
       ],
       "results": [
         {
+          "ruleId": "PO030",
+          "ruleIndex": 29,
+          "level": "warning",
+          "message": {
+            "text": "Tool 'demo_Helper.action.MicrosoftDataverse-UpdateRow' of agent 'demo_Helper' uses the maker's credentials, so every user acts with the maker's permissions."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/agents/dataverse-tools/botcomponents/demo_Helper.action.MicrosoftDataverse-UpdateRow/data"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "79c7662b160c996ffa6521c4c916b24c4656be972eacc583132e3e4031e3cb87"
+          }
+        },
+        {
+          "ruleId": "PO034",
+          "ruleIndex": 33,
+          "level": "warning",
+          "message": {
+            "text": "Role 'Service desk' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/agents/dataverse-tools/Roles/Service%20desk.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "ce91ccd86f3ebd5fbaec92bec294e767c6002bd64afd01e090f7b7fe2d1a69ca"
+          }
+        },
+        {
           "ruleId": "PO009",
           "ruleIndex": 8,
           "level": "warning",

@@ -190,6 +190,22 @@ public class XmlUnpackReaderTests
     }
 
     [Fact]
+    public void Reads_the_primary_entity_of_a_workflow_and_none_is_null()
+    {
+        using var t = new TempFolder()
+            .Write("Other/Solution.xml", SolutionXml.Manifest())
+            .Write("Workflows/Rule-AA.xaml.data.xml", "<Workflow WorkflowId=\"{AA-11}\" Name=\"Rule\"><Category>2</Category><PrimaryEntity>account</PrimaryEntity></Workflow>")
+            .Write("Workflows/Flow-BB.json.data.xml", "<Workflow WorkflowId=\"{BB-22}\" Name=\"Flow\"><Category>5</Category><PrimaryEntity>none</PrimaryEntity></Workflow>")
+            .Write("Workflows/Empty-CC.xaml.data.xml", "<Workflow WorkflowId=\"{CC-33}\" Name=\"Empty\"><Category>2</Category><PrimaryEntity> </PrimaryEntity></Workflow>")
+            .Write("Workflows/Missing-DD.xaml.data.xml", "<Workflow WorkflowId=\"{DD-44}\" Name=\"Missing\"><Category>2</Category></Workflow>");
+
+        var wfs = Read(t).Workflows;
+
+        Assert.Equal("account", Assert.Single(wfs, w => w.Id == "aa-11").PrimaryEntity);
+        Assert.All(wfs.Where(w => w.Id != "aa-11"), w => Assert.Null(w.PrimaryEntity));
+    }
+
+    [Fact]
     public void Reads_canvas_app_metadata_text()
     {
         using var t = new TempFolder()

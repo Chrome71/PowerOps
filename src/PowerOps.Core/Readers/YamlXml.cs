@@ -22,7 +22,7 @@ internal static class YamlXml
     {
         try
         {
-            return Read(yaml, count);
+            return Read(yaml, count, attributes: true);
         }
         catch (YamlShapeException e)
         {
@@ -30,8 +30,8 @@ internal static class YamlXml
         }
     }
 
-    /// <summary>Like <see cref="Convert"/>, but valid YAML whose keys can't be mapped throws <see cref="YamlShapeException"/>.</summary>
-    public static XElement Read(string yaml, Action<int> count)
+    /// <summary>Like <see cref="Convert"/>, but valid YAML whose keys can't be mapped throws <see cref="YamlShapeException"/>. With <paramref name="attributes"/> false every key is an element, `'@odata.id'` and `'#text'` included (agent files).</summary>
+    public static XElement Read(string yaml, Action<int> count, bool attributes)
     {
         count(1);
         var root = new XElement("yaml");
@@ -41,7 +41,7 @@ internal static class YamlXml
             Next(parser); // StreamStart
             if (Next(parser) is DocumentStart && Next(parser) is MappingStart)
             {
-                Mapping(parser, root, 1, count);
+                Mapping(parser, root, 1, count, attributes);
             }
         }
         // XAttribute and XElement throw for reserved names such as `'@xmlns'`.
@@ -57,7 +57,7 @@ internal static class YamlXml
         return root;
     }
 
-    private static void Mapping(Parser parser, XElement element, int depth, Action<int> count)
+    private static void Mapping(Parser parser, XElement element, int depth, Action<int> count, bool attributes)
     {
         for (var ev = Next(parser); ev is not MappingEnd; ev = Next(parser))
         {
@@ -67,7 +67,7 @@ internal static class YamlXml
             }
 
             var value = Next(parser);
-            if (key.Value.StartsWith('@') || key.Value == "#text")
+            if (attributes && (key.Value.StartsWith('@') || key.Value == "#text"))
             {
                 if (value is not Scalar text)
                 {
@@ -87,12 +87,12 @@ internal static class YamlXml
             }
             else
             {
-                Node(parser, element, Name(key.Value), value, depth, count);
+                Node(parser, element, Name(key.Value), value, depth, count, attributes);
             }
         }
     }
 
-    private static void Node(Parser parser, XElement parent, string name, ParsingEvent ev, int depth, Action<int> count)
+    private static void Node(Parser parser, XElement parent, string name, ParsingEvent ev, int depth, Action<int> count, bool attributes)
     {
         if (depth > SolutionParser.MaxXmlDepth)
         {
@@ -109,12 +109,12 @@ internal static class YamlXml
                 count(1);
                 var child = new XElement(name);
                 parent.Add(child);
-                Mapping(parser, child, depth + 1, count);
+                Mapping(parser, child, depth + 1, count, attributes);
                 break;
             case SequenceStart:
                 for (var item = Next(parser); item is not SequenceEnd; item = Next(parser))
                 {
-                    Node(parser, parent, name, item, depth + 1, count);
+                    Node(parser, parent, name, item, depth + 1, count, attributes);
                 }
 
                 break;

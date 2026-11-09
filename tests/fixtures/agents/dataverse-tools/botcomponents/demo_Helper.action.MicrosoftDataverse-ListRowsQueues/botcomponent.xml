@@ -1,0 +1,11 @@
+<botcomponent schemaname="demo_Helper.action.MicrosoftDataverse-ListRowsQueues">
+  <componenttype>9</componenttype>
+  <description>List rows</description>
+  <iscustomizable>0</iscustomizable>
+  <name>List rows</name>
+  <parentbotid>
+    <schemaname>demo_Helper</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

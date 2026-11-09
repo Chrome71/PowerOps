@@ -664,7 +664,7 @@ public class AnalyzeCommandTests : IDisposable
         const string Component = "<botcomponent schemaname=\"demo_agent.topic.Odd\"><componenttype>9</componenttype><parentbotid><schemaname>demo_agent</schemaname></parentbotid></botcomponent>";
         Directory.CreateDirectory(Path.Combine(folder, "botcomponents", "demo_agent.topic.Odd"));
         File.WriteAllText(Path.Combine(folder, "botcomponents", "demo_agent.topic.Odd", "botcomponent.xml"), Component);
-        File.WriteAllText(Path.Combine(folder, "botcomponents", "demo_agent.topic.Odd", "data"), "kind: TaskDialog\n'@odata.nextLink':\n  a: b\n");
+        File.WriteAllText(Path.Combine(folder, "botcomponents", "demo_agent.topic.Odd", "data"), "kind: TaskDialog\n? [a, b]\n: c\n");
 
         var (code, _, err) = Run("analyze", folder, "--fail-on", "error");
 

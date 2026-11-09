@@ -16,6 +16,7 @@ public class SolutionDiscoveryTests
 
         Assert.Equal(
             [
+                "agents/dataverse-tools",
                 "agents/new-ui/v1-no-learn-tool.zip",
                 "agents/new-ui/v1.zip",
                 "agents/new-ui/v2.zip",
