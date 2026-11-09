@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Runs `powerops deploy apply` for the action. Inputs come only from the environment:
 # PO_DLL, PO_PLAN_FILE, PO_TARGET, PO_APPLY, PO_EVENT, PO_HEAD_REPO, GITHUB_REPOSITORY, GITHUB_OUTPUT, GITHUB_STEP_SUMMARY and, optionally, RUNNER_DEBUG,
-# PO_ENVIRONMENT (the job's environment, from check-apply.sh), GITHUB_RUN_ID and GITHUB_RUN_ATTEMPT.
+# PO_ENVIRONMENT (the job's environment, from check-apply.sh), PO_REQUIRE_REVIEWS, GITHUB_RUN_ID and GITHUB_RUN_ATTEMPT.
+# Every call passes --require-reviews unless PO_REQUIRE_REVIEWS is exactly `false`; unset, empty or any other value keeps it.
 # Every call passes --github-run "<repository> run <id> attempt <n>[, environment <name>]": the report's receipt, which points at GitHub's record of the run and its approval.
 # PO_APPLY must be exactly `true` to import; anything else is a dry run.
 # Only push, workflow_dispatch, merge_group and a pull_request whose head repository (PO_HEAD_REPO) is this repository (GITHUB_REPOSITORY) may run it.
@@ -34,17 +35,18 @@ else
   receipt="${GITHUB_REPOSITORY:-} run ${GITHUB_RUN_ID:-} attempt ${GITHUB_RUN_ATTEMPT:-}"
   if [ -n "${PO_ENVIRONMENT:-}" ]; then receipt="$receipt, environment $PO_ENVIRONMENT"; fi
   args=(deploy apply "$PO_PLAN_FILE" --target "$PO_TARGET" --github-run "$receipt")
+  if [ "${PO_REQUIRE_REVIEWS:-}" != "false" ]; then args+=(--require-reviews); fi
   if [ "${PO_APPLY:-}" = "true" ]; then args+=(--apply); fi
   set +e
   dotnet "$PO_DLL" "${args[@]}" 2>"$stderr" | tee "$report"
   code="${PIPESTATUS[0]}"
   set -e
   # Text forwarded from pac can name tenant ids and the environment URL, and the log may be public. Forwarded lines
-  # start with two spaces and a bar, so they never pass the error: filter.
+  # start with two spaces and a bar, so they never pass the error|warning filter. The warning: lines are powerops' own (review evidence, agent read-back).
   if [ "${RUNNER_DEBUG:-}" = "1" ]; then
     cat "$stderr"
   else
-    grep '^error:' "$stderr" || true
+    grep -E '^(error|warning):' "$stderr" || true
   fi
 fi
 

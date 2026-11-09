@@ -159,6 +159,8 @@ jobs:
           upload-sarif: 'false'
           fail-on: none   # the call above gated these exact bytes; the hash check proves they are the same
           plan-file: deploy/powerops-plan.json
+          # The zip is exported or built in this workflow, so no review report can record it; the environment's required reviewers are the approval.
+          require-reviews: 'false'
           apply: 'true'
           target: ${{ steps.find.outputs.url }}
 

@@ -201,8 +201,8 @@ public sealed class ActionScriptTests : IDisposable
         var dry = RunApply(exit: 0, apply: "false");
         var real = RunApply(exit: 0, apply: "true");
 
-        Assert.Equal("deploy apply plan/powerops-plan.json --target Contoso Test --github-run contoso/widgets run 7 attempt 2", dry.DotnetCalls.Single().Replace("powerops.dll ", ""));
-        Assert.Equal("deploy apply plan/powerops-plan.json --target Contoso Test --github-run contoso/widgets run 7 attempt 2 --apply", real.DotnetCalls.Single().Replace("powerops.dll ", ""));
+        Assert.Equal("deploy apply plan/powerops-plan.json --target Contoso Test --github-run contoso/widgets run 7 attempt 2 --require-reviews", dry.DotnetCalls.Single().Replace("powerops.dll ", ""));
+        Assert.Equal("deploy apply plan/powerops-plan.json --target Contoso Test --github-run contoso/widgets run 7 attempt 2 --require-reviews --apply", real.DotnetCalls.Single().Replace("powerops.dll ", ""));
     }
 
     [Fact]
@@ -210,7 +210,27 @@ public sealed class ActionScriptTests : IDisposable
     {
         var run = RunApply(exit: 0, environment: "test");
 
-        Assert.Equal("deploy apply plan/powerops-plan.json --target Contoso Test --github-run contoso/widgets run 7 attempt 2, environment test --apply", run.DotnetCalls.Single().Replace("powerops.dll ", ""));
+        Assert.Equal("deploy apply plan/powerops-plan.json --target Contoso Test --github-run contoso/widgets run 7 attempt 2, environment test --require-reviews --apply", run.DotnetCalls.Single().Replace("powerops.dll ", ""));
+    }
+
+    [Fact]
+    public void Apply_leaves_out_require_reviews_only_for_the_exact_value_false()
+    {
+        var off = RunApply(exit: 0, requireReviews: "false");
+
+        Assert.Equal("deploy apply plan/powerops-plan.json --target Contoso Test --github-run contoso/widgets run 7 attempt 2 --apply", off.DotnetCalls.Single().Replace("powerops.dll ", ""));
+    }
+
+    [Theory]
+    [InlineData("FALSE")]
+    [InlineData("")]
+    [InlineData(null)]
+    [InlineData("true")]
+    public void Apply_keeps_require_reviews_for_every_other_value_and_when_unset(string? value)
+    {
+        var run = RunApply(exit: 0, requireReviews: value);
+
+        Assert.Contains(" --github-run contoso/widgets run 7 attempt 2 --require-reviews --apply", run.DotnetCalls.Single());
     }
 
     [Theory]
@@ -239,11 +259,11 @@ public sealed class ActionScriptTests : IDisposable
     }
 
     [Fact]
-    public void Apply_logs_only_error_lines_and_not_forwarded_pac_lines()
+    public void Apply_logs_only_error_and_warning_lines_and_not_forwarded_pac_lines()
     {
-        var run = RunApply(exit: 3, stderr: "  | error: x\nerror: y\n  | tenant 0000 at https://contoso.crm.dynamics.com\n");
+        var run = RunApply(exit: 3, stderr: "  | error: x\n  | warning: w\nerror: y\nwarning: a.zip: no review covers it\n  | tenant 0000 at https://contoso.crm.dynamics.com\n");
 
-        Assert.Equal("the report\nerror: y\n", run.Out);
+        Assert.Equal("the report\nerror: y\nwarning: a.zip: no review covers it\n", run.Out);
     }
 
     [Fact]
@@ -1300,7 +1320,7 @@ public sealed class ActionScriptTests : IDisposable
         return run with { Folder = folder, Comment = comment, Summary = summary, Output = ReadOrEmpty(output) };
     }
 
-    private Result RunApply(int exit, string? stderr = null, bool debug = false, string apply = "true", string target = "Contoso Test", string? headRepo = "contoso/widgets", string eventName = "pull_request", string report = "the report\n", string environment = "")
+    private Result RunApply(int exit, string? stderr = null, bool debug = false, string apply = "true", string target = "Contoso Test", string? headRepo = "contoso/widgets", string eventName = "pull_request", string report = "the report\n", string environment = "", string? requireReviews = null)
     {
         Tools.Require("bash");
         var temp = NewDir("apply");
@@ -1332,6 +1352,11 @@ public sealed class ActionScriptTests : IDisposable
         if (headRepo is not null)
         {
             env["PO_HEAD_REPO"] = headRepo; // null leaves it unset, as for an event without a pull request
+        }
+
+        if (requireReviews is not null)
+        {
+            env["PO_REQUIRE_REVIEWS"] = requireReviews; // null leaves it unset
         }
 
         var run = Run("apply.sh", temp, temp, env);
