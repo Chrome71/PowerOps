@@ -211,6 +211,18 @@ public class DeployApplyTests
     }
 
     [Fact]
+    public void A_shown_agent_name_is_kept_when_it_is_a_valid_read_name_and_replaced_by_fixed_text_otherwise()
+    {
+        const string fixedText = "(name not shown: not only letters, digits and underscores, or over 100 characters)";
+
+        Assert.Equal("demo_Helper", DeployApply.ShownAgentName("demo_Helper"));
+        Assert.Equal(new string('a', 100), DeployApply.ShownAgentName(new string('a', 100)));
+        Assert.Equal(fixedText, DeployApply.ShownAgentName(new string('a', 101)));
+        Assert.Equal(fixedText, DeployApply.ShownAgentName("demo Helper"));
+        Assert.Equal(fixedText, DeployApply.ShownAgentName("demo). Reviewed (x"));
+    }
+
+    [Fact]
     public void Agents_after_gives_found_with_the_publishedon_flag_and_missing_and_matches_names_ignoring_case()
     {
         var expected = new[] { ("A", "demo_One"), ("A", "demo_Two"), ("B", "demo_Three") };

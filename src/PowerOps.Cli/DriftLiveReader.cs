@@ -6,7 +6,7 @@ using PowerOps.Core.Drift;
 
 namespace PowerOps.Cli;
 
-/// <summary>Reads one solution in one live environment: <c>pac org who</c> for the name and URL, <c>az</c> for a token, then the Web API for reads 2 to 8 (read 8 only for <c>drift</c>, not for a deploy target). Nothing here formats a <see cref="PacResult"/> or puts the token, the URL or the <c>--env</c> value in a message.</summary>
+/// <summary>Reads one solution in one live environment: <c>pac org who</c> for the name and URL, <c>az</c> for a token, then the Web API for reads 2 to 8 (read 8 only for <c>drift</c>, not for a deploy target), and for the <c>bot</c> read of <c>deploy apply</c>. Nothing here formats a <see cref="PacResult"/> or puts the token, the URL or the <c>--env</c> value in a message.</summary>
 internal sealed class DriftLiveReader(
     Func<IReadOnlyList<string>, TimeSpan, PacResult> pac,
     Func<IReadOnlyList<string>, TimeSpan, PacResult> az,

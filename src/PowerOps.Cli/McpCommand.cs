@@ -280,6 +280,9 @@ public static partial class McpCommand
 
     private sealed record DryRun(string? Status, string? Target, string? Hash, List<DryRunAgent>? Agents);
 
+    // The form names at most this many agents, so a zip with many cannot fill it.
+    private const int AgentFormMax = 10;
+
     // Written to the person answering the form, after the agents' names.
     internal const string AgentFormNote = "The import may leave these agents published in the target: Learn describes publishing as a separate step, but one live import left an agent published. If the plan forbids a published agent there, decline this form, amend the plan, and plan again.";
 
@@ -348,7 +351,7 @@ public static partial class McpCommand
         var zips = string.Join(", ", plan.Inputs.Zips.Select(z => z.Zip));
         // From the dry run's report, so these are the agents of the zips the hash covers, not the plan file's text.
         var agents = dry.Agents is { Count: > 0 } list
-            ? $"\nCopilot Studio agents: {string.Join(", ", list.Select(a => $"{TextReport.Clean(a.Name)} ({TextReport.Clean(a.Solution)})"))}\n{AgentFormNote}"
+            ? $"\nCopilot Studio agents: {string.Join(", ", list.Take(AgentFormMax).Select(a => $"{PowerOps.Core.Deploy.DeployApply.ShownAgentName(a.Name ?? "")} ({TextReport.Clean(a.Solution)})"))}{(list.Count > AgentFormMax ? $", and {list.Count - AgentFormMax} more" : "")}\n{AgentFormNote}"
             : "";
         var form = new ElicitRequestParams
         {

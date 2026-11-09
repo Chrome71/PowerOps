@@ -681,7 +681,7 @@ public static class DeployCommand
         }
 
         // A block after the dry run passed names each agent of the fresh plan, so the person who reads it also sees what the import may do.
-        var notes = plan.Items.Where(i => i.Kind == PlanKind.Agent).Select(i => $"{Clean(i.Solution)}: {Clean(i.Message)}").ToList();
+        var notes = plan.Items.Where(i => i.Kind == PlanKind.Agent).Select(i => $"{Clean(i.Solution)}: {Clean(DeployPlan.AgentMessage(DeployApply.ShownAgentName(i.Subject)))}").ToList();
 
         // The plan file's solutions are not covered by its hash, so the first step comes from the fresh plan.
         var first = ready.Imports[0];

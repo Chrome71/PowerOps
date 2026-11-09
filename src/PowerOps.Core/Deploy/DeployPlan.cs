@@ -219,7 +219,7 @@ public static class DeployPlan
     }
 
     /// <summary>The message of an <c>agent</c> item.</summary>
-    internal static string AgentMessage(string name) => $"The zip holds Copilot Studio agent '{name}'. {PlanKind.AgentEffect}";
+    public static string AgentMessage(string name) => $"The zip holds Copilot Studio agent '{name}'. {PlanKind.AgentEffect}";
 
     // Validates the zip and picks its action.
     private static Entry Prepare(DeployZip zip, DeployTarget target)

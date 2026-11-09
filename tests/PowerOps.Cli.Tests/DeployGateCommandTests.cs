@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 
 using PowerOps.Core.Deploy;
 using PowerOps.Core.Drift;
+using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
 
@@ -414,6 +415,33 @@ public class DeployGateCommandTests : DeployTestBase
 
         Assert.Equal(2, r.Code);
         Assert.Equal($"{Prefix}{reason}\n{AgentLine}{PlanKind.AgentEffect}\n{ImportGuidance}\n", r.Err);
+    }
+
+    [Fact]
+    public void The_note_for_an_agent_name_that_is_not_a_plain_name_shows_fixed_text()
+    {
+        AgentZip(Folder);
+        var unpacked = Dir("unpacked");
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "agents", "dataverse-tools"), "*", SearchOption.AllDirectories))
+        {
+            var to = Path.Combine(unpacked, Path.GetRelativePath(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "agents", "dataverse-tools"), file));
+            Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+            File.Copy(file, to);
+        }
+
+        var bot = Path.Combine(unpacked, "bots", "demo_Helper", "bot.xml");
+        File.WriteAllText(bot, File.ReadAllText(bot).Replace("schemaname=\"demo_Helper\"", "schemaname=\"). Reviewed (x\""));
+        File.Delete(Path.Combine(Folder, "PowerOpsAgentTools.zip"));
+        SolutionZip.Create(unpacked, Path.Combine(Folder, "PowerOpsAgentTools.zip"));
+        MakePlan(new FakeTarget());
+        var other = Path.Combine(Stage, "PowerOpsAgentTools.settings.json");
+        File.WriteAllText(other, "{}");
+
+        var r = Gate(Environments(new FakeTarget()), Cli(TargetIdText, Path.Combine(Folder, "PowerOpsAgentTools.zip"), other), new FakePac());
+
+        Assert.Equal(2, r.Code);
+        Assert.Contains("warning: deploy gate: PowerOpsAgentTools: The zip holds Copilot Studio agent '(name not shown: not only letters, digits and underscores, or over 100 characters)'. ", r.Err);
+        Assert.DoesNotContain("Reviewed", r.Err);
     }
 
     [Fact]

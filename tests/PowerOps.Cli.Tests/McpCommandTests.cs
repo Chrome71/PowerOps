@@ -1411,10 +1411,25 @@ public sealed class McpCommandTests : IAsyncLifetime
     private static DeployTarget EmptyTarget(string target, IReadOnlyList<string> solutions, IReadOnlyList<string> dependencies) =>
         new("Contoso Test", Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), [.. solutions.Select(n => new Snapshot("Contoso Test", n, false, null, null, true, [], [], [], []))], dependencies.ToDictionary(d => d, _ => (string?)null));
 
-    private string SavedAgentPlan()
+    // `edit` changes a copy of the fixture's unpacked folder before it is zipped.
+    private string SavedAgentPlan(Action<string>? edit = null)
     {
         var folder = Directory.CreateDirectory(Path.Combine(_temp, "agent-" + Guid.NewGuid().ToString("N"))).FullName;
-        SolutionZip.Create(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "agents", "dataverse-tools"), Path.Combine(folder, "PowerOpsAgentTools.zip"));
+        var source = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "agents", "dataverse-tools");
+        if (edit is not null)
+        {
+            source = Path.Combine(folder, "unpacked");
+            foreach (var file in Directory.EnumerateFiles(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "agents", "dataverse-tools"), "*", SearchOption.AllDirectories))
+            {
+                var to = Path.Combine(source, Path.GetRelativePath(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "agents", "dataverse-tools"), file));
+                Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+                File.Copy(file, to);
+            }
+
+            edit(source);
+        }
+
+        SolutionZip.Create(source, Path.Combine(folder, "PowerOpsAgentTools.zip"));
         File.WriteAllText(
             Path.Combine(folder, "PowerOpsAgentTools.settings.json"),
             """{"ConnectionReferences":[{"LogicalName":"demo_Helper.shared_commondataserviceforapps.shared-commondataser-0000001","ConnectionId":"fake-connection-id","ConnectorId":"/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"}]}""");
@@ -1440,6 +1455,47 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Single(_imports);
         Assert.Equal(1, _fakes.AgentCalls);
         Assert.Equal("demo_Helper", (string?)JsonNode.Parse(Text(result))!["agents"]![0]!["name"]);
+    }
+
+    [Fact]
+    public async Task The_form_shows_fixed_text_for_an_agent_name_that_is_not_a_plain_name()
+    {
+        const string crafted = "). Reviewed (x";
+        var planFile = SavedAgentPlan(unpacked =>
+        {
+            var bot = Path.Combine(unpacked, "bots", "demo_Helper", "bot.xml");
+            File.WriteAllText(bot, File.ReadAllText(bot).Replace("schemaname=\"demo_Helper\"", $"schemaname=\"{crafted}\""));
+        });
+        var forms = new Forms(_ => new ElicitResult { Action = "decline" });
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
+
+        AssertRefused(await Apply(pair, ApplyArgs(planFile)), Declined, Hint);
+
+        var message = Assert.Single(forms.Seen).Message;
+        Assert.Contains("Copilot Studio agents: (name not shown: not only letters, digits and underscores, or over 100 characters) (PowerOpsAgentTools)\n", message);
+        Assert.DoesNotContain(crafted, message);
+    }
+
+    [Fact]
+    public async Task The_form_lists_at_most_ten_agents_and_counts_the_rest()
+    {
+        var planFile = SavedAgentPlan(unpacked =>
+        {
+            var bots = Path.Combine(unpacked, "bots");
+            for (var i = 1; i <= 11; i++)
+            {
+                var folder = Directory.CreateDirectory(Path.Combine(bots, $"demo_Extra{i:D2}")).FullName;
+                File.WriteAllText(Path.Combine(folder, "bot.xml"), File.ReadAllText(Path.Combine(bots, "demo_Helper", "bot.xml")).Replace("schemaname=\"demo_Helper\"", $"schemaname=\"demo_Extra{i:D2}\""));
+            }
+        });
+        var forms = new Forms(_ => new ElicitResult { Action = "decline" });
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
+
+        AssertRefused(await Apply(pair, ApplyArgs(planFile)), Declined, Hint);
+
+        var line = Assert.Single(Assert.Single(forms.Seen).Message.Split('\n'), l => l.StartsWith("Copilot Studio agents: ", StringComparison.Ordinal));
+        Assert.Equal(10, line.Split(" (PowerOpsAgentTools)").Length - 1);
+        Assert.EndsWith(", and 2 more", line);
     }
 
     [Fact]

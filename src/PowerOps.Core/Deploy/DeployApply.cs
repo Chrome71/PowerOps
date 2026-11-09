@@ -208,6 +208,10 @@ public static class DeployApply
                 : new AppliedAgent(e.Solution, e.Name, AgentState.Missing, null);
         })];
 
+    /// <summary>The agent name for a person to read: <paramref name="name"/> when <see cref="DriftQueries.IsValidAgentName"/> holds, else fixed text, because the name comes unchecked from the zip.</summary>
+    public static string ShownAgentName(string name) =>
+        DriftQueries.IsValidAgentName(name) ? name : "(name not shown: not only letters, digits and underscores, or over 100 characters)";
+
     private static DeployZip ZipOf(PlannedSolution s, IReadOnlyList<DeployZip> zips) =>
         zips.FirstOrDefault(z => z.File == s.Zip) ?? throw new InvalidDataException($"{s.Zip}: the zip is not among the loaded zips");
 }
