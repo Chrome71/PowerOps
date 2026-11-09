@@ -310,7 +310,8 @@ public partial class SkillsCommandTests : IDisposable
             "you do not run `pac` or `az` to find out",
             "If the plan's `environment` is null or a role (Dev, Test or Prod, in any case), ask the person to name that environment before any tenant read or live check, and give the skill that name, never the role; any other value is an older plan's name: give it as written. Give the skill the plan's `Solution and publisher` too.",
             "Use only the environment the person named (step 3), or the plan's `environment` when it holds a name, as the target.",
-            "Skip this if it already says `implementing`. If it does, or a step of this plan is already committed (after an amendment, step 6), read the commit messages and `writes.md` (step 10)",
+            "Set `status: implementing` in the plan header, unless it already says so.",
+            "If it already said `implementing`, or a step of this plan is already committed (after an amendment, step 6), read the commit messages and `writes.md` (step 10)",
             "Stop and report when a tool can't create or save inside that solution",
             "Do not change the preferred solution",
             "don't redo a step",
@@ -348,10 +349,10 @@ public partial class SkillsCommandTests : IDisposable
             "scope, data, security or cost",
             "stops with one concrete question to the user, and you do nothing about that choice until they answer: no build, no new plan and no other questions",
             "A violation that names `verify.md` or `security-solution.md` is fixed by replacing the value in that report with a placeholder, and the plan isn't edited",
-            "If the answer changes a plan line, or a step cannot be done as written, stay stopped: note the header's `signed-off-hash` and hand to `powerops-plan` section 10, which makes the edit; you never edit the plan body.",
+            "If the answer changes a plan line, or a step cannot be done as written, stay stopped, with no further step: note the header's `signed-off-hash` and hand to `powerops-plan` section 10, which makes the edit; you never edit the plan body.",
             "A change to scope, data, security or cost gets a fresh `powerops-review-plan` before that sign-off; another amendment may keep the old review, which the sign-off names as stale.",
             "The person signs off with `powerops plan sign-off`, and `amendment: <line> (answered by: person)` is logged. Resume only once the header's `signed-off-hash` differs from the one you noted and `powerops plan status` shows no violation for the plan.",
-            "An agent's answer may settle a product choice the person's brief delegates, and nothing else; it never changes the plan.",
+            "An agent's answer may settle a product choice the person's brief delegates, and nothing else; it never changes the plan: a change to a plan line needs the person's answer.",
         ];
 
         Assert.All(wording, s => Assert.Contains(s, text));

@@ -122,7 +122,7 @@ public class PlanCommandTests : IDisposable
     [Fact]
     public void Json_has_the_documented_shape_and_is_printed_on_failure_too()
     {
-        Plan("status: approved\nreview: done\nenvironment: Contoso Dev", "# Plan\n## Open questions\n- a\n- b\n");
+        Plan("status: approved\nreview: done\nenvironment: Contoso Dev", "# Plan\n## Open questions\n- a\n- b\n## Questions for your admin\n- c\n");
         File.WriteAllText(Path.Combine(PlanDir(), "review.md"), $"plan-hash: {new string('a', 64)}\n");
         File.WriteAllText(Path.Combine(PlanDir(), "notes.md"), "mail me at a@contoso.example\n");
 
@@ -138,7 +138,7 @@ public class PlanCommandTests : IDisposable
         Assert.Equal(JsonValueKind.Null, plan.GetProperty("signedOff").ValueKind);
         Assert.Equal("Contoso Dev", plan.GetProperty("environment").GetString());
         Assert.Equal(2, plan.GetProperty("openQuestions").GetInt32());
-        Assert.Equal(0, plan.GetProperty("adminQuestions").GetInt32());
+        Assert.Equal(1, plan.GetProperty("adminQuestions").GetInt32());
         Assert.Matches("^[0-9a-f]{64}$", plan.GetProperty("bodyHash").GetString());
         Assert.Single(plan.GetProperty("violations").EnumerateArray());
         Assert.Single(plan.GetProperty("warnings").EnumerateArray());

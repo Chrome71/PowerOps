@@ -417,6 +417,7 @@ create)
     echo "error: Loan needs a lookup to a Keeper table, which the plan doesn't have" >&2
     exit 1
   fi
+  if [ "\$2 \$3" = "table Payment" ] && [ ! -e "$tenant_state/table-Loan" ]; then echo "error: Payment needs the Loan table first" >&2; exit 1; fi
   touch "$tenant_state/\$2-\$3"
   echo "saved \$2 \$3 in Dev"
   exit 0 ;;
@@ -454,7 +455,7 @@ Store keepers.
 | Artefact | Kind | Store | Goal line | Reuse, Extend or Create | Why not a column or choice | Rows now, 3 years |
 |---|---|---|---|---|---|---|
 | Loan | table | Dataverse | 1 | Create | a loan has its own dates | 0, 5000 |
-| Payment | table | Dataverse | 1 | Create | a loan has several payments | 0, 5000 |
+| Payment | table | Dataverse | 1 | Create | a loan has several payments, each with a lookup to its Loan | 0, 5000 |
 
 ## Automation
 
@@ -481,7 +482,7 @@ None in this test.
 ## Steps
 
 1. Create the Loan table: `tenant create table Loan`.
-2. Create the Payment table: `tenant create table Payment`.
+2. Create the Payment table, with its lookup to Loan: `tenant create table Payment`.
 PLAN
 printf -- '# Decisions: loans\n\n## Log\n\n' >"$plan/decisions.md"
 powerops plan sign-off "$plan" >/dev/null
@@ -492,12 +493,13 @@ git -C "$dir" -c user.name=smoke -c user.email=smoke@example.invalid commit -qm 
 allowed_tools="Bash(powerops *),Bash(tenant *),Bash(git *)"
 user_role="building a Microsoft Power Platform project for you from a signed-off plan"
 goal="You own the plan and want it built in Dev today. Say yes to adding a Keeper table to the plan, and yes to every write in Dev, every review and every sign-off. Say yes to any sign-in or tool question, and if asked to name the Dev environment, answer: Dev."
-# Done once the plan is signed again and the amendment is logged.
-converse "Use the powerops-implement skill. Build the loans plan." '[ "$(signed_hash)" != "$old_hash" ] && grep -q "^- amendment:" "$plan/decisions.md" 2>/dev/null' || true
+# Done once the plan is signed again, the amendment is logged and the build has resumed (step 1 succeeded).
+converse "Use the powerops-implement skill. Build the loans plan." '[ "$(signed_hash)" != "$old_hash" ] && grep -q "^- amendment:" "$plan/decisions.md" 2>/dev/null && [ -e "$tenant_state/table-Loan" ]' || true
 allowed_tools="Bash(powerops *)"
 user_role="planning a Microsoft Power Platform project with you"
 [ "$(signed_hash)" != "$old_hash" ] || fail "the plan was not signed off again"
 grep -q '^- amendment:' "$plan/decisions.md" || fail "decisions.md has no amendment line"
+[ -e "$tenant_state/table-Loan" ] || fail "the build did not resume after the new sign-off (tenant calls: $(tr '\n' ';' <"$tenant_log"))"
 status="$(powerops plan status "$plan" --json)" || fail "plan status found a violation: $(jq -c '.plans[0].violations' <<<"$status")"
 if [ -s "$tenant_state/failed-at" ]; then
   # Calls after the first failed one must carry the new hash: the build resumed only on the new sign-off.
