@@ -44,7 +44,7 @@ public sealed class McpCommandTests : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        var options = McpCommand.Options(_fakes.Pac, _fakes.Live, _fakes.Target, _ran.Enqueue);
+        var options = McpCommand.Options(_fakes.Pac, _fakes.Live, _fakes.Target, _ran.Enqueue, _fakes.Agents);
         var clientToServer = new Pipe();
         var serverToClient = new Pipe();
         _server = McpServer.Create(new StreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream()), options);
@@ -74,6 +74,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         private int _pac;
         private int _live;
         private int _target;
+        private int _agents;
         private int _unexpected;
 
         public Func<IReadOnlyList<string>, PacResult>? PacBehavior { get; set; }
@@ -81,6 +82,9 @@ public sealed class McpCommandTests : IAsyncLifetime
         public Func<string, string, Snapshot>? LiveBehavior { get; set; }
 
         public Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? TargetBehavior { get; set; }
+
+        /// <summary>What the agent read-back answers; no rows by default, and a call is counted, not unexpected.</summary>
+        public Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? AgentsBehavior { get; set; }
 
         public int Unexpected => _unexpected;
 
@@ -90,7 +94,9 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         public int Targets => _target;
 
-        public int Total => _pac + _live + _target;
+        public int AgentCalls => _agents;
+
+        public int Total => _pac + _live + _target + _agents;
 
         public PacResult Pac(IReadOnlyList<string> args, TimeSpan timeout)
         {
@@ -108,6 +114,12 @@ public sealed class McpCommandTests : IAsyncLifetime
         {
             Interlocked.Increment(ref _target);
             return TargetBehavior?.Invoke(target, solutions, dependencies) ?? Unexpect<DeployTarget>("the target read");
+        }
+
+        public IReadOnlyList<(string SchemaName, bool PublishedOn)> Agents(string target, Guid environmentId, IReadOnlyList<string> names)
+        {
+            Interlocked.Increment(ref _agents);
+            return AgentsBehavior?.Invoke(target, environmentId, names) ?? [];
         }
 
         private T Unexpect<T>(string what)
@@ -151,7 +163,7 @@ public sealed class McpCommandTests : IAsyncLifetime
     {
         var o = new StringWriter();
         var e = new StringWriter();
-        return (Program.Run(args, o, e, fakes.Pac, fakes.Live, fakes.Target), o.ToString(), e.ToString());
+        return (Program.Run(args, o, e, fakes.Pac, fakes.Live, fakes.Target, deployAgents: fakes.Agents), o.ToString(), e.ToString());
     }
 
     private async Task<CallToolResult> Call(string tool, Dictionary<string, object?>? arguments = null) => await _client.CallToolAsync(tool, arguments, cancellationToken: TestContext.Current.CancellationToken);
@@ -874,7 +886,7 @@ public sealed class McpCommandTests : IAsyncLifetime
                 return ReadTarget(t, s, d);
             },
         };
-        var options = McpCommand.Options(fakes.Pac, fakes.Live, fakes.Target);
+        var options = McpCommand.Options(fakes.Pac, fakes.Live, fakes.Target, deployAgents: fakes.Agents);
         var inner = options.Handlers.CallToolHandler!;
         options.Handlers.CallToolHandler = async (context, token) =>
         {
@@ -1155,7 +1167,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         {
             ran.Enqueue(a);
             onRan?.Invoke(a);
-        }));
+        }, fakes.Agents));
         var run = server.RunAsync();
         var client = await McpClient.CreateAsync(
             new StreamClientTransport(clientToServer.Writer.AsStream(), serverToClient.Reader.AsStream()),
@@ -1388,9 +1400,118 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Equal(["environment"], form.RequestedSchema.Required);
         Assert.Null(form.Meta);
         Assert.Contains($"Target environment: {TargetName}\nPlan hash: {hash}\nSolution zips: PowerOpsSeed.zip\n", form.Message);
+        Assert.DoesNotContain("Copilot Studio agents", form.Message);
+        Assert.DoesNotContain(McpCommand.AgentFormNote, form.Message);
         Assert.DoesNotContain("secret-host", form.Message);
         Assert.DoesNotContain("plan.json", form.Message);
         Assert.DoesNotContain(folder, form.Message);
+    }
+
+    // The made agent fixture (solution PowerOpsAgentTools, agent demo_Helper) as a zip with its settings file, planned as an install into an empty target.
+    private static DeployTarget EmptyTarget(string target, IReadOnlyList<string> solutions, IReadOnlyList<string> dependencies) =>
+        new("Contoso Test", Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), [.. solutions.Select(n => new Snapshot("Contoso Test", n, false, null, null, true, [], [], [], []))], dependencies.ToDictionary(d => d, _ => (string?)null));
+
+    // `edit` changes a copy of the fixture's unpacked folder before it is zipped.
+    private string SavedAgentPlan(Action<string>? edit = null)
+    {
+        var folder = Directory.CreateDirectory(Path.Combine(_temp, "agent-" + Guid.NewGuid().ToString("N"))).FullName;
+        var source = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "agents", "dataverse-tools");
+        if (edit is not null)
+        {
+            source = Path.Combine(folder, "unpacked");
+            foreach (var file in Directory.EnumerateFiles(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "agents", "dataverse-tools"), "*", SearchOption.AllDirectories))
+            {
+                var to = Path.Combine(source, Path.GetRelativePath(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "agents", "dataverse-tools"), file));
+                Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+                File.Copy(file, to);
+            }
+
+            edit(source);
+        }
+
+        SolutionZip.Create(source, Path.Combine(folder, "PowerOpsAgentTools.zip"));
+        File.WriteAllText(
+            Path.Combine(folder, "PowerOpsAgentTools.settings.json"),
+            """{"ConnectionReferences":[{"LogicalName":"demo_Helper.shared_commondataserviceforapps.shared-commondataser-0000001","ConnectionId":"fake-connection-id","ConnectorId":"/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"}]}""");
+        var planFile = Path.Combine(folder, "plan.json");
+        Assert.Equal(0, CliWith(new Fakes { TargetBehavior = EmptyTarget }, "deploy", "plan", "--target", Secret, "--save", planFile, "--", folder).Code);
+        ImportFakes();
+        _fakes.TargetBehavior = EmptyTarget;
+        return planFile;
+    }
+
+    [Fact]
+    public async Task The_form_for_a_zip_with_an_agent_names_it_and_the_publication_note_and_the_import_reads_it_back()
+    {
+        var planFile = SavedAgentPlan();
+        var forms = new Forms(_ => Accepted(TargetName));
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
+
+        var result = await Apply(pair, ApplyArgs(planFile));
+
+        Assert.False(result.IsError);
+        var form = Assert.Single(forms.Seen);
+        Assert.Contains($"\nSolution zips: PowerOpsAgentTools.zip\nCopilot Studio agents: demo_Helper (PowerOpsAgentTools)\n{McpCommand.AgentFormNote}\n\nTo import, type the target environment's name", form.Message);
+        Assert.Single(_imports);
+        Assert.Equal(1, _fakes.AgentCalls);
+        Assert.Equal("demo_Helper", (string?)JsonNode.Parse(Text(result))!["agents"]![0]!["name"]);
+    }
+
+    [Fact]
+    public async Task The_form_shows_fixed_text_for_an_agent_name_that_is_not_a_plain_name()
+    {
+        const string crafted = "). Reviewed (x";
+        var planFile = SavedAgentPlan(unpacked =>
+        {
+            var bot = Path.Combine(unpacked, "bots", "demo_Helper", "bot.xml");
+            File.WriteAllText(bot, File.ReadAllText(bot).Replace("schemaname=\"demo_Helper\"", $"schemaname=\"{crafted}\""));
+        });
+        var forms = new Forms(_ => new ElicitResult { Action = "decline" });
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
+
+        AssertRefused(await Apply(pair, ApplyArgs(planFile)), Declined, Hint);
+
+        var message = Assert.Single(forms.Seen).Message;
+        Assert.Contains("Copilot Studio agents: (name not shown: not only letters, digits and underscores, or over 100 characters) (PowerOpsAgentTools)\n", message);
+        Assert.DoesNotContain(crafted, message);
+    }
+
+    [Fact]
+    public async Task The_form_lists_at_most_ten_agents_and_counts_the_rest()
+    {
+        var planFile = SavedAgentPlan(unpacked =>
+        {
+            var bots = Path.Combine(unpacked, "bots");
+            for (var i = 1; i <= 11; i++)
+            {
+                var folder = Directory.CreateDirectory(Path.Combine(bots, $"demo_Extra{i:D2}")).FullName;
+                File.WriteAllText(Path.Combine(folder, "bot.xml"), File.ReadAllText(Path.Combine(bots, "demo_Helper", "bot.xml")).Replace("schemaname=\"demo_Helper\"", $"schemaname=\"demo_Extra{i:D2}\""));
+            }
+        });
+        var forms = new Forms(_ => new ElicitResult { Action = "decline" });
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
+
+        AssertRefused(await Apply(pair, ApplyArgs(planFile)), Declined, Hint);
+
+        var line = Assert.Single(Assert.Single(forms.Seen).Message.Split('\n'), l => l.StartsWith("Copilot Studio agents: ", StringComparison.Ordinal));
+        Assert.Equal(10, line.Split(" (PowerOpsAgentTools)").Length - 1);
+        Assert.EndsWith(", and 2 more", line);
+    }
+
+    [Fact]
+    public async Task A_declined_form_for_a_zip_with_an_agent_makes_no_import_call_and_no_agent_read()
+    {
+        var planFile = SavedAgentPlan();
+        var forms = new Forms(_ => new ElicitResult { Action = "decline" });
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
+
+        AssertRefused(await Apply(pair, ApplyArgs(planFile)), Declined, Hint);
+
+        Assert.Contains("Copilot Studio agents: demo_Helper (PowerOpsAgentTools)", Assert.Single(forms.Seen).Message);
+        Assert.Empty(_imports);
+        Assert.Equal(0, _fakes.Pacs);
+        Assert.Equal(0, _fakes.AgentCalls);
+        AssertNoApply(pair);
     }
 
     // 6
@@ -1738,7 +1859,7 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         public Raw(Fakes fakes, ConcurrentQueue<string[]> ran)
         {
-            var options = McpCommand.Options(fakes.Pac, fakes.Live, fakes.Target, ran.Enqueue);
+            var options = McpCommand.Options(fakes.Pac, fakes.Live, fakes.Target, ran.Enqueue, fakes.Agents);
             var inner = options.Handlers.CallToolHandler!;
             options.Handlers.CallToolHandler = async (context, token) =>
             {

@@ -47,7 +47,7 @@ public static class DeployPlanReport
     /// <summary>Writes the JSON report, which is also the plan file (stable property order, nulls written, "\n" line endings, trailing newline). <paramref name="plannedBy"/> is as the caller reports it and is not a hash input.</summary>
     public static void WriteJson(DeployPlanResult result, string tool, TextWriter writer, string? plannedBy = null)
     {
-        var doc = new Doc(JsonOutput.SchemaVersion, tool, plannedBy, result.Target, result.Hash, result.Blocked, result.Inputs, result.Solutions, result.Items);
+        var doc = new Doc(JsonOutput.DeployPlanSchemaVersion, tool, plannedBy, result.Target, result.Hash, result.Blocked, result.Inputs, result.Solutions, result.Items);
         writer.Write(JsonSerializer.Serialize(doc, Options) + "\n");
     }
 
@@ -101,7 +101,10 @@ public static class DeployPlanReport
     private static string Summary(DeployPlanResult r)
     {
         var n = r.Items.Count(i => i.Severity == PlanSeverity.Block);
-        return r.Blocked ? $"plan blocked: {n} blocking item{(n == 1 ? "" : "s")}" : "plan ok";
+        var agents = r.Items.Count(i => i.Kind == PlanKind.Agent);
+        return r.Blocked ? $"plan blocked: {n} blocking item{(n == 1 ? "" : "s")}"
+            : agents > 0 ? $"plan ok, but the import holds {agents} Copilot Studio agent{(agents == 1 ? "" : "s")} it may leave published"
+            : "plan ok";
     }
 
     private static string Managed(bool managed) => managed ? "managed" : "unmanaged";

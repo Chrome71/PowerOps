@@ -30,7 +30,8 @@ public static class DeployCommand
     /// <param name="deadline">How long <c>deploy gate</c> may check before it blocks; a test seam, <see cref="GateDeadline"/> in production.</param>
     public static Command Create(
         TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> target,
-        Func<Stream?>? input = null, TimeSpan? deadline = null, string? approvedHash = null, bool mcp = false)
+        Func<Stream?>? input = null, TimeSpan? deadline = null, string? approvedHash = null, bool mcp = false,
+        Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? deployAgents = null)
     {
         var folder = new Argument<string>("folder") { Description = "A folder of exported solution zips, each with an optional <zip name>.settings.json beside it." };
         var targetOption = new Option<string?>("--target") { Description = "The environment to plan against (an id or URL, as pac --environment). Never printed." };
@@ -46,11 +47,12 @@ public static class DeployCommand
         };
         plan.SetAction(parse => SettingsCommand.Guard(error, () =>
             Run(parse.GetValue(folder)!, parse.GetValue(targetOption), parse.GetValue(save), parse.GetValue(format)!, parse.GetValue(outFile), parse.GetValue(plannedBy), output, error, target)));
-        return new Command("deploy", "Plan a deployment of solution zips, and import a reviewed plan.") { plan, Apply(output, error, pac, target, approvedHash, mcp), Gate(error, input ?? (() => null), deadline ?? GateDeadline, target) };
+        return new Command("deploy", "Plan a deployment of solution zips, and import a reviewed plan.") { plan, Apply(output, error, pac, target, approvedHash, mcp, deployAgents), Gate(error, input ?? (() => null), deadline ?? GateDeadline, target) };
     }
 
     private static Command Apply(
-        TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> target, string? approvedHash, bool mcp)
+        TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> target, string? approvedHash, bool mcp,
+        Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? deployAgents)
     {
         var planFile = new Argument<string>("plan-file") { Description = "A plan file written by deploy plan --save. The zips and settings files are read from its folder." };
         var targetOption = new Option<string?>("--target") { Description = "The environment the plan was made for (an id or URL, as pac --environment). The plan file's target is the environment's display name, which this doesn't take. Never printed." };
@@ -64,7 +66,7 @@ public static class DeployCommand
             planFile, targetOption, apply, format, outFile, githubRun,
         };
         command.SetAction(parse => SettingsCommand.Guard(error, () =>
-            Apply(parse.GetValue(planFile)!, parse.GetValue(targetOption), parse.GetValue(apply), parse.GetValue(format)!, parse.GetValue(outFile), parse.GetValue(githubRun), output, error, pac, target, approvedHash, mcp)));
+            Apply(parse.GetValue(planFile)!, parse.GetValue(targetOption), parse.GetValue(apply), parse.GetValue(format)!, parse.GetValue(outFile), parse.GetValue(githubRun), output, error, pac, target, approvedHash, mcp, deployAgents)));
         return command;
     }
 
@@ -307,7 +309,8 @@ public static class DeployCommand
 
     private static int Apply(
         string planFile, string? target, bool apply, string format, string? outFile, string? githubRun, TextWriter output, TextWriter error,
-        Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, string? approvedHash, bool mcp)
+        Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, string? approvedHash, bool mcp,
+        Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? deployAgents)
     {
         // The --target value, the environment id and every folder path are never printed.
         var problems = new List<string>();
@@ -350,10 +353,10 @@ public static class DeployCommand
             : new Approval(ApprovalMode.Cli, null);
         string? appliedAt = null;
 
-        int Finish(int code, string name, string hash, string status, string? message, IReadOnlyList<AppliedSolution> solutions, IReadOnlyList<AppliedFlow> flows)
+        int Finish(int code, string name, string hash, string status, string? message, IReadOnlyList<AppliedSolution> solutions, IReadOnlyList<AppliedFlow> flows, IReadOnlyList<AppliedAgent>? agents = null)
         {
             var report = new StringWriter();
-            var result = new DeployApplyResult(tool, apply, name, hash, status, message, appliedAt, executor, approval, solutions, flows);
+            var result = new DeployApplyResult(tool, apply, name, hash, status, message, appliedAt, executor, approval, solutions, flows, agents ?? []);
             if (format == "json")
             {
                 DeployApplyReport.WriteJson(result, report);
@@ -392,7 +395,8 @@ public static class DeployCommand
                 progress.WriteLine($"would run: pac {string.Join(' ', SettingsCommand.ImportArguments(SettingsCommand.EnvironmentPlaceholder, step.Zip, step.Settings, step.StageAndUpgrade).Select(Clean))}");
             }
 
-            return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Planned, null, Rows(plan, s => s.Action == PlanAction.Skip ? ImportStatus.Skipped : ImportStatus.Planned), planned);
+            var listed = DeployApply.ExpectedAgents(plan, now.Zips, s => s.Action != PlanAction.Skip).Select(a => new AppliedAgent(a.Solution, a.Name, null, null)).ToList();
+            return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Planned, null, Rows(plan, s => s.Action == PlanAction.Skip ? ImportStatus.Skipped : ImportStatus.Planned), planned, listed);
         }
 
         appliedAt = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
@@ -422,12 +426,12 @@ public static class DeployCommand
             var after = failure.Value.TimedOut
                 ? did.Count == 0 ? "No import before it finished." : $"Imported before it: {string.Join(", ", did)}."
                 : did.Count == 0 ? "Nothing was imported." : $"Imported: {string.Join(", ", did)}.";
-            return Finish(InternalError, plan.Target, reviewed.Hash, ApplyStatus.Failed, $"{failure.Value.Text} There is no rollback. {after}", Done(), []);
+            return Finish(InternalError, plan.Target, reviewed.Hash, ApplyStatus.Failed, $"{failure.Value.Text} There is no rollback. {after}", Done(), [], ReadAgents());
         }
 
         if (flowRefs.Count == 0)
         {
-            return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Imported, imports.Count == 0 ? "Nothing was imported: every solution was skipped." : null, Done(), []);
+            return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Imported, imports.Count == 0 ? "Nothing was imported: every solution was skipped." : null, Done(), [], ReadAgents());
         }
 
         DeployTarget second;
@@ -444,11 +448,36 @@ public static class DeployCommand
             }
 
             var why = ex is DriftReadException d ? $": {d.Message}" : ".";
-            return Finish(InternalError, plan.Target, reviewed.Hash, ApplyStatus.Imported, $"The imports succeeded. Reading the target again failed{why}", Done(), planned);
+            return Finish(InternalError, plan.Target, reviewed.Hash, ApplyStatus.Imported, $"The imports succeeded. Reading the target again failed{why}", Done(), planned, ReadAgents());
         }
 
         var flows = DeployApply.FlowsAfter(flowRefs, second.Solutions);
-        return Finish(flows.AsExpected ? 0 : 1, plan.Target, reviewed.Hash, ApplyStatus.Imported, null, Done(), flows.Flows);
+        return Finish(flows.AsExpected ? 0 : 1, plan.Target, reviewed.Hash, ApplyStatus.Imported, null, Done(), flows.Flows, ReadAgents());
+
+        // The agents of every solution whose import went through, read once; a failed read never changes the status or the exit code.
+        List<AppliedAgent> ReadAgents()
+        {
+            var expected = DeployApply.ExpectedAgents(plan, now.Zips, s => state.GetValueOrDefault(s.Order) == ImportStatus.Ok);
+            if (expected.Count == 0)
+            {
+                return [];
+            }
+
+            try
+            {
+                return [.. DeployApply.AgentsAfter(expected, deployAgents!(target!, now.Target.Id, [.. expected.Select(e => e.Name)]))];
+            }
+            catch (Exception ex)
+            {
+                if (ex is DriftReadException drift)
+                {
+                    Forward(error, drift.Forwarded);
+                }
+
+                error.WriteLine($"warning: the agent read-back failed: {(ex is DriftReadException d ? Clean(d.Message) : "failed.")}");
+                return [.. DeployApply.AgentsAfter(expected, null)];
+            }
+        }
 
         // The failure message of one import (and whether it timed out), or null when it went through; hashes both files again first.
         (string Text, bool TimedOut)? Import(ImportStep step)
@@ -576,11 +605,17 @@ public static class DeployCommand
     }
 
     // Every block says why on stderr and ends with one guidance line; Codex lets the call through on exit 2 with no stderr.
-    private static int GateBlocked(TextWriter report, IEnumerable<string> lines, bool unreadable)
+    // `notes` are warning lines between the reasons and the guidance.
+    private static int GateBlocked(TextWriter report, IEnumerable<string> lines, bool unreadable, IEnumerable<string>? notes = null)
     {
         foreach (var line in lines)
         {
             report.WriteLine($"error: deploy gate: {line}");
+        }
+
+        foreach (var note in notes ?? [])
+        {
+            report.WriteLine($"warning: deploy gate: {note}");
         }
 
         report.WriteLine(unreadable ? ReadingGuidance : ImportGuidance);
@@ -645,6 +680,9 @@ public static class DeployCommand
             return GateBlocked(report, ["the plan imports nothing"], false);
         }
 
+        // A block after the dry run passed names each agent of the fresh plan, so the person who reads it also sees what the import may do.
+        var notes = plan.Items.Where(i => i.Kind == PlanKind.Agent).Select(i => $"{Clean(i.Solution)}: {Clean(DeployPlan.AgentMessage(DeployApply.ShownAgentName(i.Subject)))}").ToList();
+
         // The plan file's solutions are not covered by its hash, so the first step comes from the fresh plan.
         var first = ready.Imports[0];
         var firstInput = plan.Inputs.Zips.First(z => z.Zip == first.Zip);
@@ -653,7 +691,7 @@ public static class DeployCommand
             var other = plan.Inputs.Zips.FirstOrDefault(z => z.ZipSha256 == zipHash)?.Zip;
             return GateBlocked(report, [other is null
                 ? $"{ImportCall.Printable(Path.GetFileName(call.Zip))} is not a zip of the plan"
-                : plan.Solutions.Any(s => s.Zip == other && s.Action == PlanAction.Skip) ? $"the plan skips {Clean(other)}" : $"the plan imports {Clean(first.Zip)} first"], false);
+                : plan.Solutions.Any(s => s.Zip == other && s.Action == PlanAction.Skip) ? $"the plan skips {Clean(other)}" : $"the plan imports {Clean(first.Zip)} first"], false, notes);
         }
 
         var lines = new List<string>();
@@ -677,7 +715,7 @@ public static class DeployCommand
 
         if (lines.Count > 0)
         {
-            return GateBlocked(report, lines, false);
+            return GateBlocked(report, lines, false, notes);
         }
 
         // The dry run can take minutes of live reads: the files the call names must still be the bytes that were checked.
@@ -685,7 +723,7 @@ public static class DeployCommand
             .Where(f => f.Item1 is not null && HashRegularFile(f.Item1, f.Item3) != f.Item2)
             .Select(f => $"{ImportCall.Printable(Path.GetFileName(f.Item1!))} changed while the gate checked it")
             .ToList();
-        return swapped.Count == 0 ? 0 : GateBlocked(report, swapped, false);
+        return swapped.Count == 0 ? 0 : GateBlocked(report, swapped, false, notes);
     }
 
     // The SHA-256 of a regular file, or null when it does not exist, is a symbolic link, is not a seekable file (a FIFO), is over the cap or cannot be read.

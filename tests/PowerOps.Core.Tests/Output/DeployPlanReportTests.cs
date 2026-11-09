@@ -123,6 +123,30 @@ public class DeployPlanReportTests
         Assert.Matches(@"_\d+ more rows not shown", text);
     }
 
+    private static PlanItem Agent(string name, string severity = PlanSeverity.Warning) =>
+        new("Sol", PlanKind.Agent, severity, name, "The zip holds Copilot Studio agent '" + name + "'. " + PlanKind.AgentEffect);
+
+    [Fact]
+    public void An_agent_item_shows_under_its_solution_and_the_summary_names_the_agent_in_text_and_markdown()
+    {
+        var r = Result(items: [Agent("demo_Helper")]);
+
+        var text = Text(r);
+        var markdown = Markdown(r);
+
+        Assert.Contains($"  warning agent demo_Helper: The zip holds Copilot Studio agent 'demo_Helper'. {PlanKind.AgentEffect}\n", text);
+        Assert.EndsWith("plan ok, but the import holds 1 Copilot Studio agent it may leave published\n", text);
+        Assert.Contains("**plan ok, but the import holds 1 Copilot Studio agent it may leave published**", markdown);
+        Assert.Contains("| Sol | warning | agent | demo\\_Helper | The zip holds Copilot Studio agent 'demo\\_Helper'.", markdown);
+    }
+
+    [Fact]
+    public void Two_agents_make_the_summary_plural_and_a_blocked_plan_keeps_plan_blocked()
+    {
+        Assert.EndsWith("plan ok, but the import holds 2 Copilot Studio agents it may leave published\n", Text(Result(items: [Agent("demo_A"), Agent("demo_B")])));
+        Assert.EndsWith("plan blocked: 1 blocking item\n", Text(Result(items: [Agent("demo_A"), Item("x", "m", PlanSeverity.Block)])));
+    }
+
     [Fact]
     public void Json_has_the_properties_in_order_with_nulls_a_lf_ending_and_no_id_or_url()
     {

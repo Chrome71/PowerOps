@@ -14,6 +14,8 @@ public static partial class DriftQueries
 
     private const string OtherSolutionsText = """<fetch><entity name="solutioncomponent"><attribute name="componenttype" /><attribute name="objectid" /><filter><condition attribute="objectid" operator="in">{componentValues}</condition><condition attribute="solutionid" operator="ne" value="{solutionId}" /><condition attribute="rootsolutioncomponentid" operator="null" /></filter><link-entity name="solution" from="solutionid" to="solutionid" link-type="inner" alias="s"><attribute name="uniquename" /><filter><condition attribute="ismanaged" operator="eq" value="0" /><condition attribute="isvisible" operator="eq" value="1" /><condition attribute="uniquename" operator="ne" value="Default" /><condition attribute="friendlyname" operator="not-in"><value>Common Data Service Default Solution</value><value>Common Data Services Default Solution</value></condition></filter></link-entity></entity></fetch>""";
 
+    private const string BotsText = """<fetch><entity name="bot"><attribute name="schemaname" /><attribute name="publishedon" /><filter><condition attribute="schemaname" operator="in">{schemaNameValues}</condition></filter></entity></fetch>""";
+
     /// <summary>The layer table's component name for connection references, whatever their <c>componenttype</c> number.</summary>
     public const string ReferenceLayerName = "connectionreference";
 
@@ -35,6 +37,19 @@ public static partial class DriftQueries
     /// <exception cref="ArgumentException"><paramref name="name"/> fails <see cref="IsValidName"/>.</exception>
     public static string Solution(string name) =>
         IsValidName(name) ? SolutionText.Replace("PowerOpsSeed", name) : throw new ArgumentException("Not a solution unique name.", nameof(name));
+
+    /// <summary>True for a name the <c>bot</c> read sends: <see cref="IsValidName"/> and at most 100 characters (Learn's maximum for <c>schemaname</c>).</summary>
+    public static bool IsValidAgentName(string name) => name.Length <= 100 && IsValidName(name);
+
+    /// <summary>The <c>bot</c> read of <c>deploy apply</c>: the agents with these schema names, with their <c>publishedon</c>.</summary>
+    /// <exception cref="ArgumentException">A name fails <see cref="IsValidAgentName"/>.</exception>
+    public static string Bots(IEnumerable<string> schemaNames)
+    {
+        var names = schemaNames.ToList();
+        return names.All(IsValidAgentName)
+            ? BotsText.Replace("{schemaNameValues}", string.Concat(names.Select(n => $"<value>{n}</value>")))
+            : throw new ArgumentException("Not an agent schema name.", nameof(schemaNames));
+    }
 
     public static string Components(Guid solutionId) => Fill(ComponentsText, solutionId);
 

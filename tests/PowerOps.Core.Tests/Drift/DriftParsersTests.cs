@@ -46,6 +46,23 @@ public class DriftParsersTests
     }
 
     [Fact]
+    public void Bots_parses_the_sample_into_rows_with_the_publishedon_flag()
+    {
+        Assert.Equal([("demo_Helper", true), ("demo_Other", false)], DriftParsers.Bots(Sample("bots.json")));
+        Assert.Equal([("demo_Absent", false)], DriftParsers.Bots(Rows("""{"schemaname":"demo_Absent"}""")));
+        Assert.Empty(DriftParsers.Bots(Rows()));
+    }
+
+    [Fact]
+    public void Bots_rejects_a_wrong_type_a_missing_name_a_repeated_name_and_a_second_page()
+    {
+        Assert.Throws<InvalidDataException>(() => DriftParsers.Bots(Rows("""{"schemaname":"demo_A","publishedon":5}""")));
+        Assert.Throws<InvalidDataException>(() => DriftParsers.Bots(Rows("""{"publishedon":"2026-01-01T00:00:00Z"}""")));
+        Assert.Throws<InvalidDataException>(() => DriftParsers.Bots(Rows("""{"schemaname":"demo_A"}""", """{"schemaname":"DEMO_A"}""")));
+        Assert.Contains("more than one page", Assert.Throws<InvalidDataException>(() => DriftParsers.Bots(Sample("morerecords.json"))).Message);
+    }
+
+    [Fact]
     public void Read4_parses_the_flows() =>
         Assert.Equal([new SnapshotFlow(Guid.Parse(FlowId), "Notify on new work item", "on")], DriftParsers.Flows(Sample("test-read4.json")));
 

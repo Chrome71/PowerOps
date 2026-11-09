@@ -67,14 +67,15 @@ public static partial class McpCommand
     private static readonly string[] DeviceNames = ["CON", "PRN", "AUX", "NUL", .. Enumerable.Range(0, 10).SelectMany(i => new[] { "COM" + i, "LPT" + i })];
 
     public static Command Create(TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot> driftLive,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget,
+        Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? deployAgents = null)
     {
         var command = new Command("mcp", "Run an MCP server over stdio for agents: its tools run the commands and return their JSON.");
         command.SetAction(async (ParseResult parse, CancellationToken cancellationToken) =>
         {
             try
             {
-                await using var server = McpServer.Create(new StdioServerTransport("powerops"), Options(pac, driftLive, deployTarget));
+                await using var server = McpServer.Create(new StdioServerTransport("powerops"), Options(pac, driftLive, deployTarget, deployAgents: deployAgents));
                 await server.RunAsync(cancellationToken);
                 return 0;
             }
@@ -93,9 +94,10 @@ public static partial class McpCommand
 
     // Tests build a server from these options over in-process pipes; ran sees every argument list a tool passes to Program.Run.
     internal static McpServerOptions Options(Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot> driftLive,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget, Action<string[]>? ran = null)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget, Action<string[]>? ran = null,
+        Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? deployAgents = null)
     {
-        var tools = Tools(pac, driftLive, deployTarget, ran);
+        var tools = Tools(pac, driftLive, deployTarget, ran, deployAgents);
         var listed = tools.Select(Describe).ToList();
         return new McpServerOptions
         {
@@ -171,12 +173,13 @@ public static partial class McpCommand
     }
 
     private static ToolDef[] Tools(Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot> driftLive,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget, Action<string[]>? ran)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget, Action<string[]>? ran,
+        Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? deployAgents = null)
     {
         int Run(string[] args, TextWriter output, TextWriter error, string? approvedHash, bool mcp)
         {
             ran?.Invoke(args);
-            return Program.Run(args, output, error, pac, driftLive, deployTarget, approvedHash: approvedHash, mcp: mcp);
+            return Program.Run(args, output, error, pac, driftLive, deployTarget, approvedHash: approvedHash, mcp: mcp, deployAgents: deployAgents);
         }
 
         // Only deploy_apply passes a hash (the one the user approved in the form) and says mcp, which its report records as the executor.
@@ -273,19 +276,27 @@ public static partial class McpCommand
     // A command's result that the tool refuses anyway: isError, with the line after the command's own error lines.
     private static CallToolResult RefuseWith(string stdout, string stderr, string line) => Result(3, stdout, stderr + "\n" + line);
 
-    private sealed record DryRun(string? Status, string? Target, string? Hash);
+    private sealed record DryRunAgent(string? Solution, string? Name);
 
-    // The dry run's report says planned for this plan's target and hash; a stdout that is not such a JSON object does not.
-    private static bool Passed(int code, string stdout, ReviewedPlan plan)
+    private sealed record DryRun(string? Status, string? Target, string? Hash, List<DryRunAgent>? Agents);
+
+    // The form names at most this many agents, so a zip with many cannot fill it.
+    private const int AgentFormMax = 10;
+
+    // Written to the person answering the form, after the agents' names.
+    internal const string AgentFormNote = "The import may leave these agents published in the target: Learn describes publishing as a separate step, but one live import left an agent published. If the plan forbids a published agent there, decline this form, amend the plan, and plan again.";
+
+    // The dry run's report when it says planned for this plan's target and hash; null for a stdout that is not such a JSON object.
+    private static DryRun? Passed(int code, string stdout, ReviewedPlan plan)
     {
         try
         {
             var report = JsonSerializer.Deserialize<DryRun>(stdout, JsonSerializerOptions.Web);
-            return code == 0 && report is { Status: ApplyStatus.Planned } && report.Target == plan.Target && report.Hash == plan.Hash;
+            return code == 0 && report is { Status: ApplyStatus.Planned } && report.Target == plan.Target && report.Hash == plan.Hash ? report : null;
         }
         catch (JsonException)
         {
-            return false;
+            return null;
         }
     }
 
@@ -332,15 +343,19 @@ public static partial class McpCommand
 
         // The report's target is the live friendly name of the environment the target input names, so the name typed below is that environment's.
         var (dryCode, dryOut, dryErr) = Exec(Args(false));
-        if (!Passed(dryCode, dryOut, plan))
+        if (Passed(dryCode, dryOut, plan) is not { } dry)
         {
             return RefuseWith(dryOut, dryErr, "error: apply: the dry run did not pass, so no form was sent; nothing was imported");
         }
 
         var zips = string.Join(", ", plan.Inputs.Zips.Select(z => z.Zip));
+        // From the dry run's report, so these are the agents of the zips the hash covers, not the plan file's text.
+        var agents = dry.Agents is { Count: > 0 } list
+            ? $"\nCopilot Studio agents: {string.Join(", ", list.Take(AgentFormMax).Select(a => $"{PowerOps.Core.Deploy.DeployApply.ShownAgentName(a.Name ?? "")} ({TextReport.Clean(a.Solution)})"))}{(list.Count > AgentFormMax ? $", and {list.Count - AgentFormMax} more" : "")}\n{AgentFormNote}"
+            : "";
         var form = new ElicitRequestParams
         {
-            Message = $"powerops deploy_apply wants to import a reviewed plan into an environment. There is no rollback.\n\nTarget environment: {TextReport.Clean(plan.Target)}\nPlan hash: {plan.Hash}\nSolution zips: {zips}\n\nTo import, type the target environment's name exactly as shown above. Decline or cancel to import nothing.",
+            Message = $"powerops deploy_apply wants to import a reviewed plan into an environment. There is no rollback.\n\nTarget environment: {TextReport.Clean(plan.Target)}\nPlan hash: {plan.Hash}\nSolution zips: {zips}{agents}\n\nTo import, type the target environment's name exactly as shown above. Decline or cancel to import nothing.",
             RequestedSchema = new()
             {
                 // No default: the SDK fills a missing accepted field from it, so an empty accept would pass.

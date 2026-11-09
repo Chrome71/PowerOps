@@ -145,6 +145,22 @@ public class DeployCommandTests : IDisposable
     }
 
     [Fact]
+    public void A_zip_with_an_agent_gets_a_warning_line_and_the_agent_summary_and_still_exits_0()
+    {
+        SolutionZip.Create(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "agents", "dataverse-tools"), Path.Combine(Folder, "PowerOpsAgentTools.zip"));
+        File.WriteAllText(
+            Path.Combine(Folder, "PowerOpsAgentTools.settings.json"),
+            """{"ConnectionReferences":[{"LogicalName":"demo_Helper.shared_commondataserviceforapps.shared-commondataser-0000001","ConnectionId":"fake-connection-id","ConnectorId":"/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"}]}""");
+
+        var r = Plan(new FakeTarget());
+
+        Assert.Equal(0, r.Code);
+        Assert.Contains("  warning agent demo_Helper: The zip holds Copilot Studio agent 'demo_Helper'. ", r.Out);
+        Assert.EndsWith("plan ok, but the import holds 1 Copilot Studio agent it may leave published\n", r.Out);
+        Assert.Equal("", r.Err);
+    }
+
+    [Fact]
     public void A_blocking_item_exits_1_and_still_writes_the_report_and_the_plan_file()
     {
         const string kind = "cycle";

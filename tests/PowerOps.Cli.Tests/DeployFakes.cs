@@ -101,12 +101,50 @@ public abstract class DeployTestBase : IDisposable
         }
     }
 
+    /// <summary>The agent read-back: records each call and answers what <see cref="Answer"/> gives (no rows by default). Every run passes one, so no test reaches the real reader.</summary>
+    protected sealed class FakeAgents
+    {
+        public List<(string Target, Guid EnvironmentId, string[] Names)> Calls { get; } = [];
+
+        public Func<IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>> Answer { get; init; } = _ => [];
+
+        public IReadOnlyList<(string SchemaName, bool PublishedOn)> Read(string target, Guid environmentId, IReadOnlyList<string> names)
+        {
+            Calls.Add((target, environmentId, [.. names]));
+            return Answer(names);
+        }
+    }
+
+    /// <summary>The agent read-back through a real <see cref="DriftLiveReader"/> over its own fake pac (it answers only <c>org who</c>, with <see cref="TargetIdText"/>), az and web. <see cref="Web"/> answers each bot read; no row by default.</summary>
+    internal sealed class LiveAgents
+    {
+        public List<Uri> WebCalls { get; } = [];
+
+        public Func<Uri, WebResult> Web { get; init; } = _ => new WebResult(200, """{"value":[]}""", false);
+
+        public IReadOnlyList<(string SchemaName, bool PublishedOn)> Read(string target, Guid environmentId, IReadOnlyList<string> names) =>
+            new DriftLiveReader(
+                (args, _) =>
+                {
+                    Assert.Equal(["org", "who"], args.Take(2));
+                    return new PacResult(true, false, 0, File.ReadAllText(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "pac", "org-who.txt")).Replace("00000000-0000-0000-0000-00000000000c", TargetIdText));
+                },
+                (_, _) => new PacResult(true, false, 0, "fake-token\n"),
+                (url, _, _) =>
+                {
+                    WebCalls.Add(url);
+                    return Web(url);
+                }).ReadAgents(target, environmentId, names);
+    }
+
     protected sealed record Outcome(int Code, string Out, string Err);
 
-    protected static Outcome Run(FakeTarget fake, FakePac pac, params string[] args)
+    protected static Outcome Run(FakeTarget fake, FakePac pac, params string[] args) => RunWith(fake, pac, new FakeAgents().Read, args);
+
+    protected static Outcome RunWith(FakeTarget fake, FakePac pac, Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>> agents, params string[] args)
     {
         var (o, e) = (new StringWriter(), new StringWriter());
-        var code = Program.Run(args, o, e, pac.Run, null, fake.Read);
+        var code = Program.Run(args, o, e, pac.Run, null, fake.Read, deployAgents: agents);
         return new Outcome(code, o.ToString().ReplaceLineEndings("\n"), e.ToString().ReplaceLineEndings("\n"));
     }
 
@@ -162,6 +200,15 @@ public abstract class DeployTestBase : IDisposable
         {
             File.WriteAllText(Path.Combine(folder, "PowerOpsSeed.settings.json"), settingsText ?? File.ReadAllText(ValidSettings));
         }
+    }
+
+    // The made agent fixture (solution PowerOpsAgentTools, agent demo_Helper) and the settings file its plan needs.
+    protected static void AgentZip(string folder)
+    {
+        SolutionZip.Create(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "agents", "dataverse-tools"), Path.Combine(folder, "PowerOpsAgentTools.zip"));
+        File.WriteAllText(
+            Path.Combine(folder, "PowerOpsAgentTools.settings.json"),
+            """{"ConnectionReferences":[{"LogicalName":"demo_Helper.shared_commondataserviceforapps.shared-commondataser-0000001","ConnectionId":"fake-connection-id","ConnectorId":"/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"}]}""");
     }
 
     protected static FakeTarget SeedTarget() => new() { Snaps = { ["PowerOpsSeed"] = SnapshotFile.Load(TestSnapshot) } };

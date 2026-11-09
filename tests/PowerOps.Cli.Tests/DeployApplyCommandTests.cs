@@ -514,7 +514,7 @@ public class DeployApplyCommandTests : DeployTestBase
     private Outcome ApplyApproved(FakeTarget fake, FakePac pac, string approvedHash, bool mcp = false)
     {
         var (o, e) = (new StringWriter(), new StringWriter());
-        var code = Program.Run(["deploy", "apply", PlanFile, "--target", TargetValue, "--format", "json", "--apply"], o, e, pac.Run, null, fake.Read, null, approvedHash, mcp);
+        var code = Program.Run(["deploy", "apply", PlanFile, "--target", TargetValue, "--format", "json", "--apply"], o, e, pac.Run, null, fake.Read, null, approvedHash, mcp, new FakeAgents().Read);
         return new Outcome(code, o.ToString().ReplaceLineEndings("\n"), e.ToString().ReplaceLineEndings("\n"));
     }
 
@@ -656,7 +656,7 @@ public class DeployApplyCommandTests : DeployTestBase
         var (o, e) = (new StringWriter(), new StringWriter());
         var pac = new FakePac();
 
-        var code = Program.Run(["deploy", "apply", PlanFile, "--target", TargetValue, "--format", "json", "--apply", "--github-run", "contoso/widgets run 7 attempt 1"], o, e, pac.Run, null, SeedTarget().Read, null, planHash);
+        var code = Program.Run(["deploy", "apply", PlanFile, "--target", TargetValue, "--format", "json", "--apply", "--github-run", "contoso/widgets run 7 attempt 1"], o, e, pac.Run, null, SeedTarget().Read, null, planHash, deployAgents: new FakeAgents().Read);
 
         Assert.Equal(0, code);
         var doc = JsonNode.Parse(o.ToString())!;
@@ -1193,6 +1193,254 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Equal(fake.Solutions[0], fake.Solutions[1]);
     }
 
+    // ---- the agents after the imports --------------------------------------------------------------------------
+
+    private const string HelperPublished = """{"value":[{"schemaname":"demo_Helper","publishedon":"2026-01-01T00:00:00Z"}]}""";
+
+    private Outcome ApplyAgents(FakeTarget target, FakePac pac, Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>> agents, params string[] extra) =>
+        RunWith(target, pac, agents, ["deploy", "apply", PlanFile, "--target", TargetValue, .. extra]);
+
+    private static (string State, bool? PublishedOn) AgentOf(JsonObject doc) => ((string?)doc["agents"]![0]!["state"] ?? "", (bool?)doc["agents"]![0]!["publishedOn"]);
+
+    [Fact]
+    public void The_dry_run_lists_each_agent_of_a_zip_it_would_import_with_no_state_and_reads_nothing()
+    {
+        AgentZip(Folder);
+        MakePlan();
+        var agents = new FakeAgents();
+
+        var json = ApplyAgents(new FakeTarget(), new FakePac(), agents.Read, "--format", "json");
+        var text = ApplyAgents(new FakeTarget(), new FakePac(), agents.Read);
+
+        Assert.Equal(0, json.Code);
+        var agent = Json(json)["agents"]!.AsArray().Single()!;
+        Assert.Equal(("PowerOpsAgentTools", "demo_Helper", null, null), ((string?)agent["solution"], (string?)agent["name"], (string?)agent["state"], (bool?)agent["publishedOn"]));
+        Assert.Contains("agent PowerOpsAgentTools/demo_Helper: in the import; the import may leave it published\n", text.Out);
+        Assert.Empty(agents.Calls);
+    }
+
+    [Fact]
+    public void An_agent_only_solution_with_no_flow_is_read_back_by_name_against_the_environment_imported_into()
+    {
+        AgentZip(Folder);
+        MakePlan();
+        var agents = new FakeAgents { Answer = _ => [("DEMO_helper", true)] };
+        var pac = new FakePac();
+
+        var r = ApplyAgents(new FakeTarget(), pac, agents.Read, "--apply", "--format", "json");
+
+        Assert.Equal(0, r.Code);
+        var call = Assert.Single(agents.Calls);
+        Assert.Equal((TargetValue, TargetId), (call.Target, call.EnvironmentId));
+        Assert.Equal(["demo_Helper"], call.Names);
+        Assert.Equal(("found", true), AgentOf(Json(r)));
+        Assert.Equal("imported", (string?)Json(r)["status"]);
+        Assert.Null((string?)Json(r)["message"]);
+        Assert.Single(pac.Calls);
+    }
+
+    [Theory]
+    [InlineData("""{"value":[{"schemaname":"demo_Helper","publishedon":"2026-01-01T00:00:00Z"}]}""", "found", true)]
+    [InlineData("""{"value":[{"schemaname":"demo_Helper","publishedon":null}]}""", "found", false)]
+    [InlineData("""{"value":[]}""", "missing", null)]
+    public void A_bot_row_gives_found_with_publishedon_and_no_row_gives_missing_through_the_real_reader(string body, string state, bool? published)
+    {
+        AgentZip(Folder);
+        MakePlan();
+        var live = new LiveAgents { Web = _ => new WebResult(200, body, false) };
+
+        var r = ApplyAgents(new FakeTarget(), new FakePac(), live.Read, "--apply", "--format", "json");
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal((state, published), AgentOf(Json(r)));
+        Assert.Equal("bots", Assert.Single(live.WebCalls).AbsolutePath.Split('/')[^1]);
+        Assert.DoesNotContain("warning", r.Err);
+    }
+
+    [Theory]
+    [InlineData("403")]
+    [InlineData("timeout")]
+    [InlineData("malformed")]
+    public void A_failed_agent_read_gives_not_read_and_a_warning_and_changes_no_status_row_or_exit_code(string failure)
+    {
+        AgentZip(Folder);
+        MakePlan();
+        var live = new LiveAgents
+        {
+            Web = _ => failure switch
+            {
+                "403" => new WebResult(403, """{"error":{"code":"1","message":"No access"}}""", false),
+                "timeout" => new WebResult(0, "", true),
+                _ => new WebResult(200, """{"value":[{"publishedon":"x"}]}""", false),
+            },
+        };
+
+        var r = ApplyAgents(new FakeTarget(), new FakePac(), live.Read, "--apply", "--format", "json");
+
+        Assert.Equal(0, r.Code);
+        var doc = Json(r);
+        Assert.Equal(("not-read", null), AgentOf(doc));
+        Assert.Equal("imported", (string?)doc["status"]);
+        Assert.Null((string?)doc["message"]);
+        Assert.Equal(["PowerOpsAgentTools:ok"], Statuses(doc));
+        Assert.Contains("\nwarning: the agent read-back failed: ", r.Err);
+        Assert.Contains("`bot`", r.Err);
+        Assert.DoesNotContain("crm.dynamics.com", r.Err);
+        Assert.DoesNotContain("fake-token", r.Err);
+    }
+
+    [Fact]
+    public void Any_other_exception_from_the_agent_read_gives_not_read_and_a_warning_without_its_text()
+    {
+        AgentZip(Folder);
+        MakePlan();
+
+        var r = ApplyAgents(new FakeTarget(), new FakePac(), (_, _, _) => throw new HttpRequestException("SENTINEL"), "--apply", "--format", "json");
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal(("not-read", null), AgentOf(Json(r)));
+        Assert.EndsWith("\nwarning: the agent read-back failed: failed.\n", r.Err);
+        Assert.DoesNotContain("SENTINEL", r.Err);
+    }
+
+    [Fact]
+    public void A_failed_agent_read_forwards_the_tools_text_like_a_failed_flow_read_does()
+    {
+        AgentZip(Folder);
+        MakePlan();
+
+        var r = ApplyAgents(new FakeTarget(), new FakePac(), (_, _, _) => throw new DriftReadException("the read failed", "tool line"), "--apply");
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal("  | tool line\nwarning: the agent read-back failed: the read failed\n", r.Err);
+        Assert.Contains("agent PowerOpsAgentTools/demo_Helper: not read\n", r.Out);
+    }
+
+    [Fact]
+    public void A_partial_failure_still_reads_the_agents_of_the_solution_that_went_through_and_keeps_failed_and_exit_3()
+    {
+        AgentZip(Folder);
+        SmallZip(Folder, "Second", requires: ["PowerOpsAgentTools (1.0)"]);
+        MakePlan();
+        var agents = new FakeAgents { Answer = _ => [("demo_Helper", false)] };
+        var pac = new FakePac { Answer = n => n == 1 ? new PacResult(true, false, 1, "", "boom\n") : null };
+
+        var r = ApplyAgents(new FakeTarget(), pac, agents.Read, "--apply", "--format", "json");
+
+        Assert.Equal(3, r.Code);
+        var doc = Json(r);
+        Assert.Equal("failed", (string?)doc["status"]);
+        Assert.Equal(["PowerOpsAgentTools:ok", "Second:failed"], Statuses(doc));
+        Assert.Equal(("found", false), AgentOf(doc));
+        Assert.Equal(["demo_Helper"], Assert.Single(agents.Calls).Names);
+    }
+
+    [Fact]
+    public void A_failed_first_import_reads_no_agents()
+    {
+        AgentZip(Folder);
+        MakePlan();
+        var agents = new FakeAgents();
+
+        var r = ApplyAgents(new FakeTarget(), new FakePac { Answer = _ => new PacResult(true, false, 1, "", "boom\n") }, agents.Read, "--apply", "--format", "json");
+
+        Assert.Equal(3, r.Code);
+        Assert.Empty(Json(r)["agents"]!.AsArray());
+        Assert.Empty(agents.Calls);
+    }
+
+    private void FlowAndAgentPlan()
+    {
+        AgentZip(Folder);
+        SmallZip(Folder, "Flows", requires: ["PowerOpsAgentTools (1.0)"], files: ("Workflows/F.json.data.xml", "<Workflow WorkflowId=\"{11111111-2222-3333-4444-555555555555}\" Name=\"F\"><Category>5</Category><StateCode>1</StateCode></Workflow>"));
+        MakePlan();
+    }
+
+    [Fact]
+    public void A_failed_flow_read_keeps_its_message_and_exit_3_and_the_agents_are_still_read()
+    {
+        FlowAndAgentPlan();
+        var agents = new FakeAgents { Answer = _ => [("demo_Helper", true)] };
+
+        var r = ApplyAgents(new FakeTarget { FailAfter = new DriftReadException("the read failed", "tool line") }, new FakePac(), agents.Read, "--apply", "--format", "json");
+
+        Assert.Equal(3, r.Code);
+        var doc = Json(r);
+        Assert.Equal("imported", (string?)doc["status"]);
+        Assert.StartsWith("The imports succeeded. Reading the target again failed: the read failed", (string?)doc["message"]);
+        Assert.Null(doc["flows"]![0]!["stateAfter"]);
+        Assert.Equal(("found", true), AgentOf(doc));
+        Assert.EndsWith("\n  | tool line\n", r.Err);
+        Assert.DoesNotContain("warning", r.Err);
+    }
+
+    [Fact]
+    public void Both_reads_failing_write_the_flow_reads_stderr_then_the_agent_warning_and_exit_3()
+    {
+        FlowAndAgentPlan();
+
+        var r = ApplyAgents(new FakeTarget { FailAfter = new DriftReadException("the read failed", "tool line") }, new FakePac(), (_, _, _) => throw new DriftReadException("agents failed"), "--apply", "--format", "json");
+
+        Assert.Equal(3, r.Code);
+        Assert.EndsWith("\n  | tool line\nwarning: the agent read-back failed: agents failed\n", r.Err);
+        Assert.Equal(("not-read", null), AgentOf(Json(r)));
+    }
+
+    [Fact]
+    public void A_good_flow_read_and_an_agent_read_together_exit_0()
+    {
+        FlowAndAgentPlan();
+        var after = new Dictionary<string, Snapshot>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Flows"] = Installed("Flows", "1.0.0.0") with { Flows = [new SnapshotFlow(Guid.Parse("11111111-2222-3333-4444-555555555555"), "F", "on")] },
+        };
+
+        var r = ApplyAgents(new FakeTarget { After = after }, new FakePac(), new FakeAgents { Answer = _ => [("demo_Helper", true)] }.Read, "--apply", "--format", "json");
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal("on", (string?)Json(r)["flows"]![0]!["stateAfter"]);
+        Assert.Equal(("found", true), AgentOf(Json(r)));
+    }
+
+    [Fact]
+    public void A_skip_only_plan_and_a_plan_with_no_agent_make_no_agent_read()
+    {
+        AgentZip(Folder);
+        var skipping = new FakeTarget { Snaps = { ["PowerOpsAgentTools"] = Installed("PowerOpsAgentTools", "1.0.0.0", managed: false) } };
+        MakePlan(skipping);
+        var agents = new FakeAgents();
+
+        var skipped = ApplyAgents(skipping, new FakePac(), agents.Read, "--apply", "--format", "json");
+
+        Assert.Equal(0, skipped.Code);
+        Assert.Empty(Json(skipped)["agents"]!.AsArray());
+
+        File.Delete(Path.Combine(Folder, "PowerOpsAgentTools.zip"));
+        File.Delete(Path.Combine(Folder, "PowerOpsAgentTools.settings.json"));
+        SmallZip(Folder, "Solo");
+        MakePlan();
+        var plain = ApplyAgents(new FakeTarget(), new FakePac(), agents.Read, "--apply", "--format", "json");
+
+        Assert.Equal(0, plain.Code);
+        Assert.Empty(Json(plain)["agents"]!.AsArray());
+        Assert.Empty(agents.Calls);
+    }
+
+    [Fact]
+    public void A_refused_report_has_no_agents()
+    {
+        AgentZip(Folder);
+        MakePlan();
+        File.AppendAllText(Path.Combine(Folder, "PowerOpsAgentTools.settings.json"), " ");
+        var agents = new FakeAgents();
+
+        var r = ApplyAgents(new FakeTarget(), new FakePac(), agents.Read, "--apply", "--format", "json");
+
+        Assert.Equal(1, r.Code);
+        Assert.Empty(Json(r)["agents"]!.AsArray());
+        Assert.Empty(agents.Calls);
+    }
+
     // ---- the plan file's folder, the tool, what is never printed -----------------------------------------------
 
     [Fact]
@@ -1205,7 +1453,7 @@ public class DeployApplyCommandTests : DeployTestBase
         try
         {
             var (o, e) = (new StringWriter(), new StringWriter());
-            var code = Program.Run(["deploy", "apply", "powerops-plan.json", "--target", TargetValue], o, e, new FakePac().Run, null, SeedTarget().Read);
+            var code = Program.Run(["deploy", "apply", "powerops-plan.json", "--target", TargetValue], o, e, new FakePac().Run, null, SeedTarget().Read, deployAgents: new FakeAgents().Read);
 
             Assert.Equal(0, code);
             Assert.EndsWith("dry run: would import 1 solution\n", o.ToString().ReplaceLineEndings("\n"));

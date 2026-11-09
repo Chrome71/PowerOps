@@ -68,10 +68,17 @@ public class DeployPlanFileTests
     {
         var plan = Ok(File());
 
-        Assert.Equal((JsonOutput.SchemaVersion, Tool, H1, "Contoso Test", false), (plan.SchemaVersion, plan.Tool, plan.Hash, plan.Target, plan.Blocked));
+        Assert.Equal((JsonOutput.DeployPlanSchemaVersion, Tool, H1, "Contoso Test", false), (plan.SchemaVersion, plan.Tool, plan.Hash, plan.Target, plan.Blocked));
         Assert.Equal(Inputs.Zips, plan.Inputs.Zips);
         Assert.Equal(Inputs.Dependencies, plan.Inputs.Dependencies);
         Assert.True(Ok(File(blocked: true)).Blocked);
+    }
+
+    [Fact]
+    public void The_plan_file_is_at_version_2()
+    {
+        Assert.Equal(2, JsonOutput.DeployPlanSchemaVersion);
+        Assert.Contains("\"schemaVersion\": 2,", File());
     }
 
     [Fact]
@@ -181,7 +188,7 @@ public class DeployPlanFileTests
     }
 
     [Theory]
-    [InlineData("schemaVersion", "2")]
+    [InlineData("schemaVersion", "1")]
     [InlineData("tool", "\"0.9.0\"")]
     public void Another_schemaVersion_or_tool_is_refused_even_when_the_other_fields_are_broken(string field, string value)
     {

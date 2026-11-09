@@ -29,5 +29,6 @@
       "expectedState": "on",
       "stateAfter": "on"
     }
-  ]
+  ],
+  "agents": []
 }

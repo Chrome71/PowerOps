@@ -9,8 +9,8 @@ public class DeployApplyReportTests
 
     private static DeployApplyResult Result(
         string status, bool applied = true, string? message = null, AppliedSolution[]? solutions = null, AppliedFlow[]? flows = null,
-        string? appliedAt = null, string executor = ApplyExecutor.Cli, Approval? approval = null) =>
-        new("1.2.3", applied, "Contoso Test", Hash, status, message, appliedAt, executor, approval, solutions ?? [], flows ?? []);
+        string? appliedAt = null, string executor = ApplyExecutor.Cli, Approval? approval = null, AppliedAgent[]? agents = null) =>
+        new("1.2.3", applied, "Contoso Test", Hash, status, message, appliedAt, executor, approval, solutions ?? [], flows ?? [], agents ?? []);
 
     private static AppliedSolution Sol(int order, string name, string action, string import, int? exit = null) =>
         new(order, name, name + ".zip", action, import, exit);
@@ -73,7 +73,7 @@ public class DeployApplyReportTests
     public void Text_cleans_every_name_and_the_message()
     {
         var evil = "x\n::error::boom";
-        var r = new DeployApplyResult("1.2.3", true, evil, Hash, ApplyStatus.Failed, "m\r\n::error::m", "2026-11-04T10:00:00Z", ApplyExecutor.Action, new Approval(ApprovalMode.Action, "run 7\n::error::x"), [new(1, evil, evil + ".zip", "install", ImportStatus.Failed, 1)], [new(evil, evil, "on", evil)]);
+        var r = new DeployApplyResult("1.2.3", true, evil, Hash, ApplyStatus.Failed, "m\r\n::error::m", "2026-11-04T10:00:00Z", ApplyExecutor.Action, new Approval(ApprovalMode.Action, "run 7\n::error::x"), [new(1, evil, evil + ".zip", "install", ImportStatus.Failed, 1)], [new(evil, evil, "on", evil)], []);
 
         var text = Text(r);
 
@@ -118,5 +118,40 @@ public class DeployApplyReportTests
         var text = Text(Result(ApplyStatus.Refused, true, "no", approval: new Approval(ApprovalMode.Cli, null)));
 
         Assert.Equal($"Target: Contoso Test\nPlan hash: {Hash}\nExecutor: cli\nApproval: cli\nrefused: no\n", text);
+    }
+
+    [Fact]
+    public void Text_has_one_line_per_agent_after_the_flow_lines_in_each_state()
+    {
+        var text = Text(Result(
+            ApplyStatus.Imported, true, solutions: [Sol(1, "A", "install", ImportStatus.Ok)], flows: [new("A", "Notify", "on", "on")],
+            agents: [new("A", "a_One", AgentState.Found, true), new("A", "a_Two", AgentState.Found, false), new("A", "a_Three", AgentState.Missing, null), new("A", "a_Four", AgentState.NotRead, null)]));
+
+        Assert.EndsWith(
+            "flow A/Notify: expected on, now on\nagent A/a_One: found, publishedon set\nagent A/a_Two: found, publishedon empty\nagent A/a_Three: missing\nagent A/a_Four: not read\napplied\n",
+            text);
+        Assert.EndsWith(
+            "agent A/a_One: in the import; the import may leave it published\ndry run: would import 0 solutions\n",
+            Text(Result(ApplyStatus.Planned, false, agents: [new("A", "a_One", null, null)])));
+    }
+
+    [Fact]
+    public void Text_cleans_an_agent_name_and_its_solution()
+    {
+        var text = Text(Result(ApplyStatus.Imported, true, agents: [new("S\n::error::s", "n\n::error::n", AgentState.Missing, null)]));
+
+        Assert.All(text.Split('\n', StringSplitOptions.RemoveEmptyEntries), l => Assert.DoesNotMatch(@"^\s*::", l));
+        Assert.Contains("agent S ::error::s/n ::error::n: missing\n", text);
+    }
+
+    [Fact]
+    public void Json_writes_the_agents_after_the_flows_with_the_solution_name_state_and_publishedOn_in_that_order()
+    {
+        var json = Json(Result(ApplyStatus.Imported, true, flows: [new("A", "Notify", "on", "on")], agents: [new("A", "a_One", AgentState.Found, true), new("A", "a_Two", AgentState.Missing, null)]));
+
+        Assert.Contains(
+            "  \"flows\": [\n    {\n      \"solution\": \"A\",\n      \"name\": \"Notify\",\n      \"expectedState\": \"on\",\n      \"stateAfter\": \"on\"\n    }\n  ],\n  \"agents\": [\n    {\n      \"solution\": \"A\",\n      \"name\": \"a_One\",\n      \"state\": \"found\",\n      \"publishedOn\": true\n    },\n    {\n      \"solution\": \"A\",\n      \"name\": \"a_Two\",\n      \"state\": \"missing\",\n      \"publishedOn\": null\n    }\n  ]\n}\n",
+            json);
+        Assert.Contains("\"agents\": []\n}\n", Json(Result(ApplyStatus.Refused, false)));
     }
 }
