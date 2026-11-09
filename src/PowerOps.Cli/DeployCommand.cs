@@ -61,20 +61,21 @@ public static class DeployCommand
         format.AcceptOnlyFromAmong("text", "json");
         var outFile = new Option<string?>("--out") { Description = "Write the report here instead of stdout." };
         var githubRun = new Option<string?>("--github-run") { Description = "For the GitHub Action: its run, attempt and environment (1 to 500 characters, no control or format character). Recorded as the report's executor action and, with --apply, as the approval's receipt; not checked." };
+        var requireReviews = new Option<bool>("--require-reviews") { Description = "Refuse, before any import, unless for each zip the plan imports one plan folder under docs/plans holds a verify.md and a security-solution.md that are both ready, were written for the plan's current hash and record that zip's SHA-256 as their solution-hash. Without it the same check only warns." };
         var command = new Command("apply", "Plan again against the target, refuse when an input of the plan changed since the review (a zip, a settings file, the target environment, its solution state or a dependency's version), then import the zips in plan order through pac (only with --apply).")
         {
-            planFile, targetOption, apply, format, outFile, githubRun,
+            planFile, targetOption, apply, format, outFile, githubRun, requireReviews,
         };
         command.SetAction(parse => SettingsCommand.Guard(error, () =>
-            Apply(parse.GetValue(planFile)!, parse.GetValue(targetOption), parse.GetValue(apply), parse.GetValue(format)!, parse.GetValue(outFile), parse.GetValue(githubRun), output, error, pac, target, approvedHash, mcp, deployAgents)));
+            Apply(parse.GetValue(planFile)!, parse.GetValue(targetOption), parse.GetValue(apply), parse.GetValue(format)!, parse.GetValue(outFile), parse.GetValue(githubRun), parse.GetValue(requireReviews), output, error, pac, target, approvedHash, mcp, deployAgents)));
         return command;
     }
 
     private static string Clean(string? text) => TextReport.Clean(text);
 
-    // Advisory: changes neither the plan nor the exit code. The reports are those of the nearest folder at or above the deploy folder that holds docs/plans;
-    // the walk stops at the repository's top folder (the one holding .git), so a docs/plans above the repository is not taken for its own.
-    private static void WarnUnreviewed(string folder, IReadOnlyList<DeployZip> zips, TextWriter error)
+    // The nearest folder at or above `folder` that holds docs/plans, or null. The walk stops at the repository's top folder (the one holding .git),
+    // so a docs/plans above the repository is not taken for its own.
+    private static string? PlansRoot(string folder)
     {
         string? root = Path.GetFullPath(folder);
         while (root is not null && !Directory.Exists(Path.Combine(root, "docs", "plans")))
@@ -82,26 +83,52 @@ public static class DeployCommand
             root = Path.Exists(Path.Combine(root, ".git")) ? null : Path.GetDirectoryName(root);
         }
 
-        if (root is null)
+        return root;
+    }
+
+    // Writes `warning: <zip>: <sentence>` for each imported zip, in plan order, that no plan folder's two reports cover (and with `evidence`, its `note:` lines).
+    // Returns null when every one is covered, else the refusal message of --require-reviews. With no docs/plans nothing is written.
+    private static string? WarnUnreviewed(string folder, IReadOnlyList<DeployZip> zips, IReadOnlyList<ImportStep> imports, TextWriter error, bool evidence)
+    {
+        const string NoPlans = "no docs/plans folder at or above the plan file's folder, so no review covers the zips; nothing was imported.";
+        if (PlansRoot(folder) is not { } root)
         {
-            return;
+            return NoPlans;
         }
 
-        HashSet<string?>? ready;
+        IReadOnlyList<PlanReviews>? plans;
         try
         {
-            ready = PlanChecker.Reviews(root)?.SelectMany(p => new[] { p.Verify, p.Security }).Where(r => r?.State == "ready").Select(r => r!.SolutionHash).ToHashSet(StringComparer.Ordinal);
+            plans = PlanChecker.Reviews(root);
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
         {
             error.WriteLine("warning: docs/plans could not be read, so the zips were not matched with review reports");
-            return;
+            return "docs/plans could not be read, so the zips were not matched with review reports; nothing was imported.";
         }
 
-        foreach (var zip in zips.Where(z => ready?.Contains(z.Sha256) == false))
+        // Gone between the walk and the read.
+        if (plans is null)
         {
-            error.WriteLine($"warning: {Clean(zip.File)}: no ready verify.md or security-solution.md under docs/plans has this zip's SHA-256 as its solution-hash");
+            return NoPlans;
         }
+
+        var open = imports.Select(i => zips.First(z => z.File == i.Zip))
+            .Select(z => (Zip: z, Problem: DeployReviews.Problem(plans, z.Sha256)))
+            .Where(z => z.Problem is not null)
+            .ToList();
+        var notes = evidence && open.Count > 0 ? DeployReviews.Evidence(root, plans, [.. open.Select(o => o.Zip)]) : null;
+        foreach (var (zip, problem) in open)
+        {
+            error.WriteLine($"warning: {Clean(zip.File)}: {Clean(problem)}");
+            foreach (var note in notes?.GetValueOrDefault(zip.File) ?? [])
+            {
+                error.WriteLine($"note: {Clean(zip.File)}: {Clean(note)}");
+            }
+        }
+
+        return open.Count == 0 ? null
+            : $"no review covers {Clean(open[0].Zip.File)}: {Clean(open[0].Problem)}{(open.Count > 1 ? $" ({open.Count} zips in all; the warning lines name each)" : "")}; nothing was imported.";
     }
 
     private sealed record Prepared(DeployPlanResult Plan, IReadOnlyList<DeployZip> Zips, DeployTarget Target);
@@ -145,7 +172,8 @@ public static class DeployCommand
         }
 
         var result = prepared.Plan;
-        WarnUnreviewed(folder, prepared.Zips, error);
+        // Advisory here: changes neither the plan nor the exit code.
+        WarnUnreviewed(folder, prepared.Zips, DeployApply.Imports(result, prepared.Zips), error, evidence: true);
 
         var report = new StringWriter();
         switch (format)
@@ -242,7 +270,7 @@ public static class DeployCommand
     // `problems` holds the usage problems found so far; error lines go to `error`.
     private static (Ready? Ready, Stopped? Stop) DryRun(
         string planFile, string? target, List<string> problems, string tool, TextWriter error,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, string? approvedHash = null, bool hintPlanTarget = false)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, bool requireReviews, string? approvedHash = null, bool hintPlanTarget = false)
     {
         if (problems.Count > 0)
         {
@@ -296,19 +324,29 @@ public static class DeployCommand
             return (null, new Stopped(1, plan.Target, reviewed.Hash, ApplyStatus.Refused, "the plan is blocked now; nothing was imported. Plan again.", Rows(plan, _ => ImportStatus.NotRun)));
         }
 
+        IReadOnlyList<ImportStep> imports;
+        IReadOnlyList<FlowRef> flowRefs;
         try
         {
-            return (new Ready(folder, reviewed, now, DeployApply.Imports(plan, now.Zips), DeployApply.FlowIds(plan, now.Zips)), null);
+            (imports, flowRefs) = (DeployApply.Imports(plan, now.Zips), DeployApply.FlowIds(plan, now.Zips));
         }
         catch (InvalidDataException ex)
         {
             error.WriteLine($"error: {Clean(ex.Message)}");
             return (null, new Stopped(InternalError));
         }
+
+        // After the re-plan: only the fresh plan says which zips are imported, since the plan file's actions are not covered by its hash. With no import nothing is looked for.
+        if (imports.Count > 0 && WarnUnreviewed(folder, now.Zips, imports, error, evidence: false) is { } unreviewed && requireReviews)
+        {
+            return (null, new Stopped(1, plan.Target, reviewed.Hash, ApplyStatus.Refused, unreviewed, Rows(plan, _ => ImportStatus.NotRun)));
+        }
+
+        return (new Ready(folder, reviewed, now, imports, flowRefs), null);
     }
 
     private static int Apply(
-        string planFile, string? target, bool apply, string format, string? outFile, string? githubRun, TextWriter output, TextWriter error,
+        string planFile, string? target, bool apply, string format, string? outFile, string? githubRun, bool requireReviews, TextWriter output, TextWriter error,
         Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, string? approvedHash, bool mcp,
         Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? deployAgents)
     {
@@ -378,7 +416,7 @@ public static class DeployCommand
             return code;
         }
 
-        var (ready, stop) = DryRun(planFile, target, problems, tool, error, read, approvedHash, hintPlanTarget: true);
+        var (ready, stop) = DryRun(planFile, target, problems, tool, error, read, requireReviews, approvedHash, hintPlanTarget: true);
         if (stop is not null)
         {
             return stop.Name is null ? stop.Code : Finish(stop.Code, stop.Name, stop.Hash, stop.Status, stop.Message, stop.Solutions!, []);
@@ -668,7 +706,7 @@ public static class DeployCommand
 
         var problems = new List<string>();
         PlanFileProblems(planFile, call.Environment, problems);
-        var (ready, stop) = DryRun(planFile, call.Environment, problems, AnalyzeCommand.ToolVersion(), report, read);
+        var (ready, stop) = DryRun(planFile, call.Environment, problems, AnalyzeCommand.ToolVersion(), report, read, requireReviews: true);
         if (stop is not null)
         {
             return GateBlocked(report, [$"the dry run did not pass{(stop.Message is null ? "" : ": " + Clean(stop.Message))}"], false);

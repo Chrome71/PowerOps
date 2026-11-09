@@ -163,12 +163,14 @@ public sealed class ActionScriptTests : IDisposable
     }
 
     [Fact]
-    public void Plan_logs_powerops_warning_lines_with_its_error_lines_and_hides_forwarded_text()
+    public void Plan_logs_powerops_warning_and_note_lines_with_its_error_lines_and_hides_forwarded_text()
     {
-        var run = RunPlan(exit: 0, save: false, stderr: "warning: a.zip: no ready verify.md or security-solution.md under docs/plans has this zip's SHA-256 as its solution-hash\n  | tenant 0000 at https://contoso.crm.dynamics.com\nerror: --target: pac failed\nForwarded: tenant 0000\n");
+        const string Warning = "warning: a.zip: docs/plans/m: security-solution.md is blocked\n";
+        const string Note = "note: a.zip: 1 ready report under docs/plans reviewed this solution, each in an input that changed since the review; none was compared with the zip\n";
+        var run = RunPlan(exit: 0, save: false, stderr: $"{Warning}{Note}  | tenant 0000 at https://contoso.crm.dynamics.com\n  | note: forwarded\nerror: --target: pac failed\nForwarded: tenant 0000\n");
 
         Assert.Equal(0, run.Code);
-        Assert.Equal("warning: a.zip: no ready verify.md or security-solution.md under docs/plans has this zip's SHA-256 as its solution-hash\nerror: --target: pac failed\n", run.Out);
+        Assert.Equal($"{Warning}{Note}error: --target: pac failed\n", run.Out);
     }
 
     [Fact]

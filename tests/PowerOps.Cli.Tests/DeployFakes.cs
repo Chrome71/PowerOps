@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 
 using PowerOps.Core.Deploy;
 using PowerOps.Core.Drift;
+using PowerOps.Core.Plans;
 using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
@@ -212,6 +213,29 @@ public abstract class DeployTestBase : IDisposable
     }
 
     protected static FakeTarget SeedTarget() => new() { Snaps = { ["PowerOpsSeed"] = SnapshotFile.Load(TestSnapshot) } };
+
+    // ---- review reports ----------------------------------------------------------------------------------------
+
+    protected const string ReviewedPlanText = "---\nstatus: signed-off\nreview: done\nsigned-off: 2026-01-01\nsigned-off-hash: null\nenvironment: null\n---\n# Plan\n";
+
+    /// <summary>
+    /// Writes <c>docs/plans/&lt;plan&gt;/plan.md</c> under <paramref name="repo"/> (the test's root by default, which the walk up from <see cref="Folder"/> reaches)
+    /// and both review reports for <paramref name="input"/>, a zip or an unpacked folder under the repo: <c>state: ready</c>, the plan's hash,
+    /// the input's path relative to the repo, and its digest (a zip's SHA-256) as the solution-hash. Returns the plan folder.
+    /// </summary>
+    protected string Reviewed(string input, string? repo = null, string plan = "m")
+    {
+        repo ??= _root;
+        var folder = Directory.CreateDirectory(Path.Combine(repo, "docs", "plans", plan)).FullName;
+        File.WriteAllText(Path.Combine(folder, "plan.md"), ReviewedPlanText);
+        var head = $"state: ready\nplan-hash: {PlanDocument.Parse(ReviewedPlanText).BodyHash}\ninput: {Path.GetRelativePath(repo, input).Replace('\\', '/')}\nsolution-hash: {Core.Readers.Manifest.Read(input).Digest}\n\n# Report\n";
+        File.WriteAllText(Path.Combine(folder, "verify.md"), head);
+        File.WriteAllText(Path.Combine(folder, "security-solution.md"), head);
+        return folder;
+    }
+
+    /// <summary>Replaces <paramref name="from"/> with <paramref name="to"/> in a file the test wrote.</summary>
+    protected static void Edit(string file, string from, string to) => File.WriteAllText(file, File.ReadAllText(file).Replace(from, to, StringComparison.Ordinal));
 
     // A chain A <- B <- C of managed zips (imported in that order), no settings files.
     protected void Chain()
