@@ -1944,8 +1944,8 @@ public class WarningRuleTests
             (WithRoles(role) with { RootComponents = [new RootComponent("91", null, null)] }, "a plugin assembly"),
             (WithRoles(role) with { CanvasApps = [B.CodeApp("demo_code") with { Tables = null }] }, "a canvas app with no readable CdsDependencies"),
             (WithRoles(role) with { Workflows = [B.Flow() with { ClientData = null }] }, "a workflow with no readable definition"),
-            (WithRoles(role) with { Agents = [B.Agent()] }, "a Copilot Studio agent"),
-            (WithRoles(role) with { RootComponents = [new RootComponent("91", null, null)], Agents = [B.Agent()] }, "a plugin assembly"),
+            (WithRoles(role) with { Agents = [B.Agent(tools: [B.Tool()])] }, "agent 'demo_agent' tool 'demo_agent.topic.Orders' (it names no table)"),
+            (WithRoles(role) with { RootComponents = [new RootComponent("91", null, null)], Agents = [B.Agent(tools: [B.Tool()])] }, "a plugin assembly"),
         };
 
         foreach (var (s, reason) in cases)
@@ -1953,6 +1953,119 @@ public class WarningRuleTests
             Assert.Empty(Run(rule, s));
             Assert.Equal([$"PO034 not checked for role 'Front desk': 2 of the tables it can create or write are used by no component PowerOps reads, and the solution holds {reason}, whose table use isn't read."], rule.NotChecked(s));
         }
+    }
+
+    private static string Note(string reason, int left = 2) =>
+        $"PO034 not checked for role 'Front desk': {left} of the tables it can create or write are used by no component PowerOps reads, and the solution holds {reason}, whose table use isn't read.";
+
+    private static Solution Roles2() =>
+        WithRoles(B.SecurityRole("Front desk", CustomRole, "prvCreatepops_a", "prvWritepops_b"));
+
+    private static AgentTool Dataverse(string? set = "pops_bs", string? name = "pops_b") =>
+        B.Tool() with { Table = new ToolTable(set, name) };
+
+    [Fact]
+    public void PO034_names_the_agent_component_and_reason_that_still_blocks_it()
+    {
+        var rule = new PO034RoleWritesUnusedTable();
+        var longKind = new string('k', 150);
+        var cut = new string('k', 100) + "…";
+        var cases = new (Agent Agent, string Reason)[]
+        {
+            (B.Agent(unread: ["botcomponents/demo_agent.topic.Odd/data"]), "agent 'demo_agent' file 'botcomponents/demo_agent.topic.Odd/data' (YAML keys PowerOps can't map)"),
+            (B.Agent() with { OtherComponents = [new AgentComponent("Widget", "botcomponents/demo_agent.x/data")] }, "agent 'demo_agent' file 'botcomponents/demo_agent.x/data' (a component of kind 'Widget')"),
+            (B.Agent() with { OtherComponents = [new AgentComponent(null, "botcomponents/demo_agent.x/data")] }, "agent 'demo_agent' file 'botcomponents/demo_agent.x/data' (a component with no kind)"),
+            (B.Agent() with { OtherComponents = [new AgentComponent(longKind, "botcomponents/demo_agent.x/data")] }, $"agent 'demo_agent' file 'botcomponents/demo_agent.x/data' (a component of kind '{cut}')"),
+            (B.Agent() with { ActionDialogs = [new AgentComponent("InvokeFlowAction", "botcomponents/demo_agent.topic.T/data")] }, "agent 'demo_agent' file 'botcomponents/demo_agent.topic.T/data' (a topic or child agent with a 'InvokeFlowAction' node)"),
+            (B.Agent(tools: [B.Tool(mcp: true)]), "agent 'demo_agent' tool 'demo_agent.topic.Orders' (an MCP tool)"),
+            (B.Agent(tools: [B.Tool() with { Kind = "McpTool", Action = null }]), "agent 'demo_agent' tool 'demo_agent.topic.Orders' (an MCP tool)"),
+            (B.Agent(tools: [B.Tool()]), "agent 'demo_agent' tool 'demo_agent.topic.Orders' (it names no table)"),
+            (B.Agent(tools: [B.Tool() with { Table = new ToolTable(null, null) }]), "agent 'demo_agent' tool 'demo_agent.topic.Orders' (its entityName is not a literal entity set name)"),
+            (B.Agent(tools: [Dataverse("pops_cs", null)]), "agent 'demo_agent' tool 'demo_agent.topic.Orders' (its entity set 'pops_cs' names no table in the solution)"),
+            (B.Agent(tools: [Dataverse(longKind, null)]), $"agent 'demo_agent' tool 'demo_agent.topic.Orders' (its entity set '{cut}' names no table in the solution)"),
+            (B.Agent(tools: [B.Tool(action: "InvokeFlowTaskAction")]), "agent 'demo_agent' tool 'demo_agent.topic.Orders' (its flow is not in the solution)"),
+            (B.Agent(tools: [B.Tool(action: "InvokeFlowTaskAction") with { FlowId = B.Guid(0xaa) }]), "agent 'demo_agent' tool 'demo_agent.topic.Orders' (its flow is not in the solution)"),
+            (B.Agent(tools: [B.Tool(action: "InvokeConnectedAgentTaskAction")]), "agent 'demo_agent' tool 'demo_agent.topic.Orders' (its action is 'InvokeConnectedAgentTaskAction')"),
+            (B.Agent(tools: [B.Tool(action: longKind)]), $"agent 'demo_agent' tool 'demo_agent.topic.Orders' (its action is '{cut}')"),
+            (B.Agent(tools: [B.Tool() with { Action = null }]), "agent 'demo_agent' tool 'demo_agent.topic.Orders' (it has no action kind)"),
+        };
+
+        foreach (var (agent, reason) in cases)
+        {
+            var s = Roles2() with { Agents = [agent] };
+            Assert.Empty(Run(rule, s));
+            Assert.Equal([Note(reason)], rule.NotChecked(s));
+        }
+    }
+
+    [Fact]
+    public void PO034_names_the_first_agent_with_a_blocker_and_within_it_the_file_before_the_tool()
+    {
+        var rule = new PO034RoleWritesUnusedTable();
+        var clean = B.Agent("demo_a", tools: [Dataverse()]);
+        var blocked = B.Agent("demo_b", tools: [B.Tool("demo_b.topic.T")], unread: ["botcomponents/demo_b.topic.Odd/data"]);
+        var s = Roles2() with { Agents = [blocked, clean] };
+
+        Assert.Equal([Note("agent 'demo_b' file 'botcomponents/demo_b.topic.Odd/data' (YAML keys PowerOps can't map)", 1)], rule.NotChecked(s));
+        Assert.Equal([Note("agent 'demo_b' file 'botcomponents/demo_b.topic.Odd/data' (YAML keys PowerOps can't map)", 1)], rule.NotChecked(s with { Agents = [clean, blocked] }));
+    }
+
+    [Fact]
+    public void PO034_gives_findings_for_an_agent_whose_tools_are_all_known_and_ignores_work_iq_capabilities()
+    {
+        var rule = new PO034RoleWritesUnusedTable();
+        var agent = B.Agent(tools: [Dataverse()]) with { Capabilities = [new AgentCapability("demo_agent.iq.mail", "mail", "Write", "botcomponents/demo_agent.iq.mail/data")] };
+        var s = Roles2() with { Agents = [agent] };
+
+        Assert.Empty(rule.NotChecked(s));
+        Assert.Contains("'pops_a'", Assert.Single(Run(rule, s)).Message);
+    }
+
+    [Fact]
+    public void PO034_counts_a_business_rules_table_and_a_tools_table_as_used()
+    {
+        var rule = new PO034RoleWritesUnusedTable();
+        var role = B.SecurityRole("Front desk", CustomRole, "prvCreatepops_x", "prvWritepops_y", "prvWritepops_z");
+        var rowRule = B.Flow(category: 2) with { ClientData = null, PrimaryEntity = "pops_Y" };
+        var s = WithRoles(role) with { Workflows = [rowRule], Agents = [B.Agent(tools: [Dataverse("pops_zs", "pops_z")])] };
+
+        var f = Assert.Single(Run(rule, s));
+        Assert.Equal("Role 'Front desk' has Create on 'pops_x', which no component in the solution uses, so it may grant more than the solution needs.", f.Message);
+        Assert.Empty(rule.NotChecked(s));
+        Assert.Empty(Run(rule, s with { Agents = [B.Agent(tools: [Dataverse("pops_xs", "pops_x"), Dataverse("pops_zs", "pops_z")])] }));
+    }
+
+    [Fact]
+    public void PO034_still_blocks_on_a_workflow_with_no_definition_unless_it_is_a_business_rule_with_a_table()
+    {
+        var rule = new PO034RoleWritesUnusedTable();
+        var reason = "a workflow with no readable definition";
+
+        foreach (var w in new[] { B.Flow(category: 0) with { ClientData = null, PrimaryEntity = "account" }, B.Flow(category: 2) with { ClientData = null } })
+        {
+            Assert.Equal([Note(reason)], rule.NotChecked(Roles2() with { Workflows = [w] }));
+        }
+
+        Assert.Empty(rule.NotChecked(Roles2() with { Workflows = [B.Flow(category: 2) with { ClientData = null, PrimaryEntity = "account" }] }));
+    }
+
+    [Fact]
+    public void PO034_reads_a_flow_tool_through_the_flow_check()
+    {
+        var rule = new PO034RoleWritesUnusedTable();
+        var role = B.SecurityRole("Front desk", CustomRole, "prvWritepops_a");
+        AgentTool FlowTool(string id) => B.Tool(action: "InvokeFlowTaskAction") with { FlowId = id };
+        Solution With(Workflow flow) => WithRoles(role) with { Workflows = [flow], Agents = [B.Agent(tools: [FlowTool(B.Guid(0xaa))])] };
+        var naming = B.Flow(id: B.Guid(0xaa)) with { ClientData = """{"entityName":"pops_a"}""" };
+        var other = B.Flow(id: B.Guid(0xaa)) with { ClientData = """{"entityName":"pops_other"}""" };
+        var classic = B.Flow(id: B.Guid(0xaa), category: 0) with { ClientData = null };
+
+        Assert.Empty(Run(rule, With(naming)));
+        Assert.Empty(rule.NotChecked(With(naming)));
+        Assert.Single(Run(rule, With(other)));
+        Assert.Empty(rule.NotChecked(With(other)));
+        Assert.Empty(Run(rule, With(classic)));
+        Assert.Equal(["PO034 not checked for role 'Front desk': 1 of the tables it can create or write are used by no component PowerOps reads, and the solution holds a workflow with no readable definition, whose table use isn't read."], rule.NotChecked(With(classic)));
     }
 
     [Fact]
