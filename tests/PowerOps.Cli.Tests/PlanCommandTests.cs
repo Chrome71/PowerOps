@@ -55,12 +55,12 @@ public class PlanCommandTests : IDisposable
     [Fact]
     public void Draft_plan_prints_one_line_and_a_summary()
     {
-        Plan("status: draft\nreview: pending", "# Plan\n## Open questions\n- one\n");
+        Plan("status: draft\nreview: pending", "# Plan\n## Open questions\n- one\n## Questions for your admin\n- ask\n");
 
         var (code, output, _) = Run("plan", "status", _temp);
 
         Assert.Equal(0, code);
-        Assert.Contains(": draft, review pending, 1 open question\n", output.Replace("\r\n", "\n"));
+        Assert.Contains(": draft, review pending, 1 open question, 1 admin question\n", output.Replace("\r\n", "\n"));
         Assert.EndsWith("1 plan, 0 violations, 0 warnings\n", output.Replace("\r\n", "\n"));
     }
 
@@ -122,7 +122,7 @@ public class PlanCommandTests : IDisposable
     [Fact]
     public void Json_has_the_documented_shape_and_is_printed_on_failure_too()
     {
-        Plan("status: approved\nreview: done\nenvironment: Contoso Dev", "# Plan\n## Open questions\n- a\n- b\n");
+        Plan("status: approved\nreview: done\nenvironment: Contoso Dev", "# Plan\n## Open questions\n- a\n- b\n## Questions for your admin\n- c\n");
         File.WriteAllText(Path.Combine(PlanDir(), "review.md"), $"plan-hash: {new string('a', 64)}\n");
         File.WriteAllText(Path.Combine(PlanDir(), "notes.md"), "mail me at a@contoso.example\n");
 
@@ -138,6 +138,7 @@ public class PlanCommandTests : IDisposable
         Assert.Equal(JsonValueKind.Null, plan.GetProperty("signedOff").ValueKind);
         Assert.Equal("Contoso Dev", plan.GetProperty("environment").GetString());
         Assert.Equal(2, plan.GetProperty("openQuestions").GetInt32());
+        Assert.Equal(1, plan.GetProperty("adminQuestions").GetInt32());
         Assert.Matches("^[0-9a-f]{64}$", plan.GetProperty("bodyHash").GetString());
         Assert.Single(plan.GetProperty("violations").EnumerateArray());
         Assert.Single(plan.GetProperty("warnings").EnumerateArray());
@@ -309,6 +310,32 @@ public class PlanCommandTests : IDisposable
         }
     }
 
+    [Fact]
+    public void Sign_off_names_a_stale_review_on_stderr_and_still_signs()
+    {
+        Plan("status: approved\nreview: done");
+        File.WriteAllText(Path.Combine(PlanDir(), "review.md"), $"plan-hash: {new string('a', 64)}\n");
+
+        var (code, _, err) = Run("plan", "sign-off", PlanDir());
+
+        Assert.Equal(0, code);
+        Assert.Contains("signed-off-hash:", File.ReadAllText(Path.Combine(PlanDir(), "plan.md")));
+        Assert.Equal("warning: review.md was written for a different version of the plan (stale review)\n", err.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void Sign_off_over_a_current_review_prints_no_warning()
+    {
+        Plan("status: approved\nreview: done");
+        var hash = PowerOps.Core.Plans.PlanChecker.Check(Path.Combine(PlanDir(), "plan.md"), _temp).BodyHash;
+        File.WriteAllText(Path.Combine(PlanDir(), "review.md"), $"plan-hash: {hash}\n");
+
+        var (code, _, err) = Run("plan", "sign-off", PlanDir());
+
+        Assert.Equal(0, code);
+        Assert.Equal("", err);
+    }
+
     // The shape of the plan folder of the 2026-11-04 live run, marked as M54 asks: an orchestrating agent answered the
     // route, signed off and accepted findings, and the build left a stray in Dev.
     [Fact]
@@ -346,7 +373,7 @@ public class PlanCommandTests : IDisposable
 
         var text = output.Replace("\r\n", "\n");
         Assert.Equal(0, code);
-        Assert.Contains(": signed-off, review skipped, 0 open questions\n  writes writes.md: 2 entries, 1 open cleanup\n", text);
+        Assert.Contains(": signed-off, review skipped, 0 open questions, 0 admin questions\n  writes writes.md: 2 entries, 1 open cleanup\n", text);
         Assert.Contains($"  warning: sign-off answered by an agent ({Path.Combine(PlanDir(), "decisions.md").Replace('\\', '/')}:13): only a person signs off a plan\n", text);
         Assert.Contains($"  warning: acceptance answered by an agent ({Path.Combine(PlanDir(), "decisions.md").Replace('\\', '/')}:14): only a person accepts a High finding or a security gap\n", text);
         Assert.EndsWith("1 plan, 0 violations, 2 warnings\n", text);

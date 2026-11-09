@@ -45,14 +45,30 @@ public class PlanStatusReportTests
         PlanStatusReport.WriteText([PlanChecker.Check(Path.Combine(t.Path, "docs", "plans", "demo", "plan.md"), t.Path)], w);
 
         Assert.Equal(
-            "docs/plans/demo: draft, review pending, 0 open questions\n"
-            + "  report review.md: state null, stale (plan) null\n"
+            "docs/plans/demo: draft, review pending, 0 open questions, 0 admin questions\n"
+            + "  report review.md: stale (plan) null\n"
             + "  report security-solution.md: state 'ok ::error::forged [31m', stale (plan) null, input null, solution-hash unknown, stale (solution) unknown\n"
             + "  report verify.md: state 'ready', stale (plan) false, input 'a/b', solution-hash unknown, stale (solution) unknown\n"
             + "  warning: review.md has no plan-hash line\n"
             + "  warning: security-solution.md has an unknown state 'ok ::error::forged [31m' (expected ready, blocked, failed or dropped)\n"
             + "1 plan, 0 violations, 2 warnings\n",
             w.ToString().Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void Only_review_md_leaves_out_a_missing_state()
+    {
+        using var t = new TempFolder();
+        t.Write("docs/plans/a/plan.md", Plan("draft", "pending", "# Plan\n"));
+        t.Write("docs/plans/a/review.md", "state: ready\n");
+        t.Write("docs/plans/a/verify.md", "findings\n");
+
+        var w = new StringWriter();
+        PlanStatusReport.WriteText([PlanChecker.Check(Path.Combine(t.Path, "docs", "plans", "a", "plan.md"), t.Path)], w);
+
+        var text = w.ToString().Replace("\r\n", "\n");
+        Assert.Contains("  report review.md: state 'ready', stale (plan) null\n", text);
+        Assert.Contains("  report verify.md: state null, stale (plan) null, input null,", text);
     }
 
     [Fact]
@@ -71,14 +87,14 @@ public class PlanStatusReportTests
         PlanStatusReport.WriteText([.. PlanChecker.Discover(t.Path).Select(f => PlanChecker.Check(f, t.Path))], w);
 
         Assert.Equal(
-            "docs/plans/a: draft, review pending, 0 open questions\n"
-            + "  report review.md: state null, stale (plan) null\n"
+            "docs/plans/a: draft, review pending, 0 open questions, 0 admin questions\n"
+            + "  report review.md: stale (plan) null\n"
             + "  writes writes.md: 1 entry, 1 open cleanup\n"
             + "  warning: review.md has no plan-hash line\n"
-            + "docs/plans/b: draft, review pending, 0 open questions\n"
+            + "docs/plans/b: draft, review pending, 0 open questions, 0 admin questions\n"
             + "  writes writes.md: not read\n"
             + "  warning: docs/plans/b/writes.md: a binary file, not read\n"
-            + "docs/plans/c: draft, review pending, 0 open questions\n"
+            + "docs/plans/c: draft, review pending, 0 open questions, 0 admin questions\n"
             + "  writes writes.md: 2 entries, 0 open cleanups\n"
             + "3 plans, 0 violations, 2 warnings\n",
             w.ToString().Replace("\r\n", "\n"));

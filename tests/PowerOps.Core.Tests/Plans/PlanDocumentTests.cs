@@ -110,7 +110,7 @@ public class PlanDocumentTests
     }
 
     [Fact]
-    public void Counts_top_level_list_items_under_the_two_headings_only()
+    public void Counts_top_level_list_items_under_the_two_headings_apart()
     {
         var doc = PlanDocument.Parse("""
             ---
@@ -134,6 +134,7 @@ public class PlanDocumentTests
             - not counted
             """.Replace("\r\n", "\n"));
 
-        Assert.Equal(5, doc.OpenQuestions);
+        Assert.Equal(4, doc.OpenQuestions);
+        Assert.Equal(1, doc.AdminQuestions);
     }
 }

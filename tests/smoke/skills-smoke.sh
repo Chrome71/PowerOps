@@ -13,7 +13,7 @@ set -euo pipefail
 agent="${1:?usage: skills-smoke.sh claude|codex}"
 case "$agent" in claude | codex) ;; *) echo "unknown agent: $agent" >&2; exit 2 ;; esac
 max_turns="${SMOKE_MAX_TURNS:-12}"
-# What Claude may run without asking, and who the simulated user is; scenario 7 changes both.
+# What Claude may run without asking, and who the simulated user is; scenarios 7 and 8 change both.
 allowed_tools="Bash(powerops *)"
 user_role="planning a Microsoft Power Platform project with you"
 
@@ -393,6 +393,121 @@ if [ -f "$plan/writes.md" ]; then
   [ "$(jq '.plans[0].writes.openCleanup // 0' <<<"$status")" -ge 1 ] || fail "plan status counts no open cleanup"
 else
   fail "no writes.md in the plan folder"
+fi
+
+# 8. A build whose step needs something the plan lacks: it stops, hands the change to powerops-plan, and resumes only on
+# a new sign-off. The fake `tenant` logs each call with the plan's signed-off-hash at that moment; `create table Loan`
+# fails until a Keeper table exists. The simulated user owns the plan and says yes to the Keeper table, every write,
+# the review and the sign-off. On Codex the sandbox may refuse the commits; nothing here needs them.
+scenario=amendment
+new_repo
+tenant_log="$work/amendment-tenant.log"
+tenant_state="$work/amendment-tenant"
+plan="$dir/docs/plans/loans"
+mkdir -p "$tenant_state" "$plan"
+: >"$tenant_log"
+cat >"$work/path/tenant" <<FAKE
+#!/bin/sh
+hash="\$(sed -n '2,/^---/p' "$plan/plan.md" | sed -n 's/^signed-off-hash:[[:space:]]*//p' | head -n 1)"
+printf '%s %s\n' "\$hash" "\$*" >>"$tenant_log"
+case "\$1" in
+create)
+  if [ "\$2 \$3" = "table Loan" ] && [ ! -e "$tenant_state/table-Keeper" ]; then
+    [ -e "$tenant_state/failed-at" ] || wc -l <"$tenant_log" >"$tenant_state/failed-at"
+    echo "error: Loan needs a lookup to a Keeper table, which the plan doesn't have" >&2
+    exit 1
+  fi
+  if [ "\$2 \$3" = "table Payment" ] && [ ! -e "$tenant_state/table-Loan" ]; then echo "error: Payment needs the Loan table first" >&2; exit 1; fi
+  touch "$tenant_state/\$2-\$3"
+  echo "saved \$2 \$3 in Dev"
+  exit 0 ;;
+*) echo "usage: tenant create <kind> <name>" >&2; exit 2 ;;
+esac
+FAKE
+chmod +x "$work/path/tenant"
+cat >"$plan/plan.md" <<'PLAN'
+---
+status: approved
+review: skipped
+signed-off: null
+signed-off-hash: null
+environment: Dev
+depth: quick
+supersedes: null
+---
+
+# Equipment loans
+
+## Goal
+
+1. Store keepers record equipment loans in a Loan table.
+
+### Won't build
+
+Nothing was cut.
+
+## Users
+
+Store keepers.
+
+## Data
+
+| Artefact | Kind | Store | Goal line | Reuse, Extend or Create | Why not a column or choice | Rows now, 3 years |
+|---|---|---|---|---|---|---|
+| Loan | table | Dataverse | 1 | Create | a loan has its own dates | 0, 5000 |
+| Payment | table | Dataverse | 1 | Create | a loan has several payments, each with a lookup to its Loan | 0, 5000 |
+
+## Automation
+
+## Screens
+
+None.
+
+## Environments and route
+
+Dev only. This tenant is built only with the `tenant` command on PATH: `tenant create table <name>`. No Microsoft skill, pac, az or Python is used, and no solution is exported.
+
+## Solution and publisher
+
+None in this test.
+
+## Constraints
+
+## Assumptions
+
+## Open questions
+
+## Questions for your admin
+
+## Steps
+
+1. Create the Loan table: `tenant create table Loan`.
+2. Create the Payment table, with its lookup to Loan: `tenant create table Payment`.
+PLAN
+printf -- '# Decisions: loans\n\n## Log\n\n' >"$plan/decisions.md"
+powerops plan sign-off "$plan" >/dev/null
+signed_hash() { sed -n '2,/^---/p' "$plan/plan.md" | sed -n 's/^signed-off-hash:[[:space:]]*//p' | head -n 1; }
+old_hash="$(signed_hash)"
+git -C "$dir" add -A
+git -C "$dir" -c user.name=smoke -c user.email=smoke@example.invalid commit -qm loans
+allowed_tools="Bash(powerops *),Bash(tenant *),Bash(git *)"
+user_role="building a Microsoft Power Platform project for you from a signed-off plan"
+goal="You own the plan and want it built in Dev today. Say yes to adding a Keeper table to the plan, and yes to every write in Dev, every review and every sign-off. Say yes to any sign-in or tool question, and if asked to name the Dev environment, answer: Dev."
+# Done once the plan is signed again, the amendment is logged and the build has resumed (step 1 succeeded).
+converse "Use the powerops-implement skill. Build the loans plan." '[ "$(signed_hash)" != "$old_hash" ] && grep -q "^- amendment:" "$plan/decisions.md" 2>/dev/null && [ -e "$tenant_state/table-Loan" ]' || true
+allowed_tools="Bash(powerops *)"
+user_role="planning a Microsoft Power Platform project with you"
+[ "$(signed_hash)" != "$old_hash" ] || fail "the plan was not signed off again"
+grep -q '^- amendment:' "$plan/decisions.md" || fail "decisions.md has no amendment line"
+[ -e "$tenant_state/table-Loan" ] || fail "the build did not resume after the new sign-off (tenant calls: $(tr '\n' ';' <"$tenant_log"))"
+status="$(powerops plan status "$plan" --json)" || fail "plan status found a violation: $(jq -c '.plans[0].violations' <<<"$status")"
+if [ -s "$tenant_state/failed-at" ]; then
+  # Calls after the first failed one must carry the new hash: the build resumed only on the new sign-off.
+  if tail -n +"$(($(cat "$tenant_state/failed-at") + 1))" "$tenant_log" | grep -q "^$old_hash "; then
+    fail "a tenant call after the failed one carries the old hash (tenant calls: $(tr '\n' ';' <"$tenant_log"))"
+  fi
+else
+  fail "step 1 never failed (tenant calls: $(tr '\n' ';' <"$tenant_log"))"
 fi
 
 echo

@@ -15,6 +15,7 @@ public sealed record PlanReport(
     string? Depth,
     string? Supersedes,
     int OpenQuestions,
+    int AdminQuestions,
     string? BodyHash,
     bool Malformed,
     IReadOnlyList<string> Violations,
@@ -131,7 +132,7 @@ public static partial class PlanChecker
         {
             // One unreadable plan.md is that plan's violation; the other plans are still checked. The runtime's own messages hold the full path, so they are not printed.
             var problem = ex is InvalidDataException ? ex.Message.Replace(planFile, Display(planFile, baseDir), StringComparison.Ordinal) : $"{Display(planFile, baseDir)}: could not be read";
-            return new PlanReport(Display(folder, baseDir), null, null, null, null, null, null, 0, null, false, [problem], [], [], null);
+            return new PlanReport(Display(folder, baseDir), null, null, null, null, null, null, 0, 0, null, false, [problem], [], [], null);
         }
 
         var violations = new List<string>();
@@ -187,6 +188,7 @@ public static partial class PlanChecker
             doc.Header?.Depth,
             doc.Header?.Supersedes,
             doc.OpenQuestions,
+            doc.AdminQuestions,
             doc.BodyHash,
             doc.Header is null,
             violations,
@@ -393,7 +395,7 @@ public static partial class PlanChecker
 
     // State, plan-hash, input and solution-hash come from a report's first six lines (review.md's plan-hash, as before, from the first such line anywhere).
     // A stale or unknown-state report only warns: the report is data, and neither one gates anything.
-    private static List<PlanReportFile> ReadReports(string folder, string baseDir, string? bodyHash, ICollection<string> warnings)
+    internal static List<PlanReportFile> ReadReports(string folder, string baseDir, string? bodyHash, ICollection<string> warnings)
     {
         var reports = new List<PlanReportFile>();
         foreach (var name in ReportFiles)
@@ -587,7 +589,7 @@ public static partial class PlanChecker
                     continue;
                 }
 
-                foreach (var (kind, regex) in new[] { ("URL", UrlRegex()), ("GUID", GuidRegex()), ("email", EmailRegex()) })
+                foreach (var (kind, regex) in new[] { ("URL", UrlRegex()), ("GUID", GuidRegex()), ("email", EmailRegex()), ("personal environment name", PersonalEnvironmentRegex()) })
                 {
                     if (regex.IsMatch(lines[i]))
                     {
@@ -857,6 +859,10 @@ public static partial class PlanChecker
 
     [GeneratedRegex("https?://")]
     private static partial Regex UrlRegex();
+
+    // The default name of a Developer environment is its owner's name plus 's Environment (Learn shows both casings, and a second one as 's (1) environment). Case-sensitive, so prose such as "the user's environment" stays quiet unless it is on an environment: line.
+    [GeneratedRegex(@"['’]s(?: \(\d+\))? Environment\b|^\s*environment:.*['’]s(?: \(\d+\))? environment\b")]
+    private static partial Regex PersonalEnvironmentRegex();
 
     [GeneratedRegex(@"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b")]
     private static partial Regex GuidRegex();

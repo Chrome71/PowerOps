@@ -22,11 +22,12 @@ public static class PlanStatusReport
                 ? $"{Clean(p.Path)}: malformed header"
                 : p.Status is null
                     ? $"{Clean(p.Path)}: plan.md not read"
-                    : $"{Clean(p.Path)}: {p.Status}, review {p.Review}, {Plural(p.OpenQuestions, "open question")}");
+                    : $"{Clean(p.Path)}: {p.Status}, review {p.Review}, {Plural(p.OpenQuestions, "open question")}, {Plural(p.AdminQuestions, "admin question")}");
             foreach (var r in p.Reports)
             {
-                // The state is text from the report; null (not stated, or not read) is printed as it is.
-                writer.WriteLine($"  report {Clean(r.File)}: state {(r.State is null ? "null" : $"'{Clean(r.State)}'")}, stale (plan) {(r.Stale is { } stale ? (stale ? "true" : "false") : "null")}"
+                // The state is text from the report; null (not stated, or not read) is printed as it is, except for review.md, which has no state line unless a reviewer adds one.
+                var state = r.State is null && r.File == "review.md" ? "" : $"state {(r.State is null ? "null" : $"'{Clean(r.State)}'")}, ";
+                writer.WriteLine($"  report {Clean(r.File)}: {state}stale (plan) {(r.Stale is { } stale ? (stale ? "true" : "false") : "null")}"
                     + (r.SolutionHash is null ? "" : $", input {(r.Input is null ? "null" : $"'{Clean(r.Input)}'")}, solution-hash {r.SolutionHash}, stale (solution) {(r.SolutionStale is { } changed ? (changed ? "true" : "false") : "unknown")}"));
             }
 
@@ -66,6 +67,7 @@ public static class PlanStatusReport
                 depth = p.Depth,
                 supersedes = p.Supersedes,
                 openQuestions = p.OpenQuestions,
+                adminQuestions = p.AdminQuestions,
                 bodyHash = p.BodyHash,
                 reports = p.Reports.Select(r => new { file = r.File, state = r.State, stale = r.Stale, input = r.Input, solutionHash = r.SolutionHash, solutionStale = r.SolutionStale }),
                 writes = p.Writes is { } j ? new { entries = j.Entries, openCleanup = j.OpenCleanup } : null,

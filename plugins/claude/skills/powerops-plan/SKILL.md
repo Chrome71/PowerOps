@@ -39,13 +39,11 @@ Never run `pac` yourself. Read environment facts only for an environment the use
 
 1. Ask, as a question of round 1, which environment the plan targets and whether `pac` is signed in to it. End your turn and wait.
 2. Run `powerops plan facts` once, and only after the user has named the environment and said `pac` is signed in to it.
-3. Output with `"available": true` lists the environment `pac` is signed in to and the existing solutions (names, versions, managed flag). If that environment is not the one the user named, say only that they differ. Use none of the facts, and write that environment's name nowhere: not in a plan file, and not repeated in chat. Otherwise use the facts to answer questions instead of asking them.
+3. Output with `"available": true` lists the environment `pac` is signed in to and the existing solutions (names, versions, managed flag). If that environment is not the one the user named, say only that they differ. Use none of the facts, and write that environment's name nowhere, not even in chat. Otherwise use the facts to answer questions instead of asking them.
 4. If `available` is false, tell the user the `reason` and the `fix` in your next message, in one line. Do not run the fix. Add a line to Assumptions in `plan.md` that environment facts were not available. Carry on.
 5. If the user names no environment, or `pac` is not signed in to it, do not run `powerops plan facts`. Plan from the repo and add a line to Assumptions in `plan.md` that environment facts were not read. Carry on.
 6. The facts do not contain the publisher prefix. Take it from the repo if a solution there shows it. Otherwise ask.
-7. Write `environment:` in the header only after the user confirms the environment. In the fast path (section 8), a request that names the environment counts as that confirmation.
-8. Never write any other environment's name in a plan file. Refer to the others by role (Dev, Test, Prod). Never offer other environments as targets unless the user names them.
-9. In `decisions.md`, write "the environment found by plan facts" instead of its name.
+7. Once the user confirms the environment (in the fast path, a request naming it), write its role, `environment: Dev`, never its name, which can hold a person's name; in `decisions.md`, write "the environment found by plan facts". Refer to every environment by role (Dev, Test, Prod), and offer none as a target unless the user names it.
 
 ## 4. Tenant data
 
@@ -149,7 +147,7 @@ After each round, judge engagement from the answers. Mostly one-word or option-n
 
 ## 7. Approve (B)
 
-1. Run `powerops plan status docs/plans/<name> --json`. Show the open-question count and which of the five areas (users, data, automation, environments and ALM, constraints) were never asked.
+1. Run `powerops plan status docs/plans/<name> --json`. Show the open and admin question counts and which of the five areas (users, data, automation, environments and ALM, constraints) were never asked.
 2. If any area was never asked, ask one confirmation: approve anyway, or ask about it first. Wait.
 3. If `Steps` is empty, draft it from the plan and tell the user.
 4. Log the approval under `## Log`. If areas were skipped, log `approved without: <areas>`.
@@ -168,7 +166,7 @@ Use this when the user asks to build without a signed-off plan, or `powerops-imp
 
 1. Draft `plan.md` from the request and the repo. Read no environment facts here, even when the request names an environment: the fast path is offline. Put every guess under Assumptions. The status stays `draft`. Set `depth: quick`.
 2. Ask one question: the route. Use the numbered format of a round question (section 6): two or three options, each with its trade-off in a few words, recommended first, then "In your own words".
-3. Ask the publisher prefix too, only if the repo does not supply it. Ask nothing else, except the sketch question (section 7 step 6). Leave `environment: null` unless the request names an environment by its friendly name; then record that name, and write "the environment named in the request" in `decisions.md`. A URL or an id stays out: leave `environment: null`. Either way, note the assumed target in Assumptions.
+3. Ask the publisher prefix too, only if the repo does not supply it. Ask nothing else, except the sketch question (section 7 step 6). Leave `environment: null` unless the request names an environment; then record its role (`Dev` unless the request says another), and write "the environment named in the request" in `decisions.md`. Either way, note the assumed target in Assumptions.
 4. Log the route in `decisions.md` as a normal question.
 5. Show one lettered menu:
    - **A** approve the draft, then review and sign-off as usual (section 7, from step 3).
@@ -183,7 +181,7 @@ A route answer approves nothing. A bare "approve" means A.
 Run this after the review, or when the user says "sign off".
 
 1. Run `powerops plan status docs/plans/<name> --json`.
-2. Show: the open-question count; the unresolved findings in `review.md` (those with `Resolution: open`, by R-number); and the first three lines of `review.md`.
+2. Show: the open and admin question counts; the unresolved findings in `review.md` (those with `Resolution: open`, by R-number); its first three lines and its `stale` value.
 3. Ask once, lettered: **A** sign off now, **B** go back (resolve findings, or more rounds). When there is no `review.md`, add **C** skip the review and sign off: set `review: skipped` and log it.
 4. On A or C, run `powerops plan sign-off docs/plans/<name>`, then `powerops plan status docs/plans/<name>`, and show the result.
 5. If sign-off refuses, show why and fix the cause with the user.
@@ -192,9 +190,11 @@ To resolve a finding, change the plan if needed and set its line in `review.md` 
 
 ## 10. After sign-off
 
-Any change to the plan body voids the sign-off. If the user wants changes, set `status` back to `draft` (more rounds) or `approved` (small edit), make the change, and sign off again with the tool. The review may then be stale: `plan status` warns about it. Offer a new review.
+Any change to the plan body voids the sign-off. If the user wants changes, set `status` back to `draft` (more rounds) or `approved` (small edit), make the change, and sign off again with the tool. Offer a new review.
 
-**New version.** When the plan is `signed-off`, `implementing` or `done` and the user wants a new version (new scope, a v2, changes after implementation), do not edit it and do not start from scratch:
+**Amendment.** A line `powerops-implement` hands back (its section 3 step 6): edit it in place, even mid-build, set `status: approved`, review as that step says, sign off (section 9), then log `amendment: <line> (answered by: person)`.
+
+**New version.** When the plan is `signed-off`, `implementing` or `done` and the user wants a new version, not an amendment (new scope, a v2, changes after implementation), do not edit it and do not start from scratch:
 
 1. Create `docs/plans/<name>-v2/` (or the next free `-vN`) and copy the previous `plan.md` body into it.
 2. Set the header (resetting `signed-off` and `signed-off-hash` to `null` is the one hand edit of them allowed): `status: draft`, `review: pending`, `signed-off: null`, `signed-off-hash: null`, the same `environment` and `depth`, and `supersedes: <previous folder name>`.
@@ -213,5 +213,4 @@ Offer **D** whenever `Screens` names anything. On D, or a request for a screen, 
 
 - **Claude Code:** use `AskUserQuestion`. It adds "other" for free text by itself.
 - **Codex:** `request_user_input` works only in Plan mode (1 to 3 questions, 2 or 3 options). Elsewhere use plain text.
-- **Gemini CLI:** use `ask_user` or plain text.
-- **GitHub Copilot:** autopilot answers `ask_user` on its own. If autopilot is on, stop (section 1). Otherwise use `ask_user` or plain text.
+- **Gemini CLI, GitHub Copilot:** use `ask_user` or plain text. Copilot's autopilot answers `ask_user` itself: if it is on, stop (section 1).

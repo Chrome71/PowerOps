@@ -32,7 +32,7 @@ PowerOps fills the gap between "I have an idea" and "the agent may start buildin
 4. **No implementation without a signed-off plan.** If the user skips planning, the agent drafts the plan itself (the fast path, below). It does not refuse.
 5. **Interactive only.** The planning skill needs a person to answer. Under an autopilot or non-interactive mode it says so and stops, rather than answering its own questions.
 6. **Review in a fresh context on the provider's top model, and say honestly when that did not happen.** Only the three review roles (the plan reviewer, the Verifier and the Security reviewer) use the expensive model, and none of them asks the user questions; each returns findings. Each report records the model and whether the context was fresh.
-7. **Read-only towards the tenant, and quiet about it.** Planning may read environment facts. It never writes to an environment, and plan files hold only the target environment's name.
+7. **Read-only towards the tenant, and quiet about it.** Planning may read environment facts. It never writes to an environment, and plan files hold only the target environment's role (Dev, Test or Prod), never its name, which can hold a person's name.
 8. **One skill, every agent.** Skills use the open `SKILL.md` format with portable front matter, and fall back to plain text where an agent lacks a feature.
 9. **Zero configuration.** `powerops skills install` and the defaults must be enough.
 
@@ -67,7 +67,7 @@ Body edited after sign-off ──► `powerops plan status` exits 1: "changed si
 | none | draft | `powerops-plan` (rounds or fast path) | `plan.md`, `decisions.md` |
 | draft | approved | `powerops-plan`, only on the user's explicit lettered approval (B in a round menu, A or B in the fast-path menu) | `status`; an "approved without: (areas)" line in `decisions.md` if any area was never asked |
 | approved | approved, `review: done` | `powerops-review-plan`, in a fresh context on the top model, dispatched by the parent session | `review.md` with its header; findings numbered R1, R2... |
-| approved | signed-off | `powerops-plan` sign-off step: shows the open-question count, unresolved findings and the `review.md` header lines, asks once with lettered options, then runs `powerops plan sign-off <plan>` | `status`, `signed-off`, `signed-off-hash`; `review: skipped` if there is no `review.md` and the user chose to skip |
+| approved | signed-off | `powerops-plan` sign-off step: shows the open and admin question counts, unresolved findings, the `review.md` header lines and whether the review is stale, asks once with lettered options, then runs `powerops plan sign-off <plan>` | `status`, `signed-off`, `signed-off-hash`; `review: skipped` if there is no `review.md` and the user chose to skip |
 | signed-off | implementing | `powerops-implement`, after the gate passes | `status` only |
 | implementing | implementing | `powerops-verify`, then `powerops-review-security`, each in a fresh context on the top model, started by `powerops-implement` after the build's final checks | `verify.md` and `security-solution.md`, each with its header and a state (`ready`, `blocked`, `failed` or `dropped`); `status` stays as it is |
 | implementing | done | `powerops-implement`, after the steps, the final `analyze` and `test` and the live checks of the saved version in Dev, or the user accepting each remaining gap by name | `status` only; progress lives in commit messages, not in `plan.md` |
@@ -124,7 +124,7 @@ status: draft
 review: pending          # pending | done | skipped
 signed-off: null         # date, written by `powerops plan sign-off`
 signed-off-hash: null    # sha256 of the body below the header, written by the same command
-environment: null        # target environment name, confirmed by the user before it is written
+environment: null        # the target's role (Dev, Test or Prod), written after the user confirms the environment; never its name
 depth: standard          # quick | standard | deep, or null; how deep the questions go, set from the user's engagement
 supersedes: null         # folder name of the earlier plan this one builds on, or null
 ---
@@ -143,7 +143,7 @@ fresh-context: yes | no
 Plans are committed with the code, so they hold no tenant data:
 
 - Before writing any plan file, the agent redacts URLs, GUIDs, emails and people's names from anything it copies in (answers, `plan facts` output, pasted text). It says so once, at the first write. `powerops plan status` scans the plan folder as a backstop.
-- Only the **target** environment's name is written, and the user confirms it before it is written. Other environments are used to answer questions but are not written down, and are not offered as targets unless the user names them. (In the prototype test, both agents copied every environment name in the tenant into `plan.md`.)
+- Only the **target** environment's role (Dev, Test or Prod) is written, after the user confirms the environment; its name never is, because a Developer environment's default name holds its owner's name and `plan status` refuses it. `powerops-implement` asks the person to name the environment before any tenant read, and gives the build skill that name, never the role. Other environments are used to answer questions but are not written down, and are not offered as targets unless the user names them. (In the prototype test, both agents copied every environment name in the tenant into `plan.md`.)
 - No tenant IDs or credentials.
 
 Questions only someone else can answer (licensing and DLP often sit with an admin) go into a "Questions for your admin" list in `plan.md`, so the user can forward them.
@@ -174,13 +174,14 @@ Facts the environment can answer (existing solutions) are read, not asked, but o
 ### Depth and versions
 
 - **Depth.** `depth` says how far the rounds go. `quick`: one round of at most three questions (licensing, environments, and the first data question when the plan names new data), then B is recommended. `standard`: the protocol above. `deep`: more rounds, plus edge cases, data volume and delegation, security roles and testability, and fuller Steps. A new plan starts at the depth of the plan it supersedes, else of the plan.md with the newest modification time that has one, else `standard`; the fast path sets `quick`. After each round the agent judges engagement from the answers: mostly one-word or option-number answers, "just pick" or a request to speed up move it one level down; long answers in the user's own words, follow-up questions or a request for more detail move it one level up. It changes at most once per round, writes the new value in the header, logs `depth: <old> -> <new> (<reason>)` in `decisions.md` and mentions it in one of the three change lines. A resumed plan keeps its `depth`.
-- **Versions.** When a `signed-off`, `implementing` or `done` plan needs a new version (new scope, a v2, changes after implementation), the agent leaves it as it is and creates `docs/plans/<name>-v2/` (or the next free `-vN`) from a copy of its body, with `status: draft`, `review: pending`, no sign-off, the same `environment` and `depth`, and `supersedes: <previous folder>`. It asks only about what changes. A small edit to a signed-off plan that is not yet implementing still goes back to `approved` and is re-signed.
+- **Versions.** When a `signed-off`, `implementing` or `done` plan needs a new version, not an amendment (new scope, a v2, changes after implementation), the agent leaves it as it is and creates `docs/plans/<name>-v2/` (or the next free `-vN`) from a copy of its body, with `status: draft`, `review: pending`, no sign-off, the same `environment` and `depth`, and `supersedes: <previous folder>`. It asks only about what changes. A small edit to a signed-off plan that is not yet implementing still goes back to `approved` and is re-signed.
+- **Amendments.** When a build stops on a choice that changes a plan line, or a step that cannot be done as written, `powerops-implement` stays stopped, notes the header's `signed-off-hash` and hands to `powerops-plan` section 10. That skill edits the line in place, even mid-build, sets `status: approved`, runs a fresh `powerops-review-plan` when scope, data, security or cost changed (another amendment may keep the old review, which the sign-off names as stale), has the person sign off with `powerops plan sign-off`, and logs `amendment: <line> (answered by: person)`. The build resumes only once the `signed-off-hash` differs from the noted one and `plan status` shows no violation, and logs the question and its answer last. It resumes from the commit messages and `writes.md`, so a committed step is not redone.
 
 ## Fast path
 
 If the user asks to implement without a signed-off plan:
 
-1. `powerops-plan` drafts `plan.md` from the request and the repo. It reads no environment facts here, even when the request names an environment: the fast path is offline. It leaves `environment: null` unless the request names an environment by its friendly name; then it records that name, which counts as the user's confirmation, and writes "the environment named in the request" in `decisions.md`. A URL or an id stays out of the plan, so it leaves `environment: null` for those. Every guess goes under Assumptions, and `status` stays `draft`.
+1. `powerops-plan` drafts `plan.md` from the request and the repo. It reads no environment facts here, even when the request names an environment: the fast path is offline. It leaves `environment: null` unless the request names an environment; then it records the environment's role (`Dev` unless the request says another), which counts as the user's confirmation, and writes "the environment named in the request" in `decisions.md`. Every guess goes under Assumptions, and `status` stays `draft`.
 2. It asks one question: the route, with two or three options and the trade-offs, recommended first. It may ask one more, the publisher prefix, when the repo does not supply it. It asks nothing else.
 3. Then it shows one lettered menu:
    - **A** approve the draft (then review and sign-off as usual)
@@ -268,7 +269,7 @@ It also lists `writes.md` (its rows and open cleanups) and warns, without a viol
 | 2 | Usage error, or a malformed plan header |
 | 3 | Internal error |
 
-`--json` prints each plan's status, review state, `environment`, `depth`, `supersedes`, counted open questions (the list items under `## Open questions` and `## Questions for your admin`), body hash, `reports` and violations. `reports` lists `review.md`, `security-solution.md` and `verify.md`, in that order, when present, each with its `state`, whether it is `stale` (the plan changed) and, for the two solution reports, whether it is `solutionStale` (the solution its `input:` names changed) ([Command reference](COMMANDS.md#plan-and-skills)). It warns, but does not fail, when a report's `plan-hash` differs from the current body (a stale report, `review.md` included), when a solution report's `solution-hash` differs from that solution's digest, or when a report's `state` is not `ready`, `blocked`, `failed` or `dropped`.
+`--json` prints each plan's status, review state, `environment`, `depth`, `supersedes`, counted open questions (`openQuestions`, the list items under `## Open questions`) and admin questions (`adminQuestions`, those under `## Questions for your admin`), body hash, `reports` and violations. `reports` lists `review.md`, `security-solution.md` and `verify.md`, in that order, when present, each with its `state`, whether it is `stale` (the plan changed) and, for the two solution reports, whether it is `solutionStale` (the solution its `input:` names changed) ([Command reference](COMMANDS.md#plan-and-skills)). It warns, but does not fail, when a report's `plan-hash` differs from the current body (a stale report, `review.md` included), when a solution report's `solution-hash` differs from that solution's digest, or when a report's `state` is not `ready`, `blocked`, `failed` or `dropped`.
 
 ## Agent support
 

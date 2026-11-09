@@ -10,6 +10,7 @@
       "depth": "deep",
       "supersedes": "clean",
       "openQuestions": 0,
+      "adminQuestions": 0,
       "bodyHash": "c3964bb3b70a957ec9b233c7dd3653f6ba17701ab00facf88ae1393dc6155577",
       "reports": [],
       "writes": null,
@@ -25,6 +26,7 @@
       "depth": null,
       "supersedes": null,
       "openQuestions": 1,
+      "adminQuestions": 0,
       "bodyHash": "21165810c73c3bcfb7f13fd03398c12df2cada3633a1258940beb93339487829",
       "reports": [],
       "writes": {
@@ -43,6 +45,7 @@
       "depth": null,
       "supersedes": null,
       "openQuestions": 0,
+      "adminQuestions": 0,
       "bodyHash": "b5c76b528b1ed408c24dcb01a3919c0ad0533e560bff686b3306de8eb02d41ec",
       "reports": [
         {

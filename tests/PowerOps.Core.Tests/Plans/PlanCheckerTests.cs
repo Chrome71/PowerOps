@@ -121,7 +121,7 @@ public class PlanCheckerTests : IDisposable
     [Fact]
     public void Sign_off_then_status_is_clean_and_reports_the_header()
     {
-        Write(Plan("approved", "skipped", "# Plan\n\n## Open questions\n- one\n- two\n"));
+        Write(Plan("approved", "skipped", "# Plan\n\n## Open questions\n- one\n- two\n\n## Questions for your admin\n- ask\n"));
 
         var signed = SignOff();
         var r = Check();
@@ -131,6 +131,7 @@ public class PlanCheckerTests : IDisposable
         Assert.Equal("signed-off", r.Status);
         Assert.Equal("2026-10-19", r.SignedOff);
         Assert.Equal(2, r.OpenQuestions);
+        Assert.Equal(1, r.AdminQuestions);
         Assert.Equal("docs/plans/demo", r.Path);
     }
 
@@ -176,6 +177,10 @@ public class PlanCheckerTests : IDisposable
     [InlineData("see https://contoso.example/x", "URL", "contoso.example")]
     [InlineData("id 00000000-0000-0000-0000-000000000000 here", "GUID", "00000000-0000")]
     [InlineData("ask admin@contoso.example", "email", "admin@contoso")]
+    [InlineData("environment: Jane Doe's Environment", "personal environment name", "Jane")]
+    [InlineData("environment: Jane Doe’s environment", "personal environment name", "Jane")]
+    [InlineData("environment: Jane Doe's (1) environment", "personal environment name", "Jane")]
+    [InlineData("see Jane Doe's Environment", "personal environment name", "Jane")]
     public void Tenant_data_is_reported_with_file_and_line_but_never_the_value(string line, string kind, string value)
     {
         Write(Plan());
@@ -185,6 +190,20 @@ public class PlanCheckerTests : IDisposable
 
         Assert.Equal($"docs/plans/demo/mockups/page.html:2: looks like a {kind}; remove it, or add <!-- plan-status: allow --> to the line", violation);
         Assert.DoesNotContain(value, violation);
+    }
+
+    [Theory]
+    [InlineData("environment: Dev")]
+    [InlineData("the user's environment")]
+    [InlineData("Codex's environment")]
+    [InlineData("Each maker's environment")]
+    [InlineData("environment: Jane Doe's environments")]
+    public void Prose_and_product_possessives_are_not_a_personal_environment_name(string line)
+    {
+        Write(Plan());
+        _t.Write("docs/plans/demo/mockups/page.html", $"<p>ok</p>\n{line}\n");
+
+        Assert.Empty(Check().Violations);
     }
 
     [Fact]
