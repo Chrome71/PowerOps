@@ -1,11 +1,11 @@
 ---
-status: approved
+status: implementing
 review: done
 environment: null
 depth: quick
 supersedes: null
-signed-off: null
-signed-off-hash: null
+signed-off: 2026-11-09
+signed-off-hash: 975261e0736b64b2c27ece92fbe30734f8e80fc20457f141d4da54da0f7ac06b
 ---
 
 # M73: An agent in the import is named before every yes, and `deploy apply` reads the agents back
