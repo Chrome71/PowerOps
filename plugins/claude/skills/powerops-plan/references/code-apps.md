@@ -10,6 +10,7 @@ Read this when a plan names a code app. Write the answers in `Users`, `Data`, `S
 - **Data sources.** Each one the app reads or writes, and whether it is premium.
 - **The solution.** The target solution by its id, which the first push takes as `--solution-id`, so the app lands in that solution.
 - **Content security policy.** It is set per environment. List each exception the app needs, with its reason.
+- **Source control.** Code apps don't support Power Platform Git integration, so the app's source lives in the team's own repository and CI, and the solution carries the pushed app.
 - **Nothing sensitive in app assets.** They are served from an endpoint anyone can reach, so data belongs in a data source.
 - **The first push.** Microsoft's `create-code-app` ends with a baseline `pa app push` that it treats as approved. It is a write: it needs the user's yes, and goes to Dev only.
 
@@ -26,3 +27,7 @@ Checked on 2026-11-03:
 - [System configuration](https://learn.microsoft.com/power-apps/developer/code-apps/system-limits-configuration): app assets on a public endpoint; keep sensitive data out of the app.
 - [Power Apps CLI command reference](https://learn.microsoft.com/power-apps/developer/code-apps/reference/cli): `pa app push`.
 - [code-apps plugin](https://github.com/microsoft/power-platform-skills/tree/96d16d0/plugins/code-apps) (MIT) at `96d16d0`: `create-code-app` and its baseline push.
+
+Checked on 2026-11-05:
+
+- [Power Apps code apps overview](https://learn.microsoft.com/power-apps/developer/code-apps/overview): no Power Platform Git integration. The page carries no preview label and sends bugs to standard Microsoft support, but no Learn page read states a general availability date.

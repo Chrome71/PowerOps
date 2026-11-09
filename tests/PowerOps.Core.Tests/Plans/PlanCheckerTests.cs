@@ -1045,4 +1045,60 @@ public class PlanCheckerTests : IDisposable
 
         Assert.Equal([SolutionHash], PlanChecker.ReadyHashes(_t.Path));
     }
+
+    private const string ScreensPlan = "# Plan\n\n## Screens\n\n- Home\n";
+    private const string GoodSketch = "<!-- route: canvas -->\n<p>Sketch</p>\n<section data-screen=\"Home\"><i data-state=\"empty\"></i><i data-state=\"loading\"></i><i data-state=\"error\"></i><i data-state=\"failed-save\"></i></section>\n";
+
+    private SignOffResult SignOffWith(string? log, string? sketch, string body = ScreensPlan)
+    {
+        Write(Plan("approved", "skipped", body));
+        if (log is not null)
+        {
+            _t.Write("docs/plans/demo/decisions.md", $"## Log\n\n{log}\n");
+        }
+
+        if (sketch is not null)
+        {
+            _t.Write("docs/plans/demo/mockups/prototype.html", sketch);
+        }
+
+        return SignOff();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("- prototype: not needed (no screens)")]
+    [InlineData("- prototype: not chosen")]
+    [InlineData("- prototype: skipped (no time) (answered by: agent)")]
+    public void Sign_off_is_refused_for_screens_without_a_valid_prototype_line(string? log)
+    {
+        var r = SignOffWith(log, GoodSketch);
+
+        Assert.Equal(1, r.ExitCode);
+        Assert.Contains("no valid prototype line", Assert.Single(r.Err), StringComparison.Ordinal);
+        Assert.StartsWith("status: approved", File.ReadAllText(PlanFile).Split('\n')[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Sign_off_is_refused_for_an_approved_sketch_that_fails_and_for_a_missing_one()
+    {
+        var failing = SignOffWith("- prototype: approved mockups/prototype.html (answered by: person)", "<p>Sketch</p>\n");
+        Assert.Equal(1, failing.ExitCode);
+        Assert.All(failing.Err, e => Assert.StartsWith("error: mockups/prototype.html:", e, StringComparison.Ordinal));
+
+        File.Delete(Path.Combine(Path.GetDirectoryName(PlanFile)!, "mockups", "prototype.html"));
+        Assert.Equal(1, SignOff().ExitCode);
+    }
+
+    [Fact]
+    public void Sign_off_passes_a_passing_sketch_a_persons_skip_and_a_plan_with_no_screens_and_no_line()
+    {
+        Assert.Equal(0, SignOffWith("- prototype: approved mockups/prototype.html (answered by: person)", GoodSketch).ExitCode);
+
+        // A person's skip stands even when a stale sketch fails its checks.
+        Assert.Equal(0, SignOffWith("- prototype: skipped (mock-data slice) (answered by: person)", "<p>x</p>").ExitCode);
+
+        File.Delete(Path.Combine(Path.GetDirectoryName(PlanFile)!, "decisions.md"));
+        Assert.Equal(0, SignOffWith(null, null, "# Plan\n\n## Screens\n\nNone.\n").ExitCode);
+    }
 }

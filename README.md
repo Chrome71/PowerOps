@@ -110,7 +110,7 @@ Every option, output format and exit code is in the [command reference](docs/COM
 
 ## Use it with an AI agent
 
-PowerOps ships five agent skills: three turn an idea into a reviewed, signed-off plan, and two check the build against that plan and read it for security. It also ships an MCP server whose tools run the commands. Add the skills with `powerops skills install`, or install them as a plugin for Claude Code or Codex: see [Use from an agent](docs/USE-WITH-AGENTS.md). With Microsoft's power-platform-skills or Dataverse-skills, follow the [hand-off](docs/HANDOFF.md).
+PowerOps ships six agent skills: four turn an idea into a reviewed, signed-off plan, and two check the build against that plan and read it for security. It also ships an MCP server whose tools run the commands. Add the skills with `powerops skills install`, or install them as a plugin for Claude Code or Codex: see [Use from an agent](docs/USE-WITH-AGENTS.md). With Microsoft's power-platform-skills or Dataverse-skills, follow the [hand-off](docs/HANDOFF.md).
 
 ## Documentation
 

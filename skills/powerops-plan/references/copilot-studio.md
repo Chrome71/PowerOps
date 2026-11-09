@@ -4,8 +4,9 @@ Read this when a plan names a Copilot Studio agent. Write the answers in `Users`
 
 ## 1. The harness first
 
-- **Name the harness and why.** The standard harness runs rule-based agents with topics and predictable answers; the GitHub Copilot harness reasons through multi-step work; the Customer Conversation harness serves customers over voice and chat. An agent can't move between the GitHub Copilot harness and the standard one later.
-- **Prefer the standard harness** unless the job needs another. PowerOps's agent checks (`analyze`, PO027 to PO031) read agents on the standard harness only, and say "not checked" for any other.
+- **Name the harness and why.** The standard harness runs rule-based agents with topics and predictable answers; the GitHub Copilot harness reasons through multi-step work; the Customer Conversation harness serves customers over voice and chat. An agent can't move between the GitHub Copilot harness and the standard one later: an upgrade (preview) copies a standard agent to the GitHub Copilot harness, without its knowledge sources, Power Fx or child agents.
+- **Prefer the standard harness** unless the job needs another. This is PowerOps's advice, not Microsoft's: Learn calls the GitHub Copilot harness the most capable and says neither harness is better for every agent. PowerOps's agent checks (`analyze`, PO027 to PO031) read agents on the standard harness only, and say "not checked" for any other.
+- **Microsoft's tooling.** `copilot-studio-plugin`, the successor of skills-for-copilot-studio, builds for the GitHub Copilot harness, and its `migrate` command converts an agent from the classic (standard) harness. A plan that uses either names the harness change and that PowerOps doesn't check the result.
 - **The orchestration.** Generative or classic. An MCP tool needs generative orchestration.
 
 ## 2. The plan
@@ -42,3 +43,9 @@ Checked on 2026-11-03:
 - [pac copilot](https://learn.microsoft.com/power-platform/developer/cli/reference/copilot): `pack` is local; `init --environment` imports a solution, and the flag defaults to the auth profile's environment.
 - [Add MCP apps to declarative agents](https://learn.microsoft.com/microsoft-365/copilot/extensibility/plugin-mcp-apps) and [Enable your app and custom tools in Microsoft Copilot](https://learn.microsoft.com/power-apps/maker/model-driven-apps/enable-your-app-copilot): where MCP apps render; App MCP is in preview and needs a Microsoft 365 Copilot licence.
 - [mcp-apps plugin](https://github.com/microsoft/power-platform-skills/tree/da8ea7a/plugins/mcp-apps) (MIT) at `da8ea7a`.
+
+Checked on 2026-11-05:
+
+- [Harnesses in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview) and [Choose a harness](https://learn.microsoft.com/microsoft-copilot-studio/guidance/choose-harness): the GitHub Copilot harness "the most capable option", and neither universally better.
+- [Upgrade to the GitHub Copilot harness](https://learn.microsoft.com/microsoft-copilot-studio/upgrade-to-github-copilot-from-standard-harness): a preview copy, without knowledge sources, Power Fx or child agents.
+- [copilot-studio-plugin](https://github.com/microsoft/copilot-studio-plugin/tree/4014ae689d1228d86cb3aaab938b1e66f8e2e10d) (MIT) at `4014ae6`: the successor line in its README and `commands/migrate.md`.

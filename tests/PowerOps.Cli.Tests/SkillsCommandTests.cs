@@ -6,7 +6,7 @@ namespace PowerOps.Cli.Tests;
 
 public partial class SkillsCommandTests : IDisposable
 {
-    private static readonly string[] Skills = ["powerops-plan", "powerops-review-plan", "powerops-implement", "powerops-review-security", "powerops-verify"];
+    private static readonly string[] Skills = ["powerops-plan", "powerops-prototype", "powerops-review-plan", "powerops-implement", "powerops-review-security", "powerops-verify"];
     private readonly string _temp = Directory.CreateTempSubdirectory("powerops-skills-").FullName;
 
     public void Dispose() => Directory.Delete(_temp, recursive: true);
@@ -26,7 +26,7 @@ public partial class SkillsCommandTests : IDisposable
     private static partial Regex NamePattern();
 
     [Fact]
-    public void Empty_dir_gets_both_targets_with_all_five_skills()
+    public void Empty_dir_gets_both_targets_with_all_six_skills()
     {
         var (code, output, _) = Run("skills", "install", _temp);
 
@@ -181,10 +181,11 @@ public partial class SkillsCommandTests : IDisposable
     }
 
     [Theory]
+    [InlineData("powerops-prototype")]
     [InlineData("powerops-review-plan")]
     [InlineData("powerops-review-security")]
     [InlineData("powerops-verify")]
-    public void Only_the_claude_copies_of_the_three_role_skills_get_the_fork_lines(string skill)
+    public void Only_the_claude_copies_of_the_forked_skills_get_the_fork_lines(string skill)
     {
         Run("skills", "install", _temp);
 
@@ -201,6 +202,7 @@ public partial class SkillsCommandTests : IDisposable
     }
 
     [Theory]
+    [InlineData("powerops-prototype/SKILL.md")]
     [InlineData("powerops-review-plan/SKILL.md")]
     [InlineData("powerops-review-security/SKILL.md")]
     [InlineData("powerops-verify/SKILL.md")]
@@ -444,6 +446,19 @@ public partial class SkillsCommandTests : IDisposable
     }
 
     [Fact]
+    public void Prototype_skill_states_the_rules_the_sign_off_checks()
+    {
+        // M70: the skill writes what PlanChecker.PrototypeProblems accepts, so its numbers and markers must match.
+        var text = SkillsCommand.Shipped()["powerops-prototype/SKILL.md"];
+
+        string[] rules = ["At most 40,960 bytes", "`route:`", "\"Sketch\"", "`data-screen=\"<name>\"`", "`href=\"#...\"`", "Write no `@` anywhere", "Never asks the user questions", "powerops plan status docs/plans/<name>"];
+        Assert.All(rules, r => Assert.Contains(r, text));
+        Assert.All(new[] { "empty", "loading", "error", "failed-save" }, s => Assert.Contains($"`data-state=\"{s}\"`", text));
+        Assert.All(new[] { "script", "link", "meta", "base", "iframe", "frame", "object", "embed", "img", "picture", "svg", "form", "video", "audio", "source" }, tag => Assert.Contains($"`{tag}`", text));
+        Assert.All(text, c => Assert.True(c < 128, $"non-ASCII character U+{(int)c:X4}"));
+    }
+
+    [Fact]
     public void Plan_skills_carry_the_ledger_the_data_round_and_item_11()
     {
         var shipped = SkillsCommand.Shipped();
@@ -480,7 +495,7 @@ public partial class SkillsCommandTests : IDisposable
         Assert.Equal(0, code);
         foreach (var root in new[] { ".claude", ".agents" })
         {
-            foreach (var name in ProductReferences.Concat(["data.md", "route.md"]))
+            foreach (var name in ProductReferences.Concat(["data.md", "route.md", "design.md", "logic.md"]))
             {
                 var file = P(root, "skills", "powerops-plan", "references", name);
                 Assert.Equal(SkillsCommand.Shipped()[$"powerops-plan/references/{name}"], File.ReadAllText(file));
@@ -504,11 +519,11 @@ public partial class SkillsCommandTests : IDisposable
         Assert.InRange(plan.IndexOf(Pointer, StringComparison.Ordinal), 0, plan.IndexOf("## 6. Question rounds", StringComparison.Ordinal));
         Assert.Equal(2, Regex.Count(plan, Regex.Escape(Sketch)));
         Assert.True(plan.LastIndexOf(Sketch, StringComparison.Ordinal) > plan.IndexOf("## 8. Fast path", StringComparison.Ordinal));
-        string[] log = ["If a sketch exists or D was offered, log `prototype: approved mockups/prototype.html`", "`prototype: skipped`", "`prototype: not chosen`", "Keep visual detail out of `Screens` and `Steps`"];
-        string[] data = ["## 6. The data round", "1. Where does the data live today?", "6. What is out of this version?"];
-        string[] routeText = ["## 1. The route", "## 2. The sketch", "at most 6 screens and 15 KB", "control map", .. ProductReferences.Select(f => $"`{f}`")];
+        string[] log = ["start `powerops-prototype <name>`", "`prototype: approved mockups/prototype.html`", "`prototype: skipped (<reason>)`", "`prototype: not needed (<reason>)`", "Ask nothing else, except the sketch question (section 7 step 6)", "Keep visual detail out of `Screens` and `Steps`"];
+        string[] data = ["## 6. The data round", "1. Where does the data live today?", "6. What is out of this version?", "`logic.md`"];
+        string[] routeText = ["## 1. The route", "## 2. The sketch", "at most 8 screens and 40 KB (40,960 bytes)", "`prototype: skipped (mock-data slice)`", "control map", "`design.md`", .. ProductReferences.Select(f => $"`{f}`")];
         string[] review = ["Per product, when the plan names it", "more than 12 data visuals", "accordion"];
-        string[] implement = ["## 5. Power BI", "\"not applicable\"", "`powerbi-report-author validate`", "`semantic-model-authoring`", "`powerbi-report-cli`", "`pcf`", "`pac pcf push`", "the sketch's path, not a screenshot"];
+        string[] implement = ["## 5. Power BI", "\"not applicable\"", "`powerbi-report-author validate`", "`semantic-model-authoring`", "`powerbi-report-cli`", "`pcf`", "`pac pcf push`", "the sketch's path, not a screenshot", "pass the plan's `### Theme` block word for word as constraints"];
 
         Assert.All(log, s => Assert.Contains(s, plan));
         Assert.All(data, s => Assert.Contains(s, shipped["powerops-plan/references/data.md"]));
@@ -518,7 +533,16 @@ public partial class SkillsCommandTests : IDisposable
             Assert.Contains("## Sources\n\nChecked on 2026-11-03", shipped[$"powerops-plan/references/{file}"]);
         }
 
+        // M69: the two cross-product references, each with its dated sources.
+        foreach (var file in new[] { "design.md", "logic.md" })
+        {
+            Assert.Contains("## Sources\n\nChecked on 2026-11-05", shipped[$"powerops-plan/references/{file}"]);
+        }
+
         Assert.Contains("12 data visuals", shipped["powerops-plan/references/power-bi.md"]);
+        Assert.All(new[] { "Deployment pipelines don't support PBIR reports", "`allowPurgeData`" }, s => Assert.Contains(s, shipped["powerops-plan/references/power-bi.md"]));
+        Assert.Contains("`copilot-studio-plugin`", shipped["powerops-plan/references/copilot-studio.md"]);
+        Assert.Contains("`logic.md`", route);
         Assert.All(review, s => Assert.Contains(s, shipped["powerops-review-plan/SKILL.md"]));
         Assert.All(implement, s => Assert.Contains(s, shipped["powerops-implement/SKILL.md"]));
     }

@@ -129,7 +129,7 @@ public class PluginManifestTests
         }
 
         // ForClaude compared with itself proves nothing on its own.
-        foreach (var skill in new[] { "powerops-review-plan", "powerops-review-security", "powerops-verify" })
+        foreach (var skill in new[] { "powerops-prototype", "powerops-review-plan", "powerops-review-security", "powerops-verify" })
         {
             Assert.Equal(agent == "claude", actual[$"{skill}/SKILL.md"].Contains("\ncontext: fork\n"));
         }

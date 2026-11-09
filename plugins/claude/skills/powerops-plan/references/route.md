@@ -16,32 +16,33 @@ These are PowerOps's planning rules. Each product file cites Learn for what Lear
 - A report or dashboard over a semantic model: Power BI, which lives outside the solution (`power-bi.md`).
 - An agent that answers or acts in chat: a Copilot Studio agent, on the standard harness unless the job needs another (`copilot-studio.md`).
 
-Write the route in `Screens`, one line per app or page with its reason.
+Write the route in `Screens`, one line per app or page with its reason. When `Screens` names any screen, page, site or report, also read `design.md`: the plan's one Theme block, its accessibility target and the states of each screen. Where an app's business rules, status columns or approvals live: `logic.md`.
 
 ## 2. The sketch
 
-Offer **D** when `Screens` names content the maker lays out freely:
+Offer **D** whenever `Screens` names anything, and start `powerops-prototype` at approval (it holds the file rules):
 
 | Product | Offer |
 |---|---|
 | Canvas | Yes, with the "doesn't map" list in `canvas.md` |
-| Custom pages | Yes: the canvas list applies, and custom pages don't use the modern theme |
+| Custom pages | Yes: the canvas list applies, custom pages don't use the modern theme, and their Fluent UI (v8) controls are deprecated (`canvas.md`) |
 | Power Pages, Bootstrap site | Yes, after the Bootstrap version is known (`power-pages.md`) |
 | Power Pages, code site | Yes: name the UI library |
 | Generative pages | Yes: the user attaches a screenshot of the sketch in the page builder |
 | Power BI | Yes: one 1920 by 1080 page, a box per visual (`power-bi.md`) |
-| Code Apps | No sketch: a mock-data first slice instead (`code-apps.md`) |
-| Model-driven forms, views, site map | No: metadata lays them out, and the list of tabs and sections in `Screens` is the equivalent |
+| Code Apps | No sketch: a mock-data first slice instead (`code-apps.md`), and the person logs `prototype: skipped (mock-data slice)` |
+| Model-driven apps | Yes: the theme (`CustomTheme` values and the header pair), each form's tabs and sections, and each view's columns. Metadata lays the rest out, so the sketch shows intent only (`model-driven.md`) |
 | Flows, tables, agents | No: no screens |
 
 The file:
 
-- One file, `docs/plans/<name>/mockups/prototype.html`: static HTML with inline CSS, no scripts, fonts, images or external links, fake data, and a visible "Sketch" label.
-- Distinct layouts only, at most 6 screens and 15 KB (15,360 bytes).
-- A header comment names the route (canvas, custom page, Bootstrap 3 or 5 site, code site, generative page or Power BI) and, for canvas, the theme as the YAML that Paste theme takes: the one part that transfers directly.
+- One file, `docs/plans/<name>/mockups/prototype.html`: static HTML with inline CSS from the Theme block, no scripts, fonts, images or external links, fake data under the ledger's display names.
+- Distinct layouts only, at most 8 screens and 40 KB (40,960 bytes).
+- Markers the tool checks: the first HTML comment holds a `route:` line (canvas, custom page, Bootstrap 3 or 5 site, code site, generative page, model-driven or Power BI) and the colour pairs; body text holds a visible "Sketch" label; each screen is a `data-screen` element named as in `Screens`, with `data-state` blocks `empty`, `loading`, `error` and `failed-save` (a block may say "none" and why), and a note of who sees it; navigation is `href="#..."` only.
+- For canvas, the header comment also holds the theme as the YAML that Paste theme takes: the one part that transfers directly.
 - Flex and `gap`, no absolute positions or fixed container widths.
 - Text contrast of 4.5:1 and non-text contrast of 3:1, visible labels, DOM order equal to reading order, no positive `tabindex`.
-- Every screen in the sketch is already in `Screens`. Show empty, error and failed-save states, at least as a line of text.
+- Every screen in the sketch is already in `Screens`, with its states as text that says what the user does next.
 
 A passing sketch proves intent, not the build: nothing shows that a build skill follows it. Keep visual detail out of `Screens` and `Steps`, and write no Step that says "match the sketch": the Verifier compares the build with those sections. A control map and control names in the sketch wait until one canvas build has tested whether `canvas-app` uses a sketch.
 
@@ -55,3 +56,7 @@ Checked on 2026-11-03:
 - [Power Apps code apps overview](https://learn.microsoft.com/power-apps/developer/code-apps/overview): the admin setting and Microsoft Entra sign-in.
 - [What is Power Pages?](https://learn.microsoft.com/power-pages/introduction) and [Power Pages security](https://learn.microsoft.com/power-pages/security/power-pages-security): external-facing sites and anonymous users.
 - [Use modern themes in canvas apps](https://learn.microsoft.com/power-apps/maker/canvas-apps/controls/modern-controls/modern-theming): Paste theme takes YAML.
+
+Checked on 2026-11-05:
+
+- [Upgrade Fluent UI controls to modern controls](https://learn.microsoft.com/power-apps/maker/canvas-apps/controls/modern-controls/upgrade-fluent-ui-controls-to-modern): Fluent UI (v8) controls in custom pages are deprecated.
