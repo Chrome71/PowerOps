@@ -1,11 +1,11 @@
 ---
-status: approved
+status: signed-off
 review: done
 environment: null
 depth: quick
 supersedes: null
-signed-off: null
-signed-off-hash: null
+signed-off: 2026-11-09
+signed-off-hash: e7818b388d9415a0257419fc9729c2d34d20ed519a17a92132c827264958ba5d
 ---
 
 # M75: Review evidence for the deployed zip, and a review check on the promotion routes
