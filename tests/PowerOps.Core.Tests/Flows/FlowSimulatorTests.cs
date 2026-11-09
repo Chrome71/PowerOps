@@ -17,6 +17,8 @@ public class FlowSimulatorTests
 
     private static FlowMock Fail(string? error = null) => new("Failed", null, error is null ? null : J(error));
 
+    private static FlowMock TimedOut(string? error = null) => new("TimedOut", null, error is null ? null : J(error));
+
     private static Dictionary<string, IReadOnlyList<FlowMock>> Mocks(params (string Name, FlowMock[] List)[] items) =>
         items.ToDictionary(i => i.Name, i => (IReadOnlyList<FlowMock>)i.List);
 
@@ -978,6 +980,279 @@ public class FlowSimulatorTests
         Assert.Equal(FlowRunOutcome.Invalid, run.Outcome);
         Assert.Contains("'" + mentions + "'", run.Message);
         Assert.Empty(run.Calls);
+    }
+
+    // TimedOut
+
+    private static string Http(string runAfter = "{}") =>
+        "{\"type\":\"Http\",\"inputs\":{\"method\":\"GET\",\"uri\":\"https://contoso.example/x\"},\"runAfter\":" + runAfter + "}";
+
+    private static string RunAfterOn(string action, params string[] statuses) =>
+        "{\"" + action + "\":[" + string.Join(",", statuses.Select(s => "\"" + s + "\"")) + "]}";
+
+    private static string Box(string kind, string actions) => kind switch
+    {
+        "Scope" => "{\"type\":\"Scope\",\"actions\":" + actions + ",\"runAfter\":{}}",
+        "If" => "{\"type\":\"If\",\"expression\":\"@true\",\"actions\":" + actions + ",\"runAfter\":{}}",
+        "Switch" => "{\"type\":\"Switch\",\"expression\":\"a\",\"cases\":{\"A\":{\"case\":\"a\",\"actions\":" + actions + "}},\"runAfter\":{}}",
+        "Until" => "{\"type\":\"Until\",\"expression\":\"@true\",\"limit\":{\"count\":1},\"actions\":" + actions + ",\"runAfter\":{}}",
+        "Foreach" => "{\"type\":\"Foreach\",\"foreach\":[1],\"actions\":" + actions + ",\"runAfter\":{}}",
+        "Nested" => Box("Scope", "{\"Inner\":" + Box("Scope", actions) + "}"),
+        _ => throw new ArgumentException(kind),
+    };
+
+    // A container named Box that holds one timed-out Http action, and a Catch after it on the given statuses.
+    private static string TimeoutFlow(string kind, params string[] catchOn) =>
+        "{\"Box\":" + Box(kind, "{\"Call\":" + Http() + "}") + ",\"Catch\":" + Compose("1", RunAfterOn("Box", catchOn)) + "}";
+
+    private static readonly FlowRunInputs CallTimesOut = In(mocks: Mocks(("Call", [TimedOut()])));
+
+    public static TheoryData<string> Containers() => ["Scope", "If", "Switch", "Until", "Foreach", "Nested"];
+
+    public static TheoryData<string, string> ContainersAndOneStatus()
+    {
+        var data = new TheoryData<string, string>();
+        foreach (var kind in new[] { "Scope", "If", "Switch", "Until", "Foreach", "Nested" })
+        {
+            data.Add(kind, "Failed");
+            data.Add(kind, "TimedOut");
+        }
+
+        return data;
+    }
+
+    [Fact]
+    public void A_TimedOut_mock_runs_the_TimedOut_successor_and_skips_the_Succeeded_and_Failed_ones()
+    {
+        var run = Run("{\"Call\":" + Http() + ",\"OnOk\":" + Compose("1", After("Call")) + ",\"OnFail\":" + Compose("2", After("Call", "Failed"))
+            + ",\"OnTimeout\":" + Compose("3", After("Call", "TimedOut")) + "}", CallTimesOut);
+
+        Assert.Equal(FlowRunOutcome.Finished, run.Outcome);
+        Assert.Equal("TimedOut", St(run, "Call"));
+        Assert.Equal("Succeeded", St(run, "OnTimeout"));
+        Assert.Equal("Skipped", St(run, "OnOk"));
+        Assert.Equal("Skipped", St(run, "OnFail"));
+        Assert.Equal("Succeeded", run.Status);
+    }
+
+    [Fact]
+    public void A_TimedOut_mock_keeps_its_error_and_outputs()
+    {
+        var run = Run("{\"Call\":" + Http() + "}", In(mocks: Mocks(("Call", [new FlowMock("TimedOut", J("""{"statusCode":408}"""), J("""{"code":"RequestTimeout","message":"slow"}"""))]))));
+
+        Assert.Equal("RequestTimeout", (string?)run.Calls["Call"][0].Error!["code"]);
+        Same("""{"statusCode":408}""", run.Calls["Call"][0].Outputs);
+    }
+
+    [Fact]
+    public void An_unhandled_timeout_fails_the_run()
+    {
+        var run = Run("{\"Call\":" + Http() + "}", CallTimesOut);
+
+        Assert.Equal(FlowRunOutcome.Finished, run.Outcome);
+        Assert.Equal("TimedOut", St(run, "Call"));
+        Assert.Equal("Failed", run.Status);
+    }
+
+    [Theory]
+    [InlineData("TimedOut", "Failed")]
+    [InlineData("Failed", "TimedOut")]
+    public void A_handler_that_lists_the_other_status_does_not_handle_it(string actual, string listed)
+    {
+        var mock = actual == "TimedOut" ? TimedOut() : Fail();
+        var run = Run("{\"Call\":" + Http() + ",\"H\":" + Compose("1", After("Call", listed)) + "}", In(mocks: Mocks(("Call", [mock]))));
+
+        Assert.Equal("Skipped", St(run, "H"));
+        Assert.Equal("Failed", run.Status);
+    }
+
+    [Fact]
+    public void A_handler_that_is_itself_skipped_does_not_handle_a_timeout()
+    {
+        var run = Run("{\"Call\":" + Http() + ",\"Other\":" + Compose("0") + ",\"H\":" + Compose("1", "{\"Call\":[\"TimedOut\"],\"Other\":[\"Skipped\"]}") + "}", CallTimesOut);
+
+        Assert.Equal("Skipped", St(run, "H"));
+        Assert.Equal("Failed", run.Status);
+    }
+
+    [Fact]
+    public void A_catch_inside_a_scope_handles_a_timeout_and_the_scope_succeeds()
+    {
+        var run = Run("{\"Try\":" + Box("Scope", "{\"Call\":" + Http() + ",\"Catch\":" + Compose("1", After("Call", "TimedOut")) + "}") + "}", CallTimesOut);
+
+        Assert.Equal("Succeeded", St(run, "Try"));
+        Assert.Equal("Succeeded", St(run, "Catch"));
+        Assert.Equal("Succeeded", run.Status);
+    }
+
+    [Fact]
+    public void A_timeout_in_a_scope_fails_it_with_ActionFailed_and_a_catch_on_both_statuses_reads_the_child_as_TimedOut()
+    {
+        var run = Run("""
+            {"Try":{"type":"Scope","actions":{"Call":{"type":"Http","inputs":{"method":"GET","uri":"https://contoso.example/x"},"runAfter":{}}},"runAfter":{}},
+             "Catch":{"type":"Scope","actions":{
+               "Slow":{"type":"Query","inputs":{"from":"@result('Try')","where":"@equals(item()['status'],'TimedOut')"},"runAfter":{}}},
+               "runAfter":{"Try":["Failed","TimedOut"]}}}
+            """, CallTimesOut);
+
+        Assert.Equal("Failed", St(run, "Try"));
+        Assert.Equal("ActionFailed", (string?)run.Calls["Try"][0].Error!["code"]);
+        Assert.Equal("Succeeded", St(run, "Catch"));
+        Assert.Equal("Succeeded", run.Status);
+        Assert.Equal("Call", (string?)run.Calls["Slow"][0].Outputs!["body"]![0]!["name"]);
+    }
+
+    [Fact]
+    public void A_catch_on_both_statuses_that_ends_in_a_Terminate_Failed_fails_the_run()
+    {
+        var run = Run("""
+            {"Try":{"type":"Scope","actions":{"Call":{"type":"Http","inputs":{"method":"GET","uri":"https://contoso.example/x"},"runAfter":{}}},"runAfter":{}},
+             "Catch":{"type":"Scope","actions":{"T":{"type":"Terminate","inputs":{"runStatus":"Failed"},"runAfter":{}}},
+               "runAfter":{"Try":["Failed","TimedOut"]}}}
+            """, CallTimesOut);
+
+        Assert.Equal("Failed", run.Status);
+        Assert.Equal("Succeeded", St(run, "Catch"));
+    }
+
+    [Theory]
+    [MemberData(nameof(Containers))]
+    public void A_container_that_failed_only_through_a_timeout_is_Failed_and_a_handler_on_both_statuses_runs(string kind)
+    {
+        var run = Run(TimeoutFlow(kind, "Failed", "TimedOut"), CallTimesOut);
+
+        Assert.Equal(FlowRunOutcome.Finished, run.Outcome);
+        Assert.Equal("Failed", St(run, "Box"));
+        Assert.Equal("Succeeded", St(run, "Catch"));
+        Assert.Equal("Succeeded", run.Status);
+    }
+
+    [Theory]
+    [MemberData(nameof(Containers))]
+    public void An_unhandled_timeout_in_a_container_fails_the_run_and_never_reports_TimedOut(string kind)
+    {
+        var run = Run("{\"Box\":" + Box(kind, "{\"Call\":" + Http() + "}") + "}", CallTimesOut);
+
+        Assert.Equal("Failed", St(run, "Box"));
+        Assert.Equal("Failed", run.Status);
+    }
+
+    [Theory]
+    [MemberData(nameof(ContainersAndOneStatus))]
+    public void A_handler_listing_one_of_Failed_and_TimedOut_after_such_a_container_is_unsupported_and_names_both_actions(string kind, string status)
+    {
+        var run = Run(TimeoutFlow(kind, status), CallTimesOut);
+
+        Assert.Equal(FlowRunOutcome.Unsupported, run.Outcome);
+        Assert.Contains("'Catch'", run.Message);
+        Assert.Contains("'Box'", run.Message);
+        Assert.Contains($"on {status} only", run.Message);
+        Assert.Contains("List both", run.Message);
+    }
+
+    [Fact]
+    public void A_handler_on_Succeeded_only_after_such_a_container_is_not_unsupported()
+    {
+        var run = Run(TimeoutFlow("Scope", "Succeeded"), CallTimesOut);
+
+        Assert.Equal(FlowRunOutcome.Finished, run.Outcome);
+        Assert.Equal("Skipped", St(run, "Catch"));
+        Assert.Equal("Failed", run.Status);
+    }
+
+    [Fact]
+    public void A_scope_that_failed_for_a_real_failure_is_handled_by_a_catch_on_Failed_alone()
+    {
+        var run = Run("""
+            {"Box":{"type":"Scope","actions":{"Bad":{"type":"Compose","inputs":"@int('x')","runAfter":{}}},"runAfter":{}},
+             "Catch":{"type":"Compose","inputs":1,"runAfter":{"Box":["Failed"]}}}
+            """);
+
+        Assert.Equal(FlowRunOutcome.Finished, run.Outcome);
+        Assert.Equal("Succeeded", St(run, "Catch"));
+        Assert.Equal("Succeeded", run.Status);
+    }
+
+    [Fact]
+    public void An_action_after_the_handler_of_a_timeout_only_container_is_not_timeout_only_itself()
+    {
+        var run = Run("""
+            {"Box":{"type":"Scope","actions":{"Call":{"type":"Http","inputs":{"method":"GET","uri":"https://contoso.example/x"},"runAfter":{}}},"runAfter":{}},
+             "Catch":{"type":"Compose","inputs":1,"runAfter":{"Box":["Failed","TimedOut"]}},
+             "After":{"type":"Compose","inputs":2,"runAfter":{"Catch":["Failed"]}}}
+            """, CallTimesOut);
+
+        Assert.Equal(FlowRunOutcome.Finished, run.Outcome);
+        Assert.Equal("Skipped", St(run, "After"));
+        Assert.Equal("Succeeded", run.Status);
+    }
+
+    [Fact]
+    public void A_scope_with_a_timeout_and_a_real_failure_is_not_timeout_only()
+    {
+        var run = Run("""
+            {"Box":{"type":"Scope","actions":{
+               "Call":{"type":"Http","inputs":{"method":"GET","uri":"https://contoso.example/x"},"runAfter":{}},
+               "Bad":{"type":"Compose","inputs":"@int('x')","runAfter":{}}},"runAfter":{}},
+             "Catch":{"type":"Compose","inputs":1,"runAfter":{"Box":["Failed"]}}}
+            """, CallTimesOut);
+
+        Assert.Equal(FlowRunOutcome.Finished, run.Outcome);
+        Assert.Equal("Succeeded", St(run, "Catch"));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_foreach_with_a_failed_and_a_timed_out_iteration_is_not_timeout_only(bool failFirst)
+    {
+        var mocks = failFirst ? new[] { Fail(), TimedOut() } : [TimedOut(), Fail()];
+        var run = Run("""
+            {"Loop":{"type":"Foreach","foreach":[1,2],"actions":{"Box":{"type":"Scope","actions":{"Call":{"type":"Http","inputs":{"method":"GET","uri":"https://contoso.example/x"},"runAfter":{}}},"runAfter":{}}},"runAfter":{}},
+             "Catch":{"type":"Compose","inputs":1,"runAfter":{"Loop":["Failed"]}}}
+            """, In(mocks: Mocks(("Call", mocks))));
+
+        Assert.Equal(FlowRunOutcome.Finished, run.Outcome);
+        Assert.Equal("Failed", St(run, "Loop"));
+        Assert.Equal("Succeeded", St(run, "Catch"));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_foreach_with_a_timed_out_and_a_succeeded_iteration_is_timeout_only(bool timeoutFirst)
+    {
+        var mocks = timeoutFirst ? new[] { TimedOut(), Ok("""{"statusCode":200}""") } : [Ok("""{"statusCode":200}"""), TimedOut()];
+        var run = Run("""
+            {"Loop":{"type":"Foreach","foreach":[1,2],"actions":{"Call":{"type":"Http","inputs":{"method":"GET","uri":"https://contoso.example/x"},"runAfter":{}}},"runAfter":{}},
+             "Catch":{"type":"Compose","inputs":1,"runAfter":{"Loop":["Failed"]}}}
+            """, In(mocks: Mocks(("Call", mocks))));
+
+        Assert.Equal(FlowRunOutcome.Unsupported, run.Outcome);
+        Assert.Contains("'Loop'", run.Message);
+    }
+
+    [Fact]
+    public void An_Until_whose_body_times_out_and_whose_condition_then_fails_is_not_timeout_only()
+    {
+        var run = Run("""
+            {"Loop":{"type":"Until","expression":"@int('x')","limit":{"count":1},"actions":{
+               "Box":{"type":"Scope","actions":{"Call":{"type":"Http","inputs":{"method":"GET","uri":"https://contoso.example/x"},"runAfter":{}}},"runAfter":{}}},"runAfter":{}},
+             "Catch":{"type":"Compose","inputs":1,"runAfter":{"Loop":["Failed"]}}}
+            """, CallTimesOut);
+
+        Assert.Equal(FlowRunOutcome.Finished, run.Outcome);
+        Assert.Equal("Failed", St(run, "Loop"));
+        Assert.Equal("Succeeded", St(run, "Catch"));
+    }
+
+    [Fact]
+    public void A_Skipped_mock_is_refused_and_the_message_names_the_three_statuses()
+    {
+        var skipped = Run("{\"Call\":" + Http() + "}", In(mocks: Mocks(("Call", [new FlowMock("Skipped", null, null)]))));
+
+        Assert.Equal(FlowRunOutcome.Invalid, skipped.Outcome);
+        Assert.Contains("use Succeeded, Failed or TimedOut", skipped.Message);
     }
 
     // Triggers

@@ -134,7 +134,7 @@ public class OutputSchemaTests
         Flow("\"mocks\":[],"),
         Mock("\"x\""),
         Mock("""{"outputs":{}}"""),
-        Mock("""{"status":"TimedOut"}"""),
+        Mock("""{"status":"Cancelled"}"""),
         Mock("""[{"status":"Succeeded"},{"status":"Skipped"}]"""),
         Mock("""{"status":"Succeeded","error":{"code":"x"}}"""),
         Mock("""{"status":"Failed","error":{"other":"x"}}"""),
@@ -156,7 +156,6 @@ public class OutputSchemaTests
         Assertion("""{"kind":"runStatus","equals":"Succeeded","name":"v"}"""),
         Assertion("""{"kind":"runStatus","equals":"Succeeded","other":1}"""),
         Assertion("""{"kind":"actionStatus","equals":"Succeeded"}"""),
-        Assertion("""{"kind":"actionStatus","action":"A","equals":"TimedOut"}"""),
         Assertion("""{"kind":"actionStatus","action":"A","equals":"Cancelled"}"""),
         Assertion("""{"kind":"actionStatus","action":"A","equals":"Succeeded","path":["a"]}"""),
         Assertion("""{"kind":"actionStatus","action":"A","equals":"Succeeded","name":"v"}"""),
@@ -192,10 +191,10 @@ public class OutputSchemaTests
     public void A_valid_flow_test_is_accepted_by_both_the_schema_and_the_parser()
     {
         var text = Flow(
-            "\"$schema\":\"x\",\"trigger\":{\"headers\":{},\"body\":null},\"mocks\":{\"A\":[{\"status\":\"Failed\",\"error\":{\"code\":\"c\",\"message\":\"m\"}},{\"status\":\"Succeeded\",\"outputs\":{}}]},\"environmentVariables\":{\"a\":null},\"utcNow\":\"t\",\"guid\":\"g\",\"workflow\":{},",
-            "[" + Run + ",{\"kind\":\"actionStatus\",\"action\":\"A\",\"call\":0,\"equals\":\"Skipped\"},{\"kind\":\"outputs\",\"action\":\"A\",\"path\":[\"a\",0],\"equals\":null},{\"kind\":\"variable\",\"name\":\"v\",\"equals\":[1]},{\"kind\":\"response\",\"equals\":{}}]");
+            "\"$schema\":\"x\",\"trigger\":{\"headers\":{},\"body\":null},\"mocks\":{\"A\":[{\"status\":\"Failed\",\"error\":{\"code\":\"c\",\"message\":\"m\"}},{\"status\":\"TimedOut\"},{\"status\":\"TimedOut\",\"error\":{\"code\":\"RequestTimeout\"}},{\"status\":\"Succeeded\",\"outputs\":{}}]},\"environmentVariables\":{\"a\":null},\"utcNow\":\"t\",\"guid\":\"g\",\"workflow\":{},",
+            "[" + Run + ",{\"kind\":\"actionStatus\",\"action\":\"A\",\"call\":0,\"equals\":\"Skipped\"},{\"kind\":\"actionStatus\",\"action\":\"A\",\"equals\":\"TimedOut\"},{\"kind\":\"outputs\",\"action\":\"A\",\"path\":[\"a\",0],\"equals\":null},{\"kind\":\"variable\",\"name\":\"v\",\"equals\":[1]},{\"kind\":\"response\",\"equals\":{}}]");
 
         Assert.Equal("", Errors(Load("flow-test.schema.json"), JsonNode.Parse(text)!));
-        Assert.Equal(5, FlowTestFile.Parse(text, "x.flowtest.json").Assertions.Count);
+        Assert.Equal(6, FlowTestFile.Parse(text, "x.flowtest.json").Assertions.Count);
     }
 }

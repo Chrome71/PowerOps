@@ -1,0 +1,20 @@
+{
+  "$schema": "../../../../docs/schemas/flow-test.schema.json",
+  "flow": "ReadEnvironmentVariable",
+  "trigger": {
+    "headers": { "X-MS-APIM-Tokens": "eyIkQ29ubmVjdGlvbktleSI6ImZha2UifQ==" },
+    "body": { "text": "cat_OrgName" }
+  },
+  "mocks": {
+    "GetDefinitions_2": {
+      "status": "TimedOut",
+      "error": { "code": "RequestTimeout", "message": "The operation timed out." }
+    }
+  },
+  "assertions": [
+    { "kind": "runStatus", "equals": "Succeeded" },
+    { "kind": "actionStatus", "action": "GetDefinitions_2", "equals": "TimedOut" },
+    { "kind": "actionStatus", "action": "Respond_to_a_PowerApp_or_flow", "equals": "Skipped" },
+    { "kind": "response", "path": ["statusCode"], "equals": 409 }
+  ]
+}

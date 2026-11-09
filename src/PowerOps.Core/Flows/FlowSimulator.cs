@@ -4,7 +4,7 @@ using System.Text.Json.Nodes;
 
 namespace PowerOps.Core.Flows;
 
-/// <summary>A mocked action result in the static-result shape: status Succeeded or Failed, optional outputs and error.</summary>
+/// <summary>A mocked action result in the static-result shape: status Succeeded, Failed or TimedOut, optional outputs and error.</summary>
 public sealed record FlowMock(string Status, JsonNode? Outputs, JsonNode? Error);
 
 /// <summary>What a run gets from the test. A null value means the test gave none: reading it makes the run unmocked.</summary>
@@ -77,6 +77,7 @@ public static class FlowSimulator
         private int _count;
         private long _bytes;
         private bool _ended;
+        private bool _timeoutOnly; // the action just run is a container that failed only through unhandled timeouts
         private string? _runStatus;
         private JsonNode? _response;
 
@@ -93,7 +94,7 @@ public static class FlowSimulator
                 }
 
                 var status = RunBlock(actions);
-                return Finish(_runStatus ?? status);
+                return Finish(_runStatus ?? (status == "TimedOut" ? "Failed" : status));
             }
             catch (RunStop stop)
             {
@@ -239,9 +240,9 @@ public static class FlowSimulator
                     throw new RunStop(FlowRunOutcome.Invalid, $"Mock '{name}' is on a {action.Type} action; only OpenApiConnection, OpenApiConnectionWebhook, Http and Workflow actions, and actions with a static result enabled, take a mock.");
                 }
 
-                if (list.FirstOrDefault(m => m.Status is not ("Succeeded" or "Failed")) is { } bad)
+                if (list.FirstOrDefault(m => m.Status is not ("Succeeded" or "Failed" or "TimedOut")) is { } bad)
                 {
-                    throw new RunStop(FlowRunOutcome.Invalid, $"Mock '{name}' has status '{bad.Status}'; use Succeeded or Failed.");
+                    throw new RunStop(FlowRunOutcome.Invalid, $"Mock '{name}' has status '{bad.Status}'; use Succeeded, Failed or TimedOut.");
                 }
             }
         }
@@ -460,14 +461,26 @@ public static class FlowSimulator
             }
 
             var ready = new SortedSet<int>(Enumerable.Range(0, names.Count).Where(i => unmetCount[i] == 0));
+            var timeoutOnly = new HashSet<string>();
             while (!_ended && ready.Count > 0)
             {
                 var next = names[ready.Min];
                 ready.Remove(ready.Min);
 
+                // Learn doesn't say whether a container that failed only through a timeout is Failed or TimedOut, so a handler must list both.
+                if (after[next].FirstOrDefault(p => timeoutOnly.Contains(p.Key) && p.Value.Contains("Failed") != p.Value.Contains("TimedOut")) is { Key: { } container, Value: { } statuses })
+                {
+                    var listed = statuses.Contains("Failed") ? "Failed" : "TimedOut";
+                    throw new RunStop(FlowRunOutcome.Unsupported, $"Action '{next}' runs after '{container}' on {listed} only, and '{container}' failed because an action in it timed out: Learn doesn't say whether '{container}' is then Failed or TimedOut. List both in its runAfter.");
+                }
+
                 if (after[next].All(p => p.Value.Contains(done[p.Key])))
                 {
                     done[next] = RunAction(_actions[next]);
+                    if (_timeoutOnly)
+                    {
+                        timeoutOnly.Add(next);
+                    }
                 }
                 else
                 {
@@ -496,9 +509,11 @@ public static class FlowSimulator
                 SkipAction(name, (JsonObject)action!, null);
             }
 
-            // Failed when an action failed that no action in the block that ran (not Skipped) handles with Failed in its runAfter.
-            bool Handled(string failed) => after.Any(h => h.Value.TryGetValue(failed, out var on) && on.Contains("Failed") && done.TryGetValue(h.Key, out var status) && status != "Skipped");
-            return done.Where(p => p.Value == "Failed").Any(p => !Handled(p.Key)) ? "Failed" : "Succeeded";
+            // An action that ended Failed or TimedOut is handled when an action of the block that ran (not Skipped) lists that same status for it.
+            // The block is Failed when one is unhandled, and TimedOut when every unhandled one timed out or is a container that failed only that way.
+            bool Handled(string name, string status) => after.Any(h => h.Value.TryGetValue(name, out var on) && on.Contains(status) && done.TryGetValue(h.Key, out var ran) && ran != "Skipped");
+            var unhandled = done.Where(p => p.Value is "Failed" or "TimedOut" && !Handled(p.Key, p.Value)).ToList();
+            return unhandled.Count == 0 ? "Succeeded" : unhandled.All(p => p.Value == "TimedOut" || timeoutOnly.Contains(p.Key)) ? "TimedOut" : "Failed";
         }
 
         private static Dictionary<string, string[]> ReadRunAfter(JsonObject block, string name, JsonObject action)
@@ -526,12 +541,14 @@ public static class FlowSimulator
         private string RunAction(ActionInfo action)
         {
             ActionCall call;
+            _timeoutOnly = false;
             try
             {
                 call = Perform(action);
             }
             catch (ExpressionException e)
             {
+                _timeoutOnly = false;
                 call = new ActionCall("Failed", null, null, Error(e.Message));
             }
             catch (UnmockedException e)
@@ -581,7 +598,7 @@ public static class FlowSimulator
                     return Branch(def, chosen?["actions"]);
                 case "Scope":
                     // the capture run (Try): a Scope that fails because of its actions
-                    return RunBlock(def["actions"] as JsonObject) is "Failed"
+                    return Contained(RunBlock(def["actions"] as JsonObject)) is "Failed"
                         ? new("Failed", null, null, new JsonObject { ["code"] = "ActionFailed", ["message"] = "An action failed. No dependent actions succeeded." })
                         : Status("Succeeded");
                 case "Foreach":
@@ -615,6 +632,13 @@ public static class FlowSimulator
 
         private static ActionCall Status(string status) => new(status, null, null, null);
 
+        // Every container ends through here: a block that timed out is recorded Failed, and _timeoutOnly says it did so only through timeouts.
+        private string Contained(string status)
+        {
+            _timeoutOnly = status == "TimedOut";
+            return _timeoutOnly ? "Failed" : status;
+        }
+
         private ActionCall Branch(JsonObject action, JsonNode? taken)
         {
             foreach (var block in Blocks(action).Where(b => !ReferenceEquals(b, taken)))
@@ -622,7 +646,7 @@ public static class FlowSimulator
                 SkipBlock(block, NotTaken);
             }
 
-            return Status(taken is JsonObject block2 ? RunBlock(block2) : "Succeeded");
+            return Status(Contained(taken is JsonObject block2 ? RunBlock(block2) : "Succeeded"));
         }
 
         private JsonNode? EvaluateInputs(ActionInfo action)
@@ -788,6 +812,7 @@ public static class FlowSimulator
             var items = Expression.EvaluateValue(action.Definition["foreach"], this) as JsonArray ?? throw new ExpressionException("The foreach input must be an array.");
             Charge(items); // the array is evaluated again, so copied again, each time the loop runs
             var failed = false;
+            var timedOut = false;
             if (items.Count == 0 && action.Definition["actions"] is JsonObject unused)
             {
                 // the capture run (Empty_inner): the actions in a Foreach with no items are recorded as skipped
@@ -805,7 +830,9 @@ public static class FlowSimulator
                 _frames.Add(new Frame(action.Name, item?.DeepClone(), true));
                 try
                 {
-                    failed |= RunBlock(action.Definition["actions"] as JsonObject) == "Failed";
+                    var result = RunBlock(action.Definition["actions"] as JsonObject);
+                    failed |= result == "Failed";
+                    timedOut |= result == "TimedOut";
                 }
                 finally
                 {
@@ -813,7 +840,7 @@ public static class FlowSimulator
                 }
             }
 
-            return Status(failed ? "Failed" : "Succeeded");
+            return Status(Contained(failed ? "Failed" : timedOut ? "TimedOut" : "Succeeded"));
         }
 
         private ActionCall Until(ActionInfo action)
@@ -842,7 +869,7 @@ public static class FlowSimulator
                 }
             }
 
-            return Status(status);
+            return Status(Contained(status));
         }
 
         private ActionCall ParseJson(ActionInfo action)

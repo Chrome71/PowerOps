@@ -58,12 +58,12 @@
       "required": ["status"],
       "description": "A connector action's result, in the shape of a static result.",
       "properties": {
-        "status": { "enum": ["Succeeded", "Failed"], "description": "The action's status. A simulated run never times out, so TimedOut is not available." },
+        "status": { "enum": ["Succeeded", "Failed", "TimedOut"], "description": "The action's status. TimedOut stands for a timeout; the run doesn't wait." },
         "outputs": { "type": "object", "description": "The action's outputs, as the run history's 'Show raw outputs' shows them: usually 'statusCode', 'headers' and 'body'. Pasted in unchanged." },
         "error": {
           "type": "object",
           "additionalProperties": false,
-          "description": "The action's error. Only with status 'Failed'.",
+          "description": "The action's error. Only with status 'Failed' or 'TimedOut'.",
           "properties": {
             "code": { "type": "string", "minLength": 1, "description": "The error code, for example 'BadGateway'." },
             "message": { "type": "string", "minLength": 1, "description": "The error message." }
@@ -103,7 +103,7 @@
         "kind": { "const": "actionStatus", "description": "Checks an action's status." },
         "action": { "type": "string", "minLength": 1, "description": "The action's name in the flow." },
         "call": { "$ref": "#/$defs/call" },
-        "equals": { "enum": ["Succeeded", "Failed", "Skipped"], "description": "The expected status. TimedOut never occurs in a simulated run." }
+        "equals": { "enum": ["Succeeded", "Failed", "Skipped", "TimedOut"], "description": "The expected status." }
       }
     },
     "inputsOrOutputs": {
