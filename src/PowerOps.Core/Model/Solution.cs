@@ -76,7 +76,8 @@ public sealed record EnvironmentVariable(
 /// <summary>One Power Fx formula (a property value starting with `=`) of a canvas app; `Control` is the app, screen, component or control that holds it.</summary>
 public sealed record CanvasFormula(string App, string Control, string Property, string Formula, string File);
 
-public sealed record Workflow(string Id, string Name, int Category, int? StateCode, string File, string? ClientData);
+/// <summary>`PrimaryEntity` is the `PrimaryEntity` text, null when missing, empty or `none` (cloud flows export `none`); a business rule (category 2) acts on that table (M74).</summary>
+public sealed record Workflow(string Id, string Name, int Category, int? StateCode, string File, string? ClientData, string? PrimaryEntity = null);
 
 /// <summary>One Power Pages component: `Id` is normalized, `Active` is true unless `statecode` is other than 0, and `Content` is the component's `content` JSON object (empty when it has none).</summary>
 public sealed record PowerPageComponent(string Id, int Type, string Name, string? SiteId, bool Active, JsonElement Content, string File);
@@ -117,6 +118,9 @@ public sealed record Agent(string SchemaName, string File, int? AuthenticationMo
     /// <summary>The type-9 components whose top-level kind is not `TaskDialog`, `AdaptiveDialog` (a topic) or `AgentDialog` (a child agent), such as the new authoring UI's `McpTool`, in ordinal order of their file, so a tool they may hold isn't read (M50).</summary>
     public IReadOnlyList<AgentComponent> OtherComponents { get; init; } = [];
 
+    /// <summary>The type-9 topics (`AdaptiveDialog`) and child agents (`AgentDialog`) with a line `kind: Invoke…` or `kind: HttpRequestAction`, in ordinal order of their file; `Kind` is the first such node kind. Such a node can reach a table, and the reader doesn't parse topics (M74).</summary>
+    public IReadOnlyList<AgentComponent> ActionDialogs { get; init; } = [];
+
     /// <summary>The Work IQ workloads (type-9 `IQCapability` components) in ordinal order of their file (M51).</summary>
     public IReadOnlyList<AgentCapability> Capabilities { get; init; } = [];
 
@@ -143,4 +147,11 @@ public sealed record AgentConfiguration(string? Recognizer, bool? GenerativeOrch
 /// An agent tool (a type-9 component whose `data` has `kind: TaskDialog` or `kind: McpTool`; `File` is that `data`): `Action` is `action.kind`, `Mcp` is true for `ModelContextProtocolMetadata` operation details, and `Mode` is `action.connectionProperties.mode`.
 /// An `McpTool` (`Kind`) has no `action`: `Mcp` is true, `Mode` is its `authMode`, and `ConnectionReference` and `OperationId` are its top-level keys of those names (M51); a `TaskDialog` leaves them null.
 /// </summary>
-public sealed record AgentTool(string SchemaName, string? Action, bool Mcp, string? Mode, string File, string? ConnectionReference = null, string? OperationId = null, string Kind = "TaskDialog");
+/// <summary>
+/// `Table` and `FlowId` are set for a `TaskDialog` only (M74). `Table` is null when no item of the tool's top-level `inputs` has `propertyName: entityName`.
+/// `FlowId` is the normalized `action.flowId`, null when missing.
+/// </summary>
+public sealed record AgentTool(string SchemaName, string? Action, bool Mcp, string? Mode, string File, string? ConnectionReference = null, string? OperationId = null, string Kind = "TaskDialog", ToolTable? Table = null, string? FlowId = null);
+
+/// <summary>The table a Dataverse tool names: `EntitySet` is the literal `entityName` of a `ManualTaskInput` (null for a formula, a mapping, an `AutomaticTaskInput` or no value); `Name` is the `Name` of the solution's table whose `EntitySetName` equals it ignoring case, null when none does.</summary>
+public sealed record ToolTable(string? EntitySet, string? Name);
