@@ -90,7 +90,7 @@ public class DeployGateCommandTests : DeployTestBase
     private byte[] SeedCall(string env = TargetIdText, bool mcp = false) => mcp ? Mcp(env, SeedZipPath, SeedSettingsPath, stage: true) : Cli(env, SeedZipPath, SeedSettingsPath, stage: true);
 
     // `during` runs inside the target read, as a slow live read would; `deadline` ends a check that hangs (a test seam, else the 300 seconds).
-    private Outcome Gate(Dictionary<string, FakeTarget> environments, byte[]? stdin, FakePac? pac = null, Action? during = null, TimeSpan? deadline = null)
+    private Outcome Gate(Dictionary<string, FakeTarget> environments, byte[]? stdin, FakePac? pac = null, Action? during = null, TimeSpan? deadline = null, string? planFile = null)
     {
         var (o, e) = (new StringWriter(), new StringWriter());
         DeployTarget Read(string target, IReadOnlyList<string> solutions, IReadOnlyList<string> dependencies)
@@ -103,12 +103,12 @@ public class DeployGateCommandTests : DeployTestBase
         int code;
         if (deadline is null)
         {
-            code = Program.Run(["deploy", "gate", PlanFile], o, e, (pac ?? new FakePac()).Run, null, Read, input);
+            code = Program.Run(["deploy", "gate", planFile ?? PlanFile], o, e, (pac ?? new FakePac()).Run, null, Read, input);
         }
         else
         {
             var root = new RootCommand { DeployCommand.Create(o, e, (pac ?? new FakePac()).Run, Read, input, deadline) };
-            code = root.Parse(["deploy", "gate", PlanFile]).Invoke(new InvocationConfiguration { Output = o, Error = e, EnableDefaultExceptionHandler = false });
+            code = root.Parse(["deploy", "gate", planFile ?? PlanFile]).Invoke(new InvocationConfiguration { Output = o, Error = e, EnableDefaultExceptionHandler = false });
         }
 
         return new Outcome(code, o.ToString().ReplaceLineEndings("\n"), e.ToString().ReplaceLineEndings("\n"));
@@ -394,6 +394,54 @@ public class DeployGateCommandTests : DeployTestBase
         {
             return false;
         }
+    }
+
+    private const string AgentLine = "warning: deploy gate: PowerOpsAgentTools: The zip holds Copilot Studio agent 'demo_Helper'. ";
+
+    [Theory]
+    [InlineData("settings")]
+    [InlineData("other-zip")]
+    public void A_block_after_the_dry_run_passed_carries_one_line_per_agent_between_the_reason_and_the_guidance(string block)
+    {
+        AgentZip(Folder);
+        MakePlan(new FakeTarget());
+        var other = Path.Combine(Stage, "PowerOpsAgentTools.settings.json");
+        File.WriteAllText(other, "{}");
+        var call = block == "settings" ? Cli(TargetIdText, Path.Combine(Folder, "PowerOpsAgentTools.zip"), other) : Cli(TargetIdText, SmallZip(Stage, "Other"), other);
+        var reason = block == "settings" ? "the plan imports PowerOpsAgentTools.zip with a different settings file" : "Other.zip is not a zip of the plan";
+
+        var r = Gate(Environments(new FakeTarget()), call, new FakePac());
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal($"{Prefix}{reason}\n{AgentLine}{PlanKind.AgentEffect}\n{ImportGuidance}\n", r.Err);
+    }
+
+    [Fact]
+    public void A_block_for_a_plan_with_no_agent_and_the_block_of_a_plan_that_imports_nothing_carry_no_warning_line()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var other = Path.Combine(Stage, "PowerOpsSeed.settings.json");
+        File.WriteAllText(other, "{}");
+
+        var seed = Gate(Seeded(), Cli(TargetIdText, SeedZipPath, other, stage: true));
+
+        Assert.Equal(2, seed.Code);
+        Assert.Contains(Prefix + "the plan imports PowerOpsSeed.zip with a different settings file", seed.Err);
+        Assert.DoesNotContain("warning:", seed.Err);
+
+        // The agent zip is installed at its version, so the plan skips it: there is no agent item, and nothing is imported.
+        var skipped = new FakeTarget { Snaps = { ["PowerOpsAgentTools"] = new Snapshot("Contoso Test", "PowerOpsAgentTools", true, "1.0.0.0", false, true, [], [], [], []) } };
+        var agentFolder = Dir("agent-folder");
+        AgentZip(agentFolder);
+        var planFile = Path.Combine(agentFolder, "powerops-plan.json");
+        Assert.Equal(0, Run(skipped, new FakePac(), "deploy", "plan", agentFolder, "--target", TargetValue, "--save", planFile).Code);
+
+        var imports = Gate(Environments(skipped), Cli(TargetIdText, Path.Combine(agentFolder, "PowerOpsAgentTools.zip")), planFile: planFile);
+
+        Assert.Equal(2, imports.Code);
+        Assert.Contains(Prefix + "the plan imports nothing", imports.Err);
+        Assert.DoesNotContain("warning:", imports.Err);
     }
 
     public static TheoryData<string> BlockNames() =>

@@ -605,11 +605,17 @@ public static class DeployCommand
     }
 
     // Every block says why on stderr and ends with one guidance line; Codex lets the call through on exit 2 with no stderr.
-    private static int GateBlocked(TextWriter report, IEnumerable<string> lines, bool unreadable)
+    // `notes` are warning lines between the reasons and the guidance.
+    private static int GateBlocked(TextWriter report, IEnumerable<string> lines, bool unreadable, IEnumerable<string>? notes = null)
     {
         foreach (var line in lines)
         {
             report.WriteLine($"error: deploy gate: {line}");
+        }
+
+        foreach (var note in notes ?? [])
+        {
+            report.WriteLine($"warning: deploy gate: {note}");
         }
 
         report.WriteLine(unreadable ? ReadingGuidance : ImportGuidance);
@@ -674,6 +680,9 @@ public static class DeployCommand
             return GateBlocked(report, ["the plan imports nothing"], false);
         }
 
+        // A block after the dry run passed names each agent of the fresh plan, so the person who reads it also sees what the import may do.
+        var notes = plan.Items.Where(i => i.Kind == PlanKind.Agent).Select(i => $"{Clean(i.Solution)}: {Clean(i.Message)}").ToList();
+
         // The plan file's solutions are not covered by its hash, so the first step comes from the fresh plan.
         var first = ready.Imports[0];
         var firstInput = plan.Inputs.Zips.First(z => z.Zip == first.Zip);
@@ -682,7 +691,7 @@ public static class DeployCommand
             var other = plan.Inputs.Zips.FirstOrDefault(z => z.ZipSha256 == zipHash)?.Zip;
             return GateBlocked(report, [other is null
                 ? $"{ImportCall.Printable(Path.GetFileName(call.Zip))} is not a zip of the plan"
-                : plan.Solutions.Any(s => s.Zip == other && s.Action == PlanAction.Skip) ? $"the plan skips {Clean(other)}" : $"the plan imports {Clean(first.Zip)} first"], false);
+                : plan.Solutions.Any(s => s.Zip == other && s.Action == PlanAction.Skip) ? $"the plan skips {Clean(other)}" : $"the plan imports {Clean(first.Zip)} first"], false, notes);
         }
 
         var lines = new List<string>();
@@ -706,7 +715,7 @@ public static class DeployCommand
 
         if (lines.Count > 0)
         {
-            return GateBlocked(report, lines, false);
+            return GateBlocked(report, lines, false, notes);
         }
 
         // The dry run can take minutes of live reads: the files the call names must still be the bytes that were checked.
@@ -714,7 +723,7 @@ public static class DeployCommand
             .Where(f => f.Item1 is not null && HashRegularFile(f.Item1, f.Item3) != f.Item2)
             .Select(f => $"{ImportCall.Printable(Path.GetFileName(f.Item1!))} changed while the gate checked it")
             .ToList();
-        return swapped.Count == 0 ? 0 : GateBlocked(report, swapped, false);
+        return swapped.Count == 0 ? 0 : GateBlocked(report, swapped, false, notes);
     }
 
     // The SHA-256 of a regular file, or null when it does not exist, is a symbolic link, is not a seekable file (a FIFO), is over the cap or cannot be read.

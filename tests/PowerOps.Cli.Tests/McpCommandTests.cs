@@ -1400,9 +1400,62 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Equal(["environment"], form.RequestedSchema.Required);
         Assert.Null(form.Meta);
         Assert.Contains($"Target environment: {TargetName}\nPlan hash: {hash}\nSolution zips: PowerOpsSeed.zip\n", form.Message);
+        Assert.DoesNotContain("Copilot Studio agents", form.Message);
+        Assert.DoesNotContain(McpCommand.AgentFormNote, form.Message);
         Assert.DoesNotContain("secret-host", form.Message);
         Assert.DoesNotContain("plan.json", form.Message);
         Assert.DoesNotContain(folder, form.Message);
+    }
+
+    // The made agent fixture (solution PowerOpsAgentTools, agent demo_Helper) as a zip with its settings file, planned as an install into an empty target.
+    private static DeployTarget EmptyTarget(string target, IReadOnlyList<string> solutions, IReadOnlyList<string> dependencies) =>
+        new("Contoso Test", Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), [.. solutions.Select(n => new Snapshot("Contoso Test", n, false, null, null, true, [], [], [], []))], dependencies.ToDictionary(d => d, _ => (string?)null));
+
+    private string SavedAgentPlan()
+    {
+        var folder = Directory.CreateDirectory(Path.Combine(_temp, "agent-" + Guid.NewGuid().ToString("N"))).FullName;
+        SolutionZip.Create(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "agents", "dataverse-tools"), Path.Combine(folder, "PowerOpsAgentTools.zip"));
+        File.WriteAllText(
+            Path.Combine(folder, "PowerOpsAgentTools.settings.json"),
+            """{"ConnectionReferences":[{"LogicalName":"demo_Helper.shared_commondataserviceforapps.shared-commondataser-0000001","ConnectionId":"fake-connection-id","ConnectorId":"/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"}]}""");
+        var planFile = Path.Combine(folder, "plan.json");
+        Assert.Equal(0, CliWith(new Fakes { TargetBehavior = EmptyTarget }, "deploy", "plan", "--target", Secret, "--save", planFile, "--", folder).Code);
+        ImportFakes();
+        _fakes.TargetBehavior = EmptyTarget;
+        return planFile;
+    }
+
+    [Fact]
+    public async Task The_form_for_a_zip_with_an_agent_names_it_and_the_publication_note_and_the_import_reads_it_back()
+    {
+        var planFile = SavedAgentPlan();
+        var forms = new Forms(_ => Accepted(TargetName));
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
+
+        var result = await Apply(pair, ApplyArgs(planFile));
+
+        Assert.False(result.IsError);
+        var form = Assert.Single(forms.Seen);
+        Assert.Contains($"\nSolution zips: PowerOpsAgentTools.zip\nCopilot Studio agents: demo_Helper (PowerOpsAgentTools)\n{McpCommand.AgentFormNote}\n\nTo import, type the target environment's name", form.Message);
+        Assert.Single(_imports);
+        Assert.Equal(1, _fakes.AgentCalls);
+        Assert.Equal("demo_Helper", (string?)JsonNode.Parse(Text(result))!["agents"]![0]!["name"]);
+    }
+
+    [Fact]
+    public async Task A_declined_form_for_a_zip_with_an_agent_makes_no_import_call_and_no_agent_read()
+    {
+        var planFile = SavedAgentPlan();
+        var forms = new Forms(_ => new ElicitResult { Action = "decline" });
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
+
+        AssertRefused(await Apply(pair, ApplyArgs(planFile)), Declined, Hint);
+
+        Assert.Contains("Copilot Studio agents: demo_Helper (PowerOpsAgentTools)", Assert.Single(forms.Seen).Message);
+        Assert.Empty(_imports);
+        Assert.Equal(0, _fakes.Pacs);
+        Assert.Equal(0, _fakes.AgentCalls);
+        AssertNoApply(pair);
     }
 
     // 6

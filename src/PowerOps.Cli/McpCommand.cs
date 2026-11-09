@@ -276,19 +276,24 @@ public static partial class McpCommand
     // A command's result that the tool refuses anyway: isError, with the line after the command's own error lines.
     private static CallToolResult RefuseWith(string stdout, string stderr, string line) => Result(3, stdout, stderr + "\n" + line);
 
-    private sealed record DryRun(string? Status, string? Target, string? Hash);
+    private sealed record DryRunAgent(string? Solution, string? Name);
 
-    // The dry run's report says planned for this plan's target and hash; a stdout that is not such a JSON object does not.
-    private static bool Passed(int code, string stdout, ReviewedPlan plan)
+    private sealed record DryRun(string? Status, string? Target, string? Hash, List<DryRunAgent>? Agents);
+
+    // Written to the person answering the form, after the agents' names.
+    internal const string AgentFormNote = "The import may leave these agents published in the target: Learn describes publishing as a separate step, but one live import left an agent published. If the plan forbids a published agent there, decline this form, amend the plan, and plan again.";
+
+    // The dry run's report when it says planned for this plan's target and hash; null for a stdout that is not such a JSON object.
+    private static DryRun? Passed(int code, string stdout, ReviewedPlan plan)
     {
         try
         {
             var report = JsonSerializer.Deserialize<DryRun>(stdout, JsonSerializerOptions.Web);
-            return code == 0 && report is { Status: ApplyStatus.Planned } && report.Target == plan.Target && report.Hash == plan.Hash;
+            return code == 0 && report is { Status: ApplyStatus.Planned } && report.Target == plan.Target && report.Hash == plan.Hash ? report : null;
         }
         catch (JsonException)
         {
-            return false;
+            return null;
         }
     }
 
@@ -335,15 +340,19 @@ public static partial class McpCommand
 
         // The report's target is the live friendly name of the environment the target input names, so the name typed below is that environment's.
         var (dryCode, dryOut, dryErr) = Exec(Args(false));
-        if (!Passed(dryCode, dryOut, plan))
+        if (Passed(dryCode, dryOut, plan) is not { } dry)
         {
             return RefuseWith(dryOut, dryErr, "error: apply: the dry run did not pass, so no form was sent; nothing was imported");
         }
 
         var zips = string.Join(", ", plan.Inputs.Zips.Select(z => z.Zip));
+        // From the dry run's report, so these are the agents of the zips the hash covers, not the plan file's text.
+        var agents = dry.Agents is { Count: > 0 } list
+            ? $"\nCopilot Studio agents: {string.Join(", ", list.Select(a => $"{TextReport.Clean(a.Name)} ({TextReport.Clean(a.Solution)})"))}\n{AgentFormNote}"
+            : "";
         var form = new ElicitRequestParams
         {
-            Message = $"powerops deploy_apply wants to import a reviewed plan into an environment. There is no rollback.\n\nTarget environment: {TextReport.Clean(plan.Target)}\nPlan hash: {plan.Hash}\nSolution zips: {zips}\n\nTo import, type the target environment's name exactly as shown above. Decline or cancel to import nothing.",
+            Message = $"powerops deploy_apply wants to import a reviewed plan into an environment. There is no rollback.\n\nTarget environment: {TextReport.Clean(plan.Target)}\nPlan hash: {plan.Hash}\nSolution zips: {zips}{agents}\n\nTo import, type the target environment's name exactly as shown above. Decline or cancel to import nothing.",
             RequestedSchema = new()
             {
                 // No default: the SDK fills a missing accepted field from it, so an empty accept would pass.
