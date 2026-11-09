@@ -42,7 +42,20 @@ The file:
 - For canvas, the header comment also holds the theme as the YAML that Paste theme takes: the one part that transfers directly.
 - Flex and `gap`, no absolute positions or fixed container widths.
 - Text contrast of 4.5:1 and non-text contrast of 3:1, visible labels, DOM order equal to reading order, no positive `tabindex`.
-- Every screen in the sketch is already in `Screens`, with its states as text that says what the user does next.
+- Every screen in the sketch is already in `Screens`. Draw its empty, loading, error and failed-save states as `data-state` panels by the look below, not as notes; each says what the user does next.
+
+The look. A designer reviews the sketch, so it shows a professionally built app, not a wireframe. Canvas modern controls, the model-driven modern look and Power BI's default base theme all follow Fluent 2, so this style transfers; the product file says how each rule maps to its controls and theme:
+
+- **Tokens.** A `:root` block of CSS custom properties opens the `<style>`, and every colour, size and space after it is a `var()`. No raw hex values elsewhere.
+- **Colour.** Brand, with its hover and the text colour on it, from the theme's seed; neutrals for the page background, card surface, subtle fill, stroke, and primary and secondary text; success, warning, danger and info, each a text-and-tint pair. The header comment lists each text-on-background pair with its contrast ratio.
+- **Type.** The theme's font in at most five sizes from one scale, for example 12, 14, 16, 20 and 28 px (caption, body, subtitle, section title, page title), line height 1.3 to 1.5, weights 400 and 600. One page title per screen.
+- **Spacing.** An 8 px grid with 4 px steps for tight pairs: every padding, gap and margin is 4, 8, 12, 16, 24, 32 or 48 px. Cards have 16 px padding and 16 px gaps; page margins are 16 px on a phone and 24 to 32 px wider. Related items sit closer than unrelated ones.
+- **Surfaces.** Three levels: the page on the neutral background; cards on the surface colour with an 8 px radius and one light shadow or a 1 px stroke; raised layers (a confirm screen standing in for a dialog) with a stronger shadow. No dashed boxes, and no border on every element.
+- **Header and navigation.** The same header on every screen: the app or page title, the user, and the screen's primary action in the same place. Top-level sections use one pattern (tabs on a phone, a left rail on a desktop) and mark the current one by more than colour.
+- **Status.** A labelled pill: a short word (Draft, Submitted, Approved) in a fully rounded tint, coloured by meaning from the status tokens, with the same word and colour wherever it shows. Never colour alone, and never a bare "Status: X" line.
+- **Content.** A list row or card has a title line, two or three facts in secondary text, the status pill, and amounts aligned right. One filled primary button per region, secondary actions outlined, a destructive action set apart. Fake data looks real: plausible names, dates and amounts, 3 to 6 rows.
+- **Responsive.** Show the phone layout at 360 px in one column, and the tablet and desktop layout as master-detail: the list about a third wide on the left, the selected record on the right. Use `flex-wrap` or one `@media (min-width: 600px)` rule. Targets are at least 24 by 24 px, and 44 px high on the phone.
+- **States.** Empty: a heading, one sentence on why, and the action that fills it. Loading: skeleton rows in the subtle fill, or a spinner with a text label. Error: a message bar in the danger tint with the cause in plain words and a retry or a way out. Failed save: that bar above the form, the input kept, and the field in error named in text with a 3:1 stroke. A row of state panels isn't a screen, but it counts toward the 40,960 bytes.
 
 A passing sketch proves intent, not the build: nothing shows that a build skill follows it. Keep visual detail out of `Screens` and `Steps`, and write no Step that says "match the sketch": the Verifier compares the build with those sections. A control map and control names in the sketch wait until one canvas build has tested whether `canvas-app` uses a sketch.
 
@@ -60,3 +73,8 @@ Checked on 2026-11-03:
 Checked on 2026-11-05:
 
 - [Upgrade Fluent UI controls to modern controls](https://learn.microsoft.com/power-apps/maker/canvas-apps/controls/modern-controls/upgrade-fluent-ui-controls-to-modern): Fluent UI (v8) controls in custom pages are deprecated.
+
+Checked on 2026-11-08:
+
+- [Overview of modern controls and themes in canvas apps](https://learn.microsoft.com/power-apps/maker/canvas-apps/controls/modern-controls/overview-modern-controls), [Use modern themes in model-driven apps](https://learn.microsoft.com/power-apps/maker/model-driven-apps/modern-theme-overrides) and [Visual defaults in Power BI reports](https://learn.microsoft.com/power-bi/create-reports/power-bi-reports-visual-defaults): each follows Fluent 2, and new Power BI reports use the Fluent 2 base theme by default.
+- The type scale, the 8 px grid, the 44 px phone target and the rest of the look are PowerOps's rules; the 24 by 24 px minimum is WCAG 2.2's target size.
