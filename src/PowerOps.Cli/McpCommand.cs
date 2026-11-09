@@ -255,7 +255,7 @@ public static partial class McpCommand
                 (v, o, e, ct) => DeployPlan(v, o, e, Cli, ct),
                 WritePlan,
                 CheckSave),
-            new("deploy_apply", "Promote a reviewed plan file from deploy_plan's `save` with this tool, not with an import tool: it plans again against the target and returns the JSON of `powerops deploy apply --format json` (docs/schemas/deploy-apply.schema.json), as a dry run that imports nothing unless `apply` is true. With `apply: true` it imports the zips in plan order through pac only after the user types the target's name into the server's confirmation form, and refuses when an input of the plan changed (a zip, a settings file, the target environment, its solution state or a dependency's version). Use it only on an environment the user named in the session.",
+            new("deploy_apply", "Promote a reviewed plan file from deploy_plan's `save` with this tool, not with an import tool: it plans again against the target and returns the JSON of `powerops deploy apply --format json` (docs/schemas/deploy-apply.schema.json), as a dry run that imports nothing unless `apply` is true. With `apply: true` it imports the zips in plan order through pac only after the user types the target's name into the server's confirmation form, and refuses when an input of the plan changed (a zip, a settings file, the target environment, its solution state or a dependency's version). It refuses unless both verify.md and security-solution.md of one plan folder under docs/plans are ready, written for the current plan and record each imported zip's SHA-256. Use it only on an environment the user named in the session.",
                 [
                     new("planFile", Kind.Path, true, "Absolute path of a plan file saved by deploy_plan's save; the zips and settings files are read from its folder."),
                     new("target", Kind.Text, true, "The environment the plan was made for: an id or URL (as pac --environment). The plan file's `target` is the environment's display name, which this doesn't take."),
@@ -304,7 +304,7 @@ public static partial class McpCommand
     private static async ValueTask<CallToolResult> DeployApply(Values v, McpServer server, SemaphoreSlim guard, Func<string[], TextWriter, TextWriter, string?, int> cli, CancellationToken cancellationToken)
     {
         var (planFile, target) = (v.Text("planFile"), v.Text("target"));
-        string[] Args(bool apply) => ["deploy", "apply", "--target", target, "--format", "json", .. (apply ? new[] { "--apply" } : []), "--", planFile];
+        string[] Args(bool apply) => ["deploy", "apply", "--target", target, "--format", "json", "--require-reviews", .. (apply ? new[] { "--apply" } : []), "--", planFile];
         (int Code, string Out, string Err) Exec(string[] args, string? approvedHash = null)
         {
             var (o, e) = (new StringWriter(), new StringWriter());
