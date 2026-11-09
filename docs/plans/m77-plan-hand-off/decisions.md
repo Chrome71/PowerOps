@@ -1,6 +1,6 @@
 # Decisions: m77-plan-hand-off
 
-This milestone's plan is not written yet. The answer below came first: it is one of the six open questions (section 6) of the PowerOps 1.0 fix plan that Fable and Astra agreed on 2026-11-08, asked of the person in one round by the session that began the fixes. The plan that follows starts its own rounds after this one.
+Round 0 came before this plan was written: it is one of the six open questions (section 6) of the PowerOps 1.0 fix plan that Fable and Astra agreed on 2026-11-08, asked of the person in one round by the session that began the fixes, and recorded first on the M74 branch. The plan's own rounds follow it.
 
 ## Round 0 (the 1.0 fix plan)
 
@@ -10,6 +10,21 @@ This milestone's plan is not written yet. The answer below came first: it is one
 
 Answer: 1, "1.0" (answered by: person, 2026-11-08). M77 is in the 1.0 gate's merge order.
 
+## Round 1
+
+No question for the person: section 3 of the agreed 1.0 fix plan gives the design, and Round 0 settled the tier.
+
 ## Log
 
 - 2026-11-08: asked together with the fix plan's other five questions, in one round, recommended option first where the plan recommends one; where the plan states two positions (Q1, Q6), both were shown as the plan words them, neither marked recommended.
+- 2026-11-08: the session that began the fixes started M77 in its own session, after M74 was built; the gate's merge order is M74, M77, M73, M75, M76, and M77 lands before M73's and M81's edits of `powerops-implement`.
+- 2026-11-08: the fix plan's text is the base. Refinements: (1) sign-off prints every warning `plan status` gives for the folder's reports, not only the stale review, because they come from one reader and are all true of the folder at sign-off; (2) the scan matches the lower-case form and the ` (1)` form of the default name as well as the fix plan's `'s Environment`, because Learn shows both casings (below); it is wider than the fix plan, so it can only add violations; (3) section 10's "New version" says it is not for an amendment, since the fix plan rejects a `-v2` folder per amendment and the two rules would otherwise conflict on an `implementing` plan; (4) implement section 3 step 1 resumes after an amendment as for `implementing`, since the new sign-off sets `status: signed-off` and step 1 would otherwise start the steps again. <!-- plan-status: allow -->
+- claim sent to `powerops-researcher` (Sonnet) 2026-11-08, "a Developer environment's default name is the owner's name followed by `'s Environment`": supported with a casing difference. *Create a developer environment* gives `John Doe's environment` and `John Doe's (1) environment` for a second one; *Develop a tenant environment strategy* gives `<user name>'s Environment`; the name can be edited (*Edit properties of an environment*); Learn states no default for `pac admin create --type Developer` without `--name`; from 2026-11-15 the Developer Plan sign-up no longer creates one. Recorded in Assumptions. <!-- plan-status: allow -->
+- read on 2026-11-08: the fix plan (sections 2, 3, 4, 6, 7); `PlanSignOff.cs`, `PlanDocument.cs`, `PlanChecker.cs` (`Check`, `ReadReports`, `ReviewProblems`, `ScanTenantData`), `PlanStatusReport.cs`; `skills/powerops-implement/SKILL.md`, `skills/powerops-plan/SKILL.md`, `skills/powerops-review-plan/SKILL.md` (steps 2 and 10); `PlanCheckerTests`, `PlanDocumentTests`, `PlanStatusReportTests`, `PlanCommandTests`, `SkillsCommandTests` (the pinned wording and the word ceiling); `tests/smoke/skills-smoke.sh` (scenario 7); `docs/schemas/plan-status.schema.json`, `docs/COMMANDS.md` (plan), `docs/PLANNING-SKILLS.md`
+- depth: quick: the fix plan gives the design
+- areas not asked: users, data, automation, environments and ALM, constraints; the change is to this repo, and the plan answers each or marks it not applicable
+- approved 2026-11-08 by the building session for a fresh-context review; sign-off is left to the person
+- review 2026-11-08 (a general-purpose subagent following `powerops-review-plan`, Sonnet, fresh context): 1 High, 4 Medium, 4 Low (R1 to R9), answered in `plan.md`: the scan is case-sensitive with an end word boundary, and its lower-case form only reads `environment:` lines, so the three product possessives in committed plans stay quiet, and the whole repo is checked (R1, R9); the cuts that keep the plan skill at 2,780 words are named, and the ceiling, the person's M41 answer, stays (R2); only `review.md` drops `state null` (R3); the build notes the hash, never edits the body, and resumes on committed steps (R4); the role list is closed and the limits are in Assumptions (R5); the schema's `environment` text changes (R6); `1 admin question` (R8). R7 accepted: `ReadScannable` already names a file once. Also accepted (R6): `powerops-review-plan` notes `openQuestions`, which now leaves out the admin questions; its check 10 still counts both sections, so the skill stays untouched
+- the same reviewer's second pass 2026-11-08: R1 to R9 answered; two new Medium. R10 (the plan skill's amendment pointed at a review rule the implement step didn't state): the rule is in implement step 6 and pinned there. R11 (the fast-path wording broke `PlanFactsSkillTests:66`): the wording keeps "names an environment" and the test's `friendly name` assert becomes `then record its role`
+- the same reviewer's final pass 2026-11-08: R10 and R11 answered, no new finding; in all 1 High, 6 Medium and 4 Low, none open; `plan-hash` set to the revised plan. Kept as a note, not a finding: the plan skill's amendment paragraph points at implement step 6 for the review rule, which holds because the two skills ship together
+- signed off 2026-11-08 by the person ("A. Sign off, build it", answering whether to sign off M77's plan and build it), with no finding open (`powerops plan sign-off`; `signed-off-hash` equals `review.md`'s `plan-hash`) (answered by: person)
