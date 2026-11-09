@@ -1035,34 +1035,88 @@ public class PlanCheckerTests : IDisposable
         Assert.Equal(["verify.md: input 'notes/readme.txt' could not be read, so the solution was not compared"], reports.Warnings);
     }
 
-    [Fact]
-    public void Ready_hashes_is_null_without_docs_plans_and_holds_the_hash_of_each_ready_solution_report()
+    private static (string? State, bool? Stale, string? Input, string? Hash) Head(PlanReportFile? r) => (r?.State, r?.Stale, r?.Input, r?.SolutionHash);
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Reviews_is_null_without_docs_plans_and_gives_the_two_solution_reports_of_each_plan_folder_that_has_one(bool rootPlan)
     {
-        Assert.Null(PlanChecker.ReadyHashes(_t.Path));
+        Assert.Null(PlanChecker.Reviews(_t.Path));
 
-        var (a, b, c, d) = (new string('1', 64), new string('2', 64), new string('3', 64), new string('4', 64));
-        _t.Write("docs/plans/one/plan.md", Plan());
-        _t.Write("docs/plans/one/verify.md", $"state: ready\nsolution-hash: {a}\n");
-        _t.Write("docs/plans/one/security-solution.md", $"state: blocked\nsolution-hash: {b}\n");
-        _t.Write("docs/plans/one/review.md", $"state: ready\nsolution-hash: {c}\n");
+        if (rootPlan)
+        {
+            _t.Write("plan.md", Plan());
+        }
+
         _t.Write("docs/plans/two/plan.md", Plan());
-        _t.Write("docs/plans/two/security-solution.md", $"state: ready\nsolution-hash: {d}\n");
-        _t.Write("docs/plans/two/verify.md", "state: ready\n");
+        _t.Write("docs/plans/two/security-solution.md", Six("input: out/Demo.zip").Replace("state: ready", "state: blocked", StringComparison.Ordinal));
+        _t.Write("docs/plans/one/plan.md", Plan());
+        _t.Write("docs/plans/one/verify.md", Six());
+        _t.Write("docs/plans/one/security-solution.md", Six(hash: Other));
+        _t.Write("docs/plans/none/plan.md", Plan());
+        _t.Write("docs/plans/none/review.md", $"state: ready\nplan-hash: {Hash}\n");
 
-        var ready = PlanChecker.ReadyHashes(_t.Path);
+        var reviews = PlanChecker.Reviews(_t.Path);
 
-        Assert.NotNull(ready);
-        Assert.Equal([a, d], ready.Order(StringComparer.Ordinal));
+        Assert.NotNull(reviews);
+        Assert.Equal(["one", "two"], reviews.Select(r => r.Plan));
+        Assert.Equal(("ready", false, "solutions/demo", SolutionHash), Head(reviews[0].Verify));
+        Assert.Equal(("ready", false, "solutions/demo", Other), Head(reviews[0].Security));
+        Assert.Null(reviews[1].Verify);
+        Assert.Equal(("blocked", false, "out/Demo.zip", SolutionHash), Head(reviews[1].Security));
+        Assert.All(reviews, r => Assert.Null((r.Verify ?? r.Security)!.SolutionStale));
     }
 
     [Fact]
-    public void Ready_hashes_reads_docs_plans_even_when_the_root_holds_a_plan_md()
+    public void A_review_is_current_only_for_the_plans_hash_and_unknown_without_a_hash_line_or_a_readable_plan()
     {
-        _t.Write("plan.md", Plan());
-        _t.Write("docs/plans/x/plan.md", Plan());
-        _t.Write("docs/plans/x/verify.md", $"state: ready\nsolution-hash: {SolutionHash}\n");
+        _t.Write("docs/plans/a/plan.md", Plan()).Write("docs/plans/a/verify.md", Six());
+        _t.Write("docs/plans/b/plan.md", Plan()).Write("docs/plans/b/verify.md", Six().Replace(Hash, Other, StringComparison.Ordinal));
+        _t.Write("docs/plans/c/plan.md", Plan()).Write("docs/plans/c/verify.md", "state: ready\ninput: solutions/demo\n");
+        _t.Write("docs/plans/d/plan.md", "---\nstatus: draft\n# Plan\n").Write("docs/plans/d/verify.md", Six());
 
-        Assert.Equal([SolutionHash], PlanChecker.ReadyHashes(_t.Path));
+        Assert.Equal([false, true, null, null], PlanChecker.Reviews(_t.Path)!.Select(r => r.Verify!.Stale));
+    }
+
+    [Fact]
+    public void Reviews_refuses_a_linked_docs_folder()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "symbolic links need a privilege on Windows");
+        _t.Write("real/plans/a/plan.md", Plan()).Write("real/plans/a/verify.md", Six());
+        Directory.CreateSymbolicLink(Path.Combine(_t.Path, "docs"), Path.Combine(_t.Path, "real"));
+
+        Assert.Throws<InvalidDataException>(() => PlanChecker.Reviews(_t.Path));
+    }
+
+    [Fact]
+    public void Input_path_finds_a_folder_and_a_zip_under_the_root_and_nothing_else()
+    {
+        var folder = Solution();
+        _t.Write("out/Demo.zip", "x");
+
+        Assert.Equal(folder, PlanChecker.InputPath(_t.Path, "solutions/demo"));
+        Assert.Equal(Path.Combine(_t.Path, "out", "Demo.zip"), PlanChecker.InputPath(_t.Path, "out/Demo.zip"));
+        Assert.Null(PlanChecker.InputPath(_t.Path, "solutions/missing"));
+        Assert.Null(PlanChecker.InputPath(_t.Path, "../demo"));
+        Assert.Null(PlanChecker.InputPath(_t.Path, "/solutions/demo"));
+    }
+
+    [Fact]
+    public void Input_path_is_null_through_a_symbolic_link()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "symbolic links need a privilege on Windows");
+        Directory.CreateSymbolicLink(Path.Combine(_t.Path, "linked"), Path.GetDirectoryName(Solution())!);
+
+        Assert.Null(PlanChecker.InputPath(_t.Path, "linked/demo"));
+    }
+
+    [Fact]
+    public void Input_path_is_null_for_a_reserved_windows_name()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "reserved names are refused on Windows only");
+
+        Assert.Null(PlanChecker.InputPath(_t.Path, "solutions/CON"));
     }
 
     private const string ScreensPlan = "# Plan\n\n## Screens\n\n- Home\n";

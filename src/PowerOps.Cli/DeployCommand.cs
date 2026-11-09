@@ -87,10 +87,10 @@ public static class DeployCommand
             return;
         }
 
-        IReadOnlySet<string>? ready;
+        HashSet<string?>? ready;
         try
         {
-            ready = PlanChecker.ReadyHashes(root);
+            ready = PlanChecker.Reviews(root)?.SelectMany(p => new[] { p.Verify, p.Security }).Where(r => r?.State == "ready").Select(r => r!.SolutionHash).ToHashSet(StringComparer.Ordinal);
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
         {
