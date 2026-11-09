@@ -146,8 +146,6 @@ public sealed record AgentConfiguration(string? Recognizer, bool? GenerativeOrch
 /// <summary>
 /// An agent tool (a type-9 component whose `data` has `kind: TaskDialog` or `kind: McpTool`; `File` is that `data`): `Action` is `action.kind`, `Mcp` is true for `ModelContextProtocolMetadata` operation details, and `Mode` is `action.connectionProperties.mode`.
 /// An `McpTool` (`Kind`) has no `action`: `Mcp` is true, `Mode` is its `authMode`, and `ConnectionReference` and `OperationId` are its top-level keys of those names (M51); a `TaskDialog` leaves them null.
-/// </summary>
-/// <summary>
 /// `Table` and `FlowId` are set for a `TaskDialog` only (M74). `Table` is null when no item of the tool's top-level `inputs` has `propertyName: entityName`.
 /// `FlowId` is the normalized `action.flowId`, null when missing.
 /// </summary>

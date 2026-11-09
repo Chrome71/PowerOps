@@ -857,6 +857,16 @@ public class AgentReaderTests
         Assert.Equal(new ToolTable("demo_tickets", "demo_Ticket"), Assert.Single(One(both).Tools).Table);
     }
 
+    [Fact]
+    public void Of_two_entity_files_that_claim_one_entity_set_the_first_in_path_order_wins()
+    {
+        var t = Comp(Agent(Base()), "demo_agent.tool.List", "9", DataverseTool(TicketInput))
+            .Write("Entities/demo_B/Entity.xml", EntityXml("demo_B", "DEMO_TICKETS"))
+            .Write("Entities/demo_A/Entity.xml", EntityXml("demo_A", "demo_tickets"));
+
+        Assert.Equal(new ToolTable("demo_tickets", "demo_A"), Assert.Single(One(t).Tools).Table);
+    }
+
     [Theory]
     [InlineData("  - kind: AutomaticTaskInput\n    propertyName: entityName\n    value: demo_tickets\n")]
     [InlineData("  - kind: ManualTaskInput\n    propertyName: entityName\n    value: =Topic.Table\n")]
@@ -914,6 +924,9 @@ public class AgentReaderTests
     [InlineData("kind: AdaptiveDialog\nactions:\n  kind: InvokeConnectorAction\n  note: TaskDialog\n", "InvokeConnectorAction")]
     [InlineData("kind: AdaptiveDialog\nmessage: see TaskDialog\nactions:\n  - kind: SendActivity\n  - kind: InvokeConnectorAction\n", "InvokeConnectorAction")]
     [InlineData("kind: AgentDialog\nactions:\n  - kind: HttpRequestAction\n", "HttpRequestAction")]
+    [InlineData("kind: AdaptiveDialog\nactions:\n  - kind: \"InvokeFlowAction\" # a note\n", "InvokeFlowAction")]
+    [InlineData("kind: AdaptiveDialog\r\nactions:\r\n  - kind: HttpRequestAction\r\n", "HttpRequestAction")]
+    [InlineData("kind: AdaptiveDialog\nactions: [{ kind: SendActivity }, { kind: InvokeFlowAction, flowId: x }]\n", "InvokeFlowAction")]
     public void A_topic_or_child_agent_with_an_action_node_is_listed_with_the_first_node_kind(string data, string kind)
     {
         var agent = One(Comp(Comp(Agent(Base()), "demo_agent.topic.Act", "9", data), "demo_agent.topic.Plain", "9", "kind: AdaptiveDialog\nactions:\n  - kind: SendActivity\n  - kind: Question\n"));

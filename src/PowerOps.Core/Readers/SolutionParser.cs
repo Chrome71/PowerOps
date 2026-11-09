@@ -929,8 +929,8 @@ internal static partial class SolutionParser
     [GeneratedRegex(@"^kind:(.*?)(?:\s#.*)?\r?$", RegexOptions.Multiline)]
     private static partial Regex TopKind();
 
-    // A topic or child agent node that can reach a table: an `Invoke…` node (a flow, connector, skill or AI model) or an HTTP request.
-    [GeneratedRegex("""^[ \t]*(?:-[ \t]+)?kind:[ \t]*["']?(Invoke[^\s"'#]*|HttpRequestAction)["']?[ \t]*(?:#.*)?\r?$""", RegexOptions.Multiline)]
+    // A topic or child agent node that can reach a table: an `Invoke…` node (a flow, connector, skill or AI model) or an HTTP request, in block or flow style; a match inside a message can only add a note.
+    [GeneratedRegex("""(?<![\w.])kind:[ \t]*["']?(Invoke[A-Za-z]*|HttpRequestAction)\b""")]
     private static partial Regex ActionNode();
 
     [GeneratedRegex(@"^Entities/[^/]+/Entity\.xml$", RegexOptions.IgnoreCase)]
