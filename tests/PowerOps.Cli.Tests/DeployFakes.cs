@@ -101,12 +101,28 @@ public abstract class DeployTestBase : IDisposable
         }
     }
 
+    /// <summary>The agent read-back: records each call and answers what <see cref="Answer"/> gives (no rows by default). Every run passes one, so no test reaches the real reader.</summary>
+    protected sealed class FakeAgents
+    {
+        public List<(string Target, Guid EnvironmentId, string[] Names)> Calls { get; } = [];
+
+        public Func<IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>> Answer { get; init; } = _ => [];
+
+        public IReadOnlyList<(string SchemaName, bool PublishedOn)> Read(string target, Guid environmentId, IReadOnlyList<string> names)
+        {
+            Calls.Add((target, environmentId, [.. names]));
+            return Answer(names);
+        }
+    }
+
     protected sealed record Outcome(int Code, string Out, string Err);
 
-    protected static Outcome Run(FakeTarget fake, FakePac pac, params string[] args)
+    protected static Outcome Run(FakeTarget fake, FakePac pac, params string[] args) => RunWith(fake, pac, new FakeAgents(), args);
+
+    protected static Outcome RunWith(FakeTarget fake, FakePac pac, FakeAgents agents, params string[] args)
     {
         var (o, e) = (new StringWriter(), new StringWriter());
-        var code = Program.Run(args, o, e, pac.Run, null, fake.Read);
+        var code = Program.Run(args, o, e, pac.Run, null, fake.Read, deployAgents: agents.Read);
         return new Outcome(code, o.ToString().ReplaceLineEndings("\n"), e.ToString().ReplaceLineEndings("\n"));
     }
 

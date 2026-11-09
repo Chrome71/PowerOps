@@ -34,6 +34,30 @@ public class DriftQueriesTests
     }
 
     [Fact]
+    public void Bots_query_equals_the_stored_one()
+    {
+        var values = "<value>demo_One</value><value>demo_Two</value>";
+
+        Assert.Equal(Stored("deploy-bots.xml").Replace("{schemaNameValues}", values), DriftQueries.Bots(["demo_One", "demo_Two"]));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("a b")]
+    [InlineData("x</value><value>y")]
+    [InlineData("demo_One\n")]
+    public void Bots_query_refuses_a_name_that_is_not_a_valid_read_name(string name) =>
+        Assert.Throws<ArgumentException>(() => DriftQueries.Bots(["demo_One", name]));
+
+    [Fact]
+    public void A_read_name_has_at_most_100_characters()
+    {
+        Assert.True(DriftQueries.IsValidAgentName(new string('a', 100)));
+        Assert.False(DriftQueries.IsValidAgentName(new string('a', 101)));
+        Assert.Throws<ArgumentException>(() => DriftQueries.Bots([new string('a', 101)]));
+    }
+
+    [Fact]
     public void Layer_query_equals_the_stored_one() =>
         Assert.Equal(Stored("read7-layers.xml").Replace("{componentIds}", Id.ToString("D")).Replace("{componentName}", "CanvasApp"), DriftQueries.Layers(Id, "CanvasApp"));
 

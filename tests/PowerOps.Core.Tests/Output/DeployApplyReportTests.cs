@@ -10,7 +10,7 @@ public class DeployApplyReportTests
     private static DeployApplyResult Result(
         string status, bool applied = true, string? message = null, AppliedSolution[]? solutions = null, AppliedFlow[]? flows = null,
         string? appliedAt = null, string executor = ApplyExecutor.Cli, Approval? approval = null) =>
-        new("1.2.3", applied, "Contoso Test", Hash, status, message, appliedAt, executor, approval, solutions ?? [], flows ?? []);
+        new("1.2.3", applied, "Contoso Test", Hash, status, message, appliedAt, executor, approval, solutions ?? [], flows ?? [], []);
 
     private static AppliedSolution Sol(int order, string name, string action, string import, int? exit = null) =>
         new(order, name, name + ".zip", action, import, exit);
@@ -73,7 +73,7 @@ public class DeployApplyReportTests
     public void Text_cleans_every_name_and_the_message()
     {
         var evil = "x\n::error::boom";
-        var r = new DeployApplyResult("1.2.3", true, evil, Hash, ApplyStatus.Failed, "m\r\n::error::m", "2026-11-04T10:00:00Z", ApplyExecutor.Action, new Approval(ApprovalMode.Action, "run 7\n::error::x"), [new(1, evil, evil + ".zip", "install", ImportStatus.Failed, 1)], [new(evil, evil, "on", evil)]);
+        var r = new DeployApplyResult("1.2.3", true, evil, Hash, ApplyStatus.Failed, "m\r\n::error::m", "2026-11-04T10:00:00Z", ApplyExecutor.Action, new Approval(ApprovalMode.Action, "run 7\n::error::x"), [new(1, evil, evil + ".zip", "install", ImportStatus.Failed, 1)], [new(evil, evil, "on", evil)], []);
 
         var text = Text(r);
 

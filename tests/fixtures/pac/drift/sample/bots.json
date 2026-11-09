@@ -1,0 +1,1 @@
+{"@odata.context":"https://contoso-test.crm.dynamics.com/api/data/v9.2/$metadata#bots(schemaname,publishedon)","@Microsoft.Dynamics.CRM.morerecords":false,"value":[{"@odata.etag":"W/\"1000001\"","schemaname":"demo_Helper","publishedon":"2026-01-01T00:00:00Z"},{"@odata.etag":"W/\"1000002\"","schemaname":"demo_Other","publishedon":null}]}

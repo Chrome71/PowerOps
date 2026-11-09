@@ -1,0 +1,1 @@
+<fetch><entity name="bot"><attribute name="schemaname" /><attribute name="publishedon" /><filter><condition attribute="schemaname" operator="in">{schemaNameValues}</condition></filter></entity></fetch>

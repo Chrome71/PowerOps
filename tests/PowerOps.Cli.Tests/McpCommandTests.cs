@@ -44,7 +44,7 @@ public sealed class McpCommandTests : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        var options = McpCommand.Options(_fakes.Pac, _fakes.Live, _fakes.Target, _ran.Enqueue);
+        var options = McpCommand.Options(_fakes.Pac, _fakes.Live, _fakes.Target, _ran.Enqueue, _fakes.Agents);
         var clientToServer = new Pipe();
         var serverToClient = new Pipe();
         _server = McpServer.Create(new StreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream()), options);
@@ -74,6 +74,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         private int _pac;
         private int _live;
         private int _target;
+        private int _agents;
         private int _unexpected;
 
         public Func<IReadOnlyList<string>, PacResult>? PacBehavior { get; set; }
@@ -81,6 +82,9 @@ public sealed class McpCommandTests : IAsyncLifetime
         public Func<string, string, Snapshot>? LiveBehavior { get; set; }
 
         public Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? TargetBehavior { get; set; }
+
+        /// <summary>What the agent read-back answers; no rows by default, and a call is counted, not unexpected.</summary>
+        public Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? AgentsBehavior { get; set; }
 
         public int Unexpected => _unexpected;
 
@@ -90,7 +94,9 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         public int Targets => _target;
 
-        public int Total => _pac + _live + _target;
+        public int AgentCalls => _agents;
+
+        public int Total => _pac + _live + _target + _agents;
 
         public PacResult Pac(IReadOnlyList<string> args, TimeSpan timeout)
         {
@@ -108,6 +114,12 @@ public sealed class McpCommandTests : IAsyncLifetime
         {
             Interlocked.Increment(ref _target);
             return TargetBehavior?.Invoke(target, solutions, dependencies) ?? Unexpect<DeployTarget>("the target read");
+        }
+
+        public IReadOnlyList<(string SchemaName, bool PublishedOn)> Agents(string target, Guid environmentId, IReadOnlyList<string> names)
+        {
+            Interlocked.Increment(ref _agents);
+            return AgentsBehavior?.Invoke(target, environmentId, names) ?? [];
         }
 
         private T Unexpect<T>(string what)
@@ -151,7 +163,7 @@ public sealed class McpCommandTests : IAsyncLifetime
     {
         var o = new StringWriter();
         var e = new StringWriter();
-        return (Program.Run(args, o, e, fakes.Pac, fakes.Live, fakes.Target), o.ToString(), e.ToString());
+        return (Program.Run(args, o, e, fakes.Pac, fakes.Live, fakes.Target, deployAgents: fakes.Agents), o.ToString(), e.ToString());
     }
 
     private async Task<CallToolResult> Call(string tool, Dictionary<string, object?>? arguments = null) => await _client.CallToolAsync(tool, arguments, cancellationToken: TestContext.Current.CancellationToken);
@@ -874,7 +886,7 @@ public sealed class McpCommandTests : IAsyncLifetime
                 return ReadTarget(t, s, d);
             },
         };
-        var options = McpCommand.Options(fakes.Pac, fakes.Live, fakes.Target);
+        var options = McpCommand.Options(fakes.Pac, fakes.Live, fakes.Target, deployAgents: fakes.Agents);
         var inner = options.Handlers.CallToolHandler!;
         options.Handlers.CallToolHandler = async (context, token) =>
         {
@@ -1155,7 +1167,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         {
             ran.Enqueue(a);
             onRan?.Invoke(a);
-        }));
+        }, fakes.Agents));
         var run = server.RunAsync();
         var client = await McpClient.CreateAsync(
             new StreamClientTransport(clientToServer.Writer.AsStream(), serverToClient.Reader.AsStream()),
@@ -1738,7 +1750,7 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         public Raw(Fakes fakes, ConcurrentQueue<string[]> ran)
         {
-            var options = McpCommand.Options(fakes.Pac, fakes.Live, fakes.Target, ran.Enqueue);
+            var options = McpCommand.Options(fakes.Pac, fakes.Live, fakes.Target, ran.Enqueue, fakes.Agents);
             var inner = options.Handlers.CallToolHandler!;
             options.Handlers.CallToolHandler = async (context, token) =>
             {

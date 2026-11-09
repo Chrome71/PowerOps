@@ -541,7 +541,7 @@ public class DeployGateCommandTests : DeployTestBase
             }
 
             return test.Read(t, s, d);
-        });
+        }, deployAgents: new FakeAgents().Read);
 
         Assert.Equal(3, code);
         Assert.Empty(pac.Calls);

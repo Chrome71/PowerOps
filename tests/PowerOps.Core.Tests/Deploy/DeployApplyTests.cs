@@ -190,6 +190,56 @@ public class DeployApplyTests
         Assert.True(DeployApply.FlowsAfter([], []).AsExpected);
     }
 
+    // ---- ExpectedAgents / AgentsAfter --------------------------------------------------------------------------
+
+    private static DeployZip AgentZip(string name, params string[] agents) =>
+        DZip(name) with { Solution = B.Empty() with { UniqueName = name, Agents = [.. agents.Select(a => B.Agent(a))] } };
+
+    [Fact]
+    public void Expected_agents_keep_the_plan_order_then_the_zips_order_skip_a_solution_include_rejects_and_drop_a_repeated_name()
+    {
+        var a = AgentZip("A", "demo_Two", "demo_One", "DEMO_TWO");
+        var b = AgentZip("B", "demo_Three");
+        var c = AgentZip("C", "demo_Four");
+        var plan = Plan(Planned(1, b, PlanAction.Install), Planned(2, c, PlanAction.Skip), Planned(3, a, PlanAction.Upgrade));
+
+        var expected = DeployApply.ExpectedAgents(plan, [a, b, c], s => s.Action != PlanAction.Skip);
+
+        Assert.Equal([("B", "demo_Three"), ("A", "demo_Two"), ("A", "demo_One")], expected);
+        Assert.Equal([("C", "demo_Four")], DeployApply.ExpectedAgents(plan, [a, b, c], s => s.Solution == "C"));
+        Assert.Empty(DeployApply.ExpectedAgents(plan, [a, b, c], _ => false));
+    }
+
+    [Fact]
+    public void Agents_after_gives_found_with_the_publishedon_flag_and_missing_and_matches_names_ignoring_case()
+    {
+        var expected = new[] { ("A", "demo_One"), ("A", "demo_Two"), ("B", "demo_Three") };
+
+        var after = DeployApply.AgentsAfter(expected, [("DEMO_ONE", true), ("demo_two", false)]);
+
+        Assert.Equal(
+            [
+                new AppliedAgent("A", "demo_One", AgentState.Found, true),
+                new AppliedAgent("A", "demo_Two", AgentState.Found, false),
+                new AppliedAgent("B", "demo_Three", AgentState.Missing, null),
+            ],
+            after);
+    }
+
+    [Fact]
+    public void Agents_after_gives_not_read_for_a_failed_read_and_for_a_name_that_is_not_a_valid_read_name()
+    {
+        var tooLong = new string('a', 101);
+
+        Assert.Equal(
+            [new AppliedAgent("A", "demo_One", AgentState.NotRead, null)],
+            DeployApply.AgentsAfter([("A", "demo_One")], null));
+        Assert.Equal(
+            [new AppliedAgent("A", "bad name", AgentState.NotRead, null), new AppliedAgent("A", tooLong, AgentState.NotRead, null)],
+            DeployApply.AgentsAfter([("A", "bad name"), ("A", tooLong)], [("bad name", true), (tooLong, true)]));
+        Assert.Equal(["found", "missing", "not-read"], [AgentState.Found, AgentState.Missing, AgentState.NotRead]);
+    }
+
     [Fact]
     public void The_status_names_are_the_reports_words()
     {

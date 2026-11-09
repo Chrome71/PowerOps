@@ -37,7 +37,8 @@ public static class Program
 
     // The command tree; tests read it too (HandoffDocTests checks the commands a page names).
     internal static RootCommand Root(TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot>? driftLive = null,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? deployTarget = null, Func<Stream?>? input = null, string? approvedHash = null, bool mcp = false)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? deployTarget = null, Func<Stream?>? input = null, string? approvedHash = null, bool mcp = false,
+        Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? deployAgents = null)
     {
         // The live reader (az runner, HttpClient) is built only when a run has a live --env.
         var reader = new Lazy<DriftLiveReader>(() => new DriftLiveReader(
@@ -46,6 +47,7 @@ public static class Program
             DriftLiveReader.Web(DriftLiveReader.Handler())));
         driftLive ??= (solution, env) => reader.Value.Read(solution, env);
         deployTarget ??= (target, solutions, dependencies) => reader.Value.ReadTarget(target, solutions, dependencies);
+        deployAgents ??= (target, environmentId, names) => reader.Value.ReadAgents(target, environmentId, names);
         var root = new RootCommand(
             "A free, open-source, cross-platform toolkit that brings software-engineering discipline " +
             "(analysis, diffing, testing, repeatable deployment) to Microsoft Power Platform.");
@@ -61,21 +63,22 @@ public static class Program
         root.Subcommands.Add(SettingsCommand.Create(output, error, pac));
         root.Subcommands.Add(DriftCommand.Create(output, error, driftLive));
 
-        root.Subcommands.Add(DeployCommand.Create(output, error, pac, deployTarget, input, approvedHash: approvedHash, mcp: mcp));
-        root.Subcommands.Add(McpCommand.Create(error, pac, driftLive, deployTarget));
+        root.Subcommands.Add(DeployCommand.Create(output, error, pac, deployTarget, input, approvedHash: approvedHash, mcp: mcp, deployAgents: deployAgents));
+        root.Subcommands.Add(McpCommand.Create(error, pac, driftLive, deployTarget, deployAgents));
 
         return root;
     }
 
     // The pac runner is injectable so tests of `settings apply` never call a real pac; so are the live reads of `drift` and `deploy plan`.
     public static int Run(string[] args, TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot>? driftLive = null,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? deployTarget = null, Func<Stream?>? input = null, string? approvedHash = null, bool mcp = false)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? deployTarget = null, Func<Stream?>? input = null, string? approvedHash = null, bool mcp = false,
+        Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? deployAgents = null)
     {
         UseInvariantCulture();
         try
         {
             // No response files: `@file` is an ordinary argument, so a file cannot supply options.
-            var parse = Root(output, error, pac, driftLive, deployTarget, input, approvedHash, mcp).Parse(args, new ParserConfiguration { ResponseFileTokenReplacer = null });
+            var parse = Root(output, error, pac, driftLive, deployTarget, input, approvedHash, mcp, deployAgents).Parse(args, new ParserConfiguration { ResponseFileTokenReplacer = null });
             if (parse.Errors.Count > 0)
             {
                 // A hook must not see exit 0 from help, and without a plan file the missing argument is a parse error before the gate runs.
@@ -87,7 +90,7 @@ public static class Program
                 // A bare `powerops`: the help first, so the person sees what to type.
                 if (args.Length == 0)
                 {
-                    Root(error, error, pac, driftLive, deployTarget, input, approvedHash).Parse(["--help"]).Invoke(new InvocationConfiguration { Output = error, Error = error });
+                    Root(error, error, pac, driftLive, deployTarget, input, approvedHash, deployAgents: deployAgents).Parse(["--help"]).Invoke(new InvocationConfiguration { Output = error, Error = error });
                 }
 
                 // System.CommandLine returns 1 for parse errors; usage errors are 2 here.

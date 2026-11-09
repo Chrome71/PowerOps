@@ -728,6 +728,113 @@ public class DriftLiveReaderTests
         Assert.Empty(f.WebCalls);
     }
 
+    // ---- ReadAgents (deploy apply) ----
+
+    private static readonly Guid ImportedInto = Guid.Parse("00000000-0000-0000-0000-00000000000c");
+
+    private static string[] Names(int n) => [.. Enumerable.Range(0, n).Select(i => $"demo_Agent{i}")];
+
+    [Fact]
+    public void ReadAgents_runs_pac_and_az_once_and_reads_the_names_in_one_bot_read()
+    {
+        var f = new LiveFakes { WebFn = _ => LiveFakes.Ok(LiveFakes.SampleFile("bots.json")) };
+
+        var rows = f.Reader.ReadAgents(TestEnv, ImportedInto, ["demo_Helper", "demo_Other"]);
+
+        Assert.Equal([("demo_Helper", true), ("demo_Other", false)], rows);
+        Assert.Equal(["org", "who", "--environment", TestEnv], Assert.Single(f.PacCalls));
+        Assert.Single(f.AzCalls);
+        var call = Assert.Single(f.WebCalls);
+        Assert.Equal(LiveFakes.Token, call.Token);
+        Assert.Equal("bots", LiveFakes.EntitySet(call.Url));
+        var stored = File.ReadAllText(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "pac", "drift", "queries", "deploy-bots.xml")).TrimEnd('\n');
+        Assert.Contains(Uri.EscapeDataString(stored.Replace("{schemaNameValues}", "<value>demo_Helper</value><value>demo_Other</value>")), call.Url.Query);
+    }
+
+    [Fact]
+    public void ReadAgents_with_no_name_or_only_names_that_are_not_valid_read_names_calls_nothing()
+    {
+        var f = new LiveFakes();
+
+        Assert.Empty(f.Reader.ReadAgents(TestEnv, ImportedInto, []));
+        Assert.Empty(f.Reader.ReadAgents(TestEnv, ImportedInto, ["bad name", "", new string('a', 101)]));
+        Assert.Empty(f.PacCalls);
+        Assert.Empty(f.AzCalls);
+        Assert.Empty(f.WebCalls);
+    }
+
+    [Fact]
+    public void ReadAgents_never_sends_a_name_that_is_not_a_valid_read_name_and_reads_a_repeated_name_once()
+    {
+        var f = new LiveFakes { WebFn = _ => LiveFakes.Ok(LiveFakes.NoRows) };
+
+        f.Reader.ReadAgents(TestEnv, ImportedInto, ["demo_One", "bad name", "DEMO_ONE", "demo_Two"]);
+
+        var query = Uri.UnescapeDataString(Assert.Single(f.WebCalls).Url.Query);
+        Assert.Contains("<value>demo_One</value><value>demo_Two</value>", query);
+        Assert.DoesNotContain("bad name", query);
+    }
+
+    [Fact]
+    public void ReadAgents_makes_one_read_for_50_names_and_two_for_51_and_joins_the_rows()
+    {
+        var reads = 0;
+        var f = new LiveFakes { WebFn = _ => LiveFakes.Ok($$"""{"value":[{"schemaname":"row{{reads++}}"}]}""") };
+
+        f.Reader.ReadAgents(TestEnv, ImportedInto, Names(50));
+        Assert.Single(f.WebCalls);
+
+        f.WebCalls.Clear();
+        var rows = f.Reader.ReadAgents(TestEnv, ImportedInto, Names(51));
+
+        Assert.Equal(2, f.WebCalls.Count);
+        Assert.Equal(2, rows.Count);
+        Assert.Contains("<value>demo_Agent50</value>", Uri.UnescapeDataString(f.WebCalls[1].Url.Query));
+        Assert.DoesNotContain("<value>demo_Agent50</value>", Uri.UnescapeDataString(f.WebCalls[0].Url.Query));
+    }
+
+    [Theory]
+    [InlineData("  Friendly Name:  Contoso Test\n  Org URL:  https://contoso-test.crm.dynamics.com/\n  Environment ID:  00000000-0000-0000-0000-0000000000ff\n")]
+    [InlineData("  Friendly Name:  Contoso Test\n  Org URL:  https://contoso-test.crm.dynamics.com/\n  Environment ID:  not-a-guid\n")]
+    [InlineData("  Friendly Name:  Contoso Test\n  Org URL:  https://contoso-test.crm.dynamics.com/\n")]
+    public void ReadAgents_throws_before_the_token_when_pac_names_another_environment(string stdout)
+    {
+        var f = new LiveFakes { PacFn = _ => new PacResult(true, false, 0, stdout) };
+
+        var e = Assert.Throws<DriftReadException>(() => f.Reader.ReadAgents(TestEnv, ImportedInto, ["demo_One"]));
+
+        Assert.Equal("`pac org who` named another environment than the one imported into.", e.Message);
+        Assert.Empty(f.AzCalls);
+        Assert.Empty(f.WebCalls);
+    }
+
+    [Theory]
+    [InlineData("403")]
+    [InlineData("timeout")]
+    [InlineData("malformed")]
+    public void ReadAgents_failures_are_drift_read_exceptions_that_leak_neither_the_environment_nor_the_token(string failure)
+    {
+        var f = new LiveFakes
+        {
+            WebFn = _ => failure switch
+            {
+                "403" => new WebResult(403, """{"error":{"code":"1","message":"No access"}}""", false),
+                "timeout" => new WebResult(0, "", true),
+                _ => LiveFakes.Ok("""{"value":[{"publishedon":"x"}]}"""),
+            },
+        };
+
+        var e = Assert.Throws<DriftReadException>(() => f.Reader.ReadAgents(TestEnv, ImportedInto, ["demo_One"]));
+
+        Assert.Contains("`bot`", e.Message);
+        foreach (var text in new[] { e.Message, e.Forwarded ?? "" })
+        {
+            Assert.DoesNotContain(TestEnv, text);
+            Assert.DoesNotContain(LiveFakes.Token, text);
+            Assert.DoesNotContain("crm.dynamics.com", text);
+        }
+    }
+
     [Fact]
     public void Read_for_drift_does_not_need_an_environment_id()
     {

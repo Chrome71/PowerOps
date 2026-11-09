@@ -514,7 +514,7 @@ public class DeployApplyCommandTests : DeployTestBase
     private Outcome ApplyApproved(FakeTarget fake, FakePac pac, string approvedHash, bool mcp = false)
     {
         var (o, e) = (new StringWriter(), new StringWriter());
-        var code = Program.Run(["deploy", "apply", PlanFile, "--target", TargetValue, "--format", "json", "--apply"], o, e, pac.Run, null, fake.Read, null, approvedHash, mcp);
+        var code = Program.Run(["deploy", "apply", PlanFile, "--target", TargetValue, "--format", "json", "--apply"], o, e, pac.Run, null, fake.Read, null, approvedHash, mcp, new FakeAgents().Read);
         return new Outcome(code, o.ToString().ReplaceLineEndings("\n"), e.ToString().ReplaceLineEndings("\n"));
     }
 
@@ -656,7 +656,7 @@ public class DeployApplyCommandTests : DeployTestBase
         var (o, e) = (new StringWriter(), new StringWriter());
         var pac = new FakePac();
 
-        var code = Program.Run(["deploy", "apply", PlanFile, "--target", TargetValue, "--format", "json", "--apply", "--github-run", "contoso/widgets run 7 attempt 1"], o, e, pac.Run, null, SeedTarget().Read, null, planHash);
+        var code = Program.Run(["deploy", "apply", PlanFile, "--target", TargetValue, "--format", "json", "--apply", "--github-run", "contoso/widgets run 7 attempt 1"], o, e, pac.Run, null, SeedTarget().Read, null, planHash, deployAgents: new FakeAgents().Read);
 
         Assert.Equal(0, code);
         var doc = JsonNode.Parse(o.ToString())!;
@@ -1205,7 +1205,7 @@ public class DeployApplyCommandTests : DeployTestBase
         try
         {
             var (o, e) = (new StringWriter(), new StringWriter());
-            var code = Program.Run(["deploy", "apply", "powerops-plan.json", "--target", TargetValue], o, e, new FakePac().Run, null, SeedTarget().Read);
+            var code = Program.Run(["deploy", "apply", "powerops-plan.json", "--target", TargetValue], o, e, new FakePac().Run, null, SeedTarget().Read, deployAgents: new FakeAgents().Read);
 
             Assert.Equal(0, code);
             Assert.EndsWith("dry run: would import 1 solution\n", o.ToString().ReplaceLineEndings("\n"));

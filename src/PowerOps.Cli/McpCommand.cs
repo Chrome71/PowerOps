@@ -67,14 +67,15 @@ public static partial class McpCommand
     private static readonly string[] DeviceNames = ["CON", "PRN", "AUX", "NUL", .. Enumerable.Range(0, 10).SelectMany(i => new[] { "COM" + i, "LPT" + i })];
 
     public static Command Create(TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot> driftLive,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget,
+        Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? deployAgents = null)
     {
         var command = new Command("mcp", "Run an MCP server over stdio for agents: its tools run the commands and return their JSON.");
         command.SetAction(async (ParseResult parse, CancellationToken cancellationToken) =>
         {
             try
             {
-                await using var server = McpServer.Create(new StdioServerTransport("powerops"), Options(pac, driftLive, deployTarget));
+                await using var server = McpServer.Create(new StdioServerTransport("powerops"), Options(pac, driftLive, deployTarget, deployAgents: deployAgents));
                 await server.RunAsync(cancellationToken);
                 return 0;
             }
@@ -93,9 +94,10 @@ public static partial class McpCommand
 
     // Tests build a server from these options over in-process pipes; ran sees every argument list a tool passes to Program.Run.
     internal static McpServerOptions Options(Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot> driftLive,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget, Action<string[]>? ran = null)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget, Action<string[]>? ran = null,
+        Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? deployAgents = null)
     {
-        var tools = Tools(pac, driftLive, deployTarget, ran);
+        var tools = Tools(pac, driftLive, deployTarget, ran, deployAgents);
         var listed = tools.Select(Describe).ToList();
         return new McpServerOptions
         {
@@ -171,12 +173,13 @@ public static partial class McpCommand
     }
 
     private static ToolDef[] Tools(Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot> driftLive,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget, Action<string[]>? ran)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> deployTarget, Action<string[]>? ran,
+        Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? deployAgents = null)
     {
         int Run(string[] args, TextWriter output, TextWriter error, string? approvedHash, bool mcp)
         {
             ran?.Invoke(args);
-            return Program.Run(args, output, error, pac, driftLive, deployTarget, approvedHash: approvedHash, mcp: mcp);
+            return Program.Run(args, output, error, pac, driftLive, deployTarget, approvedHash: approvedHash, mcp: mcp, deployAgents: deployAgents);
         }
 
         // Only deploy_apply passes a hash (the one the user approved in the form) and says mcp, which its report records as the executor.

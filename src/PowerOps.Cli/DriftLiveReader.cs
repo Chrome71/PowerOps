@@ -14,6 +14,7 @@ internal sealed class DriftLiveReader(
 {
     private const int MaxLayerReads = 50;
     private const int OtherSolutionsBatch = 50;
+    private const int BotBatch = 50;
     private const long MaxBody = 16 * 1024 * 1024;
     private const string SignInHint = "Sign in with az login, and check that the account can read that environment.";
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
@@ -44,6 +45,26 @@ internal sealed class DriftLiveReader(
         }
 
         return new DeployTarget(name, id, snapshots, versions);
+    }
+
+    /// <summary>Reads the given agents (<c>bot</c> rows) of the environment a deploy imported into: one <c>pac org who</c>, which must name <paramref name="environmentId"/>, one token, and one read per 50 distinct names. A name that is not a valid read name is never sent; with no valid name nothing is called.</summary>
+    /// <exception cref="DriftReadException">The environment is another one, or a call or a read failed.</exception>
+    public IReadOnlyList<(string SchemaName, bool PublishedOn)> ReadAgents(string target, Guid environmentId, IReadOnlyList<string> names)
+    {
+        var valid = names.Where(DriftQueries.IsValidAgentName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (valid.Count == 0)
+        {
+            return [];
+        }
+
+        var (_, url, idText) = Who(target);
+        if (!Guid.TryParse(idText, out var id) || id != environmentId)
+        {
+            throw new DriftReadException("`pac org who` named another environment than the one imported into.");
+        }
+
+        var token = Token(url);
+        return [.. valid.Chunk(BotBatch).SelectMany(batch => Read(url, token, "bot", "bots", DriftQueries.Bots(batch), DriftParsers.Bots))];
     }
 
     private Snapshot ReadSolution(string name, string url, string token, string solution, bool otherSolutions)

@@ -9,13 +9,16 @@ public sealed record AppliedSolution(int Order, string Solution, string Zip, str
 /// <summary>One planned cloud flow and its state after the imports (null in a dry run or when the second read failed).</summary>
 public sealed record AppliedFlow(string Solution, string Name, string ExpectedState, string? StateAfter);
 
+/// <summary>One agent of an imported zip and what the read-back found: <paramref name="State"/> is an <see cref="AgentState"/> (null in a dry run), <paramref name="PublishedOn"/> whether the row's <c>publishedon</c> is set (null unless found).</summary>
+public sealed record AppliedAgent(string Solution, string Name, string? State, bool? PublishedOn);
+
 /// <summary>How an apply was approved, as the caller reports it: provenance, not authentication. <paramref name="Receipt"/> is opaque text (the Action's run, attempt and environment), null for the CLI and the form.</summary>
 public sealed record Approval(string Mode, string? Receipt);
 
 /// <summary>The apply report. Holds no environment id or URL, folder path, connection id, setting value or <c>pac</c> text. <paramref name="AppliedAt"/> (UTC, to the second) is set once an <c>--apply</c> run started importing.</summary>
 public sealed record DeployApplyResult(
     string Tool, bool Applied, string Target, string Hash, string Status, string? Message, string? AppliedAt, string Executor, Approval? Approval,
-    IReadOnlyList<AppliedSolution> Solutions, IReadOnlyList<AppliedFlow> Flows);
+    IReadOnlyList<AppliedSolution> Solutions, IReadOnlyList<AppliedFlow> Flows, IReadOnlyList<AppliedAgent> Agents);
 
 /// <summary>The route a <c>deploy apply</c> ran by, as the caller reports it.</summary>
 public static class ApplyExecutor
@@ -39,6 +42,14 @@ public static class ApplyStatus
     public const string Planned = "planned";
     public const string Imported = "imported";
     public const string Failed = "failed";
+}
+
+/// <summary>What the agent read-back found for one agent.</summary>
+public static class AgentState
+{
+    public const string Found = "found";
+    public const string Missing = "missing";
+    public const string NotRead = "not-read";
 }
 
 public static class ImportStatus
@@ -175,6 +186,27 @@ public static class DeployApply
         }).ToList();
         return new FlowsAfterResult(applied, applied.All(f => f.StateAfter == f.ExpectedState));
     }
+
+    /// <summary>The agents of the planned solutions <paramref name="include"/> accepts, as (solution, name) in plan order and then the order of <see cref="Model.Solution.Agents"/>, a name once per solution (ignoring case).</summary>
+    /// <exception cref="InvalidDataException">A planned solution's zip is not among <paramref name="zips"/>.</exception>
+    public static IReadOnlyList<(string Solution, string Name)> ExpectedAgents(DeployPlanResult plan, IReadOnlyList<DeployZip> zips, Func<PlannedSolution, bool> include) =>
+        [.. plan.Solutions.Where(include).SelectMany(s =>
+            ZipOf(s, zips).Solution.Agents.Select(a => a.SchemaName).Distinct(StringComparer.OrdinalIgnoreCase).Select(n => (s.Solution, n)))];
+
+    /// <summary>Each expected agent with what the read found. <paramref name="rows"/> is null for a failed read; a failed read, and a name that is not a valid read name (never sent), give <see cref="AgentState.NotRead"/>.</summary>
+    public static IReadOnlyList<AppliedAgent> AgentsAfter(IReadOnlyList<(string Solution, string Name)> expected, IReadOnlyList<(string SchemaName, bool PublishedOn)>? rows) =>
+        [.. expected.Select(e =>
+        {
+            if (rows is null || !DriftQueries.IsValidAgentName(e.Name))
+            {
+                return new AppliedAgent(e.Solution, e.Name, AgentState.NotRead, null);
+            }
+
+            var published = rows.Where(r => string.Equals(r.SchemaName, e.Name, StringComparison.OrdinalIgnoreCase)).Select(r => (bool?)r.PublishedOn).FirstOrDefault();
+            return published is { } isOn
+                ? new AppliedAgent(e.Solution, e.Name, AgentState.Found, isOn)
+                : new AppliedAgent(e.Solution, e.Name, AgentState.Missing, null);
+        })];
 
     private static DeployZip ZipOf(PlannedSolution s, IReadOnlyList<DeployZip> zips) =>
         zips.FirstOrDefault(z => z.File == s.Zip) ?? throw new InvalidDataException($"{s.Zip}: the zip is not among the loaded zips");
