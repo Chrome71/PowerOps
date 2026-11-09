@@ -321,7 +321,7 @@ internal static partial class SolutionParser
     {
         try
         {
-            return YamlXml.Read(text, n => files.Budget.CountNode(path, n));
+            return YamlXml.Read(text, n => files.Budget.CountNode(path, n), attributes: false);
         }
         // Valid YAML the converter can't map is an unknown shape, not a refusal (M48 decisions Q6).
         catch (YamlShapeException)

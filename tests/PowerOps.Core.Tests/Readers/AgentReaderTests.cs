@@ -222,7 +222,7 @@ public class AgentReaderTests
     public void An_unread_file_is_listed_under_its_own_agent_only(string oddAgent, string okAgent)
     {
         using var t = Comp(Comp(Comp(Agent(Agent(Base()), "demo_two", Bot("demo_two")),
-            $"{oddAgent}.topic.Odd", "9", "kind: TaskDialog\n" + OddKeyAttribute, oddAgent),
+            $"{oddAgent}.topic.Odd", "9", "kind: TaskDialog\n" + OddKey, oddAgent),
             $"{okAgent}.topic.Ok", "9", FlowTool, okAgent),
             $"{okAgent}.topic.Flow", "9", ConnectorTool, okAgent);
 
@@ -312,13 +312,19 @@ public class AgentReaderTests
         Assert.Equal(["demo_agent.topic.A", "demo_agent.topic.B"], agent.Tools.Select(x => x.SchemaName));
     }
 
-    public const string OddKeyAttribute = "'@odata.nextLink':\n  a: b\n";
+    public const string OddKey = "? [a, b]\n: c\n";
+
+    // Keys the layout converter refuses and agent files read as elements (M74).
+    public static TheoryData<string> ReadableKeys => new()
+    {
+        "'@odata.nextLink':\n  a: b\n",
+        "'#text':\n  a: b\n",
+        "'@xmlns': http://www.w3.org/2000/xmlns/\n",
+    };
 
     public static TheoryData<string> OddKeys => new()
     {
-        OddKeyAttribute,
-        "'#text':\n  a: b\n",
-        "? [a, b]\n: c\n",
+        OddKey,
         "\"\": x\n",
     };
 
@@ -345,10 +351,41 @@ public class AgentReaderTests
         Assert.Empty(agent.UnreadFiles); // PO028 notes it
     }
 
+    [Theory]
+    [MemberData(nameof(ReadableKeys))]
+    public void A_key_starting_with_at_or_hash_is_an_element_in_an_agent_tool_file(string extra)
+    {
+        var data = "kind: TaskDialog\naction:\n  kind: InvokeExternalAgentTaskAction\n  connectionProperties:\n    mode: Maker\n" + extra;
+
+        var agent = One(Comp(Agent(Base()), "demo_agent.topic.Orders", "9", data));
+
+        var tool = Assert.Single(agent.Tools);
+        Assert.Equal("Maker", tool.Mode);
+        Assert.Empty(agent.UnreadFiles);
+    }
+
+    [Theory]
+    [MemberData(nameof(ReadableKeys))]
+    public void A_key_starting_with_at_or_hash_is_an_element_in_a_custom_gpt_file(string extra)
+    {
+        var agent = One(Comp(Agent(Base()), "demo_agent.gpt.default", "15", "kind: GptComponentMetadata\ninstructions: Answer.\n" + extra));
+
+        Assert.Equal("Answer.", agent.Instructions);
+        Assert.Empty(agent.UnreadFiles);
+    }
+
+    [Fact]
+    public void A_tool_file_of_many_odata_mappings_is_charged_to_the_node_budget()
+    {
+        var many = "kind: TaskDialog\n" + string.Concat(Enumerable.Range(0, 2000).Select(i => $"'@odata.id':\n  k{i}: 1\n"));
+
+        Refused(Comp(Agent(Base()), "demo_agent.topic.Orders", "9", many), "botcomponents/demo_agent.topic.Orders/data", maxNodes: 1000);
+    }
+
     [Fact]
     public void Unread_files_are_the_tool_data_paths_in_ordinal_order_and_a_mappable_tool_is_not_one()
     {
-        const string Odd = "kind: TaskDialog\n" + OddKeyAttribute;
+        const string Odd = "kind: TaskDialog\n" + OddKey;
         var agent = One(Comp(Comp(Comp(Agent(Base()),
             "demo_agent.topic.Z", "9", Odd),
             "demo_agent.topic.A", "9", Odd),
@@ -365,15 +402,6 @@ public class AgentReaderTests
         var deep = "kind: TaskDialog\n" + string.Concat(Enumerable.Range(0, levels).Select(i => new string(' ', i) + "a:\n")) + new string(' ', levels) + "b: 1\n";
 
         Refused(Comp(Agent(Base()), "demo_agent.topic.Orders", "9", deep), "botcomponents/demo_agent.topic.Orders/data");
-    }
-
-    [Fact]
-    public void A_tool_with_a_reserved_xml_name_key_is_skipped_as_unread_not_refused()
-    {
-        var agent = One(Comp(Agent(Base()), "demo_agent.topic.Orders", "9", "kind: TaskDialog\n'@xmlns': http://www.w3.org/2000/xmlns/\n"));
-
-        Assert.Empty(agent.Tools);
-        Assert.Equal(["botcomponents/demo_agent.topic.Orders/data"], agent.UnreadFiles);
     }
 
     [Fact]
