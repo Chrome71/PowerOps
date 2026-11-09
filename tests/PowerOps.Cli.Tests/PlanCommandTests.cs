@@ -310,6 +310,32 @@ public class PlanCommandTests : IDisposable
         }
     }
 
+    [Fact]
+    public void Sign_off_names_a_stale_review_on_stderr_and_still_signs()
+    {
+        Plan("status: approved\nreview: done");
+        File.WriteAllText(Path.Combine(PlanDir(), "review.md"), $"plan-hash: {new string('a', 64)}\n");
+
+        var (code, _, err) = Run("plan", "sign-off", PlanDir());
+
+        Assert.Equal(0, code);
+        Assert.Contains("signed-off-hash:", File.ReadAllText(Path.Combine(PlanDir(), "plan.md")));
+        Assert.Equal("warning: review.md was written for a different version of the plan (stale review)\n", err.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void Sign_off_over_a_current_review_prints_no_warning()
+    {
+        Plan("status: approved\nreview: done");
+        var hash = PowerOps.Core.Plans.PlanChecker.Check(Path.Combine(PlanDir(), "plan.md"), _temp).BodyHash;
+        File.WriteAllText(Path.Combine(PlanDir(), "review.md"), $"plan-hash: {hash}\n");
+
+        var (code, _, err) = Run("plan", "sign-off", PlanDir());
+
+        Assert.Equal(0, code);
+        Assert.Equal("", err);
+    }
+
     // The shape of the plan folder of the 2026-11-04 live run, marked as M54 asks: an orchestrating agent answered the
     // route, signed off and accepted findings, and the build left a stray in Dev.
     [Fact]

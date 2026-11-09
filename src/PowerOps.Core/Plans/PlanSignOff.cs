@@ -41,6 +41,9 @@ public static class PlanSignOff
             errors.Add("remove tenant data before signing off");
         }
 
+        // The warnings plan status gives for the reports (a stale review, an unknown state) are true of the folder now, so the person sees them before the body is signed.
+        PlanChecker.ReadReports(folder, baseDir, doc.BodyHash, warnings);
+
         // A file that fails its checks blocks only an approved sketch; a person's skip stands without one.
         var prototype = PlanChecker.PrototypeProblems(folder, doc, PlanChecker.ReadDecisions(folder, baseDir, warnings));
         errors.AddRange(prototype.Line);
