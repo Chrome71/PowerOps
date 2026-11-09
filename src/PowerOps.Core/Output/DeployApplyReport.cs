@@ -20,7 +20,7 @@ public static class DeployApplyReport
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
     };
 
-    /// <summary>Target and hash, one line per solution and per flow, then a summary; "\n" line endings.</summary>
+    /// <summary>Target and hash, one line per solution, per flow and per agent, then a summary; "\n" line endings.</summary>
     public static void WriteText(DeployApplyResult result, TextWriter writer)
     {
         static string C(string? s) => TextReport.Clean(s);
@@ -45,13 +45,25 @@ public static class DeployApplyReport
             text.Append($"flow {C(f.Solution)}/{C(f.Name)}: expected {C(f.ExpectedState)}, now {(f.StateAfter is null ? "not read" : C(f.StateAfter))}\n");
         }
 
+        foreach (var a in result.Agents)
+        {
+            var what = a.State switch
+            {
+                null => "in the import; the import may leave it published",
+                AgentState.Found => a.PublishedOn == true ? "found, publishedon set" : "found, publishedon empty",
+                AgentState.Missing => "missing",
+                _ => "not read",
+            };
+            text.Append($"agent {C(a.Solution)}/{C(a.Name)}: {C(what)}\n");
+        }
+
         writer.Write(text.Append(Summary(result)).Append('\n').ToString());
     }
 
     /// <summary>Writes the JSON report (stable property order, nulls written, "\n" line endings, trailing newline).</summary>
     public static void WriteJson(DeployApplyResult result, TextWriter writer)
     {
-        var doc = new Doc(JsonOutput.SchemaVersion, result.Tool, result.Applied, result.Target, result.Hash, result.Status, result.Message, result.AppliedAt, result.Executor, result.Approval, result.Solutions, result.Flows);
+        var doc = new Doc(JsonOutput.SchemaVersion, result.Tool, result.Applied, result.Target, result.Hash, result.Status, result.Message, result.AppliedAt, result.Executor, result.Approval, result.Solutions, result.Flows, result.Agents);
         writer.Write(JsonSerializer.Serialize(doc, Options) + "\n");
     }
 
@@ -75,5 +87,5 @@ public static class DeployApplyReport
 
     private sealed record Doc(
         int SchemaVersion, string Tool, bool Applied, string Target, string Hash, string Status, string? Message, string? AppliedAt, string Executor, Approval? Approval,
-        IReadOnlyList<AppliedSolution> Solutions, IReadOnlyList<AppliedFlow> Flows);
+        IReadOnlyList<AppliedSolution> Solutions, IReadOnlyList<AppliedFlow> Flows, IReadOnlyList<AppliedAgent> Agents);
 }

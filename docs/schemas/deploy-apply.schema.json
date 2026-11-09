@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/deploy-apply.schema.json",
   "title": "powerops deploy apply --format json",
-  "description": "The JSON written by 'powerops deploy apply --format json': what a dry run would import, or what an apply imported, and the state of each planned cloud flow afterwards. It never holds an environment id or URL, a folder path, a connection id, an environment variable value, the --target value or pac's output text; only the target's friendly name, the tool version, file names, solution names, flow names, states and the reviewed plan's hash. Keep the report in private places, because the names can still identify a tenant.",
+  "description": "The JSON written by 'powerops deploy apply --format json': what a dry run would import, or what an apply imported, the state of each planned cloud flow afterwards, and the Copilot Studio agents of the imported zips. It never holds an environment id or URL, a folder path, a connection id, an environment variable value, the --target value or pac's output text; only the target's friendly name, the tool version, file names, solution names, flow names, agent names, states and the reviewed plan's hash. Keep the report in private places, because the names can still identify a tenant.",
   "type": "object",
-  "required": ["schemaVersion", "tool", "applied", "target", "hash", "status", "message", "appliedAt", "executor", "approval", "solutions", "flows"],
+  "required": ["schemaVersion", "tool", "applied", "target", "hash", "status", "message", "appliedAt", "executor", "approval", "solutions", "flows", "agents"],
   "properties": {
     "schemaVersion": { "const": 1, "description": "Version of this output format." },
     "tool": { "type": "string", "description": "The version 'powerops --version' prints. Plan and apply must run the same version." },
@@ -64,6 +64,20 @@
           "name": { "type": "string" },
           "expectedState": { "type": "string", "description": "The state the plan predicted for the flow after the import." },
           "stateAfter": { "type": ["string", "null"], "description": "The flow's state in the target after the imports, found by its id ('missing' when it is not there); null in a dry run or when the second read failed. Exit 1 when it differs from expectedState." }
+        }
+      }
+    },
+    "agents": {
+      "type": "array",
+      "description": "The Copilot Studio agents of the zips the run would import (dry run) or did import (import 'ok'), in plan order; empty when there are none, or when nothing was imported. The read-back never changes status, message, solutions or the exit code. It has not yet run against a tenant, so 'missing' is a prompt to check in Copilot Studio, not proof.",
+      "items": {
+        "type": "object",
+        "required": ["solution", "name", "state", "publishedOn"],
+        "properties": {
+          "solution": { "type": "string", "description": "The unique name of the agent's solution." },
+          "name": { "type": "string", "description": "The agent's schema name." },
+          "state": { "enum": [null, "found", "missing", "not-read"], "description": "null in a dry run. found: the read returned a bot row with this schema name. missing: it returned none, which also happens when the reading account can't see that agent. not-read: the read failed (a warning is on stderr), or the name is not one powerops sends (letters, digits and underscores, at most 100 characters)." },
+          "publishedOn": { "type": ["boolean", "null"], "description": "For a found agent, whether the bot row's 'publishedon' is set; null otherwise. It does not say someone published the agent in the target, and for an upgrade or an agent the target already held it does not show what the import did." }
         }
       }
     }

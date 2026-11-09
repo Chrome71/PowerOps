@@ -353,10 +353,10 @@ public static class DeployCommand
             : new Approval(ApprovalMode.Cli, null);
         string? appliedAt = null;
 
-        int Finish(int code, string name, string hash, string status, string? message, IReadOnlyList<AppliedSolution> solutions, IReadOnlyList<AppliedFlow> flows)
+        int Finish(int code, string name, string hash, string status, string? message, IReadOnlyList<AppliedSolution> solutions, IReadOnlyList<AppliedFlow> flows, IReadOnlyList<AppliedAgent>? agents = null)
         {
             var report = new StringWriter();
-            var result = new DeployApplyResult(tool, apply, name, hash, status, message, appliedAt, executor, approval, solutions, flows, []);
+            var result = new DeployApplyResult(tool, apply, name, hash, status, message, appliedAt, executor, approval, solutions, flows, agents ?? []);
             if (format == "json")
             {
                 DeployApplyReport.WriteJson(result, report);
@@ -395,7 +395,8 @@ public static class DeployCommand
                 progress.WriteLine($"would run: pac {string.Join(' ', SettingsCommand.ImportArguments(SettingsCommand.EnvironmentPlaceholder, step.Zip, step.Settings, step.StageAndUpgrade).Select(Clean))}");
             }
 
-            return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Planned, null, Rows(plan, s => s.Action == PlanAction.Skip ? ImportStatus.Skipped : ImportStatus.Planned), planned);
+            var listed = DeployApply.ExpectedAgents(plan, now.Zips, s => s.Action != PlanAction.Skip).Select(a => new AppliedAgent(a.Solution, a.Name, null, null)).ToList();
+            return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Planned, null, Rows(plan, s => s.Action == PlanAction.Skip ? ImportStatus.Skipped : ImportStatus.Planned), planned, listed);
         }
 
         appliedAt = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
@@ -425,12 +426,12 @@ public static class DeployCommand
             var after = failure.Value.TimedOut
                 ? did.Count == 0 ? "No import before it finished." : $"Imported before it: {string.Join(", ", did)}."
                 : did.Count == 0 ? "Nothing was imported." : $"Imported: {string.Join(", ", did)}.";
-            return Finish(InternalError, plan.Target, reviewed.Hash, ApplyStatus.Failed, $"{failure.Value.Text} There is no rollback. {after}", Done(), []);
+            return Finish(InternalError, plan.Target, reviewed.Hash, ApplyStatus.Failed, $"{failure.Value.Text} There is no rollback. {after}", Done(), [], ReadAgents());
         }
 
         if (flowRefs.Count == 0)
         {
-            return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Imported, imports.Count == 0 ? "Nothing was imported: every solution was skipped." : null, Done(), []);
+            return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Imported, imports.Count == 0 ? "Nothing was imported: every solution was skipped." : null, Done(), [], ReadAgents());
         }
 
         DeployTarget second;
@@ -447,11 +448,36 @@ public static class DeployCommand
             }
 
             var why = ex is DriftReadException d ? $": {d.Message}" : ".";
-            return Finish(InternalError, plan.Target, reviewed.Hash, ApplyStatus.Imported, $"The imports succeeded. Reading the target again failed{why}", Done(), planned);
+            return Finish(InternalError, plan.Target, reviewed.Hash, ApplyStatus.Imported, $"The imports succeeded. Reading the target again failed{why}", Done(), planned, ReadAgents());
         }
 
         var flows = DeployApply.FlowsAfter(flowRefs, second.Solutions);
-        return Finish(flows.AsExpected ? 0 : 1, plan.Target, reviewed.Hash, ApplyStatus.Imported, null, Done(), flows.Flows);
+        return Finish(flows.AsExpected ? 0 : 1, plan.Target, reviewed.Hash, ApplyStatus.Imported, null, Done(), flows.Flows, ReadAgents());
+
+        // The agents of every solution whose import went through, read once; a failed read never changes the status or the exit code.
+        List<AppliedAgent> ReadAgents()
+        {
+            var expected = DeployApply.ExpectedAgents(plan, now.Zips, s => state.GetValueOrDefault(s.Order) == ImportStatus.Ok);
+            if (expected.Count == 0)
+            {
+                return [];
+            }
+
+            try
+            {
+                return [.. DeployApply.AgentsAfter(expected, deployAgents!(target!, now.Target.Id, [.. expected.Select(e => e.Name)]))];
+            }
+            catch (Exception ex)
+            {
+                if (ex is DriftReadException drift)
+                {
+                    Forward(error, drift.Forwarded);
+                }
+
+                error.WriteLine($"warning: the agent read-back failed: {(ex is DriftReadException d ? Clean(d.Message) : "failed.")}");
+                return [.. DeployApply.AgentsAfter(expected, null)];
+            }
+        }
 
         // The failure message of one import (and whether it timed out), or null when it went through; hashes both files again first.
         (string Text, bool TimedOut)? Import(ImportStep step)
