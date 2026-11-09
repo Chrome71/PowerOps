@@ -27,6 +27,8 @@ public sealed partial class PlanDocument
 
     public int OpenQuestions { get; private init; }
 
+    public int AdminQuestions { get; private init; }
+
     // Raw lines with their terminators, and the index of the closing fence (-1 when there is none).
     internal IReadOnlyList<string> Lines { get; private init; } = [];
 
@@ -40,22 +42,22 @@ public sealed partial class PlanDocument
         }
 
         var lines = LineRegex().Matches(text).Select(m => m.Value).ToList();
-        var open = CountOpenQuestions(lines);
+        var (open, admin) = CountQuestions(lines);
         if (lines.Count == 0 || !IsFence(lines[0]))
         {
-            return new PlanDocument { Error = "the file does not start with a '---' line", OpenQuestions = open, Lines = lines };
+            return new PlanDocument { Error = "the file does not start with a '---' line", OpenQuestions = open, AdminQuestions = admin, Lines = lines };
         }
 
         var close = lines.FindIndex(1, IsFence);
         if (close < 0)
         {
-            return new PlanDocument { Error = "the header has no closing '---' line", OpenQuestions = open, Lines = lines };
+            return new PlanDocument { Error = "the header has no closing '---' line", OpenQuestions = open, AdminQuestions = admin, Lines = lines };
         }
 
         var body = string.Concat(lines.Skip(close + 1)).Replace("\r\n", "\n");
         var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(body)));
         var (header, error) = ParseHeader(lines, close);
-        return new PlanDocument { Header = header, Error = error, BodyHash = hash, OpenQuestions = open, Lines = lines, Close = close };
+        return new PlanDocument { Header = header, Error = error, BodyHash = hash, OpenQuestions = open, AdminQuestions = admin, Lines = lines, Close = close };
     }
 
     [GeneratedRegex("[^\n]*\n|[^\n]+")]
@@ -90,26 +92,34 @@ public sealed partial class PlanDocument
     private static string Content(string line) => line.TrimEnd('\r', '\n');
 
     // Headings that start a counted section end at the next level 1 or 2 heading.
-    private static int CountOpenQuestions(List<string> lines)
+    private static (int Open, int Admin) CountQuestions(List<string> lines)
     {
-        var count = 0;
-        var inSection = false;
+        var open = 0;
+        var admin = 0;
+        var section = 0; // 1 under Open questions, 2 under Questions for your admin
         foreach (var raw in lines)
         {
             var line = Content(raw);
             if (HeadingRegex().IsMatch(line))
             {
                 var title = line.Trim();
-                inSection = title.Equals("## Open questions", StringComparison.OrdinalIgnoreCase) ||
-                    title.Equals("## Questions for your admin", StringComparison.OrdinalIgnoreCase);
+                section = title.Equals("## Open questions", StringComparison.OrdinalIgnoreCase) ? 1
+                    : title.Equals("## Questions for your admin", StringComparison.OrdinalIgnoreCase) ? 2 : 0;
             }
-            else if (inSection && ListItemRegex().IsMatch(line))
+            else if (section != 0 && ListItemRegex().IsMatch(line))
             {
-                count++;
+                if (section == 1)
+                {
+                    open++;
+                }
+                else
+                {
+                    admin++;
+                }
             }
         }
 
-        return count;
+        return (open, admin);
     }
 
     /// <summary>Splits a header line into key and value (comment removed, trimmed, empty or "null" becomes null). Null key when the line has no ':'.</summary>

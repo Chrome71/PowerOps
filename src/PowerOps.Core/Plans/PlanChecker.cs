@@ -15,6 +15,7 @@ public sealed record PlanReport(
     string? Depth,
     string? Supersedes,
     int OpenQuestions,
+    int AdminQuestions,
     string? BodyHash,
     bool Malformed,
     IReadOnlyList<string> Violations,
@@ -131,7 +132,7 @@ public static partial class PlanChecker
         {
             // One unreadable plan.md is that plan's violation; the other plans are still checked. The runtime's own messages hold the full path, so they are not printed.
             var problem = ex is InvalidDataException ? ex.Message.Replace(planFile, Display(planFile, baseDir), StringComparison.Ordinal) : $"{Display(planFile, baseDir)}: could not be read";
-            return new PlanReport(Display(folder, baseDir), null, null, null, null, null, null, 0, null, false, [problem], [], [], null);
+            return new PlanReport(Display(folder, baseDir), null, null, null, null, null, null, 0, 0, null, false, [problem], [], [], null);
         }
 
         var violations = new List<string>();
@@ -187,6 +188,7 @@ public static partial class PlanChecker
             doc.Header?.Depth,
             doc.Header?.Supersedes,
             doc.OpenQuestions,
+            doc.AdminQuestions,
             doc.BodyHash,
             doc.Header is null,
             violations,

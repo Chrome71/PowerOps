@@ -121,7 +121,7 @@ public class PlanCheckerTests : IDisposable
     [Fact]
     public void Sign_off_then_status_is_clean_and_reports_the_header()
     {
-        Write(Plan("approved", "skipped", "# Plan\n\n## Open questions\n- one\n- two\n"));
+        Write(Plan("approved", "skipped", "# Plan\n\n## Open questions\n- one\n- two\n\n## Questions for your admin\n- ask\n"));
 
         var signed = SignOff();
         var r = Check();
@@ -131,6 +131,7 @@ public class PlanCheckerTests : IDisposable
         Assert.Equal("signed-off", r.Status);
         Assert.Equal("2026-10-19", r.SignedOff);
         Assert.Equal(2, r.OpenQuestions);
+        Assert.Equal(1, r.AdminQuestions);
         Assert.Equal("docs/plans/demo", r.Path);
     }
 

@@ -55,12 +55,12 @@ public class PlanCommandTests : IDisposable
     [Fact]
     public void Draft_plan_prints_one_line_and_a_summary()
     {
-        Plan("status: draft\nreview: pending", "# Plan\n## Open questions\n- one\n");
+        Plan("status: draft\nreview: pending", "# Plan\n## Open questions\n- one\n## Questions for your admin\n- ask\n");
 
         var (code, output, _) = Run("plan", "status", _temp);
 
         Assert.Equal(0, code);
-        Assert.Contains(": draft, review pending, 1 open question\n", output.Replace("\r\n", "\n"));
+        Assert.Contains(": draft, review pending, 1 open question, 1 admin question\n", output.Replace("\r\n", "\n"));
         Assert.EndsWith("1 plan, 0 violations, 0 warnings\n", output.Replace("\r\n", "\n"));
     }
 
@@ -138,6 +138,7 @@ public class PlanCommandTests : IDisposable
         Assert.Equal(JsonValueKind.Null, plan.GetProperty("signedOff").ValueKind);
         Assert.Equal("Contoso Dev", plan.GetProperty("environment").GetString());
         Assert.Equal(2, plan.GetProperty("openQuestions").GetInt32());
+        Assert.Equal(0, plan.GetProperty("adminQuestions").GetInt32());
         Assert.Matches("^[0-9a-f]{64}$", plan.GetProperty("bodyHash").GetString());
         Assert.Single(plan.GetProperty("violations").EnumerateArray());
         Assert.Single(plan.GetProperty("warnings").EnumerateArray());
@@ -346,7 +347,7 @@ public class PlanCommandTests : IDisposable
 
         var text = output.Replace("\r\n", "\n");
         Assert.Equal(0, code);
-        Assert.Contains(": signed-off, review skipped, 0 open questions\n  writes writes.md: 2 entries, 1 open cleanup\n", text);
+        Assert.Contains(": signed-off, review skipped, 0 open questions, 0 admin questions\n  writes writes.md: 2 entries, 1 open cleanup\n", text);
         Assert.Contains($"  warning: sign-off answered by an agent ({Path.Combine(PlanDir(), "decisions.md").Replace('\\', '/')}:13): only a person signs off a plan\n", text);
         Assert.Contains($"  warning: acceptance answered by an agent ({Path.Combine(PlanDir(), "decisions.md").Replace('\\', '/')}:14): only a person accepts a High finding or a security gap\n", text);
         Assert.EndsWith("1 plan, 0 violations, 2 warnings\n", text);
