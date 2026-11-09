@@ -308,10 +308,11 @@ public partial class SkillsCommandTests : IDisposable
             "dv-solution",
             "MSCRM.SolutionUniqueName",
             "you do not run `pac` or `az` to find out",
-            "Give the skill the plan's `environment` and its `Solution and publisher`",
+            "If the plan's `environment` is null or a role (Dev, Test or Prod, in any case), ask the person to name that environment before any tenant read or live check, and give the skill that name, never the role; any other value is an older plan's name: give it as written. Give the skill the plan's `Solution and publisher` too.",
+            "Use only the environment the person named (step 3), or the plan's `environment` when it holds a name, as the target.",
+            "Skip this if it already says `implementing`. If it does, or a step of this plan is already committed (after an amendment, step 6), read the commit messages and `writes.md` (step 10)",
             "Stop and report when a tool can't create or save inside that solution",
             "Do not change the preferred solution",
-            "ask the user to name the Dev environment",
             "don't redo a step",
         ];
 
@@ -347,9 +348,15 @@ public partial class SkillsCommandTests : IDisposable
             "scope, data, security or cost",
             "stops with one concrete question to the user, and you do nothing about that choice until they answer: no build, no new plan and no other questions",
             "A violation that names `verify.md` or `security-solution.md` is fixed by replacing the value in that report with a placeholder, and the plan isn't edited",
+            "If the answer changes a plan line, or a step cannot be done as written, stay stopped: note the header's `signed-off-hash` and hand to `powerops-plan` section 10, which makes the edit; you never edit the plan body.",
+            "A change to scope, data, security or cost gets a fresh `powerops-review-plan` before that sign-off; another amendment may keep the old review, which the sign-off names as stale.",
+            "The person signs off with `powerops plan sign-off`, and `amendment: <line> (answered by: person)` is logged. Resume only once the header's `signed-off-hash` differs from the one you noted and `powerops plan status` shows no violation for the plan.",
+            "An agent's answer may settle a product choice the person's brief delegates, and nothing else; it never changes the plan.",
         ];
 
         Assert.All(wording, s => Assert.Contains(s, text));
+        // The hand-off comes before the log: the order of the step hid it in the 1.0 trial (F44).
+        Assert.True(text.IndexOf("hand to `powerops-plan` section 10", StringComparison.Ordinal) < text.IndexOf("Last, log each such question", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -443,6 +450,22 @@ public partial class SkillsCommandTests : IDisposable
 
         Assert.All(text, c => Assert.True(c < 128, $"non-ASCII character U+{(int)c:X4}"));
         Assert.InRange(words, 1, 2783);
+    }
+
+    [Fact]
+    public void Plan_skill_hands_amendments_back_into_section_10_and_writes_the_environment_role()
+    {
+        var text = SkillsCommand.Shipped()["powerops-plan/SKILL.md"];
+        string[] wording =
+        [
+            "edit it in place, even mid-build, set `status: approved`, review as that step says, sign off (section 9), then log `amendment: <line> (answered by: person)`",
+            "not an amendment (new scope, a v2, changes after implementation)",
+            "its first three lines and its `stale` value",
+            "Show the open and admin question counts",
+            "write its role, `environment: Dev`, never its name, which can hold a person's name",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, text));
     }
 
     [Fact]
