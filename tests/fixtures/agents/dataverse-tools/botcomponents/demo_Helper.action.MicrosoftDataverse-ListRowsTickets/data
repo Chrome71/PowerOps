@@ -1,0 +1,47 @@
+kind: TaskDialog
+confirmation:
+  activity: Run list rows?
+  mode: Strict
+
+inputs:
+  - kind: ManualTaskInput
+    propertyName: organization
+    value: current
+
+  - kind: ManualTaskInput
+    propertyName: entityName
+    value: demo_tickets
+
+modelDisplayName: List rows
+modelDescription: A made-up description of the list rows tool.
+outputs:
+  - propertyName: "@odata.nextLink"
+    name: Next link
+    description: A made-up description of the next link.
+
+action:
+  kind: InvokeConnectorTaskAction
+  connectionReference: demo_Helper.shared_commondataserviceforapps.shared-commondataser-0000001
+  connectionProperties:
+    mode: Invoker
+
+  operationId: ListRecordsWithOrganization
+  dynamicInputSchema:
+    properties:
+      entityName:
+        displayName: Table name
+        isRequired: true
+        type: String
+
+  dynamicOutputSchema:
+    kind: Record
+    properties:
+      "@odata.nextLink":
+        displayName: Next link
+        description: A made-up description of the next link.
+        type: String
+      demo_ticketid:
+        displayName: Ticket
+        type: String
+
+outputMode: All

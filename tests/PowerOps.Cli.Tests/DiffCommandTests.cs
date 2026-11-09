@@ -250,6 +250,31 @@ public class DiffCommandTests : IDisposable
     }
 
     [Fact]
+    public void A_changed_mode_of_a_dataverse_tool_is_compared_and_no_tool_is_left_unread()
+    {
+        var folder = Path.Combine(Fixtures, "agents", "dataverse-tools");
+        var copy = Path.Combine(_temp, "dataverse-tools");
+        foreach (var file in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories))
+        {
+            var target = Path.Combine(copy, Path.GetRelativePath(folder, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target);
+        }
+
+        const string Tool = "demo_Helper.action.MicrosoftDataverse-AddNewRow";
+        var data = Path.Combine(copy, "botcomponents", Tool, "data");
+        File.WriteAllText(data, File.ReadAllText(data).Replace("mode: Invoker", "mode: Maker", StringComparison.Ordinal));
+
+        var (code, output, err) = Run("diff", folder, copy);
+
+        Assert.Equal(1, code);
+        Assert.Contains($"  changed agentTool {Tool}: mode: Invoker → Maker [risk: agent-tool, same-version]\n", output.ReplaceLineEndings("\n"));
+        Assert.Equal("", err);
+        using var json = System.Text.Json.JsonDocument.Parse(Run("diff", folder, copy, "--format", "json").Out);
+        Assert.Empty(json.RootElement.GetProperty("notCompared").EnumerateArray());
+    }
+
+    [Fact]
     public void A_new_ui_agent_against_itself_exits_zero_with_no_note()
     {
         var (code, output, err) = Run("diff", Path.Combine(NewUi, "v1.zip"), Path.Combine(NewUi, "v1.zip"));

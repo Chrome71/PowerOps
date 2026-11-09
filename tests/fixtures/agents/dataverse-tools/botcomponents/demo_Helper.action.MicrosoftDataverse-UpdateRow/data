@@ -1,0 +1,58 @@
+kind: TaskDialog
+confirmation:
+  activity: Run update a row in selected environment?
+  mode: Strict
+
+inputs:
+  - kind: ManualTaskInput
+    propertyName: organization
+    value: current
+
+  - kind: ManualTaskInput
+    propertyName: entityName
+    value: demo_tickets
+
+  - kind: AutomaticTaskInput
+    propertyName: item.'demo_Queue@odata.bind'
+    description: "The queue that holds the ticket, as an OData bind."
+
+modelDisplayName: Update a row in selected environment
+modelDescription: A made-up description of the update a row in selected environment tool.
+outputs:
+  - propertyName: "@odata.id"
+    name: OData Id
+    description: A made-up description of the odata id.
+
+action:
+  kind: InvokeConnectorTaskAction
+  connectionReference: demo_Helper.shared_commondataserviceforapps.shared-commondataser-0000001
+  connectionProperties:
+    mode: Maker
+
+  operationId: UpdateOnlyRecordWithOrganization
+  dynamicInputSchema:
+    properties:
+      entityName:
+        displayName: Table name
+        isRequired: true
+        type: String
+      item:
+        type:
+          kind: Record
+          properties:
+            demo_Queue@odata.bind:
+              displayName: Queue
+              type: String
+
+  dynamicOutputSchema:
+    kind: Record
+    properties:
+      "@odata.id":
+        displayName: OData Id
+        description: A made-up description of the odata id.
+        type: String
+      demo_ticketid:
+        displayName: Ticket
+        type: String
+
+outputMode: All

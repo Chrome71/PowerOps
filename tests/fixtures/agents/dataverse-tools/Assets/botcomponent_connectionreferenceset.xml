@@ -1,0 +1,14 @@
+<botcomponent_connectionreferenceset>
+  <botcomponent_connectionreference botcomponentid.schemaname="demo_Helper.action.MicrosoftDataverse-ListRowsTickets" connectionreferenceid.connectionreferencelogicalname="demo_Helper.shared_commondataserviceforapps.shared-commondataser-0000001">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_connectionreference>
+  <botcomponent_connectionreference botcomponentid.schemaname="demo_Helper.action.MicrosoftDataverse-ListRowsQueues" connectionreferenceid.connectionreferencelogicalname="demo_Helper.shared_commondataserviceforapps.shared-commondataser-0000001">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_connectionreference>
+  <botcomponent_connectionreference botcomponentid.schemaname="demo_Helper.action.MicrosoftDataverse-AddNewRow" connectionreferenceid.connectionreferencelogicalname="demo_Helper.shared_commondataserviceforapps.shared-commondataser-0000001">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_connectionreference>
+  <botcomponent_connectionreference botcomponentid.schemaname="demo_Helper.action.MicrosoftDataverse-UpdateRow" connectionreferenceid.connectionreferencelogicalname="demo_Helper.shared_commondataserviceforapps.shared-commondataser-0000001">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_connectionreference>
+</botcomponent_connectionreferenceset>

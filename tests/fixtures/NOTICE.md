@@ -64,6 +64,14 @@ Scrubbed and trimmed before committing:
 - Not copied: the canvas app (with its `.msapp`, which caches the environment URL), the cloud flow, the site map, the entities' forms and views, the environment variable and `Other/Relationships`.
 - The files contain no tenant URLs, environment IDs, user names or emails.
 
+`agents/dataverse-tools/` is an unpacked solution `PowerOpsAgentTools`, made for this project under the repository's Apache-2.0 licence, with fake names only (publisher `demopub`, prefix `demo`, tables `demo_Ticket` and `demo_Queue`). It is in the shape of a Copilot Studio agent whose four Microsoft Dataverse tools (List rows twice, Add a new row, Update a row in selected environment) were exported from a test environment during the 1.0 trial on 2026-11-08, but it copies no name or value from that export, only the layout of its files and the YAML keys of the tools (`"@odata.id"` and `"@odata.nextLink"` mappings, an `item.'<lookup>@odata.bind'` input). It holds the agent (`bots/demo_Helper/`, generative orchestration on, authentication not None, instructions in a Custom GPT component, one topic of a message and a question), the four tools in `botcomponents/` (one with `mode: Maker`) and their connection reference in `Other/Customizations.xml` and `Assets/botcomponent_connectionreferenceset.xml`, the two tables' `Entities/*/Entity.xml`, a custom role `Service desk` with Create and Write on both tables, `account` and `SharePointData`, and a business rule on `account`. Expected findings: PO030 once (the `Maker` tool) and PO034 once (`SharePointData`), and no `note:` line.
+
+Scrubbed and trimmed before committing:
+
+- Written by hand, with the fake ids `00000000-0000-0000-0000-0000000000xx` and the made-up connection reference name `demo_Helper.shared_commondataserviceforapps.shared-commondataser-0000001`. The files contain no tenant URLs, environment ids, user names or emails.
+- `Entities/demo_Ticket/Entity.xml` keeps one `attributes` block of two columns (copied in shape from `powerops-seed/v1/Entities/pops_WorkItem/Entity.xml` and renamed) before `EntitySetName`, and drops the rest of an export's table settings; `Entities/demo_Queue/Entity.xml` keeps only the table name, the entity name and `EntitySetName`.
+- The business rule's `Workflows/*.xaml.data.xml` has the fields the reader uses, and its `.xaml` file is left out. The agent is not listed as a root component, as in `agents/new-ui/`.
+
 `pac/` holds `pac` 2.13.1 output captured for this project, under the same licence, by the maintainer in the test environment that holds `PowerOpsSeed` (2026-10-21). `stdout` was saved apart from `stderr`; every capture left `stderr` empty.
 
 - `org-who.txt`: `pac org who`. The environment id is on the `Environment ID:` line.

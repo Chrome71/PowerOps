@@ -1,0 +1,13 @@
+{
+  "$kind": "BotConfiguration",
+  "settings": {
+    "GenerativeActionsEnabled": true
+  },
+  "gPTSettings": {
+    "$kind": "GPTSettings",
+    "defaultSchemaName": "demo_Helper.gpt.default"
+  },
+  "recognizer": {
+    "$kind": "GenerativeAIRecognizer"
+  }
+}

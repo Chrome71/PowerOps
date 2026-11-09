@@ -1,0 +1,11 @@
+<botcomponent schemaname="demo_Helper.action.MicrosoftDataverse-AddNewRow">
+  <componenttype>9</componenttype>
+  <description>Add a new row</description>
+  <iscustomizable>0</iscustomizable>
+  <name>Add a new row</name>
+  <parentbotid>
+    <schemaname>demo_Helper</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>
