@@ -156,10 +156,43 @@
           "expected": "Skipped"
         }
       ]
+    },
+    {
+      "file": "read-environment-variable-timed-out.flowtest.json",
+      "flow": "ReadEnvironmentVariable",
+      "solution": "ALMAcceleratorforMakers",
+      "result": "passed",
+      "runStatus": "Succeeded",
+      "assertions": [
+        {
+          "index": 0,
+          "description": "run status",
+          "passed": true,
+          "expected": "Succeeded"
+        },
+        {
+          "index": 1,
+          "description": "status of GetDefinitions_2",
+          "passed": true,
+          "expected": "TimedOut"
+        },
+        {
+          "index": 2,
+          "description": "status of Respond_to_a_PowerApp_or_flow",
+          "passed": true,
+          "expected": "Skipped"
+        },
+        {
+          "index": 3,
+          "description": "response at [\"statusCode\"]",
+          "passed": true,
+          "expected": 409
+        }
+      ]
     }
   ],
   "summary": {
-    "passed": 4,
+    "passed": 5,
     "failed": 0,
     "unmocked": 0,
     "unsupported": 0

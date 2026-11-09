@@ -24,8 +24,8 @@ public sealed record FlowTestFile(
 {
     public const int MaxBytes = 4 * 1024 * 1024;
 
-    private static readonly string[] MockStatuses = ["Succeeded", "Failed"];
-    private static readonly string[] ActionStatuses = ["Succeeded", "Failed", "Skipped"];
+    private static readonly string[] MockStatuses = ["Succeeded", "Failed", "TimedOut"];
+    private static readonly string[] ActionStatuses = ["Succeeded", "Failed", "Skipped", "TimedOut"];
     private static readonly string[] RunStatuses = ["Succeeded", "Failed", "Cancelled", "Skipped"];
 
     private static readonly Dictionary<string, string[]> AssertionProperties = new()
@@ -127,7 +127,7 @@ public sealed record FlowTestFile(
             var status = Text(m, "status", where, true)!;
             if (!MockStatuses.Contains(status))
             {
-                throw Bad(where, "'status' must be 'Succeeded' or 'Failed'.");
+                throw Bad(where, "'status' must be 'Succeeded', 'Failed' or 'TimedOut'.");
             }
 
             var error = Obj(m, "error", where);
@@ -138,7 +138,7 @@ public sealed record FlowTestFile(
                 Text(error, "message", where + ".error", false);
                 if (status == "Succeeded")
                 {
-                    throw Bad(where, "'error' is only for a mock with status 'Failed'.");
+                    throw Bad(where, "'error' is only for a mock with status 'Failed' or 'TimedOut'.");
                 }
             }
 

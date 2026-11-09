@@ -81,6 +81,39 @@ public class FlowTestTests
         Assert.Equal("v", test.Assertions[4].Name);
     }
 
+    [Fact]
+    public void A_TimedOut_mock_with_or_without_an_error_and_a_TimedOut_assertion_are_read()
+    {
+        var test = Parse(Test(
+            "\"mocks\":{\"A\":[{\"status\":\"TimedOut\"},{\"status\":\"TimedOut\",\"error\":{\"code\":\"RequestTimeout\"}}]},",
+            assertions: """[{"kind":"actionStatus","action":"A","equals":"TimedOut"}]"""));
+
+        Assert.Equal(["TimedOut", "TimedOut"], test.Mocks["A"].Select(m => m.Status));
+        Assert.Equal("RequestTimeout", test.Mocks["A"][1].Error!["code"]!.GetValue<string>());
+        Assert.Equal("TimedOut", Assert.Single(test.Assertions).Expected!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData("""{"status":"Skipped"}""", "'status' must be 'Succeeded', 'Failed' or 'TimedOut'.")]
+    [InlineData("""{"status":"Cancelled"}""", "'status' must be 'Succeeded', 'Failed' or 'TimedOut'.")]
+    [InlineData("""{"status":"Succeeded","error":{"code":"x"}}""", "'error' is only for a mock with status 'Failed' or 'TimedOut'.")]
+    public void A_mock_with_another_status_or_an_error_on_Succeeded_is_refused_and_the_message_names_the_statuses(string mock, string message)
+    {
+        var e = Assert.Throws<InvalidDataException>(() => Parse(Test("\"mocks\":{\"A\":" + mock + "},")));
+
+        Assert.Contains(message, e.Message);
+    }
+
+    [Theory]
+    [InlineData("actionStatus", "Cancelled")]
+    [InlineData("runStatus", "TimedOut")]
+    public void An_assertion_with_a_status_that_kind_does_not_take_is_refused(string kind, string status)
+    {
+        var action = kind == "actionStatus" ? "\"action\":\"A\"," : "";
+
+        Assert.Throws<InvalidDataException>(() => Parse(Test(assertions: "[{\"kind\":\"" + kind + "\"," + action + "\"equals\":\"" + status + "\"}]")));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("not json")]

@@ -173,7 +173,7 @@ public class TestCommandTests : IDisposable
         Assert.Contains("FAIL build-request-cancellation-cancelled.flowtest.json: BuildRequestCancellation", output);
         Assert.Contains("  assertion 1, inputs of List_records at [\"parameters\",\"$filter\"]: ", output);
         Assert.Contains("PASS build-request-cancellation-other-status.flowtest.json", output);
-        Assert.Contains("4 tests: 3 passed, 1 failed, 0 unmocked, 0 unsupported", output);
+        Assert.Contains("5 tests: 4 passed, 1 failed, 0 unmocked, 0 unsupported", output);
     }
 
     [Fact]
