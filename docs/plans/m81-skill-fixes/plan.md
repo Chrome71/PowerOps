@@ -1,11 +1,11 @@
 ---
-status: approved
+status: implementing
 review: done
 environment: null
 depth: quick
 supersedes: null
-signed-off: null
-signed-off-hash: null
+signed-off: 2026-11-09
+signed-off-hash: 92b8ddf4ee9f1f74c267db957ba6b6eda0ff6ef895880ee9ced73de1cbd3c5db
 ---
 
 # M81: Skill fixes that need no eval
