@@ -49,7 +49,7 @@ public sealed class WorkflowTests
         Assert.Contains("-p:IncludeSourceRevisionInInformationalVersion=false", pack);
     }
 
-    public static TheoryData<string> Workflows => ["ci.yml", "release.yml", "skills-smoke.yml", "pin-drift.yml"];
+    public static TheoryData<string> Workflows => ["ci.yml", "release.yml", "skills-smoke.yml", "pin-drift.yml", "ecosystem-watch.yml"];
 
     private static List<Dictionary<object, object>> AllSteps(string workflow) =>
         [.. Map(Load(".github", "workflows", workflow)["jobs"]).Values.SelectMany(job => ((List<object>)Map(job)["steps"]).Select(Map))];
@@ -205,6 +205,137 @@ public sealed class WorkflowTests
         Assert.Equal(new Dictionary<string, string> { ["contents"] = "read" }, Permissions(workflow));
         Assert.Equal(Text(AllSteps("ci.yml").First(s => Text(s, "uses")?.StartsWith("actions/checkout@", StringComparison.Ordinal) == true), "uses"), Text(checkout, "uses"));
         Assert.Equal("0", (string)Map(checkout["with"])["fetch-depth"]);
+    }
+
+    // ---- ecosystem-watch.yml ----
+
+    [Fact]
+    public void The_ecosystem_watch_runs_weekly_reads_only_and_may_write_issues_and_nothing_else()
+    {
+        var workflow = Load(".github", "workflows", "ecosystem-watch.yml");
+        var on = Map(workflow["on"]);
+        var jobs = Map(workflow["jobs"]);
+        var steps = Steps("ecosystem-watch.yml", "watch");
+        var checkout = steps.Single(s => Text(s, "uses")?.StartsWith("actions/checkout@", StringComparison.Ordinal) == true);
+        var collect = steps.Single(s => Text(s, "id") == "collect");
+        var issue = steps.Single(s => Text(s, "name") == "Update the tracking issue");
+        static bool HasEnv(Dictionary<object, object> map, string key) => map.TryGetValue("env", out var env) && Map(env).ContainsKey(key);
+
+        Assert.Equal(["schedule", "workflow_dispatch"], on.Keys.Cast<string>().Order());
+        Assert.Equal(new Dictionary<string, string> { ["contents"] = "read" }, Permissions(workflow));
+        Assert.Equal(["watch"], jobs.Keys.Cast<string>());
+        Assert.Equal(new Dictionary<string, string> { ["contents"] = "read", ["issues"] = "write" }, Permissions(jobs["watch"]));
+        Assert.DoesNotContain(steps, s => s.ContainsKey("shell"));
+        Assert.False(Map(jobs["watch"]).ContainsKey("defaults") || workflow.ContainsKey("defaults"), "no default shell either");
+        Assert.Equal(Text(AllSteps("ci.yml").First(s => Text(s, "uses")?.StartsWith("actions/checkout@", StringComparison.Ordinal) == true), "uses"), Text(checkout, "uses"));
+        Assert.Equal([issue], steps.Where(s => HasEnv(s, "GH_TOKEN")));
+        Assert.Equal([collect], steps.Where(s => HasEnv(s, "GITHUB_TOKEN")));
+        Assert.False(HasEnv(workflow, "GH_TOKEN") || HasEnv(workflow, "GITHUB_TOKEN") || HasEnv(Map(jobs["watch"]), "GH_TOKEN") || HasEnv(Map(jobs["watch"]), "GITHUB_TOKEN"));
+        Assert.Equal("${{ github.token }}", (string)Map(collect["env"])["GITHUB_TOKEN"]);
+        Assert.Equal("${{ github.token }}", (string)Map(issue["env"])["GH_TOKEN"]);
+        Assert.Contains("bash .github/scripts/ecosystem-watch.sh", Text(collect, "run"));
+        foreach (var forbidden in new[] { "git push", "git commit", "gh pr", "--update" })
+        {
+            Assert.All(steps, s => Assert.DoesNotContain(forbidden, Text(s, "run") ?? ""));
+        }
+    }
+
+    // Logs each call's argv as [arg][arg]...; answers `issue list` from issues.json; fails `issue <STUB_FAIL>` when set.
+    private const string GhStub = """
+        #!/usr/bin/env bash
+        { printf '[%s]' "$@"; echo; } >> "$STUB_DIR/gh.log"
+        if [ "$1" = issue ] && [ "$2" = "${STUB_FAIL:-}" ]; then echo "error: stub failure" >&2; exit 1; fi
+        if [ "$1" = issue ] && [ "$2" = list ]; then cat "$STUB_DIR/issues.json"; fi
+        """;
+
+    private const string List = "[issue][list][--state][open][--limit][200][--json][number,title,author]";
+    private const string Edit = "[issue][edit][7][--body-file][ecosystem-watch.md]";
+    private const string Close = "[issue][close][7]";
+    private const string Create = "[issue][create][--title][Ecosystem watch][--body-file][ecosystem-watch.md]";
+
+    // The login form gh prints for a bot author: api/queries_issue.go, Author.MarshalJSON, in GitHub CLI v2.103.3.
+    private const string BotIssue = """[{"number":3,"title":"Ecosystem watch (old)","author":{"is_bot":true,"login":"app/github-actions"}},{"number":7,"title":"Ecosystem watch","author":{"is_bot":true,"login":"app/github-actions"}}]""";
+    private const string OtherAuthor = """[{"number":5,"title":"Ecosystem watch","author":{"id":"U_kgDOAAAAAA","is_bot":false,"login":"someone","name":"Someone"}}]""";
+
+    // Runs the issue step's own run: text as the runner does, `bash --noprofile --norc -eo pipefail {0}`, with a gh stub first on PATH.
+    private static (int Exit, string[] Calls) IssueStep(string issues, string @new, string failed, string due, string? fail = null)
+    {
+        Tools.Require("bash", "jq");
+        var run = Text(Steps("ecosystem-watch.yml", "watch").Single(s => Text(s, "name") == "Update the tracking issue"), "run")!;
+        var root = Directory.CreateTempSubdirectory("powerops-ecosystem-issue-").FullName;
+        try
+        {
+            var bin = Directory.CreateDirectory(Path.Combine(root, "bin")).FullName;
+            var stub = Path.Combine(bin, "gh");
+            File.WriteAllText(stub, GhStub.Replace("\r\n", "\n") + "\n");
+            var posix = !OperatingSystem.IsWindows(); // lets the platform analyzer see the guard
+            if (posix)
+            {
+                File.SetUnixFileMode(stub, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+
+            File.WriteAllText(Path.Combine(root, "issues.json"), issues);
+            File.WriteAllText(Path.Combine(root, "ecosystem-watch.md"), "# Ecosystem watch, 2026-11-10 UTC\n");
+            var script = Path.Combine(root, "step.sh");
+            File.WriteAllText(script, run.ReplaceLineEndings("\n"));
+
+            var start = new ProcessStartInfo(Tools.Bash) { WorkingDirectory = root, RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var a in new[] { "--noprofile", "--norc", "-eo", "pipefail", script })
+            {
+                start.ArgumentList.Add(a);
+            }
+
+            start.Environment["PATH"] = bin + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH");
+            start.Environment["STUB_DIR"] = root;
+            start.Environment["STUB_FAIL"] = fail ?? "";
+            start.Environment["GH_REPO"] = "example/repo";
+            start.Environment["NEW"] = @new;
+            start.Environment["FAILED"] = failed;
+            start.Environment["DUE"] = due;
+            using var process = Process.Start(start)!;
+            process.StandardOutput.ReadToEnd();
+            process.StandardError.ReadToEnd();
+            process.WaitForExit();
+
+            var log = Path.Combine(root, "gh.log");
+            return (process.ExitCode, File.Exists(log) ? File.ReadAllLines(log) : []);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    public static TheoryData<string, string, string, string, string[]> IssueCases => new()
+    {
+        { BotIssue, "2", "0", "0", [Edit] }, // an open bot issue and something: edit
+        { BotIssue, "0", "1", "0", [Edit] },
+        { BotIssue, "0", "0", "0", [Edit, Close] }, // an open bot issue and nothing: edit, then close
+        { "[]", "1", "0", "0", [Create] }, // no open bot issue and something: create
+        { "[]", "0", "0", "0", [] }, // no open bot issue and nothing: no write
+        { "[]", "0", "0", "1", [Create] }, // a due manual source is something
+        { BotIssue, "0", "0", "1", [Edit] },
+        { OtherAuthor, "1", "0", "0", [Create] }, // another author's issue of the same title is ignored
+        { OtherAuthor, "0", "0", "0", [] },
+    };
+
+    [Theory]
+    [MemberData(nameof(IssueCases))]
+    public void The_ecosystem_watch_issue_step_makes_exactly_the_writes_its_case_needs(string issues, string @new, string failed, string due, string[] writes)
+    {
+        var run = IssueStep(issues, @new, failed, due);
+
+        Assert.Equal(0, run.Exit);
+        Assert.Equal([List, .. writes], run.Calls);
+    }
+
+    [Fact]
+    public void The_ecosystem_watch_issue_step_closes_only_after_the_edit_succeeds()
+    {
+        var run = IssueStep(BotIssue, "0", "0", "0", fail: "edit");
+
+        Assert.NotEqual(0, run.Exit);
+        Assert.Equal([List, Edit], run.Calls);
     }
 
     private static string Git(string dir, params string[] args)

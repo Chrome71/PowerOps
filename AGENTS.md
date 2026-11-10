@@ -46,6 +46,14 @@ dotnet pack src/PowerOps.Cli -c Release -o artifacts
 - Do not edit the version in `Directory.Build.props`, `.release-please-manifest.json`, `plugins/claude/.claude-plugin/plugin.json`, `plugins/codex/.codex-plugin/plugin.json` or the changelog. Releases manage them.
 - Never push, publish or open a pull request unless asked. Pull request titles are Conventional Commits too. For anything large, suggest opening an issue first.
 
+## Ecosystem changes
+
+Microsoft's tools, docs and agent skills change often. [docs/ecosystem/README.md](docs/ecosystem/README.md) is the procedure.
+
+- Before you plan or change anything that calls or describes an external Microsoft service, CLI, API, skill or MCP server, read its rows in `docs/ecosystem/compatibility.md` and its open entries in `docs/ecosystem/changes.md`. Verify first when the evidence is older than 90 days or in doubt, and put what you verified in the plan.
+- When an integration breaks or a dependency changes, investigate it (mode C) before fixing. When the `Ecosystem watch` issue is open or someone asks, run the weekly review (mode A).
+- A docs-only edit or internal refactor needs none of this. A finding changes code only through the usual plan, build and review, and a tool pin moves only with a test of the new version.
+
 ## Recipes
 
 Every recipe ends with the same checks, so run them last: `dotnet build`, `dotnet test`, `dotnet format --verify-no-changes`. Test paths are built with `Path.Combine` segments and `Golden.RepoRoot` (`tests/Shared/Golden.cs`).

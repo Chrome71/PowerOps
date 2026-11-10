@@ -169,7 +169,7 @@ public partial class HandoffDocTests
         var section = page[page.IndexOf("What it doesn't do:", StringComparison.Ordinal)..page.IndexOf("\nSources: ", page.IndexOf("What it doesn't do:", StringComparison.Ordinal), StringComparison.Ordinal)];
 
         Assert.All(
-            new[] { "`copy_flow`", "`publish_flow`", "`update_flow`", "`pa app share`", "`pa connection create`", "`manage_agents`", "`manage_workflows`", "`pac copilot quarantine`", "`merge-translation`", "Power BI Authoring MCP" },
+            new[] { "`copy_flow`", "`publish_flow`", "`update_flow`", "`pa app share`", "`pa connection create`", "`pa app add data-source`", "`manage_agents`", "`manage_workflows`", "`pac copilot quarantine`", "`merge-translation`", "Power BI Authoring MCP" },
             item => Assert.Contains(item, section));
     }
 
