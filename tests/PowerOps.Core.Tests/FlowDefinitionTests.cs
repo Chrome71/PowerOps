@@ -8,6 +8,53 @@ public class FlowDefinitionTests
     private static string Flow(string connectionReferences, string definition) =>
         "{\"properties\":{\"connectionReferences\":" + connectionReferences + ",\"definition\":" + definition + "}}";
 
+    private const string DataverseApi = "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps";
+
+    private static string Action(string parameters, string api = DataverseApi) =>
+        "{\"type\":\"OpenApiConnection\",\"inputs\":{\"host\":{\"apiId\":\"" + api + "\",\"operationId\":\"ListRecords\"},\"parameters\":" + parameters + "}}";
+
+    private static IEnumerable<string> Dataverse(FlowDefinition flow) =>
+        flow.DataverseActions.Select(a => $"{a.Name}|{a.EntitySet}|{a.Expand}|{string.Join(",", a.Binds)}");
+
+    [Fact]
+    public void Dataverse_actions_are_read_at_any_depth_in_walk_order_with_their_literal_entity_set_expand_and_binds()
+    {
+        var flow = FlowDefinition.Parse(Flow("{}", "{\"actions\":{"
+            + "\"List\":" + Action("""{"entityName":"demo_expenses","$expand":"demo_CostCentre"}""")
+            + ",\"Scope\":{\"type\":\"Scope\",\"actions\":{\"Add\":"
+            + Action("""{"entityName":"demo_expenses","item/demo_CostCentre@odata.bind":"demo_costcentres(1)","item/demo_name":"n","item/demo_Owner@odata.bind":"systemusers(2)"}""") + "}}"
+            + ",\"If\":{\"type\":\"If\",\"actions\":{},\"else\":{\"actions\":{\"Expr\":"
+            + Action("""{"entityName":"@parameters('Table')","$expand":"@{variables('Expand')}"}""") + "}}}"
+            + ",\"Switch\":{\"type\":\"Switch\",\"cases\":{\"One\":{\"actions\":{\"Get\":"
+            + Action("""{"entityName":"demo_costcentres"}""", "/providers/Microsoft.PowerApps/apis/Shared_CommonDataServiceForApps") + "}}}}"
+            + ",\"Mail\":" + Action("""{"entityName":"demo_expenses","$expand":"demo_CostCentre"}""", "/providers/Microsoft.PowerApps/apis/shared_office365")
+            + ",\"Legacy\":" + Action("""{"entityName":"demo_expenses","$expand":"demo_CostCentre"}""", "/providers/Microsoft.PowerApps/apis/shared_commondataservice")
+            + "}}"));
+
+        Assert.Equal(
+            [
+                "List|demo_expenses|demo_CostCentre|",
+                "Add|demo_expenses||demo_CostCentre,demo_Owner",
+                "Expr|||",
+                "Get|demo_costcentres||",
+            ],
+            Dataverse(flow));
+    }
+
+    [Fact]
+    public void Odd_dataverse_action_shapes_give_null_values_or_no_binds_and_never_throw()
+    {
+        var flow = FlowDefinition.Parse(Flow("{}", "{\"actions\":{"
+            + "\"Array\":" + Action("""["item/demo_CostCentre@odata.bind"]""")
+            + ",\"Numbers\":" + Action("""{"entityName":5,"$expand":true,"item/demo_CostCentre@odata.bind":1}""")
+            + ""","NumberApi":{"type":"OpenApiConnection","inputs":{"host":{"apiId":5},"parameters":{"entityName":"demo_expenses"}}}"""
+            + ""","TextInputs":{"type":"OpenApiConnection","inputs":"text"}"""
+            + ""","TextHost":{"type":"OpenApiConnection","inputs":{"host":"x","parameters":{"entityName":"demo_expenses"}}}"""
+            + "}}"));
+
+        Assert.Equal(["Array|||", "Numbers|||demo_CostCentre"], Dataverse(flow));
+    }
+
     [Fact]
     public void Deeply_nested_definition_parses_up_to_256_levels()
     {

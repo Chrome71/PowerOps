@@ -1,5 +1,6 @@
 using PowerOps.Core.Model;
 using PowerOps.Core.Readers;
+using PowerOps.Core.Rules;
 using PowerOps.Tests.Shared;
 
 namespace PowerOps.Core.Tests;
@@ -49,5 +50,54 @@ public class FixtureTests
         Assert.Equal(v1.Capabilities, v2.Capabilities);
         Assert.Equal(v1.Instructions, noLearn.Instructions);
         Assert.Equal(["cr123_draft_def456.tool.WorkIQMCPServer_mVi"], noLearn.Tools.Select(t => t.SchemaName));
+    }
+
+    private static string Fixture(params string[] parts) => Path.Combine([Golden.RepoRoot, "tests", "fixtures", .. parts]);
+
+    [Fact]
+    public void The_alm_makers_export_gives_16_navigation_properties_without_entity_sets()
+    {
+        var s = SolutionLoader.Load(Fixture("alm-makers"));
+
+        Assert.Equal(16, s.NavigationProperties.Count);
+        Assert.Contains(new NavigationProperty("cat_Stage", "cat_Project", null), s.NavigationProperties);
+        Assert.All(s.NavigationProperties, n => Assert.Null(n.EntitySet));
+    }
+
+    [Fact]
+    public void The_polymorphic_lookup_zip_gives_6_navigation_properties_with_entity_sets()
+    {
+        var s = SolutionLoader.Load(Fixture("zips", "polymorphiclookupexamplesolution.zip"));
+
+        Assert.Equal(6, s.NavigationProperties.Count);
+        Assert.Contains(new NavigationProperty("sample_MediaPolymorphicLookup_sample_audio", "sample_Media", "sample_medias"), s.NavigationProperties);
+        Assert.Contains(new NavigationProperty("sample_media_sample_audio", "sample_Audio", "sample_audios"), s.NavigationProperties);
+    }
+
+    [Fact]
+    public void PO035_is_quiet_on_the_alm_makers_flows_and_fires_once_when_a_bind_key_is_lower_cased()
+    {
+        var sets = new Dictionary<string, string>
+        {
+            ["cat_BuildRequest"] = "cat_buildrequests",
+            ["cat_Dependency"] = "cat_dependencies",
+            ["cat_DeploymentStage"] = "cat_deploymentstages",
+            ["cat_DevEnvironment"] = "cat_devenvironments",
+            ["cat_Project"] = "cat_projects",
+            ["cat_Telemetry"] = "cat_telemetries",
+        };
+        var loaded = SolutionLoader.Load(Fixture("alm-makers"));
+        var s = loaded with { NavigationProperties = [.. loaded.NavigationProperties.Select(n => n with { EntitySet = sets[n.Table] })] };
+        var rule = new PO035NavigationName();
+
+        Assert.Empty(rule.Evaluate(s));
+
+        const string Key = "\"item/cat_Stage@odata.bind\"";
+        var stage = Assert.Single(s.Workflows, w => w.ClientData?.Contains(Key, StringComparison.Ordinal) == true);
+        var changed = s with { Workflows = [.. s.Workflows.Select(w => w == stage ? w with { ClientData = w.ClientData!.Replace(Key, "\"item/cat_stage@odata.bind\"", StringComparison.Ordinal) } : w)] };
+
+        var f = Assert.Single(rule.Evaluate(changed));
+        Assert.Equal("Update_Project_Stage", f.Component);
+        Assert.Equal("Flow 'DeployToStage' action 'Update_Project_Stage' names 'cat_stage' on 'cat_projects', but the navigation property of table 'cat_Project' is 'cat_Stage'; the Web API matches navigation property names by case.", f.Message);
     }
 }

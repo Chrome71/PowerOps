@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Entity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name LocalizedName="Cost centre" OriginalName="Cost centre">demo_CostCentre</Name>
+  <EntityInfo>
+    <entity Name="demo_CostCentre">
+      <EntitySetName>demo_costcentres</EntitySetName>
+    </entity>
+  </EntityInfo>
+</Entity>

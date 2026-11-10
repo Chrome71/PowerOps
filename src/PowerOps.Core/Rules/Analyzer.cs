@@ -40,6 +40,7 @@ public static class Analyzer
         new PO032AppSharedWithAdminsOnly(),
         new PO033RoleWithoutAppBaseline(),
         new PO034RoleWritesUnusedTable(),
+        new PO035NavigationName(),
     }.OrderBy(r => r.Id, StringComparer.Ordinal).ToList();
 
     public static string HelpUri(string ruleId) => $"{Output.SarifReport.Repo}/blob/main/docs/rules/{ruleId}.md";

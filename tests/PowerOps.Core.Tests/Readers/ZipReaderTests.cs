@@ -218,6 +218,22 @@ public class ZipReaderTests
     }
 
     [Fact]
+    public void Reads_navigation_properties_from_the_customizations_relationships_and_tables()
+    {
+        using var t = Zip(out var zip,
+            ("solution.xml", SolutionXml.Manifest()),
+            ("customizations.xml", SolutionXml.Customizations(
+                $"<Entities>{SolutionXml.Entity("demo_expense", "demo_expenses")}</Entities><EntityRelationships>{SolutionXml.Relationships}</EntityRelationships>")));
+
+        Assert.Equal(
+            [
+                new NavigationProperty("demo_CostCentre", "demo_Expense", "demo_expenses"),
+                new NavigationProperty("demo_Expense_CostCentre_demo_CostCentre", "demo_CostCentre", null),
+            ],
+            ZipReader.Read(zip).NavigationProperties);
+    }
+
+    [Fact]
     public void Loader_and_discovery_handle_zips()
     {
         using var t = Zip(out var zip, ("solution.xml", SolutionXml.Manifest()));

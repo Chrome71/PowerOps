@@ -484,6 +484,20 @@
               "defaultConfiguration": {
                 "level": "warning"
               }
+            },
+            {
+              "id": "PO035",
+              "name": "NavigationName",
+              "shortDescription": {
+                "text": "Flow names a navigation property in the wrong case"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO035.md",
+              "help": {
+                "text": "Write the navigation property name exactly as the table's relationship defines it, in the same case."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
             }
           ]
         }
@@ -1749,6 +1763,52 @@
           ],
           "partialFingerprints": {
             "poFinding/v1": "bc15babb0571014a24c5e37c483f75c3ea1e208de4040ef5d3f17fe6c7ac8caa"
+          }
+        },
+        {
+          "ruleId": "PO035",
+          "ruleIndex": 34,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Review expenses' action 'Add_expense' names 'demo_costcentre' on 'demo_expenses', but the navigation property of table 'demo_Expense' is 'demo_CostCentre'; the Web API matches navigation property names by case."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/flow-navigation/Workflows/Reviewexpenses-00000000-0000-0000-0000-000000000061.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "4fce3b6ba35fc45cdaf0ac83c7cddd09c41f0ee8c8a4d9c3dbc22fb5977d62b3"
+          }
+        },
+        {
+          "ruleId": "PO035",
+          "ruleIndex": 34,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Review expenses' action 'List_expenses' names 'demo_costcentre' on 'demo_expenses', but the navigation property of table 'demo_Expense' is 'demo_CostCentre'; the Web API matches navigation property names by case."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/flow-navigation/Workflows/Reviewexpenses-00000000-0000-0000-0000-000000000061.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "405d4a8dd5cfb19ec3888d42730f518723f05fa30501a712732d18d303a3c829"
           }
         },
         {
