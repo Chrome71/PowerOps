@@ -1,6 +1,6 @@
 # Decisions: m83-zip-linked-reviews
 
-This milestone's plan is not written yet. The answer below came first: it is one of the six open questions (section 6) of the PowerOps 1.0 fix plan that Fable and Astra agreed on 2026-11-08, asked of the person in one round by the session that began the fixes. The plan that follows starts its own rounds after this one.
+Round 0 came first: it is one of the six open questions (section 6) of the PowerOps 1.0 fix plan that Fable and Astra agreed on 2026-11-08, asked of the person in one round by the session that began the fixes. Round 1 is the plan's own.
 
 ## Round 0 (the 1.0 fix plan)
 
@@ -12,6 +12,54 @@ Both agree on M83's design and that `diff` is evidence, not a link.
 
 Answer: 1, "1.0.x, with exception" (answered by: person, 2026-11-08). M83 is the first 1.0.x milestone. 1.0.0 is cut without it only with the person's written release exception, in the second trial's record, accepting that no report is bound to the deployed zip by hash; M75's evidence note doesn't close the gap.
 
+## The person's instructions of 2026-11-09
+
+Round 0's answer made M83 the first 1.0.x milestone. On 2026-11-09 the person pulled it forward, with the instruction "Once 75 is finished with its PR continue with the other M sessions in new sessions each until you wrap up M83 autonomously." (answered by: person, 2026-11-09). The chain session then asked three questions; the answers that apply here, each with its question, as `chain-rules.md` records them:
+
+1. "For M76 and M79–M83, who signs off each milestone's plan before it is built?" Answer: "Sessions sign off (Recommended)": each session signs its own plan once the Fable plan review approves it and `powerops-review-plan` leaves no finding open, and records that it did so on the person's instruction of 2026-11-09. (answered by: person, 2026-11-09)
+2. "Who merges each milestone's PR once all 8 CI checks pass, starting with M75's open PR #128?" Answer: "Sessions merge (Recommended)": each session rebases on main, reruns its checks, opens its PR and squash-merges it when green, one PR at a time. (answered by: person, 2026-11-09)
+3. "M83 changes both frozen review roles, so it must rerun their eval (M55 recorded about USD 22 expected, USD 30 cap) and renew your keep decision. How should M83 run?" Answer: "Keep if rules hold (Recommended)": run the eval; if every keep rule holds for both roles, keep them, pin the new ids and merge; if any rule fails, stop and ask the person. (answered by: person, 2026-11-09)
+
+## Round 1 (the plan)
+
+Settled by the building session, each inside what the fix plan and the answers above give it.
+
+### Q1. How is the reviewed folder's provenance checked, and how is byte-stability established?
+1. `deploy plan` and `--require-reviews` run one `pac solution unpack` of the imported zip into a temp folder, with the zip's own package type, and compare its `manifest` digest with the report's `solution-hash:`; only for a zip a report names as its `deploy-hash:` (recommended)
+2. Unpack twice per check and require equal digests before comparing
+3. Trust the report's `solution-hash:` once `deploy-hash:` matches
+Answer: 1. The reviewer's folder came from its own unpack of the same zip, so the comparison is itself the stability check: an unstable unpack, or another `pac` version that writes other bytes, gives another digest and the check refuses. It can only fail closed, so a second unpack adds time and nothing safe. Stability itself was checked on both managed seed zips before sign-off (Assumptions). Option 3 is the "asserted, not checked" provenance the fix plan rejects. The unpack runs only when a report claims the zip, so plans with no such report call no `pac`. (answered by: agent m83-zip-linked-reviews)
+
+### Q2. Which previous solution do the roles compare the managed unpack with?
+1. The last export before this plan, as today (recommended)
+2. The unmanaged folder of the same build, as the fix plan's route sentence words it
+Answer: 1. The roles review what this plan changed, which needs the release before it. Against the same build's unmanaged folder, `diff` would show only the managed flag and the file comparison only the renamed forms, and every change the plan made would look unplanned or vanish. That the managed zip matches the reviewed build is what the provenance check and M75's evidence note show. The roles see `diff`'s managed-flag change and re-read the forms renamed `_managed` (rule B), which is safe. (answered by: agent m83-zip-linked-reviews)
+
+### Q3. Does M75's link (a report whose `solution-hash:` is the zip's SHA-256) stay?
+1. Yes, beside the new one (recommended)
+2. No, only `deploy-hash:` with provenance
+Answer: 1. It is a true link: the role read that zip. M75's Round 1 Q2 made it the route until M83, and reports written that way stay valid. (answered by: agent m83-zip-linked-reviews)
+
+### Q4. Where do the new blob ids go?
+1. This plan's Data section, with `AGENTS.md` and `RoleEvalTests` pointed here, as M55 moved the pointer from M39 to its own plan (recommended)
+2. The Data section of `docs/plans/m55-role-freeze/plan.md`, as the session brief words it
+Answer: 1. M55's plan is signed off; an edit to its body makes `powerops plan status` report `changed since sign-off` (tried on a copy, 2026-11-09), so option 2 would need M55 re-reviewed and re-signed by a session that didn't build it, and the brief also requires `plan status` with no violation. Recorded comparisons for later typo edits move to this folder's `decisions.md` with the pointer. (answered by: agent m83-zip-linked-reviews)
+
+### Q5. What does the eval's request give as the deployed zip?
+1. `run.sh` zips `solution/current` into `deploy/current.zip` in the run's temp folder, records its digest in `meta.txt`, and the prompt names it (recommended)
+2. "There is no deployed zip", so every report writes `deploy-hash: unknown`
+3. Add a real managed export to each case
+Answer: 1. It runs the new line's path in every solution run and gives a value to check `deploy-hash:` against. Option 2 never runs that path. Option 3 changes the frozen cases, which M55 kept comparable with M38 and M39. The zip is not a `pac` export; the roles only hash it, and the cases' folders are what they review, as before. (answered by: agent m83-zip-linked-reviews)
+
+### Q6. What does the eval cost, and what stops it?
+1. M55's measured $0.51 a Claude run, plus 30%, replacements and the Sonnet scorer: about USD 16 expected, under the person's USD 30 cap, counted from each run's `total_cost_usd`; a stop and a question if it would pass USD 30 (recommended)
+Answer: 1. (answered by: agent m83-zip-linked-reviews)
+
 ## Log
 
 - 2026-11-08: asked together with the fix plan's other five questions, in one round, recommended option first where the plan recommends one; where the plan states two positions (Q1, Q6), both were shown as the plan words them, neither marked recommended.
+- 2026-11-09: plan started by the chain's M83 session (worktree `musing-mclaren-aa1da3`) on `fca4c57`, after M73 to M82 merged
+- read on 2026-11-09: `chain-rules.md`; the fix plan, sections 3 (M75, M83), 4, 5 and 6; the hand-over notes of M75, M76, M80 and M81; `AGENTS.md`; `docs/plans/m55-role-freeze/` (`plan.md`, `decisions.md`, `report.md`); `tests/eval/roles/run.sh`; both kept roles' `SKILL.md`; `skills/powerops-implement/SKILL.md` sections 3 and 4; `DeployReviews.cs`, `DeployCommand.cs` (`WarnUnreviewed`, `Run`, `DryRun`, the gate), `PlanChecker.cs` (`PlanReportFile`, `ReadReports`), `PacRunner.cs`, `McpCommand.cs` (`deploy_apply`); `RoleEvalTests.cs` (header, pins); `DeployFakes.cs`, `DeployReviewWarningTests.cs`, `Tools.cs`; `docs/HANDOFF.md` steps 3 to 8, `docs/COMMANDS.md` (`deploy plan`, `deploy apply`), `docs/USE-WITH-AGENTS.md`, `docs/PLANNING-SKILLS.md`
+- 2026-11-09: the fix plan's claim checked locally on `tests/fixtures/zips` with pac 2.14.1 (no tenant): see Assumptions; Learn checked by powerops-researcher (Opus) the same day
+- depth: standard: the rerun is a quota spend, and the keep decision is renewed by the person's instruction
+- areas not asked: users, screens, solution and publisher, environments; the change is to this repo, and the plan answers each or marks it not applicable
