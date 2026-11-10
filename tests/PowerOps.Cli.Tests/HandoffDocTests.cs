@@ -197,7 +197,7 @@ public partial class HandoffDocTests
         var start = page.IndexOf("## Gate Microsoft's imports\n", StringComparison.Ordinal);
         var section = page[start..page.IndexOf("\n## ", start + 1, StringComparison.Ordinal)];
 
-        Assert.Contains("Save the plan file in the deploy folder: deploy apply reads the zips and settings files from the plan file's own folder, and deploy plan warns when --save names another folder.", step);
+        Assert.Contains("Save the plan file in the deploy folder: `deploy apply` reads the zips and settings files from the plan file's own folder, and `deploy plan` warns when `--save` names another folder.", step);
         Assert.Contains("](examples/gate-probe/README.md)", section);
         Assert.True(File.Exists(Path.Combine(Golden.RepoRoot, "docs", "examples", "gate-probe", "README.md")));
     }
