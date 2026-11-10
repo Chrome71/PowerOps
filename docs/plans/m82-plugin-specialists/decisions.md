@@ -1,6 +1,6 @@
 # Decisions: m82-plugin-specialists
 
-This milestone's plan is not written yet. The answer below came first: it is one of the six open questions (section 6) of the PowerOps 1.0 fix plan that Fable and Astra agreed on 2026-11-08, asked of the person in one round by the session that began the fixes. The plan that follows starts its own rounds after this one.
+The answer below came before this milestone's plan was written: it is one of the six open questions (section 6) of the PowerOps 1.0 fix plan that Fable and Astra agreed on 2026-11-08, asked of the person in one round by the session that began the fixes. The plan that follows starts its own rounds after this one.
 
 ## Round 0 (the 1.0 fix plan)
 
@@ -19,3 +19,5 @@ Answer: 1, "Yes, advisory" (answered by: person, 2026-11-08).
 - depth: quick: the fix plan gives the design; no question for the person (Q4 settles scope).
 - areas not asked: users, automation, screens, solution and publisher, environments and ALM; the change is to this repo's plugin, tests and docs, and the plan answers each or marks it not applicable.
 - 2026-11-09: refinements to the fix plan's text: the generator is a test-project class beside the skill-copy writer, not inline in the theory; the shared block is extracted from `CLAUDE.md` with fixed rewrites, so a change to that section moves the copies and the test fails until they are regenerated; design-lead's paths to the plan skill's files use `${CLAUDE_PLUGIN_ROOT}`, which Claude Code substitutes in a plugin agent's body; copilot-studio's `docs/HANDOFF.md` becomes the repository URL; the test also forbids `CLAUDE.md`, `AGENTS.md`, `.claude/` and any `docs/` path outside `docs/plans/`.
+- fresh review (a general-purpose subagent following `powerops-review-plan`, Opus, fresh context) 2026-11-09: 0 High, 3 Medium, 7 Low (R1 to R10), all answered in `plan.md` or here (R9 accepted: public documentation URLs only)
+- plan review under the model routing (a `fable-reviewer` subagent, Fable, fresh context) 2026-11-09: REJECTED with five findings, all answered in `plan.md`: the `docs/` test exempts the repository URL (1, as R1); every rewrite throws when its target is missing, and the content test iterates the six and asserts the record-only text, the spawn name and the `deploy_apply` bullet (2); every plan-skill path gets `${CLAUDE_PLUGIN_ROOT}` (3, as R2); a fixed lead-in for the shared rules and the brief's fields in the docs (4, as R3); `powerops-bi`'s `--readonly` premise becomes a condition, and the docs state facts about the MCP servers instead of "work best" (5)
