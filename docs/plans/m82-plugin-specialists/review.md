@@ -1,4 +1,4 @@
-plan-hash: 887291cb0702959b9f47dc8d3b2363a6c137137ae766795cfd597ef3f23c1be0
+plan-hash: 715e14a294b32b21c6599194a5828425b3435022a13f42ca2d874d1e43d031e1
 model: claude-opus-5-5
 fresh-context: yes
 
@@ -7,6 +7,8 @@ Environment facts were not read: the plan's `environment:` is `null`, and no sig
 Read for this review: `plan.md`, `decisions.md` (no `mockups/`), the six `.claude/agents/powerops-*.md` sources, `CLAUDE.md`, `AGENTS.md`, `tests/PowerOps.Cli.Tests/PluginManifestTests.cs`, `plugins/claude/` (manifest, `.mcp.json`, skill copies), `.claude-plugin/marketplace.json`, `Directory.Build.props`, `.gitattributes`, `docs/USE-WITH-AGENTS.md`, step 11 of `docs/HANDOFF.md`, `skills/powerops-plan/references/`. `powerops plan status` reported `approved`, review `pending`, 0 open questions.
 
 Second pass (2026-11-09, same skill, fresh context): read the revision in c9634d1 (`plan.md`, `decisions.md`) against the six sources, `CLAUDE.md` and `plugins/claude/skills/powerops-plan/`. `powerops plan status` reports `approved`, review `done`, 0 open questions. Each resolution below was checked against the revised plan and ends with the result; R11 is new.
+
+Final pass (2026-11-09, same skill, fresh context): read the revision in ab57f71 (rows 1 and 2 of `plan.md`, `decisions.md`) against the six sources. `powerops plan status` reports `approved`, review `done`, 0 open questions. R11's resolution was checked; R12 is new.
 
 ## Checklist items not applicable
 
@@ -20,7 +22,7 @@ The plan changes this repo (a Claude Code plugin folder, a test-project generato
 6. Managed or unmanaged: not applicable.
 7. Data volume and delegation: not applicable.
 8. Security roles: not applicable to a tenant. The copies keep their sources' `tools` lists and Never lists; plugin agents ignore `permissionMode`, so the user's own permission prompts apply.
-9. Testability: every Data row names a test; findings R1, R3, R4 and R11 below.
+9. Testability: every Data row names a test; findings R1, R3, R4, R11 and R12 below.
 10. Unanswered areas: 0 open questions, `Questions for your admin` empty; the Log lists the areas not asked and why. See R10.
 11. Size: no tables, lists, flows or screens. Each artefact (generator, six copies, tests, manifest sentence, three doc edits) traces to F5 in `Goal`, and `Won't build` is present. No finding.
 
@@ -54,7 +56,7 @@ No findings.
 - Area: 9. Testability
 - Finding: Row 1 says every rewrite goes through `Replace`, which throws when its text is absent, and done-condition 2 says every rewrite throws when its target is missing. Two rewrites have no target in some sources: (j) runs "in every source", but apps and automate contain no `` `skills/`` or `` `references/`` path; the removal of a list line starting `powerops-implementer` or `powerops-reviewer` in (c) has a target only in apps, automate and workflow-logic (bi, design-lead and copilot-studio carry those names inside the researcher line, which the truncation handles). Built as written, `ForPlugin` throws for five of the six sources, or the builder silently makes these two conditional, which the plan doesn't say.
 - Suggested fix: Name per source which rewrites apply (as (e) does with "all six"), for example (j) in bi, design-lead, workflow-logic and copilot-studio and the implementer/reviewer removal in apps, automate and workflow-logic, and have `Replace` throw only for a named source whose target is missing; or state the expected count per source for these two and throw on a mismatch.
-- Resolution: answered in `plan.md`: row 2 (c) names the sources the implementer and reviewer removal applies to (apps, automate, workflow-logic; it throws there when none is found), and (j) is a replace-all that never throws, with `RepoOnlyReferences` as its backstop; row 1 says (j) is the one rewrite outside `Replace`
+- Resolution: answered in `plan.md`: row 2 (c) names the sources the implementer and reviewer removal applies to (apps, automate, workflow-logic; it throws there when none is found), and (j) is a replace-all that never throws, with `RepoOnlyReferences` as its backstop; row 1 says (j) is the one rewrite outside `Replace`. Checked (final pass): holds; the removal in (c) has targets in exactly apps, automate (two lines each) and workflow-logic (one), and (j) can no longer throw for apps and automate. The text elsewhere still says every rewrite throws: see R12.
 
 ### Low
 
@@ -99,3 +101,9 @@ No findings.
 - Finding: `decisions.md` still opens with "This milestone's plan is not written yet", although the plan is written and approved.
 - Suggested fix: Reword it to say that Round 0 came before the plan was written.
 - Resolution: answered in `decisions.md`: the opening paragraph now says the answer came before the plan. Checked (second pass): holds.
+
+#### R12. Done-condition 2 and row 2's lead-in still say every rewrite throws
+- Area: 9. Testability
+- Finding: Row 1 now makes (j) the one rewrite outside `Replace`, a replace-all that never throws. Done-condition 2 still says "every rewrite of rows 2 and 3 throws when its target is missing from its source", and row 2 still opens "Body rewrites, each through `Replace` (row 1)". A builder or work review reading those lines can treat the non-throwing (j) as a miss. The behaviour is safe, since `RepoOnlyReferences` backstops (j); only the wording disagrees.
+- Suggested fix: Add "except (j)" to done-condition 2 and to row 2's opening phrase.
+- Resolution: answered in `plan.md`: done-condition 2 and row 2 now say "except (j)"
