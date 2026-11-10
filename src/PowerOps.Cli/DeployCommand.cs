@@ -175,6 +175,17 @@ public static class DeployCommand
         // Advisory here: changes neither the plan nor the exit code.
         WarnUnreviewed(folder, prepared.Zips, DeployApply.Imports(result, prepared.Zips), error, evidence: true);
 
+        // deploy apply reads the zips from the plan file's own folder (as at ReadyPlan); the line names no path, and the file is still written.
+        // shortcut: two spellings through a linked folder are compared as text; resolve both as SafeWrite does if that is ever needed.
+        if (!string.IsNullOrEmpty(save)
+            && !string.Equals(
+                Path.TrimEndingDirectorySeparator(Path.GetDirectoryName(Path.GetFullPath(save)) ?? ""),
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)),
+                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+        {
+            error.WriteLine("warning: the plan file is not saved in the deploy folder; deploy apply reads the zips and settings files from the plan file's own folder");
+        }
+
         var report = new StringWriter();
         switch (format)
         {
