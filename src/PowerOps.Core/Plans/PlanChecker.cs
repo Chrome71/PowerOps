@@ -890,7 +890,7 @@ public static partial class PlanChecker
         return text;
     }
 
-    // Decision 56: the one allowed meta is exactly name="viewport" (decoded, any case) and one content, with only HTML whitespace or / left over.
+    // Decision 59: the one allowed meta is exactly name="viewport" (decoded, any case) and one content, with only HTML whitespace or / left over.
     private static bool IsViewportMeta(string attrs)
     {
         var found = AttributeRegex().Matches(attrs);

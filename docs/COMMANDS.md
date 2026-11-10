@@ -793,7 +793,7 @@ The exit codes are `0` allowed and `2` blocked, for every other outcome.
 ### Limits
 
 The gate blocks the routes it knows: a new pac command or MCP tool that installs, imports, uploads or publishes passes until the gate gets a route for it.
-For agents, it doesn't see Apply in the Copilot Studio extension for VS Code, the Copilot Studio MCP server's `manage_agents` and `manage_workflows`, FlowAgent's `copy_flow`, `publish_flow` and `update_flow`, or the Power BI Authoring MCP server, so those pass, and it has no route for `pa app share`, `pa connection create`, `pac copilot quarantine` or `pac copilot merge-translation` ([Hand-off](HANDOFF.md#gate-microsofts-imports)).
+For agents, it doesn't see Apply in the Copilot Studio extension for VS Code, the Copilot Studio MCP server's `manage_agents` and `manage_workflows`, FlowAgent's `copy_flow`, `publish_flow` and `update_flow`, or the Power BI Authoring MCP server, so those pass, and it has no route for `pa app share`, `pa connection create`, `pa app add data-source`, `pac copilot quarantine` or `pac copilot merge-translation` ([Hand-off](HANDOFF.md#gate-microsofts-imports)).
 
 The gate does not see powerops' own commands: an agent's own `powerops deploy apply --apply` passes through no gate, gets the warnings of the review check only, and goes on.
 A pass shows that the call matches the plan file at the given path and the live target.
