@@ -512,7 +512,7 @@ public partial class SkillsCommandTests : IDisposable
         // M70: the skill writes what PlanChecker.PrototypeProblems accepts, so its numbers and markers must match.
         var text = SkillsCommand.Shipped()["powerops-prototype/SKILL.md"];
 
-        string[] rules = ["At most 40,960 bytes", "`route:`", "\"Sketch\"", "`data-screen=\"<name>\"`", "`href=\"#...\"`", "Write no `@` anywhere", "Never asks the user questions", "powerops plan status docs/plans/<name>"];
+        string[] rules = ["At most 81,920 bytes", "`route:`", "\"Sketch\"", "`data-screen=\"<name>\"`", "`href=\"#...\"`", "Write no `@` anywhere", "Never asks the user questions", "powerops plan status docs/plans/<name>"];
         Assert.All(rules, r => Assert.Contains(r, text));
         Assert.All(new[] { "empty", "loading", "error", "failed-save" }, s => Assert.Contains($"`data-state=\"{s}\"`", text));
         Assert.All(new[] { "script", "link", "meta", "base", "iframe", "frame", "object", "embed", "img", "picture", "svg", "form", "video", "audio", "source" }, tag => Assert.Contains($"`{tag}`", text));
@@ -550,7 +550,7 @@ public partial class SkillsCommandTests : IDisposable
 
         Assert.All(new[] { "## 1. Start from the job", "## 2. Hierarchy and composition", "## 3. The system", "## 4. What fails", "## 5. The grade", "## Sources\n\nChecked on 2026-11-08" }, s => Assert.Contains(s, look));
         Assert.All(new[] { "**One home for each rule.**", "**Change in place.**", "**A fix replaces what it fixed.**", "**Never bend a check to pass.**", "`docs/plans/<name>/build-notes.md`", "## Sources\n\nChecked on 2026-11-10" }, s => Assert.Contains(s, standard));
-        Assert.All(new[] { "read `references/build-standard.md` beside this file", "update `build-notes.md`", "`docs/plans/<name>/design-check.md`", "never grade a screen you haven't seen", "An open gap is a remaining gap for step 4." }, s => Assert.Contains(s, implement));
+        Assert.All(new[] { "read `references/build-standard.md` beside this file", "update `build-notes.md`", "`docs/plans/<name>/design-check.md`", "never grade a screen you haven't seen", "After a fix, export and unpack the solution again and repeat steps 1 to 3 for what the fix changed", "An open gap, and a screen that is \"not checked\", is a remaining gap for step 4." }, s => Assert.Contains(s, implement));
 
         // One place for the look: the files that used to state it now point at look.md.
         Assert.DoesNotContain("8 px grid", shipped["powerops-plan/references/route.md"]);
@@ -618,7 +618,7 @@ public partial class SkillsCommandTests : IDisposable
         Assert.InRange(plan.IndexOf(Pointer, StringComparison.Ordinal), 0, plan.IndexOf("## 6. Question rounds", StringComparison.Ordinal));
         Assert.Equal(2, Regex.Count(plan, Regex.Escape(Sketch)));
         Assert.True(plan.LastIndexOf(Sketch, StringComparison.Ordinal) > plan.IndexOf("## 8. Fast path", StringComparison.Ordinal));
-        string[] log = ["start `powerops-prototype <name>`", "`prototype: approved mockups/prototype.html (option <letter>: <why>)`", "three options in different design directions", "start it with `pick <letter>`", "`prototype: skipped (<reason>)`", "`prototype: not needed (<reason>)`", "Ask nothing else, except the sketch question (section 7 step 6)", "Keep visual detail out of `Screens` and `Steps`"];
+        string[] log = ["start `powerops-prototype <name>`", "`prototype: approved mockups/prototype.html (option <letter>: <why>)`", "three options in different design directions", "start it with `pick <letter>`", "if the pick had changes or `prototype.html` shows more screens, ask: approve or changes", "`prototype: skipped (<reason>)`", "`prototype: not needed (<reason>)`", "Ask nothing else, except the sketch question (section 7 step 6)", "Keep visual detail out of `Screens` and `Steps`"];
         string[] data = ["## 6. The data round", "1. Where does the data live today?", "6. What is out of this version?", "`logic.md`"];
         string[] routeText = ["## 1. The route", "## 2. The sketch", "three options in different design directions", "`look.md`. Planning doesn't read it.", "`prototype: skipped (mock-data slice)`", "control map", "`design.md`", .. ProductReferences.Select(f => $"`{f}`")];
         string[] review = ["Per product, when the plan names it", "more than 12 data visuals", "accordion"];

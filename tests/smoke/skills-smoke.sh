@@ -24,7 +24,7 @@ trap 'rm -rf "$work"' EXIT
 failures=0
 
 fail() { echo "FAIL [$scenario]: $*"; failures=$((failures + 1)); }
-# The sketch's size and screen count go in the log: the 40 KB cap (M70) was set before any sketch was measured.
+# The sketch's size and screen count go in the log: the cap was 40 KB (M70) before any sketch was measured, and 80 KB since one was (decision 52).
 sketch_size() { echo "sketch [$scenario]: $(wc -c <"$sketch") bytes, $(grep -o 'data-screen="' "$sketch" | wc -l) screens"; }
 
 # Build the CLI once and put a `powerops` wrapper on PATH for the agent.
@@ -259,7 +259,7 @@ else
 fi
 
 # 6. Depth standard: the data round within three questions a round, then the sketch (D): three options, a pick,
-# and the picked sketch. Every sketch file passes the 40,960-byte check and `plan status` has no prototype warning.
+# and the picked sketch. Every sketch file passes the 81,920-byte check and `plan status` has no prototype warning.
 scenario=standard
 new_repo
 sketch_offered=0
@@ -280,7 +280,7 @@ if [ -n "$(plan_dir)" ]; then
       grep -q 'Sketch' "$sketch" || fail "$name.html has no Sketch label"
       if grep -qi '<script' "$sketch"; then fail "$name.html has a script"; fi
       if grep -qiE 'https?://' "$sketch"; then fail "$name.html has an external link"; fi
-      [ "$(wc -c <"$sketch")" -le 40960 ] || fail "$name.html is over 40,960 bytes"
+      [ "$(wc -c <"$sketch")" -le 81920 ] || fail "$name.html is over 81,920 bytes"
     else
       fail "no mockups/$name.html"
     fi

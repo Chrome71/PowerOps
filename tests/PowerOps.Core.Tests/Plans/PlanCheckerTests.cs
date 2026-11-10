@@ -1220,7 +1220,7 @@ public class PlanCheckerTests : IDisposable
     [Fact]
     public void Sign_off_is_refused_for_an_approved_sketch_that_fails_and_for_a_missing_one()
     {
-        var failing = SignOffWith("- prototype: approved mockups/prototype.html (answered by: person)", "<p>Sketch</p>\n");
+        var failing = SignOffWith("- prototype: approved mockups/prototype.html (option a: the list first) (answered by: person)", "<p>Sketch</p>\n");
         Assert.Equal(1, failing.ExitCode);
         Assert.All(failing.Err, e => Assert.StartsWith("error: mockups/prototype.html:", e, StringComparison.Ordinal));
 
@@ -1249,7 +1249,7 @@ public class PlanCheckerTests : IDisposable
     [Fact]
     public void Sign_off_passes_a_passing_sketch_a_persons_skip_and_a_plan_with_no_screens_and_no_line()
     {
-        Assert.Equal(0, SignOffWith("- prototype: approved mockups/prototype.html (answered by: person)", GoodSketch).ExitCode);
+        Assert.Equal(0, SignOffWith("- prototype: approved mockups/prototype.html (option a: the list first) (answered by: person)", GoodSketch).ExitCode);
 
         // A person's skip stands even when a stale sketch fails its checks.
         Assert.Equal(0, SignOffWith("- prototype: skipped (mock-data slice) (answered by: person)", "<p>x</p>").ExitCode);

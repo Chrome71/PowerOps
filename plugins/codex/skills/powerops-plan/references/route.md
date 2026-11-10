@@ -20,7 +20,7 @@ Write the route in `Screens`, one line per app or page with its reason. When `Sc
 
 ## 2. The sketch
 
-Offer **D** whenever `Screens` names anything, and start `powerops-prototype` at approval. It writes three options in different design directions to `mockups/`; the person, or an agent their brief lets choose, picks one, and the pick becomes `mockups/prototype.html`. Sign-off needs that file and the three options, or a person's skip with a reason.
+Offer **D** whenever `Screens` names anything, and start `powerops-prototype` at approval. It writes three options in different design directions to `mockups/`; the person, or an agent their brief lets choose, picks one, and the pick becomes `mockups/prototype.html`. Sign-off needs that file, the three options and a log line that names the pick, or a person's skip with a reason. A plan approved with one sketch, before there were options, and signed off again for an amendment: when the amendment leaves `Screens` as it was, the person logs `prototype: skipped (approved as one sketch)`; when it changes `Screens`, run the options again.
 
 | Product | Offer |
 |---|---|

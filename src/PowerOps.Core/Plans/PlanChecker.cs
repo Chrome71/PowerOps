@@ -643,7 +643,8 @@ public static partial class PlanChecker
     }
 
     private const string PrototypePath = "mockups/prototype.html";
-    internal const int MaxPrototypeBytes = 40_960;
+    // 80 KB: a measured sketch takes 7 to 8 KB a screen with its four states, and a file holds up to eight screens.
+    internal const int MaxPrototypeBytes = 81_920;
 
     // Three, so the person compares design directions and doesn't approve the only one shown.
     internal const int MinOptions = 3;
@@ -665,6 +666,7 @@ public static partial class PlanChecker
         var warnings = new List<string>();
         var (valid, approved) = (false, false);
         string? at = null;
+        var picked = "";
         if (items.Count > 0)
         {
             var (line, item) = items[^1];
@@ -674,9 +676,10 @@ public static partial class PlanChecker
             if (ApprovedRegex().IsMatch(rest))
             {
                 valid = approved = true;
+                picked = PickedRegex().Match(rest).Groups[1].Value;
                 if (!marked)
                 {
-                    warnings.Add($"prototype approval is not marked (answered by: person) (decisions.md:{line}): only a person should approve the sketch");
+                    warnings.Add($"prototype approval is not marked (answered by: person) (decisions.md:{line}): an agent picks the sketch only when the person's brief lets it choose");
                 }
             }
             else
@@ -686,7 +689,7 @@ public static partial class PlanChecker
         }
 
         string[] lineProblems = valid ? [] : [$"decisions.md{at}: no valid prototype line under ## Log although Screens names something: log `prototype: approved {PrototypePath}`, or `prototype: skipped (<reason>) (answered by: person)`"];
-        return new PrototypeCheck(lineProblems, PrototypeFileProblems(folder, screens, approved), warnings, approved);
+        return new PrototypeCheck(lineProblems, PrototypeFileProblems(folder, screens, approved, $"decisions.md{at}", picked), warnings, approved);
     }
 
     // The text of the Screens section, or null when it names nothing: no heading, an empty body, or a first non-blank line starting with "None".
@@ -711,7 +714,7 @@ public static partial class PlanChecker
         return first is null || first.StartsWith("None", StringComparison.OrdinalIgnoreCase) ? null : string.Join('\n', body);
     }
 
-    private static List<string> PrototypeFileProblems(string folder, string screens, bool approved)
+    private static List<string> PrototypeFileProblems(string folder, string screens, bool approved, string logLine, string picked)
     {
         var problems = new List<string>();
         var mockups = System.IO.Path.Combine(folder, "mockups");
@@ -742,18 +745,25 @@ public static partial class PlanChecker
 
         // The options the sketch was picked from (BUILD-PLAN decision 52): each is checked like the sketch, and an approval needs three that pass and differ.
         var passing = new HashSet<string>(StringComparer.Ordinal);
+        var pickedPasses = false;
         foreach (var option in Directory.EnumerateFiles(mockups, "option-*.html").Select(System.IO.Path.GetFileName).Order(StringComparer.Ordinal))
         {
             var before = problems.Count;
             if (SketchProblems(folder, $"mockups/{option}", screens, problems) is { } text && problems.Count == before)
             {
                 passing.Add(text);
+                pickedPasses |= string.Equals(option, $"option-{picked}.html", StringComparison.OrdinalIgnoreCase);
             }
         }
 
         if (approved && passing.Count < MinOptions)
         {
             problems.Add($"mockups/: {passing.Count} option files (option-*.html) pass the checks and differ; an approved sketch is picked from at least {MinOptions}");
+        }
+        else if (approved && !pickedPasses)
+        {
+            // The record of the pick: which option, so the ones not chosen can be told apart later.
+            problems.Add($"{logLine}: the approved line names no option that passes the checks: write `prototype: approved {PrototypePath} (option <letter>: <why>)`");
         }
 
         return problems;
@@ -905,6 +915,10 @@ public static partial class PlanChecker
 
     [GeneratedRegex(@"^\s*-\s*prototype:(.*)$", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
     private static partial Regex PrototypeItemRegex();
+
+    // "(option b: fewest steps)" names mockups/option-b.html.
+    [GeneratedRegex(@"\(option\s+([A-Za-z0-9]+)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex PickedRegex();
 
     [GeneratedRegex(@"^approved\s+mockups/prototype\.html(?:\s|$)", RegexOptions.IgnoreCase)]
     private static partial Regex ApprovedRegex();

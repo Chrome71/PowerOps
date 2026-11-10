@@ -7,7 +7,7 @@ namespace PowerOps.Core.Tests.Plans;
 
 public class PlanCheckerPrototypeTests : IDisposable
 {
-    private const string Approved = "- prototype: approved mockups/prototype.html (answered by: person)";
+    private const string Approved = "- prototype: approved mockups/prototype.html (option a: fewest steps for Goal line 1) (answered by: person)";
     private const string File = "mockups/prototype.html";
 
     private readonly TempFolder _t = new();
@@ -163,7 +163,7 @@ public class PlanCheckerPrototypeTests : IDisposable
     [Fact]
     public void An_approval_without_the_persons_mark_still_passes_but_warns_with_the_line_number()
     {
-        var r = Problems(Html(), "- prototype: approved mockups/prototype.html (answered by: agent)");
+        var r = Problems(Html(), "- prototype: approved mockups/prototype.html (option a: fewest steps) (answered by: agent)");
 
         Assert.Empty(r.Line);
         Assert.True(r.Approved);
@@ -172,7 +172,8 @@ public class PlanCheckerPrototypeTests : IDisposable
         Assert.Contains("(answered by: person)", w, StringComparison.Ordinal);
 
         // Status carries the same warning, and none when the mark is there.
-        Assert.Contains(Setup(Html(), "- prototype: approved mockups/prototype.html").Warnings, x => x.Contains("(answered by: person)", StringComparison.Ordinal));
+        Assert.Contains(Setup(Html(), "- prototype: approved mockups/prototype.html (option a: fewest steps)").Warnings, x => x.Contains("(answered by: person)", StringComparison.Ordinal));
+        Assert.Contains("the person's brief lets it choose", w, StringComparison.Ordinal);
         Assert.DoesNotContain(Setup(Html()).Warnings, x => x.Contains("answered by", StringComparison.Ordinal));
     }
 
@@ -195,6 +196,20 @@ public class PlanCheckerPrototypeTests : IDisposable
 
         Assert.Empty(r.Line);
         Assert.Equal($"mockups/: {count} option files (option-*.html) pass the checks and differ; an approved sketch is picked from at least 3", Assert.Single(r.File));
+    }
+
+    [Theory]
+    [InlineData("- prototype: approved mockups/prototype.html (answered by: person)")]
+    [InlineData("- prototype: approved mockups/prototype.html (option z: the best one) (answered by: person)")]
+    [InlineData("- prototype: approved mockups/prototype.html (option c: the best one) (answered by: person)")]
+    public void An_approved_line_names_an_option_that_passes(string log)
+    {
+        // Option c fails its checks here, so naming it is no pick either.
+        var r = Problems(Html(), log, options: [Option('a'), Option('b'), "<p>nothing</p>", Option('d')]);
+
+        Assert.Empty(r.Line);
+        Assert.Contains(r.File, p => p.StartsWith("decisions.md:5: the approved line names no option that passes the checks", StringComparison.Ordinal));
+        Assert.DoesNotContain(Problems(Html(), "- prototype: approved mockups/prototype.html (option B: the best one) (answered by: person)").File, p => p.Contains("names no option", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -417,13 +432,13 @@ public class PlanCheckerPrototypeTests : IDisposable
     }
 
     [Fact]
-    public void The_file_is_at_most_40960_bytes()
+    public void The_file_is_at_most_81920_bytes()
     {
         static string Padded(int extra) => Html(head: $"<!-- route: canvas {new string('x', extra)}-->\n");
-        var room = 40_960 - Encoding.UTF8.GetByteCount(Padded(0));
+        var room = 81_920 - Encoding.UTF8.GetByteCount(Padded(0));
 
         Assert.Empty(Problems(Padded(room)).File);
-        Assert.Single(Problems(Padded(room + 1)).File, p => p.Contains("40960", StringComparison.Ordinal));
+        Assert.Single(Problems(Padded(room + 1)).File, p => p.Contains("81920", StringComparison.Ordinal));
     }
 
     [Fact]
