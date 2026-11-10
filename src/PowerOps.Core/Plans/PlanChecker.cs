@@ -688,7 +688,7 @@ public static partial class PlanChecker
             }
         }
 
-        string[] lineProblems = valid ? [] : [$"decisions.md{at}: no valid prototype line under ## Log although Screens names something: log `prototype: approved {PrototypePath}`, or `prototype: skipped (<reason>) (answered by: person)`"];
+        string[] lineProblems = valid ? [] : [$"decisions.md{at}: no valid prototype line under ## Log although Screens names something: log `prototype: approved {PrototypePath} (option <letter>: <why>)`, or `prototype: skipped (<reason>) (answered by: person)`"];
         return new PrototypeCheck(lineProblems, PrototypeFileProblems(folder, screens, approved, $"decisions.md{at}", picked), warnings, approved);
     }
 
@@ -752,7 +752,7 @@ public static partial class PlanChecker
             if (SketchProblems(folder, $"mockups/{option}", screens, problems) is { } text && problems.Count == before)
             {
                 passing.Add(text);
-                pickedPasses |= string.Equals(option, $"option-{picked}.html", StringComparison.OrdinalIgnoreCase);
+                pickedPasses |= picked.Length > 0 && string.Equals(option, $"option-{picked}.html", StringComparison.OrdinalIgnoreCase);
             }
         }
 
