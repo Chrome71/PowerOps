@@ -90,7 +90,7 @@ public static class PluginAgents
                 body = Replace(body, "the flow rules in `docs/rules/`", "the flow rules (`powerops rules`)", file);
                 break;
             case "powerops-bi":
-                body = Replace(body, "(`powerbi-authoring-local`, registered with `--readonly`, which is what blocks its writes)", "(`powerbi-authoring-local`, which blocks writes only when it is registered with `--readonly`; if it isn't, or you can't tell, say so under Not checked and use only the reads listed here)", file);
+                body = Replace(body, "(`powerbi-authoring-local`, registered with `--readonly`, which refuses changes to the model, refreshes and role or permission changes, but not its file exports)", "(`powerbi-authoring-local`, which refuses changes to the model, refreshes and role or permission changes only when it is registered with `--readonly`, and never its file exports; if it isn't, or you can't tell, say so under Not checked and use only the reads listed here)", file);
                 break;
         }
 
