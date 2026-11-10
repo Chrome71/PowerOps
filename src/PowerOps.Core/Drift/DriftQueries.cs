@@ -16,6 +16,10 @@ public static partial class DriftQueries
 
     private const string BotsText = """<fetch><entity name="bot"><attribute name="schemaname" /><attribute name="publishedon" /><filter><condition attribute="schemaname" operator="in">{schemaNameValues}</condition></filter></entity></fetch>""";
 
+    private const string DefinitionsText = """<fetch><entity name="solutioncomponentdefinition"><attribute name="solutioncomponenttype" /><attribute name="primaryentityname" /><filter><condition attribute="solutioncomponenttype" operator="ge" value="10000" /></filter></entity></fetch>""";
+    private const string SolutionBotsText = """<fetch><entity name="bot"><attribute name="botid" /><attribute name="schemaname" /><attribute name="publishedon" /><link-entity name="solutioncomponent" from="objectid" to="botid" link-type="inner"><filter><condition attribute="solutionid" operator="eq" value="{solutionId}" /></filter></link-entity></entity></fetch>""";
+    private const string BotComponentsText = """<fetch><entity name="botcomponent"><attribute name="botcomponentid" /><attribute name="schemaname" /><link-entity name="solutioncomponent" from="objectid" to="botcomponentid" link-type="inner"><filter><condition attribute="solutionid" operator="eq" value="{solutionId}" /></filter></link-entity></entity></fetch>""";
+
     /// <summary>The layer table's component name for connection references, whatever their <c>componenttype</c> number.</summary>
     public const string ReferenceLayerName = "connectionreference";
 
@@ -58,6 +62,15 @@ public static partial class DriftQueries
     public static string Variables(Guid solutionId) => Fill(VariablesText, solutionId);
 
     public static string References(Guid solutionId) => Fill(ReferencesText, solutionId);
+
+    /// <summary>Read 9: the environment's component definitions of types 10000 and above, with their <c>primaryentityname</c>.</summary>
+    public static string Definitions() => DefinitionsText;
+
+    /// <summary>Read 10: the solution's agents (<c>bot</c>), with their schema name and <c>publishedon</c>.</summary>
+    public static string SolutionBots(Guid solutionId) => Fill(SolutionBotsText, solutionId);
+
+    /// <summary>Read 11: the solution's agent components (<c>botcomponent</c>), with their schema name.</summary>
+    public static string BotComponents(Guid solutionId) => Fill(BotComponentsText, solutionId);
 
     /// <summary>Read 8: the root rows of the given components in other unmanaged, visible solutions than <paramref name="solutionId"/>, without the default solution. One read takes a batch of ids (50 in <c>drift</c>).</summary>
     public static string OtherSolutions(Guid solutionId, IEnumerable<Guid> componentIds) =>

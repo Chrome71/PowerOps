@@ -6,7 +6,7 @@
   "type": "object",
   "required": ["schemaVersion", "solution", "drift", "environments", "items", "notCompared"],
   "properties": {
-    "schemaVersion": { "const": 1, "description": "Version of this output format." },
+    "schemaVersion": { "const": 2, "description": "Version of this output format." },
     "solution": { "type": "string", "description": "The solution's unique name, as given with --solution." },
     "drift": { "type": "boolean", "description": "True when any item is drift (exit code 1)." },
     "environments": {
@@ -37,19 +37,19 @@
           "position": { "type": "integer", "minimum": 1 },
           "environment": { "type": "string", "description": "The environment's friendly name." },
           "kind": {
-            "enum": ["solution-missing", "version", "managed", "component-missing", "component-extra", "unmanaged-layer", "layers-not-read", "variable-missing", "variable-value", "reference-missing", "reference-connector", "reference-unbound", "flow-missing", "flow-state", "also-in-solution"],
-            "description": "managed, layers-not-read and also-in-solution are information; every other kind is drift."
+            "enum": ["solution-missing", "version", "managed", "component-missing", "component-extra", "agent-missing", "agent-published", "unmanaged-layer", "layers-not-read", "variable-missing", "variable-value", "reference-missing", "reference-connector", "reference-unbound", "flow-missing", "flow-state", "also-in-solution"],
+            "description": "managed, agent-published, layers-not-read and also-in-solution are information; every other kind is drift. agent-missing is an agent that only one environment of the pair holds."
           },
-          "subject": { "type": "string", "description": "The name of a flow, variable or reference, '<componenttype> <id>' for another component, or the solution name. For also-in-solution, a flow's name or '<componenttype> <id>'." },
+          "subject": { "type": "string", "description": "The name of a flow, variable or reference, the schema name of an agent (agent-missing, agent-published), '<componenttype> <id>' for another component, or the solution name. When both environments of a pair hold type names, a component of type 10000 or above is named '<definition name> <schema name or id>' (for example 'botcomponent demo_agent.topic.start'); the definition name stands in for the type number, and the schema name for the id of an agent component the read returned. For also-in-solution, a flow's name or '<componenttype> <id>'." },
           "drift": { "type": "boolean" },
-          "expected": { "type": ["string", "null"], "description": "The first environment's value for version, managed, reference-connector and flow-state; else null (always null for also-in-solution)." },
+          "expected": { "type": ["string", "null"], "description": "The first environment's value for version, managed, reference-connector, flow-state and agent-published ('published' or 'not published'); else null (always null for also-in-solution)." },
           "actual": { "type": ["string", "null"], "description": "This environment's value for those kinds; for also-in-solution, the unique name of the other solution that holds the component; else null." }
         }
       }
     },
     "notCompared": {
       "type": "array",
-      "description": "What this run did not compare, one sentence each, also printed as note: lines on stderr: a line when only one environment was read or no environment has the solution installed together with the first; each component type that is left out of the comparison by id (1, 62, 80, 300, 10087) and that a compared environment holds, which is most runs; and each managed environment whose layers were not read (repeating its layers-not-read item).",
+      "description": "What this run did not compare, one sentence each, also printed as note: lines on stderr: a line when only one environment was read or no environment has the solution installed together with the first; each component type that is left out of the comparison by id (1, 62, 80, 300, and 10087 where an environment holds no type names) and that a compared environment holds, which is most runs; each kind left out by name (appsetting, bot_botcomponent, botcomponent_*) with its count in each environment; a line for each environment compared with the first by type number and id because it or the first has no type names (a snapshot from an older powerops), so agents were not compared; a line for each environment with agents or agent components the read did not return, which were compared by id; and each managed environment whose layers were not read (repeating its layers-not-read item).",
       "items": { "type": "string" }
     }
   }

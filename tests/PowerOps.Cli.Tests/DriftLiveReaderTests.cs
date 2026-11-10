@@ -75,6 +75,18 @@ internal sealed class LiveFakes
             return LayerBody(false);
         }
 
+        var file = EntitySet(url) switch
+        {
+            "solutioncomponentdefinitions" => "definitions.json",
+            "bots" => "solution-bots.json",
+            "botcomponents" => "botcomponents.json",
+            _ => null,
+        };
+        if (file is not null)
+        {
+            return SampleFile(file);
+        }
+
         var read = EntitySet(url) switch
         {
             "solutions" => 2,
@@ -654,6 +666,124 @@ public class DriftLiveReaderTests
     [Fact]
     public void An_error_text_with_status_200_is_output_powerops_cannot_read() =>
         Assert.StartsWith("the Web API read of `connectionreference` returned output", Fails(FailingAt(4, LiveFakes.Ok(LiveFakes.SampleFile("error-400.json")))).Message);
+
+    // ---- reads 9 to 11: type names, agents and agent components ----
+
+    private static LiveFakes WithDynamic(params (int Type, string Id)[] rows) => new()
+    {
+        WebFn = url => LiveFakes.IsOtherSolutions(url) ? LiveFakes.Ok(LiveFakes.NoRows)
+            : EntitySetIs(url, "solutioncomponents") ? LiveFakes.Ok(ComponentsBody(rows))
+            : LiveFakes.Ok(LiveFakes.Sample(url)),
+    };
+
+    private static List<string> NameReads(LiveFakes f) =>
+        [.. f.WebCalls.Select(c => LiveFakes.EntitySet(c.Url)).Where(e => e is "solutioncomponentdefinitions" or "bots" or "botcomponents")];
+
+    [Fact]
+    public void Dynamic_types_get_names_and_agents_get_schema_names_with_one_call_per_new_read()
+    {
+        var f = WithDynamic((10226, Id(0xe1)), (10227, Id(0xe3)), (10227, Id(0xe4)), (10090, Id(0x90)), (10164, Id(0xd3)), (1, Id(1)));
+
+        var s = f.Reader.Read(Solution, Env);
+
+        Assert.Equal(
+            [(1, null, null), (10090, "appsetting", null), (10164, "connectionreference", null), (10226, "bot", "demo_Helper"), (10227, "botcomponent", "demo_Helper.topic.Goodbye"), (10227, "botcomponent", "demo_Helper.topic.Greeting")],
+            s.Components.Select(c => (c.Type, c.Name, c.SchemaName)).OrderBy(c => c.Item1).ThenBy(c => c.Item3));
+        Assert.Equal([("demo_Helper", true), ("demo_Other", false)], s.Agents!.Select(a => (a.SchemaName, a.PublishedOn)).Order());
+        Assert.Equal(["solutioncomponentdefinitions", "bots", "botcomponents"], NameReads(f));
+        Assert.Equal(6 + 3, f.WebCalls.Count);
+    }
+
+    [Fact]
+    public void A_solution_whose_only_dynamic_type_is_a_connection_reference_makes_no_read_9_and_names_nothing()
+    {
+        var f = WithDynamic((10164, Id(0xd3)), (1, Id(1)));
+
+        var s = f.Reader.Read(Solution, Env);
+
+        Assert.Empty(NameReads(f));
+        Assert.Empty(s.Agents!);
+        Assert.All(s.Components, c => Assert.Null(c.Name));
+    }
+
+    [Fact]
+    public void Dynamic_types_but_no_agent_make_read_9_only_and_give_empty_agents()
+    {
+        var f = WithDynamic((10090, Id(0x90)));
+
+        var s = f.Reader.Read(Solution, Env);
+
+        Assert.Equal(["solutioncomponentdefinitions"], NameReads(f));
+        Assert.Empty(s.Agents!);
+        Assert.Equal("appsetting", Assert.Single(s.Components).Name);
+    }
+
+    [Fact]
+    public void A_type_with_no_definition_row_gets_no_name_and_makes_no_further_read()
+    {
+        var f = WithDynamic((10999, Id(0x99)));
+
+        var s = f.Reader.Read(Solution, Env);
+
+        Assert.Null(Assert.Single(s.Components).Name);
+        Assert.Equal(["solutioncomponentdefinitions"], NameReads(f));
+    }
+
+    [Fact]
+    public void An_agent_component_missing_from_read_11_keeps_a_null_schema_name()
+    {
+        var f = WithDynamic((10227, Id(0xe3)), (10227, Id(0xe9)));
+
+        var s = f.Reader.Read(Solution, Env);
+
+        Assert.Equal([("demo_Helper.topic.Greeting", Id(0xe3)), (null, Id(0xe9))], s.Components.Select(c => (c.SchemaName, c.Id.ToString())).OrderByDescending(c => c.Item1 is not null));
+        Assert.All(s.Components, c => Assert.Equal("botcomponent", c.Name));
+    }
+
+    [Fact]
+    public void A_denied_read_9_fails_naming_its_table_and_exits_3()
+    {
+        var f = new LiveFakes
+        {
+            WebFn = url => EntitySetIs(url, "solutioncomponentdefinitions") ? new WebResult(403, """{"error":{"code":"1","message":"No access"}}""", false)
+                : EntitySetIs(url, "solutioncomponents") && !LiveFakes.IsOtherSolutions(url) ? LiveFakes.Ok(ComponentsBody([(10090, Id(0x90))]))
+                : LiveFakes.Ok(LiveFakes.Sample(url)),
+        };
+
+        var e = Fails(f);
+
+        Assert.Equal("the Web API read of `solutioncomponentdefinition` failed (HTTP 403). Sign in with az login, and check that the account can read that environment.", e.Message);
+        Assert.Equal(3, e.ExitCode);
+    }
+
+    [Fact]
+    public void A_second_page_on_read_11_fails()
+    {
+        var f = new LiveFakes
+        {
+            WebFn = url => EntitySetIs(url, "botcomponents") ? LiveFakes.Ok(LiveFakes.SampleFile("morerecords.json"))
+                : EntitySetIs(url, "solutioncomponents") && !LiveFakes.IsOtherSolutions(url) ? LiveFakes.Ok(ComponentsBody([(10227, Id(0xe3))]))
+                : LiveFakes.Ok(LiveFakes.Sample(url)),
+        };
+
+        var e = Fails(f);
+
+        Assert.StartsWith("the Web API read of `botcomponent` returned output powerops cannot read: ", e.Message);
+        Assert.Contains("more than one page of results is not supported", e.Message);
+    }
+
+    [Fact]
+    public void ReadTarget_makes_none_of_the_new_reads_and_gives_agents_null()
+    {
+        var f = WithDynamic((10226, Id(0xe1)), (10227, Id(0xe3)));
+
+        var t = f.Reader.ReadTarget(TestEnv, [Solution], []);
+
+        Assert.Empty(NameReads(f));
+        var s = Assert.Single(t.Solutions);
+        Assert.Null(s.Agents);
+        Assert.All(s.Components, c => Assert.Equal((null, null), (c.Name, c.SchemaName)));
+    }
 
     // ---- ReadTarget (deploy plan) ----
 

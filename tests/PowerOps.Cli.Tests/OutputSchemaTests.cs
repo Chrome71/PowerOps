@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 
 using Json.Schema;
 
+using PowerOps.Core.Drift;
 using PowerOps.Core.Flows;
 using PowerOps.Tests.Shared;
 
@@ -108,6 +109,45 @@ public class OutputSchemaTests
         var errors = Errors(Load(schema), JsonNode.Parse(File.ReadAllText(Path.Combine(Golden.RepoRoot, file)))!);
 
         Assert.True(errors.Length == 0, $"{file} does not match {schema}:\n{errors}");
+    }
+
+    [Fact]
+    public void Drift_schema_kinds_equal_DriftKind_Order()
+    {
+        var schema = JsonNode.Parse(File.ReadAllText(Path.Combine(Golden.RepoRoot, "docs", "schemas", "drift.schema.json")))!;
+        var kinds = schema["properties"]!["items"]!["items"]!["properties"]!["kind"]!["enum"]!.AsArray().Select(k => (string?)k).ToArray();
+
+        Assert.Equal(DriftKind.Order, kinds);
+    }
+
+    private static JsonNode SeedFile(string name) =>
+        JsonNode.Parse(File.ReadAllText(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "drift", name)))!;
+
+    [Fact]
+    public void A_version_1_snapshot_file_validates()
+    {
+        Assert.Equal("", Errors(Load("snapshot.schema.json"), SeedFile("seed-dev.json")));
+    }
+
+    [Fact]
+    public void A_version_2_snapshot_file_needs_agents_and_names_on_every_component()
+    {
+        var schema = Load("snapshot.schema.json");
+        var v2 = SeedFile("seed-dev.json");
+        v2["schemaVersion"] = 2;
+        v2["agents"] = new JsonArray();
+
+        Assert.NotEqual("", Errors(schema, v2));
+
+        foreach (var c in v2["components"]!.AsArray())
+        {
+            c!["name"] = null;
+            c["schemaName"] = null;
+        }
+
+        Assert.Equal("", Errors(schema, v2));
+        v2.AsObject().Remove("agents");
+        Assert.NotEqual("", Errors(schema, v2));
     }
 
     private const string Run = """{"kind":"runStatus","equals":"Succeeded"}""";

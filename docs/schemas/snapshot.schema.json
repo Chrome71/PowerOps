@@ -2,11 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/snapshot.schema.json",
   "title": "powerops drift snapshot file",
-  "description": "A file written by 'powerops drift --save <dir>': what was read of one solution in one environment, for a later offline drift run. It holds the environment's friendly name and the SHA-256 of each environment variable's current value, never the value, an environment id or URL, a connection id or a user name. A hash hides a value from a reader, not from someone who guesses short or known values, so keep these files in private folders and private CI artifacts.",
+  "description": "A file written by 'powerops drift --save <dir>': what was read of one solution in one environment, for a later offline drift run. It holds the environment's friendly name and the SHA-256 of each environment variable's current value, never the value, an environment id or URL, a connection id or a user name. A hash hides a value from a reader, not from someone who guesses short or known values, so keep these files in private folders and private CI artifacts. Version 2 also holds the definition names of components of type 10000 and above and the schema names of the solution's agents and agent components; version-1 files still load, and a snapshot without names is still written as version 1.",
   "type": "object",
   "required": ["schemaVersion", "environment", "solution", "installed", "version", "managed", "layersRead", "components", "variables", "references", "flows"],
   "properties": {
-    "schemaVersion": { "const": 1, "description": "Version of the snapshot file format. It moves only when this format changes, not with the report outputs' schemaVersion." },
+    "schemaVersion": { "enum": [1, 2], "description": "Version of the snapshot file format. 2 adds name and schemaName on components and the agents list; a snapshot read without names (the solution is not installed, or a deploy target read) is written as version 1. It moves only when this format changes, not with the report outputs' schemaVersion." },
     "environment": { "type": "string", "minLength": 1, "description": "The environment's friendly name." },
     "solution": { "type": "string", "minLength": 1, "description": "The solution's unique name." },
     "installed": { "type": "boolean" },
@@ -22,7 +22,9 @@
         "properties": {
           "type": { "type": "integer", "description": "The componenttype number." },
           "id": { "type": "string", "format": "uuid", "description": "The objectid." },
-          "unmanagedLayer": { "type": ["boolean", "null"], "description": "Null when layers were not read or the solution is unmanaged." }
+          "unmanagedLayer": { "type": ["boolean", "null"], "description": "Null when layers were not read or the solution is unmanaged." },
+          "name": { "type": ["string", "null"], "minLength": 1, "description": "Version 2. The component definition's primaryentityname, for a type of 10000 or above that the read named; else null." },
+          "schemaName": { "type": ["string", "null"], "minLength": 1, "description": "Version 2. The schema name of an agent (name bot) or agent component (name botcomponent) the read returned; else null." }
         }
       }
     },
@@ -64,6 +66,25 @@
           "state": { "enum": ["on", "off", "suspended"] }
         }
       }
+    },
+    "agents": {
+      "type": "array",
+      "description": "Version 2. The solution's agents (bot rows), sorted by schema name; empty when it holds none.",
+      "items": {
+        "type": "object",
+        "required": ["schemaName", "publishedOn"],
+        "properties": {
+          "schemaName": { "type": "string", "minLength": 1 },
+          "publishedOn": { "type": "boolean", "description": "Whether publishedon is set; the date itself is not stored." }
+        }
+      }
+    }
+  },
+  "if": { "properties": { "schemaVersion": { "const": 2 } }, "required": ["schemaVersion"] },
+  "then": {
+    "required": ["agents"],
+    "properties": {
+      "components": { "items": { "required": ["name", "schemaName"] } }
     }
   }
 }

@@ -63,6 +63,58 @@ public class DriftParsersTests
     }
 
     [Fact]
+    public void Read9_parses_the_definitions_skips_a_nameless_row_and_rejects_a_duplicate_type()
+    {
+        Assert.Equal(
+            new Dictionary<int, string> { [10090] = "appsetting", [10164] = "connectionreference", [10226] = "bot", [10227] = "botcomponent", [10230] = "botcomponent_connectionreference" },
+            DriftParsers.Definitions(Sample("definitions.json")));
+        Assert.Equal(
+            new Dictionary<int, string> { [10001] = "bot" },
+            DriftParsers.Definitions(Rows("""{"solutioncomponenttype":10001,"primaryentityname":"bot"}""", """{"solutioncomponenttype":10002}""", """{"solutioncomponenttype":10003,"primaryentityname":""}""", """{"solutioncomponenttype":10004,"primaryentityname":null}""")));
+        Assert.Throws<InvalidDataException>(() => DriftParsers.Definitions(Rows("""{"solutioncomponenttype":10001,"primaryentityname":"bot"}""", """{"solutioncomponenttype":10001,"primaryentityname":"other"}""")));
+        Assert.Throws<InvalidDataException>(() => DriftParsers.Definitions(Rows("""{"primaryentityname":"bot"}""")));
+        Assert.Contains("more than one page", Assert.Throws<InvalidDataException>(() => DriftParsers.Definitions(Sample("morerecords.json"))).Message);
+    }
+
+    private const string BotA = "00000000-0000-0000-0000-0000000000e1";
+    private const string BotB = "00000000-0000-0000-0000-0000000000e2";
+
+    [Fact]
+    public void Read10_parses_the_solution_agents_with_a_null_publishedon_as_not_published()
+    {
+        Assert.Equal([(Guid.Parse(BotA), "demo_Helper", true), (Guid.Parse(BotB), "demo_Other", false)], DriftParsers.SolutionBots(Sample("solution-bots.json")));
+        Assert.Equal([(Guid.Parse(BotA), "demo_A", false)], DriftParsers.SolutionBots(Rows($$"""{"botid":"{{BotA}}","schemaname":"demo_A"}""")));
+        Assert.Empty(DriftParsers.SolutionBots(Rows()));
+    }
+
+    [Fact]
+    public void Read10_rejects_a_duplicate_id_a_duplicate_name_in_another_case_a_missing_name_and_a_second_page()
+    {
+        Assert.Throws<InvalidDataException>(() => DriftParsers.SolutionBots(Rows($$"""{"botid":"{{BotA}}","schemaname":"demo_A"}""", $$"""{"botid":"{{BotA}}","schemaname":"demo_B"}""")));
+        Assert.Throws<InvalidDataException>(() => DriftParsers.SolutionBots(Rows($$"""{"botid":"{{BotA}}","schemaname":"demo_A"}""", $$"""{"botid":"{{BotB}}","schemaname":"DEMO_a"}""")));
+        Assert.Throws<InvalidDataException>(() => DriftParsers.SolutionBots(Rows($$"""{"botid":"{{BotA}}","publishedon":"2026-01-01T00:00:00Z"}""")));
+        Assert.Contains("more than one page", Assert.Throws<InvalidDataException>(() => DriftParsers.SolutionBots(Sample("morerecords.json"))).Message);
+    }
+
+    [Fact]
+    public void Read11_parses_the_agent_components()
+    {
+        Assert.Equal(
+            [(Guid.Parse("00000000-0000-0000-0000-0000000000e3"), "demo_Helper.topic.Greeting"), (Guid.Parse("00000000-0000-0000-0000-0000000000e4"), "demo_Helper.topic.Goodbye")],
+            DriftParsers.BotComponents(Sample("botcomponents.json")));
+        Assert.Empty(DriftParsers.BotComponents(Rows()));
+    }
+
+    [Fact]
+    public void Read11_rejects_a_duplicate_id_a_duplicate_name_in_another_case_a_missing_name_and_a_second_page()
+    {
+        Assert.Throws<InvalidDataException>(() => DriftParsers.BotComponents(Rows($$"""{"botcomponentid":"{{BotA}}","schemaname":"demo_A.topic.X"}""", $$"""{"botcomponentid":"{{BotA}}","schemaname":"demo_A.topic.Y"}""")));
+        Assert.Throws<InvalidDataException>(() => DriftParsers.BotComponents(Rows($$"""{"botcomponentid":"{{BotA}}","schemaname":"demo_A.topic.X"}""", $$"""{"botcomponentid":"{{BotB}}","schemaname":"DEMO_A.TOPIC.x"}""")));
+        Assert.Throws<InvalidDataException>(() => DriftParsers.BotComponents(Rows($$"""{"botcomponentid":"{{BotA}}"}""")));
+        Assert.Contains("more than one page", Assert.Throws<InvalidDataException>(() => DriftParsers.BotComponents(Sample("morerecords.json"))).Message);
+    }
+
+    [Fact]
     public void Read4_parses_the_flows() =>
         Assert.Equal([new SnapshotFlow(Guid.Parse(FlowId), "Notify on new work item", "on")], DriftParsers.Flows(Sample("test-read4.json")));
 

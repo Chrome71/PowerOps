@@ -11,7 +11,10 @@ namespace PowerOps.Core.Drift;
 public static partial class SnapshotFile
 {
     /// <summary>The snapshot file's own version; it moves only when the file format changes, not with <c>JsonOutput.SchemaVersion</c>.</summary>
-    public const int SchemaVersion = 1;
+    public const int SchemaVersion = 2;
+
+    // Written when no names were read, so the text and every deploy target digest are as before names existed.
+    private const int VersionWithoutNames = 1;
 
     private const long MaxBytes = 1_048_576;
 
@@ -29,14 +32,26 @@ public static partial class SnapshotFile
     // Property order here is the order in the file.
     private sealed record Doc(
         int SchemaVersion, string Environment, string Solution, bool Installed, string? Version, bool? Managed, bool LayersRead,
-        IReadOnlyList<SnapshotComponent> Components, IReadOnlyList<SnapshotVariable> Variables, IReadOnlyList<SnapshotReference> References, IReadOnlyList<SnapshotFlow> Flows);
+        IReadOnlyList<SnapshotComponent> Components, IReadOnlyList<SnapshotVariable> Variables, IReadOnlyList<SnapshotReference> References, IReadOnlyList<SnapshotFlow> Flows,
+        IReadOnlyList<SnapshotAgent> Agents);
 
-    /// <summary>The file text: lists sorted by their match key, "\n" line endings, trailing newline.</summary>
+    // The version-1 shape: its own component record, so name and schemaName never reach that text.
+    private sealed record DocV1(
+        int SchemaVersion, string Environment, string Solution, bool Installed, string? Version, bool? Managed, bool LayersRead,
+        IReadOnlyList<ComponentV1> Components, IReadOnlyList<SnapshotVariable> Variables, IReadOnlyList<SnapshotReference> References, IReadOnlyList<SnapshotFlow> Flows);
+
+    private sealed record ComponentV1(int Type, Guid Id, bool? UnmanagedLayer);
+
+    /// <summary>The file text: lists sorted by their match key, "\n" line endings, trailing newline. Version 2 when <see cref="Snapshot.Agents"/> is set, else the version-1 text.</summary>
     public static string Write(Snapshot s)
     {
         var sorted = Sort(s);
-        return JsonSerializer.Serialize(new Doc(SchemaVersion, sorted.Environment, sorted.Solution, sorted.Installed, sorted.Version, sorted.Managed, sorted.LayersRead,
-            sorted.Components, sorted.Variables, sorted.References, sorted.Flows), Options) + "\n";
+        object doc = sorted.Agents is { } agents
+            ? new Doc(SchemaVersion, sorted.Environment, sorted.Solution, sorted.Installed, sorted.Version, sorted.Managed, sorted.LayersRead,
+                sorted.Components, sorted.Variables, sorted.References, sorted.Flows, agents)
+            : new DocV1(VersionWithoutNames, sorted.Environment, sorted.Solution, sorted.Installed, sorted.Version, sorted.Managed, sorted.LayersRead,
+                [.. sorted.Components.Select(c => new ComponentV1(c.Type, c.Id, c.UnmanagedLayer))], sorted.Variables, sorted.References, sorted.Flows);
+        return JsonSerializer.Serialize(doc, Options) + "\n";
     }
 
     /// <exception cref="InvalidDataException">The file is over 1 MB or <see cref="Read"/> rejects it; the message never names the path.</exception>
@@ -90,10 +105,14 @@ public static partial class SnapshotFile
                 throw Bad("the file is not a JSON object");
             }
 
-            if (!root.TryGetProperty("schemaVersion", out var v) || v.ValueKind != JsonValueKind.Number || !v.TryGetInt32(out var version) || version != SchemaVersion)
+            if (!root.TryGetProperty("schemaVersion", out var v) || v.ValueKind != JsonValueKind.Number || !v.TryGetInt32(out var version) || version is not (VersionWithoutNames or SchemaVersion))
             {
-                throw Bad($"schemaVersion must be {SchemaVersion}");
+                throw Bad($"schemaVersion must be {VersionWithoutNames} or {SchemaVersion}");
             }
+
+            var named = version == SchemaVersion;
+            // Read first, so a version-1 text marked 2 is rejected for its missing agents.
+            var agents = named ? Items(root, "agents", c => new SnapshotAgent(NonEmpty(c, "schemaName"), Flag(c, "publishedOn"))) : null;
 
             var snapshot = new Snapshot(
                 NonEmpty(root, "environment"),
@@ -102,12 +121,21 @@ public static partial class SnapshotFile
                 Text(root, "version", true),
                 OptionalFlag(root, "managed"),
                 Flag(root, "layersRead"),
-                Items(root, "components", c => new SnapshotComponent(Int(c, "type"), Id(c), OptionalFlag(c, "unmanagedLayer"))),
+                Items(root, "components", c => named ? Named(c) : new SnapshotComponent(Int(c, "type"), Id(c), OptionalFlag(c, "unmanagedLayer"))),
                 Items(root, "variables", c => new SnapshotVariable(Text(c, "schemaName", false)!, Hash(c))),
                 Items(root, "references", c => new SnapshotReference(Id(c), Text(c, "logicalName", false)!, Text(c, "connectorId", false)!, Flag(c, "bound"))),
-                Items(root, "flows", c => new SnapshotFlow(Id(c), Text(c, "name", false)!, State(c))));
+                Items(root, "flows", c => new SnapshotFlow(Id(c), Text(c, "name", false)!, State(c))),
+                null,
+                agents);
 
             Unique(snapshot.Components.Select(c => $"{c.Type}/{c.Id}"), StringComparer.Ordinal, "components");
+            if (named)
+            {
+                // Row 6's comparison key of a by-name pair.
+                Unique(snapshot.Components.Select(c => $"{c.Name ?? c.Type.ToString()} {c.SchemaName ?? c.Id.ToString("D")}"), StringComparer.OrdinalIgnoreCase, "components");
+                Unique(agents!.Select(a => a.SchemaName), StringComparer.OrdinalIgnoreCase, "agents");
+            }
+
             Unique(snapshot.Variables.Select(c => c.SchemaName), StringComparer.OrdinalIgnoreCase, "variables");
             Unique(snapshot.References.Select(c => c.LogicalName), StringComparer.OrdinalIgnoreCase, "references");
             Unique(snapshot.Flows.Select(c => c.Id.ToString()), StringComparer.Ordinal, "flows");
@@ -122,7 +150,25 @@ public static partial class SnapshotFile
         Variables = s.Variables.OrderBy(c => c.SchemaName, StringComparer.Ordinal).ToList(),
         References = s.References.OrderBy(c => c.LogicalName, StringComparer.Ordinal).ToList(),
         Flows = s.Flows.OrderBy(c => c.Id.ToString("D"), StringComparer.Ordinal).ToList(),
+        Agents = s.Agents?.OrderBy(a => a.SchemaName, StringComparer.Ordinal).ToList(),
     };
+
+    // A version-2 component: a name only on a type of 10000 and above, a schema name only on a bot or botcomponent.
+    private static SnapshotComponent Named(JsonElement c)
+    {
+        var (type, name, schemaName) = (Int(c, "type"), Text(c, "name", true), Text(c, "schemaName", true));
+        if (name is not null && (name.Length == 0 || type < 10000))
+        {
+            throw Bad("a component name is empty or on a type below 10000");
+        }
+
+        if (schemaName is not null && (schemaName.Length == 0 || !(DriftCompare.IsName(name, "bot") || DriftCompare.IsName(name, "botcomponent"))))
+        {
+            throw Bad("a component schemaName is empty or not on a bot or botcomponent");
+        }
+
+        return new SnapshotComponent(type, Id(c), OptionalFlag(c, "unmanagedLayer"), name, schemaName);
+    }
 
     private static InvalidDataException Bad(string why) => new($"not a snapshot file: {why}");
 

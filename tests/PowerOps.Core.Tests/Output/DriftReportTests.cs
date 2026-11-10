@@ -72,7 +72,7 @@ public class DriftReportTests
         Assert.Equal(
             """
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "solution": "demo",
               "drift": true,
               "environments": [

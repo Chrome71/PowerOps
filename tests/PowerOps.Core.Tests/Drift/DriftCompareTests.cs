@@ -10,8 +10,9 @@ public class DriftCompareTests
 
     private static Snapshot Snap(
         string name = "Dev", string version = "1.0.0.0", bool managed = false, bool layersRead = true, bool installed = true,
-        SnapshotComponent[]? components = null, SnapshotVariable[]? variables = null, SnapshotReference[]? references = null, SnapshotFlow[]? flows = null, SnapshotAlsoIn[]? alsoIn = null) =>
-        new(name, "demo", installed, installed ? version : null, installed ? managed : null, layersRead, components ?? [], variables ?? [], references ?? [], flows ?? [], alsoIn);
+        SnapshotComponent[]? components = null, SnapshotVariable[]? variables = null, SnapshotReference[]? references = null, SnapshotFlow[]? flows = null, SnapshotAlsoIn[]? alsoIn = null,
+        SnapshotAgent[]? agents = null) =>
+        new(name, "demo", installed, installed ? version : null, installed ? managed : null, layersRead, components ?? [], variables ?? [], references ?? [], flows ?? [], alsoIn, agents);
 
     private static IReadOnlyList<DriftItem> Run(params Snapshot[] s) => DriftCompare.Compare(s);
 
@@ -72,11 +73,12 @@ public class DriftCompareTests
     }
 
     [Fact]
-    public void Kinds_are_in_the_documented_order_and_only_managed_layers_not_read_and_also_in_solution_are_information()
+    public void Kinds_are_in_the_documented_order_and_only_managed_agent_published_layers_not_read_and_also_in_solution_are_information()
     {
-        Assert.Equal(15, DriftKind.Order.Length);
+        Assert.Equal(17, DriftKind.Order.Length);
         Assert.Equal("also-in-solution", DriftKind.Order[^1]);
-        Assert.Equal(["managed", "layers-not-read", "also-in-solution"], DriftKind.Order.Where(k => !DriftKind.IsDrift(k)));
+        Assert.Equal(["component-extra", "agent-missing", "agent-published", "unmanaged-layer"], DriftKind.Order[4..8]);
+        Assert.Equal(["managed", "agent-published", "layers-not-read", "also-in-solution"], DriftKind.Order.Where(k => !DriftKind.IsDrift(k)));
     }
 
     [Fact]
@@ -303,5 +305,145 @@ public class DriftCompareTests
             [(2, DriftKind.Version), (2, DriftKind.ComponentMissing), (2, DriftKind.VariableMissing), (2, DriftKind.VariableMissing), (2, DriftKind.ReferenceMissing), (2, DriftKind.ReferenceUnbound), (2, DriftKind.FlowMissing)],
             items.Select(i => (i.Position, i.Kind)));
         Assert.Equal(["a", "b"], items.Where(i => i.Kind == DriftKind.VariableMissing).Select(i => i.Subject));
+    }
+
+    // ---- by name (M76) ------------------------------------------------------------------------------------
+
+    private static readonly Guid G4 = Guid.Parse("00000000-0000-0000-0000-000000000004");
+
+    private const string Fallback = "compared with the first by type number and id, because it or the first has no type names (a snapshot from an older powerops), so agents were not compared";
+    private const string NotReturned = "agent(s) or agent component(s) were not returned by the read (the account may not see them), so they were compared by id";
+
+    private static string CountLine(string name, string counts) => $"component type {name} not compared: its ids can change on import, so it is counted, not compared by id ({counts})";
+
+    [Fact]
+    public void The_same_agent_under_other_type_numbers_and_ids_gives_no_item()
+    {
+        var dev = Snap(components: [new(10226, G1, null, "bot", "demo_Helper"), new(10227, G2, null, "botcomponent", "demo_Helper.topic.Greeting")], agents: [new("demo_Helper", true)]);
+        var test = Snap("Test", components: [new(10229, G3, null, "BOT", "DEMO_HELPER"), new(10230, G4, null, "BotComponent", "demo_helper.topic.greeting")], agents: [new("DEMO_HELPER", true)]);
+
+        Assert.Empty(Run(dev, test));
+        Assert.Empty(DriftCompare.NotCompared([dev, test]));
+    }
+
+    [Fact]
+    public void An_agent_on_one_side_only_is_agent_missing_and_no_component_item()
+    {
+        var dev = Snap(components: [new(10226, G1, null, "bot", "demo_Helper")], agents: [new("demo_Helper", false)]);
+        var test = Snap("Test", agents: []);
+
+        var item = One(dev, test);
+        Assert.Equal((2, DriftKind.AgentMissing, "demo_Helper", true), (item.Position, item.Kind, item.Subject, item.Drift));
+        item = One(test with { Environment = "Dev" }, dev with { Environment = "Test" });
+        Assert.Equal((DriftKind.AgentMissing, "demo_Helper"), (item.Kind, item.Subject));
+    }
+
+    [Fact]
+    public void An_agent_component_on_one_side_only_is_missing_or_extra_named_by_schema_name()
+    {
+        var with = Snap(components: [new(10227, G1, null, "botcomponent", "demo_Helper.topic.Greeting")], agents: []);
+        var without = Snap("Test", agents: []);
+
+        var item = One(with, without);
+        Assert.Equal((DriftKind.ComponentMissing, "botcomponent demo_Helper.topic.Greeting", true), (item.Kind, item.Subject, item.Drift));
+        item = One(without with { Environment = "Dev" }, with with { Environment = "Test" });
+        Assert.Equal((DriftKind.ComponentExtra, "botcomponent demo_Helper.topic.Greeting"), (item.Kind, item.Subject));
+    }
+
+    [Fact]
+    public void Equal_counts_with_one_changed_schema_name_still_give_items()
+    {
+        var dev = Snap(components: [new(10227, G1, null, "botcomponent", "demo_H.topic.A"), new(10227, G2, null, "botcomponent", "demo_H.topic.B")], agents: []);
+        var test = Snap("Test", components: [new(10230, G3, null, "botcomponent", "demo_H.topic.A"), new(10230, G4, null, "botcomponent", "demo_H.topic.C")], agents: []);
+
+        Assert.Equal(
+            [(DriftKind.ComponentMissing, "botcomponent demo_H.topic.B"), (DriftKind.ComponentExtra, "botcomponent demo_H.topic.C")],
+            Run(dev, test).Select(i => (i.Kind, i.Subject)));
+    }
+
+    [Fact]
+    public void Two_components_with_one_number_but_other_definition_names_never_match()
+    {
+        var dev = Snap(components: [new(10090, G1, null, "settingdefinition")], agents: []);
+        var test = Snap("Test", components: [new(10090, G1, null, "AppSetting")], agents: []);
+
+        var item = One(dev, test);
+        Assert.Equal((DriftKind.ComponentMissing, "settingdefinition " + G1.ToString("D")), (item.Kind, item.Subject));
+        Assert.Equal([CountLine("AppSetting", "1 Dev: 0, 2 Test: 1")], DriftCompare.NotCompared([dev, test]));
+    }
+
+    [Fact]
+    public void Agent_link_tables_and_app_settings_are_counted_not_compared()
+    {
+        var dev = Snap(components: [new(10231, G1, null, "botcomponent_workflow"), new(10232, G2, null, "bot_botcomponent"), new(10090, G3, null, "appsetting")], agents: []);
+        var test = Snap("Test", components: [new(10234, G3, null, "BotComponent_Workflow"), new(10235, G4, null, "bot_botcomponent")], agents: []);
+
+        Assert.Empty(Run(dev, test));
+        Assert.Equal(
+            [CountLine("appsetting", "1 Dev: 1, 2 Test: 0"), CountLine("botcomponent_workflow", "1 Dev: 1, 2 Test: 1"), CountLine("bot_botcomponent", "1 Dev: 1, 2 Test: 1")],
+            DriftCompare.NotCompared([dev, test]));
+    }
+
+    [Fact]
+    public void A_dynamic_type_with_no_name_is_compared_by_number_and_id()
+    {
+        var items = Run(Snap(components: [new(10164, G1, null)], agents: []), Snap("Test", components: [new(10164, G2, null)], agents: []));
+
+        Assert.Equal([(DriftKind.ComponentMissing, "10164 " + G1.ToString("D")), (DriftKind.ComponentExtra, "10164 " + G2.ToString("D"))], items.Select(i => (i.Kind, i.Subject)));
+        Assert.Empty(DriftCompare.NotCompared([Snap(components: [new(10164, G1, null)], agents: []), Snap("Test", components: [new(10164, G2, null)], agents: [])]));
+    }
+
+    [Fact]
+    public void Agent_published_on_one_side_only_is_information()
+    {
+        var items = Run(Snap(agents: [new("demo_Helper", true)]), Snap("Test", agents: [new("demo_helper", false)]));
+
+        var item = Assert.Single(items);
+        Assert.Equal((DriftKind.AgentPublished, "demo_Helper", "published", "not published", false), (item.Kind, item.Subject, item.Expected, item.Actual, item.Drift));
+        Assert.False(PowerOps.Core.Output.DriftReport.HasDrift(items));
+    }
+
+    [Fact]
+    public void An_agent_component_the_read_did_not_return_is_compared_by_id_and_counted()
+    {
+        var dev = Snap(components: [new(10227, G1, null, "botcomponent"), new(10226, G3, null, "bot")], agents: []);
+        var test = Snap("Test", components: [new(10230, G1, null, "botcomponent"), new(10229, G4, null, "bot")], agents: []);
+
+        Assert.Equal([(DriftKind.ComponentMissing, "bot " + G3.ToString("D")), (DriftKind.ComponentExtra, "bot " + G4.ToString("D"))], Run(dev, test).Select(i => (i.Kind, i.Subject)));
+        Assert.Equal([$"1 Dev: 2 {NotReturned}", $"2 Test: 2 {NotReturned}"], DriftCompare.NotCompared([dev, test]));
+    }
+
+    [Fact]
+    public void A_pair_where_one_side_has_no_names_is_compared_by_number_in_both_orders()
+    {
+        var named = Snap(components: [new(10227, G1, null, "botcomponent", "demo_H.topic.A")], agents: [new("demo_H", true)]);
+        var old = Snap("Test", components: [new(10230, G2, null)]);
+
+        Assert.Equal([(DriftKind.ComponentMissing, "10227 " + G1.ToString("D")), (DriftKind.ComponentExtra, "10230 " + G2.ToString("D"))], Run(named, old).Select(i => (i.Kind, i.Subject)));
+        Assert.Equal([$"2 Test: {Fallback}"], DriftCompare.NotCompared([named, old]));
+
+        var (first, second) = (old with { Environment = "Dev" }, named with { Environment = "Test" });
+        Assert.Equal([(DriftKind.ComponentMissing, "10230 " + G2.ToString("D")), (DriftKind.ComponentExtra, "10227 " + G1.ToString("D"))], Run(first, second).Select(i => (i.Kind, i.Subject)));
+        Assert.Equal([$"2 Test: {Fallback}"], DriftCompare.NotCompared([first, second]));
+    }
+
+    [Fact]
+    public void Two_snapshots_without_names_give_the_fallback_line_only_for_a_kept_dynamic_type()
+    {
+        Assert.Equal([$"component type 10087 {TypeLine}"], DriftCompare.NotCompared([Snap(components: [new(10087, G1, null)]), Snap("Test", components: [new(10087, G2, null)])]));
+        Assert.Empty(DriftCompare.NotCompared([Snap(components: [new(10150, G3, null)], references: [new(G3, "r", "c", true)]), Snap("Test")]));
+        Assert.Equal([$"2 Test: {Fallback}"], DriftCompare.NotCompared([Snap(components: [new(10164, G1, null)]), Snap("Test", components: [new(10164, G1, null)])]));
+    }
+
+    [Fact]
+    public void Three_environments_give_each_line_for_its_own_pair_only()
+    {
+        var dev = Snap(components: [new(10227, G1, null, "botcomponent"), new(10090, G2, null, "appsetting")], agents: []);
+        var test = Snap("Test", components: [new(10227, G1, null)]);
+        var prod = Snap("Prod", components: [new(10230, G1, null, "botcomponent"), new(10091, G4, null, "appsetting"), new(10087, G3, null)], agents: []);
+
+        Assert.Equal(
+            [CountLine("appsetting", "1 Dev: 1, 3 Prod: 1"), $"2 Test: {Fallback}", $"1 Dev: 1 {NotReturned}", $"3 Prod: 1 {NotReturned}"],
+            DriftCompare.NotCompared([dev, test, prod]));
     }
 }

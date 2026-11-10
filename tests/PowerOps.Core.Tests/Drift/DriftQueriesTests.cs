@@ -25,6 +25,17 @@ public class DriftQueriesTests
     }
 
     [Fact]
+    public void Name_queries_equal_the_stored_ones_and_take_only_the_solution_id()
+    {
+        var id = Id.ToString("D");
+        Assert.Equal(Stored("read9-definitions.xml"), DriftQueries.Definitions());
+        Assert.Equal(Stored("read10-bots.xml").Replace("{solutionId}", id), DriftQueries.SolutionBots(Id));
+        Assert.Equal(Stored("read11-botcomponents.xml").Replace("{solutionId}", id), DriftQueries.BotComponents(Id));
+        Assert.Contains(id, DriftQueries.SolutionBots(Id));
+        Assert.Contains(id, DriftQueries.BotComponents(Id));
+    }
+
+    [Fact]
     public void Other_solutions_query_equals_the_stored_one()
     {
         var ids = new[] { Id, Guid.Parse("00000000-0000-0000-0000-000000000002") };
