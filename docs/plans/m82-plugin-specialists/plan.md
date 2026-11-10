@@ -1,9 +1,11 @@
 ---
-status: approved
+status: implementing
 review: done
 environment: null
 depth: quick
 supersedes: null
+signed-off: 2026-11-09
+signed-off-hash: 5e2b0ba7a1ca4662222d08bb9568eaf95cc76fa4f205040853c2afd59103024f
 ---
 
 # M82: Ship the six specialists in the Claude plugin, self-contained

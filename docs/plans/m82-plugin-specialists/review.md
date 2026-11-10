@@ -1,4 +1,4 @@
-plan-hash: 715e14a294b32b21c6599194a5828425b3435022a13f42ca2d874d1e43d031e1
+plan-hash: 5e2b0ba7a1ca4662222d08bb9568eaf95cc76fa4f205040853c2afd59103024f
 model: claude-opus-5-5
 fresh-context: yes
 
@@ -9,6 +9,8 @@ Read for this review: `plan.md`, `decisions.md` (no `mockups/`), the six `.claud
 Second pass (2026-11-09, same skill, fresh context): read the revision in c9634d1 (`plan.md`, `decisions.md`) against the six sources, `CLAUDE.md` and `plugins/claude/skills/powerops-plan/`. `powerops plan status` reports `approved`, review `done`, 0 open questions. Each resolution below was checked against the revised plan and ends with the result; R11 is new.
 
 Final pass (2026-11-09, same skill, fresh context): read the revision in ab57f71 (rows 1 and 2 of `plan.md`, `decisions.md`) against the six sources. `powerops plan status` reports `approved`, review `done`, 0 open questions. R11's resolution was checked; R12 is new.
+
+Fourth pass (2026-11-09, same skill, fresh context): read the revision in f812085. `powerops plan status` reports `approved`, review `done`, 0 open questions. R12's resolution was checked; no new finding.
 
 ## Checklist items not applicable
 
@@ -106,4 +108,4 @@ No findings.
 - Area: 9. Testability
 - Finding: Row 1 now makes (j) the one rewrite outside `Replace`, a replace-all that never throws. Done-condition 2 still says "every rewrite of rows 2 and 3 throws when its target is missing from its source", and row 2 still opens "Body rewrites, each through `Replace` (row 1)". A builder or work review reading those lines can treat the non-throwing (j) as a miss. The behaviour is safe, since `RepoOnlyReferences` backstops (j); only the wording disagrees.
 - Suggested fix: Add "except (j)" to done-condition 2 and to row 2's opening phrase.
-- Resolution: answered in `plan.md`: done-condition 2 and row 2 now say "except (j)"
+- Resolution: answered in `plan.md`: done-condition 2 and row 2 now say "except (j)". Checked (fourth pass): holds; done-condition 2, row 1 and row 2 now all name (j) as the one rewrite that does not throw, and no other line in `plan.md` says every rewrite throws.
