@@ -1,5 +1,7 @@
 # PowerOps
 
+![PowerOps: deploy with proof. A pipeline of four steps: analyze, diff, test, deploy.](docs/assets/PowerOps.png)
+
 Check, compare, test and deploy Microsoft Power Platform solutions from the command line.
 
 PowerOps is a free, open-source toolkit for Windows and Linux. It works alongside `pac`; it does not replace it. It brings software-engineering discipline (analysis, diffing, testing, repeatable deployment) to Power Platform.
