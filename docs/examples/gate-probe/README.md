@@ -37,4 +37,5 @@ The folder below is a placeholder: use any folder outside the repository.
 - (f) Read the result from the call's own output:
   - `error: deploy gate:` lines: the hook is active. This is the pass.
   - The `gate probe:` line: the hook is not active, and the session must not import. Restart the session with the hooks in place and probe again from step (d).
+  - Neither line: the call was blocked, but not by the gate (for example, the hook's `|| exit 2` fired because `powerops` is not on `PATH`). That is not a pass: fix the hook and probe again from step (d).
 - (g) Record the call's output. As the second record, check that `gate-probe.marker` is absent in the stand-in's folder: the stand-in never ran.
