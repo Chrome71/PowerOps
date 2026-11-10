@@ -1,11 +1,11 @@
 ---
-status: approved
+status: done
 review: done
 environment: null
 depth: standard
 supersedes: null
 signed-off: 2026-11-09
-signed-off-hash: d2ddd1daad0bf5f7012c4728408063ce2c375d619e36c08561f9961e62c2b7d1
+signed-off-hash: 40a2d46c79b8054c29941208b522b81d3bebaebe53c8b8a2dc60c48e2a78871a
 ---
 
 # M83: The kept roles review the managed zip's unpacked form, bound to the zip with checked provenance
