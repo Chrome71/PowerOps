@@ -1,9 +1,11 @@
 ---
-status: approved
-review: pending
+status: implementing
+review: done
 environment: null
 depth: quick
 supersedes: null
+signed-off: 2026-11-09
+signed-off-hash: 011c869a454cdb419714312f2cdc99974086820a8cbaa8cead89223ad33b72aa
 ---
 
 # M79: PO035, navigation names in flows match the exported relationships
