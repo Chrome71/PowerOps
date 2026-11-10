@@ -2,7 +2,8 @@
 # Smoke test of the planning skills, driven by a simulated user (a second model call).
 # It checks the protocol's shape, not question quality: round size, option order,
 # decisions.md logging, the stop behaviour, the fast path (also with a routing skill installed), the data
-# round and the sketch option at depth quick and standard, and a build that must not delete its own stray object.
+# round and the sketch option at depth quick and standard, a build that must not delete its own stray object, a build
+# that stops for a plan amendment, option-number answers that keep the depth, and a tool that can't be called named in Assumptions.
 # It costs model credits, so it runs weekly (.github/workflows/skills-smoke.yml), never per build.
 # Keep it bash 3.2 compatible (macOS): no ${x,,}, no mapfile, and guard empty arrays under set -u.
 #
@@ -13,7 +14,7 @@ set -euo pipefail
 agent="${1:?usage: skills-smoke.sh claude|codex}"
 case "$agent" in claude | codex) ;; *) echo "unknown agent: $agent" >&2; exit 2 ;; esac
 max_turns="${SMOKE_MAX_TURNS:-12}"
-# What Claude may run without asking, and who the simulated user is; scenarios 7 and 8 change both.
+# What Claude may run without asking, and who the simulated user is; scenarios 7 and 8 change both, and scenario 10 the first.
 allowed_tools="Bash(powerops *)"
 user_role="planning a Microsoft Power Platform project with you"
 
@@ -261,7 +262,7 @@ fi
 scenario=standard
 new_repo
 sketch_offered=0
-# Answers in the user's own words keep the depth at standard: option numbers alone would move it down to quick.
+# Answers in a sentence or two of the user's own words keep the depth at standard; scenario 9 checks bare option numbers.
 goal="Answer each question in a sentence or two of your own words that takes the recommended option. At a what-next menu: if you have answered fewer than two menus, choose A (another round); if exactly two, reply with just: D (or B if the menu has no D), even when another option is marked recommended; otherwise choose B (approve the draft). Confirm if asked to approve anyway. When asked to approve or skip the sketch, approve it. When a review or a sign-off is offered, say you will do it later."
 max_turns=$((max_turns + 5)) # three rounds, the sketch, the approval and the sketch question
 converse "Use the powerops-plan skill. My idea: $loans." 'note_sketch; [ -n "$(plan_dir)" ] && grep -q "^- .*prototype:" "$(plan_dir)/decisions.md" 2>/dev/null' || true
@@ -509,6 +510,40 @@ if [ -s "$tenant_state/failed-at" ]; then
 else
   fail "step 1 never failed (tenant calls: $(tr '\n' ';' <"$tenant_log"))"
 fi
+
+# A plan.md section, from its heading to the next one.
+section() { sed -n "/^## $1[[:space:]]*\$/,/^## /p" "$(plan_dir)/plan.md" 2>/dev/null; }
+
+# 9. Answers by option number alone keep the depth: a new repo starts at standard, and one round of bare digits
+# must not move it down (M81).
+scenario=option-depth
+new_repo
+goal="Answer each round of questions with one option number per question, digits only, separated by spaces (like: 1 1 1), and nothing else. At the first what-next menu (A/B/C) reply with just: C"
+converse "Use the powerops-plan skill. My idea: $idea." '[ "$turn" -gt 1 ] && [[ "$message" =~ ^[[:space:]]*C[[:space:][:punct:]]*$ ]]' || true
+if [ -n "$(plan_dir)" ]; then
+  check_decisions
+  [ "$(header depth)" = standard ] || fail "depth is '$(header depth)' after option-number answers, expected standard"
+  if grep -q '^- depth:' "$(plan_dir)/decisions.md" 2>/dev/null; then fail "decisions.md logs a depth change: $(grep '^- depth:' "$(plan_dir)/decisions.md")"; fi
+else
+  fail "no plan folder under docs/plans"
+fi
+
+# 10. A plan that names a tool the agent can't call says so in Assumptions (M81). `contoso-forms` exists nowhere;
+# on Claude the agent may look for it with `command -v`.
+scenario=unavailable-tool
+new_repo
+if command -v contoso-forms >/dev/null 2>&1; then fail "contoso-forms is on PATH, so this scenario can't test a missing tool"; fi
+allowed_tools="Bash(powerops *),Bash(command -v *)"
+goal="When asked for the route, choose option 1; when asked for the publisher prefix, answer: cso. At the lettered what-next menu choose A. When asked to approve or skip a sketch, skip it with a reason. When a review or a sign-off is offered, say you will do it later."
+# Done once Steps names the tool; the default budget covers the route, menu A and the deferred review.
+converse "Use the powerops-implement skill. Build a Dataverse table of inspection checklists, and load our existing checklists into it with the \`contoso-forms\` CLI." \
+  'grep -q contoso-forms <<<"$(section Steps)"' || true
+allowed_tools="Bash(powerops *)"
+grep -q contoso-forms <<<"$(section Steps)" || fail "Steps never named contoso-forms"
+# Natural phrasings of "it isn't there", on the same Assumptions line as the tool's name; .{0,3} takes a curly apostrophe.
+unavailable="not found|not callable|not installed|not checked|(is|was|could)n.{0,3}t|could not|cannot|missing|unavailable|not on (the )?path"
+lines="$(grep -i contoso-forms <<<"$(section Assumptions)" || true)"
+grep -qiE "$unavailable" <<<"$lines" || fail "no Assumptions line says contoso-forms is unavailable (lines naming it: ${lines:-none})"
 
 echo
 if [ "$failures" -gt 0 ]; then
