@@ -39,6 +39,8 @@ dotnet pack src/PowerOps.Cli -c Release -o artifacts &&
 
 On Windows the uninstall also fails, with `Access to the path ... is denied`, while a `powerops mcp` server runs from the tool's folder, and each Claude Code or Codex session that uses PowerOps starts one. Close those sessions first. Codex's daemon can keep a server running after its session ends: `codex app-server daemon stop` ends it, and `Get-Process powerops` shows whether any is left. The plugin updates separately: see [Use from an agent](USE-WITH-AGENTS.md#planning-skills).
 
+After an update, compare the commit that `powerops --version` prints (see above) with `git rev-parse HEAD` in the clone. The version alone proves nothing, because every build between two releases has the same one.
+
 ## Platforms
 
 PowerOps supports Windows and Linux. CI builds and tests both on every pull request, and the hand runbook has been run on Windows ([what is not verified](FOUNDATION.md#8-research-topics-still-open)). macOS is not supported or tested: it may work, but it is out of scope.

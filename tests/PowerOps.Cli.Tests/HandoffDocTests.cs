@@ -187,4 +187,18 @@ public partial class HandoffDocTests
         Assert.Contains("give it an `open:` cleanup in `writes.md`", skill);
         Assert.Contains("`powerops-implement` never runs a delete", page.Split('\n').Single(l => l.StartsWith("| Power BI |", StringComparison.Ordinal)));
     }
+
+    // M80: step 7 says where the plan file goes, and the hooks section sends the reader to the gate probe.
+    [Fact]
+    public void Step_7_saves_the_plan_in_the_deploy_folder_and_the_gate_section_links_the_probe()
+    {
+        var page = Page();
+        var step = page.Split('\n').Single(l => l.StartsWith("7. **Plan the import in CI.**", StringComparison.Ordinal));
+        var start = page.IndexOf("## Gate Microsoft's imports\n", StringComparison.Ordinal);
+        var section = page[start..page.IndexOf("\n## ", start + 1, StringComparison.Ordinal)];
+
+        Assert.Contains("Save the plan file in the deploy folder: deploy apply reads the zips and settings files from the plan file's own folder, and deploy plan warns when --save names another folder.", step);
+        Assert.Contains("](examples/gate-probe/README.md)", section);
+        Assert.True(File.Exists(Path.Combine(Golden.RepoRoot, "docs", "examples", "gate-probe", "README.md")));
+    }
 }
