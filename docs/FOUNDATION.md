@@ -88,7 +88,7 @@ Each phase ends in something releasable. Phases 0 and 1 need **no Power Platform
 
 - **Microsoft churn.** Anything built on a preview API can break.
   - Mitigation: depend on GA surfaces (`pac solution`, the Web API, the SARIF format), and isolate everything else behind adapters.
-- **Test tenants are getting harder to get.** [Unmanaged developer environments](https://learn.microsoft.com/power-platform/important-changes-coming), including those from the free Developer Plan, can't be created after 2026-11-15. Existing ones are suspended from 2026-12-15 and deleted from 2027-01-15. Only managed developer environments remain, and each user can create one.
+- **Test tenants are getting harder to get.** [Unmanaged developer environments](https://learn.microsoft.com/power-platform/important-changes-coming), including those from the free Developer Plan, can't be created from 2026-11-15. Existing ones are suspended from 2026-12-15 and deleted from 2027-01-15. Only managed developer environments remain, and each user can create one.
   - Mitigation: offline-first design and committed fixture solutions. Phase 3's ephemeral environments must be managed environments. We still need to find out what contributors can use (see §8).
 - **Competitors.**
   - ALM4Dataverse is an actively developed ALM framework.

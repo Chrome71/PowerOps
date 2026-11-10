@@ -74,15 +74,15 @@ The review log below has one line per review: `- <date>, mode <A|B|C>: <n> autom
 ## ECO-0006: Deprecation wording: developer environment creation and the Test Engine repository
 - Priority: P3
 - Disposition: implement now
-- Status: open
+- Status: done
 - Release status: deprecated
 - Found: 2026-11-10, mode A
 - Verified: 2026-11-10
 - Affects: docs/FOUNDATION.md:91, docs/BUILD-PLAN.md:279
 - Sources: [Important changes (deprecations) coming](https://learn.microsoft.com/power-platform/important-changes-coming) (updated 2026-11-02), [microsoft/PowerApps-TestEngine](https://github.com/microsoft/PowerApps-TestEngine) (observed 2026-11-10)
 - Evidence: documented
-- Why: Learn says unmanaged developer environments can't be created "starting November 15, 2026"; `FOUNDATION.md:91` says "after 2026-11-15", a day off (`BUILD-PLAN.md:194` already says "from"). Learn says Test Engine's docs and repository "will be removed in a future release", with no date; `BUILD-PLAN.md:279` says the repo "is removed on 2026-11-01", a date Learn does not give, and the repository answered 404 on 2026-11-10. The suspension and deletion dates (2026-12-15, 2027-01-15) and the Dataverse for Teams note at `FOUNDATION.md:192` hold. Step 6: "after" to "from" at line 91, and at line 279 "Learn says its repo will be removed, with no date; it answered 404 on 2026-11-10". Acceptance: both lines match the page; check: `DocsDriftTests`. About 4 lines. `skills/powerops-plan/references/data.md:99` gives no dates, so it needs nothing.
-- Link: docs/plans/m84-ecosystem-watch/plan.md (step 6)
+- Why: Learn says unmanaged developer environments can't be created "starting November 15, 2026"; `FOUNDATION.md:91` says "after 2026-11-15", a day off (`BUILD-PLAN.md:194` already says "from"). Learn says Test Engine's docs and repository "will be removed in a future release", with no date; `BUILD-PLAN.md:279` says the repo "is removed on 2026-11-01", a date Learn does not give, and the repository answered 404 on 2026-11-10. The suspension and deletion dates (2026-12-15, 2027-01-15) and the Dataverse for Teams note at `FOUNDATION.md:192` hold. Step 6: "after" to "from" at line 91, and at line 279 "Learn says its repo will be removed, with no date; it answered 404 on 2026-11-10". Acceptance: both lines match the page; check: `DocsDriftTests`. About 4 lines. Fixed in step 6: `FOUNDATION.md:91` says "from 2026-11-15" and `BUILD-PLAN.md:279` says Learn gives no removal date for the Test Engine docs and repository and that the repository answered 404 on 2026-11-10 (one observation). `skills/powerops-plan/references/data.md:99` gives no dates, so it needs nothing.
+- Link: docs/plans/m84-ecosystem-watch/plan.md (step 6, the commit `docs: match the deprecation wording of developer environments and the Test Engine repository to Learn` on feat/m84-ecosystem-watch)
 
 ## ECO-0007: Claude Code 2.1.314: a Bash hook also runs on Monitor's commands
 - Priority: P3
