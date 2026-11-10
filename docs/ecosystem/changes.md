@@ -87,15 +87,15 @@ The review log below has one line per review: `- <date>, mode <A|B|C>: <n> autom
 ## ECO-0007: Claude Code 2.1.314: a Bash hook also runs on Monitor's commands
 - Priority: P3
 - Disposition: implement now
-- Status: open
+- Status: done
 - Release status: GA
 - Found: 2026-11-10, mode A
 - Verified: 2026-11-10
 - Affects: docs/HANDOFF.md:93
 - Sources: [Claude Code changelog](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md) (observed 2026-11-10), [Claude Code hooks](https://code.claude.com/docs/en/hooks) (observed 2026-11-10)
 - Evidence: documented
-- Why: The 2.1.314 entry reads "Fixed hooks matching Bash not running on shell commands started by the Monitor tool; such hooks can block or ask, but not approve or rewrite those commands". The gate blocks by exit 2, so it still works there; with the separate `Monitor` group of `HANDOFF.md:77-80` it runs twice on 2.1.314 or later (harmless, it only reads), and the group still covers the smoke pin 2.1.303. Step 6: add to line 93 that from 2.1.314 the `Bash` group also covers Monitor and the `Monitor` group keeps older builds covered. Acceptance: the line names 2.1.314; check: `HandoffDocTests` and `DocsDriftTests`. About 2 lines. Return 6 also said the hooks docs allow spaces and commas in an exact-name matcher (line 95); not checked in this review.
-- Link: docs/plans/m84-ecosystem-watch/plan.md (step 6)
+- Why: The 2.1.314 entry reads "Fixed hooks matching Bash not running on shell commands started by the Monitor tool; such hooks can block or ask, but not approve or rewrite those commands". The gate blocks by exit 2, so it still works there; with the separate `Monitor` group of `HANDOFF.md:77-80` it runs twice on 2.1.314 or later (harmless, it only reads), and the group still covers the smoke pin 2.1.303. Step 6: add to line 93 that from 2.1.314 the `Bash` group also covers Monitor and the `Monitor` group keeps older builds covered. Acceptance: the line names 2.1.314; check: `HandoffDocTests` and `DocsDriftTests`. About 2 lines. Fixed in step 6: line 93 says that from 2.1.314 a `Bash` matcher also runs on Monitor's commands (documented in the hooks reference and changelog, not tested by PowerOps) and that the `Monitor` group keeps older builds covered; its Sources line names the changelog. Return 6 also said the hooks docs allow spaces and commas in an exact-name matcher (line 95); not checked in this review.
+- Link: docs/plans/m84-ecosystem-watch/plan.md (step 6, the commit `docs: note that a Bash hook also covers Monitor from Claude Code 2.1.314` on feat/m84-ecosystem-watch)
 
 ## ECO-0008: The gate misreads two Microsoft forms and has no route for the preview pac groups
 - Priority: P3
