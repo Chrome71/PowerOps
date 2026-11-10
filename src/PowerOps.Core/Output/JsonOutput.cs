@@ -1,6 +1,6 @@
 namespace PowerOps.Core.Output;
 
-/// <summary>The version every JSON output but <c>diff</c> and <c>deploy plan</c> carries as <c>schemaVersion</c>; see docs/schemas/README.md for when it changes.</summary>
+/// <summary>The version every JSON output but <c>diff</c>, <c>deploy plan</c> and <c>drift</c> carries as <c>schemaVersion</c>; see docs/schemas/README.md for when it changes.</summary>
 public static class JsonOutput
 {
     public const int SchemaVersion = 1;
@@ -10,4 +10,7 @@ public static class JsonOutput
 
     /// <summary><c>deploy plan</c> is at 2: its <c>kind</c> enum gained <c>agent</c> (M73), and <c>deploy apply</c> reads only plan files of this version.</summary>
     public const int DeployPlanSchemaVersion = 2;
+
+    /// <summary><c>drift</c> is at 2: its <c>kind</c> enum gained <c>agent-missing</c> and <c>agent-published</c> (M76).</summary>
+    public const int DriftSchemaVersion = 2;
 }

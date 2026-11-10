@@ -47,7 +47,7 @@ public static class DriftReport
     public static void WriteJson(string solution, IReadOnlyList<Snapshot> envs, IReadOnlyList<string> sources, IReadOnlyList<DriftItem> items, TextWriter writer)
     {
         var doc = new Doc(
-            JsonOutput.SchemaVersion,
+            JsonOutput.DriftSchemaVersion,
             solution,
             HasDrift(items),
             envs.Select((e, i) => new Env(i + 1, e.Environment, sources[i], e.Installed, e.Version, e.Managed, e.LayersRead)).ToList(),

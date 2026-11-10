@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "environment": "Contoso Dev",
   "solution": "PowerOpsSeed",
   "installed": true,
@@ -10,32 +10,44 @@
     {
       "type": 1,
       "id": "00000000-0000-0000-0000-000000000007",
-      "unmanagedLayer": null
+      "unmanagedLayer": null,
+      "name": null,
+      "schemaName": null
     },
     {
       "type": 29,
       "id": "4c8dd007-dfcb-f111-a05c-0022480697a8",
-      "unmanagedLayer": null
+      "unmanagedLayer": null,
+      "name": null,
+      "schemaName": null
     },
     {
       "type": 300,
       "id": "00000000-0000-0000-0000-00000000000a",
-      "unmanagedLayer": null
+      "unmanagedLayer": null,
+      "name": null,
+      "schemaName": null
     },
     {
       "type": 380,
       "id": "00000000-0000-0000-0000-00000000000c",
-      "unmanagedLayer": null
+      "unmanagedLayer": null,
+      "name": null,
+      "schemaName": null
     },
     {
       "type": 10164,
       "id": "00000000-0000-0000-0000-00000000000e",
-      "unmanagedLayer": null
+      "unmanagedLayer": null,
+      "name": null,
+      "schemaName": null
     },
     {
       "type": 10164,
       "id": "00000000-0000-0000-0000-000000000010",
-      "unmanagedLayer": null
+      "unmanagedLayer": null,
+      "name": null,
+      "schemaName": null
     }
   ],
   "variables": [
@@ -64,5 +76,6 @@
       "name": "Stamp work item status",
       "state": "on"
     }
-  ]
+  ],
+  "agents": []
 }

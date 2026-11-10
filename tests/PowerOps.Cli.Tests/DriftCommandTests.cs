@@ -239,6 +239,30 @@ public class DriftCommandTests : IDisposable
         Assert.Equal("", r.Out);
     }
 
+    // A dynamic type that no reference names: a version-1 file has no type names, a version-2 file has them, so the pair falls back to number and id.
+    private static readonly SnapshotComponent Setting = new(10100, new Guid("00000000-0000-0000-0000-0000000000e1"), null);
+
+    private const string FallbackNote = "note: 2 Contoso Test: compared with the first by type number and id, because it or the first has no type names (a snapshot from an older powerops), so agents were not compared\n";
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_version_1_file_with_a_dynamic_type_against_a_version_2_file_falls_back_to_number_and_id_in_both_orders(bool versionOneFirst)
+    {
+        var old = Dev with { Components = [.. Dev.Components, Setting] };
+        var named = Twin with { Components = [.. Twin.Components, Setting with { Name = "settingdefinition" }], Agents = [] };
+        var (first, second) = versionOneFirst ? (old, named with { Environment = "Contoso Test" }) : (named with { Environment = "Contoso Dev" }, old with { Environment = "Contoso Test" });
+        var (one, two) = (Write("one.json", SnapshotFile.Write(first)), Write("two.json", SnapshotFile.Write(second)));
+
+        Assert.Contains("\"schemaVersion\": " + (versionOneFirst ? "1" : "2"), File.ReadAllText(one));
+
+        var r = Run(null, Args(one, two));
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal(TableNote + FallbackNote, r.Err);
+        Assert.EndsWith("no drift\n", r.Out);
+    }
+
     [Fact]
     public void A_usage_error_and_an_unreadable_snapshot_in_one_run_exit_2()
     {
