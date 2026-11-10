@@ -60,6 +60,7 @@ public class PluginManifestTests
 
         var manifest = Json(Path.Combine(dir, ".claude-plugin", "plugin.json"));
         AssertManifest(manifest);
+        Assert.Contains("specialist agents", (string?)manifest["description"]);
         // Servers only in .mcp.json, so they are defined once.
         Assert.Null(manifest["mcpServers"]);
         AssertServer(Path.Combine(dir, ".mcp.json"));

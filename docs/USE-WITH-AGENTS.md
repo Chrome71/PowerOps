@@ -41,6 +41,25 @@ For a team, `powerops skills install` stays the default: the skills then live in
 
 With Microsoft's power-platform-skills or Dataverse-skills installed too, their skills build in Dev and PowerOps checks, plans and imports: the steps are in [docs/HANDOFF.md](HANDOFF.md).
 
+### Specialist agents (Claude Code plugin)
+
+The Claude Code plugin also ships six Power Platform specialist agents that plan, advise and review alongside the skills:
+
+- `powerops-apps`: canvas apps, model-driven apps (custom and generative pages), code apps, PCF components and Power Pages sites.
+- `powerops-automate`: cloud flows, agent flow definitions and desktop flows in a solution, and turning a failed run into a flow test.
+- `powerops-bi`: semantic models, reports, PBIP projects, the Fabric deploy route and Power BI embeds in model-driven apps.
+- `powerops-design-lead`: one theme across products, layout and density, screen states, and accessibility to WCAG 2.2 AA.
+- `powerops-workflow-logic`: where business logic lives, and its state, approvals, transactions, concurrency, idempotency and failure handling; it advises only.
+- `powerops-copilot-studio`: Copilot Studio agents, their tools, knowledge, authentication, channels, triggers, evaluation and ALM route.
+
+Claude Code names each one `powerops:<name>`: start it as the Agent tool's `subagent_type` (`powerops:powerops-apps`) or with a mention such as `@agent-powerops:powerops-apps`. Give it a brief that names the phase (plan-advice, build-brief, review or post-import), the plan folder, the sections it owns, one objective, the inputs and a `tenant:` line. Its rules treat a brief with no `tenant:` line as offline, and answer one with no phase or plan folder with `state: blocked`. The rules it follows and the reply it gives are at the end of its file in `plugins/claude/agents/`.
+
+- **Advisory.** Their findings never block a plan, a build or an import, and no eval has measured what they find. They don't replace `powerops-verify` and `powerops-review-security`, the reports the import routes require.
+- **Cost.** They run on Opus at high effort (`model: opus` and `effort: high` in their files), so a session on a smaller model pays Opus rates for them.
+- **Tenant.** They read and propose, and three write the local files their brief names (flow tests, a PBIP folder, a sketch). Their text tells them never to write to a tenant and to leave each tenant step to your session after your yes: that is an instruction, as with the skills, not a block.
+- **Tools.** Their `tools` lists name Microsoft Learn's MCP server and the product servers: Canvas Authoring, the pac CLI's server, FlowAgent, Power BI Authoring (local), Copilot Studio, and the model-apps and Power Pages Playwright servers. Without a server, its tools are absent. `powerops-bi` may call every tool of the local Power BI Authoring server, so register that server with `--readonly`, which is what blocks its writes.
+- **Not checked.** What Claude Code does with a `tools` list that names a server you don't have, and Codex: its plugin ships no agents.
+
 ### The two build roles
 
 Know these before you run `powerops-verify` and `powerops-review-security` on real work. The rest is in [Limits](PLANNING-SKILLS.md#limits).
