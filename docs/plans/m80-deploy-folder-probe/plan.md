@@ -1,11 +1,11 @@
 ---
-status: approved
-review: pending
+status: implementing
+review: done
 environment: null
 depth: quick
 supersedes: null
-signed-off: null
-signed-off-hash: null
+signed-off: 2026-11-09
+signed-off-hash: 155d6386e2d0f830b795263caf03007f2a6059b013bc13e82d2c0cfc6dcc2a2a
 ---
 
 # M80: Deploy-folder warning, hooks before the session with a gate probe, build identity
