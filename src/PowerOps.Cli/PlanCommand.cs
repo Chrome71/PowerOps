@@ -12,7 +12,7 @@ public static class PlanCommand
 
     public static Command Create(TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac)
     {
-        var command = new Command("plan", "Check and sign off planning documents in docs/plans/ (offline).");
+        var command = new Command("plan", "Check and sign off planning documents in docs/plans/ (offline; only `plan facts` reads an environment, through pac).");
         command.Subcommands.Add(Status(output, error));
         command.Subcommands.Add(SignOff(output, error));
         command.Subcommands.Add(Facts(output, error, pac));
