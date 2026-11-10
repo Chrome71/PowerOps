@@ -1,4 +1,4 @@
-plan-hash: d2ddd1daad0bf5f7012c4728408063ce2c375d619e36c08561f9961e62c2b7d1
+plan-hash: 40a2d46c79b8054c29941208b522b81d3bebaebe53c8b8a2dc60c48e2a78871a
 model: claude-opus-5-5
 fresh-context: yes
 
@@ -9,6 +9,15 @@ Tools (item 12): `pac` (2.14.1), `zip` (3.0), `dotnet`, `claude`, `codex`, `bash
 Checked against the code at `fca4c57`: the cited lines of `PlanChecker.cs`, `DeployReviews.cs`, `DeployCommand.cs` (`:44`, `:59`, `:64`, `WarnUnreviewed`, `DryRun`, the gate), `McpCommand.cs:249`, `WriteSitesTests.cs` (its scan matches `Directory.CreateTempSubdirectory` and `Directory.Delete`), `RoleEvalTests.cs`, `run.sh`, both kept roles' `SKILL.md`, `powerops-implement` section 4, `HANDOFF.md`, `COMMANDS.md`, `USE-WITH-AGENTS.md:69`, `PLANNING-SKILLS.md:221` and `AGENTS.md:33, 40`. `Manifest.Read` gives a zip's SHA-256 as its digest and normalizes CRLF in text files. Run locally: two `pac solution unpack --packagetype Managed` runs of `ColumnLevelSecuritySampleSolution_managed.zip` into different folders gave the same 27-file digest. `--packagetype Unmanaged` on it exited 1 and left an empty folder behind.
 
 Second pass, 2026-11-09, at `83ed2b4`: each answer was checked against the revised plan and the code at `fca4c57`; R10 is new, caused by R2's answer. Third pass, at `50493f7`: R10's answer and the two edits checked; no new finding.
+
+Fourth pass, 2026-11-10, at `d936680` with the build in the tree. The plan is `approved` again because row 9 added the pin table to Data. Checked:
+
+- **Pins:** the three rows equal `git rev-parse 6b67efb:<path>` for both `SKILL.md` files and `run.sh`, and the same ids are at `825ba70`, `HEAD` and in the working tree (`git hash-object`). `RoleEvalTests` reads them from this plan (`Assert.Equal(3, pinned.Count)` passes), and `AGENTS.md:40` points at this folder.
+- **Rows 1 to 3:** `PlanReportFile.DeployHash` is read from line 7 only, and `UnknownHash` when the report can't be read. `ZipUnpack`, `NeedsUnpack` and `Cover` exist, `Recorded` counts `SolutionHash` only, and the fault order matches row 2. `Unpack` uses the zip's own package type, a timeout of the smaller of 120 seconds and the time left less 10 seconds on `RunGate`'s `Stopwatch`, and the five failure sentences (an unpack with no file is unreadable), and deletes its temp folder in `finally` with a `shortcut:` comment. The `deploy plan`, `--apply` and MCP `deploy_plan` texts are changed. `WriteSitesTests` gained the two entries and `AGENTS.md:33` the exception.
+- **Rows 4 to 7:** R1V, R1S, C3 and H7 appear verbatim in the shipped skills, with seven-line wording and Verify step 1 as row 4 says. `run.sh` has (a) to (f), with the `|| true` guard, and passes `bash -n`.
+- **Rows 8 and 9:** COMMANDS, HANDOFF, implement, USE-WITH-AGENTS, PLANNING-SKILLS and GITHUB-ACTION carry the route. The text includes the five failure sentences, the review folder in HANDOFF's ignore guidance, the recovery into a new or emptied folder, and the runner's `pac` version. The codex plugin copies equal `skills/`, and the claude copies differ only by the generated fork front matter. After the freeze, nothing under `src/` and no evaluated file changed (`git diff --stat 6b67efb d936680`).
+- **Checks run here:** `dotnet build`; `dotnet test` (4,672 tests: 4,666 passed, 6 skipped, 0 failed); `dotnet format --verify-no-changes` (clean); `powerops plan status` (no violation). No `powerops-unpack-` folder was left in the system temp folder. The eval was not rerun, and the CI checks were not seen.
+- **Outside the plan's body:** `decisions.md` records that a debugging run called `pac org who --environment x`, which `pac` refused locally. That is a deviation from the no-tenant limit, recorded honestly, and not a plan finding.
 
 `review: done` was not set in `plan.md`, because this review's request allowed writing only `review.md`. The session that asked for the review sets it.
 
@@ -81,3 +90,9 @@ No findings.
 - Finding: R2's answer added a fifth unpack failure sentence to row 3, `no time was left to unpack it`, and R6's answer widened `the unpacked folder could not be read`. Row 8 still tells the COMMANDS writer to document "its four failure sentences", so the writer of row 8 (a different executor from row 3's) may leave the gate's new sentence out of COMMANDS.
 - Suggested fix: In row 8, say "its five failure sentences", or list them, including `no time was left to unpack it` and the empty-unpack case.
 - Resolution: resolved (3rd pass, `50493f7`): row 8 now says five failure sentences and names `no time was left to unpack it` and the empty-folder case of `the unpacked folder could not be read`. That matches row 3's five: `pac was not found`, `pac solution unpack timed out`, `pac solution unpack exited <code>`, `the unpacked folder could not be read` and `no time was left to unpack it`. Row 3's new "counted from the clock `RunGate` starts" agrees with R2's watch note and causes no new problem.
+
+#### R11. The keep decision rests on the building session's settlement of five split Highs
+- Area: 10 (unanswered areas), Automation (keep rules)
+- Finding: `report.md` (line 25 and "Clean-case Highs") says that all five Highs on the clean cases came from Codex and that the two scorers split on every one. The building session settled them as supported. Under the Sonnet scorer's reading the Verifier has 2 false Highs and misses the at-most-one rule, so the keep holds only on that settlement. Two of the five ("deployment input is unmanaged") come from the eval's own design under decisions Q5: a plain zip of an unmanaged folder, which the new skill text calls "the managed zip that will be deployed". A later rerun inherits that. All of this follows the plan's scoring rule and is disclosed, and the person delegated the keep. But the plan never says that a split on a deciding number goes back to the person, or into the hand-over.
+- Suggested fix: Have step 7's hand-over and the PR body quote `report.md`'s line 25 for the person, and record in `decisions.md` that the eval inputs of Q5 provoke the "unmanaged deployment input" finding, so the next rerun knows. No change to the pins.
+- Resolution: open
