@@ -201,4 +201,13 @@ public partial class HandoffDocTests
         Assert.Contains("](examples/gate-probe/README.md)", section);
         Assert.True(File.Exists(Path.Combine(Golden.RepoRoot, "docs", "examples", "gate-probe", "README.md")));
     }
+
+    // M83: step 7 names the deploy-hash link that the roles' seventh header line makes.
+    [Fact]
+    public void Step_7_names_the_deploy_hash_link()
+    {
+        var step = Page().Split('\n').Single(l => l.StartsWith("7. **Plan the import in CI.**", StringComparison.Ordinal));
+
+        Assert.Contains("`deploy-hash:`", step);
+    }
 }

@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 
@@ -21,10 +22,15 @@ public static class DeployCommand
     /// <summary>Half of both clients' default hook timeout of 600 seconds.</summary>
     internal static readonly TimeSpan GateDeadline = TimeSpan.FromSeconds(300);
 
+    private static readonly TimeSpan UnpackTimeout = TimeSpan.FromSeconds(120);
+
+    // What the gate keeps of its deadline after an unpack's timeout, so no pac outlives the gate.
+    private static readonly TimeSpan UnpackMargin = TimeSpan.FromSeconds(10);
+
     private const string ReadingGuidance = "The call was blocked. If it is an import, write it as one plain pac solution import command with literal absolute paths and the environment's id or https URL. If it only mentions an import, reword it.";
     private const string ImportGuidance = "The import was blocked. To import a reviewed plan, ask the user for a yes to that environment, then call the MCP tool deploy_apply with apply: true, where the user types the environment's name in a form, or leave the import to the Action's approved job or to the user, who runs powerops deploy apply <plan file> --target <environment id or URL> --apply. Do not retry this import another way.";
 
-    /// <param name="pac">Runs pac; <c>deploy apply</c> uses it for the imports only.</param>
+    /// <param name="pac">Runs pac: the imports of <c>deploy apply</c>, and the unpack of a zip that a review names as its deploy-hash.</param>
     /// <param name="target">Reads the target: the <c>--target</c> value, the solution names of the folder and the dependency names not in it. Throws <see cref="DriftReadException"/>.</param>
     /// <param name="input">Opens the hook input of <c>deploy gate</c> (stdin); null when there is none. Only the gate calls it.</param>
     /// <param name="deadline">How long <c>deploy gate</c> may check before it blocks; a test seam, <see cref="GateDeadline"/> in production.</param>
@@ -41,13 +47,13 @@ public static class DeployCommand
         var outFile = new Option<string?>("--out") { Description = "Write the report here instead of stdout." };
         var plannedBy = new Option<string?>("--planned-by") { Description = "Who made the plan, as you report it (not checked, not part of the hash): agent, person or action. Written to the plan file as plannedBy." };
         plannedBy.AcceptOnlyFromAmong("agent", "person", "action");
-        var plan = new Command("plan", "Say what importing the solution zips in a folder into the target would do. Reads the target only.")
+        var plan = new Command("plan", "Say what importing the solution zips in a folder into the target would do. Reads the target only; a zip that a review names as its deploy-hash is unpacked through pac into a temp folder, which is then deleted.")
         {
             folder, targetOption, save, format, outFile, plannedBy,
         };
         plan.SetAction(parse => SettingsCommand.Guard(error, () =>
-            Run(parse.GetValue(folder)!, parse.GetValue(targetOption), parse.GetValue(save), parse.GetValue(format)!, parse.GetValue(outFile), parse.GetValue(plannedBy), output, error, target)));
-        return new Command("deploy", "Plan a deployment of solution zips, and import a reviewed plan.") { plan, Apply(output, error, pac, target, approvedHash, mcp, deployAgents), Gate(error, input ?? (() => null), deadline ?? GateDeadline, target) };
+            Run(parse.GetValue(folder)!, parse.GetValue(targetOption), parse.GetValue(save), parse.GetValue(format)!, parse.GetValue(outFile), parse.GetValue(plannedBy), output, error, target, pac)));
+        return new Command("deploy", "Plan a deployment of solution zips, and import a reviewed plan.") { plan, Apply(output, error, pac, target, approvedHash, mcp, deployAgents), Gate(error, input ?? (() => null), deadline ?? GateDeadline, target, pac) };
     }
 
     private static Command Apply(
@@ -56,12 +62,12 @@ public static class DeployCommand
     {
         var planFile = new Argument<string>("plan-file") { Description = "A plan file written by deploy plan --save. The zips and settings files are read from its folder." };
         var targetOption = new Option<string?>("--target") { Description = "The environment the plan was made for (an id or URL, as pac --environment). The plan file's target is the environment's display name, which this doesn't take. Never printed." };
-        var apply = new Option<bool>("--apply") { Description = "Import the solutions. Without it the command is a dry run that writes nothing." };
+        var apply = new Option<bool>("--apply") { Description = "Import the solutions. Without it the command is a dry run that writes nothing but a temp folder for a zip's pac solution unpack, which is then deleted." };
         var format = new Option<string>("--format") { Description = "Report format.", DefaultValueFactory = _ => "text" };
         format.AcceptOnlyFromAmong("text", "json");
         var outFile = new Option<string?>("--out") { Description = "Write the report here instead of stdout." };
         var githubRun = new Option<string?>("--github-run") { Description = "For the GitHub Action: its run, attempt and environment (1 to 500 characters, no control or format character). Recorded as the report's executor action and, with --apply, as the approval's receipt; not checked." };
-        var requireReviews = new Option<bool>("--require-reviews") { Description = "Refuse, before any import, unless for each zip the plan imports one plan folder under docs/plans holds a verify.md and a security-solution.md that are both ready, were written for the plan's current hash and record that zip's SHA-256 as their solution-hash. Without it the same check only warns." };
+        var requireReviews = new Option<bool>("--require-reviews") { Description = "Refuse, before any import, unless for each zip the plan imports one plan folder under docs/plans holds a verify.md and a security-solution.md that are both ready, were written for the plan's current hash and record that zip's SHA-256 as their solution-hash, or as their deploy-hash with a solution-hash that equals the digest of the zip's pac solution unpack. Without it the same check only warns." };
         var command = new Command("apply", "Plan again against the target, refuse when an input of the plan changed since the review (a zip, a settings file, the target environment, its solution state or a dependency's version), then import the zips in plan order through pac (only with --apply).")
         {
             planFile, targetOption, apply, format, outFile, githubRun, requireReviews,
@@ -86,9 +92,12 @@ public static class DeployCommand
         return root;
     }
 
-    // Writes `warning: <zip>: <sentence>` for each imported zip, in plan order, that no plan folder's two reports cover (and with `evidence`, its `note:` lines).
+    // Writes `warning: <zip>: <sentence>` for each imported zip, in plan order, that no plan folder's two reports cover (and with `evidence`, its `note:` lines,
+    // and a `note:` for a zip whose covering folder links both reports through their deploy-hash).
     // Returns null when every one is covered, else the refusal message of --require-reviews. With no docs/plans nothing is written.
-    private static string? WarnUnreviewed(string folder, IReadOnlyList<DeployZip> zips, IReadOnlyList<ImportStep> imports, TextWriter error, bool evidence)
+    // `left` is the time the gate has left, null outside it.
+    private static string? WarnUnreviewed(
+        string folder, IReadOnlyList<DeployZip> zips, IReadOnlyList<ImportStep> imports, TextWriter error, bool evidence, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<TimeSpan>? left)
     {
         const string NoPlans = "no docs/plans folder at or above the plan file's folder, so no review covers the zips; nothing was imported.";
         if (PlansRoot(folder) is not { } root)
@@ -113,13 +122,26 @@ public static class DeployCommand
             return NoPlans;
         }
 
-        var open = imports.Select(i => zips.First(z => z.File == i.Zip))
-            .Select(z => (Zip: z, Problem: DeployReviews.Problem(plans, z.Sha256)))
-            .Where(z => z.Problem is not null)
+        // A zip is unpacked only when a report names it as its deploy-hash, so plans without such a report call no pac.
+        var checks = imports.Select(i => zips.First(z => z.File == i.Zip))
+            .Select(z => (Zip: z, Unpack: DeployReviews.NeedsUnpack(plans, z.Sha256) ? Unpack(Path.Combine(folder, z.File), z.Solution.Managed, pac, left) : null))
+            .Select(c => (c.Zip, c.Unpack, Problem: DeployReviews.Problem(plans, c.Zip.Sha256, c.Unpack)))
             .ToList();
+        var open = checks.Where(c => c.Problem is not null).Select(c => (c.Zip, c.Problem)).ToList();
         var notes = evidence && open.Count > 0 ? DeployReviews.Evidence(root, plans, [.. open.Select(o => o.Zip)]) : null;
-        foreach (var (zip, problem) in open)
+        foreach (var (zip, unpack, problem) in checks)
         {
+            if (problem is null)
+            {
+                if (evidence && DeployReviews.Cover(plans, zip.Sha256, unpack) is { Verify: { } verify, Security: { } security } cover
+                    && verify.SolutionHash != zip.Sha256 && security.SolutionHash != zip.Sha256)
+                {
+                    error.WriteLine($"note: {Clean(zip.File)}: docs/plans/{Clean(cover.Plan)}: both reports record this zip's SHA-256 as their deploy-hash, and the digest of its pac solution unpack is their solution-hash");
+                }
+
+                continue;
+            }
+
             error.WriteLine($"warning: {Clean(zip.File)}: {Clean(problem)}");
             foreach (var note in notes?.GetValueOrDefault(zip.File) ?? [])
             {
@@ -131,11 +153,74 @@ public static class DeployCommand
             : $"no review covers {Clean(open[0].Zip.File)}: {Clean(open[0].Problem)}{(open.Count > 1 ? $" ({open.Count} zips in all; the warning lines name each)" : "")}; nothing was imported.";
     }
 
+    // The digest of a fresh pac solution unpack of the zip, or why there is none. pac's output is never printed: it holds full paths.
+    private static ZipUnpack Unpack(string zip, bool managed, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<TimeSpan>? left)
+    {
+        var timeout = UnpackTimeout;
+        if (left is not null)
+        {
+            var rest = left() - UnpackMargin;
+            if (rest <= TimeSpan.Zero)
+            {
+                return new ZipUnpack(null, "no time was left to unpack it");
+            }
+
+            timeout = rest < timeout ? rest : timeout;
+        }
+
+        string? temp = null;
+        try
+        {
+            temp = Directory.CreateTempSubdirectory("powerops-unpack-").FullName;
+            var unpacked = Path.Combine(temp, "solution");
+            // The zip's own type: pac refuses a managed zip unpacked as Unmanaged.
+            var result = pac(["solution", "unpack", "--zipfile", Path.GetFullPath(zip), "--folder", unpacked, "--packagetype", managed ? "Managed" : "Unmanaged"], timeout);
+            if (!result.Started)
+            {
+                return new ZipUnpack(null, "pac was not found");
+            }
+
+            if (result.TimedOut)
+            {
+                return new ZipUnpack(null, "pac solution unpack timed out");
+            }
+
+            if (result.ExitCode != 0)
+            {
+                return new ZipUnpack(null, $"pac solution unpack exited {result.ExitCode}");
+            }
+
+            // An unpack with no file would hash as empty input, which a report could claim.
+            var manifest = Manifest.Read(unpacked);
+            return manifest.Files.Count == 0 ? new ZipUnpack(null, Unreadable) : new ZipUnpack(manifest.Digest, null);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            return new ZipUnpack(null, Unreadable);
+        }
+        finally
+        {
+            if (temp is not null)
+            {
+                try
+                {
+                    Directory.Delete(temp, recursive: true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // shortcut: a temp folder whose delete fails (a file pac still holds open) is left in the system temp folder; retry or report it if that is ever seen.
+                }
+            }
+        }
+    }
+
+    private const string Unreadable = "the unpacked folder could not be read";
+
     private sealed record Prepared(DeployPlanResult Plan, IReadOnlyList<DeployZip> Zips, DeployTarget Target);
 
     private static int Run(
         string folder, string? target, string? save, string format, string? outFile, string? plannedBy, TextWriter output, TextWriter error,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac)
     {
         // The --target value and the folder's full path are never printed.
         var problems = new List<string>();
@@ -173,7 +258,7 @@ public static class DeployCommand
 
         var result = prepared.Plan;
         // Advisory here: changes neither the plan nor the exit code.
-        WarnUnreviewed(folder, prepared.Zips, DeployApply.Imports(result, prepared.Zips), error, evidence: true);
+        WarnUnreviewed(folder, prepared.Zips, DeployApply.Imports(result, prepared.Zips), error, evidence: true, pac, left: null);
 
         // deploy apply reads the zips from the plan file's own folder (as at ReadyPlan); the line names no path, and the file is still written.
         // shortcut: two spellings through a linked folder are compared as text; resolve both as SafeWrite does if that is ever needed.
@@ -278,10 +363,11 @@ public static class DeployCommand
     private sealed record Stopped(int Code, string? Name = null, string Hash = "", string Status = "", string? Message = null, IReadOnlyList<AppliedSolution>? Solutions = null);
 
     // The dry run of `deploy apply`, from the plan file read to the imports: one copy for `deploy apply` and `deploy gate`.
-    // `problems` holds the usage problems found so far; error lines go to `error`.
+    // `problems` holds the usage problems found so far; error lines go to `error`. `left` is the time the gate has left, null outside it.
     private static (Ready? Ready, Stopped? Stop) DryRun(
         string planFile, string? target, List<string> problems, string tool, TextWriter error,
-        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, bool requireReviews, string? approvedHash = null, bool hintPlanTarget = false)
+        Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, bool requireReviews, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac,
+        string? approvedHash = null, bool hintPlanTarget = false, Func<TimeSpan>? left = null)
     {
         if (problems.Count > 0)
         {
@@ -348,7 +434,7 @@ public static class DeployCommand
         }
 
         // After the re-plan: only the fresh plan says which zips are imported, since the plan file's actions are not covered by its hash. With no import nothing is looked for.
-        if (imports.Count > 0 && WarnUnreviewed(folder, now.Zips, imports, error, evidence: false) is { } unreviewed && requireReviews)
+        if (imports.Count > 0 && WarnUnreviewed(folder, now.Zips, imports, error, evidence: false, pac, left) is { } unreviewed && requireReviews)
         {
             return (null, new Stopped(1, plan.Target, reviewed.Hash, ApplyStatus.Refused, unreviewed, Rows(plan, _ => ImportStatus.NotRun)));
         }
@@ -427,7 +513,7 @@ public static class DeployCommand
             return code;
         }
 
-        var (ready, stop) = DryRun(planFile, target, problems, tool, error, read, requireReviews, approvedHash, hintPlanTarget: true);
+        var (ready, stop) = DryRun(planFile, target, problems, tool, error, read, requireReviews, pac, approvedHash, hintPlanTarget: true);
         if (stop is not null)
         {
             return stop.Name is null ? stop.Code : Finish(stop.Code, stop.Name, stop.Hash, stop.Status, stop.Message, stop.Solutions!, []);
@@ -566,7 +652,8 @@ public static class DeployCommand
         }
     }
 
-    private static Command Gate(TextWriter error, Func<Stream?> input, TimeSpan deadline, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
+    private static Command Gate(
+        TextWriter error, Func<Stream?> input, TimeSpan deadline, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac)
     {
         var planFile = new Argument<string>("plan-file") { Description = "The plan file written by deploy plan --save that the hook trusts." };
         var command = new Command("gate", "A PreToolUse hook for Microsoft's import tools: reads the hook's JSON on stdin and exits 0 for a call that is not an import or is the plan's first import, 2 for any other call (the reason is on stderr).") { planFile };
@@ -574,7 +661,7 @@ public static class DeployCommand
         // Shadows the recursive help option: help would print to stdout and exit 0, which lets every call through.
         var help = new Option<bool>(GateHelpAliases[0], GateHelpAliases[1..]) { Hidden = true };
         command.Options.Add(help);
-        command.SetAction(parse => RunGate(parse.GetValue(help) ? "-h" : parse.GetValue(planFile)!, error, input, deadline, read));
+        command.SetAction(parse => RunGate(parse.GetValue(help) ? "-h" : parse.GetValue(planFile)!, error, input, deadline, read, pac));
         return command;
     }
 
@@ -596,8 +683,11 @@ public static class DeployCommand
     }
 
     private static int RunGate(
-        string planFile, TextWriter error, Func<Stream?> input, TimeSpan deadline, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
+        string planFile, TextWriter error, Func<Stream?> input, TimeSpan deadline, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read,
+        Func<IReadOnlyList<string>, TimeSpan, PacResult> pac)
     {
+        // The deadline's clock: an unpack in the check gets only the time left on it.
+        var clock = Stopwatch.StartNew();
         try
         {
             if (planFile == GateHelpAliases[0])
@@ -614,7 +704,7 @@ public static class DeployCommand
 
             // The check runs on its own task and writes to its own buffer, so past the deadline its late output is dropped.
             var report = new StringWriter();
-            var check = Task.Run(() => GateCheck(planFile, input, report, read));
+            var check = Task.Run(() => GateCheck(planFile, input, report, read, pac, () => deadline - clock.Elapsed));
             if (!check.Wait(deadline))
             {
                 error.WriteLine($"error: deploy gate: the check took longer than {(int)deadline.TotalSeconds} seconds");
@@ -641,11 +731,12 @@ public static class DeployCommand
     }
 
     private static int GateCheck(
-        string planFile, Func<Stream?> input, TextWriter report, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
+        string planFile, Func<Stream?> input, TextWriter report, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read,
+        Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<TimeSpan> left)
     {
         try
         {
-            return GateDecide(planFile, input, report, read);
+            return GateDecide(planFile, input, report, read, pac, left);
         }
         catch (Exception ex)
         {
@@ -672,7 +763,8 @@ public static class DeployCommand
     }
 
     private static int GateDecide(
-        string planFile, Func<Stream?> input, TextWriter report, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
+        string planFile, Func<Stream?> input, TextWriter report, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read,
+        Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<TimeSpan> left)
     {
         using var stdin = input();
         if (stdin is null)
@@ -695,13 +787,15 @@ public static class DeployCommand
             case ImportRead.Blocked blocked:
                 return GateBlocked(report, blocked.Lines, blocked.Unreadable);
             case ImportRead.Check { Call: var call }:
-                return GateCheckCall(call, planFile, report, read);
+                return GateCheckCall(call, planFile, report, read, pac, left);
             default:
                 throw new InvalidOperationException("unknown import reading");
         }
     }
 
-    private static int GateCheckCall(ImportCall call, string planFile, TextWriter report, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read)
+    private static int GateCheckCall(
+        ImportCall call, string planFile, TextWriter report, Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget> read,
+        Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<TimeSpan> left)
     {
         // The call's files are opened only to hash them.
         var zipHash = HashRegularFile(call.Zip, BoundedRead.MaxZipBytes);
@@ -717,7 +811,7 @@ public static class DeployCommand
 
         var problems = new List<string>();
         PlanFileProblems(planFile, call.Environment, problems);
-        var (ready, stop) = DryRun(planFile, call.Environment, problems, AnalyzeCommand.ToolVersion(), report, read, requireReviews: true);
+        var (ready, stop) = DryRun(planFile, call.Environment, problems, AnalyzeCommand.ToolVersion(), report, read, requireReviews: true, pac, left: left);
         if (stop is not null)
         {
             return GateBlocked(report, [$"the dry run did not pass{(stop.Message is null ? "" : ": " + Clean(stop.Message))}"], false);

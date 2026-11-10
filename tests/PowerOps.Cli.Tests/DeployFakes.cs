@@ -81,9 +81,26 @@ public abstract class DeployTestBase : IDisposable
 
     protected sealed class FakePac
     {
+        /// <summary>The imports only; a <c>solution unpack</c> goes to <see cref="Unpacks"/>, so it never shifts an import's number.</summary>
         public List<string[]> Calls { get; } = [];
 
         public List<TimeSpan> Timeouts { get; } = [];
+
+        public List<string[]> Unpacks { get; } = [];
+
+        public List<TimeSpan> UnpackTimeouts { get; } = [];
+
+        /// <summary>The folder a <c>solution unpack</c> copies into its <c>--folder</c>; null writes no file.</summary>
+        public string? UnpackFrom { get; init; }
+
+        /// <summary>Answers an unpack, given its timeout, instead of the copy; null means the copy and exit 0.</summary>
+        public Func<TimeSpan, PacResult?>? UnpackAnswer { get; init; }
+
+        /// <summary>Stdout and stderr of every unpack answer, which must never be printed.</summary>
+        public const string UnpackOutput = "PAC-UNPACK-OUTPUT";
+
+        /// <summary>The temp folders the unpacks were given (the parent of each <c>--folder</c>).</summary>
+        public IEnumerable<string> UnpackTemps => Unpacks.Select(a => Path.GetDirectoryName(a[Array.IndexOf(a, "--folder") + 1])!);
 
         /// <summary>Answers import number n (from 0); null means success.</summary>
         public Func<int, PacResult?>? Answer { get; init; }
@@ -93,6 +110,26 @@ public abstract class DeployTestBase : IDisposable
 
         public PacResult Run(IReadOnlyList<string> args, TimeSpan timeout)
         {
+            if (args.Take(2).SequenceEqual(["solution", "unpack"]))
+            {
+                Unpacks.Add([.. args]);
+                UnpackTimeouts.Add(timeout);
+                var folder = args[args.ToList().IndexOf("--folder") + 1];
+                if (UnpackAnswer?.Invoke(timeout) is { } answer)
+                {
+                    return answer;
+                }
+
+                foreach (var file in UnpackFrom is null ? [] : Directory.EnumerateFiles(UnpackFrom, "*", SearchOption.AllDirectories))
+                {
+                    var to = Path.Combine(folder, Path.GetRelativePath(UnpackFrom!, file));
+                    Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+                    File.Copy(file, to);
+                }
+
+                return new PacResult(true, false, 0, $"{UnpackOutput} {folder}\n", UnpackOutput);
+            }
+
             Assert.Equal(["solution", "import"], args.Take(2));
             Calls.Add([.. args]);
             Timeouts.Add(timeout);
@@ -223,15 +260,41 @@ public abstract class DeployTestBase : IDisposable
     /// and both review reports for <paramref name="input"/>, a zip or an unpacked folder under the repo: <c>state: ready</c>, the plan's hash,
     /// the input's path relative to the repo, and its digest (a zip's SHA-256) as the solution-hash. Returns the plan folder.
     /// </summary>
-    protected string Reviewed(string input, string? repo = null, string plan = "m")
+    protected string Reviewed(string input, string? repo = null, string plan = "m", string? deployZip = null)
     {
         repo ??= _root;
         var folder = Directory.CreateDirectory(Path.Combine(repo, "docs", "plans", plan)).FullName;
         File.WriteAllText(Path.Combine(folder, "plan.md"), ReviewedPlanText);
-        var head = $"state: ready\nplan-hash: {PlanDocument.Parse(ReviewedPlanText).BodyHash}\ninput: {Path.GetRelativePath(repo, input).Replace('\\', '/')}\nsolution-hash: {Core.Readers.Manifest.Read(input).Digest}\n\n# Report\n";
+        var deploy = deployZip is null ? "" : $"deploy-hash: {Core.Readers.Manifest.Read(deployZip).Digest}\n";
+        var head = $"state: ready\nplan-hash: {PlanDocument.Parse(ReviewedPlanText).BodyHash}\ninput: {Path.GetRelativePath(repo, input).Replace('\\', '/')}\nsolution-hash: {Core.Readers.Manifest.Read(input).Digest}\n{deploy}\n# Report\n";
         File.WriteAllText(Path.Combine(folder, "verify.md"), head);
         File.WriteAllText(Path.Combine(folder, "security-solution.md"), head);
         return folder;
+    }
+
+    /// <summary>
+    /// The zip's files at <c>review/&lt;zip name&gt;</c> under <paramref name="repo"/>, as a pac unpack of it leaves them, and both reports of that folder
+    /// with the zip's SHA-256 as their deploy-hash (M83). Returns the folder, which a <see cref="FakePac"/> with it as <see cref="FakePac.UnpackFrom"/> unpacks again.
+    /// </summary>
+    protected string ReviewedUnpack(string zip, string? repo = null, string plan = "m")
+    {
+        repo ??= _root;
+        var review = Path.Combine(repo, "review", Path.GetFileNameWithoutExtension(zip));
+        System.IO.Compression.ZipFile.ExtractToDirectory(zip, review);
+        Reviewed(review, repo, plan, zip);
+        return review;
+    }
+
+    /// <summary>Every unpack's temp folder is gone, and no line of the run names it or holds pac's output.</summary>
+    protected static void UnpacksGone(FakePac pac, Outcome r)
+    {
+        Assert.All(pac.UnpackTemps, t =>
+        {
+            Assert.StartsWith("powerops-unpack-", Path.GetFileName(t));
+            Assert.False(Directory.Exists(t), t);
+            Assert.DoesNotContain(t, r.Out + r.Err);
+        });
+        Assert.DoesNotContain(FakePac.UnpackOutput, r.Out + r.Err);
     }
 
     /// <summary>Replaces <paramref name="from"/> with <paramref name="to"/> in a file the test wrote.</summary>

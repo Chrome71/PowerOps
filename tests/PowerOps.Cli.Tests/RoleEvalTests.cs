@@ -502,13 +502,13 @@ public sealed partial class RoleEvalTests
         return problems;
     }
 
-    // A fenced block with the six header lines on consecutive lines, in this order, each at the start of its line.
+    // A fenced block with the seven header lines on consecutive lines, in this order, each at the start of its line.
     internal static List<string> HeaderLineProblems(string skillText)
     {
-        string[] prefixes = ["plan-hash: ", "model: ", "fresh-context: ", "state: ", "input: ", "solution-hash: "];
+        string[] prefixes = ["plan-hash: ", "model: ", "fresh-context: ", "state: ", "input: ", "solution-hash: ", "deploy-hash: "];
         var found = Fence().Matches(skillText.Replace("\r\n", "\n")).Select(m => m.Groups[1].Value.Split('\n')).Any(lines =>
             Enumerable.Range(0, Math.Max(0, lines.Length - prefixes.Length + 1)).Any(i => prefixes.Select((p, k) => lines[i + k].StartsWith(p, StringComparison.Ordinal)).All(x => x)));
-        return found ? [] : ["no fenced block has the lines plan-hash: , model: , fresh-context: , state: , input: and solution-hash: one after the other"];
+        return found ? [] : ["no fenced block has the lines plan-hash: , model: , fresh-context: , state: , input: , solution-hash: and deploy-hash: one after the other"];
     }
 
     // The first code span of each bullet under "## Commands you may run" that starts with "powerops ". Null when the section is missing.
@@ -675,7 +675,7 @@ public sealed partial class RoleEvalTests
     }
 
     [Fact]
-    public void The_drafts_have_portable_front_matter_and_the_six_header_lines()
+    public void The_drafts_have_portable_front_matter_and_the_seven_header_lines()
     {
         foreach (var name in Drafts)
         {
@@ -861,6 +861,7 @@ public sealed partial class RoleEvalTests
         state: ready|blocked|failed|dropped
         input: <the current solution>
         solution-hash: <the digest>
+        deploy-hash: <the zip digest>
         ```
         """.Replace("\r\n", "\n");
 
@@ -890,6 +891,8 @@ public sealed partial class RoleEvalTests
         Assert.NotEmpty(HeaderLineProblems(GoodSkill.Replace("\nstate: ", "\n state: ")));
         Assert.NotEmpty(HeaderLineProblems(GoodSkill.Replace("solution-hash: <the digest>\n", "")));
         Assert.NotEmpty(HeaderLineProblems(GoodSkill.Replace("input: <the current solution>\nsolution-hash: <the digest>", "solution-hash: <the digest>\ninput: <the current solution>")));
+        Assert.NotEmpty(HeaderLineProblems(GoodSkill.Replace("deploy-hash: <the zip digest>\n", "")));
+        Assert.NotEmpty(HeaderLineProblems(GoodSkill.Replace("solution-hash: <the digest>\ndeploy-hash: <the zip digest>", "deploy-hash: <the zip digest>\nsolution-hash: <the digest>")));
         Assert.Null(ListedCommands(GoodSkill.Replace("## Commands you may run", "## Commands")));
         Assert.Equal(["powerops analyze <current solution>"], ListedCommands(GoodSkill.Replace("- `powerops settings validate <current solution> --settings <settings file>`", "- no code here").Replace("- `powerops plan facts`", "- `plan facts`")));
         Assert.Equal(["powerops deploy apply x --apply"], NotAllowed(["powerops analyze x", "powerops deploy apply x --apply", "powerops plan facts"], ["powerops analyze"]));
@@ -938,7 +941,7 @@ public sealed partial class RoleEvalTests
     [Fact]
     public void The_kept_roles_text_is_the_pinned_or_a_recorded_blob()
     {
-        var freeze = Path.Combine(Golden.RepoRoot, "docs", "plans", "m55-role-freeze");
+        var freeze = Path.Combine(Golden.RepoRoot, "docs", "plans", "m83-zip-linked-reviews");
         var pinned = PinnedRow().Matches(File.ReadAllText(Path.Combine(freeze, "plan.md"))).ToDictionary(m => m.Groups[1].Value, m => m.Groups[2].Value);
         var recorded = RecordedLine().Matches(File.ReadAllText(Path.Combine(freeze, "decisions.md"))).Select(m => (Path: m.Groups[1].Value, Id: m.Groups[2].Value)).ToList();
         Assert.Equal(3, pinned.Count);
@@ -947,7 +950,7 @@ public sealed partial class RoleEvalTests
         {
             var bytes = LfBytes(Path.Combine([Golden.RepoRoot, .. path.Split('/')]));
             var actual = BlobId(bytes);
-            Assert.True(actual == id || recorded.Contains((path, actual)), $"{path}: a kept role's text changed; rerun its eval or record the comparison in m55's decisions.md (AGENTS.md). Its blob id is {actual}.");
+            Assert.True(actual == id || recorded.Contains((path, actual)), $"{path}: a kept role's text changed; rerun its eval or record the comparison in m83's decisions.md (AGENTS.md). Its blob id is {actual}.");
 
             bytes[0] ^= 1;
             Assert.NotEqual(id, BlobId(bytes));

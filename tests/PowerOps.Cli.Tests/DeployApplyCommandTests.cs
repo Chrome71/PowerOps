@@ -1445,7 +1445,7 @@ public class DeployApplyCommandTests : DeployTestBase
 
     private string SeedZipPath => Path.Combine(Folder, "PowerOpsSeed.zip");
 
-    private const string NoneRecords = "no verify.md or security-solution.md under docs/plans records this zip's SHA-256 as its solution-hash; a report written for an unpacked folder never does";
+    private const string NoneRecords = "no verify.md or security-solution.md under docs/plans records this zip's SHA-256 as its deploy-hash or its solution-hash";
 
     private static FakeTarget SeedAfterOn() => new() { Snaps = SeedTarget().Snaps, After = SeedAfter("on") };
 
@@ -1582,6 +1582,109 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Equal("", r.Err);
         Assert.Contains("applied: Nothing was imported: every solution was skipped.", r.Out);
         Assert.Empty(pac.Calls);
+    }
+
+    // ---- --require-reviews and the deploy-hash link (M83) ------------------------------------------------------
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void With_require_reviews_a_zip_linked_by_deploy_hash_plans_and_imports(bool apply)
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var pac = new FakePac { UnpackFrom = ReviewedUnpack(SeedZipPath) };
+
+        var r = Apply(SeedAfterOn(), pac, ["--require-reviews", .. apply ? new[] { "--apply" } : []]);
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal("", r.Err);
+        Assert.Equal(apply ? 1 : 0, pac.Calls.Count);
+        Assert.Equal("--packagetype Managed", string.Join(' ', Assert.Single(pac.Unpacks)[^2..]));
+        UnpacksGone(pac, r);
+    }
+
+    [Fact]
+    public void With_require_reviews_a_verify_md_linked_by_deploy_hash_and_a_security_solution_md_linked_directly_cover()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var review = ReviewedUnpack(SeedZipPath);
+        File.WriteAllText(
+            Path.Combine(_root, "docs", "plans", "m", "security-solution.md"),
+            $"state: ready\nplan-hash: {Core.Plans.PlanDocument.Parse(ReviewedPlanText).BodyHash}\ninput: folder/PowerOpsSeed.zip\nsolution-hash: {Core.Readers.Manifest.Read(SeedZipPath).Digest}\n\n# Report\n");
+        var pac = new FakePac { UnpackFrom = review };
+
+        var r = Apply(SeedAfterOn(), pac, "--require-reviews", "--apply");
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal("", r.Err);
+        Assert.Single(pac.Calls);
+    }
+
+    [Fact]
+    public void Unpacks_do_not_shift_the_import_numbers()
+    {
+        Chain();
+        MakePlan(new FakeTarget());
+        var reviews = new[] { "A", "B", "C" }.ToDictionary(n => n, n => ReviewedUnpack(Path.Combine(Folder, n + ".zip"), plan: n));
+        var seen = new List<int>();
+        var pac = new FakePac { UnpackFrom = reviews["A"], Answer = n => { seen.Add(n); return null; } };
+
+        var r = Apply(new FakeTarget(), pac, "--apply");
+
+        // A's unpack is copied for every zip, so B and C warn; the imports still run as 0, 1, 2.
+        Assert.Equal(0, r.Code);
+        Assert.Equal([0, 1, 2], seen);
+        Assert.Equal(3, pac.Unpacks.Count);
+        Assert.Equal(["A.zip", "B.zip", "C.zip"], pac.Unpacks.Select(u => Path.GetFileName(u[3])));
+        UnpacksGone(pac, r);
+    }
+
+    public static TheoryData<string, string> RefusedUnpacks => new()
+    {
+        { "another-folder", "verify.md's solution-hash is not the digest of this zip's unpack, so it reviewed another folder; security-solution.md's solution-hash is not the digest of this zip's unpack, so it reviewed another folder" },
+        { "not-found", "verify.md records this zip as its deploy-hash, but the zip's unpack could not be checked: pac was not found; security-solution.md records this zip as its deploy-hash, but the zip's unpack could not be checked: pac was not found" },
+        { "exit", "verify.md records this zip as its deploy-hash, but the zip's unpack could not be checked: pac solution unpack exited 1; security-solution.md records this zip as its deploy-hash, but the zip's unpack could not be checked: pac solution unpack exited 1" },
+        { "timeout", "verify.md records this zip as its deploy-hash, but the zip's unpack could not be checked: pac solution unpack timed out; security-solution.md records this zip as its deploy-hash, but the zip's unpack could not be checked: pac solution unpack timed out" },
+        { "empty", "verify.md records this zip as its deploy-hash, but the zip's unpack could not be checked: the unpacked folder could not be read; security-solution.md records this zip as its deploy-hash, but the zip's unpack could not be checked: the unpacked folder could not be read" },
+    };
+
+    [Theory]
+    [MemberData(nameof(RefusedUnpacks))]
+    public void With_require_reviews_an_unpack_that_does_not_link_the_zip_refuses_with_no_import(string kind, string why)
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var review = ReviewedUnpack(SeedZipPath);
+        var other = Scratch("other");
+        File.WriteAllText(Path.Combine(other, "Solution.xml"), "<other />");
+
+        foreach (var apply in new[] { false, true })
+        {
+            var pac = new FakePac
+            {
+                UnpackFrom = kind switch { "another-folder" => other, "empty" => null, _ => review },
+                UnpackAnswer = _ => kind switch
+                {
+                    "not-found" => new PacResult(false, false, 0, ""),
+                    "exit" => new PacResult(true, false, 1, FakePac.UnpackOutput, FakePac.UnpackOutput),
+                    "timeout" => new PacResult(true, true, 0, ""),
+                    _ => null,
+                },
+            };
+
+            var r = Apply(SeedAfterOn(), pac, ["--require-reviews", "--format", "json", .. apply ? new[] { "--apply" } : []]);
+
+            Assert.Equal(1, r.Code);
+            var doc = Json(r);
+            Assert.Equal("refused", (string?)doc["status"]);
+            Assert.Equal($"no review covers PowerOpsSeed.zip: docs/plans/m: {why}; nothing was imported.", (string?)doc["message"]);
+            Assert.StartsWith($"warning: PowerOpsSeed.zip: docs/plans/m: {why}\n", r.Err);
+            Assert.Empty(pac.Calls);
+            Assert.Single(pac.Unpacks);
+            UnpacksGone(pac, r);
+        }
     }
 
     // The plan file's actions are not covered by its hash: the zips checked are those the fresh plan imports.

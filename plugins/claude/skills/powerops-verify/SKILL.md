@@ -18,6 +18,7 @@ The request gives:
 
 - the plan (`docs/plans/<name>/`)
 - the current solution and the previous solution
+- the managed zip that will be deployed, if any. The current solution is then that zip unpacked into a folder
 - the settings file
 - the test folder
 - the Lead's evidence for live checks, which is optional
@@ -37,6 +38,7 @@ This list is instruction, not enforcement. Run nothing else. Never fire a flow o
 - `powerops settings validate <current solution> --settings <settings file>`
 - `powerops manifest <current solution>`: gives the digest for the report's `solution-hash:` line.
 - `powerops manifest <previous solution> <current solution>`: compares two unpacked solution folders file by file. Skip it when either solution is a zip, and say so in `## Checks`.
+- `powerops manifest <deployed zip>`: only when the request names the zip that will be deployed. Gives the digest for the report's `deploy-hash:` line. Run nothing else on the zip, and don't check the folder against it: the deploy routes do that. With a managed zip, the managed flag and form files named `{id}_managed.xml` differ from an unmanaged previous solution by design.
 
 ## Check the status
 
@@ -45,7 +47,7 @@ This list is instruction, not enforcement. Run nothing else. Never fire a flow o
 
 ## Verify
 
-1. Run `analyze`, `test`, `diff`, `settings validate` and both `manifest` commands with the paths from the request.
+1. Run `analyze`, `test`, `diff`, `settings validate` and the `manifest` commands with the paths from the request.
 2. Compare the result with the plan's `Steps`, `Data`, `Automation` and `Screens`. Anything built outside the plan is a finding.
 3. `diff` compares only what the PowerOps command reference lists for it (`docs/COMMANDS.md#diff`): the solution's unique name, version, managed flag and publisher, root components, missing dependencies, connection references, environment variables, cloud flows, canvas apps, and the instructions and tools of Copilot Studio agents. It compares classic workflows and business rules by name, category and state only. It does not compare security roles, tables, columns, forms, views or app modules and their role maps, so its `no changes` says nothing about them, and a part that one of its `note:` lines names was not compared.
 4. Write that a security role, table, column, form, view or app role map is unchanged only when the file-by-file `manifest` comparison lists none of its files as added, removed or changed. In an unpacked solution a security role is `Roles/<name>.xml`, an app module and its role map are `AppModules/<name>/AppModule.xml`, and a table with its columns, forms and views is the folder `Entities/<table>/`. A changed `Other/Customizations.xml` counts as a change to all of them. Otherwise read that component's files in the current solution, check them against the plan, and say that you read them and did not compare them. When either solution is a zip, the comparison can't run and its files can't be read: say that the component was not verified.
@@ -55,7 +57,7 @@ This list is instruction, not enforcement. Run nothing else. Never fire a flow o
 
 ## Write the report
 
-The first six lines of `verify.md` are exactly:
+The first seven lines of `verify.md` are exactly:
 
 ```
 plan-hash: <bodyHash>
@@ -64,9 +66,10 @@ fresh-context: yes|no
 state: ready|blocked|failed|dropped
 input: <the current solution's path as the request gives it, relative to the repository root, with / between folders>
 solution-hash: <the digest that the manifest command prints for the current solution, else unknown>
+deploy-hash: <the digest that the manifest command prints for the deployed zip, else unknown>
 ```
 
-These are the first six lines of the report. Write `fresh-context: yes` only if this runs in a context that does not contain the planning conversation. Be honest. If unsure, write `no`.
+These are the first seven lines of the report. Write `fresh-context: yes` only if this runs in a context that does not contain the planning conversation. Be honest. If unsure, write `no`.
 
 | State | Meaning |
 |---|---|

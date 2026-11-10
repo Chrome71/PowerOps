@@ -26,6 +26,10 @@ public class WriteSitesTests
         ["src/PowerOps.Cli/SkillsCommand.cs: Directory.CreateDirectory"] = 1,
         ["src/PowerOps.Cli/DriftCommand.cs: Directory.CreateDirectory"] = 1,
 
+        // A temp folder only: pac writes a zip's unpack into it, and the review check of `deploy` deletes it (M83).
+        ["src/PowerOps.Cli/DeployCommand.cs: Directory.CreateTempSubdirectory"] = 1,
+        ["src/PowerOps.Cli/DeployCommand.cs: Directory.Delete"] = 1,
+
         // Reads, all FileMode.Open with FileAccess.Read: the hash of a file in `deploy`, and the size check of a zip.
         ["src/PowerOps.Cli/DeployCommand.cs: new FileStream("] = 1,
         ["src/PowerOps.Cli/DeployCommand.cs: FileMode.Open"] = 1,
