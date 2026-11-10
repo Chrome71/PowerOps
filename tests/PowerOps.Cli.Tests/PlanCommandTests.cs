@@ -44,6 +44,56 @@ public class PlanCommandTests : IDisposable
     }
 
     [Fact]
+    public void Format_json_equals_json_and_keeps_the_exit_code()
+    {
+        Plan("status: approved\nreview: done\nenvironment: Contoso Dev");
+        File.WriteAllText(Path.Combine(PlanDir(), "notes.md"), "mail me at a@contoso.example\n");
+
+        var (jsonCode, json, _) = Run("plan", "status", _temp, "--json");
+        var (code, output, err) = Run("plan", "status", _temp, "--format", "json");
+
+        Assert.Equal(1, jsonCode);
+        Assert.Equal(1, code);
+        Assert.Equal(json, output);
+        Assert.Equal("", err);
+        using var doc = JsonDocument.Parse(output);
+        Assert.Equal(1, doc.RootElement.GetProperty("summary").GetProperty("violations").GetInt32());
+    }
+
+    [Fact]
+    public void Format_text_equals_the_default_text()
+    {
+        Plan("status: draft\nreview: pending");
+
+        var (code, output, _) = Run("plan", "status", _temp, "--format", "text");
+
+        Assert.Equal(0, code);
+        Assert.Equal(Run("plan", "status", _temp).Out, output);
+    }
+
+    [Fact]
+    public void Json_wins_over_format_text()
+    {
+        Plan("status: draft\nreview: pending");
+
+        var (_, output, _) = Run("plan", "status", _temp, "--json", "--format", "text");
+
+        Assert.Equal(Run("plan", "status", _temp, "--json").Out, output);
+        using var doc = JsonDocument.Parse(output);
+        Assert.Equal(1, doc.RootElement.GetProperty("plans").GetArrayLength());
+    }
+
+    [Fact]
+    public void An_unknown_format_is_a_usage_error()
+    {
+        var (code, output, err) = Run("plan", "status", _temp, "--format", "xml");
+
+        Assert.Equal(2, code);
+        Assert.Equal("", output);
+        Assert.Contains("Argument 'xml' not recognized. Must be one of:  'text'  'json'", err);
+    }
+
+    [Fact]
     public void Missing_path_is_a_usage_error()
     {
         var (code, _, err) = Run("plan", "status", Path.Combine(_temp, "nope"));

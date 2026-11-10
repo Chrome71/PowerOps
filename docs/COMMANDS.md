@@ -8,7 +8,7 @@ Every `powerops` command with its options, output and exit codes. Install PowerO
 powerops analyze                      # find solutions under . (unpacked XML folders and exported .zip files)
 powerops analyze path/to/solution.zip path/to/unpacked --format json --out report.json
 powerops analyze path/to/solution.zip --redact   # the same findings, with each URL in them and on stderr replaced by [redacted URL]
-powerops rules                        # list every rule with its severity, title and fix (add --json for machine output)
+powerops rules                        # list every rule with its severity, title and fix (add --format json for machine output; --json is the older spelling, and wins over --format text)
 powerops diff old.zip new.zip         # compare two versions component by component (zip or unpacked folder; --format text|json|markdown, --out <file>)
 powerops manifest path/to/unpacked    # list a solution's files with a SHA-256 for each and one digest (a .zip prints its SHA-256); with two unpacked folders, compare them file by file
 powerops test path/to/solution --tests tests/flows   # run offline flow tests (*.flowtest.json) against the cloud flows, with mocked connector actions (--format text|json|markdown, --out <file>)
@@ -142,7 +142,7 @@ The gate does not see powerops' own commands: an agent's own `powerops deploy ap
 Plans live in `docs/plans/<name>/plan.md`, with a header between `---` lines (`status`, `review`, `signed-off`, `signed-off-hash`, `environment`, `depth` and `supersedes`).
 
 ```sh
-powerops plan status                  # check every docs/plans/*/plan.md under . (offline, read-only; add --json for machine output)
+powerops plan status                  # check every docs/plans/*/plan.md under . (offline, read-only; add --format json for machine output; --json is the older spelling, and wins over --format text)
 powerops plan sign-off docs/plans/site-visits   # write status, date and body hash into the header
 powerops plan facts                   # environment and solution names as JSON; read-only, needs pac signed in, prints names only
 powerops skills install               # copy the agent skills into .claude/skills/ and/or .agents/skills/ (--agent claude|codex|gemini|copilot, --force to overwrite)
