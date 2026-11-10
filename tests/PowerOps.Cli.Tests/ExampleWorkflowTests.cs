@@ -120,7 +120,7 @@ public sealed partial class ExampleWorkflowTests
     [InlineData("promote-dev-to-test.yml")]
     [InlineData("ephemeral-pr.yml")]
     [InlineData("ephemeral-sweep.yml")]
-    public void Every_plan_file_step_sets_require_reviews_to_false_because_the_zip_is_made_in_the_workflow(string file)
+    public void Every_plan_file_step_sets_require_reviews_explicitly_to_false(string file)
     {
         var applySteps = StepsOf(Load(file)).Where(s => s.With.ContainsKey("plan-file")).ToList();
 

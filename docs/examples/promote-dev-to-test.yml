@@ -238,7 +238,7 @@ jobs:
           upload-sarif: 'false'
           fail-on: none   # the PR's plan job gated these exact bytes; the hash check proves they are the same
           plan-file: ${{ runner.temp }}/deploy/powerops-plan.json
-          # The zip is exported or built in this workflow, so no review report can record it; the environment's required reviewers are the approval.
+          # The zip is exported in this workflow, so no review report can record it; the environment's required reviewers are the approval.
           require-reviews: 'false'
           apply: 'true'
           target: ${{ secrets.TEST_URL }}
