@@ -9,7 +9,14 @@ namespace PowerOps.Cli.Tests;
 
 public partial class HandoffDocTests
 {
-    private const string PacTools = "mcp__pac-cli__solution_import|mcp__pac-cli__pages_upload|mcp__pac-cli__pages_upload-code-site|mcp__pac-cli__copilot_publish|mcp__pac-cli__model_genpage_upload";
+    private const string PacTools = "mcp__pac-cli__solution_import|mcp__pac-cli__pages_upload|mcp__pac-cli__pages_upload-code-site|mcp__pac-cli__copilot_publish|mcp__pac-cli__model_genpage_upload|mcp__pac-cli__app-management_install-application-package";
+
+    // pac 2.14.1's preview groups: the first 11 hold writes and get a deny glob, the last five don't.
+    private static readonly string[] PreviewGroups =
+    [
+        "power-pages", "copilot-studio", "environment-management", "authorization", "governance", "licensing", "dynamics", "workflows-agent", "analytics", "user-management", "managed-identity",
+        "app-management", "connectivity", "power-apps", "power-automate", "resource-query",
+    ];
 
     // `powerops` at the start of a word, then groups of one space and a lowercase word, never across a line break.
     [GeneratedRegex(@"\bpowerops((?: [a-z][a-z-]*)+)")]
@@ -24,12 +31,28 @@ public partial class HandoffDocTests
 
     private static string Page() => File.ReadAllText(Path.Combine(Golden.RepoRoot, "docs", "HANDOFF.md")).Replace("\r\n", "\n");
 
-    // The PreToolUse groups of the page's one JSON block, the Claude Code hooks.
-    private static JsonArray HookGroups()
+    // The text of the page's fence number n (from 0) in the given language.
+    private static string Fence(string language, int n)
     {
         var page = Page();
-        var start = page.IndexOf("```json\n", StringComparison.Ordinal) + "```json\n".Length;
-        return JsonNode.Parse(page[start..page.IndexOf("```", start, StringComparison.Ordinal)])!["hooks"]!["PreToolUse"]!.AsArray();
+        var start = -1;
+        for (var i = 0; i <= n; i++)
+        {
+            start = page.IndexOf($"```{language}\n", start + 1, StringComparison.Ordinal);
+        }
+
+        start += $"```{language}\n".Length;
+        return page[start..page.IndexOf("```", start, StringComparison.Ordinal)];
+    }
+
+    // The PreToolUse groups of the page's first JSON block, the Claude Code hooks.
+    private static JsonArray HookGroups() => JsonNode.Parse(Fence("json", 0))!["hooks"]!["PreToolUse"]!.AsArray();
+
+    private static string GateSection()
+    {
+        var page = Page();
+        var start = page.IndexOf("## Gate Microsoft's imports\n", StringComparison.Ordinal);
+        return page[start..page.IndexOf("\n## ", start + 1, StringComparison.Ordinal)];
     }
 
     // The words up to and including the first one that is not a subcommand, all of them when they stop at a command
@@ -94,7 +117,7 @@ public partial class HandoffDocTests
         var codex = PacTools.Replace('-', '_');
 
         Assert.Contains($"`{codex}`", Page());
-        Assert.Contains("Hooks copied from an earlier version of this page match only `solution_import`.", Page());
+        Assert.Contains("Hooks copied from an earlier version of this page match only `solution_import`, or five MCP tools without `app-management_install-application-package`.", Page());
         foreach (var tool in PacTools.Split('|').Concat(codex.Split('|')))
         {
             var hook = new JsonObject { ["tool_name"] = tool, ["tool_input"] = new JsonObject() };
@@ -171,6 +194,30 @@ public partial class HandoffDocTests
         Assert.All(
             new[] { "`copy_flow`", "`publish_flow`", "`update_flow`", "`pa app share`", "`pa connection create`", "`pa app add data-source`", "`manage_agents`", "`manage_workflows`", "`pac copilot quarantine`", "`merge-translation`", "Power BI Authoring MCP" },
             item => Assert.Contains(item, section));
+        Assert.All(PreviewGroups, group => Assert.Contains($"`{group}`", section));
+    }
+
+    // M85: the deny rules to copy, the six gated tools and a glob for each preview group with writes, and Codex's allow-list.
+    [Fact]
+    public void The_deny_list_holds_the_gated_tools_and_the_preview_groups_with_writes()
+    {
+        var deny = JsonNode.Parse(Fence("json", 1))!["permissions"]!["deny"]!.AsArray().Select(n => (string?)n);
+        var section = GateSection();
+
+        Assert.Equal([.. PacTools.Split('|'), .. PreviewGroups.Take(11).Select(g => $"mcp__pac-cli__{g}_*")], deny);
+        Assert.Contains("enabled_tools", Fence("toml", 0));
+        Assert.All(new[] { "`env_update-settings`", "`model_create`", "`model_genpage_add`", "`model_genpage_remove`", "`admin_self-elevate`" }, item => Assert.Contains(item, section));
+    }
+
+    [Fact]
+    public void The_commands_page_names_the_sixth_mcp_tool_in_both_spellings()
+    {
+        var page = File.ReadAllText(Path.Combine(Golden.RepoRoot, "docs", "COMMANDS.md")).Replace("\r\n", "\n");
+        var start = page.IndexOf("## deploy gate\n", StringComparison.Ordinal);
+        var section = page[start..page.IndexOf("\n## ", start + 1, StringComparison.Ordinal)];
+
+        Assert.Contains("`__app-management_install-application-package`", section);
+        Assert.Contains("`__app_management_install_application_package`", section);
     }
 
     // M54: the page claimed a delete rule that the skill did not carry (C-3 of the 2026-11-04 live test).
@@ -194,8 +241,7 @@ public partial class HandoffDocTests
     {
         var page = Page();
         var step = page.Split('\n').Single(l => l.StartsWith("7. **Plan the import in CI.**", StringComparison.Ordinal));
-        var start = page.IndexOf("## Gate Microsoft's imports\n", StringComparison.Ordinal);
-        var section = page[start..page.IndexOf("\n## ", start + 1, StringComparison.Ordinal)];
+        var section = GateSection();
 
         Assert.Contains("Save the plan file in the deploy folder: `deploy apply` reads the zips and settings files from the plan file's own folder, and `deploy plan` warns when `--save` names another folder.", step);
         Assert.Contains("](examples/gate-probe/README.md)", section);
