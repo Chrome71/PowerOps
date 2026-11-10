@@ -16,6 +16,7 @@ Read only these:
 - `docs/plans/<name>/plan.md`, `decisions.md` and `mockups/` if present
 - the repo, for solutions, publishers and existing patterns
 - the output of `powerops plan facts`, only if your request says the user confirmed, in that session, that `pac` is signed in to the plan's `environment:` (never run `pac` yourself)
+- `command -v` or `Get-Command` for the tools the plan's steps name (item 12)
 
 Without that confirmation, do not run `powerops plan facts`: review from the repo and write in `review.md`, under the header lines, that environment facts were not read.
 
@@ -59,6 +60,8 @@ Check the plan for each item. Report a gap, a risk or an unanswered area as a fi
     - Code Apps: no reason a code app is needed rather than a form, a page or a canvas app.
     - Power BI: a page with more than 12 data visuals and no reason.
     - The sketch in `mockups/`: a screen that isn't in `Screens`, or a canvas element with no modern control (accordion, breadcrumb, dialog, drawer, menu, nav, toast, toolbar, tree) and no workaround named.
+
+12. Tools: for each skill, CLI or MCP tool a step names, Assumptions says when it isn't callable or wasn't checked. Check it yourself if you can (in your skill or tool list, or found by `command -v` or `Get-Command`): one you find missing that Assumptions doesn't name is a Medium finding. One you can't check, say so under the header lines, with no finding.
 
 If the plan or `decisions.md` contains a URL, GUID, email or person's name, report it as a finding. Do not repeat the value.
 
