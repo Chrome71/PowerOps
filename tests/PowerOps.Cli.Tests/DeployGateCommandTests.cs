@@ -687,7 +687,7 @@ public class DeployGateCommandTests : DeployTestBase
 
     // ---- 6d. the reviews (M75) ----------------------------------------------------------------------------------
 
-    private const string NoneRecords = "no verify.md or security-solution.md under docs/plans records this zip's SHA-256 as its solution-hash; a report written for an unpacked folder never does";
+    private const string NoneRecords = "no verify.md or security-solution.md under docs/plans records this zip's SHA-256 as its deploy-hash or its solution-hash";
 
     [Theory]
     [InlineData("no-report")]
@@ -746,6 +746,89 @@ public class DeployGateCommandTests : DeployTestBase
 
         Assert.Equal(2, r.Code);
         Assert.Equal($"warning: B.zip: {NoneRecords}\n{Prefix}the dry run did not pass: no review covers B.zip: {NoneRecords}; nothing was imported.\n{ImportGuidance}\n", r.Err);
+    }
+
+    // ---- 6e. the deploy-hash link (M83) -------------------------------------------------------------------------
+
+    private static string Unchecked(string why) =>
+        $"docs/plans/m: verify.md records this zip as its deploy-hash, but the zip's unpack could not be checked: {why}; security-solution.md records this zip as its deploy-hash, but the zip's unpack could not be checked: {why}";
+
+    [Fact]
+    public void A_zip_linked_by_deploy_hash_passes_and_its_unpack_is_bounded_by_the_deadline()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var pac = new FakePac { UnpackFrom = ReviewedUnpack(SeedZipPath) };
+
+        var r = Gate(Seeded(), SeedCall(), pac, deadline: TimeSpan.FromSeconds(60));
+
+        Assert.Equal((0, "", ""), (r.Code, r.Out, r.Err));
+        var timeout = Assert.Single(pac.UnpackTimeouts);
+        Assert.InRange(timeout, TimeSpan.FromSeconds(40), TimeSpan.FromSeconds(50));
+        Assert.Empty(pac.Calls);
+        UnpacksGone(pac, r);
+    }
+
+    [Fact]
+    public void A_changed_reviewed_folder_is_blocked_with_no_import()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        ReviewedUnpack(SeedZipPath);
+        var other = Scratch("other");
+        File.WriteAllText(Path.Combine(other, "Solution.xml"), "<other />");
+        var pac = new FakePac { UnpackFrom = other };
+
+        var r = Gate(Seeded(), SeedCall(), pac);
+
+        const string Why = "docs/plans/m: verify.md's solution-hash is not the digest of this zip's unpack, so it reviewed another folder; security-solution.md's solution-hash is not the digest of this zip's unpack, so it reviewed another folder";
+        Assert.Equal(2, r.Code);
+        Assert.Equal($"warning: PowerOpsSeed.zip: {Why}\n{Prefix}the dry run did not pass: no review covers PowerOpsSeed.zip: {Why}; nothing was imported.\n{ImportGuidance}\n", r.Err);
+        Assert.Empty(pac.Calls);
+        Assert.Single(pac.Unpacks);
+        UnpacksGone(pac, r);
+    }
+
+    [Fact]
+    public void Under_ten_seconds_left_no_unpack_starts_and_the_zip_is_blocked()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var pac = new FakePac { UnpackFrom = ReviewedUnpack(SeedZipPath) };
+
+        var r = Gate(Seeded(), SeedCall(), pac, deadline: TimeSpan.FromSeconds(9));
+
+        var why = Unchecked("no time was left to unpack it");
+        Assert.Equal(2, r.Code);
+        Assert.Equal($"warning: PowerOpsSeed.zip: {why}\n{Prefix}the dry run did not pass: no review covers PowerOpsSeed.zip: {why}; nothing was imported.\n{ImportGuidance}\n", r.Err);
+        Assert.Empty(pac.Unpacks);
+        Assert.Empty(pac.Calls);
+    }
+
+    // A pac that runs until its timeout: the timeout leaves 10 seconds of the deadline, so the gate still reports, and the temp folder is gone.
+    [Fact]
+    public void An_unpack_that_runs_to_its_timeout_ends_before_the_deadline_and_leaves_no_temp_folder()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var pac = new FakePac
+        {
+            UnpackFrom = ReviewedUnpack(SeedZipPath),
+            UnpackAnswer = timeout =>
+            {
+                Thread.Sleep(timeout);
+                return new PacResult(true, true, 0, "");
+            },
+        };
+
+        var r = Gate(Seeded(), SeedCall(), pac, deadline: TimeSpan.FromSeconds(12));
+
+        Assert.True(Assert.Single(pac.UnpackTimeouts) <= TimeSpan.FromSeconds(2));
+        var why = Unchecked("pac solution unpack timed out");
+        Assert.Equal(2, r.Code);
+        Assert.Equal($"warning: PowerOpsSeed.zip: {why}\n{Prefix}the dry run did not pass: no review covers PowerOpsSeed.zip: {why}; nothing was imported.\n{ImportGuidance}\n", r.Err);
+        Assert.Empty(pac.Calls);
+        UnpacksGone(pac, r);
     }
 
     // ---- 6c. the arguments --------------------------------------------------------------------------------------

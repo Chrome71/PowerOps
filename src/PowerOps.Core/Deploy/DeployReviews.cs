@@ -5,6 +5,9 @@ using PowerOps.Core.Readers;
 
 namespace PowerOps.Core.Deploy;
 
+/// <summary>What a pac solution unpack of a zip gave: the digest of the unpacked folder, or why there is none (one of the two is set).</summary>
+public sealed record ZipUnpack(string? Digest, string? Failure);
+
 /// <summary>Which review reports under docs/plans cover a zip that a deploy imports, and what the other reviews of its solution say about it.</summary>
 public static class DeployReviews
 {
@@ -14,35 +17,47 @@ public static class DeployReviews
     private const string Verify = "verify.md";
     private const string Security = "security-solution.md";
 
-    /// <summary>Null when one plan folder covers the zip: both its reports exist and each records <paramref name="sha256"/> as its solution-hash, is ready and was written for the plan's current hash. Otherwise one sentence: why the first folder (ordinal) that records the SHA-256 doesn't cover it, or that none records it. Reads no file.</summary>
-    public static string? Problem(IReadOnlyList<PlanReviews> plans, string sha256)
+    /// <summary>Null when one plan folder covers the zip: both its reports exist, each is linked to it (see <see cref="Cover"/>), is ready and was written for the plan's current hash. Otherwise one sentence: why the first folder (ordinal) that records <paramref name="sha256"/> as a deploy-hash or a solution-hash doesn't cover it, or that none records it. Reads no file.</summary>
+    /// <param name="unpack">What a pac solution unpack of the zip gave; null when none was run.</param>
+    public static string? Problem(IReadOnlyList<PlanReviews> plans, string sha256, ZipUnpack? unpack = null)
     {
-        // Both reports of one folder: a verify.md of one plan and a security-solution.md of another are no cover.
-        if (plans.Any(p => Fault(Verify, p.Verify, sha256) is null && Fault(Security, p.Security, sha256) is null))
+        if (Cover(plans, sha256, unpack) is not null)
         {
             return null;
         }
 
-        if (plans.Where(p => Records(p, sha256)).MinBy(p => p.Plan, StringComparer.Ordinal) is not { } first)
+        if (plans.Where(p => Reports(p).Any(r => r.SolutionHash == sha256 || r.DeployHash == sha256)).MinBy(p => p.Plan, StringComparer.Ordinal) is not { } first)
         {
-            return "no verify.md or security-solution.md under docs/plans records this zip's SHA-256 as its solution-hash; a report written for an unpacked folder never does";
+            return "no verify.md or security-solution.md under docs/plans records this zip's SHA-256 as its deploy-hash or its solution-hash";
         }
 
-        return $"docs/plans/{first.Plan}: " + string.Join("; ", new[] { Fault(Verify, first.Verify, sha256), Fault(Security, first.Security, sha256) }.OfType<string>());
+        return $"docs/plans/{first.Plan}: " + string.Join("; ", new[] { Fault(Verify, first.Verify, sha256, unpack), Fault(Security, first.Security, sha256, unpack) }.OfType<string>());
     }
 
-    /// <summary>Whether any verify.md or security-solution.md, in any state, records <paramref name="sha256"/> as its solution-hash.</summary>
-    public static bool Recorded(IReadOnlyList<PlanReviews> plans, string sha256) => plans.Any(p => Records(p, sha256));
+    /// <summary>The first plan folder (ordinal) whose two reports are both ready, current and linked to the zip, or null. A report is linked when its solution-hash is <paramref name="sha256"/>, or when its deploy-hash is and <paramref name="unpack"/>'s digest is its solution-hash.</summary>
+    public static PlanReviews? Cover(IReadOnlyList<PlanReviews> plans, string sha256, ZipUnpack? unpack) =>
+        // Both reports of one folder: a verify.md of one plan and a security-solution.md of another are no cover.
+        plans.Where(p => Fault(Verify, p.Verify, sha256, unpack) is null && Fault(Security, p.Security, sha256, unpack) is null).MinBy(p => p.Plan, StringComparer.Ordinal);
 
-    private static bool Records(PlanReviews plan, string sha256) => Reports(plan).Any(r => r.SolutionHash == sha256);
+    /// <summary>Whether some verify.md or security-solution.md records <paramref name="sha256"/> as its deploy-hash, so a check needs the zip's unpack.</summary>
+    public static bool NeedsUnpack(IReadOnlyList<PlanReviews> plans, string sha256) => plans.Any(p => Reports(p).Any(r => r.DeployHash == sha256));
+
+    /// <summary>Whether any verify.md or security-solution.md, in any state, records <paramref name="sha256"/> as its solution-hash. A deploy-hash doesn't count, so a zip whose deploy-hash link fails still gets <see cref="Evidence"/>.</summary>
+    public static bool Recorded(IReadOnlyList<PlanReviews> plans, string sha256) => plans.Any(p => Reports(p).Any(r => r.SolutionHash == sha256));
 
     private static IEnumerable<PlanReportFile> Reports(PlanReviews plan) => new[] { plan.Verify, plan.Security }.OfType<PlanReportFile>();
 
     // The first reason the report doesn't cover the zip, or null when it does. A Stale of null (no plan-hash line, or a plan that can't be read) is not current.
-    private static string? Fault(string file, PlanReportFile? report, string sha256) =>
+    private static string? Fault(string file, PlanReportFile? report, string sha256, ZipUnpack? unpack) =>
         report is null ? $"{file} is missing"
-        : report.SolutionHash != sha256 ? $"{file} records another solution-hash"
-        : report.State is null ? $"{file} has no state"
+        : report.SolutionHash == sha256 ? Ready(file, report)
+        : report.DeployHash != sha256 ? $"{file} records another deploy-hash and solution-hash"
+        : unpack?.Digest is null ? $"{file} records this zip as its deploy-hash, but the zip's unpack could not be checked: {unpack?.Failure ?? "no unpack was given"}"
+        : unpack.Digest != report.SolutionHash ? $"{file}'s solution-hash is not the digest of this zip's unpack, so it reviewed another folder"
+        : Ready(file, report);
+
+    private static string? Ready(string file, PlanReportFile report) =>
+        report.State is null ? $"{file} has no state"
         : report.State != "ready" ? $"{file} is {report.State}"
         : report.Stale == false ? null
         : $"{file} was not written for the current plan";

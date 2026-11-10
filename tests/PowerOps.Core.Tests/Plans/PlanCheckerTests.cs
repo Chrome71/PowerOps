@@ -311,6 +311,65 @@ public class PlanCheckerTests : IDisposable
         Assert.Empty(reports.Warnings);
     }
 
+    // ---- deploy-hash (M83 row 1): only it is read from the seventh line ----
+
+    private static readonly string DeployHash = new string('0', 63) + "e";
+
+    [Fact]
+    public void A_seven_line_report_reads_its_deploy_hash_and_review_md_reads_none()
+    {
+        Write(Plan());
+        Report("review.md", $"plan-hash: {Hash}\ndeploy-hash: {DeployHash}\n");
+        Report("security-solution.md", Six() + $"deploy-hash: {DeployHash}\n");
+        Report("verify.md", Six("input: out/Demo.zip") + $"deploy-hash: {DeployHash}\n");
+
+        var reports = Check();
+
+        Assert.Equal([("review.md", null, null, null), ("security-solution.md", "solutions/demo", SolutionHash, DeployHash), ("verify.md", "out/Demo.zip", SolutionHash, DeployHash)],
+            reports.Reports.Select(r => (r.File, r.Input, r.SolutionHash, r.DeployHash)));
+        Assert.Empty(reports.Warnings);
+    }
+
+    [Fact]
+    public void A_six_line_report_reads_an_unknown_deploy_hash()
+    {
+        Write(Plan());
+        Report("verify.md", Six() + "\n" + $"deploy-hash: {DeployHash}\n");
+
+        Assert.Equal("unknown", Assert.Single(Check().Reports).DeployHash);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("unknown")]
+    [InlineData("0123")]
+    [InlineData("000000000000000000000000000000000000000000000000000000000000000E")]
+    [InlineData("0000000000000000000000000000000000000000000000000000000000000000e")]
+    public void A_malformed_deploy_hash_reads_unknown_without_a_warning(string hash)
+    {
+        Write(Plan());
+        Report("verify.md", Six() + $"deploy-hash: {hash}\n");
+
+        var reports = Check();
+
+        Assert.Equal("unknown", Assert.Single(reports.Reports).DeployHash);
+        Assert.Empty(reports.Warnings);
+    }
+
+    [Fact]
+    public void The_seventh_line_gives_only_the_deploy_hash_and_the_other_keys_still_come_from_the_first_six()
+    {
+        Write(Plan());
+        // input: and solution-hash: on lines 5 and 6 are read; a state: on line 7 is not.
+        Report("verify.md", $"plan-hash: {Hash}\nmodel: m\nfresh-context: yes\nx\ninput: solutions/demo\nsolution-hash: {SolutionHash}\nstate: ready\n");
+        Report("security-solution.md", $"plan-hash: {Hash}\nmodel: m\nfresh-context: yes\nstate: ready\nx\ny\nsolution-hash: {SolutionHash}\n");
+
+        var reports = Check();
+
+        Assert.Equal([("security-solution.md", "ready", null, "unknown", "unknown"), ("verify.md", null, "solutions/demo", SolutionHash, "unknown")],
+            reports.Reports.Select(r => (r.File, r.State, r.Input, r.SolutionHash, r.DeployHash)));
+    }
+
     [Fact]
     public void A_legacy_four_line_report_reads_unknown_and_its_input_on_line_five_or_six_is_still_read()
     {

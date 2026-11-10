@@ -1209,11 +1209,13 @@ public sealed class McpCommandTests : IAsyncLifetime
     private const string ReviewedPlanText = "---\nstatus: signed-off\nreview: done\nsigned-off: 2026-01-01\nsigned-off-hash: null\nenvironment: null\n---\n# Plan\n";
 
     // Writes docs/plans/<new>/plan.md and both reports for a zip under the test's folder, the walk up from the deploy folder reaches them (the equivalent of DeployTestBase.Reviewed).
-    private void Reviewed(string zip)
+    // With deployZip, the input is that zip's unpacked folder and the reports record the zip's SHA-256 as their deploy-hash (M83).
+    private void Reviewed(string zip, string? deployZip = null)
     {
         var folder = Directory.CreateDirectory(Path.Combine(_temp, "docs", "plans", "m-" + Guid.NewGuid().ToString("N"))).FullName;
         File.WriteAllText(Path.Combine(folder, "plan.md"), ReviewedPlanText);
-        var head = $"state: ready\nplan-hash: {PlanDocument.Parse(ReviewedPlanText).BodyHash}\ninput: {Path.GetRelativePath(_temp, zip).Replace('\\', '/')}\nsolution-hash: {PowerOps.Core.Readers.Manifest.Read(zip).Digest}\n\n# Report\n";
+        var deploy = deployZip is null ? "" : $"deploy-hash: {PowerOps.Core.Readers.Manifest.Read(deployZip).Digest}\n";
+        var head = $"state: ready\nplan-hash: {PlanDocument.Parse(ReviewedPlanText).BodyHash}\ninput: {Path.GetRelativePath(_temp, zip).Replace('\\', '/')}\nsolution-hash: {PowerOps.Core.Readers.Manifest.Read(zip).Digest}\n{deploy}\n# Report\n";
         File.WriteAllText(Path.Combine(folder, "verify.md"), head);
         File.WriteAllText(Path.Combine(folder, "security-solution.md"), head);
     }
@@ -1699,6 +1701,44 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Null(JsonNode.Parse(Text(result))!["appliedAt"]);
         Assert.Equal(0, _fakes.Pacs);
         Assert.Empty(_imports);
+    }
+
+    // M83: reports that record the zip as their deploy-hash but reviewed a folder its unpack doesn't give are no cover.
+    [Fact]
+    public async Task A_review_of_another_folder_than_the_zips_unpack_is_refused_before_the_form_with_no_import()
+    {
+        var (folder, planFile) = SavedPlan(reviewed: false);
+        var review = Directory.CreateDirectory(Path.Combine(_temp, "review", "seed")).FullName;
+        File.WriteAllText(Path.Combine(review, "Solution.xml"), "<reviewed />");
+        Reviewed(review, Path.Combine(folder, "PowerOpsSeed.zip"));
+        var unpacks = new ConcurrentQueue<string>();
+        _fakes.TargetBehavior = ReadTarget;
+        _fakes.PacBehavior = a =>
+        {
+            if (a[1] != "unpack")
+            {
+                _imports.Enqueue([.. a]);
+                return Ok("imported\n");
+            }
+
+            var to = a[a.ToList().IndexOf("--folder") + 1];
+            unpacks.Enqueue(to);
+            Directory.CreateDirectory(to);
+            File.WriteAllText(Path.Combine(to, "Solution.xml"), "<unpacked />");
+            return Ok("");
+        };
+        var forms = NoFormExpected();
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
+
+        var result = await Apply(pair, ApplyArgs(planFile));
+
+        Assert.Equal("refused", Status(result));
+        Assert.EndsWith("'s solution-hash is not the digest of this zip's unpack, so it reviewed another folder; nothing was imported.", (string)JsonNode.Parse(Text(result))!["message"]!);
+        Assert.Empty(forms.Seen);
+        Assert.Empty(_imports);
+        Assert.NotEmpty(unpacks);
+        Assert.All(unpacks, u => Assert.False(Directory.Exists(Path.GetDirectoryName(u))));
+        AssertNoApply(pair);
     }
 
     // S-8: this pins what SDK 2.3.0 does when the client closes the server's input during an import; it is not a fix.

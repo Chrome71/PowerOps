@@ -29,7 +29,7 @@ public class DeployReviewsTests : IDisposable
 
     private static PlanReportFile S(string? state = "ready", bool? stale = false, string? hash = null) => R("security-solution.md", state, stale, hash);
 
-    private const string NoneRecords = "no verify.md or security-solution.md under docs/plans records this zip's SHA-256 as its solution-hash; a report written for an unpacked folder never does";
+    private const string NoneRecords = "no verify.md or security-solution.md under docs/plans records this zip's SHA-256 as its deploy-hash or its solution-hash";
 
     [Fact]
     public void Both_reports_of_one_folder_ready_current_and_recording_the_zip_cover_it() =>
@@ -40,7 +40,7 @@ public class DeployReviewsTests : IDisposable
         { V(), null, "security-solution.md is missing" },
         { V("blocked"), S(), "verify.md is blocked" },
         { V(null), S(), "verify.md has no state" },
-        { V(), S(hash: Other), "security-solution.md records another solution-hash" },
+        { V(), S(hash: Other), "security-solution.md records another deploy-hash and solution-hash" },
         { V(stale: true), S(), "verify.md was not written for the current plan" },
         { V(), S(stale: null), "security-solution.md was not written for the current plan" },
     };
@@ -53,7 +53,7 @@ public class DeployReviewsTests : IDisposable
     [Fact]
     public void Two_failures_are_joined_and_only_the_first_failure_of_a_report_is_named() =>
         Assert.Equal(
-            "docs/plans/a: verify.md is blocked; security-solution.md records another solution-hash",
+            "docs/plans/a: verify.md is blocked; security-solution.md records another deploy-hash and solution-hash",
             DeployReviews.Problem([new("a", V("blocked", stale: null), S("failed", hash: Other))], Zip));
 
     // A rule that pools the reports of all folders would take a's verify.md and b's security-solution.md as a cover.
@@ -73,6 +73,92 @@ public class DeployReviewsTests : IDisposable
         Assert.False(DeployReviews.Recorded([new("a", V(hash: Other), S(hash: Other))], Zip));
         Assert.True(DeployReviews.Recorded([new("a", null, S("blocked"))], Zip));
     }
+
+    // ---- Problem and Cover: the deploy-hash link (M83 row 2) ----
+
+    private static readonly string Unpacked = new('e', 64);
+
+    private static readonly ZipUnpack Same = new(Unpacked, null);
+
+    // A report of the zip's unpacked folder: the zip's SHA-256 as its deploy-hash, the folder's digest as its solution-hash.
+    private static PlanReportFile D(string file, string? state = "ready", bool? stale = false, string? folder = null, string? deploy = null) =>
+        new(file, state, stale, "review/seed", folder ?? Unpacked, DeployHash: deploy ?? Zip);
+
+    private static PlanReportFile DV(string? state = "ready", bool? stale = false, string? folder = null, string? deploy = null) => D("verify.md", state, stale, folder, deploy);
+
+    private static PlanReportFile DS(string? state = "ready", bool? stale = false, string? folder = null, string? deploy = null) => D("security-solution.md", state, stale, folder, deploy);
+
+    [Fact]
+    public void Both_reports_linked_by_deploy_hash_with_the_unpacks_digest_cover_the_zip()
+    {
+        PlanReviews[] plans = [new("a", DV(), DS())];
+
+        Assert.Null(DeployReviews.Problem(plans, Zip, Same));
+        Assert.Equal("a", DeployReviews.Cover(plans, Zip, Same)?.Plan);
+    }
+
+    public static TheoryData<PlanReportFile?, PlanReportFile?, ZipUnpack?, string> DeployHashFailures => new()
+    {
+        { DV(), null, Same, "security-solution.md is missing" },
+        { DV(deploy: Other), DS(), Same, "verify.md records another deploy-hash and solution-hash" },
+        { DV(), DS(), null, "verify.md records this zip as its deploy-hash, but the zip's unpack could not be checked: no unpack was given; security-solution.md records this zip as its deploy-hash, but the zip's unpack could not be checked: no unpack was given" },
+        { DV(), S(), new(null, "pac was not found"), "verify.md records this zip as its deploy-hash, but the zip's unpack could not be checked: pac was not found" },
+        { DV(), S(), new(Other, null), "verify.md's solution-hash is not the digest of this zip's unpack, so it reviewed another folder" },
+        { DV("blocked", folder: Other), S(), Same, "verify.md's solution-hash is not the digest of this zip's unpack, so it reviewed another folder" },
+        { DV("blocked"), S(), Same, "verify.md is blocked" },
+        { DV(null, stale: true), S(), Same, "verify.md has no state" },
+        { DV(), DS(stale: true), Same, "security-solution.md was not written for the current plan" },
+    };
+
+    [Theory]
+    [MemberData(nameof(DeployHashFailures))]
+    public void Each_failure_of_a_deploy_hash_link_is_named_in_order(PlanReportFile? verify, PlanReportFile? security, ZipUnpack? unpack, string failure)
+    {
+        PlanReviews[] plans = [new("a", verify, security)];
+
+        Assert.Equal($"docs/plans/a: {failure}", DeployReviews.Problem(plans, Zip, unpack));
+        Assert.Null(DeployReviews.Cover(plans, Zip, unpack));
+    }
+
+    [Fact]
+    public void M75s_direct_link_covers_with_no_unpack_and_with_a_failed_one()
+    {
+        Assert.Null(DeployReviews.Problem([new("a", V(), S())], Zip));
+        Assert.Null(DeployReviews.Problem([new("a", V() with { DeployHash = Zip }, S())], Zip, new(null, "pac was not found")));
+        Assert.Equal("a", DeployReviews.Cover([new("a", V(), S())], Zip, null)?.Plan);
+    }
+
+    [Fact]
+    public void A_verify_md_linked_by_deploy_hash_and_a_security_solution_md_linked_directly_in_one_folder_cover() =>
+        Assert.Null(DeployReviews.Problem([new("a", DV(), S())], Zip, Same));
+
+    [Fact]
+    public void Reports_of_two_folders_linked_either_way_do_not_cover_the_zip() =>
+        Assert.Equal("docs/plans/a: security-solution.md is missing", DeployReviews.Problem([new("a", DV(), null), new("b", null, S())], Zip, Same));
+
+    [Fact]
+    public void The_first_folder_named_counts_a_deploy_hash_and_the_first_covering_folder_is_ordinal()
+    {
+        var different = new ZipUnpack(Other, null);
+
+        Assert.Equal(
+            "docs/plans/b: verify.md's solution-hash is not the digest of this zip's unpack, so it reviewed another folder; security-solution.md's solution-hash is not the digest of this zip's unpack, so it reviewed another folder",
+            DeployReviews.Problem([new("c", V(hash: Other), S(hash: Other)), new("b", DV(), DS())], Zip, different));
+        Assert.Equal("a", DeployReviews.Cover([new("b", V(), S()), new("a", DV(), DS())], Zip, Same)?.Plan);
+    }
+
+    [Fact]
+    public void Needs_unpack_only_when_a_solution_report_records_the_zip_as_its_deploy_hash()
+    {
+        Assert.True(DeployReviews.NeedsUnpack([new("a", null, DS("blocked"))], Zip));
+        Assert.False(DeployReviews.NeedsUnpack([new("a", V(), S())], Zip));
+        Assert.False(DeployReviews.NeedsUnpack([new("a", DV(deploy: Other), DS(deploy: Other))], Zip));
+        Assert.False(DeployReviews.NeedsUnpack([], Zip));
+    }
+
+    [Fact]
+    public void Recorded_still_counts_only_a_solution_hash() =>
+        Assert.False(DeployReviews.Recorded([new("a", DV(), DS())], Zip));
 
     // ---- Evidence: the notes (row 3) ----
 
@@ -217,6 +303,17 @@ public class DeployReviewsTests : IDisposable
         }
 
         Assert.Empty(Notes([Both("a", digest, input, state)], SeedZip()));
+    }
+
+    // M83: a deploy-hash link that failed is no record, so the person still gets the notes.
+    [Fact]
+    public void A_zip_whose_only_record_is_a_deploy_hash_still_gets_the_notes()
+    {
+        var digest = SeedFolder();
+        var zip = SeedZip();
+        var plans = new[] { new PlanReviews("a", R("verify.md", hash: digest) with { DeployHash = zip.Sha256 }, R("security-solution.md", hash: digest) with { DeployHash = zip.Sha256 }) };
+
+        Assert.Equal([Note("docs/plans/a", 0)], Notes(plans, zip));
     }
 
     [Fact]

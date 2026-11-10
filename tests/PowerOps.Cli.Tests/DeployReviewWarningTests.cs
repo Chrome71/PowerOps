@@ -5,11 +5,11 @@ namespace PowerOps.Cli.Tests;
 // deploy plan's review lines (M75 row 4): a warning for each zip the plan imports that no plan folder's two reports cover, and the evidence notes.
 public class DeployReviewWarningTests : DeployTestBase
 {
-    private const string NoneRecords = "no verify.md or security-solution.md under docs/plans records this zip's SHA-256 as its solution-hash; a report written for an unpacked folder never does";
+    private const string NoneRecords = "no verify.md or security-solution.md under docs/plans records this zip's SHA-256 as its deploy-hash or its solution-hash";
 
     private const string Tail = "; not compared by diff: security roles, tables, columns, forms, views, app modules and their role maps; this is evidence, not a link";
 
-    private Outcome Plan(string folder, FakeTarget? target = null) => Run(target ?? new FakeTarget(), new FakePac(), "deploy", "plan", folder, "--target", TargetValue);
+    private Outcome Plan(string folder, FakeTarget? target = null, FakePac? pac = null) => Run(target ?? new FakeTarget(), pac ?? new FakePac(), "deploy", "plan", folder, "--target", TargetValue);
 
     // A deploy folder at <repo>/<deploy> with Solo.zip in it.
     private (string Repo, string Folder, string Zip) Solo(string repoName, string deploy = "deploy")
@@ -231,5 +231,173 @@ public class DeployReviewWarningTests : DeployTestBase
 
         Assert.Equal(0, r.Code);
         Assert.Equal("warning: docs/plans could not be read, so the zips were not matched with review reports\n", r.Err);
+    }
+
+    // ---- the deploy-hash link (M83 row 3) ----
+
+    private const string Linked = "docs/plans/m: both reports record this zip's SHA-256 as their deploy-hash, and the digest of its pac solution unpack is their solution-hash";
+
+    private const string OtherFolder = "'s solution-hash is not the digest of this zip's unpack, so it reviewed another folder";
+
+    private static string Unchecked(string why) =>
+        $"docs/plans/m: verify.md records this zip as its deploy-hash, but the zip's unpack could not be checked: {why}; security-solution.md records this zip as its deploy-hash, but the zip's unpack could not be checked: {why}";
+
+    [Theory]
+    [InlineData(true, "Managed")]
+    [InlineData(false, "Unmanaged")]
+    public void A_review_of_the_zips_unpack_links_it_with_a_note_and_no_warning(bool managed, string type)
+    {
+        var repo = Dir("repo");
+        var folder = Directory.CreateDirectory(Path.Combine(repo, "deploy")).FullName;
+        var zip = SmallZip(folder, "Solo", managed: managed);
+        var pac = new FakePac { UnpackFrom = ReviewedUnpack(zip, repo) };
+
+        var r = Plan(folder, pac: pac);
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal($"note: Solo.zip: {Linked}\n", r.Err);
+        var args = Assert.Single(pac.Unpacks);
+        var temp = Assert.Single(pac.UnpackTemps);
+        Assert.Equal(["solution", "unpack", "--zipfile", zip, "--folder", Path.Combine(temp, "solution"), "--packagetype", type], args);
+        Assert.Equal(TimeSpan.FromSeconds(120), Assert.Single(pac.UnpackTimeouts));
+        Assert.Empty(pac.Calls);
+        UnpacksGone(pac, r);
+    }
+
+    [Fact]
+    public void A_verify_md_linked_by_deploy_hash_beside_a_security_solution_md_linked_directly_covers_with_no_note()
+    {
+        var (repo, folder, zip) = Solo("mixed");
+        var review = ReviewedUnpack(zip, repo);
+        // security-solution.md reviewed the zip itself, so it links directly.
+        File.WriteAllText(
+            Path.Combine(repo, "docs", "plans", "m", "security-solution.md"),
+            $"state: ready\nplan-hash: {Core.Plans.PlanDocument.Parse(ReviewedPlanText).BodyHash}\ninput: deploy/Solo.zip\nsolution-hash: {Core.Readers.Manifest.Read(zip).Digest}\n\n# Report\n");
+        var pac = new FakePac { UnpackFrom = review };
+
+        var r = Plan(folder, pac: pac);
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal("", r.Err);
+        Assert.Single(pac.Unpacks);
+        UnpacksGone(pac, r);
+    }
+
+    [Fact]
+    public void A_report_with_no_deploy_hash_runs_no_unpack()
+    {
+        var (repo, folder, zip) = Solo("direct");
+        Reviewed(zip, repo);
+        var pac = new FakePac();
+
+        var r = Plan(folder, pac: pac);
+
+        Assert.Equal(("", 0), (r.Err, r.Code));
+        Assert.Empty(pac.Unpacks);
+    }
+
+    [Fact]
+    public void A_changed_zip_whose_sha_256_no_report_records_warns_and_runs_no_unpack()
+    {
+        var (repo, folder, zip) = Solo("changed-zip");
+        var pac = new FakePac { UnpackFrom = ReviewedUnpack(zip, repo) };
+        File.Delete(zip);
+        SmallZip(folder, "Solo", version: "1.0.0.1");
+
+        var r = Plan(folder, pac: pac);
+
+        Assert.Equal(0, r.Code);
+        Assert.StartsWith($"warning: Solo.zip: {NoneRecords}\n", r.Err);
+        Assert.Empty(pac.Unpacks);
+    }
+
+    [Theory]
+    [InlineData("folder")]
+    [InlineData("roles")]
+    public void An_unpack_with_another_digest_warns(string kind)
+    {
+        var (repo, folder, zip) = Solo(kind);
+        var review = ReviewedUnpack(zip, repo);
+        var unpacked = Scratch("unpacked");
+        Copy(review, unpacked);
+        if (kind == "folder")
+        {
+            // The reviewed folder differs from the zip's unpack in a file both have.
+            var xml = Directory.EnumerateFiles(unpacked, "*.xml", SearchOption.AllDirectories).Order(StringComparer.Ordinal).First();
+            var text = File.ReadAllText(xml);
+            File.Delete(xml);
+            File.WriteAllText(xml, text + "\n<!-- edited -->");
+        }
+        else
+        {
+            // A security role that the unpack has and the reviewed folder doesn't, which diff doesn't compare.
+            Directory.CreateDirectory(Path.Combine(unpacked, "Roles"));
+            File.WriteAllText(Path.Combine(unpacked, "Roles", "Admin.xml"), "<Role name=\"Admin\" />");
+        }
+
+        var pac = new FakePac { UnpackFrom = unpacked };
+
+        var r = Plan(folder, pac: pac);
+
+        Assert.Equal(0, r.Code);
+        Assert.StartsWith($"warning: Solo.zip: docs/plans/m: verify.md{OtherFolder}; security-solution.md{OtherFolder}\n", r.Err);
+        Assert.DoesNotContain(Linked, r.Err);
+        UnpacksGone(pac, r);
+    }
+
+    public static TheoryData<string, string> UnpackFailures => new()
+    {
+        { "not-found", "pac was not found" },
+        { "timeout", "pac solution unpack timed out" },
+        { "exit", "pac solution unpack exited 3" },
+        { "empty", "the unpacked folder could not be read" },
+    };
+
+    [Theory]
+    [MemberData(nameof(UnpackFailures))]
+    public void An_unpack_that_fails_warns_with_its_sentence(string kind, string why)
+    {
+        var (repo, folder, zip) = Solo(kind);
+        var review = ReviewedUnpack(zip, repo);
+        var pac = new FakePac
+        {
+            UnpackFrom = kind == "empty" ? null : review,
+            UnpackAnswer = _ => kind switch
+            {
+                "not-found" => new PacResult(false, false, 0, ""),
+                "timeout" => new PacResult(true, true, 0, ""),
+                "exit" => new PacResult(true, false, 3, FakePac.UnpackOutput, FakePac.UnpackOutput),
+                _ => null,
+            },
+        };
+
+        var r = Plan(folder, pac: pac);
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal($"warning: Solo.zip: {Unchecked(why)}\n", r.Err);
+        Assert.Single(pac.Unpacks);
+        UnpacksGone(pac, r);
+    }
+
+    // Runs the real pac on a managed sample zip: the reports hash the folder of pac's own unpack, so the check's unpack must give the same digest.
+    [Fact]
+    public void A_review_of_a_real_pac_unpack_links_the_zip()
+    {
+        Assert.SkipWhen(Tools.Missing(["pac"], Environment.GetEnvironmentVariable("PATH")) is not null, "pac is not on PATH; this test runs where pac is installed.");
+        var repo = Dir("real");
+        var folder = Directory.CreateDirectory(Path.Combine(repo, "deploy")).FullName;
+        var zip = Path.Combine(folder, "ColumnLevelSecuritySampleSolution_managed.zip");
+        File.Copy(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "zips", "ColumnLevelSecuritySampleSolution_managed.zip"), zip);
+        var review = Path.Combine(repo, "review", "ColumnLevelSecuritySampleSolution_managed");
+        var unpack = new PacRunner(timeout: TimeSpan.FromSeconds(120)).Run(["solution", "unpack", "--zipfile", zip, "--folder", review, "--packagetype", "Managed"]);
+        Assert.True(unpack is { Started: true, TimedOut: false, ExitCode: 0 }, unpack.Stdout + unpack.Stderr);
+        Reviewed(review, repo, "m", zip);
+        var target = new FakeTarget();
+
+        var (o, e) = (new StringWriter(), new StringWriter());
+        var code = Program.Run(["deploy", "plan", folder, "--target", TargetValue], o, e, (args, timeout) => new PacRunner(timeout: timeout).Run(args), null, target.Read, deployAgents: new FakeAgents().Read);
+
+        Assert.True(code is 0 or 1, e.ToString());
+        Assert.Equal($"note: ColumnLevelSecuritySampleSolution_managed.zip: {Linked}\n", e.ToString().ReplaceLineEndings("\n"));
     }
 }
