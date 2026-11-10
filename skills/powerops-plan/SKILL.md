@@ -86,6 +86,7 @@ supersedes: null
 - When the plan names new data or a flow, read `references/data.md` beside this file: the store, the gates, table design, each flow's card and the data round. When it names an app, page, site, report or agent, read `references/route.md` and the product files it names.
 - `Constraints` holds licensing, DLP and deadlines.
 - `Steps` is a numbered list of implementation steps: small, in order, each one checkable.
+- A skill, CLI or MCP tool the plan says a step uses: check that it is callable (in your skill or tool list, or found by `command -v` or `Get-Command`). If it isn't, or you can't check, say so in Assumptions.
 - `Open questions` and `Questions for your admin` hold one top-level `- ` item per question. When there are none, leave the section empty. Do not write "None": the tool counts list items. Move an item out when it is answered.
 - Questions only someone else can answer (licensing, DLP) go under `Questions for your admin`, so the user can forward them.
 - Edit the header line by line, and only `status`, `review`, `environment`, `depth` and `supersedes`. Never write `signed-off` or `signed-off-hash` by hand. Only `powerops plan sign-off` does.
@@ -141,7 +142,7 @@ Do not ask what the facts already answer. When nothing is left to ask, recommend
 
 A new plan starts at the `depth` of the plan it supersedes, else of the newest-modified `docs/plans/*/plan.md` that has one, else `standard`. The fast path (section 8) sets `quick`.
 
-After each round, judge engagement from the answers. Mostly one-word or option-number answers, "just pick", "whatever you think", or a request to speed up: go one level down. Long answers in their own words, follow-up questions, or a request for more detail: one level up. Change it at most once per round. Write the new value in the header, log `depth: <old> -> <new> (<reason in a few words>)` under `## Log` in `decisions.md`, and mention it in one of the three change lines.
+After each round, judge engagement from the answers. "Just pick", "whatever you think", or a request to speed up: go one level down. Answers picked from the options, by number or with the choice tool, don't lower it. Long answers in their own words, follow-up questions, or a request for more detail: one level up. Change it at most once per round. Write the new value in the header, log `depth: <old> -> <new> (<reason in a few words>)` under `## Log` in `decisions.md`, and mention it in one of the three change lines.
 
 **A:** run another round. **B:** section 7. **C:** say where the files are (`docs/plans/<name>/`) and how to resume ("ask me to continue the `<name>` plan"). The status stays `draft`.
 

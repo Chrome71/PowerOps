@@ -269,9 +269,11 @@ public partial class SkillsCommandTests : IDisposable
     public void Implement_skill_writes_the_flow_tests_with_fake_values_and_runs_them_before_the_pull_request()
     {
         var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
-        string[] wording = ["Before you open a pull request, for each cloud flow the plan adds or changes, write or update its tests once the solution is exported and unpacked into the repo", "use what the user told you about `pac`; do not run `pac` to find out", "keep the zip, which `powerops analyze` and `powerops test` both read", "Use fake values in triggers and mocks", "Run `powerops test", "never delete or weaken a test"];
+        string[] wording = ["Before you open a pull request, for each cloud flow the plan adds or changes, write or update its tests once the solution is exported and unpacked into the repo", "use what the latest sign-in probe (section 3, step 3) found about `pac`; do not run `pac` again to find out, and export from the environment the person named there, never the active profile's", "keep the zip, which `powerops analyze` and `powerops test` both read", "Use fake values in triggers and mocks", "Run `powerops test", "never delete or weaken a test"];
 
         Assert.All(wording, s => Assert.Contains(s, text));
+        Assert.DoesNotContain("use what the user told you about `pac`", text);
+        Assert.Contains("Tell the Security reviewer that `pac` is signed in only if the user said so in this session.", text);
     }
 
     [Fact]
@@ -298,7 +300,7 @@ public partial class SkillsCommandTests : IDisposable
     }
 
     [Fact]
-    public void Implement_skill_names_the_dataverse_skills_and_asks_about_sign_ins_without_running_pac_or_az()
+    public void Implement_skill_names_the_dataverse_skills_and_probes_sign_ins_with_read_only_status_calls()
     {
         var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
         string[] wording =
@@ -307,7 +309,12 @@ public partial class SkillsCommandTests : IDisposable
             "dv-metadata",
             "dv-solution",
             "MSCRM.SolutionUniqueName",
-            "you do not run `pac` or `az` to find out",
+            "Then probe each of these sign-ins that the plan's routes need: Dataverse, `pac`, `az`, FlowAgent's connection management and Canvas Authoring.",
+            "Use a read-only status call and nothing else: `pac auth list` for `pac`, `az account show -o none` for `az`, and an MCP server's own status or account-list tool, such as FlowAgent's or Canvas Authoring's.",
+            "One sign-in does not cover another; one you can't probe that way, such as the Dataverse skills' own, you ask the user about.",
+            "A probe that fails or lists nothing counts as missing.",
+            "Report each as available or missing, and never repeat, log or write what a probe prints: accounts, tenants and environments stay out of chat and files.",
+            "For a missing one, ask the person to sign in or to go on without it, and wait. Probe it once more when they say it is done; if it is still missing, say so and let the person decide. A probe never picks the target.",
             "If the plan's `environment` is null or a role (Dev, Test or Prod, in any case), ask the person to name that environment before any tenant read or live check, and give the skill that name, never the role; any other value is an older plan's name: give it as written. Give the skill the plan's `Solution and publisher` too.",
             "Use only the environment the person named (step 3), or the plan's `environment` when it holds a name, as the target.",
             "Set `status: implementing` in the plan header, unless it already says so.",
@@ -318,6 +325,8 @@ public partial class SkillsCommandTests : IDisposable
         ];
 
         Assert.All(wording, s => Assert.Contains(s, text));
+        Assert.DoesNotContain("you do not run `pac` or `az` to find out", text);
+        Assert.DoesNotContain("Ask the user whether they are signed in to each of", text);
     }
 
     [Fact]
@@ -445,12 +454,40 @@ public partial class SkillsCommandTests : IDisposable
     [Fact]
     public void Plan_skill_stays_under_its_word_ceiling()
     {
-        // M41: the 2,483 words the skill had before the ledger, plus 300. On ASCII text a split on whitespace counts as wc -w does.
+        // M41: the 2,483 words the skill had before the ledger, plus 300. M81: plus 50 for the engagement rule and the callable-tool rule. On ASCII text a split on whitespace counts as wc -w does.
         var text = SkillsCommand.Shipped()["powerops-plan/SKILL.md"];
         var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
 
         Assert.All(text, c => Assert.True(c < 128, $"non-ASCII character U+{(int)c:X4}"));
-        Assert.InRange(words, 1, 2783);
+        Assert.InRange(words, 1, 2833);
+    }
+
+    [Fact]
+    public void Plan_skill_keeps_depth_for_picked_options_and_checks_that_named_tools_are_callable()
+    {
+        var text = SkillsCommand.Shipped()["powerops-plan/SKILL.md"];
+        string[] wording =
+        [
+            "\"Just pick\", \"whatever you think\", or a request to speed up: go one level down. Answers picked from the options, by number or with the choice tool, don't lower it.",
+            "Long answers in their own words, follow-up questions, or a request for more detail: one level up.",
+            "- A skill, CLI or MCP tool the plan says a step uses: check that it is callable (in your skill or tool list, or found by `command -v` or `Get-Command`). If it isn't, or you can't check, say so in Assumptions.",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, text));
+        Assert.DoesNotContain("Mostly one-word or option-number answers", text);
+    }
+
+    [Fact]
+    public void Review_plan_skill_checks_that_the_tools_a_step_names_are_callable()
+    {
+        var text = SkillsCommand.Shipped()["powerops-review-plan/SKILL.md"];
+        string[] wording =
+        [
+            "12. Tools: for each skill, CLI or MCP tool a step names, Assumptions says when it isn't callable or wasn't checked. Check it yourself if you can (in your skill or tool list, or found by `command -v` or `Get-Command`): one you find missing that Assumptions doesn't name is a Medium finding. One you can't check, say so under the header lines, with no finding.",
+            "- `command -v` or `Get-Command` for the tools the plan's steps name (item 12)",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, text));
     }
 
     [Fact]
