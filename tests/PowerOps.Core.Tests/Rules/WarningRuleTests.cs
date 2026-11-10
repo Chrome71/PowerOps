@@ -2149,9 +2149,17 @@ public class WarningRuleTests
     [InlineData("demo_costcentre($select=demo_name)")]
     [InlineData("@{variables('Expand')}")]
     [InlineData("demo_expense_costcentre_demo_costcentre")] // another table's property: the action's own table has others
+    [InlineData("demo_Approver($select=demo_name),demo_costcentre")] // one item that isn't a plain name: the whole value isn't read
+    [InlineData("demo_Approver($select=demo_name,demo_costcentre,demo_x)")]
     public void PO035_quiet_for_an_expand_it_does_not_flag(string expand)
     {
         Assert.Empty(Run(new PO035NavigationName(), Navigation("List", Expand(expand))));
+    }
+
+    [Fact]
+    public void PO035_matches_the_actions_entity_set_ignoring_case()
+    {
+        Assert.Single(Run(new PO035NavigationName(), Navigation("List", Expand("demo_costcentre", "Demo_Expenses"))));
     }
 
     [Fact]
