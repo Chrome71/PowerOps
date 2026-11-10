@@ -1,4 +1,4 @@
-plan-hash: 40781d54862915362da8798fb581e7f1cd1aded77cef6528111e2f80daa3b305
+plan-hash: d2ddd1daad0bf5f7012c4728408063ce2c375d619e36c08561f9961e62c2b7d1
 model: claude-opus-5-5
 fresh-context: yes
 
@@ -8,7 +8,7 @@ Tools (item 12): `pac` (2.14.1), `zip` (3.0), `dotnet`, `claude`, `codex`, `bash
 
 Checked against the code at `fca4c57`: the cited lines of `PlanChecker.cs`, `DeployReviews.cs`, `DeployCommand.cs` (`:44`, `:59`, `:64`, `WarnUnreviewed`, `DryRun`, the gate), `McpCommand.cs:249`, `WriteSitesTests.cs` (its scan matches `Directory.CreateTempSubdirectory` and `Directory.Delete`), `RoleEvalTests.cs`, `run.sh`, both kept roles' `SKILL.md`, `powerops-implement` section 4, `HANDOFF.md`, `COMMANDS.md`, `USE-WITH-AGENTS.md:69`, `PLANNING-SKILLS.md:221` and `AGENTS.md:33, 40`. `Manifest.Read` gives a zip's SHA-256 as its digest and normalizes CRLF in text files. Run locally: two `pac solution unpack --packagetype Managed` runs of `ColumnLevelSecuritySampleSolution_managed.zip` into different folders gave the same 27-file digest. `--packagetype Unmanaged` on it exited 1 and left an empty folder behind.
 
-Second pass, 2026-11-09, at `83ed2b4`: each answer was checked against the revised plan and the code at `fca4c57`; R10 is new, caused by R2's answer.
+Second pass, 2026-11-09, at `83ed2b4`: each answer was checked against the revised plan and the code at `fca4c57`; R10 is new, caused by R2's answer. Third pass, at `50493f7`: R10's answer and the two edits checked; no new finding.
 
 `review: done` was not set in `plan.md`, because this review's request allowed writing only `review.md`. The session that asked for the review sets it.
 
@@ -80,4 +80,4 @@ No findings.
 - Area: 9 (testability)
 - Finding: R2's answer added a fifth unpack failure sentence to row 3, `no time was left to unpack it`, and R6's answer widened `the unpacked folder could not be read`. Row 8 still tells the COMMANDS writer to document "its four failure sentences", so the writer of row 8 (a different executor from row 3's) may leave the gate's new sentence out of COMMANDS.
 - Suggested fix: In row 8, say "its five failure sentences", or list them, including `no time was left to unpack it` and the empty-unpack case.
-- Resolution: open
+- Resolution: resolved (3rd pass, `50493f7`): row 8 now says five failure sentences and names `no time was left to unpack it` and the empty-folder case of `the unpacked folder could not be read`. That matches row 3's five: `pac was not found`, `pac solution unpack timed out`, `pac solution unpack exited <code>`, `the unpacked folder could not be read` and `no time was left to unpack it`. Row 3's new "counted from the clock `RunGate` starts" agrees with R2's watch note and causes no new problem.
