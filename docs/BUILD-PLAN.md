@@ -575,7 +575,7 @@ The owner decided on 2026-11-10 that the deploy gate keeps its job, which is to 
 
 ### Build order, M85 (continues the list below)
 
-86. `fix:` M85: the plan, then the MCP route and the two readings, the deny-list probe, the docs and the records ([plan](plans/m85-gate-routes/plan.md))
+86. `fix:` M85: the plan, then the MCP route and the two readings, the deny-list probe, the docs and the records (built 2026-11-10, [plan](plans/m85-gate-routes/plan.md))
 
 ## Testing
 
