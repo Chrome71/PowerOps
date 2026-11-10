@@ -730,8 +730,8 @@ It never imports anything and never writes a file.
 
 ### What it does
 
-A call that is not an import (any tool but `Bash`, `Monitor`, `PowerShell` and the MCP tools named `mcp__<server>__solution_import`, `__pages_upload`, `__pages_upload-code-site` (Codex: `__pages_upload_code_site`), `__copilot_publish` and `__model_genpage_upload`, and a shell command with no import in it) exits `0` without reading the plan or the target.
-The four MCP tools other than `solution_import` are always blocked, without reading their arguments, the plan or the target.
+A call that is not an import (any tool but `Bash`, `Monitor`, `PowerShell` and the MCP tools named `mcp__<server>__solution_import`, `__pages_upload`, `__pages_upload-code-site` (Codex: `__pages_upload_code_site`), `__copilot_publish`, `__model_genpage_upload` and `__app-management_install-application-package` (Codex: `__app_management_install_application_package`), and a shell command with no import in it) exits `0` without reading the plan or the target.
+The five MCP tools other than `solution_import` are always blocked, without reading their arguments, the plan or the target.
 No plan check covers them or the shell routes below, so with the hooks on the user runs such a command, or turns the hooks off for that step after saying yes to it.
 
 For an import it allows the call only when all of these hold:
@@ -759,8 +759,8 @@ Everything else blocks:
   - `pac application install`,
   - `pac code push`,
   - `pac catalog install`,
-  - `pac app-management install-application-package`,
-  - `pa app push` (also run through `npx`, with or without its options, from `node_modules/.bin`, or as a `.cmd` shim, and the retired `power-apps push`),
+  - `pac app-management install-application-package` (also pac's MCP `app-management_install-application-package`),
+  - `pa app push` (also run through `npx`, with or without its options, from `node_modules/.bin`, or as a `.cmd` shim, or led by `NAME=value` words such as `PA_CLI_ORIGIN=plugin/claude-code`, and the retired `power-apps push`),
   - `pac pages upload`, `pac pages upload-code-site` and `pac pages migrate-datamodel` (also as `pac powerpages` or `pac paportal`, and every `migrate-datamodel` form, its status check too),
   - `pac model genpage upload`,
   - `pac copilot push`,
@@ -769,7 +769,7 @@ Everything else blocks:
   - `manage-agent.bundle.js push` and `publish` (the `copilot-studio` plugin's `manage-agent` skill; its other verbs pass when they are the word after the script, and any other call to the bundle is unreadable),
   - `Import-CrmSolution`,
   - any import in PowerShell,
-  - a command that holds an import or a route the gate cannot read (`sh -c`, `eval`, a variable, or a mention such as `grep "pac solution import" docs` or `git commit -m "... pa app push"`, or one that names the bundle, such as `ls scripts/manage-agent.bundle.js`),
+  - a command that holds an import or a route the gate cannot read (`sh -c`, `eval`, a variable, or a mention such as `grep "pac solution import" docs` or `git commit -m "... pa app push"`, or one that names the bundle, such as `ls scripts/manage-agent.bundle.js`, or a call holding an import or route marker led by other `NAME=value` words),
   - and a Bash command with a `$'...'` word that holds an escape.
 
 A plan-file argument that starts with `-` blocks too.
@@ -793,7 +793,7 @@ The exit codes are `0` allowed and `2` blocked, for every other outcome.
 ### Limits
 
 The gate blocks the routes it knows: a new pac command or MCP tool that installs, imports, uploads or publishes passes until the gate gets a route for it.
-For agents, it doesn't see Apply in the Copilot Studio extension for VS Code, the Copilot Studio MCP server's `manage_agents` and `manage_workflows`, FlowAgent's `copy_flow`, `publish_flow` and `update_flow`, or the Power BI Authoring MCP server, so those pass, and it has no route for `pa app share`, `pa connection create`, `pa app add data-source`, `pac copilot quarantine` or `pac copilot merge-translation` ([Hand-off](HANDOFF.md#gate-microsofts-imports)).
+For agents, it doesn't see Apply in the Copilot Studio extension for VS Code, the Copilot Studio MCP server's `manage_agents` and `manage_workflows`, FlowAgent's `copy_flow`, `publish_flow` and `update_flow`, or the Power BI Authoring MCP server, so those pass, and it has no route for `pa app share`, `pa connection create`, `pa app add data-source`, `pac copilot quarantine` or `pac copilot merge-translation`, or for the commands and MCP tools of pac's preview groups, which pass ([Hand-off](HANDOFF.md#gate-microsofts-imports)).
 
 The gate does not see powerops' own commands: an agent's own `powerops deploy apply --apply` passes through no gate, gets the warnings of the review check only, and goes on.
 A pass shows that the call matches the plan file at the given path and the live target.

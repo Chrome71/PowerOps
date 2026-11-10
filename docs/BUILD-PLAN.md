@@ -565,6 +565,18 @@ The owner asked on 2026-11-10 for a light, lasting way for the agents that devel
 
 85. `ci:` M84: the plan, then the inventory and collector, the workflow, the procedure and records, the first review and its fixes (built 2026-11-10, [plan](plans/m84-ecosystem-watch/plan.md))
 
+## M85: gate routes for pac 2.14.1
+
+The owner decided on 2026-11-10 that the deploy gate keeps its job, which is to block installs, imports, uploads and publishes of content no plan holds. The [plan](plans/m85-gate-routes/plan.md) closes two open entries of the ecosystem register, ECO-0019 and ECO-0008: the gate gains one route, pac's MCP tool `app-management_install-application-package`; two Microsoft forms it misreads get their right reading; and pac's preview groups stay unrouted, while the docs name them and give deny rules to copy (decision 59).
+
+| Milestone | Release | Scope | Done when |
+|---|---|---|---|
+| **M85. Gate routes for pac 2.14.1** | the next patch release, which release-please makes from the `fix:` commit | <ul><li>Planned 2026-11-10 ([plan](plans/m85-gate-routes/plan.md))</li><li>`deploy gate` blocks pac's MCP tool `app-management_install-application-package` in Claude Code's and Codex's spelling and under any server name, with the existing reason, without reading its arguments, the plan or the target</li><li>Two Microsoft forms get their right reading: `pac power-pages upload-certificate` passes like the rest of its preview group, and the program is never taken from a `NAME=value` word, so an assignment in front of a command is read as the shell reads it; the plan lists each reading that changes</li><li>A headless Claude Code session with the page's deny list and pac's MCP server shows which tools the rules remove; the result is recorded as tested, as wildcards that do not apply on that build, or as a blocker, and the docs say "tested" only of the list that ran</li><li>`docs/HANDOFF.md` and `docs/COMMANDS.md` name the sixth MCP tool; `docs/HANDOFF.md` names the 16 preview groups of `pac` 2.14.1 as unrouted, with a Claude Code deny list and a Codex allow-list to copy, each sourced and dated, and `docs/COMMANDS.md` points to it</li><li>ECO-0008 and ECO-0019 closed in `docs/ecosystem/changes.md`, and the `pac MCP server` row of `compatibility.md` current</li></ul> | <ul><li>The plan's done-when items</li><li>`dotnet build` (0 warnings), `dotnet test`, `dotnet format --verify-no-changes`, `powerops plan status docs/plans/m85-gate-routes` (showing `done`) and the leak scan are clean, and no file under `skills/`, `plugins/`, `.claude/agents/`, `tests/eval/` or `tests/golden/` changed</li></ul> |
+
+### Build order, M85 (continues the list below)
+
+86. `fix:` M85: the plan, then the MCP route and the two readings, the deny-list probe, the docs and the records (built 2026-11-10, [plan](plans/m85-gate-routes/plan.md))
+
 ## Testing
 
 | Layer | What | Runs |
@@ -772,9 +784,15 @@ Made in the [M84 plan](plans/m84-ecosystem-watch/plan.md); its `decisions.md` we
 57. **The weekly watch is deterministic and read-only.** It reads public feeds, registries and the MicrosoftDocs commit history, never scrapes a page, holds no AI credential, writes no file to the repository and calls no tenant. Its only outputs are the job summary and one tracking issue, which it opens when something is new, not checked or due by hand and closes on a run with none of the three. A source it can't read is reported as not checked, never as unchanged.
 58. **A finding changes PowerOps only through the usual plan, build and review.** The watch records; a session triages. A tool pin moves only with a test of the new version (decisions 16(d) and 32 still hold), and a rejected change stays in `changes.md` as `no action` so it is not proposed again without new evidence.
 
+## Decisions, M85 gate routes (2026-11-10)
+
+Made in the [M85 plan](plans/m85-gate-routes/plan.md); its `decisions.md` weighs the options.
+
+59. **The gate keeps its job; pac's preview groups stay unrouted.** It blocks installs, imports, uploads and publishes of content no plan holds, so `install-application-package` gets a route through MCP too; the commands and MCP tools of pac's preview groups pass, and `docs/HANDOFF.md` lists them with deny rules to copy, because a deny rule is the control and the gate is defence in depth (decision 41). The owner chose this on 2026-11-10.
+
 
 ## Decisions, sketch tags (2026-11-10)
 
 Made before the third end-to-end trial, after decisions 52 to 55.
 
-59. **A sketch may hold one `meta name="viewport"` with a `content` value**, so a phone shows the narrow layout; every other `meta` stays banned, and a viewport tag with any other attribute is banned too. This amends the tag list of [M70](plans/m70-prototype-gate/plan.md) (Goal line 2).
+60. **A sketch may hold one `meta name="viewport"` with a `content` value**, so a phone shows the narrow layout; every other `meta` stays banned, and a viewport tag with any other attribute is banned too. This amends the tag list of [M70](plans/m70-prototype-gate/plan.md) (Goal line 2).

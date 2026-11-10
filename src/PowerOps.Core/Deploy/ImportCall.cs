@@ -67,6 +67,8 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
         ("__pages_upload_code_site", RoutePagesCodeSite),
         ("__copilot_publish", RouteCopilotPublish),
         ("__model_genpage_upload", RouteGenpage),
+        ("__app-management_install-application-package", RouteAppPackage),
+        ("__app_management_install_application_package", RouteAppPackage),
     ];
 
     private static readonly string[] Switches = ["--stage-and-upgrade", "--async"];
@@ -87,6 +89,10 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
 
     [GeneratedRegex(@"(?<!\w)pac(?:\.exe)?(?!\w)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex PacWord();
+
+    // NAME= or NAME+= in a word's raw text: a shell assignment, which a quoted or escaped name is not.
+    [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*\+?=")]
+    private static partial Regex Assignment();
 
     // On Windows two slashes or backslashes in any mix (\\host, /\host, \\?\, \\.\) open another host or a device, which can send the user's NTLM credentials; on Unix // is / and /\x is a root file named \x, so nothing real is lost.
     public static bool IsNetworkPath(string value) => value.Length >= 2 && value[0] is '/' or '\\' && value[1] is '/' or '\\';
@@ -258,7 +264,12 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
         foreach (var segment in segments)
         {
             var words = segment.Words;
-            var program = FileName(words[0].Value).ToLowerInvariant();
+
+            // The shell joins backslash-newline pairs first; the program is never taken from an assignment word.
+            var assigned = words.TakeWhile(w => Assignment().IsMatch(w.Raw.Replace("\\\n", ""))).Count();
+            var program = assigned == 0 ? FileName(words[0].Value).ToLowerInvariant() : "";
+            var run = words.Take(assigned).All(w => w.Literal) ? words[assigned..] : [];
+            var bin = run.Length > 0 ? Bin(FileName(run[0].Value).ToLowerInvariant()) : "";
             if (program is "pac" or "pac.exe")
             {
                 candidate = true;
@@ -316,6 +327,9 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
                     case "copilot init":
                         lines.Add(RouteCopilotInit);
                         break;
+                    // A site-settings write of the preview group pac power-pages, unrouted by decision Q1 of M85; a pass must hold no marker.
+                    case "power-pages upload-certificate" when words.Length > 2 && !Markers().IsMatch(string.Join(' ', words.Skip(3).Select(w => w.Value))):
+                        break;
                     case "model genpage" when words.Length > 3 && (!words[3].Literal || words[3].Value.Equals("upload", StringComparison.OrdinalIgnoreCase)):
                         lines.Add(words[3].Literal ? RouteGenpage : CantRead);
                         break;
@@ -359,10 +373,10 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
 
                 recognized.Add(segment);
             }
-            else if (Bin(program) is "pa" or "power-apps" or "npx")
+            else if (bin is "pa" or "power-apps" or "npx")
             {
                 // npx runs the package named by its first word that isn't an option.
-                var read = (Bin(program) == "npx" ? words.Skip(1).SkipWhile(w => w.Value.StartsWith('-')) : words).Select(w => w.Value.ToLowerInvariant()).ToArray();
+                var read = (bin == "npx" ? run.Skip(1).SkipWhile(w => w.Value.StartsWith('-')) : run).Select(w => w.Value.ToLowerInvariant()).ToArray();
                 if (read is [var first, .. var after] && ((Bin(FileName(first)) == "pa" && after is ["app", "push", ..]) || (Bin(FileName(first)) == "power-apps" && after is ["push", ..])))
                 {
                     lines.Add(RoutePaPush);

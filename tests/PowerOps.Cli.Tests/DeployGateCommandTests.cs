@@ -214,7 +214,10 @@ public class DeployGateCommandTests : DeployTestBase
     [InlineData("mcp__pac_cli__pages_upload_code_site", "pac pages upload-code-site uploads a site that no plan holds")]
     [InlineData("mcp__pac-cli__copilot_publish", "pac copilot publish publishes an agent that no plan holds")]
     [InlineData("mcp__pac-cli__model_genpage_upload", "pac model genpage upload publishes a page that no plan holds")]
+    [InlineData("mcp__pac-cli__app-management_install-application-package", "pac app-management install-application-package installs an application package that no plan holds")]
+    [InlineData("mcp__pac_cli__app_management_install_application_package", "pac app-management install-application-package installs an application package that no plan holds")]
     [InlineData("Bash", "pa app push publishes an app that no plan holds", "pa app push")]
+    [InlineData("Bash", "pa app push publishes an app that no plan holds", "PA_CLI_ORIGIN=plugin/claude-code pa app push --solution-id x")]
     [InlineData("Bash", "pac copilot init may import a solution that no plan holds", "pac copilot init --environment 00000000-0000-0000-0000-000000000001")]
     [InlineData("Bash", "copilot-studio's manage-agent push and publish change an agent that no plan holds", "node ${CLAUDE_SKILL_DIR}/../../scripts/manage-agent.bundle.js publish --workspace /x/agent")]
     public void A_write_route_with_no_plan_file_is_blocked_with_its_line_and_the_target_is_not_read(string tool, string line, string? command = null)
@@ -247,12 +250,14 @@ public class DeployGateCommandTests : DeployTestBase
         Assert.Equal(0, test.Calls);
     }
 
-    [Fact]
-    public void A_call_that_is_not_an_import_is_allowed_without_reading_anything()
+    [Theory]
+    [InlineData("git status")]
+    [InlineData("pac power-pages upload-certificate --path /x/cert.pfx")]
+    public void A_call_that_is_not_an_import_is_allowed_without_reading_anything(string command)
     {
         var test = SeedTarget();
 
-        var r = Gate(Environments(test), Hook("Bash", new JsonObject { ["command"] = "git status" }));
+        var r = Gate(Environments(test), Hook("Bash", new JsonObject { ["command"] = command }));
 
         Assert.Equal((0, "", ""), (r.Code, r.Out, r.Err));
         Assert.Equal(0, test.Calls);
