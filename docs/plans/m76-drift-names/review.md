@@ -1,10 +1,12 @@
-plan-hash: eabb9fe9ed9a147431bf1f7e2b0188cc3b5d0c5d4187a0e5f852b00aa8f49bb1
+plan-hash: 0c6e198ddf696f109e24813cf97a3c561e75885a12bf2f10123893e20c85b147
 model: claude-opus-5-5
 fresh-context: yes
 
 Environment facts were not read: nobody confirmed in this session that `pac` is signed in to an environment, and the plan's `environment:` is null, so `powerops plan facts` and `pac` were not run (tenant: offline). `plan status` was run with the build at `src/PowerOps.Cli/bin/Debug/net10.0/powerops.dll` (status `approved`, 0 open questions, 0 admin questions). The fix plan of 2026-11-08 that the Goal cites is not in the repository and was not read. This review reads `plan.md`, `decisions.md` and the code, tests, fixtures and docs at `d903298` (the same as `278b136` outside `docs/plans/m76-drift-names/`). One claim was checked on Learn: the `botcomponent` table reference lists the intersect tables `botcomponent_workflow`, `botcomponent_environmentvariabledefinition`, `botcomponent_msdyn_aimodel` and `botcomponent_dvtablesearch`, and the `botcomponent_workflow` reference gives it the solution-aware columns (`solutionid`, `componentstate`, `ismanaged`) (read 2026-11-09; R2).
 
-This is the second pass, against the revised plan of `80a1157` (plan-hash above). The first pass (R1 to R9, against plan-hash `4a2dcef8…` at `d903298`) is kept below with each finding's resolution, checked against the revised plan, the last Log entry of `decisions.md` and the code at `80a1157`. Checked in the code for this pass: in the captures both type-10164 components are the two read-6 connection references (`capture/dev-read3.json`, `dev-read6.json`), so under the revised row 4 the capture makes no read 9 and `snapshot-seed.json` gets `agents: []` and no names. `DriftLiveReaderTests.A_component_of_another_type_is_not_read_and_stays_null` holds a 10164 that is not a reference, as row 4 says. The 10087 tests at `DriftCompareTests.cs:46-55` and `:161-174` build snapshots with `Agents` null, so they are by-number pairs in which 10087 is left out before keying, and they stay as they are. `DeployCommand`'s offline plan and `ReadTarget` build snapshots with `Agents` null, so with row 5 their digests keep the version-1 text. Two new findings, R10 and R11.
+This is the third pass, against the plan of `3d553fb` (plan-hash above); it checks only the answers to R6, R10 and R11 in row 5. The second pass, against plan-hash `eabb9fe9…` at `80a1157`, is described next.
+
+The second pass was against the revised plan of `80a1157`. The first pass (R1 to R9, against plan-hash `4a2dcef8…` at `d903298`) is kept below with each finding's resolution, checked against the revised plan, the last Log entry of `decisions.md` and the code at `80a1157`. Checked in the code for this pass: in the captures both type-10164 components are the two read-6 connection references (`capture/dev-read3.json`, `dev-read6.json`), so under the revised row 4 the capture makes no read 9 and `snapshot-seed.json` gets `agents: []` and no names. `DriftLiveReaderTests.A_component_of_another_type_is_not_read_and_stays_null` holds a 10164 that is not a reference, as row 4 says. The 10087 tests at `DriftCompareTests.cs:46-55` and `:161-174` build snapshots with `Agents` null, so they are by-number pairs in which 10087 is left out before keying, and they stay as they are. `DeployCommand`'s offline plan and `ReadTarget` build snapshots with `Agents` null, so with row 5 their digests keep the version-1 text. Two new findings, R10 and R11.
 
 Checklist items that do not apply, because this plan changes the PowerOps CLI and builds no Power Platform solution:
 
@@ -54,7 +56,7 @@ No findings.
 - Area: 9 Testability
 - Finding: row 5 rejects "two components with the same `name` and `schemaName` ignoring case". Only `bot` and `botcomponent` components carry a schema name. Two app settings, two link-table rows or two components of any other named type all have the same `name` and a null `schemaName`. Read literally, with null equal to null, the rule rejects them, so a `--save` file of an ordinary solution with a model-driven app could not be loaded again. Row 6 keys those components by `(name, id)`, so they never share a key.
 - Suggested fix: word the rule on row 6's key: reject two components with the same `(name ?? type, schemaName ?? id)` ignoring case, which only bites when `schemaName` is set. Add a row 5 test: a version-2 file with two `appsetting` components with null schema names loads.
-- Resolution: open
+- Resolution: answered. Row 5 rejects two components with the same comparison key of row 6 (`name` or type number, `schemaName` or id), ignoring case, and adds the test that a version-2 file with two `appsetting` components without schema names loads. Two named components without a schema name differ by id, so only a shared schema name is caught. The rule adds no new problem: with no schema names it is no stricter than today's `type/id` check.
 
 ### Low
 
@@ -68,7 +70,7 @@ No findings.
 - Area: 9 Testability
 - Finding: row 3 rejects duplicate schema names in reads, "so two rows can never share a key". Row 5's `Read` checks uniqueness only on `type/id`. A hand-edited or merged file with two `botcomponent` rows of one schema name (ignoring case) passes, and row 6's key set folds them into one, so one is never compared.
 - Suggested fix: in row 5, reject a version-2 file where two components share `(name, schemaName)` ignoring case when `schemaName` is set, and test it.
-- Resolution: answered in part. Row 5 adds the rejection, but its wording lost the "when `schemaName` is set" condition: see R10.
+- Resolution: answered. Row 5 adds the rejection, and since `3d553fb` it applies to row 6's comparison key, so it only catches components that share a schema name (see R10).
 
 #### R7. The new not-compared line states as fact what the Assumptions mark unverified
 - Area: 10 Unanswered areas
@@ -92,4 +94,4 @@ No findings.
 - Area: 9 Testability
 - Finding: `Write` serializes `SnapshotComponent` records directly. Once that record gains `Name` and `SchemaName`, a version-1 `Doc` that still holds `SnapshotComponent`s writes `name` and `schemaName` too. The text is then not "exactly as today", and the deploy digests move. Row 5 says "two `Doc` shapes" but not that components need a version-1 shape (type, id, unmanaged layer). The seed write-back test would catch it. Row 5 also says `SnapshotFileTests.cs:46` (`Write_gives_the_exact_text`) changes with the version, but its snapshot has `Agents` null, so it must stay at version 1, byte for byte. Only `:101-104` changes, because the rejection message for a version-1 text marked 2 is then about `agents`.
 - Suggested fix: in row 5, name the version-1 component shape, and list `:46` as staying unchanged, the proof that the version-1 text holds.
-- Resolution: open
+- Resolution: answered. Row 5 names the version-1 component shape (type, id, unmanagedLayer) so the new members never reach the version-1 text, and says `SnapshotFileTests.cs:46` stays at version 1, byte for byte, while `:101-104` changes.

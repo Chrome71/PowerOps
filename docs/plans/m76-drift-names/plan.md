@@ -1,11 +1,11 @@
 ---
-status: approved
+status: implementing
 review: done
 environment: null
 depth: quick
 supersedes: null
-signed-off: null
-signed-off-hash: null
+signed-off: 2026-11-09
+signed-off-hash: 0c6e198ddf696f109e24813cf97a3c561e75885a12bf2f10123893e20c85b147
 ---
 
 # M76: `drift` keys dynamic component types by definition name and matches agent components by schema name
