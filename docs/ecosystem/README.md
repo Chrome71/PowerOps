@@ -40,7 +40,7 @@ Run the collector. With a token, never printed and never written to a file:
 GITHUB_TOKEN="$(gh auth token)" bash .github/scripts/ecosystem-watch.sh
 ```
 
-Without a token a run makes 17 GitHub calls against a limit of 60 an hour, so space such runs.
+Without a token a run makes 16 GitHub calls against a limit of 60 an hour, so space such runs.
 
 1. Read the report. It has four parts: new, not checked, unchanged and checked by hand. A source that was not checked is never "no change". Say why, and try it again.
 2. A new source with no `lastSeen` has no baseline yet. Take the commit or version the repository cites (`git grep` on the target), or else the newest `verified:` date in the files that cite it. With neither, write "first observation, value recorded, no baseline" in the review log and research nothing.
@@ -119,9 +119,8 @@ Add a source of an existing kind, and only a file, page or release whose change 
 
 - `learn.microsoft.com/power-platform/<p>` is `MicrosoftDocs/power-platform`, `power-platform/<p>.md`.
 - `learn.microsoft.com/power-apps/<p>` is `MicrosoftDocs/powerapps-docs`, `powerapps-docs/<p>.md`.
-- `learn.microsoft.com/power-automate/<p>` is `MicrosoftDocs/power-automate-docs`, `articles/<p>.md`.
 
-Copilot Studio and Power BI have no public repository, so they are manual sources.
+Power Automate pages are manual sources, not watched through a repository: the public `MicrosoftDocs/power-automate-docs` repository's `main` has had no commit since 2026-04-28 while the live Learn page moved on (observed 2026-11-10), so a commit watch on it would never see an edit. Copilot Studio and Power BI have no public repository, so they are manual sources too.
 
 ## Boundaries
 

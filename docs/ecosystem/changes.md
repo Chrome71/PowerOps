@@ -22,15 +22,15 @@ The review log below has one line per review: `- <date>, mode <A|B|C>: <n> autom
 ## ECO-0002: The public mirror of the flow limits page lags the live page
 - Priority: P2
 - Disposition: implement now
-- Status: open
+- Status: done
 - Release status: GA
 - Found: 2026-11-10, mode A
 - Verified: 2026-11-10
 - Affects: docs/ecosystem/sources.json, docs/ecosystem/README.md
 - Sources: [Limits of automated, scheduled, and instant flows](https://learn.microsoft.com/power-automate/limits-and-config) (updated 2026-10-29), [MicrosoftDocs/power-automate-docs commits](https://github.com/MicrosoftDocs/power-automate-docs/commits/main) (observed 2026-11-10)
 - Evidence: documented
-- Why: The live page's `git_commit_id` is `c617807` (2026-10-28), but the public repository's `main` has had no commit since 2026-04-28, so the github-commits source would never have seen this or any later edit; for the Power Platform and Power Apps pages the live and public commits match. PO016's and PO017's values (500 actions, 8 levels, Until 60 and 5,000) still match the live page (return 3). A branch or ref field would be a new source format, so instead this review made `docs-flow-limits` a manual source read every 30 days (done in `sources.json`). Left for step 6, inside `docs/ecosystem/` only: README line 43 says 17 GitHub calls a run (now 16), and line 122 maps Power Automate pages to a repository the collector can watch; say that its `main` stopped syncing and its pages are manual. Acceptance: both lines say so; check: `EcosystemDocsTests` and `DocsDriftTests`.
-- Link: docs/plans/m84-ecosystem-watch/plan.md (step 6)
+- Why: The live page's `git_commit_id` is `c617807` (2026-10-28), but the public repository's `main` has had no commit since 2026-04-28, so the github-commits source would never have seen this or any later edit; for the Power Platform and Power Apps pages the live and public commits match. PO016's and PO017's values (500 actions, 8 levels, Until 60 and 5,000) still match the live page (return 3). A branch or ref field would be a new source format, so instead this review made `docs-flow-limits` a manual source read every 30 days (done in `sources.json`). Left for step 6, inside `docs/ecosystem/` only: README line 43 says 17 GitHub calls a run (now 16), and line 122 maps Power Automate pages to a repository the collector can watch; say that its `main` stopped syncing and its pages are manual. Acceptance: both lines say so; check: `EcosystemDocsTests` and `DocsDriftTests`. Fixed in step 6: README says 16 calls (14 `github-commits` and 2 `github-release` sources) and that Power Automate pages are manual sources because that repository's `main` has had no commit since 2026-04-28.
+- Link: docs/plans/m84-ecosystem-watch/plan.md (step 6, the commit `docs: correct the ecosystem README's call count and the Power Automate source note` on feat/m84-ecosystem-watch)
 
 ## ECO-0003: Learn's release plans are archived; the roadmap replaces them
 - Priority: P3
