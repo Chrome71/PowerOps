@@ -26,7 +26,7 @@ Fluent UI (v8) controls in custom pages and Teams canvas apps are deprecated: pl
 
 ## 3. The look in modern controls
 
-How the look in `route.md` maps when the app is built. Check each control's page first: several are preview.
+How the look in `look.md` maps when the app is built. Check each control's page first: several are preview.
 
 - **Colour.** The Paste-theme seed and font make the brand and neutral palette. Status colours come from a control's intent, so name the sketch's status tokens after the Badge intents: Positive, Caution, Critical, Informative and Neutral.
 - **Spacing and layout.** Horizontal and vertical containers take the 8 px values in Gap and padding; turn Scale to fit off. `App.SizeBreakpoints` is 600, 900 and 1200 by default in tablet and web apps: one column below 600, master-detail above it, as the Sidebar and Split-screen layouts give.

@@ -59,7 +59,7 @@ Check the plan for each item. Report a gap, a risk or an unanswered area as a fi
     - Power Pages: Global scope on anything but read-only public reference data: High.
     - Code Apps: no reason a code app is needed rather than a form, a page or a canvas app.
     - Power BI: a page with more than 12 data visuals and no reason.
-    - The sketch in `mockups/`: a screen that isn't in `Screens`, or a canvas element with no modern control (accordion, breadcrumb, dialog, drawer, menu, nav, toast, toolbar, tree) and no workaround named.
+    - The sketches in `mockups/`: a screen that isn't in `Screens`; a canvas element with no modern control (accordion, breadcrumb, dialog, drawer, menu, nav, toast, toolbar, tree) and no workaround named; options that differ only in colour, font or wording; an approved pick logged with no reason.
 
 12. Tools: for each skill, CLI or MCP tool a step names, Assumptions says when it isn't callable or wasn't checked. Check it yourself if you can (in your skill or tool list, or found by `command -v` or `Get-Command`): one you find missing that Assumptions doesn't name is a Medium finding. One you can't check, say so under the header lines, with no finding.
 

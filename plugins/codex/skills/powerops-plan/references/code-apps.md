@@ -18,7 +18,7 @@ Read this when a plan names a code app. Write the answers in `Users`, `Data`, `S
 
 The real UI is HTML, so a sketch would be rebuilt. Make Step 1 of the build a first slice with hand-written mock data under plain `npm run dev`, with no push and no data source, and record it in `## Log`. This is read from Microsoft's sample code, not a documented path, and Local Play still needs a tenant.
 
-The slice meets the look in `route.md` in the plan's UI library (Fluent UI React v9 unless the plan names another) and its tokens, with the four states drawn, so the designer reviews it as they would a sketch.
+The slice meets the look in `look.md` in the plan's UI library (Fluent UI React v9 unless the plan names another) and its tokens, with the four states drawn, so the designer reviews it as they would a sketch.
 
 ## Sources
 

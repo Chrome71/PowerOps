@@ -34,7 +34,7 @@ One line per screen in `Screens`, beside its route:
 - **Form factor.** Phone, tablet or browser.
 - **States.** Empty, loading, error and failed save: what the user sees in each, and what they do next. A screen without one of them says "none" for it.
 
-The sketch, when there is one, shows the same states (`route.md`).
+The sketch shows the same states (`route.md`). How a screen must look is in `look.md`, which is read to sketch and to check the build, not to plan.
 
 ## Sources
 

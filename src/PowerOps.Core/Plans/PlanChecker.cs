@@ -32,7 +32,7 @@ public sealed record PlanReviews(string Plan, PlanReportFile? Verify, PlanReport
 /// <summary>The write journal (writes.md) of a plan folder: its table rows and those whose cleanup is still open. Both are null when the file could not be read.</summary>
 public sealed record PlanWrites(int? Entries, int? OpenCleanup);
 
-/// <summary>What the prototype gate found: Line problems (no valid prototype: line, while Screens names something), File problems (mockups/prototype.html fails a check), the person-mark Warnings, and whether the deciding line is a valid approved one.</summary>
+/// <summary>What the prototype gate found: Line problems (no valid prototype: line, while Screens names something), File problems (mockups/prototype.html or an option fails a check, or an approval has fewer than three options), the person-mark Warnings, and whether the deciding line is a valid approved one.</summary>
 internal sealed record PrototypeCheck(IReadOnlyList<string> Line, IReadOnlyList<string> File, IReadOnlyList<string> Warnings, bool Approved);
 
 public static partial class PlanChecker
@@ -645,6 +645,9 @@ public static partial class PlanChecker
     private const string PrototypePath = "mockups/prototype.html";
     internal const int MaxPrototypeBytes = 40_960;
 
+    // Three, so the person compares design directions and doesn't approve the only one shown.
+    internal const int MinOptions = 3;
+
     private static readonly string[] BannedTags = ["script", "link", "meta", "base", "iframe", "frame", "object", "embed", "img", "picture", "svg", "form", "video", "audio", "source"];
     private static readonly string[] BannedCss = ["url(", "@import", "@font-face", "image-set(", "expression("];
     private static readonly string[] PrototypeStates = ["empty", "loading", "error", "failed-save"];
@@ -711,8 +714,8 @@ public static partial class PlanChecker
     private static List<string> PrototypeFileProblems(string folder, string screens, bool approved)
     {
         var problems = new List<string>();
-        var file = System.IO.Path.Combine(folder, "mockups", "prototype.html");
-        if (!File.Exists(file))
+        var mockups = System.IO.Path.Combine(folder, "mockups");
+        if (!Directory.Exists(mockups))
         {
             if (approved)
             {
@@ -722,18 +725,56 @@ public static partial class PlanChecker
             return problems;
         }
 
-        // A link anywhere on the path, a binary file or one over 1 MB is a problem, not a pass.
-        var skipped = new List<string>();
-        var text = new DirectoryInfo(System.IO.Path.GetDirectoryName(file)!).LinkTarget is null ? ReadScannable(file, folder, skipped) : null;
-        if (text is null)
+        if (new DirectoryInfo(mockups).LinkTarget is not null)
         {
-            problems.Add(skipped.Count > 0 ? skipped[0] : $"{PrototypePath}: the mockups folder is a symbolic link, not read");
+            problems.Add($"{PrototypePath}: the mockups folder is a symbolic link, not read");
             return problems;
+        }
+
+        if (File.Exists(System.IO.Path.Combine(mockups, "prototype.html")))
+        {
+            SketchProblems(folder, PrototypePath, screens, problems);
+        }
+        else if (approved)
+        {
+            problems.Add($"{PrototypePath}: not found although the log says approved");
+        }
+
+        // The options the sketch was picked from (BUILD-PLAN decision 52): each is checked like the sketch, and an approval needs three that pass and differ.
+        var passing = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var option in Directory.EnumerateFiles(mockups, "option-*.html").Select(System.IO.Path.GetFileName).Order(StringComparer.Ordinal))
+        {
+            var before = problems.Count;
+            if (SketchProblems(folder, $"mockups/{option}", screens, problems) is { } text && problems.Count == before)
+            {
+                passing.Add(text);
+            }
+        }
+
+        if (approved && passing.Count < MinOptions)
+        {
+            problems.Add($"mockups/: {passing.Count} option files (option-*.html) pass the checks and differ; an approved sketch is picked from at least {MinOptions}");
+        }
+
+        return problems;
+    }
+
+    // The checks of one sketch file, added to problems; the file's text, or null when it could not be read.
+    private static string? SketchProblems(string folder, string path, string screens, List<string> problems)
+    {
+        var file = System.IO.Path.Combine(folder, path);
+
+        // A link, a binary file or one over 1 MB is a problem, not a pass.
+        var skipped = new List<string>();
+        if (ReadScannable(file, folder, skipped) is not { } text)
+        {
+            problems.Add(skipped[0]);
+            return null;
         }
 
         void Add(int line, string rule)
         {
-            var problem = $"{PrototypePath}:{line}: {rule}";
+            var problem = $"{path}:{line}: {rule}";
             if (!problems.Contains(problem))
             {
                 problems.Add(problem);
@@ -836,7 +877,7 @@ public static partial class PlanChecker
             }
         }
 
-        return problems;
+        return text;
     }
 
     // Everything between <!-- and --> (an unclosed comment runs to the end, as in a browser).

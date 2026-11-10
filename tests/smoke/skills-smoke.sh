@@ -142,8 +142,8 @@ idea="an app for tracking site visits by our field engineers"
 # 1. Question rounds to a signed-off plan.
 scenario=rounds
 new_repo
-goal="At a what-next menu: if you have answered none so far, choose A (another round); otherwise choose B (approve). Confirm if asked to approve anyway. When asked to approve or skip the sketch, skip it with a reason. When the review or the sign-off is offered, choose the option that signs off now."
-# One more turn: a plan with screens asks to approve or skip the sketch before it signs off (M70).
+goal="At a what-next menu: if you have answered none so far, choose A (another round); otherwise choose B (approve). Confirm if asked to approve anyway. When asked to pick a sketch option or skip the sketch, skip it with a reason. When the review or the sign-off is offered, choose the option that signs off now."
+# One more turn: a plan with screens asks to pick a sketch option or skip the sketch before it signs off (M70, decision 52).
 max_turns=$((max_turns + 1))
 converse "Use the powerops-plan skill. My idea: $idea." '[ -n "$(plan_dir)" ] && [ "$(header status)" = signed-off ]' || true
 max_turns=$((max_turns - 1))
@@ -238,8 +238,8 @@ sed -i.bak 's/^status: signed-off$/status: done/' "$dir/docs/plans/earlier/plan.
 git -C "$dir" add -A
 git -C "$dir" -c user.name=smoke -c user.email=smoke@example.invalid commit -qm earlier
 sketch_offered=0
-goal="At a what-next menu choose B (approve the draft), never D (sketch now). Confirm if asked to approve anyway. When asked to approve or skip the sketch, skip it with a reason. When a review or a sign-off is offered, say you will do it later."
-max_turns=$((max_turns + 1)) # the approve-or-skip question
+goal="At a what-next menu choose B (approve the draft), never D (sketch now). Confirm if asked to approve anyway. When asked to pick a sketch option or skip the sketch, skip it with a reason. When a review or a sign-off is offered, say you will do it later."
+max_turns=$((max_turns + 1)) # the pick-or-skip question
 converse "Use the powerops-plan skill. My idea: $loans." 'note_sketch; [ -n "$(plan_dir)" ] && grep -q "^- .*prototype:" "$(plan_dir)/decisions.md" 2>/dev/null' || true
 max_turns=$((max_turns - 1))
 if [ -n "$(plan_dir)" ]; then
@@ -251,37 +251,41 @@ if [ -n "$(plan_dir)" ]; then
   [ "$(questions | grep -vic 'licen\|environment')" -le 1 ] || fail "more than one question besides licensing and environments"
   [ "$sketch_offered" = 1 ] || fail "no lettered option to sketch the screens"
   grep -q '^- .*prototype: skipped (.*(answered by: person)' "$(plan_dir)/decisions.md" || fail "no person's 'prototype: skipped (' log line"
-  sketch="$(plan_dir)/mockups/prototype.html"
-  if [ -f "$sketch" ]; then sketch_size; else fail "no mockups/prototype.html written at approval"; fi
+  # At approval the three options are written; the person skipped, so no pick and no prototype.html.
+  sketch="$(plan_dir)/mockups/option-a.html"
+  if [ -f "$sketch" ]; then sketch_size; else fail "no mockups/option-a.html written at approval"; fi
 else
   fail "no plan folder under docs/plans"
 fi
 
-# 6. Depth standard: the data round within three questions a round, then the sketch (D), then approval. The sketch
-# passes the 40,960-byte check and `plan status` has no prototype warning.
+# 6. Depth standard: the data round within three questions a round, then the sketch (D): three options, a pick,
+# and the picked sketch. Every sketch file passes the 40,960-byte check and `plan status` has no prototype warning.
 scenario=standard
 new_repo
 sketch_offered=0
 # Answers in a sentence or two of the user's own words keep the depth at standard; scenario 9 checks bare option numbers.
-goal="Answer each question in a sentence or two of your own words that takes the recommended option. At a what-next menu: if you have answered fewer than two menus, choose A (another round); if exactly two, reply with just: D (or B if the menu has no D), even when another option is marked recommended; otherwise choose B (approve the draft). Confirm if asked to approve anyway. When asked to approve or skip the sketch, approve it. When a review or a sign-off is offered, say you will do it later."
-max_turns=$((max_turns + 5)) # three rounds, the sketch, the approval and the sketch question
+goal="Answer each question in a sentence or two of your own words that takes the recommended option. At a what-next menu: if you have answered fewer than two menus, choose A (another round); if exactly two, reply with just: D (or B if the menu has no D), even when another option is marked recommended; otherwise choose B (approve the draft). Confirm if asked to approve anyway. When asked to pick a sketch option, pick the recommended one with no changes. When asked to approve the picked sketch, approve it. When a review or a sign-off is offered, say you will do it later."
+max_turns=$((max_turns + 6)) # three rounds, the sketch options, the pick, the approval and the sketch question
 converse "Use the powerops-plan skill. My idea: $loans." 'note_sketch; [ -n "$(plan_dir)" ] && grep -q "^- .*prototype:" "$(plan_dir)/decisions.md" 2>/dev/null' || true
-max_turns=$((max_turns - 5))
+max_turns=$((max_turns - 6))
 if [ -n "$(plan_dir)" ]; then
   check_decisions
   questions | grep -qiE 'rows|records|how many' || fail "no data round question about rows (depth $(header depth))"
   [ "$sketch_offered" = 1 ] || fail "no lettered option to sketch the screens"
-  grep -q '^- .*prototype: approved mockups/prototype.html' "$(plan_dir)/decisions.md" || fail "no 'prototype: approved' log line"
-  sketch="$(plan_dir)/mockups/prototype.html"
-  if [ -f "$sketch" ]; then
-    sketch_size
-    grep -q 'Sketch' "$sketch" || fail "the sketch has no Sketch label"
-    if grep -qi '<script' "$sketch"; then fail "the sketch has a script"; fi
-    if grep -qiE 'https?://' "$sketch"; then fail "the sketch has an external link"; fi
-    [ "$(wc -c <"$sketch")" -le 40960 ] || fail "the sketch is over 40,960 bytes"
-  else
-    fail "no mockups/prototype.html"
-  fi
+  grep -q '^- .*prototype: approved mockups/prototype.html (option [abcABC]' "$(plan_dir)/decisions.md" || fail "no 'prototype: approved mockups/prototype.html (option <letter>' log line"
+  for name in option-a option-b option-c prototype; do
+    sketch="$(plan_dir)/mockups/$name.html"
+    if [ -f "$sketch" ]; then
+      sketch_size
+      grep -q 'Sketch' "$sketch" || fail "$name.html has no Sketch label"
+      if grep -qi '<script' "$sketch"; then fail "$name.html has a script"; fi
+      if grep -qiE 'https?://' "$sketch"; then fail "$name.html has an external link"; fi
+      [ "$(wc -c <"$sketch")" -le 40960 ] || fail "$name.html is over 40,960 bytes"
+    else
+      fail "no mockups/$name.html"
+    fi
+  done
+  if cmp -s "$(plan_dir)/mockups/option-a.html" "$(plan_dir)/mockups/option-b.html"; then fail "options a and b are the same file"; fi
   if powerops plan status "$(plan_dir)" 2>&1 | grep -i 'warn.*prototype\|prototype.*warn' >/dev/null; then fail "plan status warns about the prototype"; fi
 else
   fail "no plan folder under docs/plans"
@@ -534,7 +538,7 @@ scenario=unavailable-tool
 new_repo
 if command -v contoso-forms >/dev/null 2>&1; then fail "contoso-forms is on PATH, so this scenario can't test a missing tool"; fi
 allowed_tools="Bash(powerops *),Bash(command -v *)"
-goal="When asked for the route, choose option 1; when asked for the publisher prefix, answer: cso. At the lettered what-next menu choose A. When asked to approve or skip a sketch, skip it with a reason. When a review or a sign-off is offered, say you will do it later."
+goal="When asked for the route, choose option 1; when asked for the publisher prefix, answer: cso. At the lettered what-next menu choose A. When asked to pick a sketch option or skip the sketch, skip it with a reason. When a review or a sign-off is offered, say you will do it later."
 # Done once Steps names the tool; the default budget covers the route, menu A and the deferred review.
 converse "Use the powerops-implement skill. Build a Dataverse table of inspection checklists, and load our existing checklists into it with the \`contoso-forms\` CLI." \
   'grep -q contoso-forms <<<"$(section Steps)"' || true

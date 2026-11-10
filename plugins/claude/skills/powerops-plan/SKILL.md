@@ -153,7 +153,7 @@ After each round, judge engagement from the answers. "Just pick", "whatever you 
 3. If `Steps` is empty, draft it from the plan and tell the user.
 4. Log the approval under `## Log`. If areas were skipped, log `approved without: <areas>`.
 5. Set `status: approved` in the header.
-6. If `Screens` names anything: unless a sketch passes `powerops plan status`, start `powerops-prototype <name>` (Claude Code: invoke it, which runs forked; Codex: a subagent; otherwise follow it here). Give the path and ask: approve, ask for changes (run it again with their notes), or skip with a reason. Wait, then log `prototype: approved mockups/prototype.html` or `prototype: skipped (<reason>)`. If `Screens` names nothing, log `prototype: not needed (<reason>)`. Each ends with an `(answered by: ...)` mark.
+6. If `Screens` names anything: unless a sketch passes `powerops plan status`, start `powerops-prototype <name>` (Claude Code: invoke it, which runs forked; Codex: a subagent; otherwise follow it here). It writes three options in different design directions. Show their paths, directions and its recommendation, and ask: pick one (with any changes), three new ones, or skip with a reason. Wait. On a pick, start it with `pick <letter>` and the notes; if `prototype.html` then shows more than the pick did, ask: approve or changes (`change`), and wait. Log `prototype: approved mockups/prototype.html (option <letter>: <why>)` or `prototype: skipped (<reason>)`. If `Screens` names nothing, log `prototype: not needed (<reason>)`. Each ends with an `(answered by: ...)` mark.
 7. Recommend a review in a fresh context with the `powerops-review-plan` skill, and start it as follows:
    - Claude Code: invoke the `powerops-review-plan` skill. Its installed copy runs forked on the top model.
    - Codex and other agents that can start a subagent with no chat history: start one that runs `powerops-review-plan`.
@@ -205,9 +205,9 @@ Any change to the plan body voids the sign-off. If the user wants changes, set `
 
 ## 11. Mockups
 
-Offer **D** whenever `Screens` names anything. On D, or a request for a screen, wireframe or mockup, start `powerops-prototype` (section 7 step 6), give the path and show the menu again.
+Offer **D** whenever `Screens` names anything. On D, or a request for a screen, wireframe or mockup, do section 7 step 6 and show the menu again.
 
-- Never publish or upload it. Apply section 4 to it.
+- Never publish or upload a sketch. Apply section 4 to it.
 - Keep visual detail out of `Screens` and `Steps`.
 
 ## Per agent
