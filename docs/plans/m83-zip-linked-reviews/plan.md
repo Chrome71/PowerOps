@@ -1,6 +1,6 @@
 ---
 status: draft
-review: none
+review: pending
 environment: null
 depth: standard
 supersedes: null
