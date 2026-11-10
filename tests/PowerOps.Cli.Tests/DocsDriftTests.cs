@@ -385,6 +385,17 @@ public partial class DocsDriftTests
         Assert.Contains("no exit codes in the deploy apply section of COMMANDS.md", RecoveryProblems(runbook, "", ApplySchema()));
     }
 
+    // A reader, or an agent whose file reader cuts long lines, must reach the end of each line of the command reference.
+    internal static List<string> LongLines(string text) =>
+        [.. text.Split('\n').Select((l, i) => (l, i)).Where(x => x.l.Length > 1500).Select(x => $"line {x.i + 1} has {x.l.Length} characters")];
+
+    [Fact]
+    public void No_line_of_the_command_reference_is_longer_than_1500_characters()
+    {
+        Assert.Empty(LongLines(Page("docs/COMMANDS.md")));
+        Assert.Equal(["line 2 has 1501 characters"], LongLines("short\n" + new string('x', 1501) + "\n" + new string('y', 1500)));
+    }
+
     // The deploy note names what diff doesn't compare in the verify role's words (step 3 of its Verify section), and the diff docs say it too.
     [Fact]
     public void What_diff_does_not_compare_is_named_alike_in_the_verify_skill_the_diff_docs_and_the_deploy_note()
