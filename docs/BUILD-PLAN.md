@@ -563,7 +563,7 @@ The owner asked on 2026-11-10 for a light, lasting way for the agents that devel
 
 ### Build order, M84 (continues the list below)
 
-85. `ci:` M84: the plan, then the inventory and collector, the workflow, the procedure and records, the first review and its fixes ([plan](plans/m84-ecosystem-watch/plan.md))
+85. `ci:` M84: the plan, then the inventory and collector, the workflow, the procedure and records, the first review and its fixes (built 2026-11-10, [plan](plans/m84-ecosystem-watch/plan.md))
 
 ## Testing
 
