@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# The PowerOps gate probe's stand-in for pac. It is not pac and never calls a host.
+# It runs only date, dirname and printf: it appends one line to gate-probe.marker beside itself, prints one line on stderr and exits 1.
+# When it runs, no hook blocked the call. See README.md.
+marker="$(dirname "$0")/gate-probe.marker"
+# An unwritable marker still prints the line below and exits 1.
+{ printf '%s pac %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >>"$marker"; } 2>/dev/null
+printf 'gate probe: the pac stand-in ran, so no hook blocked this call; the gate is not active in this session (marker: %s)\n' "$marker" >&2
+exit 1
