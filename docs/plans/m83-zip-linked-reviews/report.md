@@ -22,7 +22,7 @@ All conclusions here are provisional, as in M38, M39 and M55: one valid run per 
 | False Highs across its clean-case runs on solution-02 and solution-06, pooled | At most 1 | 0, from 4 Highs in 4 runs, as settled below | 0, from 1 High in 4 runs, as settled below |
 | Pooled denominator | At least 5 | 12 | 14 |
 
-Both roles are at or above both floors, so the person's answer of 2026-11-09 ("Keep if rules hold") applies. The false-High row rests on the settlement of one split between the scorers; under the other reading the Verifier has 2 false Highs and misses that floor (see Clean-case Highs).
+Both roles are at or above both floors, so the person's answer of 2026-11-09 ("Keep if rules hold") applies. The false-High row rests on the settlement of five splits between the scorers. Under the Sonnet scorer's reading of all five, the Verifier has 4 false Highs and the Security reviewer 1; with the three placeholder Highs taken as supported by M38's and M55's precedent and only the two V1s counted false, the Verifier has 2. Either way the Verifier would miss that floor (see Clean-case Highs).
 
 Recorded beside the keep rules, as the plan defines them:
 
@@ -63,7 +63,7 @@ Not in the keep rules: the Verifier also found all 8 of the Security reviewer's 
 Every High in a run on solution-02 or solution-06 came from Codex: its Verifier on solution-02 (2) and solution-06 (2), and its Security reviewer on solution-06 (1). Claude raised none there. The scorers split on all five: the Sonnet scorer marked them unsupported, the Codex scorer supported. The coordinating session settled them:
 
 - **Placeholder settings** (Verifier V2 on both cases, Security S1 on solution-06): the settings file holds the set's own fake connection ids and an `.invalid` mailbox, which the reviewer can't know are the set's. Settled supported, an unkeyed finding, as M55 and M38 settled the same finding on solution-06.
-- **"Deployment input is unmanaged"** (Verifier V1 on both cases): `solution/current/Other/Solution.xml` says `Managed` 0, the request named `deploy/current.zip` as the zip that will be deployed and its folder as that zip's unpack, the new skill text calls it "the managed zip that will be deployed", and the plan's route is managed in Test and Prod. The finding is true on the inputs the run was given, and both runs said it rests on the supplied relationship. Settled supported, an unkeyed finding. It is caused by the eval's zip, which is a plain zip of an unmanaged folder (decisions Q5); with a managed export, as the route has it, it would not arise. The Sonnet scorer read the plan's "moves to Test and Prod through the pipeline" as the pipeline making the managed package, which would make V1 a false High in two runs and fail the Verifier's floor.
+- **"Deployment input is unmanaged"** (Verifier V1 on both cases): `solution/current/Other/Solution.xml` says `Managed` 0, the request named `deploy/current.zip` as the zip that will be deployed and its folder as that zip's unpack, the new skill text calls it "the managed zip that will be deployed", and the plan's route is managed in Test and Prod. The finding is true on the inputs the run was given, and both runs said it rests on the supplied relationship. Settled supported, an unkeyed finding. It is caused by the eval's zip, which is a plain zip of an unmanaged folder (decisions Q5); with a managed export, as the route has it, it would not arise. The Sonnet scorer read the plan's "moves to Test and Prod through the pipeline" as the pipeline making the managed package, and marked all five unsupported: on that reading the Verifier has 4 false Highs and the Security reviewer 1, and with only the two V1s counted false the Verifier has 2; either way the Verifier would miss its floor. The Fable work review read both V1 reports, both plans, the request and both `Solution.xml` files and judged the settlement sound.
 
 ## Header lines
 
@@ -102,7 +102,7 @@ None found: every `blocked` report has a High open, and every `ready` report has
 
 ## Tenant claims
 
-The Sonnet scorer listed 2 findings, the Codex scorer 9, all from Claude's Security runs. Settled against "drawn from an export", as M55 did: 2 claims, both listed by both scorers (solution-05, supervisors locked out until someone assigns the profile by hand; solution-04, mail sent through a maker's connection), the same points M38, M39 and M55 settled as claims. The other 7 say a flow with no failure branch fails unnoticed; that is a forecast from the export, not a claim about configuration, and was settled as not a claim.
+The Sonnet scorer listed 2 findings, the Codex scorer 7, all from Claude's Security runs. Settled against "drawn from an export", as M55 did: 2 claims, both listed by both scorers (solution-05, supervisors locked out until someone assigns the profile by hand; solution-04, mail sent through a maker's connection), the same points M38, M39 and M55 settled as claims. The other 5 say a flow with no failure branch fails unnoticed; that is a forecast from the export, not a claim about configuration, and was settled as not a claim.
 
 ## Cost and time
 
@@ -121,13 +121,13 @@ Dollars are Claude Code's list-price figure from each run's `total_cost_usd`, no
 | Replacements | up to $3 | none |
 | Sonnet scorer and the unchanged-statement judge | about $2 | 137,833 and 248,704 subagent tokens, no dollar figure |
 | Cap | $30 | not reached |
-| Codex, runs and scorer | about 4.5M tokens | 4.6M in the runs; 481,574 in and 4,500 out for the scorer |
+| Codex, runs and scorer | about 4.5M tokens | 4.3M in the runs; 481,574 in and 4,500 out for the scorer |
 | Time | about an hour | 27 minutes of runs on each client |
 
 ## Limits
 
 - The set scored at the ceiling again, for both roles and both families, so this shows that the new text lost nothing these cases can see. It says little about harder flaws, and nothing about a real managed export: the eval's zip is a plain zip of each case's unmanaged folder, which the roles only hash.
-- The false-High floor of the Verifier rests on the settlement above.
+- The false-High floor of the Verifier rests on the settlement of five splits above: under the Sonnet scorer's reading the Verifier has 4 false Highs (2 counting only the V1s) and the Security reviewer 1.
 - Two false unchanged statements, against none in M55, both through the `Other/Customizations.xml` sentence of paragraph B, which the roles' text didn't change.
 - Every case has a previous solution and is an unpacked folder; no run took the branches for a zip or for no previous solution.
 - A temp folder of its own is a mitigation, not proof that a reviewer was blind. Codex's sandbox restricts writes, not reads.
