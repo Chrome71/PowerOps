@@ -27,6 +27,45 @@ public class RulesCommandTests
     }
 
     [Fact]
+    public void Format_json_equals_json_and_the_golden()
+    {
+        var (code, output, err) = Run("rules", "--format", "json");
+
+        Assert.Equal(0, code);
+        Assert.Equal("", err);
+        Assert.Equal(Run("rules", "--json").Out, output);
+        Golden.Verify(output, "rules.json");
+    }
+
+    [Fact]
+    public void Format_text_equals_the_default_text()
+    {
+        var (code, output, _) = Run("rules", "--format", "text");
+
+        Assert.Equal(0, code);
+        Assert.Equal(Run("rules").Out, output);
+    }
+
+    [Fact]
+    public void Json_wins_over_format_text()
+    {
+        var (code, output, _) = Run("rules", "--json", "--format", "text");
+
+        Assert.Equal(0, code);
+        Assert.Equal(Run("rules", "--json").Out, output);
+    }
+
+    [Fact]
+    public void An_unknown_format_is_a_usage_error()
+    {
+        var (code, output, err) = Run("rules", "--format", "xml");
+
+        Assert.Equal(2, code);
+        Assert.Equal("", output);
+        Assert.Contains("Argument 'xml' not recognized. Must be one of:  'text'  'json'", err);
+    }
+
+    [Fact]
     public void Text_lists_every_rule_in_order_and_matches_golden()
     {
         var (code, output, _) = Run("rules");

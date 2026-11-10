@@ -286,7 +286,8 @@ if [ -n "$(plan_dir)" ]; then
     fi
   done
   if cmp -s "$(plan_dir)/mockups/option-a.html" "$(plan_dir)/mockups/option-b.html"; then fail "options a and b are the same file"; fi
-  if powerops plan status "$(plan_dir)" 2>&1 | grep -i 'warn.*prototype\|prototype.*warn' >/dev/null; then fail "plan status warns about the prototype"; fi
+  # An option file's warning names mockups/, not the word prototype.
+  if powerops plan status "$(plan_dir)" 2>&1 | grep -iE 'warning: .*(prototype|mockups/)' >/dev/null; then fail "plan status warns about the prototype"; fi
 else
   fail "no plan folder under docs/plans"
 fi

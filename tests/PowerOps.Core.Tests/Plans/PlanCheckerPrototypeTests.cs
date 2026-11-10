@@ -312,6 +312,52 @@ public class PlanCheckerPrototypeTests : IDisposable
         Assert.StartsWith($"{File}:4:", p, StringComparison.Ordinal);
     }
 
+    // Decision 60: one meta, name="viewport" with a content value and nothing else, so a phone shows the narrow layout.
+    [Theory]
+    [InlineData("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")]
+    [InlineData("<meta content=\"width=device-width, initial-scale=1\" name=\"viewport\">")]
+    [InlineData("<META NAME=\"Viewport\" CONTENT=\"width=device-width\">")]
+    [InlineData("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />")]
+    [InlineData("<meta name=\"viewport\"/content=\"x\">")]
+    [InlineData("<meta name=\"viewport\" content=\"\">")]
+    [InlineData("<meta name=viewport content=width=device-width,initial-scale=1>")]
+    [InlineData("<meta name=\"&#118;iewport\" content=\"x\">")]
+    public void The_viewport_meta_is_quiet(string tag)
+    {
+        var r = Problems(Html(body: $"<p>Sketch</p>\n{tag}\n"));
+
+        Assert.Empty(r.File);
+    }
+
+    [Theory]
+    [InlineData("<meta http-equiv=\"refresh\" content=\"0\">")]
+    [InlineData("<meta charset=\"utf-8\">")]
+    [InlineData("<meta http-equiv=\"refresh\" name=\"viewport\" content=\"0\">")]
+    [InlineData("<meta name=\"viewport\" http-equiv=\"refresh\" content=\"0\">")]
+    [InlineData("<meta name=\"viewport\" content=\"0\" http-equiv=\"refresh\">")]
+    [InlineData("<meta name=\"viewport\" content=\"0\" id=\"a\">")]
+    [InlineData("<meta name=\"viewport\">")]
+    [InlineData("<meta name=\"viewport\" content>")]
+    [InlineData("<meta name=\"description\" content=\"x\">")]
+    [InlineData("<meta name=\"viewport\" name=\"viewport\" content=\"x\">")]
+    [InlineData("<meta name=\"viewport\" content=\"x\" content=\"y\">")]
+    [InlineData("<meta name=\"viewport\" content=\"x\" \">")]
+    [InlineData("<meta name=\"viewport\" content=\"x\" refresh>")]
+    [InlineData("<meta name=\"viewport\" content=\"x\" =\"y\">")]
+    [InlineData("<meta name=\" viewport\" content=\"x\">")]
+    [InlineData("<meta name=viewport/ content=x>")]
+    [InlineData("<meta name=viewport content=width=device-width, initial-scale=1>")]
+    [InlineData("<meta name=\"view&shy;port\" content=\"x\">")]
+    [InlineData("<meta n&#97;me=\"viewport\" content=\"x\">")]
+    [InlineData("<meta name=\"viewport\" content=\"x\">")]
+    public void Any_other_meta_fires(string tag)
+    {
+        var r = Problems(Html(body: $"<p>Sketch</p>\n{tag}\n"));
+
+        var p = Assert.Single(r.File, x => x.Contains("tag <meta> is not allowed", StringComparison.Ordinal));
+        Assert.StartsWith($"{File}:4:", p, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("<div src=\"a\">", "attribute src")]
     [InlineData("<div srcset=\"a\">", "attribute srcset")]

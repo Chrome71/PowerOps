@@ -789,3 +789,10 @@ Made in the [M84 plan](plans/m84-ecosystem-watch/plan.md); its `decisions.md` we
 Made in the [M85 plan](plans/m85-gate-routes/plan.md); its `decisions.md` weighs the options.
 
 59. **The gate keeps its job; pac's preview groups stay unrouted.** It blocks installs, imports, uploads and publishes of content no plan holds, so `install-application-package` gets a route through MCP too; the commands and MCP tools of pac's preview groups pass, and `docs/HANDOFF.md` lists them with deny rules to copy, because a deny rule is the control and the gate is defence in depth (decision 41). The owner chose this on 2026-11-10.
+
+
+## Decisions, sketch tags (2026-11-10)
+
+Made before the third end-to-end trial, after decisions 52 to 55.
+
+60. **A sketch may hold one `meta name="viewport"` with a `content` value**, so a phone shows the narrow layout; every other `meta` stays banned, and a viewport tag with any other attribute is banned too. This amends the tag list of [M70](plans/m70-prototype-gate/plan.md) (Goal line 2).

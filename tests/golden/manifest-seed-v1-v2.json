@@ -1,0 +1,212 @@
+{
+  "schemaVersion": 1,
+  "manifests": [
+    {
+      "path": "powerops-seed/v1",
+      "kind": "folder",
+      "digest": "311c3e2af5450e327ff7f967a150de31c22b812c96787866b25d5e85b79a161a",
+      "files": [
+        {
+          "path": "CanvasApps/pops_workitems_2af60.meta.xml",
+          "sha256": "eb6adc3c0fa7b90c0846d3a6c7d9bd76a7e013f453ff5cd0cb2bb5fd834fc7c7"
+        },
+        {
+          "path": "Entities/pops_WorkItem/Entity.xml",
+          "sha256": "d4cbc231fff55f71bf72d85f3b78ba6cdb4df74c07aa770d8e2193dc91743211"
+        },
+        {
+          "path": "Entities/pops_WorkItem/FormXml/card/{905e9c6f-b13e-48eb-b90a-6fd02dbde879}.xml",
+          "sha256": "db2c3f94e8f76ed7f04289cfcec32b377d603e8d3bc52dd93ab3082ce16e673e"
+        },
+        {
+          "path": "Entities/pops_WorkItem/FormXml/main/{ddcb78b5-b98b-46a9-a30b-9e39ed8c741a}.xml",
+          "sha256": "3e7672203d581f5f3765dc071b61b028e27937149babe7f3d9796506d6dae33d"
+        },
+        {
+          "path": "Entities/pops_WorkItem/FormXml/quick/{628c36e9-1a21-4922-bd41-6c5abde409d5}.xml",
+          "sha256": "7992d5832a3eb7102a74f207ac9f153b1c1ec4e396fd011f2ea81a3a60884e5a"
+        },
+        {
+          "path": "Entities/pops_WorkItem/RibbonDiff.xml",
+          "sha256": "aa42f76d6c913f120765d4ae4a6b034faff63ec6b02e8efadab44f963c1a7a12"
+        },
+        {
+          "path": "Entities/pops_WorkItem/SavedQueries/{2a248254-602a-4e40-a38c-ddf91a594ba5}.xml",
+          "sha256": "6f2cc7d8f9efa7d100321eb3ef1ef7fec7e70eac1165db592a8a1d289f55ba95"
+        },
+        {
+          "path": "Entities/pops_WorkItem/SavedQueries/{30f43a8c-43d1-4afe-b8e6-3efc5c6f34b7}.xml",
+          "sha256": "cda930ebac792adab549868c334bcb25667ba08623667d66a68cf261ebc24232"
+        },
+        {
+          "path": "Entities/pops_WorkItem/SavedQueries/{381676bd-9550-458a-87e0-867caed2aaf3}.xml",
+          "sha256": "32b58cdc15f920dc6996314a1cac5a53d1d1762f47c69268d0e4018c6f937e98"
+        },
+        {
+          "path": "Entities/pops_WorkItem/SavedQueries/{52b6a833-20dc-4138-9b24-0783983102ca}.xml",
+          "sha256": "4d14f8b3f51e875ad602766cc1b4de4ac7a03fff41287b701e48645454ac786a"
+        },
+        {
+          "path": "Entities/pops_WorkItem/SavedQueries/{a78f1d68-723a-4609-9026-2ac678ab8436}.xml",
+          "sha256": "771f11467d2bc7f17d529fcd5797b6b6c640776156909353b27d18840204ed90"
+        },
+        {
+          "path": "Entities/pops_WorkItem/SavedQueries/{cd3664da-decb-f111-a05c-70a8a5ae9806}.xml",
+          "sha256": "9dfd070b97ebd354337d645a5e8d4a3bca479ddf881595473d9d3d536e9513f7"
+        },
+        {
+          "path": "Entities/pops_WorkItem/SavedQueries/{fc4ea993-f690-4b2c-9d63-34e9c671f4a2}.xml",
+          "sha256": "452506e2d23cccfcb23291809c7da9762af70488ed15a7d9438290398bfb6938"
+        },
+        {
+          "path": "Other/Customizations.xml",
+          "sha256": "b604a4254c66b785957e7990bee75e564974067384e6e67385083e1bd2bcd80c"
+        },
+        {
+          "path": "Other/Relationships.xml",
+          "sha256": "dd2375af2d147189feb3af72a1c5396e5edf1981eacae7b140979ae07a80177c"
+        },
+        {
+          "path": "Other/Relationships/BusinessUnit.xml",
+          "sha256": "ec08818a056b7528129ab30b06d50184340512840d4806b40a280e916bfe8582"
+        },
+        {
+          "path": "Other/Relationships/Owner.xml",
+          "sha256": "aef4b979df82c1023f392a47e66f8f4ffc427638ba4ecb106df8be062addcbd7"
+        },
+        {
+          "path": "Other/Relationships/SystemUser.xml",
+          "sha256": "29a7401740d11821cb01054fd00c2215c1090325a5653d781890252f2ba2ef80"
+        },
+        {
+          "path": "Other/Relationships/Team.xml",
+          "sha256": "7a1a0e41c7ab3fa67ac61d38b3207c3c53ec9a5b05fb526ff079d53435b3e018"
+        },
+        {
+          "path": "Other/Solution.xml",
+          "sha256": "8f52b259b1bdfcb9267b9f96501185664a14c1c7485ce20f01101b28db769df0"
+        },
+        {
+          "path": "Workflows/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json",
+          "sha256": "707487041dcdf7ba0565d1d2021c8bb317c2d5986872504e5e42d9001c76d1ae"
+        },
+        {
+          "path": "Workflows/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json.data.xml",
+          "sha256": "9fd689f10a08bd40751331870221c4adec8b03169fae3182b2ac564385b59106"
+        },
+        {
+          "path": "environmentvariabledefinitions/pops_DefaultStatus/environmentvariabledefinition.xml",
+          "sha256": "5d178ee1971a5484470883ef0ae9d694b10a6fd733d0491d8e04d804dddf598e"
+        }
+      ]
+    },
+    {
+      "path": "powerops-seed/v2",
+      "kind": "folder",
+      "digest": "303b92bfab89600332f10694900f8df448ada85fba07b742c3bad6932c39759e",
+      "files": [
+        {
+          "path": "CanvasApps/pops_workitems_2af60.meta.xml",
+          "sha256": "eb6adc3c0fa7b90c0846d3a6c7d9bd76a7e013f453ff5cd0cb2bb5fd834fc7c7"
+        },
+        {
+          "path": "Entities/pops_WorkItem/Entity.xml",
+          "sha256": "d4cbc231fff55f71bf72d85f3b78ba6cdb4df74c07aa770d8e2193dc91743211"
+        },
+        {
+          "path": "Entities/pops_WorkItem/FormXml/card/{905e9c6f-b13e-48eb-b90a-6fd02dbde879}.xml",
+          "sha256": "db2c3f94e8f76ed7f04289cfcec32b377d603e8d3bc52dd93ab3082ce16e673e"
+        },
+        {
+          "path": "Entities/pops_WorkItem/FormXml/main/{ddcb78b5-b98b-46a9-a30b-9e39ed8c741a}.xml",
+          "sha256": "3e7672203d581f5f3765dc071b61b028e27937149babe7f3d9796506d6dae33d"
+        },
+        {
+          "path": "Entities/pops_WorkItem/FormXml/quick/{628c36e9-1a21-4922-bd41-6c5abde409d5}.xml",
+          "sha256": "7992d5832a3eb7102a74f207ac9f153b1c1ec4e396fd011f2ea81a3a60884e5a"
+        },
+        {
+          "path": "Entities/pops_WorkItem/RibbonDiff.xml",
+          "sha256": "aa42f76d6c913f120765d4ae4a6b034faff63ec6b02e8efadab44f963c1a7a12"
+        },
+        {
+          "path": "Entities/pops_WorkItem/SavedQueries/{2a248254-602a-4e40-a38c-ddf91a594ba5}.xml",
+          "sha256": "6f2cc7d8f9efa7d100321eb3ef1ef7fec7e70eac1165db592a8a1d289f55ba95"
+        },
+        {
+          "path": "Entities/pops_WorkItem/SavedQueries/{30f43a8c-43d1-4afe-b8e6-3efc5c6f34b7}.xml",
+          "sha256": "cda930ebac792adab549868c334bcb25667ba08623667d66a68cf261ebc24232"
+        },
+        {
+          "path": "Entities/pops_WorkItem/SavedQueries/{381676bd-9550-458a-87e0-867caed2aaf3}.xml",
+          "sha256": "32b58cdc15f920dc6996314a1cac5a53d1d1762f47c69268d0e4018c6f937e98"
+        },
+        {
+          "path": "Entities/pops_WorkItem/SavedQueries/{52b6a833-20dc-4138-9b24-0783983102ca}.xml",
+          "sha256": "4d14f8b3f51e875ad602766cc1b4de4ac7a03fff41287b701e48645454ac786a"
+        },
+        {
+          "path": "Entities/pops_WorkItem/SavedQueries/{a78f1d68-723a-4609-9026-2ac678ab8436}.xml",
+          "sha256": "771f11467d2bc7f17d529fcd5797b6b6c640776156909353b27d18840204ed90"
+        },
+        {
+          "path": "Entities/pops_WorkItem/SavedQueries/{cd3664da-decb-f111-a05c-70a8a5ae9806}.xml",
+          "sha256": "9dfd070b97ebd354337d645a5e8d4a3bca479ddf881595473d9d3d536e9513f7"
+        },
+        {
+          "path": "Entities/pops_WorkItem/SavedQueries/{fc4ea993-f690-4b2c-9d63-34e9c671f4a2}.xml",
+          "sha256": "452506e2d23cccfcb23291809c7da9762af70488ed15a7d9438290398bfb6938"
+        },
+        {
+          "path": "Other/Customizations.xml",
+          "sha256": "e709a22427f2881bedcbafe0712909c0ddf64a48e2592c80b03df97358773316"
+        },
+        {
+          "path": "Other/Relationships.xml",
+          "sha256": "dd2375af2d147189feb3af72a1c5396e5edf1981eacae7b140979ae07a80177c"
+        },
+        {
+          "path": "Other/Relationships/BusinessUnit.xml",
+          "sha256": "ec08818a056b7528129ab30b06d50184340512840d4806b40a280e916bfe8582"
+        },
+        {
+          "path": "Other/Relationships/Owner.xml",
+          "sha256": "aef4b979df82c1023f392a47e66f8f4ffc427638ba4ecb106df8be062addcbd7"
+        },
+        {
+          "path": "Other/Relationships/SystemUser.xml",
+          "sha256": "29a7401740d11821cb01054fd00c2215c1090325a5653d781890252f2ba2ef80"
+        },
+        {
+          "path": "Other/Relationships/Team.xml",
+          "sha256": "7a1a0e41c7ab3fa67ac61d38b3207c3c53ec9a5b05fb526ff079d53435b3e018"
+        },
+        {
+          "path": "Other/Solution.xml",
+          "sha256": "8f52b259b1bdfcb9267b9f96501185664a14c1c7485ce20f01101b28db769df0"
+        },
+        {
+          "path": "Workflows/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json",
+          "sha256": "04c566658f7f73e637fc788029f3158cd63743e214147b55c3caa45dd6e135ce"
+        },
+        {
+          "path": "Workflows/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json.data.xml",
+          "sha256": "9fd689f10a08bd40751331870221c4adec8b03169fae3182b2ac564385b59106"
+        },
+        {
+          "path": "environmentvariabledefinitions/pops_DefaultStatus/environmentvariabledefinition.xml",
+          "sha256": "5d178ee1971a5484470883ef0ae9d694b10a6fd733d0491d8e04d804dddf598e"
+        }
+      ]
+    }
+  ],
+  "comparison": {
+    "added": [],
+    "removed": [],
+    "changed": [
+      "Other/Customizations.xml",
+      "Workflows/Stampworkitemstatus-4C8DD007-DFCB-F111-A05C-0022480697A8.json"
+    ],
+    "same": 21
+  }
+}

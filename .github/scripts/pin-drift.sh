@@ -2,7 +2,8 @@
 # Usage: pin-drift.sh   (run in a clone with its full history)
 # Finds the PowerOps pins the docs tell readers to copy: the README's `git -C PowerOps checkout <sha>` line and every `Chrome71/PowerOps@<sha>`
 # in README.md, docs/GITHUB-ACTION.md and docs/examples/*.yml. Warns (a ::warning:: line and a job-summary line) when the pins differ, when a pin is not
-# an ancestor of HEAD, or when files the Action builds from changed after a pin. It also checks the Action's release pin (PO_RELEASE in action.yml):
+# an ancestor of HEAD, when a pin's action.yml lacks an input that action.yml on HEAD declares (a snippet that sets it fails at that pin), or when files
+# the Action builds from changed after a pin. It also checks the Action's release pin (PO_RELEASE in action.yml):
 # it warns when the pin is not the latest release in .release-please-manifest.json, when the clone has no tag for the pinned release, and when
 # commits under action/ came after that tag. Only digits and dots read from those files reach a warning. It is a warning job, not a check: it exits 0
 # unless the call is broken.
@@ -11,6 +12,8 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 paths="src action action.yml skills global.json Directory.Build.props"
+# The input keys of an action.yml read on stdin: lines indented by exactly two spaces, from inputs: to outputs: (or runs:). Names are [a-z-] only.
+inputs_of() { sed -n '/^inputs:/,/^[a-z][a-z-]*:/ s/^  \([a-z][a-z-]*\):.*/\1/p'; }
 
 warn() {
   echo "::warning::$1"
@@ -55,6 +58,15 @@ for pin in $pins; do
   if ! git cat-file -e "$pin^{commit}" 2> /dev/null || ! git merge-base --is-ancestor "$pin" HEAD; then
     warn "The PowerOps pin $short is not an ancestor of HEAD. Pin a commit of main."
     continue
+  fi
+  missing=""
+  head_inputs="$(inputs_of 2> /dev/null < action.yml || true)"
+  pin_inputs="$(git show "$pin:action.yml" 2> /dev/null | inputs_of || true)"
+  for name in $head_inputs; do
+    if ! echo "$pin_inputs" | grep -qx "$name"; then missing="$missing $name"; fi
+  done
+  if [ -n "$missing" ]; then
+    warn "The PowerOps pin $short has no input(s)$missing that action.yml on main declares: a snippet that sets one fails at that pin. Pin the newest commit of main."
   fi
   # shellcheck disable=SC2086  # $paths is a list of paths without spaces
   count="$(git rev-list --count "$pin..HEAD" -- $paths)"

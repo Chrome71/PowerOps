@@ -512,7 +512,7 @@ public partial class SkillsCommandTests : IDisposable
         // M70: the skill writes what PlanChecker.PrototypeProblems accepts, so its numbers and markers must match.
         var text = SkillsCommand.Shipped()["powerops-prototype/SKILL.md"];
 
-        string[] rules = ["At most 81,920 bytes", "`route:`", "\"Sketch\"", "`data-screen=\"<name>\"`", "`href=\"#...\"`", "Write no `@` anywhere", "Never asks the user questions", "powerops plan status docs/plans/<name>"];
+        string[] rules = ["At most 81,920 bytes", "`route:`", "\"Sketch\"", "`data-screen=\"<name>\"`", "`href=\"#...\"`", "Write no `@` anywhere", "Never asks the user questions", "powerops plan status docs/plans/<name>", "Put `<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">` in each sketch's `head`, so a phone shows the narrow layout; it is the one `meta` allowed."];
         Assert.All(rules, r => Assert.Contains(r, text));
         Assert.All(new[] { "empty", "loading", "error", "failed-save" }, s => Assert.Contains($"`data-state=\"{s}\"`", text));
         Assert.All(new[] { "script", "link", "meta", "base", "iframe", "frame", "object", "embed", "img", "picture", "svg", "form", "video", "audio", "source" }, tag => Assert.Contains($"`{tag}`", text));

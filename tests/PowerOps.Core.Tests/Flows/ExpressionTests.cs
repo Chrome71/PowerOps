@@ -229,6 +229,7 @@ public class ExpressionTests
     {
         var ex = Assert.Throws<UnsupportedException>(() => Eval("xml('<a/>')"));
         Assert.Contains("xml", ex.Message);
+        Assert.EndsWith("See Supported functions in docs/FLOW-TESTS.md; a mock does not avoid this, as a mocked action's inputs are evaluated too.", ex.Message);
 
         ex = Assert.Throws<UnsupportedException>(() => Eval("json(xml('<a/>'))"));
         Assert.Contains("xml", ex.Message);
@@ -779,6 +780,213 @@ public class ExpressionTests
     [InlineData("min(createArray(1), 2)")]
     public void Min_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
 
+    // ---- functions written from Learn, read 2026-11-10, not yet compared with a real run
+
+    private static void AssertText(string expression, string expectedJsonText) => Assert.Equal(expectedJsonText, Eval(expression)?.ToJsonString());
+
+    // unsupported by the function's own rule, not because the function is unknown
+    private static void AssertOpen(string expression) =>
+        Assert.DoesNotContain("Unsupported function", Assert.Throws<UnsupportedException>(() => Eval(expression)).Message);
+
+    // add: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#add (read 2026-11-10)
+    // sub: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#sub (read 2026-11-10)
+    // mul: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#mul (read 2026-11-10)
+    // div: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#div (read 2026-11-10)
+    [Theory]
+    [InlineData("add(1, 1.5)", "2.5")] // Learn's example
+    [InlineData("add(1, 1)", "2")]
+    [InlineData("add(-3, 1)", "-2")]
+    [InlineData("add(0.25, 0.5)", "0.75")]
+    [InlineData("add(2147483646, 1)", "2147483647")]
+    [InlineData("sub(10, 3)", "7")]
+    [InlineData("sub(1, 2.5)", "-1.5")]
+    [InlineData("mul(1, 2)", "2")] // Learn's first example
+    [InlineData("mul(1.5, 1.5)", "2.25")]
+    [InlineData("mul(-3, 4)", "-12")]
+    [InlineData("div(10, 5)", "2")] // Learn: both give 2 with Integer type
+    [InlineData("div(11, 5)", "2")]
+    [InlineData("div(11, 5.0)", "2.2")] // Learn: both give 2.2 with Float type
+    [InlineData("div(11.0, 5)", "2.2")]
+    [InlineData("div(10, 5.0)", "2.0")] // Learn: a float operand gives a float; written as float() writes one
+    [InlineData("div(11, float('5'))", "2.2")]
+    [InlineData("div(-11.0, 5)", "-2.2")]
+    [InlineData("div(0, 5)", "0")]
+    public void Arithmetic(string expression, string expectedJsonText) => AssertText(expression, expectedJsonText);
+
+    [Theory]
+    [InlineData("sub(10.3, .3)")] // Learn's example gives 10: Learn doesn't say whether a whole result of a float is an integer or a float
+    [InlineData("mul(1.5, 2)")] // Learn's second example gives 3, the same question
+    [InlineData("add(1.5, 0.5)")]
+    [InlineData("add(2147483647, 1)")] // Learn doesn't give the integer range; int() takes 32 bits
+    [InlineData("sub(-2147483648, 1)")]
+    [InlineData("mul(65536, 65536)")]
+    [InlineData("add(5000000000, -4999999999)")]
+    [InlineData("div(1, 0)")] // Learn: the divisor can't be zero, but not what a run does then
+    [InlineData("div(1.5, 0)")]
+    [InlineData("div(1, 0.0)")]
+    [InlineData("div(-11, 5)")] // Learn's examples don't say whether a negative quotient is truncated or floored
+    [InlineData("div(11, -5)")]
+    public void Arithmetic_learn_leaves_open_is_unsupported(string expression) => AssertOpen(expression);
+
+    [Fact]
+    public void Arithmetic_past_the_double_range_is_unsupported()
+    {
+        var big = $"float('1{new string('0', 300)}')";
+
+        AssertOpen($"mul({big}, {big})");
+    }
+
+    [Theory]
+    [InlineData("add('1', 2)")]
+    [InlineData("sub(1, true)")]
+    [InlineData("mul(null, 2)")]
+    [InlineData("div(createArray(1), 2)")]
+    [InlineData("add(1)")]
+    [InlineData("add(1, 2, 3)")]
+    public void Arithmetic_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
+
+    // less: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#less (read 2026-11-10)
+    [Theory]
+    [InlineData("less(5, 10)", "true")] // Learn's examples
+    [InlineData("less('banana', 'apple')", "false")]
+    [InlineData("less(5, 5)", "false")] // Learn: equal gives false
+    [InlineData("less(1.5, 2)", "true")]
+    [InlineData("less('apple', 'banana')", "true")]
+    public void Less(string expression, string expectedJson) => AssertEval(expression, expectedJson);
+
+    [Theory]
+    [InlineData("less(1, 'a')")]
+    [InlineData("less(1)")]
+    public void Less_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
+
+    // toUpper: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#toUpper (read 2026-11-10)
+    [Theory]
+    [InlineData("toUpper('Hello World')", "\"HELLO WORLD\"")] // Learn's example
+    [InlineData("toUpper('123 !')", "\"123 !\"")] // Learn: a character with no uppercase stays
+    public void ToUpper(string expression, string expectedJson) => AssertEval(expression, expectedJson);
+
+    [Fact]
+    public void ToUpper_of_a_non_string_is_an_error() => Assert.Throws<ExpressionException>(() => Eval("toUpper(5)"));
+
+    // startsWith: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#startsWith (read 2026-11-10)
+    // endsWith: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#endsWith (read 2026-11-10)
+    // indexOf: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#indexOf (read 2026-11-10)
+    [Theory]
+    [InlineData("startsWith('hello world', 'hello')", "true")] // Learn's examples
+    [InlineData("startsWith('hello world', 'greetings')", "false")]
+    [InlineData("startsWith('Hello World', 'hELLO')", "true")] // Learn: isn't case-sensitive
+    [InlineData("startsWith('', 'a')", "false")] // Learn: false when not found
+    [InlineData("startsWith('hello', 'hello world')", "false")]
+    [InlineData("endsWith('hello world', 'world')", "true")]
+    [InlineData("endsWith('hello world', 'universe')", "false")]
+    [InlineData("endsWith('hello world', 'WORLD')", "true")]
+    [InlineData("endsWith('', 'a')", "false")]
+    [InlineData("indexOf('hello world', 'world')", "6")]
+    [InlineData("indexOf('hello world', 'WORLD')", "6")]
+    [InlineData("indexOf('hello world', 'o')", "4")]
+    [InlineData("indexOf('hello', 'x')", "-1")] // Learn: not found gives -1
+    [InlineData("indexOf('', 'a')", "-1")]
+    public void Search(string expression, string expectedJson) => AssertEval(expression, expectedJson);
+
+    [Theory]
+    [InlineData("startsWith('abc', '')")] // Learn doesn't say whether an empty string is found
+    [InlineData("endsWith('abc', '')")]
+    [InlineData("indexOf('abc', '')")]
+    [InlineData("startsWith('héllo', 'h')")] // Learn says only that it isn't case-sensitive, not how it compares other characters
+    [InlineData("endsWith('abc', 'É')")]
+    [InlineData("indexOf('straße', 'SS')")]
+    [InlineData("indexOf(concat('a', decodeBase64('AA=='), 'b'), 'b')")] // a control character
+    public void Search_learn_leaves_open_is_unsupported(string expression) => AssertOpen(expression);
+
+    [Theory]
+    [InlineData("startsWith(5, 'a')")]
+    [InlineData("endsWith('a', null)")]
+    [InlineData("indexOf('a')")]
+    public void Search_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
+
+    // coalesce: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#coalesce (read 2026-11-10)
+    [Theory]
+    [InlineData("coalesce(null, true, false)", "true")] // Learn's examples
+    [InlineData("coalesce(null, 'hello', 'world')", "\"hello\"")]
+    [InlineData("coalesce(null, null, null)", "null")]
+    [InlineData("coalesce('', 'a')", "\"\"")] // Learn: empty strings, arrays and objects aren't null
+    [InlineData("coalesce(json('[]'), 1)", "[]")]
+    [InlineData("coalesce(json('{}'), 1)", "{}")]
+    [InlineData("coalesce(triggerOutputs()['body']['empty'], 'none')", "\"none\"")]
+    [InlineData("coalesce(5)", "5")]
+    public void Coalesce(string expression, string expectedJson) => AssertEval(expression, expectedJson);
+
+    [Fact]
+    public void Coalesce_needs_an_argument() => Assert.Throws<ExpressionException>(() => Eval("coalesce()"));
+
+    // join: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#join (read 2026-11-10)
+    [Theory]
+    [InlineData("join(createArray('a', 'b', 'c'), '.')", "\"a.b.c\"")] // Learn's example
+    [InlineData("join(createArray('a'), ', ')", "\"a\"")]
+    [InlineData("join(json('[]'), ',')", "\"\"")]
+    [InlineData("join(createArray('a', ''), '')", "\"a\"")]
+    public void Join(string expression, string expectedJson) => AssertEval(expression, expectedJson);
+
+    [Theory]
+    [InlineData("join(createArray('a', 1), ',')")] // Learn doesn't say how an item that is not a string is written
+    [InlineData("join(createArray('a', null), ',')")]
+    [InlineData("join(createArray(true), ',')")]
+    [InlineData("join(createArray(json('{}')), ',')")]
+    public void Join_of_an_item_that_is_not_a_string_is_unsupported(string expression) => AssertOpen(expression);
+
+    [Theory]
+    [InlineData("join('abc', ',')")]
+    [InlineData("join(createArray('a'), 1)")]
+    [InlineData("join(createArray('a'))")]
+    public void Join_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
+
+    // take: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#take (read 2026-11-10)
+    // skip: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#skip (read 2026-11-10)
+    [Theory]
+    [InlineData("take('abcde', 3)", "\"abc\"")] // Learn's examples
+    [InlineData("take(createArray(0, 1, 2, 3, 4), 3)", "[0,1,2]")]
+    [InlineData("take('abc', 3)", "\"abc\"")]
+    [InlineData("take(triggerOutputs()['body']['value'], 1)", "[1]")]
+    [InlineData("take(createArray(items('myForEachLoopName'), 1), 1)", """[{"id":7}]""")] // copies the item
+    [InlineData("skip(createArray(0, 1, 2, 3), 1)", "[1,2,3]")] // Learn's example
+    [InlineData("skip(createArray(0, 1), 2)", "[]")]
+    [InlineData("skip(triggerOutputs()['body']['value'], 1)", "[2]")]
+    public void Take_and_skip(string expression, string expectedJson) => AssertEval(expression, expectedJson);
+
+    [Theory]
+    [InlineData("take('abc', 0)")] // Learn: a positive count; not what a run does with another
+    [InlineData("take('abc', -1)")]
+    [InlineData("take('abc', 4)")] // Learn doesn't say what a count past the end gives
+    [InlineData("take(json('[]'), 1)")]
+    [InlineData("skip(createArray(1), 0)")]
+    [InlineData("skip(createArray(1), -1)")]
+    [InlineData("skip(createArray(1), 2)")]
+    [InlineData("skip('abc', 1)")] // Learn lists only an array for skip
+    public void Take_and_skip_learn_leaves_open_is_unsupported(string expression) => AssertOpen(expression);
+
+    [Theory]
+    [InlineData("take(5, 1)")]
+    [InlineData("take('abc', '1')")]
+    [InlineData("take('abc', 1.5)")]
+    [InlineData("skip(json('{}'), 1)")]
+    [InlineData("skip(createArray(1))")]
+    public void Take_and_skip_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
+
+    // base64: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#base64 (read 2026-11-10)
+    [Theory]
+    [InlineData("base64('hello')", "\"aGVsbG8=\"")] // Learn's example
+    [InlineData("base64('')", "\"\"")]
+    [InlineData("base64('Hello, World!')", "\"SGVsbG8sIFdvcmxkIQ==\"")]
+    public void Base64(string expression, string expectedJson) => AssertEval(expression, expectedJson);
+
+    [Fact]
+    public void Base64_outside_ascii_is_unsupported() => AssertOpen("base64('é')"); // Learn doesn't say which encoding gives the bytes
+
+    [Theory]
+    [InlineData("base64(5)")]
+    [InlineData("base64()")]
+    public void Base64_errors(string expression) => Assert.Throws<ExpressionException>(() => Eval(expression));
+
     // utcNow: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#utcNow
     [Fact]
     public void UtcNow_is_the_fixed_timestamp_in_the_o_format() => AssertEval("utcNow()", "\"2018-04-15T13:00:00.0000000Z\"");
@@ -1263,19 +1471,20 @@ public class ExpressionTests
     // ---- the list of functions
 
     [Fact]
-    public void Names_are_exactly_the_47_functions_sorted()
+    public void Names_are_exactly_the_61_functions_sorted()
     {
         string[] expected =
         [
-            "addDays", "addHours", "addMinutes", "addSeconds", "and", "body", "concat", "contains", "convertFromUtc",
-            "convertTimeZone", "createArray", "dayOfWeek", "decodeBase64", "empty", "equals", "first", "float",
-            "formatDateTime", "greater", "greaterOrEquals", "guid", "if", "int", "item", "items", "json", "last",
-            "length", "lessOrEquals", "min", "not", "or", "outputs", "parameters", "replace", "result", "split",
-            "startOfDay", "string", "substring", "toLower", "triggerBody", "triggerOutputs", "trim", "utcNow",
-            "variables", "workflow",
+            "add", "addDays", "addHours", "addMinutes", "addSeconds", "and", "base64", "body", "coalesce", "concat",
+            "contains", "convertFromUtc", "convertTimeZone", "createArray", "dayOfWeek", "decodeBase64", "div", "empty",
+            "endsWith", "equals", "first", "float", "formatDateTime", "greater", "greaterOrEquals", "guid", "if",
+            "indexOf", "int", "item", "items", "join", "json", "last", "length", "less", "lessOrEquals", "min", "mul",
+            "not", "or", "outputs", "parameters", "replace", "result", "skip", "split", "startOfDay", "startsWith",
+            "string", "sub", "substring", "take", "toLower", "toUpper", "triggerBody", "triggerOutputs", "trim",
+            "utcNow", "variables", "workflow",
         ];
 
-        Assert.Equal(47, expected.Length);
+        Assert.Equal(61, expected.Length);
         Assert.Equal(expected, ExpressionFunctions.Names);
         Assert.Equal(ExpressionFunctions.Names.Order(StringComparer.Ordinal), ExpressionFunctions.Names);
     }
@@ -1417,9 +1626,10 @@ public class ExpressionTests
     [Fact]
     public void EvaluateCondition_with_an_unknown_function_is_unsupported()
     {
-        var ex = Assert.Throws<UnsupportedException>(() => Expression.EvaluateCondition(JsonNode.Parse("""{"startsWith":["abc","a"]}"""), Ctx));
+        var ex = Assert.Throws<UnsupportedException>(() => Expression.EvaluateCondition(JsonNode.Parse("""{"xml":["<a/>"]}"""), Ctx));
 
-        Assert.Contains("startsWith", ex.Message);
+        Assert.Equal("Unsupported function 'xml'. " + ExpressionFunctions.UnsupportedNextStep, ex.Message);
+        AssertJson("true", Expression.EvaluateCondition(JsonNode.Parse("""{"startsWith":["abc","a"]}"""), Ctx));
         Assert.Throws<UnsupportedException>(() => Expression.EvaluateCondition(JsonNode.Parse("""{"and":[{"nope":[1]}]}"""), Ctx));
     }
 

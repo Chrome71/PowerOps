@@ -308,7 +308,7 @@ public static class Expression
                 {
                     if (!ExpressionFunctions.IsKnown(name))
                     {
-                        throw new UnsupportedException($"Unsupported function '{Excerpt(name)}' in expression '{Excerpt(text)}'.");
+                        throw new UnsupportedException($"Unsupported function '{Excerpt(name)}' in expression '{Excerpt(text)}'. {ExpressionFunctions.UnsupportedNextStep}");
                     }
 
                     height = Deeper(height);

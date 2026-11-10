@@ -489,6 +489,39 @@ public sealed class WorkflowTests
         }
     }
 
+    // inputs: and outputs: share the key plan-file, and outputs: has a key no input has: the read must stop at outputs:.
+    private static string ActionYml(params string[] inputs) =>
+        "name: x\ninputs:\n" + string.Concat(inputs.Select(i => $"  {i}:\n    description: d\n    default: ''\n")) +
+        "outputs:\n  plan-file:\n    value: v\n  only-output:\n    value: v\nruns:\n  using: composite\n";
+
+    [Fact]
+    public void The_pin_drift_script_warns_and_names_an_input_the_pinned_action_lacks()
+    {
+        var run = PinDrift(dir =>
+        {
+            var pin = Commit(dir, "feat: action", ("action.yml", ActionYml("path", "tests", "plan-file")));
+            Commit(dir, "docs: later", ("action.yml", ActionYml("path", "tests", "plan-file", "redact")));
+            return Pins(pin, pin);
+        });
+
+        Warns("has no input(s) redact that action.yml on main declares", run);
+        Assert.DoesNotContain("only-output", run.Stdout);
+        Assert.DoesNotContain("plan-file that", run.Stdout);
+    }
+
+    [Fact]
+    public void The_pin_drift_script_is_quiet_when_the_pinned_action_has_every_input_of_head()
+    {
+        var run = PinDrift(dir =>
+        {
+            var pin = Commit(dir, "feat: action", ("action.yml", ActionYml("path", "tests", "plan-file")));
+            Commit(dir, "docs: later", ("docs/x.md", "x"));
+            return Pins(pin, pin);
+        });
+
+        Assert.DoesNotContain("has no input", run.Stdout);
+    }
+
     [Fact]
     public void The_pin_drift_script_warns_when_the_pins_differ()
     {

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -36,6 +37,16 @@ public static class FlowSimulator
     /// <summary>Never throws for a flow or a test the simulator can't run: Outcome says why. Neither the definition nor the inputs are changed.</summary>
     public static FlowRun Run(JsonObject definition, FlowRunInputs inputs) => new Simulation(definition, inputs).Execute();
 
+    /// <summary>The action types the simulator runs itself; the dispatch in <c>Perform</c> takes no other.</summary>
+    public static IReadOnlyList<string> ActionTypes { get; } =
+    [
+        "Compose", "InitializeVariable", "SetVariable", "IncrementVariable", "AppendToStringVariable", "AppendToArrayVariable",
+        "If", "Switch", "Scope", "Foreach", "Until", "Terminate", "Response", "ParseJson", "Query", "Wait",
+    ];
+
+    /// <summary>The action types a mock answers; an action of any type with its static result enabled takes one too.</summary>
+    public static IReadOnlyList<string> MockedTypes { get; } = ["OpenApiConnection", "OpenApiConnectionWebhook", "Http", "Workflow"];
+
     private sealed class RunStop(FlowRunOutcome outcome, string message) : Exception(message)
     {
         public FlowRunOutcome Outcome { get; } = outcome;
@@ -58,7 +69,6 @@ public static class FlowSimulator
         private const int MaxCalls = 100_000;
         private const int MaxDepth = 64;
         private static readonly string[] Statuses = ["Succeeded", "Failed", "Skipped", "TimedOut"];
-        private static readonly string[] ConnectorTypes = ["OpenApiConnection", "OpenApiConnectionWebhook", "Http", "Workflow"];
         private static readonly string[] VariableTypes = ["string", "integer", "float", "boolean", "array", "object"];
 
         // Only these properties of the inputs are evaluated; the rest (a Response's schema) is not.
@@ -202,7 +212,7 @@ public static class FlowSimulator
         private static bool StaticResultOn(JsonObject action) =>
             action["runtimeConfiguration"] is JsonObject rc && rc["staticResult"] is JsonObject sr && Str(sr["staticResultOptions"]) == "Enabled";
 
-        private static bool TakesMock(ActionInfo action) => ConnectorTypes.Contains(action.Type) || StaticResultOn(action.Definition);
+        private static bool TakesMock(ActionInfo action) => MockedTypes.Contains(action.Type) || StaticResultOn(action.Definition);
 
         private void Index(JsonObject? block, IReadOnlyList<string> loops)
         {
@@ -577,6 +587,11 @@ public static class FlowSimulator
                 return Mocked(action);
             }
 
+            if (!ActionTypes.Contains(action.Type))
+            {
+                throw new UnsupportedException($"the action type '{action.Type}' is not supported.");
+            }
+
             switch (action.Type)
             {
                 case "Compose":
@@ -626,7 +641,7 @@ public static class FlowSimulator
                 case "Wait":
                     return new("Succeeded", EvaluateInputs(action), null, null);
                 default:
-                    throw new UnsupportedException($"the action type '{action.Type}' is not supported.");
+                    throw new UnreachableException($"'{action.Type}' is in ActionTypes but has no case here.");
             }
         }
 

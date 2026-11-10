@@ -23,7 +23,9 @@ public static class PlanCommand
     {
         var path = new Argument<string>("path") { Description = "A repo folder, a plan folder or a plan.md.", DefaultValueFactory = _ => "." };
         var json = new Option<bool>("--json") { Description = "Print the result as JSON." };
-        var command = new Command("status", "Check every docs/plans/*/plan.md: header, sign-off hash, review and tenant data.") { path, json };
+        var format = new Option<string>("--format") { Description = "Report format (--json is the older spelling of --format json).", DefaultValueFactory = _ => "text" };
+        format.AcceptOnlyFromAmong("text", "json");
+        var command = new Command("status", "Check every docs/plans/*/plan.md: header, sign-off hash, review and tenant data.") { path, json, format };
         command.SetAction(parse => Guard(error, () =>
         {
             var root = parse.GetValue(path)!;
@@ -43,7 +45,7 @@ public static class PlanCommand
             var skipped = new List<string>();
             var plans = PlanChecker.Discover(root, skipped).Select(f => PlanChecker.Check(f, baseDir)).ToList();
             skipped.ForEach(f => error.WriteLine($"warning: {TextReport.Clean(PlanChecker.Display(f, baseDir))}: a symbolic link, not read"));
-            if (parse.GetValue(json))
+            if (parse.GetValue(json) || parse.GetValue(format) == "json")
             {
                 PlanStatusReport.WriteJson(plans, output);
             }

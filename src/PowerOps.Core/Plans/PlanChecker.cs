@@ -823,12 +823,12 @@ public static partial class PlanChecker
         foreach (Match tag in TagRegex().Matches(html))
         {
             var name = tag.Groups["tag"].Value.ToLowerInvariant();
-            if (BannedTags.Contains(name))
+            var attrs = tag.Groups["attrs"];
+            if (BannedTags.Contains(name) && !(name == "meta" && IsViewportMeta(attrs.Value)))
             {
                 Add(LineAt(tag.Index), $"tag <{name}> is not allowed");
             }
 
-            var attrs = tag.Groups["attrs"];
             foreach (Match a in AttributeRegex().Matches(attrs.Value))
             {
                 var (key, value, line) = (a.Groups["name"].Value.ToLowerInvariant(), System.Net.WebUtility.HtmlDecode(a.Groups["value"].Value).Trim(), LineAt(attrs.Index + a.Index));
@@ -888,6 +888,22 @@ public static partial class PlanChecker
         }
 
         return text;
+    }
+
+    // Decision 60: the one allowed meta is exactly name="viewport" (decoded, any case) and one content, with only HTML whitespace or / left over.
+    private static bool IsViewportMeta(string attrs)
+    {
+        var found = AttributeRegex().Matches(attrs);
+        var keys = found.Select(a => a.Groups["name"].Value.ToLowerInvariant()).ToList();
+        if (keys.Count != 2 || !keys.Contains("name") || !keys.Contains("content"))
+        {
+            return false;
+        }
+
+        var (nameValue, contentValue) = (found[keys.IndexOf("name")].Groups["value"], found[keys.IndexOf("content")].Groups["value"]);
+        return nameValue.Success && contentValue.Success
+            && string.Equals(System.Net.WebUtility.HtmlDecode(nameValue.Value), "viewport", StringComparison.OrdinalIgnoreCase)
+            && AttributeRegex().Replace(attrs, "").All(c => c is ' ' or '\t' or '\n' or '\f' or '\r' or '/');
     }
 
     // Everything between <!-- and --> (an unclosed comment runs to the end, as in a browser).

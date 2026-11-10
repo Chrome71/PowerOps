@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/manifest.schema.json",
+  "title": "powerops manifest --format json",
+  "description": "The JSON written by 'powerops manifest --format json': the manifest of one path, or of two folders (old first) with their comparison.",
+  "type": "object",
+  "required": ["schemaVersion", "manifests"],
+  "properties": {
+    "schemaVersion": { "const": 1, "description": "Version of this output format." },
+    "manifests": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["path", "kind", "digest", "files"],
+        "properties": {
+          "path": { "type": "string", "description": "The path as given on the command line." },
+          "kind": { "enum": ["folder", "zip"] },
+          "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "For a folder, the SHA-256 of its file lines; for a zip, the SHA-256 of the zip's bytes." },
+          "files": {
+            "type": "array",
+            "description": "The files of a folder in ordinal order of path; always empty for a zip, whose entries are not listed.",
+            "items": {
+              "type": "object",
+              "required": ["path", "sha256"],
+              "properties": {
+                "path": { "type": "string", "description": "Path inside the folder, with / on every OS." },
+                "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the file (line endings evened out), lowercase hex." }
+              }
+            }
+          }
+        }
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "description": "Present only when two folders were given.",
+      "required": ["added", "removed", "changed", "same"],
+      "properties": {
+        "added": { "type": "array", "items": { "type": "string" }, "description": "Paths only in the second folder." },
+        "removed": { "type": "array", "items": { "type": "string" }, "description": "Paths only in the first folder." },
+        "changed": { "type": "array", "items": { "type": "string" }, "description": "Paths in both whose hash differs." },
+        "same": { "type": "integer", "minimum": 0, "description": "How many files are the same." }
+      }
+    }
+  }
+}
