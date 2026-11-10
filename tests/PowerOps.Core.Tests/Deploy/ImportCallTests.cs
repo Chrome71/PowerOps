@@ -135,6 +135,24 @@ public class ImportCallTests
     // Known misses: the bundle's name is read as written, so a variable or a wildcard in it hides the call.
     [InlineData("node \"$S\" push")]
     [InlineData("node x/manage-agent.bundl?.js push")]
+    // A certificate upload is a site-settings write of the preview group pac power-pages, unrouted by decision Q1 of M85.
+    [InlineData("pac power-pages upload-certificate --path /x/cert.pfx")]
+    [InlineData("pac Power-Pages Upload-Certificate --path /x/cert.pfx")]
+    [InlineData("pac power-pages \"upload-certificate\" --path /x/cert.pfx")]
+    [InlineData("pac \"power-pages\" \"upload-certificate\" --path /x/cert.pfx")]
+    [InlineData("pac power-pages upload\"-certificate\" --path /x/cert.pfx")]
+    [InlineData("pac power-pages \\\nupload-certificate --path /x")]
+    [InlineData("pac power-pages upload\\\n-certificate --path /x")]
+    [InlineData("pac power-pages upload-certificate --path /x/cert.pfx; echo ok")]
+    [InlineData("pac power-pages create-website --name x")]
+    [InlineData("X=1 pac org who")]
+    [InlineData("PA_CLI_ORIGIN=x pa app run")]
+    // The shell runs the word after the assignments, not pac or power-apps.cmd, and none of these holds a marker.
+    [InlineData("X=\"$HOME\"/pac org who")]
+    [InlineData("PATH=/x/pac $A $B")]
+    [InlineData("X=/a/pac model genpage $Y")]
+    [InlineData("PATH=/x/pac org who 'abc")]
+    [InlineData("X=a/power-apps.cmd push")]
     public void A_shell_command_without_an_import_is_not_one(string command)
     {
         Assert.IsType<ImportRead.NotImport>(Bash(command));
@@ -396,6 +414,25 @@ public class ImportCallTests
             // $'...' escapes can spell anything, so a word with one is not read, whatever else the command holds.
             { $"$'\\x70ac' $'\\x73olution' $'\\x69mport' --path {z} --environment {Env}", AnsiC },
             { "printf $'a\\nb'", AnsiC },
+            // Every other spelling of the certificate upload stays unread, and a marker after it is read on its own.
+            { "pac power-pages upload --path /x", CantRead },
+            { "pac power-pages upload \\\n-certificate", CantRead },
+            { "pac power-pages \"upload\" -certificate", CantRead },
+            { "pac power-pages upload-certificate-x", CantRead },
+            { "pac power-pages upload-code-site --rootPath /x", CantRead },
+            { "pac power-pages migrate-datamodel --webSiteId x", CantRead },
+            { "pac pages upload-certificate --path /x", CantRead },
+            { "pac powerpages upload-certificate --path /x", CantRead },
+            { "pac paportal upload-certificate --path /x", CantRead },
+            { "pac \"power-pages upload-certificate\"", CantRead },
+            { "pac \"power-pages upload-certificate\" --path /x", CantRead },
+            { "pac power-pages $'upload-certificate'", CantRead },
+            { "pac --verbose power-pages upload-certificate", CantRead },
+            { "pac power-pages \\\r\nupload-certificate", CantRead },
+            { $"pac power-pages upload-certificate --path \"`pac solution import --path {z} --environment {Env}`\"", CantRead },
+            { "pac power-pages upload-certificate --path \"$(pac pages upload --path /x)\"", CantRead },
+            { "pac PAGES Upload --path /x", PagesUpload },
+            { "pac power-pages upload-certificate --path /x/cert.pfx && pac pages upload --path /x", PagesUpload },
         };
 
         foreach (var flag in Unread)
@@ -653,6 +690,7 @@ public class ImportCallTests
     [InlineData("& 'C:\\Tools\\pac.exe' auth list")]
     [InlineData("pa app push")]
     [InlineData("node x/manage-agent.bundle.js pull")]
+    [InlineData("pac power-pages upload-certificate --path /x/cert.pfx")]
     public void A_pac_or_import_command_in_the_powershell_tool_is_blocked(string command)
     {
         Assert.Contains("imports are read only in Bash commands, not in PowerShell", Blocked(Bash(command, "PowerShell")).Lines);
@@ -678,10 +716,99 @@ public class ImportCallTests
         }
     }
 
-    // ---- 3. the four write tools of pac's MCP server -----------------------------------------------------------
+    // ---- 3. assignments and the certificate upload --------------------------------------------------------------
+
+    [Theory]
+    [InlineData("PA_CLI_ORIGIN=plugin/claude-code pa app push --solution-id x")]
+    [InlineData("PA_CLI_ORIGIN+=x pa app push")]
+    [InlineData("A=1 B=2 pa app push")]
+    [InlineData("PA_CLI_ORIGIN=\"plugin/claude code\" pa app push")]
+    [InlineData("PA_CLI_ORIGIN=x npx --no-install pa app push")]
+    [InlineData("PA_CLI_ORIGIN=x node_modules/.bin/pa app push")]
+    [InlineData("PA_CLI_ORIGIN=x power-apps push")]
+    [InlineData("X=a/npx pa app push")]
+    // The code-apps hook's own form (power-platform-skills at 4076781).
+    [InlineData("if [ \"${PA_CLI_ORIGIN+x}\" != x ]; then export PA_CLI_ORIGIN='plugin/claude-code'; fi\npa app push --solution-id x")]
+    public void A_pa_app_push_led_by_literal_assignments_gives_its_route(string command)
+    {
+        var blocked = Blocked(Bash(command));
+
+        Assert.False(blocked.Unreadable);
+        Assert.Equal([PaPush], blocked.Lines);
+    }
+
+    public static TheoryData<string> AssignedImports()
+    {
+        var import = $"solution import --path {Q(Zip)} --environment {Env}";
+        return new()
+        {
+            { $"X=\"pac {import}\"" },
+            { $"X=\"$(pac {import})\"" },
+            { "PA_CLI_ORIGIN=$X pa app push" },
+            { "PA_CLI_ORIGIN=`x` pa app push" },
+            { $"PA_CLI_ORIGIN=\"$(pac {import})\" pa app push" },
+            { $"PA_CLI_ORIGIN=\"`pac {import}`\" pa app push" },
+            { "\"PA_CLI_ORIGIN=x\" pa app push" },
+            { "env PA_CLI_ORIGIN=x pa app push" },
+            { $"X=1 pac {import}" },
+            { $"PATH=/tmp/x/pac {import}" },
+            { $"PATH+=/tmp/x/pac {import}" },
+            { $"PATH\\\n=/tmp/x/pac {import}" },
+            { $"PA\\\nTH=/tmp/x/pac {import}" },
+            { "X=a/pa app push" },
+            { "X=a/power-apps push" },
+            { "PA_CLI_ORIGIN=x pac app-management install-application-package --unique-name x" },
+            { "PA_CLI_ORIGIN=x pac power-pages upload-certificate --path /x" },
+            { "X=a/" + Bundle + " pull --workspace /x/agent" },
+            { "PATH=/x/pac pcf push" },
+            { "X=a/" + Bundle + " push" },
+        };
+    }
+
+    [Theory]
+    [MemberData(nameof(AssignedImports))]
+    public void An_import_or_route_led_by_an_assignment_is_unreadable(string command)
+    {
+        var blocked = Blocked(Bash(command));
+
+        Assert.True(blocked.Unreadable);
+        Assert.Contains(CantRead, blocked.Lines);
+    }
+
+    [Theory]
+    [InlineData("PATH=/x/pac pcf push")]
+    [InlineData("X=a/" + Bundle + " push")]
+    public void A_pac_or_node_route_led_by_an_assignment_loses_its_route_line(string command)
+    {
+        Assert.Equal([CantRead], Blocked(Bash(command)).Lines);
+    }
+
+    [Fact]
+    public void A_certificate_upload_then_a_readable_import_gives_the_import()
+    {
+        Assert.Equal(new ImportCall(Zip, Env, null, false), Checked(Bash($"pac power-pages upload-certificate --path /x/cert.pfx; {Import()}")));
+    }
+
+    [Fact]
+    public void A_certificate_upload_with_an_unquoted_command_substitution_reads_the_import_in_it()
+    {
+        Assert.Equal(new ImportCall(Zip, Env, null, false), Checked(Bash($"pac power-pages upload-certificate --path $({Import()})")));
+    }
+
+    [Fact]
+    public void A_certificate_upload_with_an_unclosed_quote_says_only_that()
+    {
+        Assert.Equal(["the quotes are not closed"], Blocked(Bash("pac power-pages upload-certificate --path '/x/cert.pfx")).Lines);
+    }
+
+    // ---- 3. the write tools of pac's MCP server ----------------------------------------------------------------
+
+    private const string AppPackage = "pac app-management install-application-package installs an application package that no plan holds";
 
     public static TheoryData<string, string, string> WriteTools() => new()
     {
+        { "app-management_install-application-package", "app_management_install_application_package", AppPackage },
+        { "app_management_install_application_package", "app_management_install_application_package", AppPackage },
         { "pages_upload", "pages_upload", PagesUpload },
         { "pages_upload-code-site", "pages_upload_code_site", PagesCodeSite },
         { "pages_upload_code_site", "pages_upload_code_site", PagesCodeSite },
@@ -716,6 +843,10 @@ public class ImportCallTests
     [InlineData("mcp__pac-cli__pages_list")]
     [InlineData("mcp__pac-cli__model_genpage_list")]
     [InlineData("mcp__pac-cli__copilot_publish_x")]
+    [InlineData("mcp__pac-cli__app-management_get-application-package-install-status")]
+    [InlineData("mcp__pac-cli__app-management_install-application-package_x")]
+    [InlineData("mcp__pac-cli__power-pages_upload-certificate")]
+    [InlineData("mcp__pac-cli__power-pages_delete-website")]
     public void Another_pac_mcp_tool_is_not_an_import(string tool)
     {
         Assert.IsType<ImportRead.NotImport>(ImportCall.Read(Bytes(Claude(tool, new JsonObject { ["--path"] = "/x" }))));
