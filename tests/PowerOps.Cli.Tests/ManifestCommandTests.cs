@@ -1,3 +1,5 @@
+using System.Text.Json.Nodes;
+
 using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
@@ -20,6 +22,10 @@ public class ManifestCommandTests : IDisposable
 
     // The paths in the output are the ones given; the golden holds the same text on every OS and checkout.
     private static string Shown(string output) => output.Replace(V1, "powerops-seed/v1").Replace(V2, "powerops-seed/v2");
+
+    // The same, for JSON, which escapes a backslash in a Windows path.
+    private static string ShownJson(string output) => output
+        .Replace(V1.Replace("\\", "\\\\"), "powerops-seed/v1").Replace(V2.Replace("\\", "\\\\"), "powerops-seed/v2");
 
     [Fact]
     public void One_folder_prints_its_manifest_and_exits_0()
@@ -60,6 +66,74 @@ public class ManifestCommandTests : IDisposable
 
         Assert.Equal(0, code);
         Assert.Matches($"^{System.Text.RegularExpressions.Regex.Escape(zip)}: zip, digest [0-9a-f]{{64}}\n$", output);
+    }
+
+    [Fact]
+    public void One_folder_in_JSON_prints_the_same_facts_and_exits_0()
+    {
+        var (code, output, err) = Run("manifest", V1, "--format", "json");
+
+        Assert.Equal(0, code);
+        Assert.Equal("", err);
+        Golden.Verify(ShownJson(output), "manifest-seed-v1.json");
+    }
+
+    [Fact]
+    public void Two_folders_in_JSON_print_both_manifests_and_the_comparison_and_exit_1_when_they_differ()
+    {
+        var (code, output, err) = Run("manifest", V1, V2, "--format", "json");
+
+        Assert.Equal(1, code);
+        Assert.Equal("", err);
+        Golden.Verify(ShownJson(output), "manifest-seed-v1-v2.json");
+    }
+
+    [Fact]
+    public void Two_equal_folders_in_JSON_exit_0_with_an_empty_comparison()
+    {
+        var (code, output, _) = Run("manifest", V1, V1, "--format", "json");
+
+        var doc = JsonNode.Parse(output)!;
+        Assert.Equal(0, code);
+        Assert.Equal(2, doc["manifests"]!.AsArray().Count);
+        Assert.Empty(doc["comparison"]!["added"]!.AsArray());
+        Assert.Empty(doc["comparison"]!["removed"]!.AsArray());
+        Assert.Empty(doc["comparison"]!["changed"]!.AsArray());
+        Assert.Equal(23, (int)doc["comparison"]!["same"]!);
+    }
+
+    [Fact]
+    public void A_zip_in_JSON_has_kind_zip_a_digest_and_no_files_and_no_comparison()
+    {
+        var zip = Path.Combine(_temp, "Seed.zip");
+        SolutionZip.Create(V1, zip);
+
+        var (code, output, _) = Run("manifest", zip, "--format", "json");
+
+        var doc = JsonNode.Parse(output)!;
+        var entry = doc["manifests"]!.AsArray().Single()!;
+        Assert.Equal(0, code);
+        Assert.Equal(zip, (string?)entry["path"]);
+        Assert.Equal("zip", (string?)entry["kind"]);
+        Assert.Matches("^[0-9a-f]{64}$", (string?)entry["digest"] ?? "");
+        Assert.Empty(entry["files"]!.AsArray());
+        Assert.Null(doc["comparison"]);
+    }
+
+    [Fact]
+    public void Format_text_prints_the_same_as_no_format()
+    {
+        Assert.Equal(Run("manifest", V1, V2), Run("manifest", V1, V2, "--format", "text"));
+    }
+
+    [Fact]
+    public void An_unknown_format_exits_2()
+    {
+        var (code, output, err) = Run("manifest", V1, "--format", "xml");
+
+        Assert.Equal(2, code);
+        Assert.Equal("", output);
+        Assert.Contains("Argument 'xml' not recognized", err);
     }
 
     [Fact]

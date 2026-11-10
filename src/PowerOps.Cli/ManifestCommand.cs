@@ -12,12 +12,15 @@ public static class ManifestCommand
         var first = new Argument<string>("path") { Description = "An unpacked solution folder or an exported .zip." };
         var second = new Argument<string?>("new") { Description = "A second unpacked folder to compare the first with, file by file.", Arity = ArgumentArity.ZeroOrOne };
 
-        var command = new Command("manifest", "List a solution's files with a SHA-256 for each and one digest, or compare two unpacked folders file by file (offline, read-only).") { first, second };
-        command.SetAction(parse => Execute(parse.GetValue(first)!, parse.GetValue(second), output, error));
+        var format = new Option<string>("--format") { Description = "Report format.", DefaultValueFactory = _ => "text" };
+        format.AcceptOnlyFromAmong("text", "json");
+
+        var command = new Command("manifest", "List a solution's files with a SHA-256 for each and one digest, or compare two unpacked folders file by file (offline, read-only).") { first, second, format };
+        command.SetAction(parse => Execute(parse.GetValue(first)!, parse.GetValue(second), parse.GetValue(format) == "json", output, error));
         return command;
     }
 
-    private static int Execute(string first, string? second, TextWriter output, TextWriter error)
+    private static int Execute(string first, string? second, bool json, TextWriter output, TextWriter error)
     {
         var paths = second is null ? new[] { first } : [first, second];
         foreach (var p in paths)
@@ -42,12 +45,28 @@ public static class ManifestCommand
 
             if (second is null)
             {
-                ManifestReport.WriteText(output, first, manifests[0]);
+                if (json)
+                {
+                    ManifestReport.WriteJson(output, [(first, manifests[0])], null);
+                }
+                else
+                {
+                    ManifestReport.WriteText(output, first, manifests[0]);
+                }
+
                 return 0;
             }
 
             var comparison = Manifest.Compare(manifests[0], manifests[1]);
-            ManifestReport.WriteComparison(output, first, manifests[0], second, manifests[1], comparison);
+            if (json)
+            {
+                ManifestReport.WriteJson(output, [(first, manifests[0]), (second, manifests[1])], comparison);
+            }
+            else
+            {
+                ManifestReport.WriteComparison(output, first, manifests[0], second, manifests[1], comparison);
+            }
+
             return comparison.Added.Count + comparison.Removed.Count + comparison.Changed.Count > 0 ? 1 : 0;
         }
         catch (Exception ex)
