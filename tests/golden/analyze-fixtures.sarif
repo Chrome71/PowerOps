@@ -498,6 +498,20 @@
               "defaultConfiguration": {
                 "level": "warning"
               }
+            },
+            {
+              "id": "PO036",
+              "name": "CanvasRepeatedFormula",
+              "shortDescription": {
+                "text": "Canvas app repeats the same formula in three or more places"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO036.md",
+              "help": {
+                "text": "Define the formula once as a named formula or user-defined function in App.Formulas, or in a component, and use that name in each place."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
             }
           ]
         }
@@ -554,7 +568,7 @@
             {
               "level": "note",
               "message": {
-                "text": "PO014 and PO018 not checked for canvas app 'CanvasApps/cat_devopskitsamplecanvasapp_c7ec5_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened)."
+                "text": "PO014, PO018 and PO036 not checked for canvas app 'CanvasApps/cat_devopskitsamplecanvasapp_c7ec5_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened)."
               },
               "locations": [
                 {

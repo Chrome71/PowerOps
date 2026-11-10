@@ -32,7 +32,7 @@ public sealed class PO018CanvasForAllPatch : IRule, INotChecked
 
     // An .msapp with no source in it is neither a finding nor a pass.
     public IEnumerable<string> NotChecked(Solution solution) =>
-        solution.CanvasAppsWithoutSource.Select(file => $"PO014 and PO018 not checked for canvas app '{file}': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).");
+        solution.CanvasAppsWithoutSource.Select(file => $"PO014, PO018 and PO036 not checked for canvas app '{file}': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).");
 
     // shortcut: a token scan, so a Patch inside a user-defined function that ForAll calls is not seen, an interpolated string ($"...{Patch(...)}...") is skipped whole, and a call in ForAll's table argument counts as inside it; upgrade if a rule needs the syntax tree.
     /// <summary>One linear pass: strings, quoted names and comments are skipped, and a stack of open parentheses says which ones belong to a ForAll call.</summary>

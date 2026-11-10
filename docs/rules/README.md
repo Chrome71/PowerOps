@@ -39,3 +39,4 @@
 | [PO033](PO033.md) | warning | Custom security role has no privilege to open a model-driven app |
 | [PO034](PO034.md) | warning | Security role can create or write a table that no component in the solution uses |
 | [PO035](PO035.md) | warning | Flow names a navigation property in the wrong case |
+| [PO036](PO036.md) | warning | Canvas app repeats the same formula in three or more places |

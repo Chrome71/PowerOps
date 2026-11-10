@@ -869,8 +869,8 @@ public class WarningRuleTests
 
         Assert.Equal(
             [
-                "PO014 and PO018 not checked for canvas app 'CanvasApps/a_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).",
-                "PO014 and PO018 not checked for canvas app 'CanvasApps/b_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).",
+                "PO014, PO018 and PO036 not checked for canvas app 'CanvasApps/a_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).",
+                "PO014, PO018 and PO036 not checked for canvas app 'CanvasApps/b_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).",
             ],
             Analyzer.NotChecked(s));
         Assert.Empty(Analyzer.NotChecked(B.Empty()));
@@ -2204,5 +2204,121 @@ public class WarningRuleTests
         var s = B.Empty() with { Workflows = [zed, abe], NavigationProperties = Exported };
 
         Assert.Equal(["Zed/Add", "Zed/List", "Abe/Get"], Run(new PO035NavigationName(), s).Select(f => f.File[10..f.File.IndexOf('-')] + "/" + f.Component));
+    }
+
+    /// <summary>A formula whose text after the `=` is <paramref name="length"/> characters, with one space in it.</summary>
+    private static string Repeated(int length) => "=Set(varNote, \"" + new string('x', length - 16) + "\")";
+
+    private static IReadOnlyList<Finding> Repeats(params CanvasFormula[] formulas) =>
+        Run(new PO036CanvasRepeatedFormula(), B.Empty() with { CanvasFormulas = formulas });
+
+    [Fact]
+    public void PO036_fires_for_a_formula_of_80_characters_in_three_places_that_differ_only_in_whitespace()
+    {
+        var text = Repeated(80);
+        Assert.Equal(80, text.Length - 1);
+
+        var f = Assert.Single(Repeats(
+            B.Formula(text, "icoOpen"),
+            B.Formula("=  " + text[1..].Replace(" ", "\r\n    ") + " \n", "galOrders"),
+            B.Formula(text.Replace(" ", " \t "), "btnOpen")));
+
+        Assert.Equal("PO036", f.RuleId);
+        Assert.Equal(Severity.Warning, f.Severity);
+        Assert.Equal("Canvas app 'Demo' has the same formula in 3 places (btnOpen.OnSelect, galOrders.OnSelect, icoOpen.OnSelect); a change must be made in each.", f.Message);
+        Assert.Equal("btnOpen.OnSelect", f.Component);
+        Assert.Equal("CanvasApps/demo_DocumentUri.msapp", f.File);
+        Assert.DoesNotContain("varNote", f.Message);
+        Assert.DoesNotContain("xxx", f.Message);
+    }
+
+    [Fact]
+    public void PO036_names_the_first_three_places_in_ordinal_order_and_counts_the_rest()
+    {
+        var text = Repeated(120);
+
+        var f = Assert.Single(Repeats(B.Formula(text, "btnB"), B.Formula(text, "Zed", "Items"), B.Formula(text, "abe"), B.Formula(text, "btnA"), B.Formula(text, "btnA", "OnChange")));
+
+        Assert.Equal("Canvas app 'Demo' has the same formula in 5 places (Zed.Items, abe.OnSelect, btnA.OnChange, and 2 more); a change must be made in each.", f.Message);
+        Assert.Equal("Zed.Items", f.Component);
+    }
+
+    [Fact]
+    public void PO036_takes_the_file_of_the_first_place_when_an_apps_source_is_in_several_files()
+    {
+        const string Src = "canvasapps/demo_tracker/demo_tracker_DocumentUri/Src/";
+        var text = Repeated(80);
+
+        var f = Assert.Single(Repeats(
+            B.Formula(text, "c") with { File = Src + "Screen1.pa.yaml" },
+            B.Formula(text, "a") with { File = Src + "Screen3.pa.yaml" },
+            B.Formula(text, "b") with { File = Src + "Screen2.pa.yaml" }));
+
+        Assert.Equal("a.OnSelect", f.Component);
+        Assert.Equal(Src + "Screen3.pa.yaml", f.File);
+    }
+
+    [Fact]
+    public void PO036_gives_one_finding_per_repeated_formula_in_read_order()
+    {
+        var one = Repeated(80);
+        var two = Repeated(81);
+
+        var found = Repeats(B.Formula(two, "z1"), B.Formula(one, "a1"), B.Formula(two, "z2"), B.Formula(one, "a2"), B.Formula(two, "z3"), B.Formula(one, "a3"));
+
+        Assert.Equal(["z1.OnSelect", "a1.OnSelect"], found.Select(f => f.Component));
+    }
+
+    [Fact]
+    public void PO036_quiet_for_two_places()
+    {
+        var text = Repeated(80);
+
+        Assert.Empty(Repeats(B.Formula(text, "a"), B.Formula(text, "b")));
+    }
+
+    [Fact]
+    public void PO036_quiet_for_a_formula_of_79_characters_in_five_places_because_the_leading_equals_sign_is_not_counted()
+    {
+        var text = Repeated(79);
+        Assert.Equal(80, text.Length);
+
+        Assert.Empty(Repeats([.. "abcde".Select(c => B.Formula(text, c.ToString()))]));
+    }
+
+    [Theory]
+    [InlineData("Other")]
+    [InlineData("Demo")] // display names need not be unique: the app is its folder
+    public void PO036_quiet_for_three_places_spread_over_two_apps(string otherName)
+    {
+        var text = Repeated(80);
+
+        Assert.Empty(Repeats(B.Formula(text, "a"), B.Formula(text, "b"), B.Formula(text, "c", app: otherName) with { File = "CanvasApps/other_DocumentUri.msapp" }));
+    }
+
+    [Fact]
+    public void PO036_quiet_when_the_third_entry_is_a_place_listed_twice()
+    {
+        var text = Repeated(80);
+
+        Assert.Empty(Repeats(B.Formula(text, "a"), B.Formula(text, "b"), B.Formula(text, "a")));
+    }
+
+    [Fact]
+    public void PO036_quiet_when_the_third_formula_differs_in_case_or_in_one_character()
+    {
+        var text = Repeated(80);
+
+        Assert.Empty(Repeats(B.Formula(text, "a"), B.Formula(text, "b"), B.Formula(text.Replace("varNote", "VarNote"), "c"), B.Formula(text.Replace("varNote", "varNota"), "d")));
+    }
+
+    [Fact]
+    public void PO036_is_a_registered_warning_with_a_fix_sentence()
+    {
+        var rule = Assert.IsAssignableFrom<IRule>(Analyzer.Find("PO036"));
+
+        Assert.Equal(Severity.Warning, rule.Severity);
+        Assert.Equal("Canvas app repeats the same formula in three or more places", rule.Title);
+        Assert.Equal("Define the formula once as a named formula or user-defined function in App.Formulas, or in a component, and use that name in each place.", rule.Fix);
     }
 }
