@@ -9,6 +9,7 @@ namespace PowerOps.Core.Drift;
 /// <param name="Installed">False when the solution is not in the environment; the other fields are then null or empty.</param>
 /// <param name="LayersRead">False only when the layer read was dropped for a managed solution; true when layers were read or no read was needed.</param>
 /// <param name="AlsoIn">The solution's components that sit in another unmanaged, visible solution, from the live read of <c>drift</c> only; null when that read was not made. Never written to a snapshot file.</param>
+/// <param name="Agents">The solution's agents, from the live read of <c>drift</c> or a version-2 file; null when names were not read (a version-1 file, a solution that is not installed or a deploy target read), and then no component has a name. Empty when names were read and the solution holds no agent.</param>
 public sealed record Snapshot(
     string Environment,
     string Solution,
@@ -20,15 +21,19 @@ public sealed record Snapshot(
     IReadOnlyList<SnapshotVariable> Variables,
     IReadOnlyList<SnapshotReference> References,
     IReadOnlyList<SnapshotFlow> Flows,
-    IReadOnlyList<SnapshotAlsoIn>? AlsoIn = null)
+    IReadOnlyList<SnapshotAlsoIn>? AlsoIn = null,
+    IReadOnlyList<SnapshotAgent>? Agents = null)
 {
     /// <summary>The SHA-256 of <paramref name="value"/>'s UTF-8 bytes after "\r\n" becomes "\n", in lowercase hex; null for no value or an empty one.</summary>
     public static string? Hash(string? value) =>
         string.IsNullOrEmpty(value) ? null : Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value.Replace("\r\n", "\n"))));
 }
 
-/// <summary>A solution component: its <c>componenttype</c> number and <c>objectid</c>. <paramref name="UnmanagedLayer"/> is null when layers were not read or the solution is unmanaged.</summary>
-public sealed record SnapshotComponent(int Type, Guid Id, bool? UnmanagedLayer);
+/// <summary>A solution component: its <c>componenttype</c> number and <c>objectid</c>. <paramref name="UnmanagedLayer"/> is null when layers were not read or the solution is unmanaged. <paramref name="Name"/> is the component definition's <c>primaryentityname</c>, set only for types of 10000 and above that the definitions read named; <paramref name="SchemaName"/> is set only when <paramref name="Name"/> is <c>bot</c> or <c>botcomponent</c> and the read returned the row.</summary>
+public sealed record SnapshotComponent(int Type, Guid Id, bool? UnmanagedLayer, string? Name = null, string? SchemaName = null);
+
+/// <summary>An agent (<c>bot</c>) of the solution: its schema name and whether <c>publishedon</c> is set.</summary>
+public sealed record SnapshotAgent(string SchemaName, bool PublishedOn);
 
 /// <summary>A component of the solution that is also in the solution with unique name <paramref name="Solution"/>.</summary>
 public sealed record SnapshotAlsoIn(int Type, Guid Id, string Solution);

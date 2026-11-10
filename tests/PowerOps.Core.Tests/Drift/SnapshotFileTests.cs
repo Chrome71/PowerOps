@@ -17,8 +17,9 @@ public class SnapshotFileTests
 
     private static void AssertEqual(Snapshot e, Snapshot a)
     {
-        Assert.Equal(e with { Components = [], Variables = [], References = [], Flows = [], AlsoIn = null }, a with { Components = [], Variables = [], References = [], Flows = [], AlsoIn = null });
+        Assert.Equal(e with { Components = [], Variables = [], References = [], Flows = [], AlsoIn = null, Agents = null }, a with { Components = [], Variables = [], References = [], Flows = [], AlsoIn = null, Agents = null });
         Assert.Equal(e.AlsoIn, a.AlsoIn);
+        Assert.Equal(e.Agents, a.Agents);
         Assert.Equal(e.Components, a.Components);
         Assert.Equal(e.Variables, a.Variables);
         Assert.Equal(e.References, a.References);
@@ -98,11 +99,137 @@ public class SnapshotFileTests
     [Fact]
     public void Wrong_or_missing_schema_version_is_rejected()
     {
-        Rejected(Json(("\"schemaVersion\": 1", "\"schemaVersion\": 2")));
+        Rejected(Json(("\"schemaVersion\": 1", "\"schemaVersion\": 3")));
         Rejected(Json(("  \"schemaVersion\": 1,\n", "")));
         Rejected(Json(("\"schemaVersion\": 1", "\"schemaVersion\": \"1\"")));
-        var e = Assert.Throws<InvalidDataException>(() => SnapshotFile.Read(Json(("\"schemaVersion\": 1", "\"schemaVersion\": 2"))));
-        Assert.Contains("1", e.Message);
+        var e = Assert.Throws<InvalidDataException>(() => SnapshotFile.Read(Json(("\"schemaVersion\": 1", "\"schemaVersion\": 3"))));
+        Assert.Contains("1 or 2", e.Message);
+        // Version 2 needs the new fields, so a version-1 text marked 2 is rejected for them.
+        e = Assert.Throws<InvalidDataException>(() => SnapshotFile.Read(Json(("\"schemaVersion\": 1", "\"schemaVersion\": 2"))));
+        Assert.Contains("agents", e.Message);
+    }
+
+    // ---- version 2 ----------------------------------------------------------------------------------------
+
+    private const string IdC = "00000000-0000-0000-0000-000000000003";
+    private const string IdD = "00000000-0000-0000-0000-000000000004";
+
+    private static Snapshot Named() => Small() with
+    {
+        Components =
+        [
+            new(1, Guid.Parse(IdA), null),
+            new(10090, Guid.Parse(IdA), null, "appsetting"),
+            new(10226, Guid.Parse(IdB), null, "bot", "demo_Helper"),
+            new(10227, Guid.Parse(IdC), null, "botcomponent", "demo_Helper.topic.Greeting"),
+            new(10227, Guid.Parse(IdD), null, "botcomponent"),
+        ],
+        Agents = [new("demo_Other", false), new("demo_Helper", true)],
+    };
+
+    // The JSON of Named() with replacements applied.
+    private static string Json2(params (string From, string To)[] edits)
+    {
+        var json = SnapshotFile.Write(Named());
+        foreach (var (from, to) in edits)
+        {
+            Assert.Contains(from, json);
+            json = json.Replace(from, to);
+        }
+
+        return json;
+    }
+
+    public static TheoryData<string> SeedFiles() => ["seed-dev.json", "seed-test.json"];
+
+    [Theory]
+    [MemberData(nameof(SeedFiles))]
+    public void A_version_1_seed_file_loads_with_no_names_and_writes_back_byte_for_byte(string name)
+    {
+        var text = File.ReadAllText(Path.Combine(PowerOps.Tests.Shared.Golden.RepoRoot, "tests", "fixtures", "drift", name)).ReplaceLineEndings("\n");
+
+        var s = SnapshotFile.Read(text);
+
+        Assert.Contains("\"schemaVersion\": 1,", text);
+        Assert.Null(s.Agents);
+        Assert.All(s.Components, c => Assert.Equal((null, null), (c.Name, c.SchemaName)));
+        Assert.Equal(text, SnapshotFile.Write(s));
+    }
+
+    [Fact]
+    public void Names_on_a_snapshot_without_agents_never_reach_the_version_1_text() =>
+        Assert.Equal(SnapshotFile.Write(Small()), SnapshotFile.Write(Small() with { Components = [new(1, Guid.Parse(IdA), null, "x", "y"), new(29, Guid.Parse(IdB), true)] }));
+
+    [Fact]
+    public void A_version_2_snapshot_has_the_new_fields_in_place_and_round_trips_byte_for_byte()
+    {
+        var text = SnapshotFile.Write(Named());
+        var read = SnapshotFile.Read(text);
+
+        Assert.StartsWith("{\n  \"schemaVersion\": 2,\n", text);
+        Assert.Contains("      \"unmanagedLayer\": null,\n      \"name\": \"bot\",\n      \"schemaName\": \"demo_Helper\"\n", text);
+        Assert.Contains("      \"unmanagedLayer\": null,\n      \"name\": null,\n      \"schemaName\": null\n", text);
+        Assert.EndsWith(
+            "  ],\n  \"agents\": [\n    {\n      \"schemaName\": \"demo_Helper\",\n      \"publishedOn\": true\n    },\n    {\n      \"schemaName\": \"demo_Other\",\n      \"publishedOn\": false\n    }\n  ]\n}\n",
+            text);
+        Assert.True(text.IndexOf("\"flows\"", StringComparison.Ordinal) < text.IndexOf("\"agents\"", StringComparison.Ordinal));
+        AssertEqual(SnapshotFile.Sort(Named()) with { Agents = null }, read with { Agents = null });
+        Assert.Equal([new SnapshotAgent("demo_Helper", true), new SnapshotAgent("demo_Other", false)], read.Agents);
+        Assert.Equal((null, null), (read.Components[0].Name, read.Components[0].SchemaName));
+        Assert.Null(read.Components.Single(c => c.Id == Guid.Parse(IdD)).SchemaName);
+        Assert.Equal(text, SnapshotFile.Write(read));
+    }
+
+    [Fact]
+    public void Empty_agents_round_trip_as_empty_at_version_2()
+    {
+        var s = Small() with { Agents = [] };
+        var text = SnapshotFile.Write(s);
+
+        Assert.Contains("\"schemaVersion\": 2,", text);
+        Assert.Contains("\"agents\": []", text);
+        var read = SnapshotFile.Read(text);
+        Assert.NotNull(read.Agents);
+        Assert.Empty(read.Agents);
+        Assert.Equal(text, SnapshotFile.Write(read));
+    }
+
+    [Fact]
+    public void Two_app_settings_without_schema_names_load()
+    {
+        var s = Small() with { Components = [new(10090, Guid.Parse(IdA), null, "appsetting"), new(10090, Guid.Parse(IdB), null, "AppSetting")], Agents = [] };
+
+        Assert.Equal(2, SnapshotFile.Read(SnapshotFile.Write(s)).Components.Count);
+    }
+
+    [Theory]
+    [InlineData("\"agents\": [", "\"agentsx\": [")]
+    [InlineData("\"agents\": [", "\"agents\": null, \"zz\": [")]
+    [InlineData("\"name\": \"appsetting\",", "")]
+    [InlineData("\"name\": \"appsetting\",", "\"name\": 5,")]
+    [InlineData("\"name\": \"appsetting\"", "\"name\": \"\"")]
+    [InlineData("\"schemaName\": \"demo_Helper.topic.Greeting\"", "\"schemaName\": \"\"")]
+    [InlineData("\"schemaName\": \"demo_Helper.topic.Greeting\"", "\"schemaName\": 5")]
+    [InlineData("\"name\": \"botcomponent\",\n      \"schemaName\": \"demo_Helper.topic.Greeting\"", "\"name\": \"appsetting\",\n      \"schemaName\": \"demo_Helper.topic.Greeting\"")]
+    [InlineData("\"type\": 10090", "\"type\": 9999")]
+    [InlineData("\"schemaName\": \"demo_Other\"", "\"schemaName\": \"\"")]
+    [InlineData("\"schemaName\": \"demo_Other\"", "\"schemaName\": null")]
+    [InlineData("\"publishedOn\": true", "\"publishedOn\": \"yes\"")]
+    [InlineData("\"publishedOn\": true", "\"publishedOn\": null")]
+    [InlineData("\"schemaName\": \"demo_Other\"", "\"schemaName\": \"DEMO_HELPER\"")]
+    public void Version_2_rejections(string from, string to) => Rejected(Json2((from, to)));
+
+    [Fact]
+    public void A_missing_schema_name_on_a_component_is_rejected() =>
+        Rejected(Json2(("      \"name\": null,\n      \"schemaName\": null\n", "      \"name\": null\n")));
+
+    [Fact]
+    public void Two_components_with_the_same_comparison_key_ignoring_case_are_rejected()
+    {
+        var s = Named();
+        Rejected(SnapshotFile.Write(s with { Components = [.. s.Components, new(10229, Guid.Parse(IdA), null, "BOT", "DEMO_HELPER")] }));
+        Rejected(SnapshotFile.Write(s with { Components = [.. s.Components, new(10228, Guid.Parse(IdA), null, "AppSetting")] }));
+        Assert.Equal(6, SnapshotFile.Read(SnapshotFile.Write(s with { Components = [.. s.Components, new(10228, Guid.Parse(IdB), null, "AppSetting")] })).Components.Count);
     }
 
     [Theory]

@@ -1,0 +1,1 @@
+<fetch><entity name="botcomponent"><attribute name="botcomponentid" /><attribute name="schemaname" /><link-entity name="solutioncomponent" from="objectid" to="botcomponentid" link-type="inner"><filter><condition attribute="solutionid" operator="eq" value="{solutionId}" /></filter></link-entity></entity></fetch>

@@ -1,0 +1,1 @@
+<fetch><entity name="solutioncomponentdefinition"><attribute name="solutioncomponenttype" /><attribute name="primaryentityname" /><filter><condition attribute="solutioncomponenttype" operator="ge" value="10000" /></filter></entity></fetch>

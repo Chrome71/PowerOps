@@ -5,7 +5,7 @@ using PowerOps.Core.Settings;
 
 namespace PowerOps.Core.Drift;
 
-/// <summary>Parses the Dataverse Web API's OData JSON (<c>{"value":[...]}</c>) of the drift reads 2 to 8 and the agent read of <c>deploy apply</c>. Properties not needed (<c>@odata.*</c>, primary keys, lookups) are ignored. Every rejection is an <see cref="InvalidDataException"/> whose message never quotes the input.</summary>
+/// <summary>Parses the Dataverse Web API's OData JSON (<c>{"value":[...]}</c>) of the drift reads 2 to 11 and the agent read of <c>deploy apply</c>. Properties not needed (<c>@odata.*</c>, primary keys, lookups) are ignored. Every rejection is an <see cref="InvalidDataException"/> whose message never quotes the input.</summary>
 public static partial class DriftParsers
 {
     [GeneratedRegex(@"\Ahttps://[A-Za-z0-9.-]+/?\z", RegexOptions.IgnoreCase)]
@@ -70,6 +70,21 @@ public static partial class DriftParsers
     /// <summary>Read 8: the components in another solution, one row for each component and solution. The solution's unique name is the aliased column <c>s.uniquename</c>.</summary>
     public static IReadOnlyList<SnapshotAlsoIn> OtherSolutions(string json) =>
         Unique(Rows(json).Select(r => new SnapshotAlsoIn(Int(r, "componenttype"), Id(r, "objectid"), Text(r, "s.uniquename"))).ToList(), a => $"{a.Type}/{a.Id}/{a.Solution}", StringComparer.Ordinal);
+
+    /// <summary>Read 9: each component type number with its definition's <c>primaryentityname</c>. A row with no or an empty name is skipped, so its type stays unnamed.</summary>
+    public static IReadOnlyDictionary<int, string> Definitions(string json) =>
+        Unique(Rows(json).Select(r => (Type: Int(r, "solutioncomponenttype"), Name: OptionalText(r, "primaryentityname"))).ToList(), d => d.Type.ToString(), StringComparer.Ordinal)
+            .Where(d => !string.IsNullOrEmpty(d.Name)).ToDictionary(d => d.Type, d => d.Name!);
+
+    /// <summary>Read 10: the solution's agents, with <c>publishedon</c> read as <see cref="Bots"/> reads it. No two rows share an id or a schema name (ignoring case).</summary>
+    public static IReadOnlyList<(Guid Id, string SchemaName, bool PublishedOn)> SolutionBots(string json) =>
+        Unique(Unique(Rows(json).Select(r => (Id: Id(r, "botid"), SchemaName: Text(r, "schemaname"), PublishedOn: OptionalText(r, "publishedon") is not null)).ToList(), b => b.Id.ToString(), StringComparer.Ordinal),
+            b => b.SchemaName, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Read 11: the solution's agent components. No two rows share an id or a schema name (ignoring case).</summary>
+    public static IReadOnlyList<(Guid Id, string SchemaName)> BotComponents(string json) =>
+        Unique(Unique(Rows(json).Select(r => (Id: Id(r, "botcomponentid"), SchemaName: Text(r, "schemaname"))).ToList(), b => b.Id.ToString(), StringComparer.Ordinal),
+            b => b.SchemaName, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The <c>deploy apply</c> read of the <c>bot</c> table: each agent's <c>schemaname</c> and whether <c>publishedon</c> is set (a string; an absent or null column is not set).</summary>
     public static IReadOnlyList<(string SchemaName, bool PublishedOn)> Bots(string json) =>

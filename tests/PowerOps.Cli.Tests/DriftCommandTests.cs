@@ -228,7 +228,7 @@ public class DriftCommandTests : IDisposable
     [Fact]
     public void A_snapshot_with_a_wrong_schemaVersion_exits_3_without_a_live_call()
     {
-        var bad = Write("bad.json", SnapshotFile.Write(Dev).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 2"));
+        var bad = Write("bad.json", SnapshotFile.Write(Dev).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 3"));
 
         var r = Run(Pair(Dev, Twin), Args("a", bad));
 
