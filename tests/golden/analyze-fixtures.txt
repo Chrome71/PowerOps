@@ -61,6 +61,9 @@ tests/fixtures/equipment-checkout: EquipmentCheckout 1.0.0.0 (publisher contoso,
   warning PO033 Roles/IT staff.xml: Role 'IT staff' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.
   warning PO034 Roles/Front desk.xml: Role 'Front desk' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs.
   warning PO034 Roles/IT staff.xml: Role 'IT staff' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs.
+tests/fixtures/flow-navigation: PowerOpsNavigation 1.0.0.0 (publisher demopub, prefix demo)
+  warning PO035 Workflows/Reviewexpenses-00000000-0000-0000-0000-000000000061.json: Flow 'Review expenses' action 'Add_expense' names 'demo_costcentre' on 'demo_expenses', but the navigation property of table 'demo_Expense' is 'demo_CostCentre'; the Web API matches navigation property names by case.
+  warning PO035 Workflows/Reviewexpenses-00000000-0000-0000-0000-000000000061.json: Flow 'Review expenses' action 'List_expenses' names 'demo_costcentre' on 'demo_expenses', but the navigation property of table 'demo_Expense' is 'demo_CostCentre'; the Web API matches navigation property names by case.
 tests/fixtures/flowtests/capture/solution: PowerOpsCapture 1.0.0.0 (publisher powerops, prefix pops)
   requires Active
   warning PO016 Workflows/PowerOpscapture-00000000-0000-0000-0000-000000000058.json: Flow 'PowerOps capture' has 120 actions and a nesting depth of 1.
@@ -87,4 +90,4 @@ tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip: Contoso_sample 1.0.0.1 (
   warning PO010 solution.xml: Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher.
 tests/fixtures/zips/polymorphiclookupexamplesolution.zip: polymorphiclookupexamplesolution 1.0.0.0 (publisher examplepublisher, prefix sample)
   no findings
-18 solutions, 0 errors, 61 warnings
+19 solutions, 0 errors, 63 warnings

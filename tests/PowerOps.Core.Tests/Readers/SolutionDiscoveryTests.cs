@@ -25,6 +25,7 @@ public class SolutionDiscoveryTests
                 "coe-auditlogs",
                 "core-portal",
                 "equipment-checkout",
+                "flow-navigation",
                 "flowtests/capture/solution",
                 "powerops-seed-yaml/v1/solutions/PowerOpsSeed/solution.yml",
                 "powerops-seed-yaml/v2/solutions/PowerOpsSeed/solution.yml",

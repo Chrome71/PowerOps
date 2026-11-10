@@ -189,4 +189,19 @@ public class FixtureRuleTests
         Assert.Contains("has Create and Write on 'SharePointData'", Analyzer.Run(s).Single(f => f.RuleId == "PO034").Message);
         Assert.Empty(Analyzer.NotChecked(s));
     }
+
+    [Fact]
+    public void Flow_navigation_gives_PO035_for_the_expand_and_the_wrong_case_bind_key_and_nothing_else()
+    {
+        var s = SolutionLoader.Load(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "flow-navigation"));
+
+        Assert.Equal(
+            [("demo_CostCentre", "demo_expenses"), ("demo_Expense_CostCentre_demo_CostCentre", "demo_costcentres")],
+            s.NavigationProperties.Select(n => (n.Name, n.EntitySet!)).Order());
+        Assert.Equal(
+            [("PO035", "Add_expense"), ("PO035", "List_expenses")],
+            Analyzer.Run(s).Select(f => (f.RuleId, f.Component)));
+        Assert.All(Analyzer.Run(s), f => Assert.Contains("names 'demo_costcentre' on 'demo_expenses', but the navigation property of table 'demo_Expense' is 'demo_CostCentre'", f.Message));
+        Assert.Empty(Analyzer.NotChecked(s));
+    }
 }

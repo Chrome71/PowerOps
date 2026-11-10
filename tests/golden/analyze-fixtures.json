@@ -592,6 +592,38 @@
       "notChecked": []
     },
     {
+      "path": "tests/fixtures/flow-navigation",
+      "uniqueName": "PowerOpsNavigation",
+      "version": "1.0.0.0",
+      "managed": false,
+      "publisher": {
+        "uniqueName": "demopub",
+        "prefix": "demo"
+      },
+      "requires": [],
+      "findings": [
+        {
+          "ruleId": "PO035",
+          "severity": "warning",
+          "message": "Flow 'Review expenses' action 'Add_expense' names 'demo_costcentre' on 'demo_expenses', but the navigation property of table 'demo_Expense' is 'demo_CostCentre'; the Web API matches navigation property names by case.",
+          "file": "Workflows/Reviewexpenses-00000000-0000-0000-0000-000000000061.json",
+          "component": "Add_expense",
+          "fix": "Write the navigation property name exactly as the table's relationship defines it, in the same case.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO035.md"
+        },
+        {
+          "ruleId": "PO035",
+          "severity": "warning",
+          "message": "Flow 'Review expenses' action 'List_expenses' names 'demo_costcentre' on 'demo_expenses', but the navigation property of table 'demo_Expense' is 'demo_CostCentre'; the Web API matches navigation property names by case.",
+          "file": "Workflows/Reviewexpenses-00000000-0000-0000-0000-000000000061.json",
+          "component": "List_expenses",
+          "fix": "Write the navigation property name exactly as the table's relationship defines it, in the same case.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO035.md"
+        }
+      ],
+      "notChecked": []
+    },
+    {
       "path": "tests/fixtures/flowtests/capture/solution",
       "uniqueName": "PowerOpsCapture",
       "version": "1.0.0.0",
@@ -821,9 +853,9 @@
     }
   ],
   "summary": {
-    "solutions": 18,
+    "solutions": 19,
     "errors": 0,
-    "warnings": 61,
+    "warnings": 63,
     "baselined": 0
   }
 }

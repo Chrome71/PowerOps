@@ -1,6 +1,6 @@
 ## PowerOps analyze
 
-**18 solutions, 0 errors, 61 warnings**
+**19 solutions, 0 errors, 63 warnings**
 
 ### tests/fixtures/agents/dataverse-tools: PowerOpsAgentTools 1.0.0.0
 
@@ -112,6 +112,13 @@ No findings.
 | warning | [PO033](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO033.md) | Roles/IT staff.xml | Role 'IT staff' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app. | Copy the role from App Opener, or give its users App Opener as well, and test the app as a user who holds only those roles. |
 | warning | [PO034](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO034.md) | Roles/Front desk.xml | Role 'Front desk' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs. | Check whether the role's users need to create or write that table, and remove those privileges from the role if they don't. |
 | warning | [PO034](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO034.md) | Roles/IT staff.xml | Role 'IT staff' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs. | Check whether the role's users need to create or write that table, and remove those privileges from the role if they don't. |
+
+### tests/fixtures/flow-navigation: PowerOpsNavigation 1.0.0.0
+
+| Severity | Rule | File | Message | Fix |
+|---|---|---|---|---|
+| warning | [PO035](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO035.md) | Workflows/Reviewexpenses-00000000-0000-0000-0000-000000000061.json | Flow 'Review expenses' action 'Add\_expense' names 'demo\_costcentre' on 'demo\_expenses', but the navigation property of table 'demo\_Expense' is 'demo\_CostCentre'; the Web API matches navigation property names by case. | Write the navigation property name exactly as the table's relationship defines it, in the same case. |
+| warning | [PO035](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO035.md) | Workflows/Reviewexpenses-00000000-0000-0000-0000-000000000061.json | Flow 'Review expenses' action 'List\_expenses' names 'demo\_costcentre' on 'demo\_expenses', but the navigation property of table 'demo\_Expense' is 'demo\_CostCentre'; the Web API matches navigation property names by case. | Write the navigation property name exactly as the table's relationship defines it, in the same case. |
 
 ### tests/fixtures/flowtests/capture/solution: PowerOpsCapture 1.0.0.0
 

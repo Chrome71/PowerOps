@@ -38,3 +38,4 @@
 | [PO032](PO032.md) | warning | Model-driven app is shared only with admin roles |
 | [PO033](PO033.md) | warning | Custom security role has no privilege to open a model-driven app |
 | [PO034](PO034.md) | warning | Security role can create or write a table that no component in the solution uses |
+| [PO035](PO035.md) | warning | Flow names a navigation property in the wrong case |
