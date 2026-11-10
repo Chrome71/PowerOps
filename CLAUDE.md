@@ -2,7 +2,7 @@
 
 ## Claude Code extras (optional)
 
-Subagents for this repo are in `.claude/agents/`: researcher, designer, implementer, reviewer and chores for work on PowerOps itself, and the six Power Platform specialists below. Claude picks one from its description.
+Subagents for this repo are in `.claude/agents/`: researcher, designer, implementer, reviewer and chores for work on PowerOps itself, and the six Power Platform specialists below. Claude picks one from its description. The Claude plugin ships generated copies of the six in `plugins/claude/agents/`, so after editing a specialist or the section below, regenerate them by the "Update goldens" recipe in `AGENTS.md`; in this repo, spawn the project agents by their bare names, not the plugin's `powerops:<name>`.
 
 ### Power Platform specialist team
 

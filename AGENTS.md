@@ -13,7 +13,7 @@ PowerOps is an open-source .NET 10 CLI toolkit for Microsoft Power Platform: ana
 - `skills/`: the planning skills and the two report roles (`SKILL.md` files)
 - `action/`: the scripts the composite GitHub Action (`action.yml`) runs
 - `docs/`: plan and roadmap; install details are in `docs/INSTALL.md`
-- `plugins/`: the Claude Code and Codex plugins that `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json` list. Their `skills/` folders are generated copies of `skills/` (see "Update goldens")
+- `plugins/`: the Claude Code and Codex plugins that `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json` list. Their `skills/` folders are generated copies of `skills/`, and `plugins/claude/agents/` holds copies of the six Power Platform specialists generated from `.claude/agents/` and the specialist section of `CLAUDE.md` (see "Update goldens")
 
 ## Commands
 
@@ -87,7 +87,7 @@ Every recipe ends with the same checks, so run them last: `dotnet build`, `dotne
 
 ### Update goldens
 
-1. `POWEROPS_UPDATE_GOLDEN=1 dotnet test` rewrites `tests/golden/*` and the skill copies in `plugins/*/skills/` (run it after any change to `skills/`). The golden self-test fails in this mode; that is expected.
+1. `POWEROPS_UPDATE_GOLDEN=1 dotnet test` rewrites `tests/golden/*`, the skill copies in `plugins/*/skills/` (run it after any change to `skills/`) and the specialist copies in `plugins/claude/agents/` (run it after any change to the six specialists in `.claude/agents/` or to the "Power Platform specialist team" section of `CLAUDE.md`). The golden self-test fails in this mode; that is expected.
 2. `git checkout tests/golden/selftest.txt`: update mode wrongly rewrites it, and its test needs the original.
 3. Run a normal `dotnet test`. This is needed because the schema test lists the golden files before the update run writes new ones.
 4. Read `git diff tests/golden plugins` and check that only the intended lines changed.
