@@ -523,7 +523,7 @@ converse "Use the powerops-plan skill. My idea: $idea." '[ "$turn" -gt 1 ] && [[
 if [ -n "$(plan_dir)" ]; then
   check_decisions
   [ "$(header depth)" = standard ] || fail "depth is '$(header depth)' after option-number answers, expected standard"
-  if grep -q '^- depth:' "$(plan_dir)/decisions.md" 2>/dev/null; then fail "decisions.md logs a depth change: $(grep '^- depth:' "$(plan_dir)/decisions.md")"; fi
+  if grep -qE '^- .*depth: .*->' "$(plan_dir)/decisions.md" 2>/dev/null; then fail "decisions.md logs a depth change: $(grep -E '^- .*depth: .*->' "$(plan_dir)/decisions.md")"; fi
 else
   fail "no plan folder under docs/plans"
 fi
