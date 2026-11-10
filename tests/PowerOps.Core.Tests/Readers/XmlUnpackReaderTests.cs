@@ -368,6 +368,51 @@ public class XmlUnpackReaderTests
         Assert.Contains("nested", ex.Message);
     }
 
+    private static TempFolder WithRelationships(string relationships, string relationshipFile = "Other/Relationships/demo_CostCentre.xml") => new TempFolder()
+        .Write("Other/Solution.xml", SolutionXml.Manifest())
+        .Write(relationshipFile, $"<EntityRelationships>{relationships}</EntityRelationships>");
+
+    [Fact]
+    public void Reads_the_navigation_properties_of_one_to_many_relationship_roles_with_their_tables_entity_sets()
+    {
+        // The table name differs in case from the relationship's, as matching ignores case.
+        using var t = WithRelationships(SolutionXml.Relationships).Write("Entities/demo_Expense/Entity.xml", SolutionXml.Entity("demo_expense", "demo_expenses"));
+
+        Assert.Equal(
+            [
+                new NavigationProperty("demo_CostCentre", "demo_Expense", "demo_expenses"),
+                new NavigationProperty("demo_Expense_CostCentre_demo_CostCentre", "demo_CostCentre", null),
+            ],
+            Read(t).NavigationProperties);
+    }
+
+    [Fact]
+    public void The_relationships_list_file_alone_gives_no_navigation_properties()
+    {
+        using var t = WithRelationships(SolutionXml.Relationships, "Other/Relationships.xml");
+
+        Assert.Empty(Read(t).NavigationProperties);
+    }
+
+    [Fact]
+    public void A_malformed_relationship_file_is_refused_with_its_path()
+    {
+        using var t = new TempFolder().Write("Other/Solution.xml", SolutionXml.Manifest()).Write("Other/Relationships/x.xml", "<EntityRelationships>");
+
+        Assert.StartsWith("Other/Relationships/x.xml: ", Assert.Throws<InvalidDataException>(() => Read(t)).Message);
+    }
+
+    [Fact]
+    public void A_malformed_entity_file_is_refused_with_its_path_only_when_a_relationship_has_roles()
+    {
+        const string Path = "Entities/demo_Expense/Entity.xml";
+        using var roles = WithRelationships(SolutionXml.Relationships).Write(Path, "<Entity><Name>");
+        using var none = WithRelationships(SolutionXml.RelationshipWithoutRoles).Write(Path, "<Entity><Name>");
+
+        Assert.StartsWith(Path + ": ", Assert.Throws<InvalidDataException>(() => Read(roles)).Message);
+        Assert.Empty(Read(none).NavigationProperties);
+    }
+
     private static string Fixture(string name) => Path.Combine(Golden.RepoRoot, "tests", "fixtures", name);
 
     [Fact]

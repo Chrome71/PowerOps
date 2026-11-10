@@ -50,6 +50,9 @@ public static partial class YamlReader
         var publisher = Required(root, publisherFile, "Publisher");
 
         var files = new SolutionFiles(root.Paths.Values.ToList(), root.ReadText, manifestFile, "", root.Budget);
+        // Table files are read only when a relationship has a role; a file without its key is skipped, as an `Entity.xml` without `EntityInfo` is.
+        var entitySet = SolutionParser.EntitySetOfTable(new(() => SolutionParser.EntitySets(
+            Matching(solutionFiles, EntityPath()).Select(p => root.LoadYaml(p).Element("Entity")).OfType<XElement>())));
         return new Solution(
             UniqueName: SolutionParser.Text(manifest, "UniqueName") ?? "",
             Version: SolutionParser.Text(manifest, "Version") ?? "",
@@ -77,7 +80,14 @@ public static partial class YamlReader
                 .Select(p => string.Join('/', p.Split('/').Take(2)))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Order(StringComparer.Ordinal)
-                .ToList());
+                .ToList())
+        {
+            NavigationProperties = Matching(solutionFiles, RelationshipPath())
+                .Select(p => root.LoadYaml(p).Element("EntityRelationship"))
+                .OfType<XElement>()
+                .SelectMany(r => SolutionParser.NavigationProperties(r, entitySet))
+                .ToList(),
+        };
     }
 
     private static string? Find(YamlRoot root, string path) => root.Paths.TryGetValue(path, out var actual) ? actual : null;
@@ -150,4 +160,10 @@ public static partial class YamlReader
 
     [GeneratedRegex(@"^canvasapps/[^/]+/canvasapp\.yml$", RegexOptions.IgnoreCase)]
     private static partial Regex CanvasAppPath();
+
+    [GeneratedRegex(@"^entityrelationships/[^/]+/entityrelationship\.yml$", RegexOptions.IgnoreCase)]
+    private static partial Regex RelationshipPath();
+
+    [GeneratedRegex(@"^entities/[^/]+/entity\.yml$", RegexOptions.IgnoreCase)]
+    private static partial Regex EntityPath();
 }

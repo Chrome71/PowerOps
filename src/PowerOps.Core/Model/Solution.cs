@@ -52,7 +52,16 @@ public sealed record Solution(
 
     /// <summary>The security roles of `Roles/*.xml` or the `customizations.xml` `Roles` element; empty when the solution has none.</summary>
     public IReadOnlyList<Role> Roles { get; init; } = Roles ?? [];
+
+    /// <summary>The navigation properties of the exported one-to-many relationships, in read order; empty when the solution has none (M79).</summary>
+    public IReadOnlyList<NavigationProperty> NavigationProperties { get; init; } = [];
 }
+
+/// <summary>
+/// One navigation property of one exported one-to-many relationship (a relationship read twice gives its rows twice). `Table` is the table it belongs to, as the relationship names it;
+/// `EntitySet` is that table's `EntitySetName` from the solution's tables (ignoring case), null when the solution doesn't hold the table.
+/// </summary>
+public sealed record NavigationProperty(string Name, string Table, string? EntitySet);
 
 public sealed record Publisher(string UniqueName, string Prefix);
 

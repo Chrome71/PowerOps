@@ -464,6 +464,113 @@ public class YamlReaderTests
         Assert.Empty(SolutionLoader.Load(path).CanvasFormulas);
     }
 
+    private const string RelationshipYml = """
+        EntityRelationship:
+          '@Name': demo_Expense_CostCentre_demo_CostCentre
+          EntityRelationshipType: OneToMany
+          ReferencingEntityName: demo_Expense
+          ReferencedEntityName: demo_CostCentre
+          EntityRelationshipRoles:
+            EntityRelationshipRole:
+            - NavigationPropertyName: demo_CostCentre
+              RelationshipRoleType: 1
+            - NavigationPropertyName: demo_Expense_CostCentre_demo_CostCentre
+              RelationshipRoleType: 0
+        """;
+
+    private const string RelationshipWithoutRolesYml = """
+        EntityRelationship:
+          '@Name': business_unit_demo_expense
+          EntityRelationshipType: OneToMany
+          ReferencingEntityName: demo_Expense
+          ReferencedEntityName: BusinessUnit
+        """;
+
+    private const string EntityYml = """
+        Entity:
+          Name: demo_Expense
+          EntityInfo:
+            entity:
+              '@Name': demo_Expense
+              EntitySetName: demo_expenses
+        """;
+
+    private const string RelationshipFile = "entityrelationships/demo_expense_costcentre/entityrelationship.yml";
+
+    private const string EntityFile = "entities/demo_expense/entity.yml";
+
+    /// <summary>A solution whose components list one relationship and one table.</summary>
+    private static TempFolder Relationships(string relationship, string entity = EntityYml) => Layout()
+        .Write("solutions/Demo/solutioncomponents.yml", """
+            SolutionComponents:
+              Component:
+              - '@path': /publishers/demopub
+              - '@path': /entityrelationships/demo_expense_costcentre
+              - '@path': /entities/demo_expense
+            """)
+        .Write(RelationshipFile, relationship)
+        .Write(EntityFile, entity);
+
+    [Fact]
+    public void A_relationship_with_a_role_list_and_its_table_give_the_navigation_properties()
+    {
+        using var t = Relationships(RelationshipYml);
+
+        Assert.Equal(
+            [
+                new NavigationProperty("demo_CostCentre", "demo_Expense", "demo_expenses"),
+                new NavigationProperty("demo_Expense_CostCentre_demo_CostCentre", "demo_CostCentre", null),
+            ],
+            SolutionLoader.Load(SolutionYml(t)).NavigationProperties);
+    }
+
+    [Fact]
+    public void A_relationship_outside_the_solutions_components_gives_none()
+    {
+        using var t = Layout().Write(RelationshipFile, RelationshipYml).Write(EntityFile, EntityYml);
+
+        Assert.Empty(SolutionLoader.Load(SolutionYml(t)).NavigationProperties);
+    }
+
+    [Fact]
+    public void A_relationship_file_without_its_key_is_skipped()
+    {
+        using var t = Relationships("Other: 1\n");
+
+        Assert.Empty(SolutionLoader.Load(SolutionYml(t)).NavigationProperties);
+    }
+
+    [Fact]
+    public void A_table_file_without_its_key_is_skipped()
+    {
+        using var t = Relationships(RelationshipYml, "Other: 1\n");
+
+        Assert.All(SolutionLoader.Load(SolutionYml(t)).NavigationProperties, n => Assert.Null(n.EntitySet));
+        Assert.Equal(2, SolutionLoader.Load(SolutionYml(t)).NavigationProperties.Count);
+    }
+
+    [Fact]
+    public void A_malformed_relationship_file_is_refused_with_its_path()
+    {
+        using var t = Relationships("a: [b\n");
+
+        var e = Assert.Throws<InvalidDataException>(() => SolutionLoader.Load(SolutionYml(t)));
+
+        Assert.StartsWith($"{SolutionYml(t)}: {RelationshipFile}: ", e.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_malformed_table_file_is_refused_with_its_path_only_when_a_relationship_has_roles()
+    {
+        using var roles = Relationships(RelationshipYml, "a: [b\n");
+        using var none = Relationships(RelationshipWithoutRolesYml, "a: [b\n");
+
+        var e = Assert.Throws<InvalidDataException>(() => SolutionLoader.Load(SolutionYml(roles)));
+
+        Assert.StartsWith($"{SolutionYml(roles)}: {EntityFile}: ", e.Message, StringComparison.Ordinal);
+        Assert.Empty(SolutionLoader.Load(SolutionYml(none)).NavigationProperties);
+    }
+
     [Fact]
     public void The_fixture_has_the_launch_formula()
     {

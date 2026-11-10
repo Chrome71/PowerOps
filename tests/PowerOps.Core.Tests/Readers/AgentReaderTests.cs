@@ -919,6 +919,40 @@ public class AgentReaderTests
         Refused(Comp(Agent(Base()), "demo_agent.tool.List", "9", DataverseTool(TicketInput)).Write(Path, big), Path, maxNodes: 1000);
     }
 
+    [Fact]
+    public void An_entity_file_that_a_tool_and_a_relationship_both_need_is_parsed_once()
+    {
+        const string Path = "Entities/demo_Ticket/Entity.xml";
+        const long Nodes = 15000; // one parse of the big file (about 10000 nodes) fits, two don't
+        var attributes = string.Concat(Enumerable.Range(0, 2000).Select(i => $"<attribute><Name>c{i}</Name></attribute>"));
+        string Big(string name) => $"<Entity><Name>{name}</Name><EntityInfo><entity Name=\"{name}\"><attributes>{attributes}</attributes><EntitySetName>{name.ToLowerInvariant()}s</EntitySetName></entity></EntityInfo></Entity>";
+        TempFolder Layout() => Comp(Agent(Base()), "demo_agent.tool.List", "9", DataverseTool(TicketInput))
+            .Write(Path, Big("demo_Ticket"))
+            .Write("Other/Relationships/demo_Ticket.xml", """
+                <EntityRelationships><EntityRelationship Name="demo_Ticket_Queue_demo_Queue">
+                  <EntityRelationshipType>OneToMany</EntityRelationshipType>
+                  <ReferencingEntityName>demo_Ticket</ReferencingEntityName>
+                  <ReferencedEntityName>demo_Queue</ReferencedEntityName>
+                  <EntityRelationshipRoles><EntityRelationshipRole><NavigationPropertyName>demo_Queue</NavigationPropertyName><RelationshipRoleType>1</RelationshipRoleType></EntityRelationshipRole></EntityRelationshipRoles>
+                </EntityRelationship></EntityRelationships>
+                """);
+
+        using (var t = Layout())
+        {
+            using var dir = new TempFolder();
+            var zip = System.IO.Path.Combine(dir.Path, "agent.zip");
+            SolutionZip.Create(t.Path, zip);
+            foreach (var s in new[] { XmlUnpackReader.Read(t.Path, new ReadBudget(maxNodes: Nodes)), ZipReader.Read(zip, new ReadBudget(maxNodes: Nodes)) })
+            {
+                Assert.Equal(new ToolTable("demo_tickets", "demo_Ticket"), Assert.Single(Assert.Single(s.Agents).Tools).Table);
+                Assert.Equal([new NavigationProperty("demo_Queue", "demo_Ticket", "demo_tickets")], s.NavigationProperties);
+            }
+        }
+
+        // The budget is tight enough that a second parse would pass it.
+        Refused(Layout().Write("Entities/demo_Copy/Entity.xml", Big("demo_Copy")), Path, maxNodes: Nodes);
+    }
+
     [Theory]
     [InlineData("kind: AdaptiveDialog\nbeginDialog:\n  actions:\n    - kind: InvokeFlowAction\n      flowId: x\n", "InvokeFlowAction")]
     [InlineData("kind: AdaptiveDialog\nactions:\n  kind: InvokeConnectorAction\n  note: TaskDialog\n", "InvokeConnectorAction")]

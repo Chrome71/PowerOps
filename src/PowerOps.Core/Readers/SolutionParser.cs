@@ -132,6 +132,17 @@ internal static partial class SolutionParser
             .Select(p => ReadPowerPageComponent(LoadXml(files, p), p))
             .ToList();
 
+        // Table files are read only when an agent tool names a literal entity set (M74) or a relationship has a role (M79), and then once.
+        var entitySets = new Lazy<Dictionary<string, string>>(() => ReadEntitySets(files, paths, customizations));
+        var entitySet = EntitySetOfTable(entitySets);
+        var navigationProperties = paths.Values
+            .Where(p => RelationshipPath().IsMatch(p))
+            .Order(StringComparer.Ordinal)
+            .SelectMany(p => LoadXml(files, p).Elements("EntityRelationship"))
+            .Concat(customizations?.Element("EntityRelationships")?.Elements("EntityRelationship") ?? [])
+            .SelectMany(r => NavigationProperties(r, entitySet))
+            .ToList();
+
         return new Solution(
             UniqueName: Text(manifest, "UniqueName") ?? "",
             Version: Text(manifest, "Version") ?? "",
@@ -159,8 +170,9 @@ internal static partial class SolutionParser
             AppModules = appModules,
             SiteMaps = siteMaps,
             CanvasApps = canvasApps,
-            Agents = ReadAgents(files, paths, customizations),
+            Agents = ReadAgents(files, paths, entitySets),
             Roles = roles,
+            NavigationProperties = navigationProperties,
         };
     }
 
@@ -205,10 +217,8 @@ internal static partial class SolutionParser
     /// Only a type-15 (Custom GPT) and a type-9 (Topic (V2)) component of a read agent has its `data` read, and a type-9 `data` only when its text holds `TaskDialog` or its first column-0 `kind:` line is `McpTool` or `IQCapability`, so topics add no refusals.
     /// An agent with no Custom GPT component takes its instructions from `configuration.json` (M51 plan, Data rows 1 to 4).
     /// </summary>
-    private static List<Agent> ReadAgents(SolutionFiles files, Dictionary<string, string> paths, XElement? customizations)
+    private static List<Agent> ReadAgents(SolutionFiles files, Dictionary<string, string> paths, Lazy<Dictionary<string, string>> tables)
     {
-        // Table files are read only when a tool names a literal entity set (M74).
-        var tables = new Lazy<Dictionary<string, string>>(() => ReadEntitySets(files, paths, customizations));
         var agents = new List<AgentParts>();
         var byName = new Dictionary<string, AgentParts>(StringComparer.OrdinalIgnoreCase);
         foreach (var path in paths.Values.Where(p => BotPath().IsMatch(p)).Order(StringComparer.Ordinal))
@@ -342,11 +352,14 @@ internal static partial class SolutionParser
         return new ToolTable(set, set is not null && tables.Value.TryGetValue(set, out var name) ? name : null);
     }
 
-    // Entity set name to table name, ignoring case: each `Entities/<table>/Entity.xml` in ordinal path order, then the customizations file's `Entities/Entity`; the first table to claim a set wins.
-    private static Dictionary<string, string> ReadEntitySets(SolutionFiles files, Dictionary<string, string> paths, XElement? customizations)
+    // Each `Entities/<table>/Entity.xml` in ordinal path order, then the customizations file's `Entities/Entity`.
+    private static Dictionary<string, string> ReadEntitySets(SolutionFiles files, Dictionary<string, string> paths, XElement? customizations) =>
+        EntitySets(paths.Values.Where(p => EntityPath().IsMatch(p)).Order(StringComparer.Ordinal).Select(p => LoadXml(files, p))
+            .Concat(customizations?.Element("Entities")?.Elements("Entity") ?? []));
+
+    /// <summary>Entity set name to table name, ignoring case, from <c>Entity</c> elements; the first table to claim a set wins.</summary>
+    internal static Dictionary<string, string> EntitySets(IEnumerable<XElement> tables)
     {
-        var tables = paths.Values.Where(p => EntityPath().IsMatch(p)).Order(StringComparer.Ordinal).Select(p => LoadXml(files, p))
-            .Concat(customizations?.Element("Entities")?.Elements("Entity") ?? []);
         var sets = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var entity in tables.SelectMany(t => t.Element("EntityInfo")?.Elements("entity") ?? []))
         {
@@ -357,6 +370,49 @@ internal static partial class SolutionParser
         }
 
         return sets;
+    }
+
+    /// <summary>A table's entity set from <paramref name="sets"/>, ignoring case; the first entity set for a table wins. The inverse map is built on the first call.</summary>
+    internal static Func<string, string?> EntitySetOfTable(Lazy<Dictionary<string, string>> sets)
+    {
+        var byTable = new Lazy<Dictionary<string, string>>(() =>
+        {
+            var tables = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (set, table) in sets.Value)
+            {
+                tables.TryAdd(table, set);
+            }
+
+            return tables;
+        });
+        return table => byTable.Value.GetValueOrDefault(table);
+    }
+
+    /// <summary>
+    /// The navigation properties of a one-to-many <c>EntityRelationship</c>: each <c>EntityRelationshipRole</c> with a <c>NavigationPropertyName</c> gives one, on <c>ReferencingEntityName</c> for role type 1
+    /// and <c>ReferencedEntityName</c> for type 0 (observed in exports, M79). Another role type, a role with no name or table, and a relationship of another type give none.
+    /// <paramref name="entitySet"/> is called only for a row found.
+    /// </summary>
+    internal static IEnumerable<NavigationProperty> NavigationProperties(XElement relationship, Func<string, string?> entitySet)
+    {
+        if (Text(relationship, "EntityRelationshipType") != "OneToMany")
+        {
+            yield break;
+        }
+
+        foreach (var role in relationship.Element("EntityRelationshipRoles")?.Elements("EntityRelationshipRole") ?? [])
+        {
+            var table = Text(role, "RelationshipRoleType") switch
+            {
+                "1" => Text(relationship, "ReferencingEntityName"),
+                "0" => Text(relationship, "ReferencedEntityName"),
+                _ => null,
+            };
+            if (table is not null && Text(role, "NavigationPropertyName") is { } name)
+            {
+                yield return new NavigationProperty(name, table, entitySet(table));
+            }
+        }
     }
 
     private static XElement? ReadAgentYaml(SolutionFiles files, string path, string text)
@@ -935,6 +991,9 @@ internal static partial class SolutionParser
 
     [GeneratedRegex(@"^Entities/[^/]+/Entity\.xml$", RegexOptions.IgnoreCase)]
     private static partial Regex EntityPath();
+
+    [GeneratedRegex(@"^Other/Relationships/[^/]+\.xml$", RegexOptions.IgnoreCase)]
+    private static partial Regex RelationshipPath();
 
     [GeneratedRegex(@"^CanvasApps/[^/]+\.meta\.xml$", RegexOptions.IgnoreCase)]
     private static partial Regex CanvasMetaPath();

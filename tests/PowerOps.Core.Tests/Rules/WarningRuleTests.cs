@@ -2086,4 +2086,115 @@ public class WarningRuleTests
         Assert.Equal(["Roles/Abe.xml", "Roles/Zed.xml"], Run(new PO033RoleWithoutAppBaseline(), s).Select(f => f.File));
         Assert.Equal(["Roles/Abe.xml", "Roles/Zed.xml"], Run(new PO034RoleWritesUnusedTable(), s).Select(f => f.File));
     }
+
+    private static readonly NavigationProperty[] Exported =
+    [
+        new("demo_CostCentre", "demo_Expense", "demo_expenses"),
+        new("demo_Approver", "demo_Expense", "demo_expenses"),
+        new("demo_Expense_CostCentre_demo_CostCentre", "demo_CostCentre", "demo_costcentres"),
+    ];
+
+    private static object DataverseAction(Dictionary<string, object> parameters, string api = "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps") =>
+        new { type = "OpenApiConnection", inputs = new { host = new { apiId = api, operationId = "ListRecords" }, parameters } };
+
+    private static Dictionary<string, object> Expand(string expand, string set = "demo_expenses") => new() { ["entityName"] = set, ["$expand"] = expand };
+
+    private static Dictionary<string, object> Bind(string name, string set = "demo_expenses") => new() { ["entityName"] = set, [$"item/{name}@odata.bind"] = "demo_costcentres(1)" };
+
+    private static Solution Navigation(Dictionary<string, object> actions, IReadOnlyList<NavigationProperty>? exported = null, string flow = "Expenses") =>
+        B.Empty() with { Workflows = [B.Flow(name: flow, actions: actions)], NavigationProperties = exported ?? Exported };
+
+    private static Solution Navigation(string action, Dictionary<string, object> parameters, IReadOnlyList<NavigationProperty>? exported = null) =>
+        Navigation(new Dictionary<string, object> { [action] = DataverseAction(parameters) }, exported);
+
+    [Fact]
+    public void PO035_fires_for_an_expand_name_in_the_wrong_case_and_names_both_spellings()
+    {
+        var f = Assert.Single(Run(new PO035NavigationName(), Navigation("List", Expand("demo_costcentre"))));
+
+        Assert.Equal("PO035", f.RuleId);
+        Assert.Equal(Severity.Warning, f.Severity);
+        Assert.Equal("Flow 'Expenses' action 'List' names 'demo_costcentre' on 'demo_expenses', but the navigation property of table 'demo_Expense' is 'demo_CostCentre'; the Web API matches navigation property names by case.", f.Message);
+        Assert.Equal("Workflows/Expenses-11111111-1111-1111-1111-111111111111.json", f.File);
+        Assert.Equal("List", f.Component);
+    }
+
+    [Fact]
+    public void PO035_fires_for_a_bind_key_in_the_wrong_case()
+    {
+        var f = Assert.Single(Run(new PO035NavigationName(), Navigation("Add", Bind("demo_costcentre"))));
+
+        Assert.Equal("Flow 'Expenses' action 'Add' names 'demo_costcentre' on 'demo_expenses', but the navigation property of table 'demo_Expense' is 'demo_CostCentre'; the Web API matches navigation property names by case.", f.Message);
+    }
+
+    [Fact]
+    public void PO035_fires_for_the_referenced_tables_collection_valued_name_in_the_wrong_case()
+    {
+        var f = Assert.Single(Run(new PO035NavigationName(), Navigation("List", Expand("demo_expense_costcentre_demo_costcentre", "demo_costcentres"))));
+
+        Assert.Equal("Flow 'Expenses' action 'List' names 'demo_expense_costcentre_demo_costcentre' on 'demo_costcentres', but the navigation property of table 'demo_CostCentre' is 'demo_Expense_CostCentre_demo_CostCentre'; the Web API matches navigation property names by case.", f.Message);
+    }
+
+    [Fact]
+    public void PO035_fires_once_for_the_one_wrong_name_of_a_comma_list_with_spaces()
+    {
+        var f = Assert.Single(Run(new PO035NavigationName(), Navigation("List", Expand(" demo_Approver , demo_costcentre "))));
+
+        Assert.Contains("names 'demo_costcentre'", f.Message);
+    }
+
+    [Theory]
+    [InlineData("demo_CostCentre")]
+    [InlineData("demo_unknown")]
+    [InlineData("demo_costcentre($select=demo_name)")]
+    [InlineData("@{variables('Expand')}")]
+    [InlineData("demo_expense_costcentre_demo_costcentre")] // another table's property: the action's own table has others
+    public void PO035_quiet_for_an_expand_it_does_not_flag(string expand)
+    {
+        Assert.Empty(Run(new PO035NavigationName(), Navigation("List", Expand(expand))));
+    }
+
+    [Fact]
+    public void PO035_quiet_for_the_exact_case_bind_an_expression_table_no_exported_properties_and_another_connector()
+    {
+        var rule = new PO035NavigationName();
+
+        Assert.Empty(Run(rule, Navigation("Add", Bind("demo_CostCentre"))));
+        Assert.Empty(Run(rule, Navigation("List", Expand("demo_costcentre", "@parameters('Table')"))));
+        Assert.Empty(Run(rule, Navigation("List", Expand("demo_costcentre"), [])));
+        Assert.Empty(Run(rule, Navigation(new Dictionary<string, object> { ["Mail"] = DataverseAction(Expand("demo_costcentre"), "/providers/Microsoft.PowerApps/apis/shared_office365") })));
+    }
+
+    [Fact]
+    public void PO035_gives_one_finding_for_a_name_in_expand_and_a_bind_key_and_for_a_relationship_read_twice()
+    {
+        var parameters = Expand("demo_costcentre");
+        parameters["item/demo_costcentre@odata.bind"] = "demo_costcentres(1)";
+
+        Assert.Single(Run(new PO035NavigationName(), Navigation("Add", parameters)));
+        Assert.Single(Run(new PO035NavigationName(), Navigation("List", Expand("demo_costcentre"), [.. Exported, .. Exported])));
+    }
+
+    [Fact]
+    public void PO035_names_the_first_case_insensitive_match_in_read_order()
+    {
+        NavigationProperty upper = new("DEMO_COSTCENTRE", "demo_Expense", "demo_expenses");
+
+        Assert.EndsWith("is 'demo_CostCentre'; the Web API matches navigation property names by case.", Assert.Single(Run(new PO035NavigationName(), Navigation("List", Expand("demo_costcentre"), [Exported[0], upper]))).Message);
+        Assert.EndsWith("is 'DEMO_COSTCENTRE'; the Web API matches navigation property names by case.", Assert.Single(Run(new PO035NavigationName(), Navigation("List", Expand("demo_costcentre"), [upper, Exported[0]]))).Message);
+    }
+
+    [Fact]
+    public void PO035_gives_findings_in_flow_order_then_action_walk_order()
+    {
+        var zed = B.Flow(name: "Zed", actions: new Dictionary<string, object>
+        {
+            ["Add"] = DataverseAction(Bind("demo_costcentre")),
+            ["Scope"] = new { type = "Scope", actions = new Dictionary<string, object> { ["List"] = DataverseAction(Expand("demo_approver")) } },
+        });
+        var abe = B.Flow(name: "Abe", actions: new Dictionary<string, object> { ["Get"] = DataverseAction(Expand("demo_costcentre")) });
+        var s = B.Empty() with { Workflows = [zed, abe], NavigationProperties = Exported };
+
+        Assert.Equal(["Zed/Add", "Zed/List", "Abe/Get"], Run(new PO035NavigationName(), s).Select(f => f.File[10..f.File.IndexOf('-')] + "/" + f.Component));
+    }
 }
