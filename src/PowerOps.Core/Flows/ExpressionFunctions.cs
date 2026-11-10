@@ -100,10 +100,10 @@ public static class ExpressionFunctions
     /// <summary>The supported function names, sorted.</summary>
     public static IReadOnlyList<string> Names { get; } = [.. Table.Keys.Order(StringComparer.Ordinal)];
 
-    /// <exception cref="UnsupportedException">A string of <paramref name="length"/> characters is past <see cref="MaxStringLength"/>.</exception>
     /// <summary>The sentence an unknown function's message ends with: where the list is, and that a mock does not help.</summary>
     internal const string UnsupportedNextStep = "See Supported functions in docs/FLOW-TESTS.md; a mock does not avoid this, as a mocked action's inputs are evaluated too.";
 
+    /// <exception cref="UnsupportedException">A string of <paramref name="length"/> characters is past <see cref="MaxStringLength"/>.</exception>
     internal static void CheckLength(long length)
     {
         if (length > MaxStringLength)
