@@ -1,0 +1,388 @@
+{
+  "sources": [
+    {
+      "id": "pac-cli",
+      "title": "Power Platform CLI (pac)",
+      "kind": "nuget",
+      "target": "microsoft.powerapps.cli.tool",
+      "areas": [
+        "pac",
+        "alm"
+      ],
+      "affects": "every `pac` call and gate route; `PAC_VERSION` in the examples; decision 16(d); its triage reads the `pac` reference",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "pa-cli",
+      "title": "Power Apps CLI (pa)",
+      "kind": "npm",
+      "target": "@microsoft/power-apps",
+      "areas": [
+        "apps"
+      ],
+      "affects": "the code app route and the gate's `pa app push` route",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "mcp-spec",
+      "title": "Model Context Protocol specification",
+      "kind": "github-release",
+      "target": "modelcontextprotocol/modelcontextprotocol",
+      "areas": [
+        "mcp"
+      ],
+      "affects": "the protocol revision `powerops mcp` serves",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "dataverse-skills",
+      "title": "Dataverse skills",
+      "kind": "github-release",
+      "target": "microsoft/Dataverse-skills",
+      "areas": [
+        "agent-skills",
+        "dataverse"
+      ],
+      "affects": "HANDOFF's table and solution routes (the repository is the plugin, cited as a whole)",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "power-platform-skills",
+      "title": "Power Platform skills: plugin list",
+      "kind": "github-commits",
+      "target": "microsoft/power-platform-skills",
+      "path": ".claude-plugin/marketplace.json",
+      "areas": [
+        "agent-skills",
+        "apps",
+        "automate"
+      ],
+      "affects": "the plugin names HANDOFF and `powerops-implement` route to; a change inside a cited plugin is mode B's",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "skills-for-copilot-studio",
+      "title": "Skills for Copilot Studio",
+      "kind": "github-commits",
+      "target": "microsoft/skills-for-copilot-studio",
+      "areas": [
+        "agent-skills",
+        "copilot-studio"
+      ],
+      "affects": "HANDOFF's agent row and the plugin note in `CLAUDE.md`, which cite the repository as a whole",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "copilot-studio-plugin",
+      "title": "Copilot Studio plugin",
+      "kind": "github-commits",
+      "target": "microsoft/copilot-studio-plugin",
+      "areas": [
+        "agent-skills",
+        "copilot-studio"
+      ],
+      "affects": "`references/copilot-studio.md`, which cites the repository as a whole",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "skills-for-fabric",
+      "title": "Skills for Fabric: Power BI authoring plugin",
+      "kind": "github-commits",
+      "target": "microsoft/skills-for-fabric",
+      "path": "plugins/powerbi-authoring",
+      "areas": [
+        "agent-skills",
+        "power-bi"
+      ],
+      "affects": "`references/power-bi.md`, HANDOFF's Power BI row",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "power-cat-overflow",
+      "title": "Power CAT skills: overflow plugin",
+      "kind": "github-commits",
+      "target": "microsoft/power-cat-skills",
+      "path": "plugins/powercat-overflow",
+      "areas": [
+        "agent-skills"
+      ],
+      "affects": "PO016's provenance; the findings file the Verifier cites (kept role: record only)",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "power-cat-overpage",
+      "title": "Power CAT skills: overpage plugin",
+      "kind": "github-commits",
+      "target": "microsoft/power-cat-skills",
+      "path": "plugins/powercat-overpage",
+      "areas": [
+        "agent-skills"
+      ],
+      "affects": "the findings file the Verifier cites (kept role: record only)",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "pa-persistence",
+      "title": "Power Apps persistence package",
+      "kind": "nuget",
+      "target": "microsoft.powerplatform.powerapps.persistence",
+      "areas": [
+        "apps"
+      ],
+      "affects": "FOUNDATION section 8's revisit trigger (a stable or net10.0 build)",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "docs-important-changes",
+      "title": "Learn: important changes (deprecations) in Power Platform",
+      "kind": "github-commits",
+      "target": "MicrosoftDocs/power-platform",
+      "path": "power-platform/important-changes-coming.md",
+      "areas": [
+        "governance"
+      ],
+      "affects": "deprecations across Power Platform",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "docs-alm-yaml",
+      "title": "Learn: solution source control YAML format",
+      "kind": "github-commits",
+      "target": "MicrosoftDocs/power-platform",
+      "path": "power-platform/alm/solution-source-control-yaml-format.md",
+      "areas": [
+        "alm"
+      ],
+      "affects": "the YAML layout, M5, PO013, FOUNDATION section 8",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "docs-alm-settings",
+      "title": "Learn: connection references and environment variables in build tools",
+      "kind": "github-commits",
+      "target": "MicrosoftDocs/power-platform",
+      "path": "power-platform/alm/conn-ref-env-variables-build-tools.md",
+      "areas": [
+        "alm"
+      ],
+      "affects": "`settings generate`, `settings validate`, HANDOFF",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "docs-git-integration-faqs",
+      "title": "Learn: Git integration FAQs",
+      "kind": "github-commits",
+      "target": "MicrosoftDocs/power-platform",
+      "path": "power-platform/alm/git-integration/faqs.md",
+      "areas": [
+        "alm"
+      ],
+      "affects": "FOUNDATION section 8's YAML and Git integration item",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "docs-pac-mcp",
+      "title": "Learn: use the Power Platform CLI MCP server",
+      "kind": "github-commits",
+      "target": "MicrosoftDocs/power-platform",
+      "path": "power-platform/developer/howto/use-mcp.md",
+      "areas": [
+        "mcp",
+        "pac"
+      ],
+      "affects": "the gate's MCP routes and matchers",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "docs-pa-cli",
+      "title": "Learn: code apps CLI reference",
+      "kind": "github-commits",
+      "target": "MicrosoftDocs/powerapps-docs",
+      "path": "powerapps-docs/developer/code-apps/reference/cli.md",
+      "areas": [
+        "apps"
+      ],
+      "affects": "the gate's `pa app push` route, PO026's code app route",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "docs-dataverse-mcp",
+      "title": "Learn: Dataverse MCP server",
+      "kind": "github-commits",
+      "target": "MicrosoftDocs/powerapps-docs",
+      "path": "powerapps-docs/maker/data-platform/data-platform-mcp.md",
+      "areas": [
+        "mcp",
+        "dataverse"
+      ],
+      "affects": "FOUNDATION's coexistence row",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "docs-canvas-yaml",
+      "title": "Learn: canvas app YAML",
+      "kind": "github-commits",
+      "target": "MicrosoftDocs/powerapps-docs",
+      "path": "powerapps-docs/maker/canvas-apps/power-apps-yaml.md",
+      "areas": [
+        "apps"
+      ],
+      "affects": "the canvas reader, PO014, PO018, PO036",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "docs-flow-limits",
+      "title": "Learn: Power Automate limits and configuration",
+      "kind": "github-commits",
+      "target": "MicrosoftDocs/power-automate-docs",
+      "path": "articles/limits-and-config.md",
+      "areas": [
+        "automate"
+      ],
+      "affects": "PO016, PO017",
+      "lastSeen": null,
+      "lastChecked": null
+    },
+    {
+      "id": "m365-roadmap",
+      "title": "Microsoft 365 roadmap",
+      "kind": "manual",
+      "target": "https://www.microsoft.com/microsoft-365/roadmap",
+      "areas": [
+        "governance"
+      ],
+      "affects": "every product PowerOps reads; filter by Power Apps, Power Automate, Power Pages, Microsoft Copilot Studio, Microsoft Dataverse, and Power Platform governance and administration",
+      "everyDays": 30,
+      "lastChecked": null
+    },
+    {
+      "id": "claude-code",
+      "title": "Claude Code changelog",
+      "kind": "manual",
+      "target": "https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md",
+      "areas": [
+        "agent-clients"
+      ],
+      "affects": "`skills-smoke.yml`, the hooks in HANDOFF, the Claude plugin",
+      "everyDays": 30,
+      "lastChecked": null
+    },
+    {
+      "id": "codex",
+      "title": "Codex releases",
+      "kind": "manual",
+      "target": "https://github.com/openai/codex/releases",
+      "areas": [
+        "agent-clients"
+      ],
+      "affects": "`skills-smoke.yml`, the Codex hooks in HANDOFF, the Codex plugin",
+      "everyDays": 30,
+      "lastChecked": null
+    },
+    {
+      "id": "copilot-studio-whats-new",
+      "title": "Copilot Studio: what's new",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/microsoft-copilot-studio/whats-new",
+      "areas": [
+        "copilot-studio"
+      ],
+      "affects": "the agent reader, PO027 to PO031, `references/copilot-studio.md`",
+      "everyDays": 30,
+      "lastChecked": null
+    },
+    {
+      "id": "copilot-studio-mcp",
+      "title": "Copilot Studio: MCP",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/copilot-studio-mcp",
+      "areas": [
+        "mcp",
+        "copilot-studio"
+      ],
+      "affects": "HANDOFF's MCP routes",
+      "everyDays": 30,
+      "lastChecked": null
+    },
+    {
+      "id": "power-bi-latest",
+      "title": "Power BI Desktop: latest update",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/power-bi/fundamentals/desktop-latest-update",
+      "areas": [
+        "power-bi"
+      ],
+      "affects": "PBIP planning, `references/power-bi.md`",
+      "everyDays": 30,
+      "lastChecked": null
+    },
+    {
+      "id": "power-bi-authoring-mcp",
+      "title": "Power BI authoring MCP server",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/power-bi/developer/mcp/power-bi-authoring-mcp",
+      "areas": [
+        "mcp",
+        "power-bi"
+      ],
+      "affects": "HANDOFF's Power BI row",
+      "everyDays": 30,
+      "lastChecked": null
+    },
+    {
+      "id": "programmability",
+      "title": "Power Platform programmability: what's new and changed",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/power-platform/admin/programmability-whats-new-changed",
+      "areas": [
+        "governance"
+      ],
+      "affects": "the Power Platform API calls in the examples",
+      "everyDays": 90,
+      "lastChecked": null
+    },
+    {
+      "id": "release-plans",
+      "title": "Power Platform release plans",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/power-platform/release-plan/",
+      "areas": [
+        "governance"
+      ],
+      "affects": "everything; read once a wave",
+      "everyDays": 90,
+      "lastChecked": null
+    },
+    {
+      "id": "fabric-roadmap",
+      "title": "Fabric roadmap",
+      "kind": "manual",
+      "target": "https://roadmap.fabric.microsoft.com/",
+      "areas": [
+        "power-bi"
+      ],
+      "affects": "the Power BI branch",
+      "everyDays": 90,
+      "lastChecked": null
+    }
+  ]
+}
