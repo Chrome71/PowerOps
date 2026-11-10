@@ -6,7 +6,7 @@ using PowerOps.Core.Drift;
 
 namespace PowerOps.Cli;
 
-/// <summary>Reads one solution in one live environment: <c>pac org who</c> for the name and URL, <c>az</c> for a token, then the Web API for reads 2 to 8 (read 8 only for <c>drift</c>, not for a deploy target), and for the <c>bot</c> read of <c>deploy apply</c>. Nothing here formats a <see cref="PacResult"/> or puts the token, the URL or the <c>--env</c> value in a message.</summary>
+/// <summary>Reads one solution in one live environment: <c>pac org who</c> for the name and URL, <c>az</c> for a token, then the Web API for reads 2 to 11 (reads 8 to 11 only for <c>drift</c>, not for a deploy target), and for the <c>bot</c> read of <c>deploy apply</c>. Nothing here formats a <see cref="PacResult"/> or puts the token, the URL or the <c>--env</c> value in a message.</summary>
 internal sealed class DriftLiveReader(
     Func<IReadOnlyList<string>, TimeSpan, PacResult> pac,
     Func<IReadOnlyList<string>, TimeSpan, PacResult> az,
@@ -24,7 +24,7 @@ internal sealed class DriftLiveReader(
     public Snapshot Read(string solution, string env)
     {
         var (name, url, _) = Who(env);
-        return ReadSolution(name, url, Token(url), solution, otherSolutions: true);
+        return ReadSolution(name, url, Token(url), solution, drift: true);
     }
 
     /// <summary>Reads a deploy target: one <c>pac org who</c> and one token, then every solution in full and each dependency by its <c>solution</c> row only (version, or null when not installed).</summary>
@@ -37,7 +37,7 @@ internal sealed class DriftLiveReader(
         }
 
         var token = Token(url);
-        var snapshots = solutions.Select(s => ReadSolution(name, url, token, s, otherSolutions: false)).ToList();
+        var snapshots = solutions.Select(s => ReadSolution(name, url, token, s, drift: false)).ToList();
         var versions = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (var d in dependencies)
         {
@@ -67,7 +67,7 @@ internal sealed class DriftLiveReader(
         return [.. valid.Chunk(BotBatch).SelectMany(batch => Read(url, token, "bot", "bots", DriftQueries.Bots(batch), DriftParsers.Bots))];
     }
 
-    private Snapshot ReadSolution(string name, string url, string token, string solution, bool otherSolutions)
+    private Snapshot ReadSolution(string name, string url, string token, string solution, bool drift)
     {
         var found = Read(url, token, "solution", "solutions", DriftQueries.Solution(solution), DriftParsers.Solution);
         if (found is not { } sol)
@@ -82,22 +82,38 @@ internal sealed class DriftLiveReader(
 
         // Read 8 costs one read per 50 distinct component ids, and none for no components; read 3's one page of at most 5,000 rows holds it to 100.
         // It matches on id alone, so a row of another type is a different component and is dropped.
-        var alsoIn = otherSolutions
+        var alsoIn = drift
             ? [.. components.Select(c => c.Id).Distinct().Chunk(OtherSolutionsBatch).SelectMany(ids =>
                 Read(url, token, "solutioncomponent (other solutions)", "solutioncomponents", DriftQueries.OtherSolutions(sol.Id, ids), DriftParsers.OtherSolutions))
                 .Where(a => components.Contains((a.Type, a.Id)))]
             : (IReadOnlyList<SnapshotAlsoIn>?)null;
 
-        // The layer table takes one component per query, so a managed solution costs one read per mapped component.
+        // Types of 10000 and above are per environment: read 9 names them, unless every such component is a connection reference (named by read 6).
+        // Read 10 and 11 run only when a component is named bot or botcomponent; a name read from the tenant is only compared, never put into a query.
         var referenceIds = references.Select(r => r.Id).ToHashSet();
+        var definitions = drift && components.Any(c => c.Type >= 10000 && !referenceIds.Contains(c.Id))
+            ? Read(url, token, "solutioncomponentdefinition", "solutioncomponentdefinitions", DriftQueries.Definitions(), DriftParsers.Definitions)
+            : new Dictionary<int, string>();
+        string? NameOf(int type) => type >= 10000 ? definitions.GetValueOrDefault(type) : null;
+        bool Named(string kind) => components.Any(c => string.Equals(NameOf(c.Type), kind, StringComparison.OrdinalIgnoreCase));
+        var bots = Named("bot") ? Read(url, token, "bot", "bots", DriftQueries.SolutionBots(sol.Id), DriftParsers.SolutionBots) : [];
+        var botComponents = Named("botcomponent") ? Read(url, token, "botcomponent", "botcomponents", DriftQueries.BotComponents(sol.Id), DriftParsers.BotComponents) : [];
+        string? SchemaOf(int type, Guid id) => NameOf(type)?.ToLowerInvariant() switch
+        {
+            "bot" => bots.Where(b => b.Id == id).Select(b => b.SchemaName).FirstOrDefault(),
+            "botcomponent" => botComponents.Where(b => b.Id == id).Select(b => b.SchemaName).FirstOrDefault(),
+            _ => null,
+        };
+
+        // The layer table takes one component per query, so a managed solution costs one read per mapped component.
         var named = components.Select(c => (c.Type, c.Id, Name: referenceIds.Contains(c.Id) ? DriftQueries.ReferenceLayerName : DriftQueries.LayerName(c.Type))).ToList();
         var layersRead = !sol.Managed || named.Count(c => c.Name is not null) <= MaxLayerReads;
         return SnapshotFile.Sort(new Snapshot(name, solution, true, sol.Version, sol.Managed, layersRead,
             [.. named.Select(c => new SnapshotComponent(c.Type, c.Id,
                 sol.Managed && layersRead && c.Name is not null
                     ? Read(url, token, "msdyn_componentlayer", "msdyn_componentlayers", DriftQueries.Layers(c.Id, c.Name), DriftParsers.Layers)
-                    : null))],
-            variables, references, flows, alsoIn));
+                    : null, NameOf(c.Type), SchemaOf(c.Type, c.Id)))],
+            variables, references, flows, alsoIn, drift ? [.. bots.Select(b => new SnapshotAgent(b.SchemaName, b.PublishedOn))] : null));
     }
 
     private (string Name, string Url, string? EnvironmentId) Who(string env)
