@@ -1,0 +1,51 @@
+name: Ecosystem watch
+
+# A weekly report, never a check: it reads public registries and GitHub's API (docs/ecosystem/), writes
+# the job summary and keeps one tracking issue, `Ecosystem watch`. It changes no file, merges nothing
+# and calls no tenant.
+on:
+  schedule:
+    - cron: '41 6 * * 1'   # Mondays 06:41 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency: ecosystem-watch
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The token is for GitHub's API rate limit: the script sends it to api.github.com only, on curl's stdin.
+      - name: Collect
+        id: collect
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/ecosystem-watch.sh > ecosystem-watch.md
+      # The open issue the Actions bot made (gh prints its login as app/github-actions) is edited, then closed
+      # when nothing is new, not checked or due; with none open, one is created only when something is.
+      - name: Update the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NEW: ${{ steps.collect.outputs.new }}
+          FAILED: ${{ steps.collect.outputs.failed }}
+          DUE: ${{ steps.collect.outputs.due }}
+        run: |
+          number="$(gh issue list --state open --limit 200 --json number,title,author \
+            | jq -r 'map(select(.title == "Ecosystem watch" and .author.login == "app/github-actions")) | first | .number // empty')"
+          if [ "$NEW" = 0 ] && [ "$FAILED" = 0 ] && [ "$DUE" = 0 ]; then something=no; else something=yes; fi
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body-file ecosystem-watch.md
+            if [ "$something" = no ]; then gh issue close "$number"; fi
+          elif [ "$something" = yes ]; then
+            gh issue create --title "Ecosystem watch" --body-file ecosystem-watch.md
+          fi
