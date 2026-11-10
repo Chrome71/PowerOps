@@ -1,6 +1,6 @@
 ---
 status: approved
-review: pending
+review: done
 environment: null
 depth: quick
 supersedes: null
@@ -88,7 +88,7 @@ None.
 - A status call reads a local cache, so "available" means a profile or account exists, not that its token still works (refuted for `az`, not documented for `pac`).
 - `command -v` is POSIX and `Get-Command` is PowerShell's; neither runs the tool it looks for.
 - Smoke scenarios 7 and 8 build plans that say "No Microsoft skill, pac, az or Python is used", so the probe should run nothing and ask nothing there; on Claude `pac` and `az` are not allowed tools in them anyway. Both should pass in the same number of turns or fewer. Not run here.
-- `pac auth list` exits 0 with no profile (observed in the M32 runbook, `docs/BUILD-PLAN.md`), so the probe reads its output rather than its exit code; that is why the output reaches the context.
+- `pac auth list`'s exit code with no profile is neither documented nor observed: the M32 runbook (`docs/BUILD-PLAN.md`) only expects exit 0 with "none", its run had a profile, and the smoke script's fake `pac` exits 1. So the probe counts a failure or an empty list as missing, and reads the output, which is why the output reaches the context.
 
 ## Open questions
 
