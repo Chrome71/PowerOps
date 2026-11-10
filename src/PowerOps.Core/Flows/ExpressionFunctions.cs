@@ -5,7 +5,7 @@ using System.Text.Json.Nodes;
 
 namespace PowerOps.Core.Flows;
 
-/// <summary>The 47 functions of the expression language that flow tests support, each written from its section of Learn's expression functions reference.</summary>
+/// <summary>The 61 functions of the expression language that flow tests support, each written from its section of Learn's expression functions reference.</summary>
 public static class ExpressionFunctions
 {
     /// <summary>Learn's limit on the result of <c>concat</c>, applied to every string the simulator builds.</summary>
@@ -39,6 +39,12 @@ public static class ExpressionFunctions
         ["replace"] = (a, c) => Replace(Count("replace", a, 3), c),
         ["split"] = (a, c) => Split(Count("split", a, 2), c),
         ["toLower"] = (a, _) => JsonValue.Create(Str("toLower", Count("toLower", a, 1)[0]).ToLowerInvariant()),
+        ["toUpper"] = (a, _) => JsonValue.Create(Str("toUpper", Count("toUpper", a, 1)[0]).ToUpperInvariant()),
+        ["startsWith"] = (a, _) => Search("startsWith", a) is var (text, find) ? JsonValue.Create(text.StartsWith(find, StringComparison.OrdinalIgnoreCase)) : null,
+        ["endsWith"] = (a, _) => Search("endsWith", a) is var (text, find) ? JsonValue.Create(text.EndsWith(find, StringComparison.OrdinalIgnoreCase)) : null,
+        ["indexOf"] = (a, _) => Search("indexOf", a) is var (text, find) ? JsonValue.Create(text.IndexOf(find, StringComparison.OrdinalIgnoreCase)) : null,
+        ["join"] = (a, c) => Join(Count("join", a, 2), c),
+        ["base64"] = (a, c) => Base64(Str("base64", Count("base64", a, 1)[0]), c),
         ["trim"] = (a, _) => JsonValue.Create(Str("trim", Count("trim", a, 1)[0]).Trim()),
         ["guid"] = (a, c) => a.Length > 0 ? throw new UnsupportedException("guid() with a format argument is not supported.") : JsonValue.Create(c.Guid()),
 
@@ -48,16 +54,20 @@ public static class ExpressionFunctions
         ["first"] = (a, _) => Edge("first", Count("first", a, 1)[0], first: true),
         ["last"] = (a, _) => Edge("last", Count("last", a, 1)[0], first: false),
         ["length"] = (a, _) => Length(Count("length", a, 1)[0]),
+        ["take"] = (a, _) => Take(Count("take", a, 2)),
+        ["skip"] = (a, _) => Skip(Count("skip", a, 2)),
 
         // Logical
         ["equals"] = (a, _) => JsonValue.Create(Count("equals", a, 2) is [var x, var y] && Equal(x, y)),
         ["greater"] = (a, _) => JsonValue.Create(Compare("greater", Count("greater", a, 2)) > 0),
         ["greaterOrEquals"] = (a, _) => JsonValue.Create(Compare("greaterOrEquals", Count("greaterOrEquals", a, 2)) >= 0),
+        ["less"] = (a, _) => JsonValue.Create(Compare("less", Count("less", a, 2)) < 0),
         ["lessOrEquals"] = (a, _) => JsonValue.Create(Compare("lessOrEquals", Count("lessOrEquals", a, 2)) <= 0),
         ["if"] = (a, _) => Count("if", a, 3) is [var test, var yes, var no] ? (Bool("if", test) ? yes : no) : null,
         ["and"] = (a, _) => JsonValue.Create(Bools("and", a).All(b => b)),
         ["or"] = (a, _) => JsonValue.Create(Bools("or", a).Any(b => b)),
         ["not"] = (a, _) => JsonValue.Create(!Bool("not", Count("not", a, 1)[0])),
+        ["coalesce"] = (a, _) => Count("coalesce", a, 1, int.MaxValue).FirstOrDefault(x => x is not null),
 
         // Conversion
         ["json"] = (a, c) => Json(Count("json", a, 1)[0], c),
@@ -69,6 +79,10 @@ public static class ExpressionFunctions
 
         // Math
         ["min"] = (a, _) => Min(a),
+        ["add"] = (a, _) => Arithmetic("add", Count("add", a, 2)),
+        ["sub"] = (a, _) => Arithmetic("sub", Count("sub", a, 2)),
+        ["mul"] = (a, _) => Arithmetic("mul", Count("mul", a, 2)),
+        ["div"] = (a, _) => Arithmetic("div", Count("div", a, 2)),
 
         // Date and time
         ["utcNow"] = (a, c) => a.Length > 0 ? throw new UnsupportedException("utcNow() with a format argument is not supported.") : JsonValue.Create(Format(Timestamp("utcNow", c.UtcNow()))),
@@ -87,6 +101,9 @@ public static class ExpressionFunctions
     public static IReadOnlyList<string> Names { get; } = [.. Table.Keys.Order(StringComparer.Ordinal)];
 
     /// <exception cref="UnsupportedException">A string of <paramref name="length"/> characters is past <see cref="MaxStringLength"/>.</exception>
+    /// <summary>The sentence an unknown function's message ends with: where the list is, and that a mock does not help.</summary>
+    internal const string UnsupportedNextStep = "See Supported functions in docs/FLOW-TESTS.md; a mock does not avoid this, as a mocked action's inputs are evaluated too.";
+
     internal static void CheckLength(long length)
     {
         if (length > MaxStringLength)
@@ -99,7 +116,7 @@ public static class ExpressionFunctions
 
     /// <exception cref="UnsupportedException">The function isn't one of <see cref="Names"/>.</exception>
     internal static JsonNode? Invoke(string name, JsonNode?[] args, IExpressionContext context) =>
-        Table.TryGetValue(name, out var function) ? function(args, context) : throw new UnsupportedException($"Unsupported function '{name}'.");
+        Table.TryGetValue(name, out var function) ? function(args, context) : throw new UnsupportedException($"Unsupported function '{name}'. {UnsupportedNextStep}");
 
     internal static string Describe(JsonNode? node) => node switch
     {
@@ -343,6 +360,93 @@ public static class ExpressionFunctions
         _ => throw new ExpressionException($"length() expects a string or an array, got {Describe(a)}."),
     };
 
+    // Learn: a positive count of items from the front of a string or an array; zero, a negative count or one past the end is left open
+    private static JsonNode? Take(JsonNode?[] a)
+    {
+        var length = a[0] switch
+        {
+            JsonArray arr => arr.Count,
+            var text when IsString(text) => text!.GetValue<string>().Length,
+            var other => throw new ExpressionException($"take() expects a string or an array, got {Describe(other)}."),
+        };
+        var count = Int("take", a[1]);
+        if (count < 1 || count > length)
+        {
+            throw new UnsupportedException($"take() of {count} items from {length} is not supported: Learn says only that the count is positive, not what a run does with zero, a negative count or one past the end.");
+        }
+
+        return a[0] is JsonArray array
+            ? new JsonArray(array.Take((int)count).Select(x => x?.DeepClone()).ToArray())
+            : JsonValue.Create(a[0]!.GetValue<string>()[..(int)count]);
+    }
+
+    // Learn: skip takes an array and a positive count; a string, zero, a negative count or one past the end is left open
+    private static JsonNode? Skip(JsonNode?[] a)
+    {
+        if (IsString(a[0]))
+        {
+            throw new UnsupportedException("skip() of a string is not supported: Learn lists only an array.");
+        }
+
+        var array = a[0] as JsonArray ?? throw new ExpressionException($"skip() expects an array, got {Describe(a[0])}.");
+        var count = Int("skip", a[1]);
+        if (count < 1 || count > array.Count)
+        {
+            throw new UnsupportedException($"skip() of {count} items from {array.Count} is not supported: Learn says only that the count is positive, not what a run does with zero, a negative count or one past the end.");
+        }
+
+        return new JsonArray(array.Skip((int)count).Select(x => x?.DeepClone()).ToArray());
+    }
+
+    // Learn: not case-sensitive, and nothing more; so only printable ASCII, where every case-insensitive comparison agrees
+    private static (string Text, string Find) Search(string function, JsonNode?[] a)
+    {
+        Count(function, a, 2);
+        var text = Str(function, a[0]);
+        var find = Str(function, a[1]);
+        if (find.Length == 0)
+        {
+            throw new UnsupportedException($"{function}() of an empty search string is not supported: Learn doesn't say whether it is found.");
+        }
+
+        if (!(text + find).All(c => c is >= ' ' and <= '~'))
+        {
+            throw new UnsupportedException($"{function}() of a string with a character outside printable ASCII is not supported: Learn says only that it isn't case-sensitive, not how it compares other characters.");
+        }
+
+        return (text, find);
+    }
+
+    private static JsonNode? Join(JsonNode?[] a, IExpressionContext context)
+    {
+        var items = a[0] as JsonArray ?? throw new ExpressionException($"join() expects an array, got {Describe(a[0])}.");
+        var delimiter = Str("join", a[1]);
+        if (!items.All(IsString))
+        {
+            throw new UnsupportedException("join() of an array with an item that is not a string is not supported: Learn doesn't say how other items are written.");
+        }
+
+        var parts = items.Select(item => item!.GetValue<string>()).ToArray();
+        var length = parts.Sum(p => (long)p.Length) + ((long)Math.Max(parts.Length - 1, 0) * delimiter.Length);
+        CheckLength(length); // Learn: join's result must not pass 104,857,600 characters either
+        context.ChargeCopy(length);
+        return JsonValue.Create(string.Join(delimiter, parts));
+    }
+
+    // Learn's example shows one byte for each ASCII character; it doesn't say which encoding other characters take
+    private static JsonNode? Base64(string text, IExpressionContext context)
+    {
+        if (!text.All(char.IsAscii))
+        {
+            throw new UnsupportedException("base64() of a string with a character outside ASCII is not supported: Learn doesn't say which encoding gives its bytes.");
+        }
+
+        var length = (text.Length + 2L) / 3 * 4;
+        CheckLength(length);
+        context.ChargeCopy(length);
+        return JsonValue.Create(Convert.ToBase64String(Encoding.ASCII.GetBytes(text)));
+    }
+
     private static JsonNode? Json(JsonNode? a, IExpressionContext context)
     {
         if (a is null)
@@ -383,6 +487,64 @@ public static class ExpressionFunctions
         }
 
         return numbers.Aggregate((lowest, next) => CompareNumbers(next!, lowest!) < 0 ? next : lowest);
+    }
+
+    // A literal float (5.0) is a double whose JSON text has no point, so its type is read from what holds it.
+    private static bool IsFloat(JsonNode? node) =>
+        IsNumber(node) && (node!.ToJsonString().IndexOfAny(['.', 'e', 'E']) >= 0 || node.GetValue<object>() is double or float or decimal);
+
+    // Learn: integers give an integer (div: 11 / 5 is 2), and div with a float gives a float; the rest is left open
+    private static JsonNode? Arithmetic(string function, JsonNode?[] a)
+    {
+        if (!a.All(IsNumber))
+        {
+            throw new ExpressionException($"{function}() expects two numbers, got {Describe(a[0])} and {Describe(a[1])}.");
+        }
+
+        if (!IsFloat(a[0]) && !IsFloat(a[1]))
+        {
+            // Learn gives no integer range; int() takes 32 bits, so these do too
+            if (!TryLong(a[0], out var x) || !TryLong(a[1], out var y) || x is < int.MinValue or > int.MaxValue || y is < int.MinValue or > int.MaxValue)
+            {
+                throw new UnsupportedException($"{function}() of an integer past 32 bits is not supported: Learn doesn't give the integer range.");
+            }
+
+            if (function == "div" && (y == 0 || x < 0 || y < 0))
+            {
+                throw new UnsupportedException("div() of integers by zero or with a negative number is not supported: Learn says the divisor can't be zero but not what a run does then, and doesn't say whether a negative quotient is truncated or floored.");
+            }
+
+            var result = function switch { "add" => x + y, "sub" => x - y, "mul" => x * y, _ => x / y };
+            return result is >= int.MinValue and <= int.MaxValue
+                ? JsonValue.Create(result)
+                : throw new UnsupportedException($"{function}() with a result past 32 bits is not supported: Learn doesn't give the integer range.");
+        }
+
+        var (dx, dy) = (Double(a[0]!), Double(a[1]!));
+        if (function == "div" && dy == 0)
+        {
+            throw new UnsupportedException("div() by zero is not supported: Learn says the divisor can't be zero but not what a run does then.");
+        }
+
+        var value = function switch { "add" => dx + dy, "sub" => dx - dy, "mul" => dx * dy, _ => dx / dy };
+        if (!double.IsFinite(value))
+        {
+            throw new UnsupportedException($"{function}() with a result past the double range is not supported.");
+        }
+
+        if (function != "div" && value == Math.Floor(value))
+        {
+            throw new UnsupportedException($"{function}() of a float with a whole result is not supported: Learn doesn't say whether the result is an integer or a float.");
+        }
+
+        return Float(value);
+    }
+
+    // not on Learn, plan "Not on Learn": a float with no fraction is written 14.0, so a function that needs an integer refuses it
+    private static JsonNode? Float(double value)
+    {
+        var written = value.ToString("R", CultureInfo.InvariantCulture);
+        return JsonNode.Parse(written.Contains('.') || written.Contains('E') ? written : written + ".0");
     }
 
     // Learn's forms: ISO 8601 with or without seconds or fraction, and MM/dd/yyyy; other text TryParse takes borrows parts from today's date
@@ -758,9 +920,7 @@ public static class ExpressionFunctions
             throw new UnsupportedException("float() of NaN, an infinity or a number past the double range is not supported.");
         }
 
-        // not on Learn, plan "Not on Learn": a float with no fraction is written 14.0, so a function that needs an integer refuses it
-        var written = value.ToString("R", CultureInfo.InvariantCulture);
-        return JsonNode.Parse(written.Contains('.') || written.Contains('E') ? written : written + ".0");
+        return Float(value);
     }
 
     // the capture runs A06 and A11: the result keeps no zone for a timestamp with none, and shows an offset as +00:00 once converted to UTC

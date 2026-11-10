@@ -1,6 +1,8 @@
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 using PowerOps.Core.Flows;
+using PowerOps.Tests.Shared;
 
 namespace PowerOps.Core.Tests;
 
@@ -962,6 +964,45 @@ public class FlowSimulatorTests
         var untaken = Run("""{"If":{"type":"If","expression":"@false","actions":{"Pick":{"type":"Select","inputs":{},"runAfter":{}}},"runAfter":{}}}""");
         Assert.Equal(FlowRunOutcome.Finished, untaken.Outcome);
         Assert.Equal("Skipped", St(untaken, "Pick"));
+    }
+
+    [Fact]
+    public void Every_listed_action_type_reaches_its_case_in_the_dispatch()
+    {
+        foreach (var type in FlowSimulator.ActionTypes)
+        {
+            // a listed type with no case would throw out of Run; a bare definition may still fail or be unsupported for its missing parts
+            var run = Run("{\"A\":{\"type\":\"" + type + "\",\"runAfter\":{}}}");
+
+            Assert.DoesNotContain("action type", run.Message ?? "");
+        }
+
+        Assert.Empty(FlowSimulator.ActionTypes.Intersect(FlowSimulator.MockedTypes));
+    }
+
+    [Fact]
+    public void Flow_tests_doc_lists_exactly_the_supported_action_types()
+    {
+        var lines = File.ReadAllLines(Path.Combine(Golden.RepoRoot, "docs", "FLOW-TESTS.md"))
+            .SkipWhile(line => line != "## Supported action types")
+            .Skip(1)
+            .TakeWhile(line => !line.StartsWith("## ", StringComparison.Ordinal))
+            .ToArray();
+
+        static IEnumerable<string> Listed(string[] lines, string prefix) =>
+            Regex.Matches(lines.Single(line => line.StartsWith(prefix, StringComparison.Ordinal)), "`([^`]+)`").Select(m => m.Groups[1].Value).Order(StringComparer.Ordinal);
+
+        Assert.Equal(FlowSimulator.ActionTypes.Order(StringComparer.Ordinal), Listed(lines, "- Run by the simulator: "));
+        Assert.Equal(FlowSimulator.MockedTypes.Order(StringComparer.Ordinal), Listed(lines, "- Answered by a mock: "));
+    }
+
+    [Fact]
+    public void A_mock_does_not_get_past_an_unsupported_function_in_the_actions_inputs()
+    {
+        var run = Run("""{"Call":{"type":"Http","inputs":{"uri":"@dayOfYear('2026-01-01T00:00:00Z')"},"runAfter":{}}}""", In(mocks: Mocks(("Call", [Ok()]))));
+
+        Assert.Equal(FlowRunOutcome.Unsupported, run.Outcome);
+        Assert.Contains("dayOfYear", run.Message);
     }
 
     [Theory]

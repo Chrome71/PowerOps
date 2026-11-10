@@ -43,7 +43,7 @@
       "flow": "BuildRequestCancellation",
       "solution": "ALMAcceleratorforMakers",
       "result": "unsupported",
-      "message": "Action 'List_records': Unsupported function 'dayOfYear' in expression 'dayOfYear('2026-01-01T00:00:00Z')'.",
+      "message": "Action 'List_records': Unsupported function 'dayOfYear' in expression 'dayOfYear('2026-01-01T00:00:00Z')'. See Supported functions in docs/FLOW-TESTS.md; a mock does not avoid this, as a mocked action's inputs are evaluated too.",
       "assertions": []
     }
   ],
