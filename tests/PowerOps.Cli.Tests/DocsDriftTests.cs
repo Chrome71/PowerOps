@@ -383,4 +383,20 @@ public partial class DocsDriftTests
         Assert.Equal(["README.md does not link docs/HARNESS.md"], LinkProblems(n => n == "README.md" ? Page(n).Replace("](docs/HARNESS.md", "](docs/OTHER.md") : Page(n)));
         Assert.Contains("no exit codes in the deploy apply section of COMMANDS.md", RecoveryProblems(runbook, "", ApplySchema()));
     }
+
+    // The deploy note names what diff doesn't compare in the verify role's words (step 3 of its Verify section), and the diff docs say it too.
+    [Fact]
+    public void What_diff_does_not_compare_is_named_alike_in_the_verify_skill_the_diff_docs_and_the_deploy_note()
+    {
+        var parts = PowerOps.Core.Deploy.DeployReviews.NotComparedByDiff;
+        var phrase = $"{string.Join(", ", parts.SkipLast(1))} or {parts[^1]}";
+        var step = File.ReadAllLines(Repo("skills", "powerops-verify", "SKILL.md")).Single(l => l.StartsWith("3. `diff` compares", StringComparison.Ordinal));
+        var commands = Page("docs/COMMANDS.md");
+        var start = commands.IndexOf("\n## diff\n", StringComparison.Ordinal);
+        var diff = commands[start..commands.IndexOf("\n## ", start + 1, StringComparison.Ordinal)];
+
+        Assert.Equal(6, parts.Count);
+        Assert.Contains(phrase, step, StringComparison.Ordinal);
+        Assert.Contains(phrase, diff, StringComparison.Ordinal);
+    }
 }

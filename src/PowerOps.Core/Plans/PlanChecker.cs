@@ -26,6 +26,9 @@ public sealed record PlanReport(
 /// <summary>One agent report in a plan folder. State and Stale are null when the report does not say, or could not be read. Input (a relative path) and SolutionHash (64 lowercase hex characters, else "unknown") are null for review.md; for the two solution reports Input is null when there is no valid input: line. SolutionStale is null for review.md and when nothing was compared (no valid input and hash, or a solution that could not be read); else true when the digest of the solution Input names differs from SolutionHash.</summary>
 public sealed record PlanReportFile(string File, string? State, bool? Stale, string? Input = null, string? SolutionHash = null, bool? SolutionStale = null);
 
+/// <summary>The two solution reports of one plan folder under docs/plans: Plan is the folder's name; a report is null when the folder has none.</summary>
+public sealed record PlanReviews(string Plan, PlanReportFile? Verify, PlanReportFile? Security);
+
 /// <summary>The write journal (writes.md) of a plan folder: its table rows and those whose cleanup is still open. Both are null when the file could not be read.</summary>
 public sealed record PlanWrites(int? Entries, int? OpenCleanup);
 
@@ -240,11 +243,33 @@ public static partial class PlanChecker
 
     private static Comparison Compare(string root, string input)
     {
+        var (path, problem) = Walk(root, input);
+        if (path is null)
+        {
+            return new Comparison(null, problem);
+        }
+
+        try
+        {
+            return new Comparison(Manifest.Read(path).Digest, null);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            return new Comparison(null, "could not be read");
+        }
+    }
+
+    /// <summary>The full path of a report's <c>input:</c> (a relative path with / between names) under <paramref name="root"/>, or null when it is not such a path, a name is a reserved Windows name, a segment is a symbolic link, the walk fails or nothing is there.</summary>
+    public static string? InputPath(string root, string input) => IsLocator(input) ? Walk(root, input).Path : null;
+
+    // The input's path under root, or why there is none: both are null for a path that is not there.
+    private static (string? Path, string? Problem) Walk(string root, string input)
+    {
         var names = input.Split('/');
         // Reserved names open devices on Windows; refuse them before any file is touched.
         if (OperatingSystem.IsWindows() && names.Any(WindowsReservedName))
         {
-            return new Comparison(null, "could not be read");
+            return (null, "could not be read");
         }
 
         // The walk is inside the try too: a name the file system rejects is a report problem, not an internal error.
@@ -256,15 +281,15 @@ public static partial class PlanChecker
                 path = System.IO.Path.Combine(path, name);
                 if (new FileInfo(path).LinkTarget is not null)
                 {
-                    return new Comparison(null, "passes through a symbolic link");
+                    return (null, "passes through a symbolic link");
                 }
             }
 
-            return !File.Exists(path) && !Directory.Exists(path) ? new Comparison(null, null) : new Comparison(Manifest.Read(path).Digest, null);
+            return File.Exists(path) || Directory.Exists(path) ? (path, null) : (null, null);
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
         {
-            return new Comparison(null, "could not be read");
+            return (null, "could not be read");
         }
     }
 
@@ -275,28 +300,39 @@ public static partial class PlanChecker
     [GeneratedRegex("^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$", RegexOptions.IgnoreCase)]
     private static partial Regex ReservedNameRegex();
 
-    /// <summary>The solution-hash of every verify.md and security-solution.md with state ready in the plans under <paramref name="root"/> (docs/plans/*/), or null when there is no docs/plans folder. Only the reports' headers are read.</summary>
+    /// <summary>The verify.md and security-solution.md of each plan folder under <paramref name="root"/> (docs/plans/*/, ordinal order) that holds at least one of them, or null when there is no docs/plans folder. Only the reports' headers and plan.md are read; a report's Stale is against the plan's current hash (null when plan.md can't be read or parsed), and SolutionStale is not filled in.</summary>
     /// <exception cref="InvalidDataException">docs or docs/plans is a link, as <see cref="Discover"/> throws; the message starts with the path. A plan.md in <paramref name="root"/> itself does not hide them.</exception>
-    public static IReadOnlySet<string>? ReadyHashes(string root)
+    public static IReadOnlyList<PlanReviews>? Reviews(string root)
     {
         if (!Directory.Exists(System.IO.Path.Combine(root, "docs", "plans")))
         {
             return null;
         }
 
-        var hashes = new HashSet<string>(StringComparer.Ordinal);
+        var reviews = new List<PlanReviews>();
         foreach (var planFile in PlansUnder(root, null))
         {
-            foreach (var r in ReadReports(System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(planFile))!, root, null, new List<string>()))
+            string? hash;
+            try
             {
-                if (r.File != "review.md" && r.State == "ready" && r.SolutionHash is { } hash && hash != UnknownHash)
-                {
-                    hashes.Add(hash);
-                }
+                hash = PlanDocument.Parse(ReadPlan(planFile)).BodyHash;
+            }
+            catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+            {
+                hash = null;
+            }
+
+            var folder = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(planFile))!;
+            var reports = ReadReports(folder, root, hash, new List<string>());
+            var verify = reports.Find(r => r.File == "verify.md");
+            var security = reports.Find(r => r.File == "security-solution.md");
+            if (verify is not null || security is not null)
+            {
+                reviews.Add(new PlanReviews(System.IO.Path.GetFileName(folder), verify, security));
             }
         }
 
-        return hashes;
+        return reviews;
     }
 
     // A row is a table line that is neither a header (the line before a separator) nor a separator. Its cleanup, the last
@@ -394,7 +430,7 @@ public static partial class PlanChecker
     private static readonly string[] ReportStates = ["ready", "blocked", "failed", "dropped"];
 
     // State, plan-hash, input and solution-hash come from a report's first six lines (review.md's plan-hash, as before, from the first such line anywhere).
-    // A stale or unknown-state report only warns: the report is data, and neither one gates anything.
+    // In plan status a stale or unknown-state report only warns and changes no plan's status: the report is data. The deploy routes read the two solution reports through Reviews.
     internal static List<PlanReportFile> ReadReports(string folder, string baseDir, string? bodyHash, ICollection<string> warnings)
     {
         var reports = new List<PlanReportFile>();

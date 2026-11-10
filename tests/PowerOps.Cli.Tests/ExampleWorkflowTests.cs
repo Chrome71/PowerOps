@@ -116,6 +116,21 @@ public sealed partial class ExampleWorkflowTests
         Assert.All(scripts, script => Assert.True(File.Exists(Path.Combine(Golden.RepoRoot, script.Replace('/', Path.DirectorySeparatorChar))), script));
     }
 
+    [Theory]
+    [InlineData("promote-dev-to-test.yml")]
+    [InlineData("ephemeral-pr.yml")]
+    [InlineData("ephemeral-sweep.yml")]
+    public void Every_plan_file_step_sets_require_reviews_explicitly_to_false(string file)
+    {
+        var applySteps = StepsOf(Load(file)).Where(s => s.With.ContainsKey("plan-file")).ToList();
+
+        Assert.All(applySteps, s => Assert.Equal("false", s.With.GetValueOrDefault("require-reviews")));
+        if (file != "ephemeral-sweep.yml")
+        {
+            Assert.NotEmpty(applySteps);
+        }
+    }
+
     // ---- ephemeral-pr.yml ----
 
     private static Dictionary<object, object> PrJob => (Dictionary<object, object>)JobsOf(Pr)["ephemeral"];

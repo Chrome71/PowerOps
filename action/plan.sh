@@ -21,11 +21,11 @@ else
   trap 'rm -f "$stderr"' EXIT
   dotnet "$PO_DLL" deploy plan "$PO_FOLDER" --target "$PO_TARGET" --save "$PO_FOLDER/powerops-plan.json" --format markdown --out "$PO_COMMENT" --planned-by action 2>"$stderr" || code=$?
   # Text forwarded from pac, az and the Web API can name tenant ids and the environment URL, and the log may be public.
-  # PowerOps' own error: and warning: lines are shown too; forwarded text carries a '  | ' prefix and stays hidden.
+  # PowerOps' own error:, warning: and note: lines are shown too; forwarded text carries a '  | ' prefix and stays hidden.
   if [ "${RUNNER_DEBUG:-}" = "1" ]; then
     cat "$stderr"
   else
-    grep -E '^(error|warning):' "$stderr" || true
+    grep -E '^(error|warning|note):' "$stderr" || true
   fi
 fi
 

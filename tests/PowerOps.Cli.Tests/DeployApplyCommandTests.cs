@@ -1441,6 +1441,175 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Empty(agents.Calls);
     }
 
+    // ---- --require-reviews (M75) -------------------------------------------------------------------------------
+
+    private string SeedZipPath => Path.Combine(Folder, "PowerOpsSeed.zip");
+
+    private const string NoneRecords = "no verify.md or security-solution.md under docs/plans records this zip's SHA-256 as its solution-hash; a report written for an unpacked folder never does";
+
+    private static FakeTarget SeedAfterOn() => new() { Snaps = SeedTarget().Snaps, After = SeedAfter("on") };
+
+    [Theory]
+    [InlineData("text", "deploy-apply-dry-run.txt", false)]
+    [InlineData("json", "deploy-apply-dry-run.json", false)]
+    [InlineData("text", "deploy-apply.txt", true)]
+    [InlineData("json", "deploy-apply.json", true)]
+    public void With_require_reviews_a_covered_zip_plans_and_imports_and_the_reports_are_todays_goldens(string format, string golden, bool apply)
+    {
+        SeedZip(Folder);
+        MakePlan();
+        Reviewed(SeedZipPath);
+        var pac = new FakePac();
+
+        var r = Apply(SeedAfterOn(), pac, ["--require-reviews", "--format", format, .. apply ? new[] { "--apply" } : []]);
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal(apply ? 1 : 0, pac.Calls.Count);
+        Assert.DoesNotContain("warning:", r.Err);
+        Golden.Verify(Scrub(r.Out), golden);
+    }
+
+    // Stages a plan whose imports some review doesn't cover: the refusal's message, the stderr of the same run (with or without the option), and the target.
+    private (string Message, string Warnings, Func<FakeTarget> Target) Uncovered(string kind)
+    {
+        if (kind == "two-zips")
+        {
+            Chain();
+            MakePlan(new FakeTarget());
+            Reviewed(Path.Combine(Folder, "A.zip"), plan: "a");
+            return (
+                $"no review covers B.zip: {NoneRecords} (2 zips in all; the warning lines name each); nothing was imported.",
+                $"warning: B.zip: {NoneRecords}\nwarning: C.zip: {NoneRecords}\n",
+                () => new FakeTarget());
+        }
+
+        SeedZip(Folder);
+        MakePlan();
+        switch (kind)
+        {
+            case "security-blocked":
+                Edit(Path.Combine(Reviewed(SeedZipPath), "security-solution.md"), "state: ready", "state: blocked");
+                return ("no review covers PowerOpsSeed.zip: docs/plans/m: security-solution.md is blocked; nothing was imported.", "warning: PowerOpsSeed.zip: docs/plans/m: security-solution.md is blocked\n", SeedAfterOn);
+            case "stale":
+                Edit(Path.Combine(Reviewed(SeedZipPath), "plan.md"), "# Plan", "# Plan, edited");
+                const string Stale = "docs/plans/m: verify.md was not written for the current plan; security-solution.md was not written for the current plan";
+                return ($"no review covers PowerOpsSeed.zip: {Stale}; nothing was imported.", $"warning: PowerOpsSeed.zip: {Stale}\n", SeedAfterOn);
+            case "no-docs-plans":
+                // The .git folder ends the walk, so a docs/plans above the temp folder can't change this test.
+                Directory.CreateDirectory(Path.Combine(_root, ".git"));
+                return ("no docs/plans folder at or above the plan file's folder, so no review covers the zips; nothing was imported.", "", SeedAfterOn);
+            default:
+                Assert.SkipWhen(OperatingSystem.IsWindows(), "symbolic links need a privilege on Windows");
+                Directory.CreateDirectory(Path.Combine(Dir("elsewhere"), "plans", "x"));
+                File.WriteAllText(Path.Combine(Dir("elsewhere"), "plans", "x", "plan.md"), ReviewedPlanText);
+                Directory.CreateSymbolicLink(Path.Combine(_root, "docs"), Dir("elsewhere"));
+                return ("docs/plans could not be read, so the zips were not matched with review reports; nothing was imported.", "warning: docs/plans could not be read, so the zips were not matched with review reports\n", SeedAfterOn);
+        }
+    }
+
+    [Theory]
+    [InlineData("security-blocked")]
+    [InlineData("stale")]
+    [InlineData("no-docs-plans")]
+    [InlineData("linked-docs")]
+    [InlineData("two-zips")]
+    public void With_require_reviews_an_import_no_review_covers_is_refused_with_no_pac_call(string kind)
+    {
+        var (message, warnings, target) = Uncovered(kind);
+
+        foreach (var apply in new[] { false, true })
+        {
+            var pac = new FakePac();
+
+            var r = Apply(target(), pac, ["--require-reviews", "--format", "json", .. apply ? new[] { "--apply" } : []]);
+
+            Assert.Equal(1, r.Code);
+            var doc = Json(r);
+            Assert.Equal("refused", (string?)doc["status"]);
+            Assert.Equal(message, (string?)doc["message"]);
+            Assert.All(Statuses(doc), s => Assert.EndsWith(":not-run", s));
+            Assert.Equal(warnings, r.Err);
+            Assert.Empty(pac.Calls);
+            Assert.DoesNotContain(_root, r.Out + r.Err);
+        }
+    }
+
+    [Theory]
+    [InlineData("security-blocked")]
+    [InlineData("stale")]
+    [InlineData("no-docs-plans")]
+    [InlineData("linked-docs")]
+    [InlineData("two-zips")]
+    public void Without_require_reviews_the_same_run_prints_its_warnings_and_imports(string kind)
+    {
+        var (_, warnings, target) = Uncovered(kind);
+        var pac = new FakePac();
+
+        var r = Apply(target(), pac, "--apply");
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal(warnings, r.Err);
+        Assert.NotEmpty(pac.Calls);
+    }
+
+    [Fact]
+    public void With_require_reviews_a_covered_import_beside_an_uncovered_skipped_zip_imports()
+    {
+        SmallZip(Folder, "Kept");
+        var solo = SmallZip(Folder, "Solo");
+        MakePlan(new FakeTarget { Snaps = { ["Kept"] = Installed("Kept", "1.0.0.0") } });
+        Reviewed(solo);
+        var pac = new FakePac();
+
+        var r = Apply(new FakeTarget { Snaps = { ["Kept"] = Installed("Kept", "1.0.0.0") } }, pac, "--require-reviews", "--apply");
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal("", r.Err);
+        Assert.EndsWith("Solo.zip", Assert.Single(pac.Calls)[5]);
+    }
+
+    [Fact]
+    public void With_require_reviews_a_plan_that_skips_every_zip_passes_with_no_docs_plans()
+    {
+        Directory.CreateDirectory(Path.Combine(_root, ".git"));
+        SmallZip(Folder, "Kept");
+        MakePlan(new FakeTarget { Snaps = { ["Kept"] = Installed("Kept", "1.0.0.0") } });
+        var pac = new FakePac();
+
+        var r = Apply(new FakeTarget { Snaps = { ["Kept"] = Installed("Kept", "1.0.0.0") } }, pac, "--require-reviews", "--apply");
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal("", r.Err);
+        Assert.Contains("applied: Nothing was imported: every solution was skipped.", r.Out);
+        Assert.Empty(pac.Calls);
+    }
+
+    // The plan file's actions are not covered by its hash: the zips checked are those the fresh plan imports.
+    [Fact]
+    public void With_require_reviews_a_plan_file_edited_to_skip_the_uncovered_zip_is_still_refused()
+    {
+        var a = SmallZip(Folder, "A");
+        SmallZip(Folder, "B");
+        MakePlan(new FakeTarget());
+        Reviewed(a);
+        EditPlanFile(doc =>
+        {
+            foreach (var s in doc["solutions"]!.AsArray().Where(s => (string?)s!["zip"] == "B.zip"))
+            {
+                s!["action"] = "skip";
+            }
+        });
+        var pac = new FakePac();
+
+        var r = Apply(new FakeTarget(), pac, "--require-reviews", "--apply", "--format", "json");
+
+        Assert.Equal(1, r.Code);
+        Assert.Equal("refused", (string?)Json(r)["status"]);
+        Assert.Equal($"no review covers B.zip: {NoneRecords}; nothing was imported.", (string?)Json(r)["message"]);
+        Assert.Equal($"warning: B.zip: {NoneRecords}\n", r.Err);
+        Assert.Empty(pac.Calls);
+    }
+
     // ---- the plan file's folder, the tool, what is never printed -----------------------------------------------
 
     [Fact]

@@ -36,6 +36,9 @@ inputs:
   plan-file:
     description: Plan file written by an earlier `deploy plan` (its folder holds the zips and settings files). When set, the action runs `powerops deploy apply` against target instead of planning; target is required. pac and az must be signed in by earlier steps. path must be this file's folder.
     default: ''
+  require-reviews:
+    description: "With plan-file, anything but 'false' adds --require-reviews: the apply and its dry run are refused unless both review reports of one plan folder cover each imported zip. The plan file's folder must be in the checkout that holds docs/plans. Set 'false' only for zips no role can review, such as an export made in the workflow."
+    default: 'true'
   apply:
     description: With plan-file, 'true' imports the reviewed plan (`--apply`); anything else is a dry run that imports nothing. 'true' needs the `id-token` write permission and a job that declares a GitHub environment, or the job stops before anything is imported.
     default: 'false'
@@ -159,6 +162,7 @@ runs:
         PO_PLAN_FILE: ${{ inputs.plan-file }}
         PO_TARGET: ${{ inputs.target }}
         PO_APPLY: ${{ inputs.apply }}
+        PO_REQUIRE_REVIEWS: ${{ inputs.require-reviews }}
         PO_ENVIRONMENT: ${{ steps.check.outputs.environment }}
         PO_EVENT: ${{ github.event_name }}
         PO_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}

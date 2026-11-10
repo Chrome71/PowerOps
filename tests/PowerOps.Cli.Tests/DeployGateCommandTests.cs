@@ -117,6 +117,15 @@ public class DeployGateCommandTests : DeployTestBase
 
     private static Snapshot Installed(string name, string version = "1.0.0.0") => new("Contoso Test", name, true, version, true, true, [], [], [], []);
 
+    // Both review reports for every zip of the deploy folder, one plan folder each, so the dry run's review check passes (M75).
+    private void ReviewedAll(string? folder = null)
+    {
+        foreach (var zip in Directory.EnumerateFiles(folder ?? Folder, "*.zip"))
+        {
+            Reviewed(zip, plan: Path.GetFileNameWithoutExtension(zip));
+        }
+    }
+
     // ---- 4. the environment decides ----------------------------------------------------------------------------
 
     [Theory]
@@ -128,6 +137,7 @@ public class DeployGateCommandTests : DeployTestBase
     {
         SeedZip(Folder);
         MakePlan();
+        ReviewedAll();
         var (test, dev, twin) = (url ? TargetValue : TargetIdText, url ? DevUrl : DevId, url ? TwinUrl : TwinId);
 
         foreach (var (env, line) in new[]
@@ -164,6 +174,7 @@ public class DeployGateCommandTests : DeployTestBase
     {
         SeedZip(Folder);
         MakePlan();
+        ReviewedAll();
         var test = SeedTarget();
         var pac = new FakePac();
         var stdin = form switch
@@ -189,6 +200,7 @@ public class DeployGateCommandTests : DeployTestBase
         Chain();
         var test = new FakeTarget();
         MakePlan(test);
+        ReviewedAll();
         var pac = new FakePac();
 
         var r = Gate(Environments(new FakeTarget()), Cli(TargetIdText, Path.Combine(Folder, "A.zip")), pac);
@@ -243,10 +255,12 @@ public class DeployGateCommandTests : DeployTestBase
             case "zip-of-no-plan":
                 SeedZip(Folder);
                 MakePlan();
+                ReviewedAll();
                 return new(Seeded(), Cli(TargetIdText, SmallZip(Stage, "Other"), SeedSettingsPath, stage: true), Gated("Other.zip is not a zip of the plan"));
             case "second-zip-of-the-chain":
                 Chain();
                 MakePlan(new FakeTarget());
+                ReviewedAll();
                 return new(Environments(new FakeTarget()), Cli(TargetIdText, Path.Combine(Folder, "B.zip")), Gated("the plan imports A.zip first"));
             case "skipped-zip":
             case "plan-of-skips":
@@ -257,6 +271,7 @@ public class DeployGateCommandTests : DeployTestBase
                 }
 
                 MakePlan(new FakeTarget { Snaps = { ["Kept"] = Installed("Kept") } });
+                ReviewedAll();
                 return new(
                     Environments(new FakeTarget { Snaps = { ["Kept"] = Installed("Kept") } }),
                     Cli(TargetIdText, Path.Combine(Folder, "Kept.zip")),
@@ -270,26 +285,31 @@ public class DeployGateCommandTests : DeployTestBase
             case "settings-file-missing":
                 SeedZip(Folder);
                 MakePlan();
+                ReviewedAll();
                 return new(Seeded(), Cli(TargetIdText, SeedZipPath, stage: true), Gated("the plan imports PowerOpsSeed.zip with PowerOpsSeed.settings.json"));
             case "settings-file-different":
                 SeedZip(Folder);
                 MakePlan();
+                ReviewedAll();
                 var other = Path.Combine(Stage, "PowerOpsSeed.settings.json");
                 File.WriteAllText(other, "{}");
                 return new(Seeded(), Cli(TargetIdText, SeedZipPath, other, stage: true), Gated("the plan imports PowerOpsSeed.zip with a different settings file"));
             case "settings-file-extra":
                 Chain();
                 MakePlan(new FakeTarget());
+                ReviewedAll();
                 var extra = Path.Combine(Stage, "x.settings.json");
                 File.WriteAllText(extra, "{}");
                 return new(Environments(new FakeTarget()), Cli(TargetIdText, Path.Combine(Folder, "A.zip"), extra), Gated("the plan imports A.zip with no settings file"));
             case "upgrade-without-stage-and-upgrade":
                 SeedZip(Folder);
                 MakePlan();
+                ReviewedAll();
                 return new(Seeded(), Cli(TargetIdText, SeedZipPath, SeedSettingsPath), Gated("the plan stages and upgrades PowerOpsSeed.zip"));
             case "install-with-stage-and-upgrade":
                 Chain();
                 MakePlan(new FakeTarget());
+                ReviewedAll();
                 return new(Environments(new FakeTarget()), Cli(TargetIdText, Path.Combine(Folder, "A.zip"), stage: true), Gated("the plan doesn't stage and upgrade A.zip"));
             case "target-changed":
                 SeedZip(Folder);
@@ -406,6 +426,7 @@ public class DeployGateCommandTests : DeployTestBase
     {
         AgentZip(Folder);
         MakePlan(new FakeTarget());
+        ReviewedAll();
         var other = Path.Combine(Stage, "PowerOpsAgentTools.settings.json");
         File.WriteAllText(other, "{}");
         var call = block == "settings" ? Cli(TargetIdText, Path.Combine(Folder, "PowerOpsAgentTools.zip"), other) : Cli(TargetIdText, SmallZip(Stage, "Other"), other);
@@ -434,6 +455,7 @@ public class DeployGateCommandTests : DeployTestBase
         File.Delete(Path.Combine(Folder, "PowerOpsAgentTools.zip"));
         SolutionZip.Create(unpacked, Path.Combine(Folder, "PowerOpsAgentTools.zip"));
         MakePlan(new FakeTarget());
+        ReviewedAll();
         var other = Path.Combine(Stage, "PowerOpsAgentTools.settings.json");
         File.WriteAllText(other, "{}");
 
@@ -449,6 +471,7 @@ public class DeployGateCommandTests : DeployTestBase
     {
         SeedZip(Folder);
         MakePlan();
+        ReviewedAll();
         var other = Path.Combine(Stage, "PowerOpsSeed.settings.json");
         File.WriteAllText(other, "{}");
 
@@ -580,6 +603,7 @@ public class DeployGateCommandTests : DeployTestBase
     {
         SeedZip(Folder);
         MakePlan();
+        ReviewedAll();
         var (path, name) = settings ? (SeedSettingsPath, "PowerOpsSeed.settings.json") : (SeedZipPath, "PowerOpsSeed.zip");
         var test = SeedTarget();
         var pac = new FakePac();
@@ -629,6 +653,7 @@ public class DeployGateCommandTests : DeployTestBase
     {
         Chain();
         MakePlan(new FakeTarget());
+        ReviewedAll();
         var doc = JsonNode.Parse(File.ReadAllText(PlanFile))!.AsObject();
         var edited = new JsonArray([.. doc["solutions"]!.AsArray().Reverse().Select(n => n!.DeepClone())]);
         Assert.Equal("C.zip", (string?)edited[0]!["zip"]);
@@ -641,6 +666,69 @@ public class DeployGateCommandTests : DeployTestBase
         Assert.Equal((0, "", ""), (first.Code, first.Out, first.Err));
         Assert.Equal(2, other.Code);
         Assert.Contains($"{Prefix}the plan imports A.zip first\n", other.Err);
+    }
+
+    // ---- 6d. the reviews (M75) ----------------------------------------------------------------------------------
+
+    private const string NoneRecords = "no verify.md or security-solution.md under docs/plans records this zip's SHA-256 as its solution-hash; a report written for an unpacked folder never does";
+
+    [Theory]
+    [InlineData("no-report")]
+    [InlineData("security-blocked")]
+    [InlineData("no-docs-plans")]
+    public void An_import_no_review_covers_is_blocked_by_the_dry_run(string kind)
+    {
+        SeedZip(Folder);
+        MakePlan();
+        string warning, why;
+        switch (kind)
+        {
+            case "no-report":
+                Directory.CreateDirectory(Path.Combine(_root, "docs", "plans", "x"));
+                File.WriteAllText(Path.Combine(_root, "docs", "plans", "x", "plan.md"), ReviewedPlanText);
+                (warning, why) = ($"warning: PowerOpsSeed.zip: {NoneRecords}\n", $"no review covers PowerOpsSeed.zip: {NoneRecords}; nothing was imported.");
+                break;
+            case "security-blocked":
+                Edit(Path.Combine(Reviewed(SeedZipPath), "security-solution.md"), "state: ready", "state: blocked");
+                (warning, why) = ("warning: PowerOpsSeed.zip: docs/plans/m: security-solution.md is blocked\n", "no review covers PowerOpsSeed.zip: docs/plans/m: security-solution.md is blocked; nothing was imported.");
+                break;
+            default:
+                // The .git folder ends the walk, so a docs/plans above the temp folder can't change this test.
+                Directory.CreateDirectory(Path.Combine(_root, ".git"));
+                (warning, why) = ("", "no docs/plans folder at or above the plan file's folder, so no review covers the zips; nothing was imported.");
+                break;
+        }
+
+        var pac = new FakePac();
+
+        var r = Gate(Seeded(), SeedCall(), pac);
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal("", r.Out);
+        Assert.Equal($"{warning}{Prefix}the dry run did not pass: {why}\n{ImportGuidance}\n", r.Err);
+        Assert.Empty(pac.Calls);
+    }
+
+    // The plan file's actions are not covered by its hash: the zips checked are those the fresh plan imports.
+    [Fact]
+    public void A_plan_file_edited_to_skip_the_uncovered_zip_is_still_blocked()
+    {
+        var a = SmallZip(Folder, "A");
+        SmallZip(Folder, "B");
+        MakePlan(new FakeTarget());
+        Reviewed(a);
+        var doc = JsonNode.Parse(File.ReadAllText(PlanFile))!.AsObject();
+        foreach (var s in doc["solutions"]!.AsArray().Where(s => (string?)s!["zip"] == "B.zip"))
+        {
+            s!["action"] = "skip";
+        }
+
+        File.WriteAllText(PlanFile, doc.ToJsonString());
+
+        var r = Gate(Environments(new FakeTarget()), Cli(TargetIdText, a));
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal($"warning: B.zip: {NoneRecords}\n{Prefix}the dry run did not pass: no review covers B.zip: {NoneRecords}; nothing was imported.\n{ImportGuidance}\n", r.Err);
     }
 
     // ---- 6c. the arguments --------------------------------------------------------------------------------------

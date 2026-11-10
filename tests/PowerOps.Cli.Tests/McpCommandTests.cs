@@ -11,6 +11,7 @@ using ModelContextProtocol.Server;
 
 using PowerOps.Core.Deploy;
 using PowerOps.Core.Drift;
+using PowerOps.Core.Plans;
 using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
@@ -1192,12 +1193,29 @@ public sealed class McpCommandTests : IAsyncLifetime
     private static ElicitResult Accepted(string name) => new() { Action = "accept", Content = new Dictionary<string, JsonElement> { ["environment"] = JsonSerializer.SerializeToElement(name) } };
 
     // A plan file saved by deploy plan --save with the fakes, beside the seed zip and its settings file.
-    private (string Folder, string PlanFile) SavedPlan()
+    private (string Folder, string PlanFile) SavedPlan(bool reviewed = true)
     {
         var folder = DeployFolder();
         var planFile = Path.Combine(folder, "plan.json");
         Assert.Equal(0, CliWith(TargetFakes(), "deploy", "plan", "--target", Secret, "--save", planFile, "--", folder).Code);
+        if (reviewed)
+        {
+            Reviewed(Path.Combine(folder, "PowerOpsSeed.zip"));
+        }
+
         return (folder, planFile);
+    }
+
+    private const string ReviewedPlanText = "---\nstatus: signed-off\nreview: done\nsigned-off: 2026-01-01\nsigned-off-hash: null\nenvironment: null\n---\n# Plan\n";
+
+    // Writes docs/plans/<new>/plan.md and both reports for a zip under the test's folder, the walk up from the deploy folder reaches them (the equivalent of DeployTestBase.Reviewed).
+    private void Reviewed(string zip)
+    {
+        var folder = Directory.CreateDirectory(Path.Combine(_temp, "docs", "plans", "m-" + Guid.NewGuid().ToString("N"))).FullName;
+        File.WriteAllText(Path.Combine(folder, "plan.md"), ReviewedPlanText);
+        var head = $"state: ready\nplan-hash: {PlanDocument.Parse(ReviewedPlanText).BodyHash}\ninput: {Path.GetRelativePath(_temp, zip).Replace('\\', '/')}\nsolution-hash: {PowerOps.Core.Readers.Manifest.Read(zip).Digest}\n\n# Report\n";
+        File.WriteAllText(Path.Combine(folder, "verify.md"), head);
+        File.WriteAllText(Path.Combine(folder, "security-solution.md"), head);
     }
 
     private static void EditPlan(string planFile, Action<JsonObject> edit)
@@ -1227,7 +1245,7 @@ public sealed class McpCommandTests : IAsyncLifetime
 
     private (int Code, string Out, string Err) CliApply(string planFile, bool apply, PacResult? pac = null)
     {
-        string[] args = ["deploy", "apply", planFile, "--target", Secret, "--format", "json", .. (apply ? new[] { "--apply" } : [])];
+        string[] args = ["deploy", "apply", planFile, "--target", Secret, "--format", "json", "--require-reviews", .. (apply ? new[] { "--apply" } : [])];
         return ViaTool(new Fakes { TargetBehavior = ReadTarget, PacBehavior = _ => pac ?? Ok("imported\n") }, apply ? (string)JsonNode.Parse(File.ReadAllText(planFile))!["hash"]! : null, args);
     }
 
@@ -1237,7 +1255,7 @@ public sealed class McpCommandTests : IAsyncLifetime
     // What a refusal after a failed dry run holds: the CLI's stdout for the same arguments, then its error lines and the tool's line.
     private static string[] DryRunThen(Fakes fakes, string planFile, string line)
     {
-        var dry = ViaTool(fakes, null, "deploy", "apply", planFile, "--target", Secret, "--format", "json");
+        var dry = ViaTool(fakes, null, "deploy", "apply", planFile, "--target", Secret, "--format", "json", "--require-reviews");
         var errors = dry.Err.Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.StartsWith("error:", StringComparison.Ordinal));
         return [.. (dry.Out.Length > 0 ? new[] { dry.Out } : []), string.Join("\n", [.. errors, line])];
     }
@@ -1262,7 +1280,7 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         var results = new[] { await Call("deploy_apply", arguments), await Apply(pair, arguments) };
 
-        string[] ran = ["deploy", "apply", "--target", Secret, "--format", "json", "--", planFile];
+        string[] ran = ["deploy", "apply", "--target", Secret, "--format", "json", "--require-reviews", "--", planFile];
         foreach (var result in results)
         {
             Assert.False(result.IsError);
@@ -1388,7 +1406,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Equal(["solution", "import"], import.Take(2));
         Assert.Equal(Path.Combine(folder, "PowerOpsSeed.settings.json"), import[(Array.IndexOf(import, "--settings-file") + 1)]);
         var apply = Assert.Single(pair.Ran, a => a.Contains("--apply"));
-        Assert.Equal(["deploy", "apply", "--target", Secret, "--format", "json", "--apply", "--", planFile], apply);
+        Assert.Equal(["deploy", "apply", "--target", Secret, "--format", "json", "--require-reviews", "--apply", "--", planFile], apply);
 
         var form = Assert.Single(forms.Seen);
         var property = Assert.Single(form.RequestedSchema!.Properties);
@@ -1435,6 +1453,7 @@ public sealed class McpCommandTests : IAsyncLifetime
             """{"ConnectionReferences":[{"LogicalName":"demo_Helper.shared_commondataserviceforapps.shared-commondataser-0000001","ConnectionId":"fake-connection-id","ConnectorId":"/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"}]}""");
         var planFile = Path.Combine(folder, "plan.json");
         Assert.Equal(0, CliWith(new Fakes { TargetBehavior = EmptyTarget }, "deploy", "plan", "--target", Secret, "--save", planFile, "--", folder).Code);
+        Reviewed(Path.Combine(folder, "PowerOpsAgentTools.zip"));
         ImportFakes();
         _fakes.TargetBehavior = EmptyTarget;
         return planFile;
@@ -1586,7 +1605,7 @@ public sealed class McpCommandTests : IAsyncLifetime
 
         var result = await Apply(pair, ApplyArgs(planFile));
 
-        var cli = ViaTool(new Fakes { TargetBehavior = ChangedTarget(kind), PacBehavior = _ => Ok("imported\n") }, (string)JsonNode.Parse(File.ReadAllText(planFile))!["hash"]!, "deploy", "apply", planFile, "--target", Secret, "--format", "json", "--apply");
+        var cli = ViaTool(new Fakes { TargetBehavior = ChangedTarget(kind), PacBehavior = _ => Ok("imported\n") }, (string)JsonNode.Parse(File.ReadAllText(planFile))!["hash"]!, "deploy", "apply", planFile, "--target", Secret, "--format", "json", "--require-reviews", "--apply");
         Assert.Equal(kind == "snapshot" ? 1 : 2, cli.Code);
         Assert.Equal(kind == "name", result.IsError);
         Assert.Equal(cli.Code == 1 ? cli.Out : string.Join("\n", cli.Err.Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.StartsWith("error:", StringComparison.Ordinal))), Text(result));
@@ -1627,6 +1646,57 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.True(swapped);
         Assert.Equal("refused", Status(result));
         Assert.Contains("the plan is not the one that was approved", (string)JsonNode.Parse(Text(result))!["message"]!);
+        Assert.Equal(0, _fakes.Pacs);
+        Assert.Empty(_imports);
+    }
+
+    [Fact]
+    public async Task An_apply_for_a_folder_no_review_covers_is_refused_before_any_form_with_the_dry_runs_message()
+    {
+        // The .git folder ends the upward walk here, so no docs/plans above the test's folder can be found.
+        Directory.CreateDirectory(Path.Combine(_temp, ".git"));
+        var (_, planFile) = SavedPlan(reviewed: false);
+        ImportFakes();
+        var forms = NoFormExpected();
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
+
+        var result = await Apply(pair, ApplyArgs(planFile));
+
+        var dry = ViaTool(new Fakes { TargetBehavior = ReadTarget }, null, "deploy", "apply", planFile, "--target", Secret, "--format", "json", "--require-reviews");
+        Assert.Equal(1, dry.Code);
+        Assert.True(result.IsError);
+        Assert.Equal("refused", Status(result));
+        Assert.StartsWith("no docs/plans folder at or above", (string)JsonNode.Parse(Text(result))!["message"]!);
+        Assert.Equal(dry.Out, Text(result));
+        Assert.Contains(DryRunFailed, Text(result, result.Content.Count - 1));
+        Assert.Empty(forms.Seen);
+        Assert.Equal(0, _fakes.Pacs);
+        AssertNoApply(pair);
+    }
+
+    [Fact]
+    public async Task A_security_report_set_to_blocked_while_the_form_is_open_gives_a_refused_apply_and_no_import()
+    {
+        var (_, planFile) = SavedPlan();
+        ImportFakes();
+        var forms = new Forms(_ =>
+        {
+            foreach (var report in Directory.EnumerateFiles(Path.Combine(_temp, "docs", "plans"), "security-solution.md", SearchOption.AllDirectories))
+            {
+                File.WriteAllText(report, File.ReadAllText(report).Replace("state: ready", "state: blocked", StringComparison.Ordinal));
+            }
+
+            return Accepted(TargetName);
+        });
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
+
+        var result = await Apply(pair, ApplyArgs(planFile));
+
+        Assert.Single(forms.Seen);
+        Assert.Single(pair.Ran, a => a.Contains("--apply"));
+        Assert.Equal("refused", Status(result));
+        Assert.StartsWith("no review covers PowerOpsSeed.zip", (string)JsonNode.Parse(Text(result))!["message"]!);
+        Assert.Null(JsonNode.Parse(Text(result))!["appliedAt"]);
         Assert.Equal(0, _fakes.Pacs);
         Assert.Empty(_imports);
     }
