@@ -553,6 +553,18 @@ Release labels order the milestones and don't fix version numbers (decisions 29 
 83. `feat:` M48: the plan, then the agent reader, the reference file and the rules (built 2026-11-03, [plan](plans/m48-agent-reader/plan.md)) → **v0.31.0**
 84. `feat!:` M49: the plan, then agent lines in `diff` with schema version 2, the gate route and the hand-off row (built 2026-11-04, [plan](plans/m49-agent-diff/plan.md)) → **v0.32.0**
 
+## M84: ecosystem watch
+
+The owner asked on 2026-11-10 for a light, lasting way for the agents that develop PowerOps to notice, verify, triage and record changes in Microsoft's Power Platform ecosystem, and for one real review with it. The [plan](plans/m84-ecosystem-watch/plan.md) adds a procedure and three records in `docs/ecosystem/`, a weekly read-only collector in GitHub Actions, and a short section in `AGENTS.md`. It ships nothing to users: no command, no skill, no plugin change (decisions 56 to 58).
+
+| Milestone | Release | Scope | Done when |
+|---|---|---|---|
+| **M84. Ecosystem watch** | none (development tooling and docs) | <ul><li>Planned 2026-11-10 ([plan](plans/m84-ecosystem-watch/plan.md))</li><li>`docs/ecosystem/`: the procedure (`README.md`), the change register (`changes.md`), the compatibility record (`compatibility.md`) and one inventory with the last-seen values (`sources.json`)</li><li>`.github/scripts/ecosystem-watch.sh` and `.github/workflows/ecosystem-watch.yml`: public release feeds, package registries and the MicrosoftDocs commit history of the pages PowerOps relies on, read weekly; a report in the job summary and one tracking issue that closes itself on a clean run</li><li>The first review, and only the small fixes it justifies</li></ul> | <ul><li>The plan's done-when items</li><li>`dotnet build`, `dotnet test`, `dotnet format --verify-no-changes`, `powerops plan status` and the leak scan are clean</li></ul> |
+
+### Build order, M84 (continues the list below)
+
+85. `ci:` M84: the plan, then the inventory and collector, the workflow, the procedure and records, the first review and its fixes ([plan](plans/m84-ecosystem-watch/plan.md))
+
 ## Testing
 
 | Layer | What | Runs |
@@ -751,3 +763,11 @@ Made in a review of the skills for people, developers and agents, before the thi
 54. **The build is held to a standard, and to the sketch.** `skills/powerops-implement/references/build-standard.md`: one home for each rule, change in place, a fix replaces what it fixed, names that say what a thing is for, nothing unused, and never a bent check; a read of each step's diff before its commit; and `build-notes.md` in the plan folder for the next maintainer. After the build, `powerops-implement` compares each built screen with the picked sketch and writes `design-check.md`; an open gap is a gap the person accepts by name before the plan is `done`. This reverses M70's "Won't build: a post-build design check" as a skill step; it is not a tool gate, and the two kept roles are unchanged.
 55. **PO036 flags a canvas formula repeated in three or more places**, so that `analyze`, the Action and the Verifier see copied logic without reading every control.
 
+
+## Decisions, ecosystem watch (2026-11-10)
+
+Made in the [M84 plan](plans/m84-ecosystem-watch/plan.md); its `decisions.md` weighs the options.
+
+56. **Ecosystem changes are tracked in `docs/ecosystem/`, for the people and agents who develop PowerOps.** The procedure is a page that `AGENTS.md` points to, not a skill: nothing goes into `skills/` or the plugins, and no agent role is added, because `powerops-researcher` and `/verify-research` already verify claims. Open research questions stay in FOUNDATION section 8, and the build's packages and Action SHAs stay Dependabot's.
+57. **The weekly watch is deterministic and read-only.** It reads public feeds, registries and the MicrosoftDocs commit history, never scrapes a page, holds no AI credential, writes no file to the repository and calls no tenant. Its only outputs are the job summary and one tracking issue, which it opens when something is new or not checked and closes on the first clean run. A source it can't read is reported as not checked, never as unchanged.
+58. **A finding changes PowerOps only through the usual plan, build and review.** The watch records; a session triages. A tool pin moves only with a test of the new version (decisions 16(d) and 32 still hold), and a rejected change stays in `changes.md` as `no action` so it is not proposed again without new evidence.
