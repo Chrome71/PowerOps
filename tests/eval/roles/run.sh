@@ -5,7 +5,7 @@
 #
 # Usage: tests/eval/roles/run.sh claude|codex review-plan|security-solution|verify <case folder>
 #        tests/eval/roles/run.sh --list <case folder>     (prints the files of the case, and starts nothing)
-# Needs EVAL_MODEL and EVAL_EFFORT in the environment, a clean tests/eval, src and skills, dotnet, git, and the client signed in.
+# Needs EVAL_MODEL and EVAL_EFFORT in the environment, a clean tests/eval, src and skills, dotnet, git, zip (for the two solution passes), and the client signed in.
 # Results go in ${EVAL_OUT:-$HOME/.local/state/powerops-role-eval}/<client>-<pass>-<case>-<UTC time>/.
 # EVAL_LIMIT_SECONDS only exists to test the stop at the limit; meta.txt records the limit that was used.
 set -euo pipefail
@@ -47,6 +47,7 @@ if [ -n "$dirty" ]; then
 fi
 command -v "$client" >/dev/null 2>&1 || { echo "error: $client is not on PATH" >&2; exit 2; }
 command -v dotnet >/dev/null 2>&1 || { echo "error: dotnet is not on PATH" >&2; exit 2; }
+if [ "$pass" != review-plan ]; then command -v zip >/dev/null 2>&1 || { echo "error: zip is not on PATH" >&2; exit 2; }; fi
 
 case "$pass" in
   review-plan) skill_name=powerops-review-plan; skill_file="$repo/skills/powerops-review-plan/SKILL.md"; report=review.md ;;
@@ -158,10 +159,19 @@ if [ "$client" = claude ]; then skills_dir="$work/.claude/skills/$skill_name"; e
 mkdir -p "$skills_dir"
 cp "$skill_file" "$skills_dir/SKILL.md"
 
+# The two solution passes get a deployed zip of the current solution; the freeze build's folder is on no PATH yet.
+zip_digest=""
+if [ "$pass" != review-plan ]; then
+  mkdir -p "$work/deploy"
+  (cd "$work/solution/current" && zip -q -r -X "$work/deploy/current.zip" .)
+  zip_digest="$("$build/path/powerops" manifest "$work/deploy/current.zip" | sed -n 's/^.*: zip, digest \([0-9a-f]\{64\}\)$/\1/p' || true)"
+  [ -n "$zip_digest" ] || { echo "error: no digest for the deployed zip" >&2; exit 3; }
+fi
+
 case "$pass" in
   review-plan) prompt="Use the powerops-review-plan skill to review the plan $plan_name." ;;
-  security-solution) prompt="Use the powerops-review-security skill. Plan: $plan_name. Current solution: solution/current. Previous solution: solution/previous. Settings file: settings.json." ;;
-  verify) prompt="Use the powerops-verify skill. Plan: $plan_name. Current solution: solution/current. Previous solution: solution/previous. Settings file: settings.json. Test folder: flowtests. There is no live evidence." ;;
+  security-solution) prompt="Use the powerops-review-security skill. Plan: $plan_name. Current solution: solution/current. Deployed zip: deploy/current.zip; the current solution is its unpacked folder. Previous solution: solution/previous. Settings file: settings.json." ;;
+  verify) prompt="Use the powerops-verify skill. Plan: $plan_name. Current solution: solution/current. Deployed zip: deploy/current.zip; the current solution is its unpacked folder. Previous solution: solution/previous. Settings file: settings.json. Test folder: flowtests. There is no live evidence." ;;
 esac
 
 # ---- where the results go ----
@@ -184,6 +194,7 @@ done
   echo "case: $case_name"
   echo "limit-seconds: $limit"
   echo "prompt: $prompt"
+  if [ -n "$zip_digest" ]; then echo "zip-digest: $zip_digest"; fi
 } >"$out/meta.txt"
 
 # ---- the client, in a new session, from inside the temp folder, with stdin from /dev/null ----
@@ -252,6 +263,10 @@ echo "$code" >"$out/exit-code"
 # ---- what the run left ----
 [ -f "$work/docs/plans/$plan_name/$report" ] && cp "$work/docs/plans/$plan_name/$report" "$out/$report"
 [ -f "$work/docs/plans/$plan_name/plan.md" ] && cp "$work/docs/plans/$plan_name/plan.md" "$out/plan.md"
+if [ -n "$zip_digest" ]; then
+  rm -f "$work/deploy/current.zip"
+  rmdir "$work/deploy" 2>/dev/null || true
+fi
 diff -rq "$case_dir" "$work" >"$out/case.diff" || true
 
 # A hit means the run may have seen what it should not; it is recorded, and the run is not stopped.
