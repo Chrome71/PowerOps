@@ -16,7 +16,7 @@ Review the solution built from a plan for security, and write one report. You wo
 
 The request names the plan (`docs/plans/<name>/`).
 
-Read the plan files: `plan.md`, `decisions.md` and `mockups/` if present. Also run `analyze`, `settings validate`, and `diff` and `manifest` of the solution against the previous version named in the request. This needs the current solution, and takes the settings file and the previous solution if the request names them. Needs status `signed-off`, `implementing` or `done`. Writes `docs/plans/<name>/security-solution.md`.
+Read the plan files: `plan.md`, `decisions.md` and `mockups/` if present. Also run `analyze`, `settings validate`, and `diff` and `manifest` of the solution against the previous version named in the request. This needs the current solution, and takes the settings file, the previous solution and the managed zip that will be deployed if the request names them. With the zip, the current solution is that zip unpacked into a folder. Needs status `signed-off`, `implementing` or `done`. Writes `docs/plans/<name>/security-solution.md`.
 
 If the request names no plan, there is no report path: reply with `state: failed` and the missing input, and write nothing.
 
@@ -30,6 +30,7 @@ This list is instruction, not enforcement. Run nothing else.
 - `powerops diff <previous solution> <current solution>`: only with a previous solution. With none, skip it and write under the header lines of the report that `diff` was skipped because the request named no previous solution.
 - `powerops manifest <current solution>`: gives the digest for the report's `solution-hash:` line.
 - `powerops manifest <previous solution> <current solution>`: only with a previous solution, and only when both solutions are unpacked folders. Otherwise skip it and write under the header lines of the report why it was skipped.
+- `powerops manifest <deployed zip>`: only when the request names the zip that will be deployed. Gives the digest for the report's `deploy-hash:` line. Run nothing else on the zip, and don't check the folder against it: the deploy routes do that. With a managed zip, the managed flag and form files named `{id}_managed.xml` differ from an unmanaged previous solution by design.
 - `powerops plan facts`: only if your request says the user confirmed, in that session, that `pac` is signed in to the plan's `environment:`. Never run `pac` yourself. Without that confirmation, do not run it, and write under the header lines of the report that environment facts were not read.
 
 ## Check the status
@@ -79,7 +80,7 @@ Points:
 
 ## Write the report
 
-Write the report to the path in "The request". The first six lines are exactly:
+Write the report to the path in "The request". The first seven lines are exactly:
 
 ```
 plan-hash: <bodyHash>
@@ -88,9 +89,10 @@ fresh-context: yes|no
 state: ready|blocked|failed|dropped
 input: <the current solution's path as the request gives it, relative to the repository root, with / between folders>
 solution-hash: <the digest that the manifest command prints for the current solution, else unknown>
+deploy-hash: <the digest that the manifest command prints for the deployed zip, else unknown>
 ```
 
-These are the first six lines of the report. Write `fresh-context: yes` only if this runs in a context that does not contain the planning conversation. Be honest. If unsure, write `no`.
+These are the first seven lines of the report. Write `fresh-context: yes` only if this runs in a context that does not contain the planning conversation. Be honest. If unsure, write `no`.
 
 | State | Meaning |
 |---|---|

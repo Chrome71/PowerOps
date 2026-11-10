@@ -1,5 +1,5 @@
 ---
-status: implementing
+status: approved
 review: done
 environment: null
 depth: standard
@@ -62,6 +62,14 @@ The skill text of rows 4 and 5, as it will be frozen:
 - **R1S** (Security reviewer, replacing the line 16 sentence that row 5 quotes): ``This needs the current solution, and takes the settings file, the previous solution and the managed zip that will be deployed if the request names them. With the zip, the current solution is that zip unpacked into a folder.``
 - **C3** (both): ``- `powerops manifest <deployed zip>`: only when the request names the zip that will be deployed. Gives the digest for the report's `deploy-hash:` line. Run nothing else on the zip, and don't check the folder against it: the deploy routes do that. With a managed zip, the managed flag and form files named `{id}_managed.xml` differ from an unmanaged previous solution by design.``
 - **H7** (both): `deploy-hash: <the digest that the manifest command prints for the deployed zip, else unknown>`
+
+The evaluated text, kept on the person's instruction of 2026-11-09 (decisions.md, Log, 2026-11-10). `6b67efb60fbb2ece1106011d2bc9fcc923a57d4c` is the commit the rerun evaluated. A squash merge leaves that commit off `main`, so the evaluated text is pinned by git blob id, on its LF text:
+
+| File at `6b67efb` | Blob id |
+|---|---|
+| `skills/powerops-verify/SKILL.md` | `bcdedd451b04a2bf159f41df617d90e327523934` |
+| `skills/powerops-review-security/SKILL.md` | `c2855570f488048bbfaabbc3bf0c84399de942e7` |
+| `tests/eval/roles/run.sh` | `ed235cb46ec399ee082cc12373e5de70acc670f7` |
 
 ## Automation
 

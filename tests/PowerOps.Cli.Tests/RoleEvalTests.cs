@@ -941,7 +941,7 @@ public sealed partial class RoleEvalTests
     [Fact]
     public void The_kept_roles_text_is_the_pinned_or_a_recorded_blob()
     {
-        var freeze = Path.Combine(Golden.RepoRoot, "docs", "plans", "m55-role-freeze");
+        var freeze = Path.Combine(Golden.RepoRoot, "docs", "plans", "m83-zip-linked-reviews");
         var pinned = PinnedRow().Matches(File.ReadAllText(Path.Combine(freeze, "plan.md"))).ToDictionary(m => m.Groups[1].Value, m => m.Groups[2].Value);
         var recorded = RecordedLine().Matches(File.ReadAllText(Path.Combine(freeze, "decisions.md"))).Select(m => (Path: m.Groups[1].Value, Id: m.Groups[2].Value)).ToList();
         Assert.Equal(3, pinned.Count);
@@ -950,7 +950,7 @@ public sealed partial class RoleEvalTests
         {
             var bytes = LfBytes(Path.Combine([Golden.RepoRoot, .. path.Split('/')]));
             var actual = BlobId(bytes);
-            Assert.True(actual == id || recorded.Contains((path, actual)), $"{path}: a kept role's text changed; rerun its eval or record the comparison in m55's decisions.md (AGENTS.md). Its blob id is {actual}.");
+            Assert.True(actual == id || recorded.Contains((path, actual)), $"{path}: a kept role's text changed; rerun its eval or record the comparison in m83's decisions.md (AGENTS.md). Its blob id is {actual}.");
 
             bytes[0] ^= 1;
             Assert.NotEqual(id, BlobId(bytes));
