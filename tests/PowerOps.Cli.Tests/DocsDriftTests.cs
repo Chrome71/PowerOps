@@ -50,9 +50,10 @@ public partial class DocsDriftTests
 
     private static readonly RootCommand Tree = Program.Root(TextWriter.Null, TextWriter.Null, (_, _) => throw new InvalidOperationException("no pac call"));
 
-    // Every option of every command, and the flags of pac that docs/COMMANDS.md describes.
+    // Every option of every command, and the flags of pac that docs/COMMANDS.md describes (`--source` is the lowercase start of `--sourceLoc`).
     private static readonly HashSet<string> KnownFlags = [.. Every(Tree).SelectMany(c => c.Options).SelectMany(o => o.Aliases.Append(o.Name)),
-        "--help", "--version", "--path", "--settings-file", "--stage-and-upgrade", "--skip-lower-version", "--environment", "--async", "--max-async-wait-time"];
+        "--help", "--version", "--path", "--settings-file", "--stage-and-upgrade", "--skip-lower-version", "--environment", "--async", "--max-async-wait-time",
+        "--zipfile", "--folder", "--packagetype", "--localize", "--map", "--source"];
 
     private static IEnumerable<Command> Every(Command command) => command.Subcommands.SelectMany(Every).Prepend(command);
 
