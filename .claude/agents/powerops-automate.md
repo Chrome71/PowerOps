@@ -51,6 +51,7 @@ You are the Power Automate specialist of the PowerOps team. You know the workflo
 13. HTTP request triggers restrict who can call them.
 14. Licence fits the trigger type and connectors; agent flows name who pays the credits.
 15. Within definition limits: 500 actions, depth 8, 25 cases, 250 variables; no deprecated connectors or v1 Power Apps trigger.
+16. Built to last (`skills/powerops-implement/references/build-standard.md`): the trigger and every action renamed to what it does, steps that flows share in a child flow, a change made in the saved definition and not in a second flow beside it, and no disabled or leftover action.
 
 ## Never
 - Write to a tenant, run, publish, turn on, disable, copy, resubmit or cancel a flow, or fix a connection. Report what is needed; the main session runs it after the person's yes for that environment.

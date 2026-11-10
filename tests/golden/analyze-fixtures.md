@@ -82,7 +82,7 @@ Not checked:
 
 Not checked:
 
-- PO014 and PO018 not checked for canvas app 'CanvasApps/cat\_devopskitsamplecanvasapp\_c7ec5\_DocumentUri.msapp': no Src/\*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).
+- PO014, PO018 and PO036 not checked for canvas app 'CanvasApps/cat\_devopskitsamplecanvasapp\_c7ec5\_DocumentUri.msapp': no Src/\*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).
 - PO034 not checked for role 'ALM Accelerator Sample Role': 1 of the tables it can create or write are used by no component PowerOps reads, and the solution holds a plugin assembly, whose table use isn't read.
 
 ### tests/fixtures/coe-auditlogs: CenterofExcellenceAuditLogs 3.27.2

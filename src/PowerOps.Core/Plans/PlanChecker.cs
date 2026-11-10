@@ -32,7 +32,7 @@ public sealed record PlanReviews(string Plan, PlanReportFile? Verify, PlanReport
 /// <summary>The write journal (writes.md) of a plan folder: its table rows and those whose cleanup is still open. Both are null when the file could not be read.</summary>
 public sealed record PlanWrites(int? Entries, int? OpenCleanup);
 
-/// <summary>What the prototype gate found: Line problems (no valid prototype: line, while Screens names something), File problems (mockups/prototype.html fails a check), the person-mark Warnings, and whether the deciding line is a valid approved one.</summary>
+/// <summary>What the prototype gate found: Line problems (no valid prototype: line, while Screens names something), File problems (mockups/prototype.html or an option fails a check, or an approval has fewer than three options), the person-mark Warnings, and whether the deciding line is a valid approved one.</summary>
 internal sealed record PrototypeCheck(IReadOnlyList<string> Line, IReadOnlyList<string> File, IReadOnlyList<string> Warnings, bool Approved);
 
 public static partial class PlanChecker
@@ -643,7 +643,11 @@ public static partial class PlanChecker
     }
 
     private const string PrototypePath = "mockups/prototype.html";
-    internal const int MaxPrototypeBytes = 40_960;
+    // 80 KB: a measured sketch takes 7 to 8 KB a screen with its four states, and a file holds up to eight screens.
+    internal const int MaxPrototypeBytes = 81_920;
+
+    // Three, so the person compares design directions and doesn't approve the only one shown.
+    internal const int MinOptions = 3;
 
     private static readonly string[] BannedTags = ["script", "link", "meta", "base", "iframe", "frame", "object", "embed", "img", "picture", "svg", "form", "video", "audio", "source"];
     private static readonly string[] BannedCss = ["url(", "@import", "@font-face", "image-set(", "expression("];
@@ -662,6 +666,7 @@ public static partial class PlanChecker
         var warnings = new List<string>();
         var (valid, approved) = (false, false);
         string? at = null;
+        var picked = "";
         if (items.Count > 0)
         {
             var (line, item) = items[^1];
@@ -671,9 +676,10 @@ public static partial class PlanChecker
             if (ApprovedRegex().IsMatch(rest))
             {
                 valid = approved = true;
+                picked = PickedRegex().Match(rest).Groups[1].Value;
                 if (!marked)
                 {
-                    warnings.Add($"prototype approval is not marked (answered by: person) (decisions.md:{line}): only a person should approve the sketch");
+                    warnings.Add($"prototype approval is not marked (answered by: person) (decisions.md:{line}): an agent picks the sketch only when the person's brief lets it choose");
                 }
             }
             else
@@ -682,8 +688,8 @@ public static partial class PlanChecker
             }
         }
 
-        string[] lineProblems = valid ? [] : [$"decisions.md{at}: no valid prototype line under ## Log although Screens names something: log `prototype: approved {PrototypePath}`, or `prototype: skipped (<reason>) (answered by: person)`"];
-        return new PrototypeCheck(lineProblems, PrototypeFileProblems(folder, screens, approved), warnings, approved);
+        string[] lineProblems = valid ? [] : [$"decisions.md{at}: no valid prototype line under ## Log although Screens names something: log `prototype: approved {PrototypePath} (option <letter>: <why>)`, or `prototype: skipped (<reason>) (answered by: person)`"];
+        return new PrototypeCheck(lineProblems, PrototypeFileProblems(folder, screens, approved, $"decisions.md{at}", picked), warnings, approved);
     }
 
     // The text of the Screens section, or null when it names nothing: no heading, an empty body, or a first non-blank line starting with "None".
@@ -708,11 +714,11 @@ public static partial class PlanChecker
         return first is null || first.StartsWith("None", StringComparison.OrdinalIgnoreCase) ? null : string.Join('\n', body);
     }
 
-    private static List<string> PrototypeFileProblems(string folder, string screens, bool approved)
+    private static List<string> PrototypeFileProblems(string folder, string screens, bool approved, string logLine, string picked)
     {
         var problems = new List<string>();
-        var file = System.IO.Path.Combine(folder, "mockups", "prototype.html");
-        if (!File.Exists(file))
+        var mockups = System.IO.Path.Combine(folder, "mockups");
+        if (!Directory.Exists(mockups))
         {
             if (approved)
             {
@@ -722,18 +728,63 @@ public static partial class PlanChecker
             return problems;
         }
 
-        // A link anywhere on the path, a binary file or one over 1 MB is a problem, not a pass.
-        var skipped = new List<string>();
-        var text = new DirectoryInfo(System.IO.Path.GetDirectoryName(file)!).LinkTarget is null ? ReadScannable(file, folder, skipped) : null;
-        if (text is null)
+        if (new DirectoryInfo(mockups).LinkTarget is not null)
         {
-            problems.Add(skipped.Count > 0 ? skipped[0] : $"{PrototypePath}: the mockups folder is a symbolic link, not read");
+            problems.Add($"{PrototypePath}: the mockups folder is a symbolic link, not read");
             return problems;
+        }
+
+        if (File.Exists(System.IO.Path.Combine(mockups, "prototype.html")))
+        {
+            SketchProblems(folder, PrototypePath, screens, problems);
+        }
+        else if (approved)
+        {
+            problems.Add($"{PrototypePath}: not found although the log says approved");
+        }
+
+        // The options the sketch was picked from (BUILD-PLAN decision 52): each is checked like the sketch, and an approval needs three that pass and differ.
+        var passing = new HashSet<string>(StringComparer.Ordinal);
+        var pickedPasses = false;
+        foreach (var option in Directory.EnumerateFiles(mockups, "option-*.html").Select(System.IO.Path.GetFileName).Order(StringComparer.Ordinal))
+        {
+            var before = problems.Count;
+            if (SketchProblems(folder, $"mockups/{option}", screens, problems) is { } text && problems.Count == before)
+            {
+                passing.Add(text);
+                pickedPasses |= picked.Length > 0 && string.Equals(option, $"option-{picked}.html", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        if (approved && passing.Count < MinOptions)
+        {
+            problems.Add($"mockups/: {passing.Count} option files (option-*.html) pass the checks and differ; an approved sketch is picked from at least {MinOptions}");
+        }
+        else if (approved && !pickedPasses)
+        {
+            // The record of the pick: which option, so the ones not chosen can be told apart later.
+            problems.Add($"{logLine}: the approved line names no option that passes the checks: write `prototype: approved {PrototypePath} (option <letter>: <why>)`");
+        }
+
+        return problems;
+    }
+
+    // The checks of one sketch file, added to problems; the file's text, or null when it could not be read.
+    private static string? SketchProblems(string folder, string path, string screens, List<string> problems)
+    {
+        var file = System.IO.Path.Combine(folder, path);
+
+        // A link, a binary file or one over 1 MB is a problem, not a pass.
+        var skipped = new List<string>();
+        if (ReadScannable(file, folder, skipped) is not { } text)
+        {
+            problems.Add(skipped[0]);
+            return null;
         }
 
         void Add(int line, string rule)
         {
-            var problem = $"{PrototypePath}:{line}: {rule}";
+            var problem = $"{path}:{line}: {rule}";
             if (!problems.Contains(problem))
             {
                 problems.Add(problem);
@@ -836,7 +887,7 @@ public static partial class PlanChecker
             }
         }
 
-        return problems;
+        return text;
     }
 
     // Everything between <!-- and --> (an unclosed comment runs to the end, as in a browser).
@@ -864,6 +915,10 @@ public static partial class PlanChecker
 
     [GeneratedRegex(@"^\s*-\s*prototype:(.*)$", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
     private static partial Regex PrototypeItemRegex();
+
+    // "(option b: fewest steps)" names mockups/option-b.html.
+    [GeneratedRegex(@"\(option\s+([A-Za-z0-9]+)\b", RegexOptions.IgnoreCase)]
+    private static partial Regex PickedRegex();
 
     [GeneratedRegex(@"^approved\s+mockups/prototype\.html(?:\s|$)", RegexOptions.IgnoreCase)]
     private static partial Regex ApprovedRegex();

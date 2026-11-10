@@ -1181,7 +1181,7 @@ public class PlanCheckerTests : IDisposable
     private const string ScreensPlan = "# Plan\n\n## Screens\n\n- Home\n";
     private const string GoodSketch = "<!-- route: canvas -->\n<p>Sketch</p>\n<section data-screen=\"Home\"><i data-state=\"empty\"></i><i data-state=\"loading\"></i><i data-state=\"error\"></i><i data-state=\"failed-save\"></i></section>\n";
 
-    private SignOffResult SignOffWith(string? log, string? sketch, string body = ScreensPlan)
+    private SignOffResult SignOffWith(string? log, string? sketch, string body = ScreensPlan, int options = 3)
     {
         Write(Plan("approved", "skipped", body));
         if (log is not null)
@@ -1192,6 +1192,12 @@ public class PlanCheckerTests : IDisposable
         if (sketch is not null)
         {
             _t.Write("docs/plans/demo/mockups/prototype.html", sketch);
+        }
+
+        // The options an approved sketch is picked from: each passes, and each differs.
+        foreach (var letter in "abc"[..options])
+        {
+            _t.Write($"docs/plans/demo/mockups/option-{letter}.html", GoodSketch + $"<p>Option {letter}</p>\n");
         }
 
         return SignOff();
@@ -1214,7 +1220,7 @@ public class PlanCheckerTests : IDisposable
     [Fact]
     public void Sign_off_is_refused_for_an_approved_sketch_that_fails_and_for_a_missing_one()
     {
-        var failing = SignOffWith("- prototype: approved mockups/prototype.html (answered by: person)", "<p>Sketch</p>\n");
+        var failing = SignOffWith("- prototype: approved mockups/prototype.html (option a: the list first) (answered by: person)", "<p>Sketch</p>\n");
         Assert.Equal(1, failing.ExitCode);
         Assert.All(failing.Err, e => Assert.StartsWith("error: mockups/prototype.html:", e, StringComparison.Ordinal));
 
@@ -1223,9 +1229,27 @@ public class PlanCheckerTests : IDisposable
     }
 
     [Fact]
+    public void Sign_off_is_refused_for_an_approved_sketch_with_fewer_than_three_options_and_a_skip_needs_none()
+    {
+        const string Line = "- prototype: approved mockups/prototype.html (option b: fewest steps for Goal line 1) (answered by: person)";
+
+        var r = SignOffWith(Line, GoodSketch, options: 2);
+        Assert.Equal(1, r.ExitCode);
+        Assert.Equal("error: mockups/: 2 option files (option-*.html) pass the checks and differ; an approved sketch is picked from at least 3", Assert.Single(r.Err));
+
+        Assert.Equal(0, SignOffWith(Line, GoodSketch).ExitCode);
+    }
+
+    [Fact]
+    public void A_persons_skip_signs_off_with_no_options()
+    {
+        Assert.Equal(0, SignOffWith("- prototype: skipped (the person brought a design) (answered by: person)", null, options: 0).ExitCode);
+    }
+
+    [Fact]
     public void Sign_off_passes_a_passing_sketch_a_persons_skip_and_a_plan_with_no_screens_and_no_line()
     {
-        Assert.Equal(0, SignOffWith("- prototype: approved mockups/prototype.html (answered by: person)", GoodSketch).ExitCode);
+        Assert.Equal(0, SignOffWith("- prototype: approved mockups/prototype.html (option a: the list first) (answered by: person)", GoodSketch).ExitCode);
 
         // A person's skip stands even when a stale sketch fails its checks.
         Assert.Equal(0, SignOffWith("- prototype: skipped (mock-data slice) (answered by: person)", "<p>x</p>").ExitCode);

@@ -26,12 +26,12 @@ Fluent UI (v8) controls in custom pages and Teams canvas apps are deprecated: pl
 
 ## 3. The look in modern controls
 
-How the look in `route.md` maps when the app is built. Check each control's page first: several are preview.
+How the look in `look.md` maps when the app is built. Check each control's page first: several are preview.
 
 - **Colour.** The Paste-theme seed and font make the brand and neutral palette. Status colours come from a control's intent, so name the sketch's status tokens after the Badge intents: Positive, Caution, Critical, Informative and Neutral.
 - **Spacing and layout.** Horizontal and vertical containers take the 8 px values in Gap and padding; turn Scale to fit off. `App.SizeBreakpoints` is 600, 900 and 1200 by default in tablet and web apps: one column below 600, master-detail above it, as the Sidebar and Split-screen layouts give.
 - **Surfaces.** A container's drop shadow, fill and corner radius make a card.
-- **Header and navigation.** The Header control, placed on every screen: it doesn't copy itself to other screens and doesn't take custom colours or navigation yet. Top-level sections: a Tab list, or a column of buttons on a wide layout.
+- **Header and navigation.** The Header control, placed on every screen: it doesn't copy itself to other screens and doesn't take custom colours or navigation yet. When the plan's Theme gives a header pair, the header is a horizontal container in that pair instead. Top-level sections: a Tab list, or a column of buttons on a wide layout.
 - **Status pill.** A Badge with Shape Circular, Appearance Tint, Intent by meaning, and an AccessibleLabel.
 - **KPIs.** A Metrics card (preview), with TrendText saying the comparison in words.
 - **Lists and states.** A Card gallery for cards, a Data Grid or the Table (preview) for dense rows, a Spinner with a label for loading, and containers with Text and a Button for the empty and error panels.

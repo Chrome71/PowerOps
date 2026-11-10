@@ -245,6 +245,13 @@
       "title": "Flow names a navigation property in the wrong case",
       "fix": "Write the navigation property name exactly as the table's relationship defines it, in the same case.",
       "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO035.md"
+    },
+    {
+      "id": "PO036",
+      "severity": "warning",
+      "title": "Canvas app repeats the same formula in three or more places",
+      "fix": "Define the formula once as a named formula or user-defined function in App.Formulas, or in a component, and use that name in each place.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO036.md"
     }
   ]
 }

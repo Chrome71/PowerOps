@@ -395,7 +395,7 @@ public class AnalyzeCommandTests : IDisposable
         Assert.DoesNotContain("PO014", output);
         var note = Assert.Single(err.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
         Assert.StartsWith("note: ", note);
-        Assert.EndsWith($": PO014 and PO018 not checked for canvas app '{SeedMsapp}': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).", note);
+        Assert.EndsWith($": PO014, PO018 and PO036 not checked for canvas app '{SeedMsapp}': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).", note);
     }
 
     [Fact]

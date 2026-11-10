@@ -24,7 +24,7 @@ public static class TestCommand
         var command = new Command(
             "test",
             "Run offline tests (*.flowtest.json) against the cloud flows of the solutions under a path, with mocked connector actions (no tenant, read-only). " +
-            "The simulator is written from Microsoft Learn and has not been compared with a real run yet. Exit 1 when a test fails, is unmocked or uses something unsupported.")
+            "The simulator is written from Microsoft Learn and has been compared with one real run (docs/FLOW-TESTS.md, Limits). Exit 1 when a test fails, is unmocked or uses something unsupported.")
         {
             path, tests, format, outFile,
         };

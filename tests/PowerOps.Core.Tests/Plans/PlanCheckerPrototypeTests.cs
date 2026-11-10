@@ -7,7 +7,7 @@ namespace PowerOps.Core.Tests.Plans;
 
 public class PlanCheckerPrototypeTests : IDisposable
 {
-    private const string Approved = "- prototype: approved mockups/prototype.html (answered by: person)";
+    private const string Approved = "- prototype: approved mockups/prototype.html (option a: fewest steps for Goal line 1) (answered by: person)";
     private const string File = "mockups/prototype.html";
 
     private readonly TempFolder _t = new();
@@ -27,12 +27,30 @@ public class PlanCheckerPrototypeTests : IDisposable
     private static string Html(string? screens = null, string head = "<!-- route: canvas -->\n", string body = "<p>Sketch</p>\n") =>
         $"{head}<html><body>\n{body}{screens ?? Screen("Home")}</body></html>\n";
 
-    private PlanReport Setup(string? html, string? log = Approved, string? plan = null, string? decisions = null)
+    // An option that passes every check; each letter's text differs.
+    private static string Option(char letter) => Html(body: $"<p>Sketch, option {letter}</p>\n");
+
+    private PlanReport Setup(string? html, string? log = Approved, string? plan = null, string? decisions = null, string?[]? options = null)
     {
         _t.Write("docs/plans/demo/plan.md", plan ?? Plan("## Screens\n\n- Home\n- Booking form\n"));
         Directory.CreateDirectory(Path.Combine(Folder, "mockups"));
         System.IO.File.Delete(Path.Combine(Folder, "decisions.md"));
         System.IO.File.Delete(Path.Combine(Folder, File));
+        foreach (var old in Directory.GetFiles(Path.Combine(Folder, "mockups"), "option-*.html"))
+        {
+            System.IO.File.Delete(old);
+        }
+
+        // By default the three options an approved sketch is picked from; a null entry writes no file for that letter.
+        options ??= [Option('a'), Option('b'), Option('c')];
+        for (var i = 0; i < options.Length; i++)
+        {
+            if (options[i] is { } option)
+            {
+                _t.Write($"docs/plans/demo/mockups/option-{(char)('a' + i)}.html", option);
+            }
+        }
+
         if (log is not null || decisions is not null)
         {
             _t.Write("docs/plans/demo/decisions.md", decisions ?? $"# Decisions\n\n## Log\n\n{log}\n");
@@ -46,9 +64,9 @@ public class PlanCheckerPrototypeTests : IDisposable
         return PlanChecker.Check(Path.Combine(Folder, "plan.md"), _t.Path);
     }
 
-    private PrototypeCheck Problems(string? html, string? log = Approved, string? plan = null)
+    private PrototypeCheck Problems(string? html, string? log = Approved, string? plan = null, string?[]? options = null)
     {
-        Setup(html, log, plan);
+        Setup(html, log, plan, options: options);
         var decisions = System.IO.File.Exists(Path.Combine(Folder, "decisions.md")) ? System.IO.File.ReadAllText(Path.Combine(Folder, "decisions.md")) : null;
         return PlanChecker.PrototypeProblems(Folder, PlanDocument.Parse(System.IO.File.ReadAllText(Path.Combine(Folder, "plan.md"))), decisions);
     }
@@ -145,7 +163,7 @@ public class PlanCheckerPrototypeTests : IDisposable
     [Fact]
     public void An_approval_without_the_persons_mark_still_passes_but_warns_with_the_line_number()
     {
-        var r = Problems(Html(), "- prototype: approved mockups/prototype.html (answered by: agent)");
+        var r = Problems(Html(), "- prototype: approved mockups/prototype.html (option a: fewest steps) (answered by: agent)");
 
         Assert.Empty(r.Line);
         Assert.True(r.Approved);
@@ -154,7 +172,8 @@ public class PlanCheckerPrototypeTests : IDisposable
         Assert.Contains("(answered by: person)", w, StringComparison.Ordinal);
 
         // Status carries the same warning, and none when the mark is there.
-        Assert.Contains(Setup(Html(), "- prototype: approved mockups/prototype.html").Warnings, x => x.Contains("(answered by: person)", StringComparison.Ordinal));
+        Assert.Contains(Setup(Html(), "- prototype: approved mockups/prototype.html (option a: fewest steps)").Warnings, x => x.Contains("(answered by: person)", StringComparison.Ordinal));
+        Assert.Contains("the person's brief lets it choose", w, StringComparison.Ordinal);
         Assert.DoesNotContain(Setup(Html()).Warnings, x => x.Contains("answered by", StringComparison.Ordinal));
     }
 
@@ -166,6 +185,77 @@ public class PlanCheckerPrototypeTests : IDisposable
         Assert.Empty(r.Line);
         Assert.True(r.Approved);
         Assert.Single(r.File);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public void An_approved_sketch_needs_three_options(int count)
+    {
+        var r = Problems(Html(), options: [.. "abc"[..count].Select(Option)]);
+
+        Assert.Empty(r.Line);
+        Assert.Equal($"mockups/: {count} option files (option-*.html) pass the checks and differ; an approved sketch is picked from at least 3", Assert.Single(r.File));
+    }
+
+    [Theory]
+    [InlineData("- prototype: approved mockups/prototype.html (answered by: person)")]
+    [InlineData("- prototype: approved mockups/prototype.html (option z: the best one) (answered by: person)")]
+    [InlineData("- prototype: approved mockups/prototype.html (option c: the best one) (answered by: person)")]
+    public void An_approved_line_names_an_option_that_passes(string log)
+    {
+        // Option c fails its checks here, so naming it is no pick either.
+        var r = Problems(Html(), log, options: [Option('a'), Option('b'), "<p>nothing</p>", Option('d')]);
+
+        Assert.Empty(r.Line);
+        Assert.Contains(r.File, p => p.StartsWith("decisions.md:5: the approved line names no option that passes the checks", StringComparison.Ordinal));
+        Assert.DoesNotContain(Problems(Html(), "- prototype: approved mockups/prototype.html (option B: the best one) (answered by: person)").File, p => p.Contains("names no option", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Options_that_are_the_same_text_count_once_and_a_fourth_option_is_fine()
+    {
+        var same = Problems(Html(), options: [Option('a'), Option('a'), Option('b')]);
+        Assert.Contains("2 option files", Assert.Single(same.File), StringComparison.Ordinal);
+
+        Assert.Empty(Problems(Html(), options: [Option('a'), Option('b'), Option('c'), Option('d')]).File);
+    }
+
+    [Fact]
+    public void An_option_is_checked_like_the_sketch_under_its_own_path_and_a_failing_one_does_not_count()
+    {
+        var r = Problems(Html(), options: [Option('a'), Option('b'), "<p>nothing</p>"]);
+
+        Assert.Contains(r.File, p => p.StartsWith("mockups/option-c.html:1:", StringComparison.Ordinal) && p.Contains("route:", StringComparison.Ordinal));
+        Assert.DoesNotContain(r.File, p => p.StartsWith(File, StringComparison.Ordinal));
+        Assert.Contains(r.File, p => p.StartsWith("mockups/: 2 option files", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Before_the_pick_the_options_are_checked_and_their_number_is_not()
+    {
+        // powerops-prototype checks its three options with plan status before any prototype: line exists.
+        var none = Problems(null, log: null, options: [Option('a'), Option('b')]);
+        Assert.Empty(none.File);
+
+        var failing = Setup(null, log: null, options: [Option('a'), "<script>x</script>"]);
+        Assert.Contains(failing.Warnings, w => w.StartsWith("mockups/option-b.html:", StringComparison.Ordinal));
+        Assert.DoesNotContain(failing.Warnings, w => w.Contains("option files", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_mockups_folder_that_is_a_link_is_a_problem_and_its_options_are_not_read()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "creating a symbolic link needs a privilege on Windows");
+        Setup(Html());
+        var mockups = Path.Combine(Folder, "mockups");
+        var elsewhere = Path.Combine(_t.Path, "elsewhere");
+        Directory.Move(mockups, elsewhere);
+        Directory.CreateSymbolicLink(mockups, elsewhere);
+
+        var r = PlanChecker.PrototypeProblems(Folder, PlanDocument.Parse(System.IO.File.ReadAllText(Path.Combine(Folder, "plan.md"))), "## Log\n\n" + Approved + "\n");
+
+        Assert.Contains("symbolic link", Assert.Single(r.File), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -342,13 +432,13 @@ public class PlanCheckerPrototypeTests : IDisposable
     }
 
     [Fact]
-    public void The_file_is_at_most_40960_bytes()
+    public void The_file_is_at_most_81920_bytes()
     {
         static string Padded(int extra) => Html(head: $"<!-- route: canvas {new string('x', extra)}-->\n");
-        var room = 40_960 - Encoding.UTF8.GetByteCount(Padded(0));
+        var room = 81_920 - Encoding.UTF8.GetByteCount(Padded(0));
 
         Assert.Empty(Problems(Padded(room)).File);
-        Assert.Single(Problems(Padded(room + 1)).File, p => p.Contains("40960", StringComparison.Ordinal));
+        Assert.Single(Problems(Padded(room + 1)).File, p => p.Contains("81920", StringComparison.Ordinal));
     }
 
     [Fact]
