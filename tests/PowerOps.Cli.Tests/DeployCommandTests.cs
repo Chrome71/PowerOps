@@ -517,6 +517,63 @@ public class DeployCommandTests : IDisposable
         Assert.DoesNotContain("SENTINEL", all.ToString());
     }
 
+    // ---- the plan file's folder (M80) --------------------------------------------------------------------------
+
+    private const string SaveFolderWarning = "warning: the plan file is not saved in the deploy folder; deploy apply reads the zips and settings files from the plan file's own folder\n";
+
+    [Fact]
+    public void A_plan_file_saved_one_folder_up_warns_and_changes_nothing_else()
+    {
+        SeedZip(Folder);
+        var inside = Path.Combine(Folder, "p.json");
+        var up = Path.Combine(Folder, "..", "p.json");
+
+        var control = Plan(SeedTarget(), "--format", "json", "--save", inside);
+        var r = Plan(SeedTarget(), "--format", "json", "--save", up);
+
+        Assert.DoesNotContain("warning: the plan file", control.Err);
+        Assert.Contains(SaveFolderWarning, r.Err);
+        Assert.Equal(control.Code, r.Code);
+        Assert.Equal(control.Out, r.Out);
+        Assert.Equal(File.ReadAllBytes(inside), File.ReadAllBytes(Path.Combine(_root, "p.json")));
+    }
+
+    [Fact]
+    public void A_plan_file_saved_in_a_subfolder_warns_and_is_written()
+    {
+        SeedZip(Folder);
+        var sub = Directory.CreateDirectory(Path.Combine(Folder, "sub")).FullName;
+
+        var r = Plan(SeedTarget(), "--save", Path.Combine(sub, "p.json"));
+
+        Assert.Contains(SaveFolderWarning, r.Err);
+        Assert.True(File.Exists(Path.Combine(sub, "p.json")));
+    }
+
+    [Fact]
+    public void A_plan_file_saved_in_the_deploy_folder_gets_no_warning_however_the_paths_are_spelled()
+    {
+        SeedZip(Folder);
+        var sep = Path.DirectorySeparatorChar.ToString();
+
+        var plain = Plan(SeedTarget(), "--save", Path.Combine(Folder, "p.json"));
+        var dot = Plan(SeedTarget(), "--save", Path.Combine(Folder, ".", "p.json"));
+        var trailing = Run(SeedTarget(), "deploy", "plan", Folder + sep, "--target", TargetValue, "--save", Path.Combine(Folder, "p.json"));
+
+        foreach (var r in new[] { plain, dot, trailing })
+        {
+            Assert.DoesNotContain("warning: the plan file", r.Err);
+        }
+    }
+
+    [Fact]
+    public void Without_save_there_is_no_plan_file_warning()
+    {
+        SeedZip(Folder);
+
+        Assert.DoesNotContain("warning: the plan file", Plan(SeedTarget()).Err);
+    }
+
     // ---- plannedBy (M52) ---------------------------------------------------------------------------------------
 
     [Theory]

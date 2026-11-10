@@ -231,6 +231,23 @@ public class DeployGateCommandTests : DeployTestBase
     }
 
     [Fact]
+    public void The_gate_probe_command_is_read_as_a_pac_import_and_blocked_before_anything_is_read()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var test = SeedTarget();
+        var pac = new FakePac();
+
+        var r = Gate(Environments(test), Hook("Bash", new JsonObject { ["command"] = GateProbeTests.ProbeCommand("/home/user/powerops-gate-probe") }), pac);
+
+        Assert.Equal(2, r.Code);
+        Assert.Equal("", r.Out);
+        Assert.Contains($"{Prefix}--environment is missing", r.Err.Split('\n'));
+        Assert.Empty(pac.Calls);
+        Assert.Equal(0, test.Calls);
+    }
+
+    [Fact]
     public void A_call_that_is_not_an_import_is_allowed_without_reading_anything()
     {
         var test = SeedTarget();
