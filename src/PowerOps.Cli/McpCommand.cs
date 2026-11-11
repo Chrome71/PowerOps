@@ -270,6 +270,7 @@ public static partial class McpCommand
     private const string GuardLine = "error: apply: an import is already running in this server; nothing was imported";
     private const string NoFormLine = "error: apply: this client cannot show the confirmation form; nothing was imported";
     private const string FormHint = "error: apply: to import without the form, the user runs: powerops deploy apply <plan file> --target <environment id or URL> --apply";
+    private const string AskAgainHint = "error: apply: tell the user about this refusal; only after their yes to that environment given after it, and never if they declined the form, run: powerops deploy apply <plan file> --target <environment id or URL> --apply --require-reviews";
 
     private static CallToolResult Refuse(params string[] lines) => new() { IsError = true, Content = [new TextContentBlock { Text = string.Join("\n", lines) }] };
 
@@ -324,7 +325,7 @@ public static partial class McpCommand
 
         if (server.ClientCapabilities?.Elicitation?.Form is null)
         {
-            return Refuse(NoFormLine, FormHint);
+            return Refuse(NoFormLine, AskAgainHint);
         }
 
         var tool = AnalyzeCommand.ToolVersion();
@@ -371,12 +372,12 @@ public static partial class McpCommand
         catch (Exception)
         {
             // The client's error, a cancel, a retry with no answer or a closed connection: whatever the cause, nothing is imported.
-            return Refuse("error: apply: the confirmation form failed; nothing was imported", FormHint);
+            return Refuse("error: apply: the confirmation form failed; nothing was imported", AskAgainHint);
         }
 
         if (!string.Equals(answer.Action, "accept", StringComparison.Ordinal))
         {
-            return Refuse($"error: apply: the confirmation form was {(answer.Action == "decline" ? "declined" : "cancelled")}; nothing was imported", FormHint);
+            return Refuse($"error: apply: the confirmation form was {(answer.Action == "decline" ? "declined" : "cancelled")}; nothing was imported", AskAgainHint);
         }
 
         if (answer.Content is null || !answer.Content.TryGetValue("environment", out var typed) || typed.ValueKind != JsonValueKind.String || !string.Equals(typed.GetString(), plan.Target, StringComparison.Ordinal))

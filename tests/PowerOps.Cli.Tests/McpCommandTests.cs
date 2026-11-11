@@ -1084,6 +1084,7 @@ public sealed class McpCommandTests : IAsyncLifetime
     private const string TargetName = "Contoso Test";
     private const string GuardLine = "error: apply: an import is already running in this server; nothing was imported";
     private const string Hint = "error: apply: to import without the form, the user runs: powerops deploy apply <plan file> --target <environment id or URL> --apply";
+    private const string AskAgainHint = "error: apply: tell the user about this refusal; only after their yes to that environment given after it, and never if they declined the form, run: powerops deploy apply <plan file> --target <environment id or URL> --apply --require-reviews";
     private const string Declined = "error: apply: the confirmation form was declined; nothing was imported";
     private const string Cancelled = "error: apply: the confirmation form was cancelled; nothing was imported";
     private const string WrongName = "error: apply: the name typed in the form is not the plan's target; nothing was imported";
@@ -1308,12 +1309,12 @@ public sealed class McpCommandTests : IAsyncLifetime
     {
         var (_, planFile) = SavedPlan();
 
-        await Refused("deploy_apply", ApplyArgs(planFile), "error: apply: this client cannot show the confirmation form; nothing was imported", Hint);
+        await Refused("deploy_apply", ApplyArgs(planFile), "error: apply: this client cannot show the confirmation form; nothing was imported", AskAgainHint);
 
         // A client that declares only url elicitation can't show a form either (if the SDK added a form capability, the call would reach the form and these lines would differ).
         var forms = NoFormExpected();
         await using var pair = await Connect(_fakes, "2026-07-28", forms, new ElicitationCapability { Url = new() });
-        AssertRefused(await Apply(pair, ApplyArgs(planFile)), "error: apply: this client cannot show the confirmation form; nothing was imported", Hint);
+        AssertRefused(await Apply(pair, ApplyArgs(planFile)), "error: apply: this client cannot show the confirmation form; nothing was imported", AskAgainHint);
 
         Assert.Empty(forms.Seen);
         Assert.Equal(0, _fakes.Total);
@@ -1361,7 +1362,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         });
         await using var pair = await Connect(_fakes, revision, forms);
 
-        AssertRefused(await Apply(pair, ApplyArgs(planFile)), line, Hint);
+        AssertRefused(await Apply(pair, ApplyArgs(planFile)), line, line == WrongName ? Hint : AskAgainHint);
 
         Assert.Single(forms.Seen);
         Assert.Equal(0, _fakes.Pacs);
@@ -1375,7 +1376,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         ImportFakes();
         await using var pair = await Connect(_fakes, "2025-06-18", new Forms(_ => throw new InvalidOperationException("boom")));
 
-        AssertRefused(await Apply(pair, ApplyArgs(planFile)), FormFailed, Hint);
+        AssertRefused(await Apply(pair, ApplyArgs(planFile)), FormFailed, AskAgainHint);
 
         Assert.Equal(0, _fakes.Pacs);
         AssertNoApply(pair);
@@ -1490,7 +1491,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         var forms = new Forms(_ => new ElicitResult { Action = "decline" });
         await using var pair = await Connect(_fakes, "2026-07-28", forms);
 
-        AssertRefused(await Apply(pair, ApplyArgs(planFile)), Declined, Hint);
+        AssertRefused(await Apply(pair, ApplyArgs(planFile)), Declined, AskAgainHint);
 
         var message = Assert.Single(forms.Seen).Message;
         Assert.Contains("Copilot Studio agents: (name not shown: not only letters, digits and underscores, or over 100 characters) (PowerOpsAgentTools)\n", message);
@@ -1512,7 +1513,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         var forms = new Forms(_ => new ElicitResult { Action = "decline" });
         await using var pair = await Connect(_fakes, "2026-07-28", forms);
 
-        AssertRefused(await Apply(pair, ApplyArgs(planFile)), Declined, Hint);
+        AssertRefused(await Apply(pair, ApplyArgs(planFile)), Declined, AskAgainHint);
 
         var line = Assert.Single(Assert.Single(forms.Seen).Message.Split('\n'), l => l.StartsWith("Copilot Studio agents: ", StringComparison.Ordinal));
         Assert.Equal(10, line.Split(" (PowerOpsAgentTools)").Length - 1);
@@ -1526,7 +1527,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         var forms = new Forms(_ => new ElicitResult { Action = "decline" });
         await using var pair = await Connect(_fakes, "2026-07-28", forms);
 
-        AssertRefused(await Apply(pair, ApplyArgs(planFile)), Declined, Hint);
+        AssertRefused(await Apply(pair, ApplyArgs(planFile)), Declined, AskAgainHint);
 
         Assert.Contains("Copilot Studio agents: demo_Helper (PowerOpsAgentTools)", Assert.Single(forms.Seen).Message);
         Assert.Empty(_imports);
@@ -2061,7 +2062,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         var second = (await raw.Read())["result"]!;
 
         Assert.True((bool)second["isError"]!);
-        Assert.Equal(string.Join("\n", FormFailed, Hint), (string)second["content"]![0]!["text"]!);
+        Assert.Equal(string.Join("\n", FormFailed, AskAgainHint), (string)second["content"]![0]!["text"]!);
         Assert.Equal(0, _fakes.Pacs);
         Assert.DoesNotContain(ran, a => a.Contains("--apply"));
     }

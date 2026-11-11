@@ -717,8 +717,10 @@ Exit codes: `0` applied (or a dry run that would apply), `1` refused or a flow n
 Agents: run `deploy apply` without `--apply` freely against an environment the user named.
 The yes to an import is held in two places an agent can't answer for: the form of the MCP tool `deploy_apply` with `apply: true`, where the user types the environment's name (interactive clients only), and the Action's apply job in a GitHub environment with required reviewers ([the Action](GITHUB-ACTION.md)).
 Call the tool with `apply: true` only after the user said yes to that environment in the session.
-A local `deploy apply --apply` is the user's own command, and nothing enforces who runs it: leave it to the user, never as a way around the form.
-The gate's message to a blocked agent says the same.
+A local `deploy apply --apply` passes no form, and the yes before it is held nowhere and enforced by nothing: an agent runs it only with `--require-reviews`, after the user said yes to that environment in the session.
+A declined, cancelled or failed form ends an earlier yes: the agent says so and asks again, and never imports if the user says they declined.
+Without both review reports the import stays the person's own command.
+The gate's message to a blocked agent names the same routes, and the tool's refusal of a declined, cancelled or failed form tells the agent to ask again.
 
 ## deploy gate
 
