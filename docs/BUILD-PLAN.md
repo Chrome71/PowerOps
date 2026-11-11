@@ -796,3 +796,9 @@ Made in the [M85 plan](plans/m85-gate-routes/plan.md); its `decisions.md` weighs
 Made before the third end-to-end trial, after decisions 52 to 55.
 
 60. **A sketch may hold one `meta name="viewport"` with a `content` value**, so a phone shows the narrow layout; every other `meta` stays banned, and a viewport tag with any other attribute is banned too. This amends the tag list of [M70](plans/m70-prototype-gate/plan.md) (Goal line 2).
+
+## Decisions, who runs the local import (2026-11-10)
+
+Made after decisions 59 and 60, on the owner's answer to one question.
+
+61. **An agent may run `powerops deploy apply --apply --require-reviews` itself after the user's yes to that environment in the session.** Asked on 2026-11-10 "After your yes in chat, may the agent run deploy apply --apply itself?", the person answered "Agent, after my yes". This amends the person's answer to Q1 of [M52](plans/m52-authority-boundary/decisions.md) ("the local CLI stays person-run and unenforced") and the gate message of its Q13. What stays: the MCP form and the Action's approved job are the only places that enforce a yes, and the chat yes is an instruction that nothing checks. A declined, cancelled or failed form ends an earlier yes: the agent says so and asks again, and never imports if the user says they declined (the desktop Code tab returned "declined" with no form shown in M63, [HARNESS.md](HARNESS.md)). An import without both review reports stays the person's own command. The person can reverse this.
