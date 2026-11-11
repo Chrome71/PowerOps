@@ -124,7 +124,7 @@ public static class PluginAgents
         s = Replace(s, "In this repo the routing table", "Under PowerOps the routing table", file);
         s = Replace(s, Upto(s, "- Record-only until measured", file),
             "- Record-only until measured: specialist findings never block a plan, a build or an import. No evaluation has measured what these specialists find; treat their findings as advice for the person.\n"
-            + "- Never run `powerops deploy apply --apply` or `powerops settings apply --apply`, or call the MCP tool `deploy_apply` with `apply: true`: only the person says yes to an import, in the tool's form or by running the command.\n", file);
+            + "- Never run `powerops deploy apply --apply` or `powerops settings apply --apply`, or call the MCP tool `deploy_apply` with `apply: true`: a specialist never writes to an environment. The main session runs an import, and only after the person's yes to that environment.\n", file);
         return Lead + "\n\n" + s;
     }
 
