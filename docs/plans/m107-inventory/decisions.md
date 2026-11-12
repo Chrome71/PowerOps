@@ -1,0 +1,27 @@
+# Decisions: m107-inventory
+
+## Round 0 (the person's instructions for the upgrade plan, 2026-11-12)
+
+About the practitioner research this milestone comes from, the person said (2026-11-12): "aim to implement such features while still making it user friendly", and "for now just focus on adapting this as tools that can be used with the main toolkit".
+
+### Q1 of the upgrade plan. When should the upgrade tools land?
+1. The first wave, M98 to M109 before trial 4; M110 and M111 after 1.0.0 (recommended)
+2. Only M98 and M108 before trial 4
+3. Everything after 1.0.0
+
+Answer: "Before trial 4" (answered by: person, 2026-11-12), having been told that the answer on timing is the go-ahead to build. That is option 1, and the authority for building and signing off this milestone.
+
+Standing instructions this work runs under (`reports/trial-3/chain/chain-rules.md`, section "Upgrade milestones M98 to M111"): sessions sign off their own milestone plans after clean reviews ("Sessions sign off", 2026-10-22, repeated 2026-11-09), and sessions merge their own verified pull requests when all checks pass ("Sessions merge", 2026-10-21, repeated 2026-11-09). The trial-3 instruction "Start the build" covers M86 to M97, not this milestone.
+
+The upgrade plan's section 7 default, kept: "`inventory` ships no connector tier list; other connectors read 'tier not classified'." Q2 of the upgrade plan is M111's and doesn't apply here.
+
+## Log
+
+- 2026-11-12: planned from the upgrade plan's section "M107. `powerops inventory`" (revision 2, approved by the Fable plan review on 2026-11-12), its header, sections 3, 4, 6, 7 ("Defaults you can change"), 8 and the WATCH notes of section 11, in a session started by the upgrade coordinator. `origin/main` is `87a31dd` (M94, M98, M99, M100, M106 merged).
+- read on 2026-11-12: `chain-rules.md`; the upgrade plan's sections named above; `m99-done-handover.md` and `m100-done-handover.md` (the shape of `FlowAction`); AGENTS.md; CLAUDE.md; `skills/powerops-plan/references/licensing.md`; `docs/plans/m100-secret-rules/` as the format; `FlowDefinition.cs`; `Solution.cs`; `SolutionParser.cs` (canvas app connections, agent tools); `AnalyzeCommand.cs`; `AnalysisResult.cs`; `Redaction.cs`; `ManifestCommand.cs` and `ManifestReport.cs`; `McpCommand.cs` (the tool list); `DocsDriftTests.cs`; `OutputSchemaTests.cs`; `docs/ecosystem/sources.json`, `compatibility.md`, `changes.md`.
+- 2026-11-12, measured (a scratch Python script over every flow JSON of the unpacked folders of `tests/fixtures/`, printing counts only): HTTP actions `alm-makers` 11 (4 literal, 7 expression, 0 variable), `flow-limits` 1, `flow-secrets` 1, `flowtests` 1 (literal); request triggers `alm-makers` 13 `Button` and 1 `Http`, `alm-sample` 2 `PowerAppV2`, 2 `PowerApp`, 2 `Button`, `coe-auditlogs`, `flow-limits`, `flow-navigation`, `flow-secrets` 1 `Button` each, `flowtests` 2 `Button`; no `shared_uiflow` action; type-372 components: `alm-sample` (root component `cat_5Fenvironmentvariableconnector`), `coe-auditlogs` (missing dependency `admin_5Foffice-20365-20management-20api`). The zips are counted by the command in the golden diff.
+- 2026-11-12: research (a `powerops-researcher` subagent, Opus, Learn only, every page read 2026-11-12; details in Assumptions). `http-action` partly holds (a docs-page example and a training unit; the licence side holds); `custom-connector`, `dataverse-in-canvas-app`, `model-driven-app` and `desktop-flow-call` hold (`RunUIFlow_V2`, deprecated `ExecuteDesktopUIFlow`, api `shared_uiflow`, all on Learn); the HTTP request trigger is not called premium anywhere on Learn; endpoint filtering is preview and ignores environment variables; `licensing.md` row 1 cites a page that doesn't mention HTTP. Ecosystem: no `compatibility.md` row on licensing; ECO-0015 (open) doesn't touch a read-only tool.
+- 2026-11-12, what the research changes: no driver of the upgrade plan's closed set is dropped. A candidate sixth driver, `http-request-trigger`, considered by the building session because practitioners name the HTTP trigger, is not added: Learn doesn't support it. `http-action` keeps `HttpWebhook`, sourced by the training unit, and lists all its sources, so the JSON field is `sources` (a list), not `source`. `desktop-flow-call` matches the deprecated V1 operation too. The `licensing.md` citation is a follow-up for M110.
+- 2026-11-12, routine choices by the building session: connector ids are the last segment of the id, lower case (the flow, the app and the solution spell the same connector differently); no new fixture, so no `analyze` golden moves (the made-up cases are built in tests); the load loop of `AnalysisResult.RunFound` is shared, not copied, and the rules are not run; a solution that no path finds exits 2 with `analyze`'s message; names pass through `Redaction.Text` by default; child flows outside the solution print no id; `--show-values` adds only a literal endpoint's host; drivers come first in every format, as the part a reviewer reads; one BUILD-PLAN decision records the closed driver set and the absent tier list.
+- depth: standard: one command with its MCP tool, three reader fields, a report builder, a schema and docs
+- areas not asked: users, automation, environments and ALM, screens, solution and publisher; the change is to this repo's CLI, and the plan answers each or marks it not applicable
