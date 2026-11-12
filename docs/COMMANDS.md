@@ -7,7 +7,7 @@ Every `powerops` command with its options, output and exit codes. Install PowerO
 ```sh
 powerops analyze                      # find solutions under . (unpacked XML folders and exported .zip files)
 powerops analyze path/to/solution.zip path/to/unpacked --format json --out report.json
-powerops analyze path/to/solution.zip --redact   # the same findings, with each URL in them and on stderr replaced by [redacted URL]
+powerops analyze path/to/solution.zip --show-values   # the same findings, with the URLs in them and on stderr printed, not replaced by [redacted URL]
 powerops rules                        # list every rule with its severity, title and fix (add --format json for machine output; --json is the older spelling, and wins over --format text)
 powerops diff old.zip new.zip         # compare two versions component by component (zip or unpacked folder; --format text|json|markdown, --out <file>)
 powerops manifest path/to/unpacked    # list a solution's files with a SHA-256 for each and one digest (a .zip prints its SHA-256); with two unpacked folders, compare them file by file; --format json prints the same as JSON
@@ -66,15 +66,16 @@ The MCP `deploy_plan` `save` is the exception: it refuses a file or a link that 
 ### Values in outputs
 
 Some outputs quote values from the solution.
-In `analyze`, in every format and in the `baseline` file, PO006 and PO014 put the URL they found into the finding's message and component.
+In `analyze` (with `--show-values`; the `baseline` file always), in every format, PO006 and PO014 put the URL they found into the finding's message and component.
 The other rules quote names (of flows, apps, tables, connection references and other components), counts and file paths, and no finding quotes an environment variable's default or current value.
 
-`diff` prints an environment variable's `defaultValue` before and after (cut to 100 characters), and never its current value, an agent's instructions or a flow's definition.
+With `--show-values`, `diff` prints an environment variable's `defaultValue` before and after (cut to 100 characters), and never its current value, an agent's instructions or a flow's definition.
 `test` reports quote values from the solution and the test files.
 `drift` prints no variable value (its snapshot files hold hashes), and `deploy plan` and `deploy apply` print no setting value or connection id.
 
-`--redact` on `analyze` and `diff` replaces the URLs and the `defaultValue` text.
-No other command has it, a baseline file is never redacted, because it must match the findings, and the MCP `analyze` and `diff` tools return the same text as the commands without `--redact`.
+`analyze` and `diff` replace the URLs and the `defaultValue` text by default (since M92), and `--show-values` prints them; `--redact` is accepted and changes nothing.
+No other command has either option. The MCP `analyze` and `diff` tools always replace them.
+A baseline file and the MCP `baseline` tool keep the URLs, because a baseline must match the unredacted findings, so treat a committed baseline file as holding the URLs its findings name.
 In a public repository, treat what the Action writes as public ([Public outputs](GITHUB-ACTION.md#public-outputs)).
 
 ## analyze and baseline
@@ -89,7 +90,8 @@ Options:
 - `--out <file>` (write the report to a file instead of stdout),
 - `--fail-on error|warning|none` (default `error`),
 - `--baseline <file>` (drop findings listed in a baseline file before reporting and before the exit code; the summary counts them as `baselined`),
-- `--redact` (replace each URL, that is text that starts with a scheme and `://` such as `https://`, in every finding's message and component, every not-checked note and every line on stderr (but a usage error about the options, which quotes only the command line) with `[redacted URL]`, in all four formats and in the `--out` file; punctuation right after a URL goes with it, and two findings that differed only in their URL then read the same and share one SARIF fingerprint, so code scanning can show them as one alert; the help links that come from the rule list, `helpUri` and the Markdown's rule links, stay, and names, paths and versions are not changed; the baseline is matched before the findings are redacted, so `--baseline` drops the same findings; a SARIF finding's `poFinding/v1` fingerprint is taken over the redacted text, so switching `--redact` on or off for a code scanning upload closes the alerts of the findings it changes and opens new ones, once).
+- `--show-values` (print the URLs in findings, notes and stderr; by default each URL, that is text that starts with a scheme and `://` such as `https://`, in every finding's message and component, every not-checked note and every line on stderr (but a usage error about the options, which quotes only the command line) is replaced with `[redacted URL]`, in all four formats and in the `--out` file; punctuation right after a URL goes with it; the help links that come from the rule list, `helpUri` and the Markdown's rule links, stay, and names, paths and versions are not changed; the baseline is matched before the findings are redacted, so `--baseline` drops the same findings with or without `--show-values`; a SARIF finding's `poFinding/v1` fingerprint is taken over the printed text, so the first upload after M92 closes the code scanning alerts of the findings that held a URL and opens new ones, once, and so does each later switch of `--show-values`; and by default two findings that differ only in their URL read the same and share one fingerprint, so code scanning can show them as one alert, which `--show-values` keeps apart),
+- and `--redact` (accepted and changes nothing, the default since M92; with both options, `--show-values` wins).
 
 ### What it does
 
@@ -147,7 +149,8 @@ Options:
 
 - `--format text|json|markdown` (default `text`),
 - `--out <file>`
-- and `--redact` (print a changed `defaultValue` as `defaultValue added`, `defaultValue removed` or `defaultValue changed`, as current values always are, and replace each URL in a change's key, name and detail, in each not-compared line and on stderr with `[redacted URL]`, as `analyze --redact` does).
+- `--show-values` (print a changed `defaultValue` before and after, and the URLs in a change's key, name and detail, in each not-compared line and on stderr; by default a changed `defaultValue` is printed as `defaultValue added`, `defaultValue removed` or `defaultValue changed`, as current values always are, and each URL is replaced with `[redacted URL]`, as `analyze` does)
+- and `--redact` (accepted and changes nothing, the default since M92; with both options, `--show-values` wins).
 
 ### What it does
 
