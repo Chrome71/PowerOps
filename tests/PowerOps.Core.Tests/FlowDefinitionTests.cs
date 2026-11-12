@@ -368,6 +368,60 @@ public class FlowDefinitionTests
         Assert.Equal((true, true, true, "Name"), (deep.SecureInputs, deep.SecureOutputs, deep.Authentication, deep.UnboundAction));
     }
 
+    [Theory]
+    [InlineData("""{"type":"Http","inputs":{"uri":"https://API.contoso.com/v1/x?k=1"}}""", "literal", "api.contoso.com")]
+    [InlineData("""{"type":"http","inputs":{"uri":"http://api.contoso.com:8080/v1/x"}}""", "literal", "api.contoso.com")]
+    [InlineData("""{"type":"Http","inputs":{"uri":"@parameters('demo_Base (demo_Base)')"}}""", "variable", null)]
+    [InlineData("""{"type":"Http","inputs":{"uri":"@{parameters('demo_Base (demo_Base)')}/v1/x"}}""", "variable", null)]
+    [InlineData("""{"type":"Http","inputs":{"uri":"@{variables('u')}"}}""", "expression", null)]
+    [InlineData("""{"type":"Http","inputs":{"uri":"@{concat(parameters('a'),'x')}"}}""", "expression", null)]
+    [InlineData("""{"type":"Http","inputs":{"uri":"@{parameters('a')}/@{variables('u')}"}}""", "expression", null)]
+    [InlineData("""{"type":"Http","inputs":{}}""", "expression", null)]
+    [InlineData("""{"type":"Http"}""", "expression", null)]
+    [InlineData("""{"type":"Http","inputs":{"uri":5}}""", "expression", null)]
+    [InlineData("""{"type":"Http","inputs":{"uri":"/v1/x"}}""", "literal", null)]
+    [InlineData("""{"type":"Http","inputs":{"uri":"ftp://files.contoso.com/x"}}""", "literal", null)]
+    [InlineData("""{"type":"HttpWebhook","inputs":{"subscribe":{"uri":"https://hooks.contoso.com/s"},"unsubscribe":{"uri":"https://other.contoso.com/u"}}}""", "literal", "hooks.contoso.com")]
+    [InlineData("""{"type":"HttpWebhook","inputs":{"uri":"https://api.contoso.com/v1/x"}}""", "expression", null)]
+    [InlineData("""{"type":"Http","inputs":{"subscribe":{"uri":"https://hooks.contoso.com/s"}}}""", "expression", null)]
+    [InlineData("""{"type":"OpenApiConnection","inputs":{"uri":"https://api.contoso.com/v1/x"}}""", null, null)]
+    [InlineData("""{"inputs":{"uri":"https://api.contoso.com/v1/x"}}""", null, null)]
+    public void Endpoint_kind_and_literal_host_are_read_for_http_actions_only(string action, string? kind, string? host)
+    {
+        var a = One(action);
+
+        Assert.Equal((kind, host), (a.Endpoint, a.Host));
+    }
+
+    [Fact]
+    public void Endpoint_is_read_inside_a_conditions_else()
+    {
+        var flow = FlowDefinition.Parse(Flow("{}", """
+            {"actions":{"If":{"type":"If","actions":{},"else":{"actions":{
+              "Deep":{"type":"Http","inputs":{"uri":"https://deep.contoso.com/x"}}
+            }}}}}
+            """));
+
+        var deep = flow.Actions.Single(x => x.Name == "Deep");
+        Assert.Equal(("literal", "deep.contoso.com"), (deep.Endpoint, deep.Host));
+        Assert.Null(flow.Actions.Single(x => x.Name == "If").Endpoint);
+    }
+
+    [Fact]
+    public void Trigger_kind_is_read_when_a_string()
+    {
+        var flow = FlowDefinition.Parse(Flow("{}", """
+            {"triggers":{
+              "Request":{"type":"Request","kind":"Http"},
+              "Manual":{"type":"Request","kind":"Button"},
+              "Missing":{"type":"Request"},
+              "Number":{"type":"Request","kind":5}
+            },"actions":{}}
+            """));
+
+        Assert.Equal(["Request|Http", "Manual|Button", "Missing|", "Number|"], flow.Triggers.Select(t => $"{t.Name}|{t.Kind}"));
+    }
+
     [Fact]
     public void Trigger_type_frequency_and_interval_are_read()
     {

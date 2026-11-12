@@ -20,6 +20,9 @@ public sealed record FlowTrigger(string Name, string? OperationId, int? Message,
 
     /// <summary><c>recurrence.interval</c> when it is a number that fits an <c>int</c> or a string that reads as one, else null.</summary>
     public int? Interval { get; init; }
+
+    /// <summary>The trigger's <c>kind</c> (for a Request trigger: <c>Http</c>, <c>Button</c>, <c>PowerApp</c> ...) when it is a string, else null.</summary>
+    public string? Kind { get; init; }
 }
 
 /// <summary>A loop (<c>Foreach</c> or <c>Until</c>) that runs inside another loop, by action name; <paramref name="Outer"/> is the nearest enclosing loop.</summary>
@@ -53,6 +56,12 @@ public sealed record FlowAction(string Name, string? Type, string? ApiId, string
 
     /// <summary><c>inputs.parameters.actionName</c> when it is a string with no <c>@</c>, else null.</summary>
     public string? UnboundAction { get; init; }
+
+    /// <summary>Only for an <c>Http</c> or <c>HttpWebhook</c> action (ignoring case): <c>literal</c> (a URL with no <c>@</c>), <c>variable</c> (only <c>parameters(...)</c> expressions) or <c>expression</c> (anything else, a missing URL included); else null. The URL itself is not kept.</summary>
+    public string? Endpoint { get; init; }
+
+    /// <summary>The lower-case host of a <c>literal</c> endpoint that is an absolute <c>http</c> or <c>https</c> URL, else null.</summary>
+    public string? Host { get; init; }
 }
 
 /// <summary>The string <c>defaultValue</c> of a flow parameter bound to the environment variable <paramref name="SchemaName"/>, as written in the flow.</summary>
@@ -78,11 +87,19 @@ public sealed partial record FlowDefinition(
     /// <summary>The string default of each parameter under <c>definition.parameters</c> bound to an environment variable, in key order.</summary>
     public IReadOnlyList<EnvironmentVariableDefault> EnvironmentVariableDefaults { get; init; } = [];
 
+    private const string EndpointLiteral = "literal";
+    private const string EndpointVariable = "variable";
+    private const string EndpointExpression = "expression";
+
     private static readonly string[] SkippedParameters = ["$connections", "$authentication"];
     private static readonly string[] SkippedProperties = ["metadata", "$schema", "operationMetadataId"];
 
     [GeneratedRegex(@"\(([^()\s]+)\)\s*$")]
     private static partial Regex LabelSuffix();
+
+    // The forms a flow parameter, and so an environment variable, takes in a string.
+    [GeneratedRegex(@"@parameters\('[^']*'\)|@\{parameters\('[^']*'\)\}", RegexOptions.NonBacktracking)]
+    private static partial Regex ParameterReference();
 
     [GeneratedRegex(@"^item/(.+)@odata\.bind$")]
     private static partial Regex BindKey();
@@ -179,6 +196,7 @@ public sealed partial record FlowDefinition(
                             Type = type,
                             Frequency = string.Equals(type, "Recurrence", StringComparison.OrdinalIgnoreCase) ? Str(Get(recurrence, "frequency")) : null,
                             Interval = Int(Get(recurrence, "interval")),
+                            Kind = Str(Get(t.Value, "kind")),
                         });
                     }
                 }
@@ -220,6 +238,7 @@ public sealed partial record FlowDefinition(
             var host = Get(inputs, "host");
             var secure = Get(Get(Get(a.Value, "runtimeConfiguration"), "secureData"), "properties");
             var index = all.Count;
+            var endpoint = EndpointKind(actionType, inputs, out var endpointHost);
             all.Add(new FlowAction(
                 a.Name,
                 actionType,
@@ -236,6 +255,8 @@ public sealed partial record FlowDefinition(
                 SecureOutputs = Secures(secure, "outputs"),
                 Authentication = HasAuthentication(inputs) || HasAuthentication(Get(inputs, "subscribe")) || HasAuthentication(Get(inputs, "unsubscribe")),
                 UnboundAction = Literal(Get(Get(inputs, "parameters"), "actionName")),
+                Endpoint = endpoint,
+                Host = endpointHost,
             });
 
             if (all[index].ApiId is { } api && api.EndsWith("/shared_commondataserviceforapps", StringComparison.OrdinalIgnoreCase))
@@ -268,6 +289,31 @@ public sealed partial record FlowDefinition(
                 all[index] = all[index] with { Descendants = descendants };
             }
         }
+    }
+
+    /// <summary>The endpoint kind of an <c>Http</c> or <c>HttpWebhook</c> action, and the host of a literal http(s) URL; null for any other type.</summary>
+    private static string? EndpointKind(string? type, JsonElement? inputs, out string? host)
+    {
+        host = null;
+        var webhook = string.Equals(type, "HttpWebhook", StringComparison.OrdinalIgnoreCase);
+        if (!webhook && !string.Equals(type, "Http", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        if (Str(Get(webhook ? Get(inputs, "subscribe") : inputs, "uri")) is not { } uri)
+        {
+            return EndpointExpression;
+        }
+
+        if (!uri.Contains('@'))
+        {
+            // A relative URL parses as a file URI on Linux, so the scheme is checked.
+            host = Uri.TryCreate(uri, UriKind.Absolute, out var u) && (u.Scheme == Uri.UriSchemeHttp || u.Scheme == Uri.UriSchemeHttps) ? u.Host.ToLowerInvariant() : null;
+            return EndpointLiteral;
+        }
+
+        return ParameterReference().Replace(uri, "").Contains('@') ? EndpointExpression : EndpointVariable;
     }
 
     private static void Walk(JsonElement e, int depth, bool inParameters, bool skipped, List<string> children, List<StringLiteral> literals)
