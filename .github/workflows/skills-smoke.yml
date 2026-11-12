@@ -23,7 +23,8 @@ jobs:
           - agent: codex
             package: '@openai/codex@0.163.0'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # M93: the early sketch adds an options run to scenarios 1, 2, 6 and 9; the Claude run took 82 minutes locally (2026-11-12), plus 15.
+    timeout-minutes: 97
     env:
       AGENT: ${{ matrix.agent }}
       PACKAGE: ${{ matrix.package }}
