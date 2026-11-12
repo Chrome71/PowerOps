@@ -146,7 +146,7 @@ idea="an app for tracking site visits by our field engineers"
 scenario=rounds
 new_repo
 goal="At a what-next menu: if you have answered none so far, choose A (another round); otherwise choose B (approve). Confirm if asked to approve anyway. When asked to pick a sketch option or skip the sketch, skip it with a reason. When the review or the sign-off is offered, choose the option that signs off now."
-# One more turn: a plan with screens asks to pick a sketch option or skip the sketch before it signs off (M70, decision 52).
+# A plan with screens asks to pick a sketch option or skip the sketch as a round 2 question, with the data questions (M70, decision 52, M93).
 max_turns=$((max_turns + 2)) # ...and the defaults question at approval ("Keep these N defaults?", M91)
 converse "Use the powerops-plan skill. My idea: $idea." '[ -n "$(plan_dir)" ] && [ "$(header status)" = signed-off ]' || true
 max_turns=$((max_turns - 2))
@@ -322,7 +322,7 @@ if [ -n "$(plan_dir)" ]; then
   # question. The data matcher is narrower than the rows check above, which a users question about recording loans
   # can match; it can miss a reworded data question, and then the order is not checked.
   rounds="$(awk '
-    function done() { if (block != "") { b = tolower(block); if (!pick && b ~ /sketch|option [abc]|direction/) pick = round; if (!data && b ~ /where does the data live|how many rows|rows .*three years/) data = round }; block = "" }
+    function done() { if (block != "") { b = tolower(block); if (!pick && b ~ /sketch|option [abc]|direction/) pick = round; if (!data && b ~ /where does the data live|how many rows|rows .*three years|live today|in three years/) data = round }; block = "" }
     /^## / { done(); if ($0 ~ /^## Round /) round++; next }
     /^### Q/ { done(); block = $0; next }
     block != "" { block = block " " $0 }
