@@ -16,10 +16,12 @@ public static class DiffCommand
         format.AcceptOnlyFromAmong("text", "json", "markdown");
         var outFile = new Option<string?>("--out") { Description = "Write the report to this file instead of stdout." };
 
-        var redact = new Option<bool>("--redact") { Description = "Print a changed defaultValue only as added, removed or changed, and replace URLs in the report and stderr with a placeholder." };
+        var showValues = new Option<bool>("--show-values") { Description = "Print a changed defaultValue and the URLs in the report and stderr; by default a changed defaultValue is printed as added, removed or changed and each URL is replaced with a placeholder." };
+        // Declared, never read: redaction is the default, so only --show-values changes the output.
+        var redact = new Option<bool>("--redact") { Description = "The default: print a changed defaultValue only as added, removed or changed, and replace URLs with a placeholder. Kept so scripts that pass it keep working." };
 
-        var command = new Command("diff", "Compare two versions of a solution component by component (offline, read-only).") { oldPath, newPath, format, outFile, redact };
-        command.SetAction(parse => Execute(parse.GetValue(oldPath)!, parse.GetValue(newPath)!, parse.GetValue(format)!, parse.GetValue(outFile), parse.GetValue(redact), output, error));
+        var command = new Command("diff", "Compare two versions of a solution component by component (offline, read-only).") { oldPath, newPath, format, outFile, showValues, redact };
+        command.SetAction(parse => Execute(parse.GetValue(oldPath)!, parse.GetValue(newPath)!, parse.GetValue(format)!, parse.GetValue(outFile), !parse.GetValue(showValues), output, error));
         return command;
     }
 

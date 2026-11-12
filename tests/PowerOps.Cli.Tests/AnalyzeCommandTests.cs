@@ -716,47 +716,54 @@ public class AnalyzeCommandTests : IDisposable
     [InlineData("json")]
     [InlineData("sarif")]
     [InlineData("markdown")]
-    public void Redact_replaces_urls_on_stdout_and_in_the_out_file_and_keeps_them_without_the_flag(string format)
+    public void Urls_are_replaced_by_default_and_shown_only_with_show_values(string format)
     {
         var seed = Path.Combine(Fixtures, "powerops-seed-yaml", "v2");
         var file = Path.Combine(_temp, "report.out");
 
-        var plain = Run("analyze", seed, "--format", format, "--fail-on", "none");
-        var redacted = Run("analyze", seed, "--format", format, "--fail-on", "none", "--redact");
-        Assert.Equal(0, Run("analyze", seed, "--format", format, "--fail-on", "none", "--redact", "--out", file).Code);
+        var hidden = Run("analyze", seed, "--format", format, "--fail-on", "none");
+        var redact = Run("analyze", seed, "--format", format, "--fail-on", "none", "--redact");
+        var shown = Run("analyze", seed, "--format", format, "--fail-on", "none", "--show-values");
+        var both = Run("analyze", seed, "--format", format, "--fail-on", "none", "--redact", "--show-values");
+        Assert.Equal(0, Run("analyze", seed, "--format", format, "--fail-on", "none", "--out", file).Code);
 
-        Assert.Contains("contoso.sharepoint.com", plain.Out);
-        Assert.DoesNotContain("contoso.sharepoint.com", redacted.Out);
-        Assert.Contains("redacted URL", redacted.Out);
-        Assert.DoesNotContain("contoso.sharepoint.com", File.ReadAllText(file));
-        Assert.Equal(redacted.Out, File.ReadAllText(file));
+        Assert.DoesNotContain("contoso.sharepoint.com", hidden.Out);
+        Assert.Contains("redacted URL", hidden.Out);
+        Assert.Equal(hidden.Out, redact.Out);
+        Assert.Equal(hidden.Out, File.ReadAllText(file));
+        Assert.Contains("contoso.sharepoint.com", shown.Out);
+        Assert.Equal(shown.Out, both.Out);
         if (format is "json" or "sarif")
         {
-            Assert.Contains("\"helpUri\"", redacted.Out);
+            Assert.Contains("\"helpUri\"", hidden.Out);
         }
     }
 
     [Fact]
-    public void Redact_replaces_urls_on_stderr()
+    public void Urls_are_replaced_on_stderr_by_default_and_shown_with_show_values()
     {
-        var (code, _, err) = Run("analyze", "https://m61sentinel.example/x", "--redact");
+        var (code, _, err) = Run("analyze", "https://m61sentinel.example/x");
 
         Assert.Equal(2, code);
         Assert.Contains("path not found: [redacted URL]", err);
         Assert.DoesNotContain("m61sentinel", err);
-        Assert.Contains("m61sentinel", Run("analyze", "https://m61sentinel.example/x").Err);
+        Assert.Contains("m61sentinel", Run("analyze", "https://m61sentinel.example/x", "--show-values").Err);
     }
 
     [Fact]
-    public void Redact_still_drops_baselined_findings()
+    public void A_baseline_holds_the_url_and_drops_the_same_findings_with_or_without_show_values()
     {
         var seed = Path.Combine(Fixtures, "powerops-seed-yaml", "v2");
         var baseline = Path.Combine(_temp, "baseline.json");
         Assert.Equal(0, Run("baseline", seed, "--out", baseline).Code);
+        Assert.Contains("contoso.sharepoint.com", File.ReadAllText(baseline));
 
-        var (code, output, _) = Run("analyze", seed, "--baseline", baseline, "--redact", "--fail-on", "warning");
+        foreach (var extra in new[] { Array.Empty<string>(), ["--show-values"] })
+        {
+            var (code, output, _) = Run(["analyze", seed, "--baseline", baseline, "--fail-on", "warning", .. extra]);
 
-        Assert.Equal(0, code);
-        Assert.Contains("no findings", output);
+            Assert.Equal(0, code);
+            Assert.Contains("no findings", output);
+        }
     }
 }

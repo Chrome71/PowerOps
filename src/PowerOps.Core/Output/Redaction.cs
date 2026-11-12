@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace PowerOps.Core.Output;
 
-/// <summary>Opt-in <c>--redact</c> of <c>analyze</c> and <c>diff</c> (M61): URLs in the texts that quote values are replaced with <see cref="Placeholder"/>. Help links come from the rule list, not from these texts, so they stay.</summary>
+/// <summary>The default of <c>analyze</c> and <c>diff</c> since M92 (opt-in <c>--redact</c> in M61); <c>--show-values</c> turns it off: URLs in the texts that quote values are replaced with <see cref="Placeholder"/>. Help links come from the rule list, not from these texts, so they stay.</summary>
 public static partial class Redaction
 {
     public const string Placeholder = "[redacted URL]";

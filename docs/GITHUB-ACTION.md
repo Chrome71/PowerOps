@@ -16,7 +16,7 @@ steps:
       path: solutions        # default: .
       fail-on: error         # error | warning | none
       # baseline: powerops-baseline.json
-      # redact: 'true'     # replace URLs in findings and the diff; see "Public outputs"
+      # redact: 'false'   # show URLs in findings and the diff; see "Public outputs"
       # tests: flowtests     # *.flowtest.json files to run; see "Merge gate: flow tests"
 ```
 
@@ -26,10 +26,11 @@ The log of the analysis, flow test and diff steps keeps only powerops' own `erro
 
 ## Public outputs
 
-In a public repository the job summary, the annotations and the job log can be read by anyone, the pull request comment is public, and code scanning holds the SARIF findings. They quote what the reports quote ([Values in outputs](COMMANDS.md#values-in-outputs)): the URL of a PO006 or PO014 finding, and an environment variable's default value in the diff. This is guidance; the action enforces none of it:
+In a public repository the job summary, the annotations and the job log can be read by anyone, the pull request comment is public, and code scanning holds the SARIF findings. The reports can quote values ([Values in outputs](COMMANDS.md#values-in-outputs)): the URL of a PO006 or PO014 finding, and an environment variable's default value in the diff. The action hides them by default, from the first action commit that includes M92 (a commit of the action from before it shows them). The baseline file is the exception: it keeps the URLs, because it must match the unredacted findings.
 
-- Run the action on committed files where you can. Their values are already in the repository, so its outputs show nothing new.
-- When the action analyzes or diffs files that are not in the repository, such as an export the job downloads or builds, set `redact: 'true'`. It adds `--redact` to every `analyze` run and to the pull request diff, so each URL becomes `[redacted URL]` and a changed default shows as `defaultValue changed`. The first run with it, and the first without it after that, close the code scanning alerts of the findings it changes and open new ones.
+- Run the action on committed files where you can. Their values are already in the repository, so showing them adds nothing new.
+- When the action analyzes or diffs files that are not in the repository, such as an export the job downloads or builds, leave `redact` at its default `'true'`: each URL becomes `[redacted URL]` and a changed default shows as `defaultValue changed`. Only `redact: 'false'` adds `--show-values` to every `analyze` run and to the pull request diff, and shows the values; any other value, an empty one included, hides them. Use `'false'` for committed files only.
+- The SARIF fingerprint of a finding is taken over the printed text, so the alerts of the findings that held a URL close and reopen once when the default changes, and each time the input is switched. By default two findings that differ only in their URL read the same and share one fingerprint, so code scanning can show them as one alert.
 - `redact` changes neither the deploy plan, which prints no setting value or connection id, nor the flow test report, which quotes values: run the flow tests on committed files only ([Merge gate](#merge-gate-flow-tests)).
 
 ## Merge gate: flow tests

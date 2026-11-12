@@ -334,31 +334,35 @@ public class DiffCommandTests : IDisposable
     [InlineData("text")]
     [InlineData("json")]
     [InlineData("markdown")]
-    public void Redact_prints_a_changed_default_as_a_word_and_keeps_both_values_without_the_flag(string format)
+    public void A_changed_default_is_a_word_by_default_and_both_values_show_with_show_values(string format)
     {
         var (old, @new) = (EnvPair("old", "https://m61sentinel-old.example"), EnvPair("new", "https://m61sentinel-new.example"));
         var file = Path.Combine(_temp, "report.out");
 
-        var plain = Run("diff", old, @new, "--format", format);
-        var redacted = Run("diff", old, @new, "--format", format, "--redact");
-        Assert.Equal(1, Run("diff", old, @new, "--format", format, "--redact", "--out", file).Code);
+        var hidden = Run("diff", old, @new, "--format", format);
+        var redact = Run("diff", old, @new, "--format", format, "--redact");
+        var shown = Run("diff", old, @new, "--format", format, "--show-values");
+        var both = Run("diff", old, @new, "--format", format, "--redact", "--show-values");
+        Assert.Equal(1, Run("diff", old, @new, "--format", format, "--out", file).Code);
 
-        Assert.Contains("m61sentinel-old", plain.Out);
-        Assert.Contains("m61sentinel-new", plain.Out);
-        Assert.DoesNotContain("m61sentinel", redacted.Out);
-        Assert.Contains("defaultValue changed", redacted.Out);
-        Assert.Equal(redacted.Out, File.ReadAllText(file));
-        Assert.Equal("", redacted.Err);
+        Assert.DoesNotContain("m61sentinel", hidden.Out);
+        Assert.Contains("defaultValue changed", hidden.Out);
+        Assert.Equal(hidden.Out, redact.Out);
+        Assert.Equal(hidden.Out, File.ReadAllText(file));
+        Assert.Equal("", hidden.Err);
+        Assert.Contains("m61sentinel-old", shown.Out);
+        Assert.Contains("m61sentinel-new", shown.Out);
+        Assert.Equal(shown.Out, both.Out);
     }
 
     [Fact]
-    public void Redact_replaces_urls_on_stderr()
+    public void Urls_are_replaced_on_stderr_by_default_and_shown_with_show_values()
     {
-        var (code, _, err) = Run("diff", "https://m61sentinel.example/x", V1, "--redact");
+        var (code, _, err) = Run("diff", "https://m61sentinel.example/x", V1);
 
         Assert.Equal(2, code);
         Assert.Contains("path not found: [redacted URL]", err);
         Assert.DoesNotContain("m61sentinel", err);
-        Assert.Contains("m61sentinel", Run("diff", "https://m61sentinel.example/x", V1).Err);
+        Assert.Contains("m61sentinel", Run("diff", "https://m61sentinel.example/x", V1, "--show-values").Err);
     }
 }

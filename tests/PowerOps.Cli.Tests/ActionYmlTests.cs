@@ -171,7 +171,7 @@ public sealed class ActionYmlTests
     }
 
     [Fact]
-    public void Every_step_that_runs_analyze_or_the_diff_passes_redact_through()
+    public void Every_step_that_runs_analyze_or_the_diff_passes_redact_through_and_the_default_is_true()
     {
         var steps = Steps().Where(s => Text(s, "run") is { } run && (run.Contains("analyze", StringComparison.Ordinal) || run.Contains("diff.sh", StringComparison.Ordinal))).ToList();
 
@@ -182,9 +182,12 @@ public sealed class ActionYmlTests
             Assert.Contains(Text(step, "name") == "Diff" ? "action/diff.sh" : "action/analyze.sh", Text(step, "run"));
         }
 
-        Assert.Contains("if [ \"$PO_REDACT\" = \"true\" ]; then args+=(--redact); fi", File.ReadAllText(Path.Combine(Golden.RepoRoot, "action", "analyze.sh")));
-        Assert.Contains("--redact", File.ReadAllText(Path.Combine(Golden.RepoRoot, "action", "diff.sh")));
+        var analyze = File.ReadAllText(Path.Combine(Golden.RepoRoot, "action", "analyze.sh"));
+        var diff = File.ReadAllText(Path.Combine(Golden.RepoRoot, "action", "diff.sh"));
+        Assert.Contains("if [ \"$PO_REDACT\" = \"false\" ]; then args+=(--show-values); fi", analyze);
+        Assert.Contains("if [ \"${PO_REDACT:-}\" = \"false\" ]; then args+=(--show-values); fi", diff);
+        Assert.DoesNotContain("args+=(--redact)", analyze + diff);
         var action = new DeserializerBuilder().Build().Deserialize<Dictionary<string, object>>(File.ReadAllText(Path.Combine(Golden.RepoRoot, "action.yml")));
-        Assert.Equal("false", ((Dictionary<object, object>)((Dictionary<object, object>)action["inputs"])["redact"])["default"]);
+        Assert.Equal("true", ((Dictionary<object, object>)((Dictionary<object, object>)action["inputs"])["redact"])["default"]);
     }
 }

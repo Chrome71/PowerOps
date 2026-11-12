@@ -33,7 +33,7 @@ if [ "$code" -ne 0 ]; then fail "worktree" "$code"; fi
 stderr="$(mktemp)"
 trap 'rm -f "$stderr"' EXIT
 args=(diff "$base/$PO_PATH" "$PO_PATH" --format markdown --out "$PO_COMMENT")
-if [ "${PO_REDACT:-}" = "true" ]; then args+=(--redact); fi
+if [ "${PO_REDACT:-}" = "false" ]; then args+=(--show-values); fi
 dotnet "$PO_DLL" "${args[@]}" 2>"$stderr" || code=$?
 # A solution can put any text in a name, and a log line that starts with :: is a workflow command, so only powerops' own lines reach the log.
 grep -E '^(error|note):' "$stderr" || true

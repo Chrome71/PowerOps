@@ -194,7 +194,7 @@ public static partial class McpCommand
 
         return
         [
-            new("analyze", "Check solution folders or exported zips for common problems, offline. " + Json + "analyze --format json` (docs/schemas/analyze.schema.json).",
+            new("analyze", "Check solution folders or exported zips for common problems, offline. " + Json + "analyze --format json` (docs/schemas/analyze.schema.json). URLs in findings and notes are replaced with [redacted URL], as the command does by default.",
                 [
                     new("paths", Kind.Paths, true, PathsText, 1),
                     new("baseline", Kind.Path, false, "Optional: the absolute path of a baseline file from the baseline tool; the findings it lists are left out."),
@@ -203,14 +203,14 @@ public static partial class McpCommand
             new("rules", "List every analysis rule with its id, severity, title, fix and docs link. " + Json + "rules --json` (docs/schemas/rules.schema.json).",
                 [],
                 (_, o, e, _) => Cli(["rules", "--json"], o, e)),
-            new("baseline", "Record the current analyze findings of solution folders or zips as a baseline for analyze's `baseline` input. Read-only: returns the baseline file's text (a file format with its own `version`, no schema) and writes nothing.",
+            new("baseline", "Record the current analyze findings of solution folders or zips as a baseline for analyze's `baseline` input. Read-only: returns the baseline file's text (a file format with its own `version`, no schema) and writes nothing. Its findings keep their URLs, because a baseline must match the unredacted findings.",
                 [new("paths", Kind.Paths, true, PathsText, 1)],
                 (v, o, e, _) => AnalyzeCommand.Run(v.List("paths"), null, null, e, (r, _) =>
                 {
                     Baseline.Write(r, o);
                     return 0;
                 })),
-            new("diff", "Compare two versions of a solution (exported zips or unpacked folders) component by component, offline. " + Json + "diff --format json` (docs/schemas/diff.schema.json).",
+            new("diff", "Compare two versions of a solution (exported zips or unpacked folders) component by component, offline. " + Json + "diff --format json` (docs/schemas/diff.schema.json). A changed defaultValue is printed only as added, removed or changed, and URLs are replaced with [redacted URL], as the command does by default.",
                 [
                     new("old", Kind.Path, true, "Absolute path of the older solution: an exported zip or an unpacked folder."),
                     new("new", Kind.Path, true, "Absolute path of the newer solution: an exported zip or an unpacked folder."),

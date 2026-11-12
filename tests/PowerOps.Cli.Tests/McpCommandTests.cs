@@ -322,6 +322,33 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Contains(": PO014, PO018 and PO036 not checked for canvas app 'CanvasApps/cat_devopskitsamplecanvasapp_c7ec5_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).", Text(result, 1));
     }
 
+    [Fact]
+    public async Task Analyze_and_diff_always_hide_urls_and_default_values_while_baseline_keeps_the_url()
+    {
+        var seed = Path.Combine(Fixtures, "powerops-seed-yaml", "v2");
+        var analyze = await Call("analyze", new() { ["paths"] = new[] { seed } });
+        var baseline = await Call("baseline", new() { ["paths"] = new[] { seed } });
+        var (old, @new) = (EnvPair("old", "https://m61sentinel-old.example"), EnvPair("new", "https://m61sentinel-new.example"));
+        var diff = await Call("diff", new() { ["old"] = old, ["new"] = @new });
+
+        Assert.DoesNotContain("contoso.sharepoint.com", Text(analyze));
+        Assert.Contains("[redacted URL]", Text(analyze));
+        Assert.DoesNotContain("m61sentinel", Text(diff));
+        Assert.Contains("defaultValue changed", Text(diff));
+        Assert.Contains("contoso.sharepoint.com", Text(baseline));
+    }
+
+    private string EnvPair(string name, string defaultValue)
+    {
+        var folder = Path.Combine(_temp, name);
+        Directory.CreateDirectory(Path.Combine(folder, "Other"));
+        File.WriteAllText(Path.Combine(folder, "Other", "Solution.xml"), "<ImportExportXml><SolutionManifest><UniqueName>Demo</UniqueName><Version>1.0.0.0</Version><Managed>0</Managed><Publisher><UniqueName>demopub</UniqueName><CustomizationPrefix>demo</CustomizationPrefix></Publisher></SolutionManifest></ImportExportXml>");
+        var envDir = Path.Combine(folder, "environmentvariabledefinitions", "demo_A");
+        Directory.CreateDirectory(envDir);
+        File.WriteAllText(Path.Combine(envDir, "environmentvariabledefinition.xml"), $"<environmentvariabledefinition schemaname=\"demo_A\"><defaultvalue>{defaultValue}</defaultvalue></environmentvariabledefinition>");
+        return folder;
+    }
+
     // 3
 
     [Fact]
