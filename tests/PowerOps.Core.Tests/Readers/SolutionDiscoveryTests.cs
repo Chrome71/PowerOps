@@ -25,6 +25,7 @@ public class SolutionDiscoveryTests
                 "coe-auditlogs",
                 "core-portal",
                 "equipment-checkout",
+                "flow-limits",
                 "flow-navigation",
                 "flowtests/capture/solution",
                 "flowtests/skipped-body",

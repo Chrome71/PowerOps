@@ -191,11 +191,27 @@ public class FixtureRuleTests
     }
 
     [Fact]
-    public void Skipped_body_gives_no_finding()
+    public void Skipped_body_gives_one_PO037()
     {
         var s = SolutionLoader.Load(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "flowtests", "skipped-body"));
 
-        Assert.Empty(Analyzer.Run(s));
+        var f = Assert.Single(Analyzer.Run(s));
+        Assert.Equal("PO037", f.RuleId);
+        Assert.Equal("Skipped body", f.Component);
+        Assert.Contains("'Pick_code'", f.Message);
+    }
+
+    [Fact]
+    public void Flow_limits_gives_PO037_PO038_PO039_and_PO040_once_each_and_nothing_else()
+    {
+        var s = SolutionLoader.Load(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "flow-limits"));
+
+        var f = Analyzer.Run(s);
+
+        Assert.Equal(["PO037", "PO038", "PO039", "PO040"], f.Select(x => x.RuleId));
+        Assert.Equal(["Quarterly cleanup", "Get_status", "Recurrence", "Start_and_wait_for_an_approval"], f.Select(x => x.Component));
+        Assert.Contains("'Catch'", f[0].Message);
+        Assert.Empty(Analyzer.NotChecked(s));
     }
 
     [Fact]

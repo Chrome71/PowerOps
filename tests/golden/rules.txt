@@ -106,3 +106,15 @@ PO035 warning Flow names a navigation property in the wrong case
 PO036 warning Canvas app repeats the same formula in three or more places
   fix: Define the formula once as a named formula or user-defined function in App.Formulas, or in a component, and use that name in each place.
   https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO036.md
+PO037 warning Flow catches a failure, tells no one and ends as succeeded
+  fix: End the failure path with a Terminate action set to Failed, or send the failure to someone, so a failed run is noticed.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO037.md
+PO038 warning Flow action has its static result turned on
+  fix: Turn off the action's static result before you export, so the action runs instead of returning test output.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO038.md
+PO039 warning Flow is scheduled about every 90 days or less often
+  fix: Trigger the flow at least every 90 days, or give it an owner with a premium or Process licence, or the service may turn it off.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO039.md
+PO040 warning Approval can wait as long as a run can last
+  fix: Set the approval's timeout under 30 days and handle its expiry, or create the approval in one flow and act on the response in a second.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO040.md

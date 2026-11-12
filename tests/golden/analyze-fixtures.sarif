@@ -512,6 +512,62 @@
               "defaultConfiguration": {
                 "level": "warning"
               }
+            },
+            {
+              "id": "PO037",
+              "name": "CatchTellsNoOne",
+              "shortDescription": {
+                "text": "Flow catches a failure, tells no one and ends as succeeded"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO037.md",
+              "help": {
+                "text": "End the failure path with a Terminate action set to Failed, or send the failure to someone, so a failed run is noticed."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO038",
+              "name": "StaticResultOn",
+              "shortDescription": {
+                "text": "Flow action has its static result turned on"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO038.md",
+              "help": {
+                "text": "Turn off the action's static result before you export, so the action runs instead of returning test output."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO039",
+              "name": "RareTrigger",
+              "shortDescription": {
+                "text": "Flow is scheduled about every 90 days or less often"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO039.md",
+              "help": {
+                "text": "Trigger the flow at least every 90 days, or give it an owner with a premium or Process licence, or the service may turn it off."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO040",
+              "name": "LongApproval",
+              "shortDescription": {
+                "text": "Approval can wait as long as a run can last"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO040.md",
+              "help": {
+                "text": "Set the approval's timeout under 30 days and handle its expiry, or create the approval in one flow and act on the response in a second."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
             }
           ]
         }
@@ -1895,6 +1951,98 @@
           }
         },
         {
+          "ruleId": "PO037",
+          "ruleIndex": 36,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Quarterly cleanup' has a failure handler 'Catch' that tells no one, so the run ends as succeeded."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/flow-limits/Workflows/Quarterlycleanup-00000000-0000-0000-0000-000000000091.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "e31e369dfe256f036ea9d5a3da7f5e4f62d1732bfd94833bf354224746653c97"
+          }
+        },
+        {
+          "ruleId": "PO038",
+          "ruleIndex": 37,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Quarterly cleanup' action 'Get_status' returns its static result instead of running."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/flow-limits/Workflows/Quarterlycleanup-00000000-0000-0000-0000-000000000091.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "f985a953a72249da6b23c9f00af1bd64d62aff0c02f0ee8ba6b3a8fd54975033"
+          }
+        },
+        {
+          "ruleId": "PO039",
+          "ruleIndex": 38,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Quarterly cleanup' runs on a Recurrence with frequency Month and interval 3; a flow not triggered within 90 days may be turned off."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/flow-limits/Workflows/Quarterlycleanup-00000000-0000-0000-0000-000000000091.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "c7efee25271283fa25e6d81c2623999f85ba29e71935c3c41db3dd47e342109a"
+          }
+        },
+        {
+          "ruleId": "PO040",
+          "ruleIndex": 39,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Request long approval' approval 'Start_and_wait_for_an_approval' has a timeout of 60 days; a run lasts at most 30 days."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/flow-limits/Workflows/Requestlongapproval-00000000-0000-0000-0000-000000000092.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "74e38c3a29450497eab0f75c644a97756a265d6bca9d6b65933e3836e1ce0ce6"
+          }
+        },
+        {
           "ruleId": "PO035",
           "ruleIndex": 34,
           "level": "warning",
@@ -1961,6 +2109,29 @@
           ],
           "partialFingerprints": {
             "poFinding/v1": "bcc46fe5db0a494659be5a945add291ee3e27c12059192af70bcd5966cfebe70"
+          }
+        },
+        {
+          "ruleId": "PO037",
+          "ruleIndex": 36,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Skipped body' has a failure handler 'Pick_code' that tells no one, so the run ends as succeeded."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/flowtests/skipped-body/Workflows/Skippedbody-00000000-0000-0000-0000-000000000071.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "5bee080306777a48bfb845085e144a7620aa4529fd7a629124f28d0b5c26c4dc"
           }
         },
         {

@@ -40,3 +40,7 @@
 | [PO034](PO034.md) | warning | Security role can create or write a table that no component in the solution uses |
 | [PO035](PO035.md) | warning | Flow names a navigation property in the wrong case |
 | [PO036](PO036.md) | warning | Canvas app repeats the same formula in three or more places |
+| [PO037](PO037.md) | warning | Flow catches a failure, tells no one and ends as succeeded |
+| [PO038](PO038.md) | warning | Flow action has its static result turned on |
+| [PO039](PO039.md) | warning | Flow is scheduled about every 90 days or less often |
+| [PO040](PO040.md) | warning | Approval can wait as long as a run can last |

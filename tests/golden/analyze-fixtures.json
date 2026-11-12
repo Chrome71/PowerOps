@@ -637,6 +637,56 @@
       "notChecked": []
     },
     {
+      "path": "tests/fixtures/flow-limits",
+      "uniqueName": "PowerOpsFlowLimits",
+      "version": "1.0.0.0",
+      "managed": false,
+      "publisher": {
+        "uniqueName": "demopub",
+        "prefix": "demo"
+      },
+      "requires": [],
+      "findings": [
+        {
+          "ruleId": "PO037",
+          "severity": "warning",
+          "message": "Flow 'Quarterly cleanup' has a failure handler 'Catch' that tells no one, so the run ends as succeeded.",
+          "file": "Workflows/Quarterlycleanup-00000000-0000-0000-0000-000000000091.json",
+          "component": "Quarterly cleanup",
+          "fix": "End the failure path with a Terminate action set to Failed, or send the failure to someone, so a failed run is noticed.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO037.md"
+        },
+        {
+          "ruleId": "PO038",
+          "severity": "warning",
+          "message": "Flow 'Quarterly cleanup' action 'Get_status' returns its static result instead of running.",
+          "file": "Workflows/Quarterlycleanup-00000000-0000-0000-0000-000000000091.json",
+          "component": "Get_status",
+          "fix": "Turn off the action's static result before you export, so the action runs instead of returning test output.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO038.md"
+        },
+        {
+          "ruleId": "PO039",
+          "severity": "warning",
+          "message": "Flow 'Quarterly cleanup' runs on a Recurrence with frequency Month and interval 3; a flow not triggered within 90 days may be turned off.",
+          "file": "Workflows/Quarterlycleanup-00000000-0000-0000-0000-000000000091.json",
+          "component": "Recurrence",
+          "fix": "Trigger the flow at least every 90 days, or give it an owner with a premium or Process licence, or the service may turn it off.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO039.md"
+        },
+        {
+          "ruleId": "PO040",
+          "severity": "warning",
+          "message": "Flow 'Request long approval' approval 'Start_and_wait_for_an_approval' has a timeout of 60 days; a run lasts at most 30 days.",
+          "file": "Workflows/Requestlongapproval-00000000-0000-0000-0000-000000000092.json",
+          "component": "Start_and_wait_for_an_approval",
+          "fix": "Set the approval's timeout under 30 days and handle its expiry, or create the approval in one flow and act on the response in a second.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO040.md"
+        }
+      ],
+      "notChecked": []
+    },
+    {
       "path": "tests/fixtures/flow-navigation",
       "uniqueName": "PowerOpsNavigation",
       "version": "1.0.0.0",
@@ -703,7 +753,17 @@
         "prefix": "demo"
       },
       "requires": [],
-      "findings": [],
+      "findings": [
+        {
+          "ruleId": "PO037",
+          "severity": "warning",
+          "message": "Flow 'Skipped body' has a failure handler 'Pick_code' that tells no one, so the run ends as succeeded.",
+          "file": "Workflows/Skippedbody-00000000-0000-0000-0000-000000000071.json",
+          "component": "Skipped body",
+          "fix": "End the failure path with a Terminate action set to Failed, or send the failure to someone, so a failed run is noticed.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO037.md"
+        }
+      ],
       "notChecked": []
     },
     {
@@ -911,9 +971,9 @@
     }
   ],
   "summary": {
-    "solutions": 20,
+    "solutions": 21,
     "errors": 0,
-    "warnings": 68,
+    "warnings": 73,
     "baselined": 0
   }
 }
