@@ -275,6 +275,6 @@ public partial class HandoffDocTests
         Assert.DoesNotContain("don't push that folder to a public repository", step3);
         Assert.Contains("`powerops analyze ContosoApp.zip`", step4);
         Assert.Contains("`powerops test ", step4);
-        Assert.All(new[] { "is not the reviewed zip, whose hash no report records", "`require-reviews: 'false'`" }, s => Assert.Contains(s, step7));
+        Assert.All(new[] { "is not the reviewed zip: no report records the new export's hash", "`require-reviews: 'false'`" }, s => Assert.Contains(s, step7));
     }
 }
