@@ -7,14 +7,14 @@ Read this when a plan names a canvas app or a custom page. Write the answers in 
 - **Personas and form factor.** Name each persona the app serves and its device: phone, tablet or browser. Several personas with different tasks in one app need a reason, or the app splits.
 - **Rows per source.** For each data source, the rows now and in three years, from the ledger. A source above 500 rows needs a delegation note: which queries delegate, or why the data row limit is enough (`data.md`, gate 2).
 - **Components.** Reuse a component library before planning a new component, and say which library was checked.
-- **Theme.** Write the theme as the YAML that Paste theme takes, so a person can paste it into Studio. Learn's theming page gives its shape: under `Themes:`, the theme's name with the required Font, BasePaletteColor, HueTorsion and Vibrancy. It is the canvas part of the plan's one Theme block (`design.md`).
+- **Theme.** Write the theme as the YAML that Paste theme takes, so a person can paste it into Studio. Learn's theming page gives its shape: under `Themes:`, the theme's name with the required Font, BasePaletteColor, HueTorsion and Vibrancy. It is the canvas part of the plan's one Theme block (`design.md`). Paste theme reads the theme from the clipboard, and **Add a theme** also offers **Create custom theme**, a dialog with the seed colour, font, torsion and vibrancy. Where the build runs in a browser pane that lets no page read the clipboard, as observed in one run (2026-11-11), the step uses Create custom theme with the plan's seed, and the plan's Theme says so.
 - **The first step** creates the blank app inside the plan's solution, with coauthoring turned on for the app. Don't rely on the setting that adds new apps to a solution by default: it is in preview.
 - **Save and publish.** A person saves and publishes in Studio. A compile through the Canvas Authoring MCP server isn't a save, so the step that compiles names who saves, and the step after it checks the saved time.
 - **Microsoft's gate.** `canvas-app` has its own planning and approval stage. It comes after this plan's sign-off, as the second, product-specific gate. Add no third.
 
 ## 2. The sketch: what doesn't map
 
-On 2026-11-08 Learn's modern controls reference listed 30 controls, 7 marked preview (Attachments, Card, Copilot answer, Dropdown, Persona, Stream, Table); the Metrics card's own page also says preview. None of these has a modern control: accordion, breadcrumb, dialog, drawer, menu, nav, toast, toolbar and tree. A sketch that shows one names its workaround beside it, or drops it:
+On 2026-11-08 Learn's modern controls reference listed 30 controls, 7 marked preview (Attachments, Card, Copilot answer, Dropdown, Persona, Stream, Table); the Metrics card's own page also says preview, and the Card gallery, the Form and the Data Grid are not marked preview. None of these has a modern control: accordion, breadcrumb, dialog, drawer, menu, nav, toast, toolbar and tree. A sketch that shows one names its workaround beside it, or drops it:
 
 - Dialog or drawer: a separate screen.
 - Toast: the `Notify` function.
@@ -34,6 +34,8 @@ How the look in `look.md` maps when the app is built. Check each control's page 
 - **Header and navigation.** The Header control, placed on every screen: it doesn't copy itself to other screens and doesn't take custom colours or navigation yet. When the plan's Theme gives a header pair, the header is a horizontal container in that pair instead. Top-level sections: a Tab list, or a column of buttons on a wide layout.
 - **Status pill.** A Badge with Shape Circular, Appearance Tint, Intent by meaning, and an AccessibleLabel.
 - **KPIs.** A Metrics card (preview), with TrendText saying the comparison in words.
+- **Forms.** The modern Form control, for edit and display forms. Learn says how to choose and order its columns, but nothing about writing it in `.pa.yaml`, which Learn calls in active development; observed in one run (2026-11-11), a Form and its cards written only in YAML compiled, but Studio left them uninitialised until the fields were added with Studio's **Edit fields**. So the plan's step adds the fields in Studio first, and a compile changes the cards after that.
+- **Focus.** Learn's `SetFocus` page names Button, Icon, Image, Label and Text input, and no modern control, and rules out a control inside a gallery, an edit form, a component or a container; observed in one run (2026-11-11), Studio refused `SetFocus` on a modern Text input. So a plan promises no focus move on a modern input.
 - **Lists and states.** A Card gallery for cards, a Data Grid or the Table (preview) for dense rows, a Spinner with a label for loading, and containers with Text and a Button for the empty and error panels.
 
 ## Sources
@@ -62,3 +64,11 @@ Checked on 2026-11-08:
 - [Metrics card (preview)](https://learn.microsoft.com/power-apps/maker/canvas-apps/controls/modern-controls/modern-control-metrics-card): TrendValue, TrendText and TrendType.
 - [Horizontal container](https://learn.microsoft.com/power-apps/maker/canvas-apps/controls/control-horizontal-container): Gap, padding, drop shadow, fill and corner radius.
 - [Create responsive layouts](https://learn.microsoft.com/power-apps/maker/canvas-apps/create-responsive-layout) and [Building responsive canvas apps](https://learn.microsoft.com/power-apps/maker/canvas-apps/build-responsive-apps): `App.SizeBreakpoints` 600, 900 and 1200, Scale to fit off, and the Sidebar and Split-screen layouts.
+
+Checked on 2026-11-12:
+
+- [Modern controls and properties in canvas apps](https://learn.microsoft.com/power-apps/maker/canvas-apps/controls/modern-controls/modern-controls-reference): the Card gallery, Form and Data Grid are not marked preview.
+- [Form modern control in canvas apps](https://learn.microsoft.com/power-apps/maker/canvas-apps/controls/modern-controls/modern-control-form): edit and display forms, and choosing and ordering columns; nothing on its YAML.
+- [View source code files for canvas apps](https://learn.microsoft.com/power-apps/maker/canvas-apps/power-apps-yaml): `.pa.yaml` is in active development and may be incomplete.
+- [SetFocus function](https://learn.microsoft.com/power-platform/power-fx/reference/function-setfocus): the controls it supports, and not inside a gallery, an edit form, a component or a container.
+- [Use modern themes in canvas apps](https://learn.microsoft.com/power-apps/maker/canvas-apps/controls/modern-controls/modern-theming): **Add a theme** offers **Create custom theme** or **Paste theme**, whose first step copies the YAML to the clipboard.

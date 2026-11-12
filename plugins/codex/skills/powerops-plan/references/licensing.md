@@ -23,12 +23,12 @@ The cost tier, asked in round 1, picks the product of each row:
 
 | Need | Licence | Standard alternative | Source |
 |---|---|---|---|
-| A premium, custom or on-premises-gateway connector, or the HTTP action, in a canvas app or cloud flow | Power Apps Premium or per app for the app's users; Power Automate Premium or Process for the flow | Standard connectors, covered by Microsoft 365 | [Power Apps and Power Automate licensing FAQ](https://learn.microsoft.com/power-platform/admin/powerapps-flow-licensing-faq), [license designation](https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation) |
+| A premium, custom or on-premises-gateway connector, or the HTTP action, in a canvas app or cloud flow | Power Apps Premium or per app for the app's users; Power Automate Premium or Process for the flow | Standard connectors, covered by Microsoft 365 | [Power Platform licensing FAQs](https://learn.microsoft.com/power-platform/admin/powerapps-flow-licensing-faq), [license designation](https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation) |
 | Dataverse as a canvas app's data source | Power Apps Premium or per app | A canvas app over a SharePoint list, when `data.md`'s gates hold | [Power Apps licensing FAQ](https://learn.microsoft.com/power-platform/admin/powerapps-licensing-faq) |
 | A model-driven app | Power Apps Premium or per app; from February 2027 users without one can't open it | A canvas app over a SharePoint list, when `data.md`'s gates hold | [Power Apps licensing FAQ](https://learn.microsoft.com/power-platform/admin/powerapps-licensing-faq) |
 | A Copilot Studio agent | Makers: a Copilot Studio user licence (with a tenant's prepaid Copilot Credit pack), the authors role, a Microsoft 365 Copilot licence, or a trial, which can't publish. Use is billed in Copilot Credits; agents that Microsoft 365 Copilot users use in Copilot Chat, Teams or SharePoint, running as the user, aren't charged for classic answers, generative answers or Graph grounding | None | [Copilot Studio billing and licensing](https://learn.microsoft.com/microsoft-copilot-studio/billing-licensing) |
 | Power BI sharing: creating or sharing outside My workspace | Pro or PPU for the creator. Viewers need Pro, PPU or a trial, unless the content is on F64 or larger, or a P SKU, where a free licence with the Viewer role is enough. A PPU workspace needs PPU for every user | None | [Fabric licences](https://learn.microsoft.com/fabric/enterprise/licenses) |
-| A Power Pages site | Capacity per site per month (authenticated users, 100 per pack; anonymous users, 500 per pack) or pay-as-you-go; internal users with Power Apps Premium aren't counted. A tenant question: always ask it | None for external users | [Power Apps and Power Automate licensing FAQ](https://learn.microsoft.com/power-platform/admin/powerapps-flow-licensing-faq#power-pages) |
+| A Power Pages site | Capacity per site per month (authenticated users, 100 per pack; anonymous users, 500 per pack) or pay-as-you-go; internal users with Power Apps Premium aren't counted. A tenant question: always ask it | None for external users | [Power Platform licensing FAQs](https://learn.microsoft.com/power-platform/admin/powerapps-flow-licensing-faq#power-pages) |
 | A Managed Environment | Every active user of its apps and flows, standard apps included: Power Apps Premium, Power Automate Premium, a qualifying Dynamics 365 licence, capacity (per app, Process) or pay-as-you-go; enforced from February 2027. The Developer Plan doesn't cover running assets there | No Managed Environment (`data.md` gate 7) | [Licensing requirements for managed environments](https://learn.microsoft.com/power-platform/admin/managed-environment-licensing) |
 | Standard rights: canvas apps and cloud flows with standard connectors, SharePoint included (not model-driven apps) | Microsoft 365, so no row in the table | Itself | [Deep dive on specific licenses](https://learn.microsoft.com/power-platform/admin/power-automate-licensing/deep-dive-on-specific-license), [share a canvas app with guests](https://learn.microsoft.com/power-apps/maker/canvas-apps/share-app-guests) |
 
@@ -64,7 +64,7 @@ A part number not in this table, a bundle such as Microsoft 365 E3 included, is 
 
 Checked on 2026-11-11:
 
-- [Power Apps and Power Automate licensing FAQ](https://learn.microsoft.com/power-platform/admin/powerapps-flow-licensing-faq) and [license designation](https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation): premium, custom and gateway connectors, the HTTP action, and Power Pages capacity.
+- [Power Platform licensing FAQs](https://learn.microsoft.com/power-platform/admin/powerapps-flow-licensing-faq) and [license designation](https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation): premium, custom and gateway connectors, the HTTP action, and Power Pages capacity.
 - [Power Apps licensing FAQ](https://learn.microsoft.com/power-platform/admin/powerapps-licensing-faq): Dataverse, model-driven apps, February 2027.
 - [Copilot Studio billing and licensing](https://learn.microsoft.com/microsoft-copilot-studio/billing-licensing): makers, Copilot Credits, what isn't charged, a trial can't publish.
 - [Fabric licences](https://learn.microsoft.com/fabric/enterprise/licenses): Pro, PPU, F64 and P SKUs, the free licence.
@@ -73,3 +73,7 @@ Checked on 2026-11-11:
 - [Important changes coming](https://learn.microsoft.com/power-platform/important-changes-coming): Dataverse for Teams, unmanaged and managed developer environments.
 - [Power Apps Developer Plan](https://learn.microsoft.com/power-platform/developer/plan): the Developer Plan is for development and test only, not production; the Power Apps trial runs 30 days.
 - [Product names and service plan identifiers for licensing](https://learn.microsoft.com/entra/identity/users/licensing-service-plan-reference): the part numbers.
+
+Checked on 2026-11-12:
+
+- [Power Platform licensing FAQs](https://learn.microsoft.com/power-platform/admin/powerapps-flow-licensing-faq): the page's title, which the links above use.
