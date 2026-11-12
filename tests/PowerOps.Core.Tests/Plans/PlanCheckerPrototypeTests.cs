@@ -161,6 +161,22 @@ public class PlanCheckerPrototypeTests : IDisposable
     }
 
     [Fact]
+    public void A_pick_logged_in_the_rounds_before_the_approval_line_signs_off_and_quiets_status_while_draft()
+    {
+        // M93: the pick is logged while the plan is a draft, so its line comes before the approval line.
+        var decisions = $"# Decisions\n\n## Log\n\n{Approved}\n- approved (answered by: person)\n";
+
+        var draft = Setup(Html(), plan: Plan("## Screens\n\n- Home\n- Booking form\n", "draft"), decisions: decisions);
+        Assert.DoesNotContain(draft.Warnings, w => w.Contains("prototype", StringComparison.OrdinalIgnoreCase));
+
+        Setup(Html(), decisions: decisions);
+        var r = PlanSignOff.Run(Path.Combine(Folder, "plan.md"), _t.Path, new DateOnly(2026, 11, 12));
+
+        Assert.Equal(0, r.ExitCode);
+        Assert.Empty(r.Err);
+    }
+
+    [Fact]
     public void An_approval_without_the_persons_mark_still_passes_but_warns_with_the_line_number()
     {
         var r = Problems(Html(), "- prototype: approved mockups/prototype.html (option a: fewest steps) (answered by: agent)");

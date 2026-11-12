@@ -87,6 +87,7 @@ supersedes: null
 - When the plan names new data or a flow, read `references/data.md` beside this file: the store, the gates, table design, each flow's card and the data round. When it names an app, page, site, report or agent, read `references/route.md` and the product files it names.
 - `Constraints` holds DLP, deadlines and, when the plan names a connector, table, app, flow, site, report or agent, a `### Licences` table, one row per need beyond Microsoft 365's standard rights: `| Need | Product or feature | Who needs it | Standard alternative | Held |`. With none, the heading stays with only the line "No need beyond Microsoft 365's standard rights.". Rows and values: `references/licensing.md`. A row with `Held` `unknown` gets a step checking it before first use.
 - `Steps` is a numbered list of implementation steps: small, in order, each one checkable.
+- A step that rests on a platform capability no source shows for this use and no run proved (a privilege, a control property, a CLI command on this content, a theme file, a licence, two settings together): write `unproven: <capability>; probed by step <n>` under Assumptions, and put that probe (a read in Dev, a one-control compile, a command on a scratch copy) before every step that depends on it.
 - A skill, CLI or MCP tool the plan says a step uses: check that it is callable (in your skill or tool list, or found by `command -v` or `Get-Command`). If it isn't, or you can't check, say so in Assumptions.
 - `Open questions` and `Questions for your admin` hold one top-level `- ` item per question. When there are none, leave the section empty. Do not write "None": the tool counts list items. Move an item out when it is answered.
 - Questions only someone else can answer (licensing, DLP) go under `Questions for your admin`, so the user can forward them.
@@ -126,10 +127,11 @@ Each round:
 5. Show exactly three lines, one per change to the plan. Nothing else.
 6. Ask what next, with lettered options: **A** another round, **B** approve the draft, **C** stop for now, **D** sketch the screens first. End your turn.
 
-Question order: outcome and users, then data, then automation, then environments and ALM, then constraints. Two rules:
+Question order: outcome and users, then data, then automation, then environments and ALM, then constraints. Three rules:
 
 - In round 1, ask the cost tier, "Which licences should the plan assume?": **Not sure: standard first** (recommended), **Standard licences only**, **Premium where needed**. `references/licensing.md` section 1 defines each.
 - Ask the environments question (target, route Dev to Test to Prod) by round 3.
+- Under `standard` and `deep`, write the first `Screens` lines from the idea or round 1. Once `Users`, the route and a `Screens` line exist, start `powerops-prototype <name>` in `options` mode and ask the pick in the next round, no later than the first data question (`references/route.md` section 2).
 
 **Data round.** When the plan names new data (a table, list or store), ask the six questions in section 6 of `references/data.md`. Under `standard` and `deep` they fill successive rounds of at most three. A data question waits a round when the licensing or environments question is due. Under `quick` only question 1 joins the one round: write the ledger's other cells from the request or as Assumptions, and put unknowns under Open questions. The fast path asks none and does the same.
 
@@ -158,7 +160,7 @@ After each round, judge engagement from the answers. "Just pick", "whatever you 
 3. If `Steps` is empty, draft it from the plan and tell the user.
 4. Log the approval under `## Log`. If areas were skipped, log `approved without: <areas>`.
 5. Set `status: approved` in the header.
-6. If `Screens` names anything: unless a sketch passes `powerops plan status`, start `powerops-prototype <name>` (Claude Code: invoke it, which runs forked; Codex: a subagent; otherwise follow it here). It writes three options in different design directions. Show their paths, directions and its recommendation, and ask: pick one (with any changes), three new ones, or skip with a reason. Wait. On a pick, start it with `pick <letter>` and the notes; if the pick had changes or `prototype.html` shows more screens, ask: approve or changes (`change`), and wait. Log `prototype: approved mockups/prototype.html (option <letter>: <why>)` or `prototype: skipped (<reason>)`. If `Screens` names nothing, log `prototype: not needed (<reason>)`. Each ends with an `(answered by: ...)` mark.
+6. If `Screens` names anything: when the rounds wrote options, ask only a pick still open, and redo `pick <letter>` if the Theme block or `Screens` changed since. Otherwise, unless a sketch passes `powerops plan status`, start `powerops-prototype <name>` (Claude Code: invoke it, which runs forked; Codex: a subagent; otherwise follow it here). It writes three options in different design directions. Show their paths, directions and its recommendation, and ask: pick one (with any changes), three new ones, or skip with a reason. Wait. On a pick, start it with `pick <letter>` and the notes; if the pick had changes or `prototype.html` shows more screens, ask: approve or changes (`change`), and wait. Log `prototype: approved mockups/prototype.html (option <letter>: <why>)` or `prototype: skipped (<reason>)`. If `Screens` names nothing, log `prototype: not needed (<reason>)`. Each ends with an `(answered by: ...)` mark.
 7. Recommend a review in a fresh context with the `powerops-review-plan` skill, and start it as follows:
    - Claude Code: invoke the `powerops-review-plan` skill. Its installed copy runs forked on the top model.
    - Codex and other agents that can start a subagent with no chat history: start one that runs `powerops-review-plan`.

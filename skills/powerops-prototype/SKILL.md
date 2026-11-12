@@ -1,6 +1,6 @@
 ---
 name: powerops-prototype
-description: Use when powerops-plan starts it at approval for a plan whose Screens names anything, or when the person picks D (sketch the screens first). Writes three static HTML sketches in different design directions to docs/plans/<name>/mockups/, then the picked one as prototype.html, and checks them with powerops plan status. Never asks the user questions.
+description: Use when powerops-plan starts it for a plan whose Screens names anything (in the question rounds or at approval), or when the person picks D (sketch the screens first). Writes three static HTML sketches in different design directions to docs/plans/<name>/mockups/, then the picked one as prototype.html, and checks them with powerops plan status. Never asks the user questions.
 license: Apache-2.0
 compatibility: Needs the powerops CLI on PATH. pac is optional.
 ---
@@ -21,7 +21,7 @@ Read only:
 - The `Data` ledger's display names, and the security roles in the plan, for the "who sees this" notes.
 - The mode and the notes in your request, and the sketches already in `mockups/`.
 
-Read nothing from `decisions.md` answers, environment facts or the tenant, and run no `pac`. Without a Theme block, say so in the report and use neutral greys with one blue that passes contrast.
+Read nothing from `decisions.md` answers, environment facts or the tenant, and run no `pac`. Without a Theme block (an early options run), say so in the report and use neutral greys with one blue that passes contrast; `pick` redraws with the Theme once the plan has one.
 
 ## 2. Modes
 

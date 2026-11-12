@@ -39,7 +39,7 @@ Check the plan for each item. Report a gap, a risk or an unanswered area as a fi
 5. Dev to Test to Prod route: where it is built, how it moves, who approves.
 6. Managed or unmanaged: right for each environment.
 7. Data volume and delegation limits: row counts, filters and sorts that may not delegate.
-8. Security roles: who can read, write and administer, and whether the plan names roles.
+8. Security roles: who can read, write and administer, and whether the plan names roles. Per role, which columns it can set when it creates a row, a starting status included. A rule that keeps a record valid, enforced only by a flow after the record is stored or only on a form or in an app, is a High finding on a Dataverse table, and a Medium finding on a store with no write-time control the plan names (fix: such a store, or a person's acceptance).
 9. Testability: can each step in `Steps` be checked, is there a way to test before Prod, and does each form have a way out (cancel, back, a failed save).
 10. Unanswered areas and the open-question count: areas never asked (see the `## Log` in `decisions.md`), items under `Open questions` and `Questions for your admin`.
 11. Size: for each table, list, flow and screen, ask which line of `Goal` would fail if it were removed. This item is about what the plan has and doesn't need; something missing, or a column that repeats another, belongs under the other items. Write one finding per problem, listing every artefact it covers.
@@ -62,6 +62,7 @@ Check the plan for each item. Report a gap, a risk or an unanswered area as a fi
     - The sketches in `mockups/`: a screen that isn't in `Screens`; a canvas element with no modern control (accordion, breadcrumb, dialog, drawer, menu, nav, toast, toolbar, tree) and no workaround named; options that differ only in colour, font or wording; an approved pick logged with no reason.
 
 12. Tools: for each skill, CLI or MCP tool a step names, Assumptions says when it isn't callable or wasn't checked. Check it yourself if you can (in your skill or tool list, or found by `command -v` or `Get-Command`): one you find missing that Assumptions doesn't name is a Medium finding. One you can't check, say so under the header lines, with no finding.
+13. Buildability: each step that rests on a platform capability (a privilege, a control property, a CLI command on this content, a theme file, a licence, two settings together) has a source in the plan or an `unproven: <capability>; probed by step <n>` line under Assumptions with that probe before its first use: neither is a Medium finding. Two plan lines that can't both hold are a High finding.
 
 If the plan or `decisions.md` contains a URL, GUID, email or person's name, report it as a finding. Do not repeat the value.
 
