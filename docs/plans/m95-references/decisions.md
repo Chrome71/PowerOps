@@ -5,16 +5,16 @@ The owner's answer that applies to this milestone, given 2026-11-11 in the plann
 ## Round 1 (planning)
 
 ### Q1. What does the `.gitignore` block in Hand-off step 3 hold?
-1. Every path that holds a canvas package or the target's values: `**/CanvasApps/*.msapp`, the unmanaged zip, `deploy/*.zip`, `deploy/*.settings.json` and `review/` (recommended)
-2. Only `**/CanvasApps/*.msapp`, with the zips still kept out of public repositories only
+1. Every path that holds a canvas package or the target's values, anchored: `*.msapp`, `/ContosoApp.zip`, `/deploy/*.zip`, `/deploy/*.settings.json` and `/review/` (recommended)
+2. Only `**/CanvasApps/*.msapp`, as the fix plan names it, with the zips still kept out of public repositories only
 3. In your own words
-Answer: 1. The blind grade's point was Dev's host in a tracked file; a zip or the managed unpack folder holds the same `.msapp`, so ignoring the folder copy alone would leave the host in Git. The settings file already "stays out of Git in any repository" (step 3), so its line is the sentence made copyable. The ephemeral recipe, which commits zips in `deploy/`, is named as the exception (row 7). (answered by: agent m95 session, on the owner's standing direction)
+Answer: 1. The blind grade's point was Dev's host in a tracked file; a zip or the managed unpack folder holds the same `.msapp`, so ignoring the folder copy alone would leave the host in Git. `*.msapp` replaces the fix plan's `**/CanvasApps/*.msapp` because it also covers the YAML layout, which Learn keeps under `canvasapps/<name>/` (A14), and any other path; the other lines are anchored so that a folder named `review` deeper in the repo isn't ignored. The settings file already "stays out of Git in any repository" (step 3), so its line is that sentence made copyable. The ephemeral recipe, which commits zips in `deploy/`, is named as the exception, and the CI import of a review-linked zip gets its sentence in step 7 (row 7). (answered by: agent m95 session, on the owner's standing direction)
 
 ### Q2. Does `analyze` get a note for a canvas app whose `.msapp` the folder doesn't hold?
 1. Not in M95: document it, and log a follow-up for after M96 (recommended)
 2. Yes, in M95
 3. In your own words
-Answer: 1. It changes `analyze` output, which the chain keeps still until M96's eval has run, and the brief allows no `src/` change. Hand-off steps 3 and 4 say the canvas checks run on the zip. (answered by: agent m95 session, on the owner's standing direction)
+Answer: 1. It changes `analyze` output, which the chain keeps still until M96's eval has run, and the brief allows no `src/` change. Hand-off steps 3 and 4 say the canvas checks run on the zip. The follow-up goes in the done hand-over. (answered by: agent m95 session, on the owner's standing direction)
 
 ### Q3. Learn now names the other harness the Microsoft Copilot harness. What changes?
 1. `copilot-studio.md` maps the name in its new bullet; the other files keep "GitHub Copilot harness"; ECO-0020 records the rename with the files that use the old name, `done` for the references and the rest left as they are (recommended)
