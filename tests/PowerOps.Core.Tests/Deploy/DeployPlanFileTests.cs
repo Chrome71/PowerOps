@@ -75,10 +75,10 @@ public class DeployPlanFileTests
     }
 
     [Fact]
-    public void The_plan_file_is_at_version_2()
+    public void The_plan_file_is_at_version_3()
     {
-        Assert.Equal(2, JsonOutput.DeployPlanSchemaVersion);
-        Assert.Contains("\"schemaVersion\": 2,", File());
+        Assert.Equal(3, JsonOutput.DeployPlanSchemaVersion);
+        Assert.Contains("\"schemaVersion\": 3,", File());
     }
 
     [Fact]
@@ -188,7 +188,7 @@ public class DeployPlanFileTests
     }
 
     [Theory]
-    [InlineData("schemaVersion", "1")]
+    [InlineData("schemaVersion", "2")]
     [InlineData("tool", "\"0.9.0\"")]
     public void Another_schemaVersion_or_tool_is_refused_even_when_the_other_fields_are_broken(string field, string value)
     {

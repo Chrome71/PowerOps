@@ -1,0 +1,92 @@
+---
+status: done
+review: done
+environment: null
+depth: quick
+supersedes: null
+signed-off: 2026-11-12
+signed-off-hash: 12431c7c70981986e8ef2e82a937c8464411bff6c30b46e3be4eb215543a343a
+---
+
+# M106: `deploy plan` says what an unmanaged import leaves
+
+## Goal
+
+For an unmanaged zip over an installed solution, `deploy plan` says nothing about the components the target holds that the zip no longer has (`DeployPlan.AddUpgrade` returns at `if (!solution.Managed)`). Practitioners report that an unmanaged import removes nothing, so a flow, environment variable or connection reference dropped from the source stays in the target unnoticed. This is milestone M106 of the upgrade plan drawn from the practitioner research (candidate 21, part); the plan's M106 section is the authority for the change, and Done when 1 to 7 below are the whole requirement this milestone is built and reviewed against.
+
+Done when:
+
+1. When a zip is unmanaged, its action is `upgrade` and the target's solution is installed unmanaged, the plan has one `stays` item, severity `info`, for each target component that a managed zip with the same contents would get a name-level `deletes` item for: each type-29 component of the target's solution whose id is not a workflow id of the zip (subject: the flow's name from the target read, else `29 <id>`, as `deletes` does), each target environment variable whose schema name the zip lacks, and each target connection reference whose logical name the zip lacks (both ignoring case). The message of every `stays` item is `An unmanaged import does not delete this from the target; the zip does not have it.` (decisions Q4). An unmanaged zip over a managed install gets no `stays`: that import fails, and `managed-conflict` already blocks it (decisions Q1). Tables, canvas apps and other component types get no `stays` item and no count (Won't build).
+2. `stays` never blocks: `blocked`, the exit code, the summary line and the plan hash are what they would be without it. A managed upgrade keeps exactly today's `deletes`, `unmanaged-layer`, `layers-not-read` and `components-not-checked` items and gets no `stays`; an `install` and a `skip` (lower or equal version) get none; a same-version skip keeps `same-version-differs` only.
+3. `stays` is the last value of `PlanKind.Order` and of the schema's `kind` enum; its severity is `info` through `SeverityOf`'s `_` arm. A test holds the schema's enum equal to `PlanKind.Order`, as `Drift_schema_kinds_equal_DriftKind_Order` does for `drift`.
+4. `JsonOutput.DeployPlanSchemaVersion` is `3`, so `deploy plan`'s JSON and the saved plan file say `3`, and `deploy apply` (CLI, MCP `deploy_apply`, the Action's apply job) refuses a plan file of version 2 with today's message (`... plan again with this version`), status `refused`, exit `1`: a plan saved before the upgrade is planned again. `deploy-plan.schema.json`: `schemaVersion` `const` 3 and `stays` appended to the `kind` enum; the `kind` property gains the description `stays (info): a flow, environment variable or connection reference of the target's unmanaged solution that the unmanaged zip does not have; the import does not delete it.` No other schema text changes.
+5. Docs: `docs/COMMANDS.md`'s `deploy plan` section lists `stays` among the information kinds and gets one paragraph that says (a) what it names and when (an unmanaged zip whose action is `upgrade` over an unmanaged install), (b) that it comes from the read the plan already makes, does not block and does not change the plan hash, (c) that it covers only flows, environment variables and connection references: tables, canvas apps and every other component type the zip dropped also stay and are not listed, so no `stays` item does not mean the target matches the zip, (d) its basis: Learn's *Upgrade or update a solution* and *Solution concepts* (read 2026-11-12) say only an upgrade deletes components the new version lacks; it is documented and reported, not observed in a tenant, and Learn does not say whether the solution's component list keeps the component; the version sentence says 3; the `diff` section's aside ("`deploy plan` and `drift` are at 2") says `deploy plan` is at 3. `docs/schemas/README.md`: the "Each output's version" line, and a paragraph "`deploy plan` from 2 to 3" in the form of the "from 1 to 2" one. A new decision in `docs/BUILD-PLAN.md`, numbered at merge (66 if nothing lands first), says what `stays` is, that it never blocks and leaves the summary line alone, that its claim is documented (the two Learn pages by title, read 2026-11-12) and not observed, that the version goes to 3 under decision 48's rule, and that `deploy apply` refuses a plan file saved by the older build, so a plan saved before the upgrade is planned again.
+6. The tests of Data row 4 are written first and seen to fail on their assertions, then pass, except the guard tests Step 2 names, which pass before the change and are reported as such. The `deploy-plan*` goldens are regenerated by the "Update goldens" recipe; their diff holds only the `schemaVersion` line of `deploy-plan-blocked.json`, `deploy-plan-seed.json` and `deploy-plan-same-version.json`, and the new `deploy-plan-stays.json` with one item (`stays`, `info`, `pops_sharedoffice365_6a2f1`); `deploy-plan-seed.md` and `.txt`, `mcp-tools.txt` and `plugins/` don't change.
+7. `dotnet build` (0 warnings), `dotnet test`, `dotnet format --verify-no-changes`, `powerops plan status docs/plans/m106-plan-stays` and the leak scan are clean; `tests/eval/`, `skills/powerops-verify`, `skills/powerops-review-security` and their plugin copies are byte-for-byte unchanged and `RoleEvalTests` passes.
+
+### Won't build
+
+- `stays` for tables, canvas apps or other component types, or a count of them (the target names them by id, the zip by schema name; `deletes` checks them by count only, and a count for an unmanaged import would add a guess to an information item).
+- A change to `deploy apply`'s logic, the plan hash, the plan file reader, the report writers, the MCP tools' descriptions, the Action scripts, any skill, specialist or plugin file, or `docs/RECOVERY.md`.
+- A new tenant read: `stays` uses the snapshot the plan already reads.
+- A way to remove what stays (that is a person's step in the target, or a managed upgrade).
+
+## Users
+
+- An agent or person that reads `deploy plan`'s report (JSON, text or the Action's Markdown comment) before an import and needs to know what will still be in the target afterwards.
+- A consumer that validates `deploy plan`'s JSON against the published schema, or keeps saved plan files for `deploy apply`.
+
+## Data
+
+Line references are names at `e185b56`.
+
+| # | Change | Where | Test |
+|---|---|---|---|
+| 1 | `PlanKind.Stays = "stays"`, appended last to `PlanKind.Order`. In `AddUpgrade`, the three name-level loops of `deletes` (flows by component id, variables by schema name, references by logical name) run for both managed and unmanaged zips, with kind `deletes` and today's messages for a managed zip, and kind `stays` and the Q4 message for an unmanaged zip over an unmanaged install (`!solution.Managed && snap.Managed == false`; not `!= true`), none for an unmanaged zip over a managed install; the three `deletes` messages stay byte-identical; the count and not-checked parts stay managed-only (the `if (!solution.Managed) return;` moves after the three loops) | `src/PowerOps.Core/Deploy/DeployPlan.cs` (`PlanKind`, `AddUpgrade`) | row 4 (Core) |
+| 2 | `DeployPlanSchemaVersion = 3` (used by `DeployPlanReport.WriteJson` and `DeployPlanFile.ReadFields`, no change in either file), and the two XML comments made true: `DiffSchemaVersion`'s "Only `diff` is at 3" no longer says "only", and `DeployPlanSchemaVersion`'s says it is at 3 because the `kind` enum gained `agent` (M73, 2) and `stays` (M106, 3) | `src/PowerOps.Core/Output/JsonOutput.cs` | row 4 (`DeployPlanFileTests`) |
+| 3 | Schema per Done when 4; docs per Done when 5 | `docs/schemas/deploy-plan.schema.json`; `docs/schemas/README.md`; `docs/COMMANDS.md` (`deploy plan` section and the one aside in `diff`); `docs/BUILD-PLAN.md` (one decision, numbered under the lock) | `OutputSchemaTests` with the goldens; prose |
+| 4 | Tests, written first. **Core `DeployPlanTests`:** (a) an unmanaged upgrade against a target whose solution has a flow (a type-29 component whose id is in the target's flows), an environment variable and a connection reference that the zip lacks gives exactly three `stays` items, severity `info`, subjects the flow name, the schema name and the logical name, the exact Q4 message, sorted by subject within the kind, `blocked` false, no `deletes` and no `components-not-checked`; (b) the same names in the zip in another case, and a flow id in upper case, give none; (c) a type-29 component of the target that is not in the target's flows gives the subject `29 <id>`; (d) the same target with a managed zip and a managed install gives today's three `deletes` items and no `stays`; (e) an install, an unmanaged lower-version skip and an unmanaged same-version skip give no `stays` (the last keeps its `same-version-differs` items); (f) an unmanaged zip at a higher version over a managed install of the target of (a) gives exactly the kinds it gives today (`managed-conflict`, then the `unmanaged-layer` or `layers-not-read` items of that snapshot) and no `stays` (decisions Q1), asserted as the full list of kinds; (g) the plan hash with `stays` items equals the hash of `HashText` for the same inputs, and `HashText` does not hold the kind; (h) a managed zip at a higher version over an unmanaged install of the target of (a) gives `managed-conflict` and today's three `deletes` items with today's messages, and no `stays`, asserted as the full list of kinds. `Kinds_are_in_the_documented_order` gains `stays` last. **`OutputSchemaTests`:** `Deploy_plan_schema_kinds_equal_PlanKind_Order` beside `Drift_schema_kinds_equal_DriftKind_Order`. **`DeployPlanFileTests`:** the version assertion is `3`, the written file holds `"schemaVersion": 3,`; the `[InlineData("schemaVersion", "1")]` case of `Another_schemaVersion_or_tool_is_refused_even_when_the_other_fields_are_broken` becomes `"2"` (a version-2 file is refused, `Plan` null, the refusal ending `plan again with this version`). Every test that writes a plan file by hand with a literal version moves to the constant. **`DeployCommandTests`:** a new case beside `A_same_version_seed_skip_with_differences_matches_the_golden` plans the seed as an unmanaged zip at 1.0.0.1 (`SeedZip` gains a `managed` parameter, default `true`) against `SnapshotFile.Load(TestSnapshot) with { Managed = false }`, expects exit 0 and items exactly `[("pops_sharedoffice365_6a2f1", "stays")]`, and checks the golden `deploy-plan-stays.json`. **`McpCommandTests`:** `deploy_plan` with the fake read on an unmanaged seed zip at 1.0.0.1 (`DeployFolder` gains a `managed` parameter, default `true`) against `ReadTarget`'s snapshot `with { Managed = false }`: `IsError` false, the text equals the CLI's, it validates against the schema, `schemaVersion` 3, `blocked` false and exactly one item, kind `stays`, severity `info`, subject `pops_sharedoffice365_6a2f1`. **`DeployApplyCommandTests`:** one case that saves a plan, rewrites its `schemaVersion` to 2, and runs `deploy apply` on it: exit 1, status `refused`, the `plan again with this version` message, no import (the pac fake not called) (the only existing CLI refusal test, `A_plan_made_by_another_tool_is_refused_before_the_target_is_read`, changes `tool`, not `schemaVersion`). Goldens `deploy-plan*` by the recipe | `tests/PowerOps.Core.Tests/Deploy/DeployPlanTests.cs`, `DeployPlanFileTests.cs`; `tests/PowerOps.Cli.Tests/DeployCommandTests.cs`, `McpCommandTests.cs`, `DeployApplyCommandTests.cs`, `OutputSchemaTests.cs`; `tests/golden/deploy-plan*` | itself |
+
+## Automation
+
+None.
+
+## Screens
+
+None.
+
+## Environments and route
+
+None. Nothing in this milestone reads or writes a tenant; every test uses the fakes of `DeployFakes.cs`, `DeployCommandTests` and the MCP tests.
+
+## Solution and publisher
+
+None.
+
+## Constraints
+
+- AGENTS.md: the smallest change, new logic with tests, no new dependency, writes only through `SafeWrite` (unchanged), no version or changelog edit, no tenant value in Git, Conventional Commits.
+- The chain rules and their "Upgrade milestones" section: tenant offline; `tests/eval/`, the kept roles and their plugin copies untouched and `RoleEvalTests` passing; one pull request at a time under the merge lock. M106 changes no `analyze`, `test` or `diff` output, so the M96 marker rule doesn't bind its merge.
+- Decision 48 and `docs/schemas/README.md` ("Versioning"): a new value in a closed enum bumps `schemaVersion`.
+- Readers of a plan file or its kinds, checked at `e185b56`: `DeployPlanFile.ReadFields` reads `schemaVersion`, `tool`, `hash`, `target`, `blocked` and `inputs`, never `items`, and refuses another version (exit 1, `refused`); `DeployCommand` reads only `agent` items from a fresh plan for the apply form; `DeployPlanReport` writes every kind generically (text, Markdown, JSON) and counts only `block` and `agent` in the summary; the MCP `deploy_plan` and `deploy_apply` tools pass the CLI's JSON through; the Action's `plan.sh` posts the Markdown and `apply.sh` passes the plan file to `deploy apply`, and no Action script parses `items` or `schemaVersion`; `deploy gate` reads no plan file; `skills/powerops-implement` names only the `agent` kind; the frozen roles' text (read only) names no plan kind or version. So the one break is the intended one: a plan file saved by the older build is refused and planned again.
+- Shared files: `docs/COMMANDS.md`, `docs/BUILD-PLAN.md` (one decision, numbered under the lock), the `deploy-plan*` goldens, `McpCommandTests.cs`.
+
+## Assumptions
+
+- An unmanaged import over an installed unmanaged solution deletes nothing from the environment: Learn's *Upgrade or update a solution* (an update's missing components are not deleted) and *Solution concepts* (only an upgrade deletes), read 2026-11-12; `decisions.md` has the sources. The message claims only this.
+- unproven: whether the target solution's component list still holds such a component after the import (no Learn page says; probe: import v1 unmanaged, then v2 without one flow, read the solution's components). No build step and no message depends on it: `stays` says the component is left in the target, not in the solution. The probe is recorded as a follow-up in `m106-done-handover.md` for the next live run (trial 4); it is not part of this milestone's Done when.
+- The target read already returns, for an installed unmanaged solution, its components, flows, variables and references (`Snapshot`), as it does for a managed one: the same `DriftLiveReader.ReadTarget` path, checked in the code at `e185b56`.
+- The leak scan is `reports/leakscan.sh`, an untracked local tool of the main checkout; it runs from there against the committed branch (`bash reports/leakscan.sh origin/main <branch>`).
+- The installed `powerops` may be stale; `plan status` and `plan sign-off` run with this worktree's build (`dotnet run --project src/PowerOps.Cli --`).
+
+## Open questions
+
+## Questions for your admin
+
+## Steps
+
+1. This plan and `decisions.md`, the claims research, the Fable plan review and a fresh-context `powerops-review-plan` into `review.md`, fixes, and the sign-off.
+2. A baseline `dotnet build` and `dotnet test` at `e185b56`, recorded; `PlanKind.Stays` declared (not yet in `Order` or used) so the project compiles; then row 4's tests, run: (a), (c), (g), `Kinds_are_in_the_documented_order`, the version assertions, the CLI golden case, the MCP case and the version-2 `deploy apply` case are seen to fail on their assertions (not on a compile error); (b), (d), (e), (f), (h) and `Deploy_plan_schema_kinds_equal_PlanKind_Order` are guard tests that pin today's behaviour and pass before the change, and the report says so.
+3. Rows 1 and 2 and the schema until every test passes; then the goldens by the "Update goldens" recipe, reading the diff.
+4. Row 3's docs, worded against the code of step 3.
+5. The checks of Done when 6 and 7, the Fable work review, the merge under the chain's protocol (the decision takes its number then), and `reports/trial-3/chain/m106-done-handover.md` (outside the repo), which records the pull request, the merge commit, what wasn't checked and the probe of the `unproven:` line.

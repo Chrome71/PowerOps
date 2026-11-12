@@ -105,8 +105,8 @@ public class DeployCommandTests : IDisposable
         return zip;
     }
 
-    // The seed as a managed zip one version higher (1.0.0.1), with or without its valid settings file.
-    private void SeedZip(string folder, bool settings = true, string name = "PowerOpsSeed")
+    // The seed as a zip one version higher (1.0.0.1), managed or not, with or without its valid settings file.
+    private void SeedZip(string folder, bool settings = true, string name = "PowerOpsSeed", bool managed = true)
     {
         var dir = Path.Combine(Scratch("seed"), "v1");
         foreach (var f in Directory.EnumerateFiles(Seed, "*", SearchOption.AllDirectories))
@@ -118,7 +118,7 @@ public class DeployCommandTests : IDisposable
 
         var xml = Path.Combine(dir, "Other", "Solution.xml");
         var text = File.ReadAllText(xml);
-        var patched = text.Replace("<Managed>0</Managed>", "<Managed>1</Managed>").Replace("<Version>1.0.0.0</Version>", "<Version>1.0.0.1</Version>");
+        var patched = text.Replace("<Managed>0</Managed>", managed ? "<Managed>1</Managed>" : "<Managed>0</Managed>").Replace("<Version>1.0.0.0</Version>", "<Version>1.0.0.1</Version>");
         Assert.NotEqual(text, patched);
         File.WriteAllText(xml, patched);
         SolutionZip.Create(dir, Path.Combine(folder, name + ".zip"));
@@ -673,6 +673,21 @@ public class DeployCommandTests : IDisposable
             [("pops_SeedDataverse", "same-version-differs"), ("pops_sharedoffice365_6a2f1", "same-version-differs")],
             Json(r)["items"]!.AsArray().Select(i => ((string?)i!["subject"], (string?)i["kind"])));
         Golden.Verify(Scrub(r.Out), "deploy-plan-same-version.json");
+    }
+
+    [Fact]
+    public void An_unmanaged_seed_upgrade_over_an_unmanaged_install_lists_what_stays_and_matches_the_golden()
+    {
+        SeedZip(Folder, managed: false);
+        var fake = new FakeTarget { Snaps = { ["PowerOpsSeed"] = SnapshotFile.Load(TestSnapshot) with { Managed = false } } };
+
+        var r = Plan(fake, "--format", "json");
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal(
+            [("pops_sharedoffice365_6a2f1", "stays")],
+            Json(r)["items"]!.AsArray().Select(i => ((string?)i!["subject"], (string?)i["kind"])));
+        Golden.Verify(Scrub(r.Out), "deploy-plan-stays.json");
     }
 
     [Fact]

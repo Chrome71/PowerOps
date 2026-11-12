@@ -354,6 +354,117 @@ public class DeployPlanTests
         }, managedSnap), PlanKind.Deletes));
     }
 
+    // ---- stays -------------------------------------------------------------------------------------------------
+
+    private const string StaysMessage = "An unmanaged import does not delete this from the target; the zip does not have it.";
+
+    /// <summary>A target solution with a flow (named), a flow-less type-29 component, an environment variable and a connection reference.</summary>
+    private static Snapshot StaysTarget(bool managed = false, bool layersRead = true) =>
+        Snap("App", managed: managed, layersRead: layersRead,
+            components: [new(29, FlowId, null)],
+            variables: [new("demo_Gone", null)],
+            references: [new(G3, "demo_gone_ref", "c", true)],
+            flows: [new(FlowId, "Notify", "on")]);
+
+    [Fact]
+    public void An_unmanaged_upgrade_over_an_unmanaged_install_lists_the_flow_variable_and_reference_the_zip_lacks()
+    {
+        var r = Plan(Sol("App", "2.0.0.0", managed: false), StaysTarget());
+
+        var items = Of(r, PlanKind.Stays);
+
+        Assert.Equal(["Notify", "demo_Gone", "demo_gone_ref"], items.Select(i => i.Subject));
+        Assert.All(items, i => Assert.Equal(("App", PlanSeverity.Info, StaysMessage), (i.Solution, i.Severity, i.Message)));
+        Assert.False(r.Blocked);
+        Assert.Empty(Of(r, PlanKind.Deletes));
+        Assert.Empty(Of(r, PlanKind.ComponentsNotChecked));
+    }
+
+    [Fact]
+    public void Names_in_the_zip_in_another_case_and_a_flow_id_in_upper_case_give_no_stays_item()
+    {
+        var zip = Sol("App", "2.0.0.0", managed: false) with
+        {
+            Workflows = [B.Flow(FlowId.ToString().ToUpperInvariant())],
+            EnvironmentVariables = [B.Env("DEMO_GONE")],
+            ConnectionReferences = [B.Ref("DEMO_GONE_REF")],
+        };
+
+        Assert.Empty(Of(Plan(zip, StaysTarget()), PlanKind.Stays));
+    }
+
+    [Fact]
+    public void A_type_29_component_outside_the_targets_flows_is_named_by_type_and_id()
+    {
+        var snap = Snap("App", managed: false, components: [new(29, G1, null)]);
+
+        var item = One(Plan(Sol("App", "2.0.0.0", managed: false), snap), PlanKind.Stays);
+
+        Assert.Equal(("29 00000000-0000-0000-0000-000000000001", PlanSeverity.Info, StaysMessage), (item.Subject, item.Severity, item.Message));
+    }
+
+    [Fact]
+    public void A_managed_upgrade_over_a_managed_install_keeps_its_three_deletes_and_gets_no_stays()
+    {
+        var r = Plan(Sol("App", "2.0.0.0"), StaysTarget(managed: true));
+
+        Assert.Equal(["Notify", "demo_Gone", "demo_gone_ref"], Of(r, PlanKind.Deletes).Select(i => i.Subject));
+        Assert.Empty(Of(r, PlanKind.Stays));
+    }
+
+    [Theory]
+    [InlineData(null, "2.0.0.0")]
+    [InlineData("2.0.0.0", "1.0.0.0")]
+    [InlineData("1.0.0.0", "1.0.0.0")]
+    public void An_install_and_an_unmanaged_skip_give_no_stays_and_a_same_version_skip_keeps_its_differences(string? installed, string version)
+    {
+        var snap = installed is null ? Snap("App", null) : StaysTarget() with { Version = installed };
+
+        var r = Plan(Sol("App", version, managed: false), snap);
+
+        Assert.Empty(Of(r, PlanKind.Stays));
+        Assert.Equal(version == installed ? 3 : 0, r.Items.Count);
+        Assert.All(r.Items, i => Assert.Equal(PlanKind.SameVersionDiffers, i.Kind));
+    }
+
+    [Fact]
+    public void An_unmanaged_upgrade_over_a_managed_install_gives_only_the_conflict_and_the_layer_item()
+    {
+        var r = Plan(Sol("App", "2.0.0.0", managed: false), StaysTarget(managed: true, layersRead: false));
+
+        Assert.Equal(["managed-conflict", "layers-not-read"], r.Items.Select(i => i.Kind));
+    }
+
+    [Fact]
+    public void A_managed_upgrade_over_an_unmanaged_install_gives_the_conflict_and_todays_deletes_and_no_stays()
+    {
+        var r = Plan(Sol("App", "2.0.0.0"), StaysTarget());
+
+        Assert.Equal(["managed-conflict", "deletes", "deletes", "deletes"], r.Items.Select(i => i.Kind));
+        Assert.Equal(
+            [
+                "The upgrade deletes this component because the zip no longer has it.",
+                "The upgrade deletes this environment variable because the zip no longer has it.",
+                "The upgrade deletes this connection reference because the zip no longer has it.",
+            ],
+            Of(r, PlanKind.Deletes).Select(i => i.Message));
+    }
+
+    [Fact]
+    public void Stays_items_change_neither_the_hash_text_nor_the_hash_nor_blocking()
+    {
+        DeployZip[] zips = [Zip(Sol("App", "2.0.0.0", managed: false))];
+        var target = Target(zips, [StaysTarget()]);
+
+        var r = DeployPlan.Build(zips, target);
+
+        Assert.NotEmpty(Of(r, PlanKind.Stays));
+        Assert.False(r.Blocked);
+        var text = DeployPlan.HashText(zips, target);
+        Assert.Equal(Hash(text), r.Hash);
+        Assert.DoesNotContain("stays", text);
+    }
+
     [Fact]
     public void More_tables_or_canvas_apps_in_the_target_than_root_components_in_the_zip_is_one_item_with_the_difference()
     {
@@ -754,7 +865,7 @@ public class DeployPlanTests
     public void Kinds_are_in_the_documented_order()
     {
         Assert.Equal(
-            ["cycle", "missing-dependency", "dependency-not-checked", "managed-conflict", "settings", "deletes", "unmanaged-layer", "layers-not-read", "components-not-checked", "same-version-differs", "agent"],
+            ["cycle", "missing-dependency", "dependency-not-checked", "managed-conflict", "settings", "deletes", "unmanaged-layer", "layers-not-read", "components-not-checked", "same-version-differs", "agent", "stays"],
             PlanKind.Order);
         Assert.Equal(["install", "upgrade", "skip"], new[] { PlanAction.Install, PlanAction.Upgrade, PlanAction.Skip });
         Assert.Equal(["block", "warning", "info"], new[] { PlanSeverity.Block, PlanSeverity.Warning, PlanSeverity.Info });

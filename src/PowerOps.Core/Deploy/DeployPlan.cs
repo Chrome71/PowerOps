@@ -66,6 +66,7 @@ public static class PlanKind
     public const string ComponentsNotChecked = "components-not-checked";
     public const string SameVersionDiffers = "same-version-differs";
     public const string Agent = "agent";
+    public const string Stays = "stays";
 
     /// <summary>What every <c>agent</c> item says after "The zip holds Copilot Studio agent '&lt;name&gt;'. ".</summary>
     public const string AgentEffect = "The import may leave it published in the target (seen in one live run; Learn describes publishing as a separate step). If the plan forbids a published agent there, don't import until the person has said yes to that and the plan is amended.";
@@ -73,7 +74,7 @@ public static class PlanKind
     /// <summary>All kinds in report order.</summary>
     public static readonly string[] Order =
     [
-        Cycle, MissingDependency, DependencyNotChecked, ManagedConflict, Settings, Deletes, UnmanagedLayer, LayersNotRead, ComponentsNotChecked, SameVersionDiffers, Agent,
+        Cycle, MissingDependency, DependencyNotChecked, ManagedConflict, Settings, Deletes, UnmanagedLayer, LayersNotRead, ComponentsNotChecked, SameVersionDiffers, Agent, Stays,
     ];
 
     internal static string SeverityOf(string kind) => kind switch
@@ -316,25 +317,34 @@ public static class DeployPlan
             }
         }
 
+        // A managed upgrade deletes what the zip lacks; an unmanaged import over an unmanaged install only leaves it (over a managed install it fails, and managed-conflict says so).
+        var kind = solution.Managed ? PlanKind.Deletes : snap.Managed == false ? PlanKind.Stays : null;
+        if (kind is not null)
+        {
+            string Say(string noun) => solution.Managed
+                ? $"The upgrade deletes this {noun} because the zip no longer has it."
+                : "An unmanaged import does not delete this from the target; the zip does not have it.";
+
+            var zipFlows = solution.Workflows.Select(w => Guid.TryParse(w.Id, out var id) ? id : (Guid?)null).Where(id => id is not null).ToHashSet();
+            foreach (var c in snap.Components.Where(c => c.Type == WorkflowType && !zipFlows.Contains(c.Id)))
+            {
+                add(kind, flowNames.TryGetValue(c.Id, out var n) ? n : Component(c.Type, c.Id), Say("component"));
+            }
+
+            foreach (var v in snap.Variables.Where(v => !solution.EnvironmentVariables.Any(x => Same(x.SchemaName, v.SchemaName))))
+            {
+                add(kind, v.SchemaName, Say("environment variable"));
+            }
+
+            foreach (var r in snap.References.Where(r => !solution.ConnectionReferences.Any(x => Same(x.LogicalName, r.LogicalName))))
+            {
+                add(kind, r.LogicalName, Say("connection reference"));
+            }
+        }
+
         if (!solution.Managed)
         {
             return;
-        }
-
-        var zipFlows = solution.Workflows.Select(w => Guid.TryParse(w.Id, out var id) ? id : (Guid?)null).Where(id => id is not null).ToHashSet();
-        foreach (var c in snap.Components.Where(c => c.Type == WorkflowType && !zipFlows.Contains(c.Id)))
-        {
-            add(PlanKind.Deletes, flowNames.TryGetValue(c.Id, out var n) ? n : Component(c.Type, c.Id), "The upgrade deletes this component because the zip no longer has it.");
-        }
-
-        foreach (var v in snap.Variables.Where(v => !solution.EnvironmentVariables.Any(x => Same(x.SchemaName, v.SchemaName))))
-        {
-            add(PlanKind.Deletes, v.SchemaName, "The upgrade deletes this environment variable because the zip no longer has it.");
-        }
-
-        foreach (var r in snap.References.Where(r => !solution.ConnectionReferences.Any(x => Same(x.LogicalName, r.LogicalName))))
-        {
-            add(PlanKind.Deletes, r.LogicalName, "The upgrade deletes this connection reference because the zip no longer has it.");
         }
 
         // The zip names tables and canvas apps by schema name and the target by id, so only the counts compare (a lower bound).

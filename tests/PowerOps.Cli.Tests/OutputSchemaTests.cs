@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 
 using Json.Schema;
 
+using PowerOps.Core.Deploy;
 using PowerOps.Core.Drift;
 using PowerOps.Core.Flows;
 using PowerOps.Tests.Shared;
@@ -119,6 +120,15 @@ public class OutputSchemaTests
         var kinds = schema["properties"]!["items"]!["items"]!["properties"]!["kind"]!["enum"]!.AsArray().Select(k => (string?)k).ToArray();
 
         Assert.Equal(DriftKind.Order, kinds);
+    }
+
+    [Fact]
+    public void Deploy_plan_schema_kinds_equal_PlanKind_Order()
+    {
+        var schema = JsonNode.Parse(File.ReadAllText(Path.Combine(Golden.RepoRoot, "docs", "schemas", "deploy-plan.schema.json")))!;
+        var kinds = schema["properties"]!["items"]!["items"]!["properties"]!["kind"]!["enum"]!.AsArray().Select(k => (string?)k).ToArray();
+
+        Assert.Equal(PlanKind.Order, kinds);
     }
 
     private static JsonNode SeedFile(string name) =>

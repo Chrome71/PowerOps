@@ -141,8 +141,8 @@ public sealed class McpCommandTests : IAsyncLifetime
 
     private static Fakes TargetFakes() => new() { TargetBehavior = ReadTarget };
 
-    // The seed as a managed zip one version higher, with its valid settings file, in a new folder.
-    private string DeployFolder(string version = "1.0.0.1")
+    // The seed as a zip one version higher (managed unless told otherwise), with its valid settings file, in a new folder.
+    private string DeployFolder(string version = "1.0.0.1", bool managed = true)
     {
         var folder = Directory.CreateDirectory(Path.Combine(_temp, "deploy-" + Guid.NewGuid().ToString("N"))).FullName;
         var dir = Path.Combine(_temp, "seed-" + Guid.NewGuid().ToString("N"));
@@ -154,7 +154,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         }
 
         var xml = Path.Combine(dir, "Other", "Solution.xml");
-        File.WriteAllText(xml, File.ReadAllText(xml).Replace("<Managed>0</Managed>", "<Managed>1</Managed>").Replace("<Version>1.0.0.0</Version>", $"<Version>{version}</Version>"));
+        File.WriteAllText(xml, File.ReadAllText(xml).Replace("<Managed>0</Managed>", managed ? "<Managed>1</Managed>" : "<Managed>0</Managed>").Replace("<Version>1.0.0.0</Version>", $"<Version>{version}</Version>"));
         SolutionZip.Create(dir, Path.Combine(folder, "PowerOpsSeed.zip"));
         File.Copy(Valid, Path.Combine(folder, "PowerOpsSeed.settings.json"));
         return folder;
@@ -396,6 +396,27 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Equal(1, _fakes.Targets);
         Assert.Equal("", OutputSchemaTests.Errors(OutputSchemaTests.Load("deploy-plan.schema.json"), JsonNode.Parse(Text(result))!));
         Assert.Equal(["PowerOpsSeed.settings.json", "PowerOpsSeed.zip"], Files(folder));
+    }
+
+    [Fact]
+    public async Task Deploy_plan_of_an_unmanaged_zip_over_an_unmanaged_install_lists_what_stays()
+    {
+        var folder = DeployFolder(managed: false);
+        static DeployTarget Unmanaged(string t, IReadOnlyList<string> s, IReadOnlyList<string> d) =>
+            ReadTarget(t, s, d) with { Solutions = [.. ReadTarget(t, s, d).Solutions.Select(x => x with { Managed = false })] };
+        _fakes.TargetBehavior = Unmanaged;
+
+        var result = await Call("deploy_plan", new() { ["folder"] = folder, ["target"] = Secret });
+
+        var expected = CliWith(new Fakes { TargetBehavior = Unmanaged }, "deploy", "plan", "--target", Secret, "--format", "json", "--planned-by", "agent", "--", folder);
+        Assert.False(result.IsError);
+        Assert.Equal(expected.Out, Text(result));
+        var plan = JsonNode.Parse(Text(result))!;
+        Assert.Equal("", OutputSchemaTests.Errors(OutputSchemaTests.Load("deploy-plan.schema.json"), plan));
+        Assert.Equal(3, (int)plan["schemaVersion"]!);
+        Assert.False((bool)plan["blocked"]!);
+        var item = Assert.Single(plan["items"]!.AsArray())!;
+        Assert.Equal(("stays", "info", "pops_sharedoffice365_6a2f1"), ((string?)item["kind"], (string?)item["severity"], (string?)item["subject"]));
     }
 
     private static string[] Files(string folder) => [.. Directory.EnumerateFileSystemEntries(folder).Select(Path.GetFileName).Order(StringComparer.Ordinal)!];
