@@ -613,6 +613,18 @@ The third end-to-end trial's owner finding A, process side: the sketches came af
 
 89. `feat:` M93: the plan, then the pins and the skill text, the docs, the smoke checks and the plugin copies (built 2026-11-12, [plan](plans/m93-design-process/plan.md))
 
+## M94: build autonomy
+
+The third end-to-end trial's owner finding D: the build asked before each of 166 tenant writes, because `powerops-implement` asked before every write. The owner wants the build to start without lag after the sign-off and to call them only when they are needed, with one yes per deployment. The [plan](plans/m94-build-autonomy/plan.md) makes the sign-off the authority for the Dev writes its Steps name, keeps a stop list that wins over it, and asks one yes per deployment (decision 67).
+
+| Milestone | Release | Scope | Done when |
+|---|---|---|---|
+| **M94. Build autonomy** | the next minor release, which release-please makes from the `feat:` commit | <ul><li>Planned 2026-11-12 ([plan](plans/m94-build-autonomy/plan.md))</li><li>`powerops-implement` asks once at a preflight, then writes to Dev without asking under the sign-off, for the writes its Steps name and the Dev settings its `sign-off covers:` Log line lists; eight stop classes win over it, and one yes covers one deployment until it ends</li><li>`powerops-plan` shows two lines on what the sign-off covers before the sign-off answer, logs `sign-off covers:` and starts the build</li><li>Each `writes.md` row names its Authority, and `plan status` warns about a row whose Authority is empty or missing</li></ul> | `dotnet test --filter "SkillsCommandTests\|PlanCheckerTests\|PluginManifestTests\|HandoffDocTests"` passes, and the Claude smoke's `autonomy` scenario sees a Step-named Dev write and a listed Dev setting done in the first reply and each of five stop classes raised and not run |
+
+### Build order, M94 (continues the list below)
+
+90. `feat:` M94: the plan, then the journal warning, the pins and the skill and doc text, the smoke scenario and the plugin copies (built 2026-11-12, [plan](plans/m94-build-autonomy/plan.md))
+
 ## Testing
 
 | Layer | What | Runs |
@@ -868,3 +880,9 @@ Made in the [M98 plan](plans/m98-apply-readback/plan.md); its `decisions.md` wei
 Made in the [M106 plan](plans/m106-plan-stays/plan.md); its `decisions.md` weighs the options.
 
 66. **`deploy plan` says what an unmanaged import leaves, and its JSON goes to `schemaVersion` 3.** For an unmanaged zip whose action is `upgrade` over a solution installed unmanaged, the plan lists one `stays` item (severity `info`) for each flow or other workflow, environment variable and connection reference of the target's solution that the zip does not have, the set a managed upgrade lists as `deletes`. An unmanaged zip over a managed install gets none: that import fails, and `managed-conflict` blocks it. A `stays` item never blocks, leaves the summary line at `plan ok` and changes no plan hash. That an unmanaged import deletes nothing is documented, not observed: Learn's *Upgrade or update a solution* and *Solution concepts* (read 2026-11-12) say only an upgrade deletes the components a new version lacks, and no page says whether the solution's component list keeps the component, so the item says only that the import does not delete it from the target. Tables, canvas apps and other types also stay and are not listed. The new kind joins the closed `kind` enum, so under decision 48's rule the version goes from 2 to 3, and `deploy apply` (the CLI, the MCP tool and the Action) refuses a plan file saved by the older build with "plan again with this version": a plan saved before the upgrade is planned again.
+
+## Decisions, M94 build autonomy (2026-11-12)
+
+Made in the [M94 plan](plans/m94-build-autonomy/plan.md); its `decisions.md` weighs the options.
+
+67. **After sign-off the build writes to Dev without asking; one yes per target environment per deployment.** A sign-off authorizes, for its hash and the Dev environment only (with a null header, the one the person names as Dev before the first write), each Dev write a Step names, the Dev settings its Log line lists, retries, exports and local files; each journal row names its authority. A plan signed before this decision, or by an agent, asks once at the build's preflight. A deployment is one saved `deploy plan` file to one target; one yes covers its import (with `--require-reviews`, the agent line quoted in full), `settings apply --apply` and the plan's steps there, and ends once they are done or on a refusal, a declined, cancelled or failed form, a re-planned or changed plan file, a changed plan hash or a blocked report. Everything else stops for the person, and the stop list wins over a Step that names its item: sign-ins, anything outside the plan, deletes, licences, tenant-level and admin writes, writes outside Dev, writes that reach someone the plan doesn't name, and findings only a person accepts. Amendments stay person-signed. Asked "After sign-off, does Test or Prod still get a yes?", the owner answered "One yes per deployment" (2026-11-11). This extends decision 61's ending rule; its enforcement is unchanged.

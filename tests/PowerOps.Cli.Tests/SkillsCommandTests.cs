@@ -284,7 +284,8 @@ public partial class SkillsCommandTests : IDisposable
         [
             "check its final saved version in Dev",
             "never run `pac` or `az` for these checks",
-            "follows step 7 of section 3",
+            // M94: a check that writes is covered by the sign-off; it no longer follows the ask-each-time rule 7.
+            "covered by the sign-off with the test rows its Step's check names",
             "Fire each flow's real trigger once with a synthetic input",
             "load the published version fresh",
             "report any other unmanaged solution it is in",
@@ -358,15 +359,107 @@ public partial class SkillsCommandTests : IDisposable
             "scope, data, security or cost",
             "stops with one concrete question to the user, and you do nothing about that choice until they answer: no build, no new plan and no other questions",
             "A violation that names `verify.md` or `security-solution.md` is fixed by replacing the value in that report with a placeholder, and the plan isn't edited",
-            "If the answer changes a plan line, or a step cannot be done as written, stay stopped, with no further step: note the header's `signed-off-hash` and hand to `powerops-plan` section 10, which makes the edit; you never edit the plan body.",
+            // M94: the build goes on with the steps that don't depend on the answer, instead of staying stopped.
+            "If the answer changes a plan line, or a step cannot be done as written, go on only with steps that don't depend on it, and note the header's `signed-off-hash` and hand to `powerops-plan` section 10, which makes the edit; you never edit the plan body.",
             "A change to scope, data, security or cost gets a fresh `powerops-review-plan` before that sign-off; another amendment may keep the old review, which the sign-off names as stale.",
-            "The person signs off with `powerops plan sign-off`, and `amendment: <line> (answered by: person)` is logged. Resume only once the header's `signed-off-hash` differs from the one you noted and `powerops plan status` shows no violation for the plan.",
+            // M94: the held steps and every tenant write wait for the new sign-off, not the whole build.
+            "The person signs off with `powerops plan sign-off`, and `amendment: <line> (answered by: person)` is logged. Resume the held steps, and any tenant write, only once the header's `signed-off-hash` differs from the one you noted and `powerops plan status` shows no violation for the plan.",
             "An agent's answer may settle a product choice the person's brief delegates, and nothing else; it never changes the plan: a change to a plan line needs the person's answer.",
         ];
 
         Assert.All(wording, s => Assert.Contains(s, text));
         // The hand-off comes before the log: the order of the step hid it in the 1.0 trial (F44).
         Assert.True(text.IndexOf("hand to `powerops-plan` section 10", StringComparison.Ordinal) < text.IndexOf("Last, log each such question", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Implement_skill_builds_under_the_sign_off_in_dev_and_stops_for_each_stop_class()
+    {
+        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        var rule7 = text[text.IndexOf("\n7. ", StringComparison.Ordinal)..text.IndexOf("\n8. ", StringComparison.Ordinal)];
+        string[] opening = ["the sign-off is your authority", "once per deployment"];
+        string[] perAgent =
+        [
+            "After the sign-off, build without asking; ask in chat only for rule 7's stop list and the deployment yes, and wait for the answer.",
+            "the sign-off covers what rule 7 says; for a stop-list item or a deployment with no person to answer, skip that step and report it.",
+        ];
+        string[] preflight =
+        [
+            "**Preflight**",
+            "Ask once, in one message, for everything missing",
+            "start no trial",
+            "allocated to the Dev environment",
+            "`sign-off covers:`",
+            "The last `sign-off covers:` line counts",
+            "the sign-off covers no tenant write and each one is a stop",
+        ];
+        string[] authorities =
+        [
+            "The stop list wins over both",
+            "For the plan's `signed-off-hash` and the Dev environment only",
+            "A `Test` or `Prod` header gives the sign-off no tenant write",
+            "With `environment: null`, it covers the environment the person names as Dev at the preflight, and nothing before they do",
+            "the header's `environment` is `Dev`, or an older plan's name that its `Environments and route` calls Dev",
+            "through the route and in the solution the plan names",
+            "that the `sign-off covers:` Log line lists",
+            "A deployment is one saved `deploy plan` file to one target environment",
+            "a re-planned or changed plan file, a changed `signed-off-hash` or a `blocked` report",
+            "--apply --require-reviews",
+            "The sign-off never covers an `--apply`, in Dev too",
+            "in full, word for word",
+            "never edit a hook",
+        ];
+        // One phrase per stop class, in order.
+        string[] stops =
+        [
+            "MFA, consent, terms or credential prompt",
+            "a write no Step names",
+            "(3) any delete",
+            "licence, trial or capacity",
+            "any tenant-level or admin write",
+            "a write outside Dev that no deployment yes covers",
+            "a person, group or account the plan doesn't name",
+            "a finding only a person may accept",
+        ];
+
+        Assert.All(opening.Concat(perAgent).Concat(preflight), s => Assert.Contains(s, text));
+        Assert.All(authorities.Concat(stops), s => Assert.Contains(s, rule7));
+        Assert.StartsWith("\n7. Write to a tenant only under an authority below; anything they don't cover stops. The stop list wins over both", rule7);
+        Assert.All(stops.Zip(stops.Skip(1)), p => Assert.True(rule7.IndexOf(p.First, StringComparison.Ordinal) < rule7.IndexOf(p.Second, StringComparison.Ordinal), p.Second));
+        Assert.Contains("go on only with steps that don't depend on it", text);
+        Assert.Contains("an undo that deletes is the person's", text);
+        Assert.Contains("`plan <first 12 characters of the signed-off-hash>, step <n>`", text);
+        Assert.Contains("`none: slip`", text);
+        Assert.DoesNotContain("Ask each time", text);
+        Assert.DoesNotContain("explicit go-ahead", text);
+        var finish = text[text.IndexOf("## 4. Finish", StringComparison.Ordinal)..text.IndexOf("## 5. Power BI", StringComparison.Ordinal)];
+        var powerBi = text[text.IndexOf("## 5. Power BI", StringComparison.Ordinal)..text.IndexOf("## Per agent", StringComparison.Ordinal)];
+        Assert.Contains("covered by the sign-off", finish);
+        Assert.Contains("covered by the sign-off", powerBi);
+        Assert.Contains("the Dev workspace the plan names", powerBi);
+        Assert.Contains("other rows follow rule 7 of section 3", finish);
+        Assert.Contains("stops under rule 7 class 6", powerBi);
+    }
+
+    [Fact]
+    public void Plan_skill_says_what_the_sign_off_covers_logs_it_and_starts_the_build()
+    {
+        var text = PlanSkill();
+        var signOff = text[text.IndexOf("## 9. Sign-off", StringComparison.Ordinal)..text.IndexOf("## 10.", StringComparison.Ordinal)];
+        var step3 = signOff[signOff.IndexOf("\n3. ", StringComparison.Ordinal)..signOff.IndexOf("\n4. ", StringComparison.Ordinal)];
+        var step4 = signOff[signOff.IndexOf("\n4. ", StringComparison.Ordinal)..signOff.IndexOf("\n5. ", StringComparison.Ordinal)];
+        var fast = FastPathOf(text);
+        var b = fast[fast.IndexOf("- **B**", StringComparison.Ordinal)..fast.IndexOf("- **C**", StringComparison.Ordinal)];
+
+        Assert.Contains("Signing off lets the build make every Dev write the Steps name", step3);
+        Assert.Contains("log `sign-off covers: Dev writes the Steps name; Dev settings: <list or none>`", step4);
+        Assert.Contains("start `powerops-implement`", step4);
+        Assert.Contains("the two lines of section 9 step 3", b);
+        var references = SkillsCommand.Shipped().Where(f => f.Key.StartsWith("powerops-plan/references/", StringComparison.Ordinal)).ToList();
+        Assert.NotEmpty(references);
+        Assert.All(references, r => Assert.DoesNotContain("needs the user's yes", r.Value));
+        Assert.All(references, r => Assert.DoesNotContain("each with the user's yes", r.Value));
+        Assert.DoesNotContain("a write that needs a yes", SkillsCommand.Shipped()["powerops-plan/references/power-bi.md"]);
     }
 
     [Fact]
@@ -454,12 +547,12 @@ public partial class SkillsCommandTests : IDisposable
     [Fact]
     public void Plan_skill_stays_under_its_word_ceiling()
     {
-        // M41: the 2,483 words the skill had before the ledger, plus 300. M81: plus 50 for the engagement rule and the callable-tool rule. Decision 52: plus 40 for the three options and the pick. M91: plus 494 for the option format, the defaults batch, the budget and the licence read. M93: plus 144 for the early sketch, the redone pick and the unproven line. On ASCII text a split on whitespace counts as wc -w does.
+        // M41: the 2,483 words the skill had before the ledger, plus 300. M81: plus 50 for the engagement rule and the callable-tool rule. Decision 52: plus 40 for the three options and the pick. M91: plus 494 for the option format, the defaults batch, the budget and the licence read. M93: plus 144 for the early sketch, the redone pick and the unproven line. M94: plus 108 for the sign-off lines, their log line and the start of the build. On ASCII text a split on whitespace counts as wc -w does.
         var text = SkillsCommand.Shipped()["powerops-plan/SKILL.md"];
         var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
 
         Assert.All(text, c => Assert.True(c < 128, $"non-ASCII character U+{(int)c:X4}"));
-        Assert.InRange(words, 1, 3507);
+        Assert.InRange(words, 1, 3615);
     }
 
     private static string PlanSkill() => SkillsCommand.Shipped()["powerops-plan/SKILL.md"];

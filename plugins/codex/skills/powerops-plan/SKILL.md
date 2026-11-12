@@ -178,7 +178,7 @@ Use this when the user asks to build without a signed-off plan, or `powerops-imp
 4. Log the route in `decisions.md` as a normal question.
 5. Show one lettered menu. A or B keeps the `default:` lines: log `defaults kept: <N>`.
    - **A** approve the draft, then review and sign-off as usual (section 7, from step 3).
-   - **B** approve, skip the review and sign off now. Log it (section 7 step 4), set `status: approved` and `review: skipped`, run section 7 step 6 and wait for the answer, then do section 9 step 4 (no second menu: this answer is the sign-off). The Assumptions list stands in for the coverage check.
+   - **B** approve, skip the review and sign off now. Log it (section 7 step 4), set `status: approved` and `review: skipped`, run section 7 step 6 and wait for the answer, then do section 9 step 4 (no second menu: this answer is the sign-off). Give the two lines of section 9 step 3 with the menu. The Assumptions list stands in for the coverage check.
    - **C** ask question rounds instead (section 6).
    - **D** sketch the screens first.
 
@@ -190,8 +190,8 @@ Run this after the review, or when the user says "sign off".
 
 1. Run `powerops plan status docs/plans/<name> --json`.
 2. Show: the open and admin question counts; the unresolved findings in `review.md` (those with `Resolution: open`, by R-number); its first three lines and its `stale` value.
-3. Ask once, lettered: **A** sign off now, **B** go back (resolve findings, or more rounds). When there is no `review.md`, add **C** skip the review and sign off: set `review: skipped` and log it. Before the menu, findings that only need a design assumption confirmed, none High, none a tenant, licence or data fact, go in one question, "Confirm these N assumptions?": **Confirm all** (recommended) or **Change some**. Give each confirmed one `Resolution: accepted` and log `assumptions confirmed: R<n>, ...` with its mark. The plan body doesn't change.
-4. On A or C, run `powerops plan sign-off docs/plans/<name>`, then `powerops plan status docs/plans/<name>`, and show the result.
+3. Before the menu, say what A or C lets the build do, in two lines: "Signing off lets the build make every Dev write the Steps name, without asking, and change these Dev settings: <each environment-wide Dev setting a Step names, or none>. It still stops for sign-ins, writes outside the plan, deletes, licences, tenant-level writes, and one yes per deployment." Ask once, lettered: **A** sign off now, **B** go back (resolve findings, or more rounds). When there is no `review.md`, add **C** skip the review and sign off: set `review: skipped` and log it. Before the menu, findings that only need a design assumption confirmed, none High, none a tenant, licence or data fact, go in one question, "Confirm these N assumptions?": **Confirm all** (recommended) or **Change some**. Give each confirmed one `Resolution: accepted` and log `assumptions confirmed: R<n>, ...` with its mark. The plan body doesn't change.
+4. On A or C, run `powerops plan sign-off docs/plans/<name>`, then `powerops plan status docs/plans/<name>`, and show the result. After the sign-off, log `sign-off covers: Dev writes the Steps name; Dev settings: <list or none>` with the answer's mark, then start `powerops-implement` in this session unless the person said to stop at the plan.
 5. If sign-off refuses, show why and fix the cause with the user.
 
 To resolve a finding, change the plan if needed and set its line in `review.md` to `Resolution: fixed` or `Resolution: accepted`. Add a short reason after it. Log each acceptance.

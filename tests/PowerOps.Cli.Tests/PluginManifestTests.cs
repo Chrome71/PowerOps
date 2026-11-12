@@ -198,6 +198,12 @@ public class PluginManifestTests
     }
 
     [Fact]
+    public void Specialist_rules_run_tenant_writes_under_the_signed_off_plan_or_a_yes_for_a_stop_or_a_deployment()
+    {
+        Assert.Contains("under the signed-off plan, or after the person's yes for a stop-list item or a deployment", PluginAgents.SharedRules(Lf(Repo("CLAUDE.md"))));
+    }
+
+    [Fact]
     public void Workflow_logic_enforces_a_valid_record_at_the_write_not_in_a_flow_after_it()
     {
         Assert.Contains("a second line, not the control", Lf(Repo(".claude", "agents", "powerops-workflow-logic.md")));
