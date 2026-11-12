@@ -1,8 +1,8 @@
 ---
-status: approved
+status: signed-off
 review: done
-signed-off: null
-signed-off-hash: null
+signed-off: 2026-11-12
+signed-off-hash: 095e0efd3f6bfc64d8b6af67089b7ed7119734163d9f2352de9aefc66853f19b
 environment: null
 depth: standard
 supersedes: null
@@ -22,7 +22,7 @@ Done when:
    - **The stop list**, each with one concrete question, holding back only what depends on the answer, and winning over both authorities even when a Step names the item: (1) a sign-in, MFA, consent, terms or credential prompt the session can't complete, or a connection only the person can create; (2) anything outside the signed plan: a write no Step names, another route or target, a plan line that must change, and the effect of a slip (journal it, tell the person, undo only after their yes, and never by a delete); (3) any delete; (4) buying, assigning or starting a licence, trial or capacity; (5) any tenant-level or admin write; (6) a write outside Dev that no deployment yes covers; (7) a write that reaches a person, group or account the plan doesn't name; (8) a finding only a person may accept. A gate hook's block is a stop too: the agent never edits a hook, permission rule or setting to get past it.
 2. Amendments stay person-signed. While one waits, the build goes on with steps that don't depend on it, and no tenant write runs while `powerops plan status` shows the plan changed since sign-off, or its status is not `signed-off` or `implementing` (rule 6).
 3. `powerops-plan` shows, before the sign-off answer on every path (section 9's menu and the fast path's B), two lines on what the sign-off lets the build do, which Dev settings it changes and what still stops; it logs `sign-off covers: Dev writes the Steps name; Dev settings: <list or none>` with the answer's mark; and after the sign-off it starts `powerops-implement` in the same session unless the person said to stop at the plan.
-4. `powerops-implement` starts with one preflight (the Dev environment's name when the header holds a role, sign-in probes, the `### Licences` table re-checked, test accounts, person-made connections, and, for a plan with no `sign-off covers:` line marked `(answered by: person)`, one question whether the sign-off may cover the Steps' Dev writes) that asks once, in one message, for everything missing, then builds with status lines and no questions.
+4. `powerops-implement` starts with one preflight (the Dev environment's name when the header is null or a role, sign-in probes, the `### Licences` table re-checked, test accounts, person-made connections, and, for a plan with no `sign-off covers:` line marked `(answered by: person)`, one question whether the sign-off may cover the Steps' Dev writes) that asks once, in one message, for everything missing, then builds with status lines and no questions.
 5. Each `writes.md` row carries its Authority: `plan <first 12 characters of signed-off-hash>, step <n>` for a sign-off write, `person: yes to <what>` for a deployment or a stop-list item, `none: slip` for a slip; `powerops plan status` warns about a row whose Authority cell is empty or missing, and an older journal's `person: yes to step 3` row, a table with no Authority column and a file with no rows read as before.
 6. Every other text that says a Dev write needs a yes each time says the new model (rows 11 to 16), with decision 65 (numbered at merge) in `docs/BUILD-PLAN.md`.
 7. The fix plan's Done grep prints only the lines Constraints lists, and `dotnet test --filter "SkillsCommandTests|PlanCheckerTests|PluginManifestTests|HandoffDocTests"` passes.
@@ -106,7 +106,7 @@ None.
 
 - Re-checked on `e664e7f`: `grep -n -i -E "writes\.md|authority|consent|go-ahead|ask each|person's yes|user's yes|--require-reviews" skills/powerops-verify/SKILL.md skills/powerops-review-security/SKILL.md` prints nothing, so the frozen roles need no change.
 - `PlanStatusReport` prints every warning `PlanChecker` returns (`PlanStatusReport.cs`, the `warning:` line and the summary count), so row 1 needs no report change.
-- Verified on 2026-11-12 on Learn ([About Power Apps per app plans](https://learn.microsoft.com/power-platform/admin/about-powerapps-perapp)): "Admin allocates Power Apps per app plans to an environment"; they are not assigned to users in the Microsoft 365 admin center, and are assigned when an app in that environment is shared. So a held per-app plan proves nothing about the Dev environment until it is allocated there.
+- Verified on 2026-11-12 on Learn (the page "About Power Apps per app plans"; its address is in the Log): "Admin allocates Power Apps per app plans to an environment"; they are not assigned to users in the Microsoft 365 admin center, and are assigned when an app in that environment is shared. So a held per-app plan proves nothing about the Dev environment until it is allocated there.
 - Plans signed off before M94, or by an agent, have no `sign-off covers:` line marked `(answered by: person)`; the preflight asks once whether the sign-off may cover the Steps' Dev writes (decision 65). Without that yes, rule 7's old reading holds: every write stops (class 2 has no authority to rest on).
 - The weekly smoke job (`skills-smoke.yml`) skipped its last scheduled run (2026-11-09, 3 seconds, "ANTHROPIC_API_KEY is not set"), so M93's follow-up (the weekly wall time and scenario 6's order check) can't be read from CI; step 5's local run gives the wall time.
 - `claude` is installed and signed in on this machine; one smoke run is under the owner's approval in the fix plan. The Codex smoke is not run (cost).
