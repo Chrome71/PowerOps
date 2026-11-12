@@ -856,3 +856,9 @@ Made in the [M92 plan](plans/m92-redact-default/plan.md); its `decisions.md` wei
 Made in the [M93 plan](plans/m93-design-process/plan.md); its `decisions.md` weighs the options.
 
 64. **The sketch options come in the question rounds.** Under `standard` and `deep`, `powerops-plan` starts `powerops-prototype` in `options` mode once `Users`, the route and a `Screens` line exist and asks the pick in the next round, no later than the first data question, and a route change after the pick runs the options again; `quick` and the fast path keep it at approval. Approval redoes `pick <letter>` when the Theme block or `Screens` changed after the pick, and the person approves the redrawn file. This amends the timing of decision 52; its sign-off rule is unchanged.
+
+## Decisions, M98 apply read-back (2026-11-12)
+
+Made in the [M98 plan](plans/m98-apply-readback/plan.md); its `decisions.md` weighs the options.
+
+65. **`deploy apply` doesn't take `pac`'s exit code alone as done: it reads back each imported solution's version.** After good imports it reads the target once, also for a plan with no flows, and exits `1` (status `imported`) when the target doesn't hold an imported solution or shows another version than the zip's; before, such a run exited `0`. A failed read after a flowless import now exits `3` instead of `0`. The read is the full target read of `deploy plan`, so a flowless plan now pays for it: up to 50 layer reads per managed solution, and any failure there is an exit `3` after good imports. That `pac solution import` can exit `0` after a failed import is reported by practitioners, not documented; that a completed import, or a staged upgrade, leaves the zip's version was not yet observed in a tenant (first chance: trial 4's R-readback line). Where it is wrong, the error is a false exit `1` after an import that stands, which sends the reader to the solution history, never a false exit `0`. `managed` is reported, not compared.
