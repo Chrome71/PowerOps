@@ -1,11 +1,11 @@
 ---
-status: approved
-review: pending
+status: signed-off
+review: done
 environment: null
 depth: standard
 supersedes: null
-signed-off: null
-signed-off-hash: null
+signed-off: 2026-11-12
+signed-off-hash: 1ccacff2b774e99e65f78ff764a933e880741e973eec00d78a91dfaa1723eb34
 ---
 
 # M100: Secret-handling rules for Text environment variables and flow actions
