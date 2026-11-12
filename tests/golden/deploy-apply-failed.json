@@ -39,5 +39,6 @@
     }
   ],
   "flows": [],
-  "agents": []
+  "agents": [],
+  "agentsReadAt": null
 }

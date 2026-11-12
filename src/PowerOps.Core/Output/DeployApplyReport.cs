@@ -57,13 +57,18 @@ public static class DeployApplyReport
             text.Append($"agent {C(a.Solution)}/{C(a.Name)}: {C(what)}\n");
         }
 
+        if (result.AgentsReadAt is not null)
+        {
+            text.Append($"note: agents read at {C(result.AgentsReadAt)}; an agent can still become published after this read (40 seconds after the import in one run): check in Copilot Studio, or with drift.\n");
+        }
+
         writer.Write(text.Append(Summary(result)).Append('\n').ToString());
     }
 
     /// <summary>Writes the JSON report (stable property order, nulls written, "\n" line endings, trailing newline).</summary>
     public static void WriteJson(DeployApplyResult result, TextWriter writer)
     {
-        var doc = new Doc(JsonOutput.SchemaVersion, result.Tool, result.Applied, result.Target, result.Hash, result.Status, result.Message, result.AppliedAt, result.Executor, result.Approval, result.Solutions, result.Flows, result.Agents);
+        var doc = new Doc(JsonOutput.SchemaVersion, result.Tool, result.Applied, result.Target, result.Hash, result.Status, result.Message, result.AppliedAt, result.Executor, result.Approval, result.Solutions, result.Flows, result.Agents, result.AgentsReadAt);
         writer.Write(JsonSerializer.Serialize(doc, Options) + "\n");
     }
 
@@ -87,5 +92,5 @@ public static class DeployApplyReport
 
     private sealed record Doc(
         int SchemaVersion, string Tool, bool Applied, string Target, string Hash, string Status, string? Message, string? AppliedAt, string Executor, Approval? Approval,
-        IReadOnlyList<AppliedSolution> Solutions, IReadOnlyList<AppliedFlow> Flows, IReadOnlyList<AppliedAgent> Agents);
+        IReadOnlyList<AppliedSolution> Solutions, IReadOnlyList<AppliedFlow> Flows, IReadOnlyList<AppliedAgent> Agents, string? AgentsReadAt);
 }

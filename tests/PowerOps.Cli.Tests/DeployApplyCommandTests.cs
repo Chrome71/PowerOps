@@ -1441,6 +1441,154 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Empty(agents.Calls);
     }
 
+    // ---- agentsReadAt (M89) -------------------------------------------------------------------------------------
+
+    private const string Stamp = @"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z";
+
+    private static readonly Regex NoteLine = new($@"^note: agents read at ({Stamp}); an agent can still become published after this read \(40 seconds after the import in one run\): check in Copilot Studio, or with drift\.$", RegexOptions.Multiline);
+
+    private static string Now() => DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static void AssertNoReadTime(Outcome json, Outcome text)
+    {
+        var doc = Json(json);
+        Assert.True(doc.ContainsKey("agentsReadAt"));
+        Assert.Null(doc["agentsReadAt"]);
+        Assert.DoesNotContain("note: agents read", text.Out);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_read_agent_found_or_missing_has_the_time_it_was_read_between_the_apply_time_and_the_end_of_the_run(bool found)
+    {
+        AgentZip(Folder);
+        MakePlan();
+        var agents = new FakeAgents { Answer = _ => found ? [("demo_Helper", true)] : [] };
+
+        var r = ApplyAgents(new FakeTarget(), new FakePac(), agents.Read, "--apply", "--format", "json");
+        var after = Now();
+
+        Assert.Equal(0, r.Code);
+        var doc = Json(r);
+        var readAt = (string?)doc["agentsReadAt"];
+        Assert.Matches($"^{Stamp}$", readAt);
+        Assert.True(string.CompareOrdinal((string?)doc["appliedAt"], readAt) <= 0);
+        Assert.True(string.CompareOrdinal(readAt, after) <= 0);
+        Assert.Equal(found ? "found" : "missing", AgentOf(doc).State);
+        Assert.Equal("agentsReadAt", doc.Last().Key);
+    }
+
+    [Fact]
+    public void The_text_report_has_the_note_with_the_read_time_after_the_agent_lines_and_before_the_summary()
+    {
+        AgentZip(Folder);
+        MakePlan();
+        var agents = new FakeAgents { Answer = _ => [("demo_Helper", true)] };
+
+        var r = ApplyAgents(new FakeTarget(), new FakePac(), agents.Read, "--apply");
+        var after = Now();
+
+        Assert.Equal(0, r.Code);
+        var lines = r.Out.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var note = Assert.Single(lines, l => l.StartsWith("note: agents read", StringComparison.Ordinal));
+        var match = NoteLine.Match(note);
+        Assert.True(match.Success, note);
+        var applied = Regex.Match(r.Out, $"^Applied at: ({Stamp})$", RegexOptions.Multiline).Groups[1].Value;
+        Assert.True(string.CompareOrdinal(applied, match.Groups[1].Value) <= 0);
+        Assert.True(string.CompareOrdinal(match.Groups[1].Value, after) <= 0);
+        var at = Array.IndexOf(lines, note);
+        Assert.StartsWith("agent PowerOpsAgentTools/demo_Helper: found", lines[at - 1], StringComparison.Ordinal);
+        Assert.Equal(["applied"], lines[(at + 1)..]);
+    }
+
+    [Fact]
+    public void The_dry_run_and_a_refusal_have_no_read_time_and_no_note()
+    {
+        AgentZip(Folder);
+        MakePlan();
+        var agents = new FakeAgents { Answer = _ => [("demo_Helper", true)] };
+
+        AssertNoReadTime(
+            ApplyAgents(new FakeTarget(), new FakePac(), agents.Read, "--format", "json"),
+            ApplyAgents(new FakeTarget(), new FakePac(), agents.Read));
+
+        File.AppendAllText(Path.Combine(Folder, "PowerOpsAgentTools.settings.json"), " ");
+        AssertNoReadTime(
+            ApplyAgents(new FakeTarget(), new FakePac(), agents.Read, "--apply", "--format", "json"),
+            ApplyAgents(new FakeTarget(), new FakePac(), agents.Read, "--apply"));
+        Assert.Empty(agents.Calls);
+    }
+
+    [Fact]
+    public void An_agent_read_that_throws_has_no_read_time_and_no_note_and_changes_nothing_else()
+    {
+        AgentZip(Folder);
+        MakePlan();
+
+        var json = ApplyAgents(new FakeTarget(), new FakePac(), (_, _, _) => throw new HttpRequestException("SENTINEL"), "--apply", "--format", "json");
+        var text = ApplyAgents(new FakeTarget(), new FakePac(), (_, _, _) => throw new HttpRequestException("SENTINEL"), "--apply");
+
+        AssertNoReadTime(json, text);
+        Assert.Equal((0, 0), (json.Code, text.Code));
+        Assert.Equal("imported", (string?)Json(json)["status"]);
+        Assert.Null((string?)Json(json)["message"]);
+        Assert.EndsWith("\nwarning: the agent read-back failed: failed.\n", json.Err);
+        Assert.Contains("agent PowerOpsAgentTools/demo_Helper: not read\n", text.Out);
+        Assert.EndsWith("\napplied\n", text.Out);
+    }
+
+    [Fact]
+    public void A_partial_failure_has_the_read_time_of_the_solution_that_went_through_and_a_failed_first_import_has_none()
+    {
+        AgentZip(Folder);
+        SmallZip(Folder, "Second", requires: ["PowerOpsAgentTools (1.0)"]);
+        MakePlan();
+        var agents = new FakeAgents { Answer = _ => [("demo_Helper", false)] };
+
+        var partial = ApplyAgents(new FakeTarget(), new FakePac { Answer = n => n == 1 ? new PacResult(true, false, 1, "", "boom\n") : null }, agents.Read, "--apply", "--format", "json");
+        var first = ApplyAgents(new FakeTarget(), new FakePac { Answer = _ => new PacResult(true, false, 1, "", "boom\n") }, agents.Read, "--apply", "--format", "json");
+
+        Assert.Equal(3, partial.Code);
+        Assert.Equal("failed", (string?)Json(partial)["status"]);
+        Assert.Matches($"^{Stamp}$", (string?)Json(partial)["agentsReadAt"]);
+        Assert.Equal(3, first.Code);
+        Assert.Null(Json(first)["agentsReadAt"]);
+        Assert.True(Json(first).ContainsKey("agentsReadAt"));
+        Assert.Single(agents.Calls);
+    }
+
+    [Fact]
+    public void An_agent_whose_name_powerops_does_not_send_is_not_read_and_has_no_read_time_and_no_web_call()
+    {
+        // A copy of the fixture with a schema name the reader refuses; the tracked fixture is never edited.
+        var source = Path.Combine(Scratch("agent"), "unpacked");
+        var fixture = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "agents", "dataverse-tools");
+        foreach (var file in Directory.EnumerateFiles(fixture, "*", SearchOption.AllDirectories))
+        {
+            var to = Path.Combine(source, Path.GetRelativePath(fixture, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+            File.Copy(file, to);
+        }
+
+        var bot = Path.Combine(source, "bots", "demo_Helper", "bot.xml");
+        File.WriteAllText(bot, File.ReadAllText(bot).Replace("schemaname=\"demo_Helper\"", "schemaname=\"demo Helper\""));
+        SolutionZip.Create(source, Path.Combine(Folder, "PowerOpsAgentTools.zip"));
+        File.WriteAllText(
+            Path.Combine(Folder, "PowerOpsAgentTools.settings.json"),
+            """{"ConnectionReferences":[{"LogicalName":"demo_Helper.shared_commondataserviceforapps.shared-commondataser-0000001","ConnectionId":"fake-connection-id","ConnectorId":"/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"}]}""");
+        MakePlan();
+        var live = new LiveAgents();
+
+        var json = ApplyAgents(new FakeTarget(), new FakePac(), live.Read, "--apply", "--format", "json");
+        var text = ApplyAgents(new FakeTarget(), new FakePac(), live.Read, "--apply");
+
+        Assert.Equal((0, 0), (json.Code, text.Code));
+        Assert.Equal(("not-read", null), AgentOf(Json(json)));
+        AssertNoReadTime(json, text);
+        Assert.Empty(live.WebCalls);
+    }
+
     // ---- --require-reviews (M75) -------------------------------------------------------------------------------
 
     private string SeedZipPath => Path.Combine(Folder, "PowerOpsSeed.zip");
