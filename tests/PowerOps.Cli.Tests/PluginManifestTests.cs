@@ -209,6 +209,15 @@ public class PluginManifestTests
         Assert.Contains("a second line, not the control", Lf(Repo(".claude", "agents", "powerops-workflow-logic.md")));
     }
 
+    // M95: the step that says what to read names the build standard, not only checklist item 16.
+    [Fact]
+    public void Workflow_logic_reads_the_build_standard_in_its_step_2()
+    {
+        var step = Lf(Repo(".claude", "agents", "powerops-workflow-logic.md")).Split('\n').Single(l => l.StartsWith("2. Read the plan's", StringComparison.Ordinal));
+
+        Assert.Contains("build-standard.md", step);
+    }
+
     [Fact]
     public void A_changed_missing_or_extra_agent_copy_is_stale()
     {

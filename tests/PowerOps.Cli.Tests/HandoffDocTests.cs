@@ -257,4 +257,24 @@ public partial class HandoffDocTests
 
         Assert.Contains("`deploy-hash:`", step);
     }
+
+    // M95: canvas packages stay out of Git by default, the canvas checks run on the zip, and CI plans where the reviewed zip is.
+    [Fact]
+    public void Step_3_keeps_canvas_packages_out_of_git_and_steps_4_and_7_follow()
+    {
+        var page = Page();
+        var step3 = page[page.IndexOf("3. **Export, and unpack into XML only.**", StringComparison.Ordinal)..page.IndexOf("\n4. **Analyze", StringComparison.Ordinal)];
+        var step4 = page.Split('\n').Single(l => l.StartsWith("4. **Analyze", StringComparison.Ordinal));
+        var step7 = page.Split('\n').Single(l => l.StartsWith("7. **Plan the import in CI.**", StringComparison.Ordinal));
+
+        Assert.Contains("```gitignore\n", step3);
+        var fence = step3[(step3.IndexOf("```gitignore\n", StringComparison.Ordinal) + "```gitignore\n".Length)..];
+        var lines = fence[..fence.IndexOf("```", StringComparison.Ordinal)].Split('\n').Select(l => l.Trim()).ToList();
+        Assert.All(new[] { "*.msapp", "/deploy/*.zip", "/review/" }, l => Assert.Contains(l, lines));
+        Assert.All(new[] { "a rebuild exports again from Dev and never packs from Git", "reads `stale (solution)` in a checkout without the `.msapp`", "check the canvas app on the zip (step 4)" }, s => Assert.Contains(s, step3));
+        Assert.DoesNotContain("don't push that folder to a public repository", step3);
+        Assert.Contains("`powerops analyze ContosoApp.zip`", step4);
+        Assert.Contains("`powerops test ", step4);
+        Assert.All(new[] { "is not the reviewed zip, whose hash no report records", "`require-reviews: 'false'`" }, s => Assert.Contains(s, step7));
+    }
 }

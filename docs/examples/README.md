@@ -152,7 +152,7 @@ Recommended:
 
 ## How it runs
 
-On a pull request that touches `deploy/` (GitHub checks the workflow's `paths` against the whole diff of the PR, so every later push to that PR runs it again, even a push that changes nothing in `deploy/`; a folder of **managed** solution zips that your own build makes, for example `pac solution pack --packagetype Managed` from an unpack made with `--packagetype Both`), the job waits for an approval, then:
+On a pull request that touches `deploy/` (GitHub checks the workflow's `paths` against the whole diff of the PR, so every later push to that PR runs it again, even a push that changes nothing in `deploy/`; a folder of **managed** solution zips that your own build makes, for example a managed export, `pac solution export --managed`: under the default of [Hand-off step 3](../HANDOFF.md#the-steps) a checkout doesn't hold the canvas packages a pack would need), the job waits for an approval, then:
 
 1. installs `pac` and signs in with GitHub OIDC, with no environment;
 2. deletes this PR's environments from older runs that have finished (`ephemeral-sweep.sh` with `POWEROPS_SWEEP_PR`), so leftovers per PR stay bounded;
@@ -186,7 +186,7 @@ Apps, tables and flows with built-in actions only work. An environment variable 
 2. Create the GitHub environment `ephemeral` with required reviewers and "Prevent self-review". With self-review prevented, a second person has to approve each run.
 3. Add the two federated credentials below, the secrets and the variables.
 4. Copy the two workflows and the two scripts (and the settings script, if you need it). Change the paths if you move the scripts, and the `deploy/` folder if yours has another name.
-5. Make `deploy/` hold the managed zips for the PR. The recipe does not pack them.
+5. Make `deploy/` hold the managed zips for the PR. The recipe does not pack them. This recipe is the exception to the default of [Hand-off step 3](../HANDOFF.md#the-steps), which keeps the zips out of Git, because each zip holds the canvas apps' `.msapp` files and an `.msapp` caches the URL of the environment it was made in: use it in a private repository only, and leave the `/deploy/*.zip` line out of its `.gitignore`.
 
 ## The two federated credentials
 
