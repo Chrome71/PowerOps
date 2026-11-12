@@ -47,11 +47,11 @@ public class DriftCompareTests
     [Fact]
     public void Dropped_types_in_a_compared_pair_are_listed_once_in_type_order()
     {
-        var dev = Snap(components: [new(300, G1, null), new(29, G2, null), new(10087, G3, null)]);
+        var dev = Snap(components: [new(300, G1, null), new(29, G2, null), new(10087, G3, null), new(9, G4, null)]);
         var test = Snap("Test", components: [new(1, G1, null)]);
 
         Assert.Equal(
-            [$"component type 1 (table) {TypeLine}", $"component type 300 (canvas app) {TypeLine}", $"component type 10087 {TypeLine}"],
+            [$"component type 1 (table) {TypeLine}", $"component type 9 (global choice) {TypeLine}", $"component type 300 (canvas app) {TypeLine}", $"component type 10087 {TypeLine}"],
             DriftCompare.NotCompared([dev, test, test with { Environment = "Prod" }]));
     }
 
@@ -155,6 +155,7 @@ public class DriftCompareTests
 
     [Theory]
     [InlineData(1)]
+    [InlineData(9)]
     [InlineData(62)]
     [InlineData(80)]
     [InlineData(300)]
@@ -316,6 +317,8 @@ public class DriftCompareTests
 
     private static string CountLine(string name, string counts) => $"component type {name} not compared: its ids can change on import, so it is counted, not compared by id ({counts})";
 
+    private static string SettingLine(string name, string counts) => $"component type {name} not compared: Microsoft may own a setting's definition in the target, so a solution can list it in one environment and not another; counted ({counts})";
+
     [Fact]
     public void The_same_agent_under_other_type_numbers_and_ids_gives_no_item()
     {
@@ -364,11 +367,11 @@ public class DriftCompareTests
     [Fact]
     public void Two_components_with_one_number_but_other_definition_names_never_match()
     {
-        var dev = Snap(components: [new(10090, G1, null, "settingdefinition")], agents: []);
+        var dev = Snap(components: [new(10090, G1, null, "customapi")], agents: []);
         var test = Snap("Test", components: [new(10090, G1, null, "AppSetting")], agents: []);
 
         var item = One(dev, test);
-        Assert.Equal((DriftKind.ComponentMissing, "settingdefinition " + G1.ToString("D")), (item.Kind, item.Subject));
+        Assert.Equal((DriftKind.ComponentMissing, "customapi " + G1.ToString("D")), (item.Kind, item.Subject));
         Assert.Equal([CountLine("AppSetting", "1 Dev: 0, 2 Test: 1")], DriftCompare.NotCompared([dev, test]));
     }
 
@@ -381,6 +384,50 @@ public class DriftCompareTests
         Assert.Empty(Run(dev, test));
         Assert.Equal(
             [CountLine("appsetting", "1 Dev: 1, 2 Test: 0"), CountLine("botcomponent_workflow", "1 Dev: 1, 2 Test: 1"), CountLine("bot_botcomponent", "1 Dev: 1, 2 Test: 1")],
+            DriftCompare.NotCompared([dev, test]));
+    }
+
+    [Fact]
+    public void A_setting_definition_on_one_side_only_is_counted_not_compared()
+    {
+        var with = Snap(components: [new(10090, G1, null, "settingdefinition")], agents: []);
+        var without = Snap("Test", agents: []);
+
+        Assert.Empty(Run(with, without));
+        Assert.Equal([SettingLine("settingdefinition", "1 Dev: 1, 2 Test: 0")], DriftCompare.NotCompared([with, without]));
+        var (dev, test) = (without with { Environment = "Dev" }, with with { Environment = "Test" });
+        Assert.Empty(Run(dev, test));
+        Assert.Equal([SettingLine("settingdefinition", "1 Dev: 0, 2 Test: 1")], DriftCompare.NotCompared([dev, test]));
+    }
+
+    [Fact]
+    public void A_global_choice_on_one_side_only_is_no_item_in_a_pair_compared_by_name()
+    {
+        var with = Snap(components: [new(9, G1, null)], agents: []);
+        var without = Snap("Test", agents: []);
+        var line = $"component type 9 (global choice) {TypeLine}";
+
+        Assert.Empty(Run(with, without));
+        Assert.Equal([line], DriftCompare.NotCompared([with, without]));
+        var (dev, test) = (without with { Environment = "Dev" }, with with { Environment = "Test" });
+        Assert.Empty(Run(dev, test));
+        Assert.Equal([line], DriftCompare.NotCompared([dev, test]));
+    }
+
+    [Fact]
+    public void After_a_first_import_a_new_choice_id_and_a_setting_definition_give_no_item_but_a_value_and_a_missing_flow_still_do()
+    {
+        var dev = Snap(
+            components: [new(9, G1, null), new(10090, G2, null, "SettingDefinition"), new(10090, G3, null, "appsetting")],
+            variables: [new("v", "h1")], flows: [new(G1, "demo_Flow", "on")], agents: []);
+        var test = Snap("Test", components: [new(9, G2, null), new(10090, G4, null, "appsetting")], variables: [new("v", "h2")], agents: []);
+
+        var items = Run(dev, test);
+        Assert.Equal([(DriftKind.VariableValue, "v"), (DriftKind.FlowMissing, "demo_Flow")], items.Select(i => (i.Kind, i.Subject)));
+        Assert.All(items, i => Assert.Equal((2, true), (i.Position, i.Drift)));
+        Assert.True(PowerOps.Core.Output.DriftReport.HasDrift(items));
+        Assert.Equal(
+            [$"component type 9 (global choice) {TypeLine}", CountLine("appsetting", "1 Dev: 1, 2 Test: 1"), SettingLine("SettingDefinition", "1 Dev: 1, 2 Test: 0")],
             DriftCompare.NotCompared([dev, test]));
     }
 
