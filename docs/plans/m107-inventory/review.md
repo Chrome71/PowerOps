@@ -1,12 +1,16 @@
-plan-hash: c0d00c608af5f751cedb710b9e054e78bc33957daade1bc32984dd43048f5dc7
+plan-hash: acf6504ec38d3d9d9eb70975bb1fcd13efeb993c1cee659e71e2e69ded31321e
 model: claude-opus-5-5
 fresh-context: yes
 
-Environment facts were not read: `tenant: offline`, so `powerops plan facts` was not run. Reviewed from the repo at `a8d4a03`, the upgrade plan's section "M107" and its section 11 WATCH notes, and a scratch count over `tests/fixtures/` (Python, counts and names only; the zips were listed, not counted for flows).
+Second pass, on revision 2 (`eea973c`). Environment facts were not read: `tenant: offline`, so `powerops plan facts` was not run. Reviewed from the repo, the upgrade plan's section "M107" and its section 11 WATCH notes, and a scratch count over `tests/fixtures/` with the real readers (a `dotnet run` file app on `SolutionDiscovery.Find`, `SolutionLoader.Load` and `FlowDefinition.Parse`, applying Data rows 2, 2a and 4 as written; it printed counts, connector ids and section sizes only). The reviewer saw its own first pass and the coordinator's note that the plan was revised, not the planning chat.
 
-Tools checked: `powerops`, `pac` and `dotnet` are on PATH; `reports/leakscan.sh` exists in the main checkout; the `powerops-researcher` and `fable-reviewer` agents exist. `powerops plan status docs/plans/m107-inventory`: approved, review pending, 0 open questions, 0 admin questions, 0 violations.
+Tools checked: `powerops`, `pac` and `dotnet` are on PATH; `reports/leakscan.sh` exists in the main checkout; the `powerops-researcher` and `fable-reviewer` agents exist; the test files the plan names exist (`EcosystemDocsTests.cs`, `EcosystemWatchTests.cs`, `PackedToolTests.cs`, `Readers/TempFolder.cs`, `Output/ReportTests.cs`). `powerops plan status docs/plans/m107-inventory`: approved, review pending, 0 open questions, 0 admin questions, 0 violations (one warning: the earlier review was stale).
 
-Not applicable to this plan, which changes the PowerOps CLI rather than a Power Platform solution: items 1 (solution and publisher), 2 (connection references and environment variables), 3 (licences: the `### Licences` heading is present and the work uses none), 4 (DLP), 5 and 6 (route, managed), 7 (delegation), 8 (security roles), 11 (no table, list, flow or screen; `Won't build` is present). Item 9: every step has a done condition and a check. Item 10: no open questions; the Log names the areas not asked. Item 13: each driver's Microsoft claim has a dated Learn source in Assumptions. The plan and `decisions.md` hold no URL, GUID, email or person's name.
+Data row 8 against the recount: every line holds. `alm-makers` http-action, 11 HTTP actions, 14 request triggers, 7 connectors all unclassified, child flows; `alm-sample` custom-connector, dataverse-in-canvas-app and model-driven-app, 6 connectors and 5 unclassified; `coe-auditlogs` custom-connector, 3 connectors and 2 unclassified, 1 trigger; `equipment-checkout` model-driven-app and no connector; `powerops-seed/v1` and `v2` dataverse-in-canvas-app and 1 connector; the YAML seeds no canvas app read, no driver, 1 connector; `flow-limits`, `flow-secrets` and `flowtests/skipped-body` http-action with 1 HTTP action and 1 trigger; `flow-navigation` and `flowtests/capture/solution` 1 trigger and no driver; `agents/dataverse-tools` 1 connector; each `agents/new-ui` zip 2 connectors, no driver, and 2 reference names that match the GUID or 32-hex pattern; `Contoso_sample` 1 connector; the other zips and `core-portal` nothing. No desktop flow call, no `variable` endpoint and no canvas app with null `Connections` or `Tables` in any fixture.
+
+Data row 2a against the fixtures: form (b) holds for both. `alm-sample`'s canvas app connection and `coe-auditlogs`' connection references and flows use `shared_` + the lower-cased name with `_` as `-` + `-5f` + a hex suffix, and both resolve. Form (c) is not seen through the reader (R11).
+
+Not applicable, as in the first pass (a CLI change, not a Power Platform solution): items 1 to 8 and 11. Item 9: every step has a done condition and a check. Item 10: no open questions; the Log names the areas not asked. Item 13: each driver's claim has a dated Learn source. The plan and `decisions.md` hold no URL, GUID, email or person's name.
 
 ## Findings
 
@@ -14,58 +18,80 @@ Not applicable to this plan, which changes the PowerOps CLI rather than a Power 
 
 #### R1. The default output prints GUIDs from the fixtures, so Done when 5 and Data row 8 cannot hold
 - Area: 13 Buildability (two plan lines that can't both hold); redaction (upgrade plan section 4 and its WATCH note)
-- Finding: Data row 2 prints connector ids (the last `/`-segment of `ConnectorId`) and connection reference logical names, and Data row 3 redacts only `scheme://` URLs (`Redaction.Text`). The fixtures hold GUIDs in exactly those fields: two connection references (in `alm-sample` and `coe-auditlogs`) have a `connectorid` that is a bare GUID (the custom connector's component id), so `connectors[].id` and `notClassified[].id` are GUIDs; the agent connection references of `agents/new-ui/*.zip` have logical names ending in a hyphenated GUID or a 32-hex-digit run, which `references` prints. Real exports name agent connection references this way. So Done when 5 ("by default none holds ... a GUID") fails on the plan's own golden, and Data row 8's "any GUID ... in the goldens stops the build" stops it predictably. Done when 5 also cites "tests on every fixture", but Data row 7 tests only "standard" on the fixtures; the GUID, host and address check on the fixtures is a one-time grep in step 4.
-- Suggested fix: Decide and write in Data rows 2 and 3: a connector id that is a GUID is matched (braces removed, ignoring case) to a root component or missing dependency of type 372 and printed as that custom connector's schema name, else as a fixed text; GUID-shaped runs in printed names (hyphenated and 32-hex) are replaced with a placeholder unless `--show-values`, and always in the MCP tool. Add a Data row 7 test that runs the command on `tests/fixtures` in all three formats, by default, and asserts no hyphenated or 32-hex GUID, no email address and no URL other than the Learn sources. Predict the replaced names in Data row 8.
+- Finding: Names printed as the export spells them carried GUIDs into the goldens: the `agents/new-ui` connection reference names end in a hyphenated GUID or a 32-hex run. The first pass also named GUID `connectorid` values in `alm-sample` and `coe-auditlogs`. That part was wrong: the reader takes the direct `connectorid` child, which is the `shared_…` path there.
+- Suggested fix: Replace GUID-shaped runs and addresses in names by default, and test the fixtures' default output for them.
+- Resolution: fixed in revision 2. Data row 3 replaces hyphenated GUIDs (with or without braces), 32-hex runs and email addresses in names by default and always in the MCP tool. Data row 7 adds a test that the default output on `tests/fixtures`, in all three formats, holds none of them. Data row 8 predicts the `[id]` names in the `agents/new-ui` zips, and the recount confirms two per zip.
+
+#### R10. Two Constraints lines still state the old, wider claim and contradict Done when 5
+- Area: 13 Buildability (two plan lines that can't both hold)
+- Finding: Constraints say "no output, golden or MCP result holds a host, header value, GUID or address by default" and "The word 'standard' never appears in any output". Done when 5, `Won't build` and Data row 7 now say the opposite for names: a name holding a bare host or the word "standard" prints as written, and a test pins that ("a flow named with the word Standard prints it as written"). The build can satisfy only one of each pair.
+- Suggested fix: Reword the two Constraints lines to Done when 5's terms: no host of an endpoint and no header, query or id value by default, with GUIDs, addresses and URLs in names replaced; the command's own text never says "standard", while names print as written.
 - Resolution: open
 
 ### Medium
 
 #### R2. Custom connectors are not matched to the ids that flows, apps and references use
 - Area: 13 Buildability; correctness of `notClassified`
-- Finding: Data row 2 leaves a connector out of `notClassified` only when its id equals a custom connector's name, ignoring case. In the fixtures the connector of a custom connector is named `shared_` + the schema name in lower case with `_` turned into `-` + `-<hash>` (for example `admin_5Foffice-20365-20management-20api` is used as `shared_admin-5foffice-20365-20management-20api-5ff18d20b7ec3dbffe` in `coe-auditlogs`, and `cat_5Fenvironmentvariableconnector` as `shared_cat-5fenvironmentvariableconnector-5f354898fb9b10ca45` by `alm-sample`'s canvas app), or the component's GUID (R1). Neither equals the schema name, so both fixtures' custom connectors are listed as "tier not classified" next to a `custom-connector` driver. The Data row 7 case "a custom connector used by a flow is not [in notClassified]" uses made-up names that match exactly, so it passes while the golden shows the opposite.
-- Suggested fix: Specify the match in Data row 2: the GUID id (R1), and the `shared_<schema lower, _ to ->-<suffix>` api name form. Add Data row 7 cases built from the `coe-auditlogs` and `alm-sample` shapes, and say in Data row 8 that neither fixture's custom connector is in `notClassified`.
-- Resolution: open
+- Finding: The id used for a custom connector didn't equal its schema name, so both fixtures' custom connectors would have been listed as "tier not classified".
+- Suggested fix: Specify the observed id forms and test them.
+- Resolution: fixed in revision 2. Data row 2a form (b) resolves both fixtures' custom connectors in the recount, so neither is in `notClassified`. Data row 7 tests the forms; Data row 8 says a `notClassified` entry for a custom connector stops the build.
 
-#### R3. Data row 8's expected golden counts are incomplete, so its stop rule fires on lines that can be predicted
-- Area: 9 Testability; the golden counts (WATCH note "Golden counts")
-- Finding: The rows checked against `tests/fixtures/` miss: `dataverse-in-canvas-app` in `alm-sample` (its canvas app connects to `shared_commondataserviceforapps`), in `powerops-seed/v1` and `v2` (their canvas app's `CdsDependencies` names a type-1 table), and in `powerops-seed-yaml/v1` and `v2` if the YAML reader fills `Tables` from the same text; `model-driven-app` in `equipment-checkout` (an `AppModules/` entry). `requestTriggers` lists only `alm-makers` and `alm-sample`, while the Log counts one `Button` each in `coe-auditlogs`, `flow-limits`, `flow-navigation`, `flow-secrets` and two in `flowtests`. "flowtests" is two solutions: `flowtests/capture/solution` (one `Button`) and `flowtests/skipped-body` (one `Button`, the one literal HTTP action). The HTTP counts themselves are right (`alm-makers` 11: 4 literal, 7 expression; one literal each in `flow-limits`, `flow-secrets`, `flowtests/skipped-body`).
-- Suggested fix: Recount and list Data row 8 per solution display path (as the goldens show it), for every section and driver, including the drivers above and the R1 and R2 effects; keep the stop rule for anything not listed.
-- Resolution: open
+#### R3. Data row 8's expected golden counts are incomplete
+- Area: 9 Testability; the golden counts
+- Finding: Drivers in `alm-sample`, `powerops-seed`, `equipment-checkout` and the request triggers of six solutions were missing, and "flowtests" was two solutions.
+- Suggested fix: Recount per solution display path.
+- Resolution: fixed in revision 2. Data row 8 is a per-solution table, and the recount with the real readers matches it line by line.
 
 #### R4. Done when 5 claims more about names than the plan's redaction does or its tests can prove
-- Area: 13 Buildability; redaction and the WATCH note "No output contains 'standard'"
-- Finding: Names of flows, actions, triggers, apps, tools, connectors and references are printed as the export spells them, with only `scheme://` URLs replaced (Data row 3). A name holding "Standard", a bare host such as `api.contoso.com`, or an email address is printed, so "No output ... holds the word 'standard'" and "none holds a host ... or an email address" are false for such an export. The tests (Data row 7) prove the claims only for the fixtures and for URL parts the reader never keeps.
-- Suggested fix: Either narrow Done when 5 and Constraints to the command's own text (headings, notes, `need` lines, field names, the schema) and the values the reader never keeps, saying that names are printed verbatim apart from URLs and GUIDs (R1), or filter names too. In both cases, add a made-up Data row 7 case with a flow and an action whose names hold "Standard", a bare host and an address, and assert the chosen behaviour.
-- Resolution: open
+- Area: 13 Buildability; redaction and the WATCH note on "standard"
+- Finding: Names holding "standard", a bare host or an address were printed, against Done when 5's wording.
+- Suggested fix: Narrow the claim or filter names, and pin the behaviour with a test.
+- Resolution: fixed in revision 2 for Done when 5, `Won't build` and Data row 7: addresses are replaced, and "standard" and bare hosts in names are printed and pinned. The Constraints section was not updated: see R10.
 
 #### R5. `PackedToolTests` asserts 12 MCP tools and is not among the files the change must reach
 - Area: 9 Testability; AGENTS.md "Add a command"
-- Finding: `tests/PowerOps.Cli.Tests/PackedToolTests.cs` line 120 asserts the packed server lists 12 tools. It runs in a plain `dotnet test` (skipped only with `POWEROPS_SKIP_E2E=1`), so a 13th tool fails it. Step 4 and Data row 7 name `McpCommandTests.cs` but not this file, and do not say where `inventory` goes in `McpCommandTests.ToolNames` and the tool list (the order is asserted and fixed in `mcp-tools.txt`).
-- Suggested fix: Add `PackedToolTests.cs` (12 to 13) to step 4's files, and say where `inventory` sits in `McpCommand.Tools` (for example after `analyze`, among the offline tools) and in `ToolNames`.
-- Resolution: open
+- Finding: `PackedToolTests.cs` asserts 12 tools, and the tool's position was not given.
+- Suggested fix: Name the file, and place the tool.
+- Resolution: fixed in revision 2. Step 4 and Data row 7 name `PackedToolTests.cs` (13 tools); Data rows 6 and 7 place `inventory` after `diff` in `McpCommand.Tools`, `ToolNames` and the golden.
 
 ### Low
 
 #### R6. Error output: stderr redaction and the solution path in a flow parse error
-- Area: 9 Testability; AGENTS.md "Add a reader" step 4 (errors start with the path)
-- Finding: Data row 6 copies `analyze`'s exit codes and notes but does not say that stderr goes through `Redaction.Writer` unless `--show-values`, as `analyze` does. And if the report parses flows (through `RuleHelpers.CloudFlows`) after the shared load loop, a bad flow's message starts with the flow's file, not the solution path that `RunFound` adds around `Analyzer.Run`.
-- Suggested fix: In Data row 6, say that stderr is redacted unless `--show-values`, and that an unreadable flow's message starts with the solution path, as in `analyze`; test both in `InventoryCommandTests`.
-- Resolution: open
+- Area: 9 Testability; AGENTS.md "Add a reader" step 4
+- Finding: stderr redaction and the solution path prefix of a flow error were not specified.
+- Suggested fix: Specify both and test them.
+- Resolution: fixed in revision 2 (Data row 6, with tests in Data row 7).
 
 #### R7. Custom pages are not addressed
 - Area: 13 Buildability
-- Finding: Data row 4 fires `dataverse-in-canvas-app` on "a canvas app, not a code app", and Data row 2 lists any non-code app as a `canvasApp` user. A custom page (`CanvasAppType` 2) lives in a model-driven app and would fire that driver and be named a canvas app.
-- Suggested fix: Say how type 2 is treated (for example its own user kind, `customPage`, and no `dataverse-in-canvas-app`, since its app is covered by `model-driven-app`), and add a Data row 7 case.
-- Resolution: open
+- Finding: A custom page would have fired `dataverse-in-canvas-app` and been named a canvas app.
+- Suggested fix: Say how type 2 is treated.
+- Resolution: fixed in revision 2. Custom pages are a `customPage` user with no `dataverse-in-canvas-app` (Data rows 2 and 4), tested in Data row 7.
 
 #### R8. Five of the drivers' Learn pages are quoted but not watched
-- Area: Ecosystem (upgrade plan section 4, "M107's licence drivers add their pages to sources.json")
-- Finding: Data row 9 adds two pages to `docs/ecosystem/sources.json` (license-designation and the Types page). The output also cites the Power Apps licensing FAQs, the Power Platform licensing FAQs, the Power Automate licensing FAQ, the Desktop flows connector reference, the failed licence check page and the HTTP Webhook training unit, which nothing watches.
-- Suggested fix: Add them as `manual` sources, or record in the Log why two pages are enough.
-- Resolution: open
+- Area: Ecosystem
+- Finding: Only two cited pages were added to `sources.json`.
+- Suggested fix: Add the rest, or record why not.
+- Resolution: fixed in revision 2. The drivers' sources are trimmed to six pages, and Data row 9 adds all six (one `github-commits`, five `manual`).
 
 #### R9. The "Windows and macOS" runbook in `docs/BUILD-PLAN.md` says the server lists 12 tools
 - Area: Docs
-- Finding: The runbook's steps 4 and 5 tell a person to expect 12 tools in `/mcp`; after M107 there are 13.
-- Suggested fix: Add `docs/BUILD-PLAN.md`'s runbook lines to Data row 9, or word them without the count.
+- Finding: The runbook's tool count goes stale.
+- Suggested fix: Update it.
+- Resolution: fixed in revision 2 (Done when 8, Data row 9).
+
+#### R11. Assumptions say custom connector GUIDs are observed as `connectorid` in both fixtures; the reader sees neither
+- Area: 13 Buildability (a stated observation that doesn't hold)
+- Finding: The Assumptions line on custom connector ids says form (c) of Data row 2a, a type-372 component's GUID as a `connectorid`, is observed in `alm-sample` and `coe-auditlogs`. Neither reaches the report:
+  - In `alm-sample`, the GUID is in the custom connector's own definition (`Connectors/*.xml`), not in a connection reference.
+  - In `coe-auditlogs`, it sits under `customconnectorid/connectorid`, while `ReadConnectionReference` reads only the direct `connectorid` child, which is the `shared_…` path.
+
+  Form (c) is harmless and is tested with made-up data, but it rests on no observed export.
+- Suggested fix: In Assumptions, say that only form (b) is observed through the reader and that (c) is kept as a guard for a bare GUID `connectorid`, unobserved. Or drop (c) if no export is known to need it.
+- Resolution: open
+
+#### R12. Which test writes the `inventory.*` goldens is stated two ways
+- Area: 9 Testability
+- Finding: Done when 7 says the goldens are "the command on `tests/fixtures`", and Data row 7 lists "the goldens" among the `InventoryCommandTests` cases. Data row 8 says a Core test writes them with `Golden.RepoRoot` as the base of the display paths, as `ReportTests` does. Two tests writing one golden would fight in update mode, and paths relative to the current folder differ from paths relative to `Golden.RepoRoot`.
+- Suggested fix: Name one writer, presumably `InventoryReportTests` as in Data row 8. Word Done when 7 to match, and take "the goldens" out of the `InventoryCommandTests` list, or make that test compare without writing.
 - Resolution: open
