@@ -212,6 +212,13 @@ public class FixtureRuleTests
         Assert.Equal(["Quarterly cleanup", "Get_status", "Recurrence", "Start_and_wait_for_an_approval"], f.Select(x => x.Component));
         Assert.Contains("'Catch'", f[0].Message);
         Assert.Empty(Analyzer.NotChecked(s));
+        Assert.All(f.SelectMany(x => new[] { x.Message, x.Component }), t =>
+        {
+            Assert.DoesNotContain("contoso", t, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("http", t, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("@", t, StringComparison.Ordinal);
+            Assert.DoesNotMatch(@"[0-9a-f]{8}-[0-9a-f]{4}-", t);
+        });
     }
 
     [Fact]
