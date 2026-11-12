@@ -1,11 +1,12 @@
-plan-hash: 6f88bb73a619b796e2443cf4be3e9945004f90e681da88320412727eb08cd483
+plan-hash: 085beaa7f6ddd235e1b5c5ebb73cd394ff4859eca6bd5c6f75bd5cc8edb556d4
 model: claude-opus-5-5
 fresh-context: yes
 
 Environment facts were not read (`powerops plan facts` was not run: no confirmation that `pac` is signed in, and `tenant: offline`).
-Tools checked: `powerops` (with `plan status` and `plan sign-off`) and `dotnet` are on PATH; the `fable-reviewer` and `powerops-researcher` agents are in this session's agent list; the leak scan is R1.
-Checklist items 1 to 8 (solution and publisher, connection references and variables, licences, DLP, route, managed or unmanaged, delegation, security roles) are not applicable: the plan changes PowerOps's own `drift` comparison and docs, makes no tenant call and names no app, table, flow or environment. Open questions: 0; questions for your admin: 0.
-The plan's line references (`DriftCompare.cs:94`, `:126-128`, `:222-224`, `:233-235`; `DriftCompareTests.cs:365-373`; `drift.schema.json:52`; `docs/COMMANDS.md:371`, `:379-380`, `:385`, `:402-404`) and its grep claims (callers of `DriftCompare`, `CountLine` and `TypeLine` in the test file) match the worktree.
+Tools checked: `powerops` (with `plan status` and `plan sign-off`) and `dotnet` are on PATH; the `fable-reviewer` and `powerops-researcher` agents are in this session's agent list; `reports/leakscan.sh` and `reports/trial-3/chain/chain-rules.md` exist in the main checkout, and the leak scan's usage (`<base> <head>`, a control line and a hit count) matches Done when 6.
+Checklist items 1 to 8 (solution and publisher, connection references and variables, licences, DLP, route, managed or unmanaged, delegation, security roles) are not applicable: the plan changes PowerOps's own `drift` comparison and docs, makes no tenant call and names no app, table, flow or environment. Item 11 (size) is not applicable for the same reason. Open questions: 0; questions for your admin: 0.
+The plan's line references (`DriftCompare.cs:94`, `:126-128`, `:222-224`, `:233-235`; `DriftCompareTests.cs:365-373`; `DriftCommandTests.cs:247`; `drift.schema.json:52`; `McpCommand.cs:241`; `docs/COMMANDS.md:371`, `:379-380`, `:385`, `:402-404`) and its grep claims match the worktree: `DriftCompare` is called only by `DriftCommand` and `DriftReport`; no golden or drift fixture holds type 9 or `settingdefinition` (the sample definitions name 10090 `appsetting`); `settingdefinition` appears in tests only in `DriftCompareTests.cs` and in the by-number CLI test; the left-out type lists exist only in `DriftCompare.cs`, `docs/COMMANDS.md` and the schema description.
+This review read the earlier `review.md` and the `decisions.md` Log. Earlier findings: R1 (leak scan and chain rules location) closed by Done when 6 and Assumptions; R3 (item count) closed by Goal and Done when 3; R4 (type 9 on one side, by name) closed by test (e); R6 (test (c) order) closed. R2 (URLs) was answered by keeping them on purpose; the checklist still asks for it to be reported, so it is R1 below. R5 was answered in Q1; its stated reason is R2 below.
 
 ## Findings
 
@@ -15,40 +16,30 @@ No findings.
 
 ### Medium
 
-#### R1. The leak scan and the chain rules are not in the worktree
-- Area: 12. Tools
-- Finding: Done when 6 and step 4 require "the leak scan" but name no command, and Constraints cite `reports/trial-3/chain/chain-rules.md`. `reports/` is excluded from git (`.git/info/exclude`), so neither `reports/leakscan.sh` nor the chain rules exist in the worktree the build runs in; both exist only in the main checkout. Assumptions does not say so, and an executor in the worktree cannot run the check as written.
-- Suggested fix: name the command as M85 did (`bash <main checkout>/reports/leakscan.sh origin/main HEAD`, with the control found and 0 hits as the pass), and add to Assumptions that the leak scan and `chain-rules.md` live in the main checkout's git-excluded `reports/`, outside the worktree.
-- Resolution: open
+No findings.
 
 ### Low
 
-#### R2. The plan holds URLs
+#### R1. The plan holds URLs
 - Area: URLs, GUIDs, emails and names
-- Finding: the first Assumptions bullet holds three `<url>` links (Microsoft Learn pages), marked `plan-status: allow`. They are public documentation, not tenant values, but the checklist reports every URL.
-- Suggested fix: keep them if the allow marker is the intended exception for public sources, and say so in `decisions.md`; otherwise cite the page titles only.
-- Resolution: open
+- Finding: the first Assumptions bullet holds three `<url>` links to public Microsoft Learn pages, marked `plan-status: allow`. They hold no tenant value, and the `decisions.md` Log (answer to the earlier R2) says they stay on purpose, but the checklist reports every URL.
+- Suggested fix: none needed in the plan; record this finding as accepted with the Log's existing reason.
+- Resolution: accepted: public Microsoft Learn pages, the Assumptions' sources, marked plan-status: allow on purpose (decisions.md Log).
 
-#### R3. Goal and Done when 3 count the trial's items differently from the change
-- Area: 9. Testability
-- Finding: the trial gave four items (global choice `component-missing` and `component-extra`, setting definition `component-missing`, one `variable-value`). The plan removes three and keeps one, yet Goal says it "stops the first two ... keeps the third as drift" (read literally, the third is the setting definition, which the plan removes), and Done when 3 says "two of the four items go, two stay". The `flow-missing` in Done when 3 and test (d) is not one of the trial's items.
-- Suggested fix: in Goal, say the global choice's two items and the setting definition's item go and the `variable-value` stays; in Done when 3, say "three of the trial's four items go and `variable-value` stays; a missing flow, added as a control, still gives `flow-missing`".
-- Resolution: open
-
-#### R4. Type 9 by name is tested only with ids on both sides
-- Area: 9. Testability
-- Finding: Done when 1 says type 9 gives no item "by name and by number". Row 4 (a) adds `9` to the theory `Types_whose_ids_change_on_import_are_left_out_of_the_component_kinds`, whose snapshots have no agents, so it runs only pairs compared by number; test (d) covers a pair compared by name only with a type 9 component on both sides. A pair compared by name with type 9 on one side only is not tested.
-- Suggested fix: in row 4 (a), also run the theory's one-side-only cases with `agents: []` on both snapshots, or add that case to test (d).
-- Resolution: open
-
-#### R5. Why a global choice gets no count is not recorded
+#### R2. Q1's reason for giving a global choice no count does not hold
 - Area: 10. Unanswered areas
-- Finding: Q2 rejects leaving a setting definition out "with no count" because it "would hide a custom setting definition that is really missing", but Q1 leaves type 9 out by id with no count, so a global choice that is really missing from the target (for example after a failed import) now gives no item and no count. The trade is not weighed in `decisions.md`.
-- Suggested fix: add to Q1 why no count is acceptable for type 9 (the same treatment as tables, apps and site maps; a name comparison is 1.0.x), or count it.
-- Resolution: open
+- Finding: Q1 says a count of global choices "would need the pair's names and still could not tell a renamed choice from a missing one". Type 9 is a fixed number below 10000, so a count of type 9 components per environment needs no names, and a count of `1 Dev: 1, 2 Test: 0` would show a missing choice the same way Q2 keeps a missing setting definition visible. The trade-off is recorded, but its stated reason is wrong, so the record does not show why type 9 gets the tables' treatment (no count) instead of the setting definition's.
+- Suggested fix: in Q1, give the real reason (the same treatment as tables, apps and site maps, the fix plan's choice and the smallest change; a missing choice also fails the import of anything that uses it), or count type 9 like the counted kinds.
+- Resolution: accepted: Q1's reason corrected in decisions.md; type 9 stays left out like tables, apps and site maps, as the fix plan says.
 
-#### R6. Test (c)'s "other order" is ambiguous
+#### R3. The live subject of the setting-definition item has no named follow-up
 - Area: 9. Testability
-- Finding: row 4 (c) says "in the other order none either" and gives `1 Dev: 0, 2 Test: 1` for it, which means the component held only by the second snapshot, not the snapshots swapped (that would print `1 Test: ..., 2 Dev: ...`).
-- Suggested fix: write "and with the component only in Test" instead of "in the other order".
-- Resolution: open
+- Finding: the change rests on the setting definition's definition name being `settingdefinition` (any case), observed once in trial 2 and not quoted in the trial-3 record; Assumptions says only a live run can check it and that it is outside this milestone. No step names who checks it or when, so if the live subject is another name the trial's `component-missing` item would come back unnoticed until the next trial.
+- Suggested fix: in step 4, add a follow-up to the hand-over note and the Log: the next live `drift` run after an import confirms the setting definition's item is gone and its counted line names `settingdefinition`.
+- Resolution: accepted: the live check of the name is a follow-up for the next live drift run (trial 4), logged in decisions.md and the hand-over.
+
+#### R4. Row 4's test letters and the Test column are out of step
+- Area: 9. Testability
+- Finding: row 4 lists its tests as (a), (b), (c), (e), (d), and row 1's Test column cites only "row 4 (a), (b)", though (d) and (e) also pin type 9; row 2's cites (c), (d) only.
+- Suggested fix: reletter the tests in order and cite every test that pins each row (row 1: (a), (b), (d), (e); row 2: (c), (d)).
+- Resolution: accepted: the letters are labels and every row-4 test is in the executor's brief; rows 1 and 2 are also pinned by (d) and (e) (decisions.md Log).
