@@ -1,14 +1,14 @@
-plan-hash: acf6504ec38d3d9d9eb70975bb1fcd13efeb993c1cee659e71e2e69ded31321e
+plan-hash: cb373a94eeacd91f59b3080d79067ed9ffc280afda1f5d52b6a888a181065f80
 model: claude-opus-5-5
 fresh-context: yes
 
-Second pass, on revision 2 (`eea973c`). Environment facts were not read: `tenant: offline`, so `powerops plan facts` was not run. Reviewed from the repo, the upgrade plan's section "M107" and its section 11 WATCH notes, and a scratch count over `tests/fixtures/` with the real readers (a `dotnet run` file app on `SolutionDiscovery.Find`, `SolutionLoader.Load` and `FlowDefinition.Parse`, applying Data rows 2, 2a and 4 as written; it printed counts, connector ids and section sizes only). The reviewer saw its own first pass and the coordinator's note that the plan was revised, not the planning chat.
+Third pass, on revision 3 (`0be112f`). Earlier passes: revision 1 (R1 to R9) and revision 2 (R10 to R12). This pass checked the changes from revision 2: Done when 7, Data rows 2a, 3, 7 and 8, Constraints, Assumptions and steps 3 and 4. Environment facts were not read: `tenant: offline`, so `powerops plan facts` was not run. Reviewed from the repo, the upgrade plan's section "M107" and its section 11 WATCH notes, and a scratch count over `tests/fixtures/` with the real readers (a `dotnet run` file app on `SolutionDiscovery.Find`, `SolutionLoader.Load` and `FlowDefinition.Parse`, applying Data rows 2, 2a and 4 as written; it printed counts, connector ids and section sizes only). The reviewer saw its own first pass and the coordinator's note that the plan was revised, not the planning chat.
 
-Tools checked: `powerops`, `pac` and `dotnet` are on PATH; `reports/leakscan.sh` exists in the main checkout; the `powerops-researcher` and `fable-reviewer` agents exist; the test files the plan names exist (`EcosystemDocsTests.cs`, `EcosystemWatchTests.cs`, `PackedToolTests.cs`, `Readers/TempFolder.cs`, `Output/ReportTests.cs`). `powerops plan status docs/plans/m107-inventory`: approved, review pending, 0 open questions, 0 admin questions, 0 violations (one warning: the earlier review was stale).
+Tools checked: `powerops`, `pac` and `dotnet` are on PATH; `reports/leakscan.sh` exists in the main checkout; the `powerops-researcher` and `fable-reviewer` agents exist; the test files the plan names exist (`EcosystemDocsTests.cs`, `EcosystemWatchTests.cs`, `PackedToolTests.cs`, `Readers/TempFolder.cs`, `Output/ReportTests.cs`). `powerops plan status docs/plans/m107-inventory`: approved, review pending, 0 open questions, 0 admin questions, 0 violations; after this review is written, 0 warnings.
 
 Data row 8 against the recount: every line holds. `alm-makers` http-action, 11 HTTP actions, 14 request triggers, 7 connectors all unclassified, child flows; `alm-sample` custom-connector, dataverse-in-canvas-app and model-driven-app, 6 connectors and 5 unclassified; `coe-auditlogs` custom-connector, 3 connectors and 2 unclassified, 1 trigger; `equipment-checkout` model-driven-app and no connector; `powerops-seed/v1` and `v2` dataverse-in-canvas-app and 1 connector; the YAML seeds no canvas app read, no driver, 1 connector; `flow-limits`, `flow-secrets` and `flowtests/skipped-body` http-action with 1 HTTP action and 1 trigger; `flow-navigation` and `flowtests/capture/solution` 1 trigger and no driver; `agents/dataverse-tools` 1 connector; each `agents/new-ui` zip 2 connectors, no driver, and 2 reference names that match the GUID or 32-hex pattern; `Contoso_sample` 1 connector; the other zips and `core-portal` nothing. No desktop flow call, no `variable` endpoint and no canvas app with null `Connections` or `Tables` in any fixture.
 
-Data row 2a against the fixtures: form (b) holds for both. `alm-sample`'s canvas app connection and `coe-auditlogs`' connection references and flows use `shared_` + the lower-cased name with `_` as `-` + `-5f` + a hex suffix, and both resolve. Form (c) is not seen through the reader (R11).
+Data row 2a against the fixtures: form (b) holds for both. `alm-sample`'s canvas app connection and `coe-auditlogs`' connection references and flows use `shared_` + the lower-cased name with `_` as `-` + `-5f` + a hex suffix, and both resolve. Deleting the GUID form changes no count: it matched nothing in the second-pass recount. The three new notes check out: the longest name wins on a match, the patterns run in linear time with a long-name test, and names are made distinct before redaction (Data row 7 tests the first two). No text about the deleted form remains in the plan.
 
 Not applicable, as in the first pass (a CLI change, not a Power Platform solution): items 1 to 8 and 11. Item 9: every step has a done condition and a check. Item 10: no open questions; the Log names the areas not asked. Item 13: each driver's claim has a dated Learn source. The plan and `decisions.md` hold no URL, GUID, email or person's name.
 
@@ -26,7 +26,7 @@ Not applicable, as in the first pass (a CLI change, not a Power Platform solutio
 - Area: 13 Buildability (two plan lines that can't both hold)
 - Finding: Constraints say "no output, golden or MCP result holds a host, header value, GUID or address by default" and "The word 'standard' never appears in any output". Done when 5, `Won't build` and Data row 7 now say the opposite for names: a name holding a bare host or the word "standard" prints as written, and a test pins that ("a flow named with the word Standard prints it as written"). The build can satisfy only one of each pair.
 - Suggested fix: Reword the two Constraints lines to Done when 5's terms: no host of an endpoint and no header, query or id value by default, with GUIDs, addresses and URLs in names replaced; the command's own text never says "standard", while names print as written.
-- Resolution: open
+- Resolution: fixed in revision 3. Both Constraints lines are restated "as Done when 5 states it": no value of a URL, header, parameter or id is read; a host only with `--show-values`; names redacted by default; and the command's own text and the goldens never hold "standard", while a maker's name prints as written.
 
 ### Medium
 
@@ -88,10 +88,10 @@ Not applicable, as in the first pass (a CLI change, not a Power Platform solutio
 
   Form (c) is harmless and is tested with made-up data, but it rests on no observed export.
 - Suggested fix: In Assumptions, say that only form (b) is observed through the reader and that (c) is kept as a guard for a bare GUID `connectorid`, unobserved. Or drop (c) if no export is known to need it.
-- Resolution: open
+- Resolution: fixed in revision 3. Form (c) and its test are deleted. Assumptions now say that only the `shared_<name>-5f<hex>` form reaches the reader in any fixture, and that `coe-auditlogs`' GUID sits under `customconnectorid`, unread.
 
 #### R12. Which test writes the `inventory.*` goldens is stated two ways
 - Area: 9 Testability
 - Finding: Done when 7 says the goldens are "the command on `tests/fixtures`", and Data row 7 lists "the goldens" among the `InventoryCommandTests` cases. Data row 8 says a Core test writes them with `Golden.RepoRoot` as the base of the display paths, as `ReportTests` does. Two tests writing one golden would fight in update mode, and paths relative to the current folder differ from paths relative to `Golden.RepoRoot`.
 - Suggested fix: Name one writer, presumably `InventoryReportTests` as in Data row 8. Word Done when 7 to match, and take "the goldens" out of the `InventoryCommandTests` list, or make that test compare without writing.
-- Resolution: open
+- Resolution: fixed in revision 3. Done when 7 and Data row 8 name `InventoryReportTests` as the one writer; Data row 7 says `InventoryCommandTests` has no golden of its own; step 4 adds the golden test, and step 3 leaves it to step 4.

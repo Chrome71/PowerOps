@@ -1,11 +1,11 @@
 ---
-status: approved
+status: signed-off
 review: done
 environment: null
 depth: standard
 supersedes: null
-signed-off: null
-signed-off-hash: null
+signed-off: 2026-11-12
+signed-off-hash: cb373a94eeacd91f59b3080d79067ed9ffc280afda1f5d52b6a888a181065f80
 ---
 
 # M107: `powerops inventory`, what a solution connects to and what makes it premium
