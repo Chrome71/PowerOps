@@ -368,7 +368,8 @@ A saved snapshot holds none of these items, so they appear for a live environmen
 A flow that is off in every environment is not drift.
 A flow, variable or reference that is missing is reported once under its own kind, not again as a component.
 
-Tables (type 1), canvas apps (300), model-driven apps (80) with their sitemaps (62), environment variables (380 and 381) and connection references get new ids when they are imported, so they are compared by name through their own kinds or not at all, and only other components are compared by id.
+Tables (type 1), canvas apps (300), model-driven apps (80) with their sitemaps (62), environment variables (380 and 381) and connection references get new ids when they are imported, and a global choice (9) was seen to get a new one on a first managed import (trial 3, 2026-11-11), so they are compared by name through their own kinds or not at all, and only other components are compared by id.
+A global choice is not compared at all, so one that is missing from the target gives no item, only the `notCompared` line.
 App settings get new ids too: type 10087 is left out by id only when a snapshot has no type names (a version-1 file), and with names an app setting is recognized by its definition name (see below).
 
 `unmanaged-layer`, `reference-unbound` and `also-in-solution` are checked in every environment, the first one included.
@@ -376,13 +377,14 @@ Connection ids are not compared, because a connection belongs to one environment
 Default values of environment variables are not compared either.
 
 A variable whose value differs by design makes every run exit `1`, and there is no option to accept it; with JSON output, filter `items` by `kind`.
-Right after an import with a deployment settings file, a variable whose value the file sets, and that value's record, show as drift against an environment the file didn't set them in.
+Right after an import with a deployment settings file, a variable whose value the file sets shows as `variable-value` against an environment the file didn't set it in, so `drift` exits `1` for it.
+Check each such item against the settings file.
 That's the settings file at work, not a change to undo.
 
 What a run does not compare is listed in the JSON's `notCompared`, as `note:` lines on stderr and as a `Not compared:` list in the Markdown:
 
 - a line when only one environment was read, or when no environment has the solution installed together with the first;
-- each type above that is left out by id and compared under no kind of its own (1, 62, 80 and 300, and 10087 in a pair where one side has no type names) when a compared environment holds one, which is most runs;
+- each type above that is left out by id and compared under no kind of its own (1, 9, 62, 80 and 300, and 10087 in a pair where one side has no type names) when a compared environment holds one, which is most runs;
 - each kind left out by name (below);
 - each environment compared with the first by number and id because it or the first has no type names;
 - each environment with agents or agent components the read did not return;
@@ -401,6 +403,9 @@ An agent component that only one environment holds is `component-missing` or `co
 
 The kinds whose ids can change on import are left out by name and counted, not compared: `appsetting`, `bot_botcomponent` and every `botcomponent_*` link table (`botcomponent_connectionreference` included), each with a line `component type <name> not compared: its ids can change on import, so it is counted, not compared by id (<position> <environment>: <count>, ...)` that counts it in every environment of the pairs compared by name.
 The app setting and the agent's connection reference link were seen to get new ids; the other link tables are left out because Microsoft Learn lists them as the agent component's link tables, and their ids were not observed to change.
+A setting definition (`settingdefinition`) is counted the same way in a pair compared by name, with the line `component type settingdefinition not compared: Microsoft may own a setting's definition in the target, so a solution can list it in one environment and not another; counted (<position> <environment>: <count>, ...)`.
+After a first managed import a solution's setting definition was seen listed in Dev and not in Test, where Microsoft's own managed definition exists (trial 3), so a custom setting definition missing from the target now shows only in the count.
+In a pair compared by number it is compared by number and id.
 A component of any other kind whose ids change shows as drift.
 
 A pair where one side has no names (a snapshot file of version 1) is compared as before, by type number and id, with type 10087 left out by id, and when that pair still compares a component of type 10000 or above (other than 10087 and the connection references) the report says `<position> <environment>: compared with the first by type number and id, because it or the first has no type names (a snapshot from an older powerops), so agents were not compared`.

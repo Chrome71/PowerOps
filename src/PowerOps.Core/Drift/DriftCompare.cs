@@ -91,7 +91,7 @@ public static class DriftCompare
     }
 
     /// <summary>The types <see cref="ComparePair"/> leaves out by id and compares under no kind of their own, with a name for each. 10087 only in a pair compared by number.</summary>
-    private static readonly (int Type, string? Name)[] Dropped = [(1, "table"), (62, "site map"), (80, "model-driven app"), (300, "canvas app"), (10087, null)];
+    private static readonly (int Type, string? Name)[] Dropped = [(1, "table"), (9, "global choice"), (62, "site map"), (80, "model-driven app"), (300, "canvas app"), (10087, null)];
 
     /// <summary>What <see cref="Compare"/> did not compare, one sentence each, in a fixed order (M50 decisions Q7).</summary>
     public static IReadOnlyList<string> NotCompared(IReadOnlyList<Snapshot> snapshots)
@@ -125,7 +125,7 @@ public static class DriftCompare
                 .Select(d => $"component type {d.Type}{(d.Name is null ? "" : $" ({d.Name})")} not compared: its ids change on import, and drift compares components by id"));
             notes.AddRange(named.SelectMany(i => snapshots[i].Components).Select(c => c.Name).Where(CountedByName).Select(n => n!)
                 .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase)
-                .Select(n => $"component type {n} not compared: its ids can change on import, so it is counted, not compared by id ({string.Join(", ", named.Select(i => $"{i + 1} {snapshots[i].Environment}: {snapshots[i].Components.Count(c => IsName(c.Name, n))}"))})"));
+                .Select(n => $"component type {n} not compared: {(IsName(n, "settingdefinition") ? "Microsoft may own a setting's definition in the target, so a solution can list it in one environment and not another; counted" : "its ids can change on import, so it is counted, not compared by id")} ({string.Join(", ", named.Select(i => $"{i + 1} {snapshots[i].Environment}: {snapshots[i].Components.Count(c => IsName(c.Name, n))}"))})"));
             notes.AddRange(byNumber.Where(i =>
                 {
                     var (ka, kb) = Kept(first, snapshots[i]);
@@ -219,9 +219,9 @@ public static class DriftCompare
     // A pair is compared by name when both snapshots hold names (a live read or a version-2 file), else by number.
     private static bool ByName(Snapshot a, Snapshot b) => a.Agents is not null && b.Agents is not null;
 
-    // The kinds whose rows can get new ids on import, left out by name and counted: app settings (10087 in the M12 run) and the agent link tables Learn lists on the botcomponent page.
+    // The kinds whose rows can get new ids on import, left out by name and counted: app settings (10087 in the M12 run), the agent link tables Learn lists on the botcomponent page, and setting definitions (Microsoft may own one in the target, trial 3).
     private static bool CountedByName(string? name) =>
-        IsName(name, "appsetting") || IsName(name, "bot_botcomponent") || name?.StartsWith("botcomponent_", StringComparison.OrdinalIgnoreCase) == true;
+        IsName(name, "appsetting") || IsName(name, "settingdefinition") || IsName(name, "bot_botcomponent") || name?.StartsWith("botcomponent_", StringComparison.OrdinalIgnoreCase) == true;
 
     // The components a pair compares by key.
     private static (List<SnapshotComponent> A, List<SnapshotComponent> B) Kept(Snapshot a, Snapshot b)
@@ -232,6 +232,7 @@ public static class DriftCompare
         var referenceIds = a.References.Concat(b.References).Select(r => r.Id).ToHashSet();
         // Step 1 capture (2026-10-22): after an import, tables (1), canvas apps (300) and environment variables (380, 381) get new ids, so a Dev/Test comparison by id would always differ; they are left out (plan Assumption 2's fallback).
         // M12 manual run (2026-10-24): a model-driven app (80), its sitemap (62) and its app settings (10087) get new ids too, so they are left out the same way; by name, app settings are left out by their name instead.
+        // Trial 3 (2026-11-11): a global choice (9) got a new id on a first managed import, so it is left out too.
         // By name, an agent with a schema name is compared as an agent only.
         bool Keep(SnapshotComponent c) =>
             !(c.Type == WorkflowType && flowIds.Contains(c.Id)) && !referenceIds.Contains(c.Id) && c.Type is not (380 or 381)

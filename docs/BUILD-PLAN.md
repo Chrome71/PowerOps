@@ -577,6 +577,18 @@ The owner decided on 2026-11-10 that the deploy gate keeps its job, which is to 
 
 86. `fix:` M85: the plan, then the MCP route and the two readings, the deny-list probe, the docs and the records (built 2026-11-10, [plan](plans/m85-gate-routes/plan.md))
 
+## M88: drift after a first import
+
+The third end-to-end trial (2026-11-11) ran `drift` between Dev and Test right after a clean first managed import, and it exited `1` with four items: a global choice as missing and as extra (the import gave it a new id), a setting definition listed in the solution in Dev and not in Test, where Microsoft's own managed definition exists, and one `variable-value` for a value the deployment settings file set. The [plan](plans/m88-drift-choices/plan.md) stops the first three from being component items and keeps the fourth as drift (decision 62).
+
+| Milestone | Release | Scope | Done when |
+|---|---|---|---|
+| **M88. `drift` after a first import** | the next patch release, which release-please makes from the `fix:` commit | <ul><li>Planned 2026-11-11 ([plan](plans/m88-drift-choices/plan.md))</li><li>A global choice (type 9) is left out by id, in pairs compared by name and by number, and named in `notCompared`</li><li>In a pair compared by name, a setting definition (`settingdefinition`) is counted, not compared, with its own `notCompared` line</li><li>`variable-value` stays drift; `docs/COMMANDS.md` and the `drift` schema's `notCompared` description say what each now means</li></ul> | `dotnet test --filter DriftCompareTests` passes, with a test of the trial's shape that gives exactly `variable-value` and a control `flow-missing` |
+
+### Build order, M88 (continues the list below)
+
+87. `fix:` M88: the plan, then the comparison and its tests, the docs (built 2026-11-11, [plan](plans/m88-drift-choices/plan.md))
+
 ## Testing
 
 | Layer | What | Runs |
@@ -802,3 +814,9 @@ Made before the third end-to-end trial, after decisions 52 to 55.
 Made after decisions 59 and 60, on the owner's answer to one question.
 
 61. **An agent may run `powerops deploy apply --apply --require-reviews` itself after the user's yes to that environment in the session.** Asked on 2026-11-10 "After your yes in chat, may the agent run deploy apply --apply itself?", the person answered "Agent, after my yes". This amends the person's answer to Q1 of [M52](plans/m52-authority-boundary/decisions.md) ("the local CLI stays person-run and unenforced") and the gate message of its Q13. What stays: the MCP form and the Action's approved job are the only places that enforce a yes, and the chat yes is an instruction that nothing checks. A declined, cancelled or failed form ends an earlier yes: the agent says so and asks again, and never imports if the user says they declined (the desktop Code tab returned "declined" with no form shown in M63, [HARNESS.md](HARNESS.md)). An import without both review reports stays the person's own command. The person can reverse this.
+
+## Decisions, M88 drift after a first import (2026-11-11)
+
+Made in the [M88 plan](plans/m88-drift-choices/plan.md); its `decisions.md` weighs the options.
+
+62. **`drift` leaves global choices out by id and counts setting definitions; `variable-value` stays drift.** A global choice was seen to get a new id on a first managed import, and a solution's setting definition was seen listed in Dev and not in Test, where Microsoft owns its managed definition; both are observed once (trial 3) and not stated on Learn. A really missing choice now shows only in `notCompared`, and a missing custom setting definition only in its count. Comparing choices by name and a `drift --settings <file>` that treats the file's values as expected are left for 1.0.x.

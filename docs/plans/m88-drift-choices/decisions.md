@@ -1,0 +1,50 @@
+# Decisions: m88-drift-choices
+
+The change itself is item M88 of the fix plan after trial 3, approved by a Fable plan review and started by the owner's "Start the build" (2026-11-11). The owner's four answers to that plan's questions (Q1 "One yes per deployment", Q2 "Hide by default", Q3 "Keep out of Git", Q4 "Rerun it", 2026-11-11) don't touch `drift`'s comparison, so none applies here. Every decision below was made by the building session inside the fix plan, as the owner's direction of 2026-11-11 asks ("as autonomous as possible").
+
+## Round 1 (planning)
+
+### Q1. A global choice: leave it out by id, or compare it by name?
+1. Leave type 9 out by id, in `Dropped`, and name it in `notCompared` like tables (recommended)
+2. Compare it by name through a read of `GlobalOptionSetDefinitions`
+
+Decided: 1, as the fix plan says. Option 2 is a metadata read (Web API, no `$filter`, read one at a time by MetadataId or name, per Learn, verified 2026-11-11) that the FetchXML reads of `drift` can't make; it is listed for 1.0.x. Type 9 is below 10000, so it is left out in pairs compared by name and by number alike. Accepted trade-off: a global choice that is really missing from the target now shows no item, only the `notCompared` line saying choices were not compared, the same as a missing table, canvas app, model-driven app or site map today. By id a missing choice can't be told from one the import gave a new id. A count of type 9 would be possible (9 is a fixed number), but it is not what the fix plan chose, and the smallest change treats choices like the other types left out by id; a count or the name comparison is for 1.0.x. The name comparison of option 2 (1.0.x) closes it.
+
+### Q2. A setting definition: how is it left out, and with what line?
+1. Count it by name with the counted kinds, with its own middle text (recommended)
+2. A new line format and a new list for it
+3. Leave it out by id, with no count
+
+Decided: 1. `CountedByName` already leaves a kind out by name and counts it in every environment of the pairs compared by name; a second reason text keeps the reuse and gives the line the fix plan wrote. The reason differs from the others' (the definition's owner, not a new id), so the line says so. Option 3 would hide a custom setting definition that is really missing; the count keeps it visible.
+
+### Q3. `variable-value` for a value the settings file set
+1. Stays drift; the docs say why it appears after an import with a settings file and to check each such item against the file (recommended)
+2. Information, or a `drift --settings <file>` that treats the file's values as expected
+
+Decided: 1, as the fix plan says. `drift` can't tell a value the file set from a changed one, so making it information would hide real drift; option 2 is for 1.0.x.
+
+### Q4. Which name replaces `settingdefinition` in the test of two definition names under one number?
+Decided: `customapi`, a definition name nothing leaves out, so the test keeps its purpose (two components that share a number but not a definition name never match) and still sees a `component-missing` item.
+
+### Q5. The words "and that value's record" in `docs/COMMANDS.md`
+Decided: removed while that sentence is rewritten. `Keep` leaves out type 381, the variable's value record, so it never shows as a component item; the sentence would promise an item that does not come.
+
+## Log
+
+- 2026-11-11: started by the building session (Opus) in worktree branch `claude/m88-drift-choices-acc83d` at `b065f23` (`origin/main`). Depth `standard`: one Core class, one test class, one docs section.
+- read on 2026-11-11: `reports/trial-3/chain/chain-rules.md`; the fix plan's M88 section, section 3's opening, sections 4 and 5; `AGENTS.md`; `CLAUDE.md`; M85's `plan.md` and `decisions.md` (format); `src/PowerOps.Core/Drift/DriftCompare.cs`; `tests/PowerOps.Core.Tests/Drift/DriftCompareTests.cs`; the `drift` section of `docs/COMMANDS.md`; the trial record's lines N9 and P7 (the tracked `record.md` only, not its evidence).
+- grep on 2026-11-11: `DriftCompare` is called only by `DriftCommand` and `DriftReport`; `Dropped` and `CountedByName` are private; no golden holds type 9 or `settingdefinition`; `settingdefinition` appears in `src` and `tests` only in `DriftCompareTests.cs` and `DriftCommandTests.cs` (a pair compared by number, unchanged).
+- 2026-11-11: `powerops-researcher` (Sonnet, Learn only, offline) on the claims: type 9 is "Option Set" (supported); whether a global choice's id survives an import (not on Learn); what a setting definition is and that a maker can add an existing one to a solution (supported); its import behaviour when the target already holds Microsoft's managed definition (not on Learn); `GlobalOptionSetDefinitions` is a Web API metadata path with no `$filter` (supported; "not FetchXML" inferred). Recorded under Assumptions.
+- 2026-11-11: `docs/ecosystem/compatibility.md` has no row for the `solutioncomponent` read, and `changes.md` no open entry for `drift`.
+- 2026-11-11: plan review under the model routing (a `fable-reviewer` subagent, Fable), round 1: REJECTED with four findings, all applied in `plan.md`: (1, Medium) the `notCompared` description in `docs/schemas/drift.schema.json` lists the left-out types and counted kinds, so it gains 9 and `settingdefinition` (row 5a, description only; Won't build now rules out a change of the schemas' shape only); (2, Medium) test (d) also holds an `appsetting` on both sides and spells the setting definition `SettingDefinition`, so it pins the casing, the per-name middle text and the line order, and Done when 2 says the name prints as read; (3, Low) line numbers corrected and members named; (4, Low) the definition name is cited as observed once in trial 2 (M76 F40/D5).
+- 2026-11-11: plan review under the model routing, round 2: APPROVED by the `fable-reviewer` subagent (Fable), with steps 2 and 3 assigned to Sonnet and steps 1 and 4 to the orchestrating session (Opus).
+- approved 2026-11-11 by the building session for the `powerops-review-plan` pass, which reads only an `approved` plan. This is not a sign-off.
+- 2026-11-11: the fresh `powerops-review-plan` pass (`review.md`, Opus, fresh context) found 0 High, 1 Medium and 5 Low, all answered in `plan.md` (body only; the header stays `approved`, review `done`) and here: R1 (Medium) the leak scan command and where the git-ignored chain rules live are named (Done when 6, Assumptions); R2 the three Learn links stay, marked `plan-status: allow` on purpose: they are public Microsoft pages, the sources the Assumptions cite, and hold no tenant value; R3 Goal and Done when 3 now count three items gone and one kept, with `flow-missing` named as a control; R4 test (e) added, a type 9 on one side only in a pair compared by name; R5 the trade-off for a really missing choice is recorded in Q1; R6 test (c) names which snapshot holds the component.
+- 2026-11-11: the fresh rerun of `powerops-review-plan` (`review.md`, Opus, fresh context, on the current plan body) found 0 High, 0 Medium and 4 Low; the first pass's R1, R3, R4 and R6 are closed and R5 is answered in Q1. The four Lows are answered here and set `accepted` in `review.md`; the plan body is not changed: R1 the Learn links stay (as logged above); R2 Q1's reason is corrected (a count of type 9 needs no names; choices are left out like tables, as the fix plan chose); R3 the setting definition's live name is a follow-up for the next live `drift` run (trial 4), named in the hand-over; R4 the row 4 letters are labels, and the executor's brief lists (a) to (e) with what each pins.
+- 2026-11-11: Fable confirmed that its round-2 approval and assignments hold for the plan as changed for the first review's findings (`7150ab8`).
+- signed off 2026-11-11 by the building session, not by the owner, on the owner's standing instruction that sessions sign off their own milestone plans after clean reviews (2026-10-22, repeated 2026-11-09 as "Sessions sign off"), for this chain started by the owner's "Start the build" (2026-11-11). Basis: Fable approved (round 2, confirmed after the review answers) and the fresh `powerops-review-plan` rerun has no finding open (0 High, 0 Medium; 4 Low accepted). `powerops plan sign-off` exit 0, hash `085beaa`.
+- build 2026-11-11 (subagent as the plan review assigned it, Sonnet): steps 2 and 3. The row 4 tests were run before any source edit: `DriftCompareTests` 50 total, 45 passed, 5 failed, exactly (a) to (e), row 3 green; after the source edit 50 of 50. Commits `fix(drift)` (DriftCompare.cs, DriftCompareTests.cs) and `docs(drift)` (COMMANDS.md, drift.schema.json).
+- 2026-11-11: work review under the model routing (a `fable-reviewer` subagent, Fable): PASS for steps 2 and 3; it reproduced the red run on a scratch copy, matched the docs line to the code string, and accepted the added sentence that a missing global choice gives no item. Its note: the `CountedByName` comment opens with "ids can change on import" before naming setting definitions, counted for another reason; left as is, the parenthesis says why.
+- step 4, 2026-11-11, under the chain's merge lock, rebased on `origin/main` `cedd76d` (M90): `docs/BUILD-PLAN.md` gains the M88 section, build-order item 87 and decision 62. Checks: `dotnet build` 0 warnings, 0 errors; `dotnet test` total 5,072, passed 5,066, failed 0, skipped 6 (a first full run had one transient error in a CLI test of an action script, `jq` on a vulnerable-package list; the CLI project rerun alone and a second full run both passed); `dotnet format --verify-no-changes` exit 0; `plan status` 0 violations, 0 warnings; leak scan from the main checkout against the pushed branch: 174 patterns, control found, 0 hits.
+- follow-up: the next live `drift` after an import (trial 4) checks that the setting definition's definition name is `settingdefinition` (any case) and that a global choice again gets a new id; both rest on single observations, and no live run was made here (tenant: offline).
+- done 2026-11-11: every Done when item met; no tenant call.
