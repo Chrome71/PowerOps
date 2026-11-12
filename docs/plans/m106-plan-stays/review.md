@@ -1,9 +1,9 @@
-plan-hash: 2d52442abf500688e8d2794d7b0702311b2de0ccfbf991e99c6ab6b208a6936f
+plan-hash: 12431c7c70981986e8ef2e82a937c8464411bff6c30b46e3be4eb215543a343a
 model: claude-sonnet-5-5
 fresh-context: yes
 
 Reviewer notes (not findings):
-- Third pass, on the plan at commit 1c66c4c. The first pass (hash 2f52ac0a...) gave R1 to R6 and the second (hash 6408df55...) R7, all Low. Their status is below.
+- Fourth pass, on the plan at commit 7e7e065. The earlier passes gave R1 to R6 (hash 2f52ac0a...), R7 (hash 6408df55...) and R8 (hash 2d52442a...), all Low. Their status is below. The only change to the plan body since the last pass is Done when 6 (the guard-test exception); the rest was re-read and holds as before.
 - Environment facts were not read: the plan's `environment:` is `null` and no sign-in confirmation was given. Tenant: offline.
 - This plan changes the PowerOps CLI, not a Power Platform solution. Items 1 to 8 (solution, connection references, licences, DLP, route, managed state, delegation, roles) are not applicable: the plan says None for Automation, Screens, Environments and Solution, and builds no Power Platform artefact. Item 12: `powerops` and `dotnet` were found on PATH; the leak scan script exists in the main checkout only, as the plan's Assumptions say.
 - Checked in the third pass: Step 2's split of red and guard tests against the current code (the tests listed as red fail today: no `stays` exists, the plan file is already version 2 so the rewritten version-2 apply case is not refused, and a version-2 file is accepted so the changed `InlineData` case is not a refusal; the tests listed as guards pin behaviour that exists today and pass); `m98-done-handover.md` and its siblings sit in the `reports/trial-3/chain/` folder of the main checkout, where Step 5 puts the M106 note.
@@ -64,8 +64,8 @@ No findings.
 - Suggested fix: (1) say in Done when 6 or row 4 that the enum-equality test is a guard that passes at the baseline and must fail if either side is changed alone (check it once by editing one side). (2) add to Step 5 that the build report or the handover records the probe.
 - Resolution: closed. Step 2 now names which tests are red first ((a), (c), (g), the order test, the version assertions, the CLI golden case, the MCP case, the version-2 apply case) and which are guard tests that pass before the change ((b), (d), (e), (f), (h) and the enum-equality test), and the report says so; Step 5 writes `m106-done-handover.md` with the pull request, the merge commit, what wasn't checked and the probe.
 
-#### R8. Done when 6 still says every test is seen to fail first
+#### R8. Done when 6 still says every test is seen to fail first (raised in the third pass)
 - Area: 9 (testability)
 - Finding: Done when 6 reads "The tests of Data row 4 are written first and seen to fail on their assertions, then pass", while Step 2 now says six of them are guard tests that pass before the change. A work reviewer who holds the build to Done when 6 literally would fail a correct build, or an executor would bend a guard test to turn it red.
 - Suggested fix: in Done when 6, add "except the guard tests Step 2 names, which pass before the change and are reported as such".
-- Resolution: open (new in this pass, Low; does not block sign-off).
+- Resolution: closed. Done when 6 now excepts the guard tests Step 2 names, which pass before the change and are reported as such; the two lines agree.

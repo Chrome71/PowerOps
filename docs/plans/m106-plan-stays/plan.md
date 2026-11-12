@@ -1,11 +1,11 @@
 ---
-status: approved
-review: pending
+status: signed-off
+review: done
 environment: null
 depth: quick
 supersedes: null
-signed-off: null
-signed-off-hash: null
+signed-off: 2026-11-12
+signed-off-hash: 12431c7c70981986e8ef2e82a937c8464411bff6c30b46e3be4eb215543a343a
 ---
 
 # M106: `deploy plan` says what an unmanaged import leaves
