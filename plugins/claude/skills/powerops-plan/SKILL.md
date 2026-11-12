@@ -25,7 +25,7 @@ An agent that answers for the person under the person's brief is not autopilot: 
 
 ## 2. Start or resume
 
-1. Check that `powerops` runs (for example `powerops --version`). If it is not found, tell the user to install PowerOps as the Install section of its README says (https://github.com/Chrome71/PowerOps#install), and stop.
+1. Check that `powerops` runs (for example `powerops --version`). If not found, tell the user to install PowerOps as the Install section of its README says (https://github.com/Chrome71/PowerOps#install), and stop.
 2. Pick a plan name in kebab-case from the idea (`site-visits`). The folder is `docs/plans/<name>/`.
 3. If the folder exists, read `plan.md` and `decisions.md`, then run `powerops plan status docs/plans/<name> --json`. If it exits 2, show the reason and fix the header with the user first. Keep the `depth` from the header (section 6). Then continue where the plan stopped:
    - `draft`: go to the what-next menu (section 6).
@@ -113,7 +113,7 @@ Answer: <the user's answer> (answered by: person)
 - The recommended option is always option 1. "In your own words" is always the last option.
 - For `Answer:`, write the text of the option chosen, or the user's own words (redacted, see section 4).
 - End each `Answer:` line, and each Log line of an approval, acceptance or sign-off, with `(answered by: person)` or `(answered by: agent <session>)`.
-- Everything that is not a question goes as a `- ` line under a `## Log` heading at the end: approvals, "approved without: environments, constraints", fast-path choices, sign-off. Add new rounds above `## Log`, and new log lines at the end of it (oldest first).
+- Everything not a question goes as a `- ` line under a `## Log` heading at the end: approvals, "approved without: environments, constraints", fast-path choices, sign-off. Add new rounds above `## Log`, and new log lines at its end (oldest first).
 
 ## 6. Question rounds
 
@@ -121,7 +121,7 @@ Each round:
 
 1. Ask at most three questions. Each has two or three options, the recommended one first, plus "in your own words". An option is a label of at most six words and one sentence of at most 20 words on what changes. Sources and detail go into the plan. A recommended option never states a fact about the person's tenant, licences or data: read it (section 3) or ask neutrally.
 2. Use the agent's choice tool if it has one. Otherwise print the numbered options as plain text and tell the user how to answer: "Answer like `1 2 1`, or in your own words." Then end your turn.
-3. Right after the answers, append each question and answer to `decisions.md`.
+3. After the answers, append each question, its options and answer to `decisions.md`; option 1 keeps `(recommended)`.
 4. Update `plan.md`. Put assumptions and open items in the plan, not in chat.
 5. Show exactly three lines, one per change to the plan. Nothing else.
 6. Ask what next, with lettered options: **A** another round, **B** approve the draft, **C** stop for now, **D** sketch the screens first. End your turn.
