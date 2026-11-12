@@ -56,8 +56,17 @@ Fable's plan review (REJECTED: 1 High, 3 Medium, 1 Low) and the fresh `powerops-
 - Fable 5 (Low) = review R6: row 2 gives `diff`'s own option texts; row 3 gives each MCP tool its own sentence; row 6 (b) gains the `--redact --show-values` case.
 - Review's closing note (an Action pinned to an older release): the Action builds the CLI from its own commit, so script and CLI never differ (Assumptions).
 
+## Round 3: the second pass
+
+Fable approved the revised plan (step 2 and step 3 to Sonnet). The fresh review's second pass (`review.md`, plan-hash `34289c86…`) closed R1 to R6 and found 0 High, 0 Medium and 2 Low, answered here so the reviewed plan body stays as it is:
+
+- R1 (Low), step 3's check mixes the two test projects: step 3 runs `dotnet test --project tests/PowerOps.Cli.Tests --filter "DocsDriftTests|ActionYmlTests"` and `dotnet test --project tests/PowerOps.Core.Tests --filter RuleDocsTests`.
+- R2 (Low), the docs' Action snippets pin a commit with the old default: "Public outputs" says the hidden default starts with the first action commit that includes M92, and the pins pull request that moves the snippets is a named follow-up in the hand-over note.
+
 ## Log
 
 - depth: standard; the fix plan and M61's record give the design
 - researcher: none needed; no Microsoft tool, API or skill is described (plan, Assumptions)
 - approved 2026-11-11 by the building session for the reviews
+- Fable plan review 2026-11-11: REJECTED at `360ae5f` (1 High, 3 Medium, 1 Low), APPROVED at `2f69e13`; fresh `powerops-review-plan` (Opus, fresh context): 0 High, 1 Medium, 5 Low at `360ae5f`, then 0 High, 0 Medium, 2 Low at `2f69e13`, all answered (Rounds 2 and 3)
+- signed off 2026-11-11 by the building session on the person's standing instruction (sessions sign off their own milestone plans after clean reviews, 2026-10-22, repeated 2026-11-09), under "Start the build" (2026-11-11): Fable approved, and `powerops-review-plan` has no finding open (`powerops plan sign-off`; `signed-off-hash` equals `review.md`'s `plan-hash`, `34289c8`)

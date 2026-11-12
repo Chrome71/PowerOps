@@ -1,9 +1,11 @@
 ---
-status: approved
-review: pending
+status: signed-off
+review: done
 environment: null
 depth: standard
 supersedes: null
+signed-off: 2026-11-11
+signed-off-hash: 34289c86d89c7aa32958797f0f038f25ce6df3b4d0af87789dfae10f45a7c88f
 ---
 
 # M92: Redaction by default in `analyze`, `diff`, their MCP tools and the Action
