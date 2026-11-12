@@ -487,11 +487,12 @@ public static class DeployCommand
             : githubRun is not null ? new Approval(ApprovalMode.Action, githubRun)
             : new Approval(ApprovalMode.Cli, null);
         string? appliedAt = null;
+        string? agentsReadAt = null;
 
         int Finish(int code, string name, string hash, string status, string? message, IReadOnlyList<AppliedSolution> solutions, IReadOnlyList<AppliedFlow> flows, IReadOnlyList<AppliedAgent>? agents = null)
         {
             var report = new StringWriter();
-            var result = new DeployApplyResult(tool, apply, name, hash, status, message, appliedAt, executor, approval, solutions, flows, agents ?? []);
+            var result = new DeployApplyResult(tool, apply, name, hash, status, message, appliedAt, executor, approval, solutions, flows, agents ?? [], agentsReadAt);
             if (format == "json")
             {
                 DeployApplyReport.WriteJson(result, report);
@@ -534,7 +535,7 @@ public static class DeployCommand
             return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Planned, null, Rows(plan, s => s.Action == PlanAction.Skip ? ImportStatus.Skipped : ImportStatus.Planned), planned, listed);
         }
 
-        appliedAt = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
+        appliedAt = UtcNow();
         progress.Write(SettingsApplyReport.Header(Clean(plan.Target)));
         var state = new Dictionary<int, string>();
         int? pacExit = null;
@@ -589,6 +590,8 @@ public static class DeployCommand
         var flows = DeployApply.FlowsAfter(flowRefs, second.Solutions);
         return Finish(flows.AsExpected ? 0 : 1, plan.Target, reviewed.Hash, ApplyStatus.Imported, null, Done(), flows.Flows, ReadAgents());
 
+        static string UtcNow() => DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
+
         // The agents of every solution whose import went through, read once; a failed read never changes the status or the exit code.
         List<AppliedAgent> ReadAgents()
         {
@@ -600,7 +603,10 @@ public static class DeployCommand
 
             try
             {
-                return [.. DeployApply.AgentsAfter(expected, deployAgents!(target!, now.Target.Id, [.. expected.Select(e => e.Name)]))];
+                var read = DeployApply.AgentsAfter(expected, deployAgents!(target!, now.Target.Id, [.. expected.Select(e => e.Name)]));
+                // Names powerops doesn't send come back not-read with no call, so only found or missing dates a read.
+                agentsReadAt = read.Any(a => a.State is AgentState.Found or AgentState.Missing) ? UtcNow() : null;
+                return [.. read];
             }
             catch (Exception ex)
             {

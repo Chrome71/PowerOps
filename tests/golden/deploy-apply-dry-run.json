@@ -27,5 +27,6 @@
       "stateAfter": null
     }
   ],
-  "agents": []
+  "agents": [],
+  "agentsReadAt": null
 }

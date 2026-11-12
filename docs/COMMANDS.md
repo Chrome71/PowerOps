@@ -683,6 +683,7 @@ When every solution is a `skip`, nothing is imported, and the report says `impor
 
 It stops at the first failed import and names the solutions already imported: there is no rollback.
 An import that times out leaves its row `unknown` (it may have finished or still be running, so check the solution's import history in the environment) and still exits `3`.
+It can take up to an hour (powerops waits 60 minutes for each import): a client's shell tool may stop waiting for a foreground command sooner (Claude Code's Bash tool waits at most 10 minutes by default, and 2 when no timeout is passed; *Tools reference*, read 2026-11-11), so run it in the background or with a long command timeout and wait for its exit.
 
 Afterwards it reads the target again and reports each planned cloud flow's state; exit `1` when a flow is not in the state the plan expected.
 
@@ -690,8 +691,12 @@ It also reads the agents of every solution whose import went through (`ok`), onc
 Each agent is `found`, `missing` or `not-read`, and a found one has `publishedOn`, which says only that the row's `publishedon` is set (*Agent (bot) table/entity reference*, read 2026-11-09).
 
 `missing` means no row came back, which also happens when the reading account can't see that agent: Environment Maker sees only the agents it owns or that are shared with it (*Secure your Copilot Studio projects*, read 2026-11-09).
-This read has not yet run against a tenant, so `missing` is a prompt to check in Copilot Studio, not proof.
+This read has run against a tenant once ([trial 3](plans/m89-apply-report/decisions.md#evidence), an agent `found`), so `missing` is still a prompt to check in Copilot Studio, not proof.
 Nothing is read before the import, so for an upgrade, or an agent the target already held, `publishedOn: true` doesn't show what the import did.
+
+`agentsReadAt` in the report is the UTC time at which this read returned, null when no agent came back `found` or `missing`; when it is set, the text report adds a `note:` line with it.
+An agent can still become published after this read: in one run ([trial 3](plans/m89-apply-report/decisions.md#evidence)) its row read published 40 seconds after the import ended, though Learn says to publish an imported agent before sharing it (*Export and import agents using solutions*, read 2026-11-11).
+Check in Copilot Studio, or run `drift` between the source environment and the target, which reports `agent-published` while the agent is published in only one.
 
 `not-read` means the read failed (a `warning: the agent read-back failed: ...` line is on stderr) or the name is not one powerops sends (letters, digits and underscores, at most 100 characters).
 An agent of a solution whose import timed out is not read.

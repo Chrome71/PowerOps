@@ -9,8 +9,8 @@ public class DeployApplyReportTests
 
     private static DeployApplyResult Result(
         string status, bool applied = true, string? message = null, AppliedSolution[]? solutions = null, AppliedFlow[]? flows = null,
-        string? appliedAt = null, string executor = ApplyExecutor.Cli, Approval? approval = null, AppliedAgent[]? agents = null) =>
-        new("1.2.3", applied, "Contoso Test", Hash, status, message, appliedAt, executor, approval, solutions ?? [], flows ?? [], agents ?? []);
+        string? appliedAt = null, string executor = ApplyExecutor.Cli, Approval? approval = null, AppliedAgent[]? agents = null, string? agentsReadAt = null) =>
+        new("1.2.3", applied, "Contoso Test", Hash, status, message, appliedAt, executor, approval, solutions ?? [], flows ?? [], agents ?? [], agentsReadAt);
 
     private static AppliedSolution Sol(int order, string name, string action, string import, int? exit = null) =>
         new(order, name, name + ".zip", action, import, exit);
@@ -147,11 +147,39 @@ public class DeployApplyReportTests
     [Fact]
     public void Json_writes_the_agents_after_the_flows_with_the_solution_name_state_and_publishedOn_in_that_order()
     {
-        var json = Json(Result(ApplyStatus.Imported, true, flows: [new("A", "Notify", "on", "on")], agents: [new("A", "a_One", AgentState.Found, true), new("A", "a_Two", AgentState.Missing, null)]));
+        var json = Json(Result(ApplyStatus.Imported, true, flows: [new("A", "Notify", "on", "on")], agents: [new("A", "a_One", AgentState.Found, true), new("A", "a_Two", AgentState.Missing, null)], agentsReadAt: "2026-11-04T10:00:05Z"));
 
         Assert.Contains(
-            "  \"flows\": [\n    {\n      \"solution\": \"A\",\n      \"name\": \"Notify\",\n      \"expectedState\": \"on\",\n      \"stateAfter\": \"on\"\n    }\n  ],\n  \"agents\": [\n    {\n      \"solution\": \"A\",\n      \"name\": \"a_One\",\n      \"state\": \"found\",\n      \"publishedOn\": true\n    },\n    {\n      \"solution\": \"A\",\n      \"name\": \"a_Two\",\n      \"state\": \"missing\",\n      \"publishedOn\": null\n    }\n  ]\n}\n",
+            "  \"flows\": [\n    {\n      \"solution\": \"A\",\n      \"name\": \"Notify\",\n      \"expectedState\": \"on\",\n      \"stateAfter\": \"on\"\n    }\n  ],\n  \"agents\": [\n    {\n      \"solution\": \"A\",\n      \"name\": \"a_One\",\n      \"state\": \"found\",\n      \"publishedOn\": true\n    },\n    {\n      \"solution\": \"A\",\n      \"name\": \"a_Two\",\n      \"state\": \"missing\",\n      \"publishedOn\": null\n    }\n  ],\n  \"agentsReadAt\": \"2026-11-04T10:00:05Z\"\n}\n",
             json);
-        Assert.Contains("\"agents\": []\n}\n", Json(Result(ApplyStatus.Refused, false)));
+        Assert.Contains("\"agents\": [],\n  \"agentsReadAt\": null\n}\n", Json(Result(ApplyStatus.Refused, false)));
+    }
+
+    private const string Note = "note: agents read at 2026-11-04T10:00:05Z; an agent can still become published after this read (40 seconds after the import in one run): check in Copilot Studio, or with drift.\n";
+
+    [Fact]
+    public void Text_with_a_read_time_prints_the_note_once_after_the_agent_lines_and_before_the_summary()
+    {
+        var text = Text(Result(
+            ApplyStatus.Imported, true, flows: [new("A", "Notify", "on", "on")],
+            agents: [new("A", "a_One", AgentState.Found, true), new("A", "a_Two", AgentState.Missing, null)], agentsReadAt: "2026-11-04T10:00:05Z"));
+
+        Assert.EndsWith($"agent A/a_One: found, publishedon set\nagent A/a_Two: missing\n{Note}applied\n", text);
+        Assert.Equal(1, text.Split("note: agents read").Length - 1);
+    }
+
+    [Fact]
+    public void Text_without_a_read_time_prints_no_note()
+    {
+        Assert.DoesNotContain("note:", Text(Result(ApplyStatus.Imported, true, agents: [new("A", "a_One", AgentState.NotRead, null)])));
+    }
+
+    [Fact]
+    public void Text_cleans_the_read_time()
+    {
+        var text = Text(Result(ApplyStatus.Imported, true, agents: [new("A", "a_One", AgentState.Found, true)], agentsReadAt: "2026-11-04T10:00:05Z\n::error::x"));
+
+        Assert.All(text.Split('\n', StringSplitOptions.RemoveEmptyEntries), l => Assert.DoesNotMatch(@"^\s*::", l));
+        Assert.Contains("note: agents read at 2026-11-04T10:00:05Z ::error::x; an agent", text);
     }
 }
