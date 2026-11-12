@@ -66,6 +66,7 @@ public static class PlanKind
     public const string ComponentsNotChecked = "components-not-checked";
     public const string SameVersionDiffers = "same-version-differs";
     public const string Agent = "agent";
+    public const string Stays = "stays";
 
     /// <summary>What every <c>agent</c> item says after "The zip holds Copilot Studio agent '&lt;name&gt;'. ".</summary>
     public const string AgentEffect = "The import may leave it published in the target (seen in one live run; Learn describes publishing as a separate step). If the plan forbids a published agent there, don't import until the person has said yes to that and the plan is amended.";

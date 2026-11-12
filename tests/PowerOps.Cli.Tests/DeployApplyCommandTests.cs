@@ -447,6 +447,24 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Empty(pac.Calls);
     }
 
+    [Fact]
+    public void A_plan_file_of_schemaVersion_2_is_refused_and_nothing_is_imported()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        EditPlanFile(d => d["schemaVersion"] = 2);
+
+        var (fake, pac) = (SeedTarget(), new FakePac());
+        var r = Apply(fake, pac, "--apply", "--format", "json");
+
+        Assert.Equal(1, r.Code);
+        var doc = Json(r);
+        Assert.Equal("refused", (string?)doc["status"]);
+        Assert.EndsWith("; plan again with this version", (string?)doc["message"]);
+        Assert.Equal(0, fake.Calls);
+        Assert.Empty(pac.Calls);
+    }
+
     [Theory]
     [InlineData("zip-changed", "the zip Solo.zip changed since the plan")]
     [InlineData("zip-added", "the zip Added.zip is not in the reviewed plan")]
