@@ -2,7 +2,7 @@
 name: powerops-plan
 description: Use when someone wants to plan, scope, design or mock up a Microsoft Power Platform app, flow, Dataverse table or solution (an idea, a screen, a wireframe, a prototype), or asks to build one without a signed-off plan. Turns the idea into a signed-off plan in docs/plans/ through short question rounds. Run it before any Microsoft build skill (app-builder, genpage, canvas-app, build-flow, create-site).
 license: Apache-2.0
-compatibility: Needs the powerops CLI on PATH. pac is optional.
+compatibility: Needs the powerops CLI on PATH. pac and az are optional.
 ---
 
 # powerops-plan
@@ -37,13 +37,14 @@ An agent that answers for the person under the person's brief is not autopilot: 
 
 Never run `pac` yourself. Read environment facts only for an environment the user names.
 
-1. Ask, as a question of round 1, which environment the plan targets and whether `pac` is signed in to it. End your turn and wait.
+1. Ask, as a question of round 1, which environment the plan targets, whether `pac` is signed in to it, and `az` to its tenant. End your turn and wait.
 2. Run `powerops plan facts` once, and only after the user has named the environment and said `pac` is signed in to it.
 3. Output with `"available": true` lists the environment `pac` is signed in to and the existing solutions (names, versions, managed flag). If that environment is not the one the user named, say only that they differ. Use none of the facts, and write that environment's name nowhere, not even in chat. Otherwise use the facts to answer questions instead of asking them.
 4. If `available` is false, tell the user the `reason` and the `fix` in your next message, in one line. Do not run the fix. Add a line to Assumptions in `plan.md` that environment facts were not available. Carry on.
 5. If the user names no environment, or `pac` is not signed in to it, do not run `powerops plan facts`. Plan from the repo and add a line to Assumptions in `plan.md` that environment facts were not read. Carry on.
 6. The facts do not contain the publisher prefix. Take it from the repo if a solution there shows it. Otherwise ask.
 7. Once the user confirms the environment (in the fast path, a request naming it), write its role, `environment: Dev`, never its name, which can hold a person's name; in `decisions.md`, write "the environment found by plan facts". Refer to every environment by role (Dev, Test, Prod), and offer none as a target unless the user names it.
+8. **Licences.** Only after the user has named the environment and said `az` is signed in, run once, read-only, after round 1's answers (under `quick` too): `az rest --method get --url https://graph.microsoft.com/v1.0/me/licenseDetails --query "value[].skuPartNumber" -o tsv`. Fill `Held` through `references/licensing.md` section 1: an unlisted part number never counts as held. Write product names only. An error, refusal or empty list is a failed read: say only that it failed, never its text. After a failed read, or without the condition, ask neutrally which table products the account holds, option 1 "Not sure" (recommended). Under `quick` ask nothing: `Held` stays `unknown`. Other people's licences, test users' included, are always the person's answer.
 
 ## 4. Tenant data
 
@@ -84,7 +85,7 @@ supersedes: null
 - `Data` has one row per table and list: `| Artefact | Kind | Store | Goal line | Reuse, Extend or Create | Why not a column or choice | Rows now, 3 years |`. Its Goal line is the number of the line that would fail without it.
 - `Automation` and `Screens` give each flow and screen its Goal line too.
 - When the plan names new data or a flow, read `references/data.md` beside this file: the store, the gates, table design, each flow's card and the data round. When it names an app, page, site, report or agent, read `references/route.md` and the product files it names.
-- `Constraints` holds licensing, DLP and deadlines.
+- `Constraints` holds DLP, deadlines and, when the plan names a connector, table, app, flow, site, report or agent, a `### Licences` table, one row per need beyond Microsoft 365's standard rights: `| Need | Product or feature | Who needs it | Standard alternative | Held |`. With none, the heading stays with only the line "No need beyond Microsoft 365's standard rights.". Rows and values: `references/licensing.md`. A row with `Held` `unknown` gets a step checking it before its first use.
 - `Steps` is a numbered list of implementation steps: small, in order, each one checkable.
 - A skill, CLI or MCP tool the plan says a step uses: check that it is callable (in your skill or tool list, or found by `command -v` or `Get-Command`). If it isn't, or you can't check, say so in Assumptions.
 - `Open questions` and `Questions for your admin` hold one top-level `- ` item per question. When there are none, leave the section empty. Do not write "None": the tool counts list items. Move an item out when it is answered.
@@ -118,7 +119,7 @@ Answer: <the user's answer> (answered by: person)
 
 Each round:
 
-1. Ask at most three questions. Each has two or three options, the recommended one first, plus "in your own words".
+1. Ask at most three questions. Each has two or three options, the recommended one first, plus "in your own words". An option is a label of at most six words and one sentence of at most 20 words on what changes. Sources and detail go into the plan. A recommended option never states a fact about the person's tenant, licences or data: read it (section 3) or ask neutrally.
 2. Use the agent's choice tool if it has one. Otherwise print the numbered options as plain text and tell the user how to answer: "Answer like `1 2 1`, or in your own words." Then end your turn.
 3. Right after the answers, append each question and answer to `decisions.md`.
 4. Update `plan.md`. Put assumptions and open items in the plan, not in chat.
@@ -127,16 +128,20 @@ Each round:
 
 Question order: outcome and users, then data, then automation, then environments and ALM, then constraints. Two rules:
 
-- Ask one licensing question in round 1 or 2.
+- In round 1, ask the cost tier, "Which licences should the plan assume?": **Not sure: standard first** (recommended), **Standard licences only**, **Premium where needed**. `references/licensing.md` section 1 defines each.
 - Ask the environments question (target, route Dev to Test to Prod) by round 3.
 
 **Data round.** When the plan names new data (a table, list or store), ask the six questions in section 6 of `references/data.md`. Under `standard` and `deep` they fill successive rounds of at most three. A data question waits a round when the licensing or environments question is due. Under `quick` only question 1 joins the one round: write the ledger's other cells from the request or as Assumptions, and put unknowns under Open questions. The fast path asks none and does the same.
 
 Do not ask what the facts already answer. When nothing is left to ask, recommend B.
 
+**Defaults.** A safe default is reversible, changes no cost, security or data, and is no tenant fact. Don't ask it: write `default: <choice>` under Assumptions. The cost tier, `Held`, environments, security roles and data-round questions are never defaults.
+
+**Budget.** Under `standard`, aim for five rounds or fewer before approval. After round five, each question names the plan line it unblocks. Open each round's message with "Round <k> of about <n>", in chat only: `decisions.md` keeps `## Round <k>` headings.
+
 **Depth.** `depth` in the header sets how far the rounds go:
 
-- `quick`: one round of at most three questions: licensing, environments, and data question 1 when the plan names new data. Keep sections short. Recommend B as soon as nothing blocks.
+- `quick`: one round of at most three questions: the cost tier, environments, and data question 1 when the plan names new data. Keep sections short. Recommend B as soon as nothing blocks.
 - `standard`: the rounds as written above.
 - `deep`: more rounds are fine. Also ask about edge cases, data volume and delegation, security roles and testability. Write fuller Steps.
 
@@ -149,7 +154,7 @@ After each round, judge engagement from the answers. "Just pick", "whatever you 
 ## 7. Approve (B)
 
 1. Run `powerops plan status docs/plans/<name> --json`. Show the open and admin question counts and which of the five areas (users, data, automation, environments and ALM, constraints) were never asked.
-2. If any area was never asked, ask one confirmation: approve anyway, or ask about it first. Wait.
+2. If any area was never asked, ask one confirmation: approve anyway, or ask about it first. Wait. Then, if Assumptions holds `default:` lines, ask once, "Keep these N defaults?", by label: **Keep all** (recommended) or **Change some**, then ask about those. Under `quick`, ask nothing: the approval keeps them. Log `defaults kept: <N>` or `defaults changed: <labels>`, marked `(answered by: ...)`, under `## Log`, not as a `### Q`.
 3. If `Steps` is empty, draft it from the plan and tell the user.
 4. Log the approval under `## Log`. If areas were skipped, log `approved without: <areas>`.
 5. Set `status: approved` in the header.
@@ -165,11 +170,11 @@ After each round, judge engagement from the answers. "Just pick", "whatever you 
 
 Use this when the user asks to build without a signed-off plan, or `powerops-implement` hands over.
 
-1. Draft `plan.md` from the request and the repo. Read no environment facts here, even when the request names an environment: the fast path is offline. Put every guess under Assumptions. The status stays `draft`. Set `depth: quick`.
-2. Ask one question: the route. Use the numbered format of a round question (section 6): two or three options, each with its trade-off in a few words, recommended first, then "In your own words".
+1. Draft `plan.md` from the request and the repo. Read no environment facts here, even when the request names an environment: the fast path is offline. Put every guess under Assumptions. The status stays `draft`. Set `depth: quick`. Write the `### Licences` table with every `Held` `unknown` and, if it has a row, a first step checking held licences. Put `cost tier: Not sure: standard first (not asked)` under Assumptions.
+2. Ask one question: the route. Use the numbered format of a round question (section 6): two or three options, each a short label with one sentence on what changes, recommended first, then "In your own words".
 3. Ask the publisher prefix too, only if the repo does not supply it. Ask nothing else, except the sketch question (section 7 step 6). Leave `environment: null` unless the request names an environment; then record its role (`Dev` unless the request says another), and write "the environment named in the request" in `decisions.md`. Either way, note the assumed target in Assumptions.
 4. Log the route in `decisions.md` as a normal question.
-5. Show one lettered menu:
+5. Show one lettered menu. A or B keeps the `default:` lines: log `defaults kept: <N>`.
    - **A** approve the draft, then review and sign-off as usual (section 7, from step 3).
    - **B** approve, skip the review and sign off now. Log it (section 7 step 4), set `status: approved` and `review: skipped`, run section 7 step 6 and wait for the answer, then do section 9 step 4 (no second menu: this answer is the sign-off). The Assumptions list stands in for the coverage check.
    - **C** ask question rounds instead (section 6).
@@ -183,7 +188,7 @@ Run this after the review, or when the user says "sign off".
 
 1. Run `powerops plan status docs/plans/<name> --json`.
 2. Show: the open and admin question counts; the unresolved findings in `review.md` (those with `Resolution: open`, by R-number); its first three lines and its `stale` value.
-3. Ask once, lettered: **A** sign off now, **B** go back (resolve findings, or more rounds). When there is no `review.md`, add **C** skip the review and sign off: set `review: skipped` and log it.
+3. Ask once, lettered: **A** sign off now, **B** go back (resolve findings, or more rounds). When there is no `review.md`, add **C** skip the review and sign off: set `review: skipped` and log it. Before the menu, findings that only need a design assumption confirmed, none High and none a tenant, licence or data fact, go in one question, "Confirm these N assumptions?": **Confirm all** (recommended) or **Change some**. Give each confirmed one `Resolution: accepted` and log `assumptions confirmed: R<n>, ...` with its mark. The plan body doesn't change.
 4. On A or C, run `powerops plan sign-off docs/plans/<name>`, then `powerops plan status docs/plans/<name>`, and show the result.
 5. If sign-off refuses, show why and fix the cause with the user.
 
