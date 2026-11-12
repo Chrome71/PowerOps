@@ -839,6 +839,38 @@ public class PlanCheckerTests : IDisposable
         Assert.Empty(r.Warnings);
     }
 
+    [Fact]
+    public void A_journal_row_with_an_empty_backticked_empty_or_missing_Authority_warns_once_with_its_line()
+    {
+        Write(Plan());
+        _t.Write("docs/plans/demo/writes.md", string.Join("\n",
+            "# Writes: demo",
+            "",
+            "| # | Step | Actor | AUTHORITY | Operation | Outcome | Cleanup |",
+            "|---|---|---|---|---|---|---|",
+            "| 1 | 2 | agent build | plan 0123456789ab, step 2 | create table Loan | done | none |",
+            "| 2 | 3 | agent build | person: yes to step 3 | publish the app | done | none |",
+            "| 3 | 3 | agent build |  | update a view | done | none |",
+            "| 4 | 3 | agent build | `` | update a form | done | none |",
+            "| 5 | 3 | agent build |",
+            "",
+            "| # | Cleanup |",
+            "|---|---|",
+            "| 6 | |",
+            ""));
+
+        var r = Check();
+
+        Assert.Equal(new PlanWrites(6, 2), r.Writes);
+        Assert.Equal(
+            [
+                "write '3' has no Authority (docs/plans/demo/writes.md:7)",
+                "write '4' has no Authority (docs/plans/demo/writes.md:8)",
+                "write '5' has no Authority (docs/plans/demo/writes.md:9)",
+            ],
+            r.Warnings);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("# Writes: demo\n\n| # | Step | Actor | Authority | Operation | Outcome | Cleanup |\n|---|---|---|---|---|---|---|\n")]

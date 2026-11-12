@@ -361,6 +361,27 @@ public static partial class PlanChecker
             var cleanup = (cells[^1].Length == 0 ? cells[^2] : cells[^1]).Trim(' ', '`', '.');
             return !cleanup.Equals("none", StringComparison.OrdinalIgnoreCase) && !cleanup.StartsWith("done", StringComparison.OrdinalIgnoreCase);
         });
+
+        // Only a table whose header has an Authority cell is checked, so older journals and other tables read as before.
+        var where = Display(file, baseDir);
+        var authority = -1;
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var cells = CellRegex().Split(lines[i]);
+            if (!lines[i].StartsWith('|'))
+            {
+                authority = -1;
+            }
+            else if (i + 1 < lines.Count && TableSeparatorRegex().IsMatch(lines[i + 1]))
+            {
+                authority = Array.FindIndex(cells, c => c.Trim().Equals("Authority", StringComparison.OrdinalIgnoreCase));
+            }
+            else if (authority > 0 && !TableSeparatorRegex().IsMatch(lines[i]) && (authority >= cells.Length || cells[authority].Trim(' ', '`').Length == 0))
+            {
+                warnings.Add($"write '{cells[1].Trim()}' has no Authority ({where}:{i + 1})");
+            }
+        }
+
         return new PlanWrites(rows.Count, open);
     }
 
