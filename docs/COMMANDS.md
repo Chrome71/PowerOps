@@ -688,7 +688,16 @@ It stops at the first failed import and names the solutions already imported: th
 An import that times out leaves its row `unknown` (it may have finished or still be running, so check the solution's import history in the environment) and still exits `3`.
 It can take up to an hour (powerops waits 60 minutes for each import): a client's shell tool may stop waiting for a foreground command sooner (Claude Code's Bash tool waits at most 10 minutes by default, and 2 when no timeout is passed; *Tools reference*, read 2026-11-11), so run it in the background or with a long command timeout and wait for its exit.
 
-Afterwards it reads the target again and reports each planned cloud flow's state; exit `1` when a flow is not in the state the plan expected.
+Once every import went through (`ok`), it reads the target again, once, also when the plan has no flows; a run that imported nothing, or stopped at a failed or timed-out import, reads the target no more.
+That is the full read `deploy plan` makes (each solution's components, flows, environment variables and connection references, up to 50 layer reads per managed solution, and each dependency), so a plan with no flows pays for it too, and when it fails the imports stand and the run exits `3` with status `imported` and a message that starts `The imports succeeded. Reading the target again failed`.
+
+From that read each imported solution's row gets `after`, and the run exits `1` with status `imported` when the target doesn't hold the solution or shows another version than the zip's (compared as four numbers, so `1.0.0.0` equals `1.0.0.00`), one sentence per solution in plan order: `pac reported success, but the target shows <solution> not installed; check the solution's import history.` or `... shows <solution> at version <v>; ...`, where `<v>` is `unknown` for a version that is not four numeric parts.
+`managed` is reported, not compared.
+That `pac solution import` can exit `0` after a failed import is reported by practitioners, not documented; and that a completed import, or a staged upgrade, leaves the solution at the zip's version was not yet observed in a tenant: Learn says an upgrade brings the solution to the latest version, but states no version (*Upgrade or update a solution*, read 2026-11-12).
+So a mismatch is a prompt to [check the solution history](RECOVERY.md#check-the-solution-history): where that claim is wrong, the error is a false exit `1` after an import that stands, never a false exit `0`.
+
+The same read gives each planned cloud flow's state; exit `1` when a flow is not in the state the plan expected.
+With both a version mismatch and a flow off, the message is the version sentence and the flow rows still show each state.
 
 It also reads the agents of every solution whose import went through (`ok`), once, also when the plan has no flows and after a later import failed: reads of the Dataverse `bot` table by schema name (one per 50 distinct names), with its own `pac org who` (which must name the environment imported into) and `az` token.
 Each agent is `found`, `missing` or `not-read`, and a found one has `publishedOn`, which says only that the row's `publishedon` is set (*Agent (bot) table/entity reference*, read 2026-11-09).
@@ -719,11 +728,14 @@ The Action passes its repository, run, attempt and GitHub environment; an audito
 A refused `--apply` run keeps its `approval`, so read `status` and `appliedAt` first.
 A local `--apply` records `cli`, and nothing checks who ran it or whether anyone said yes.
 
+Each solution row ends with `after`: null unless its import is `ok` and the read after the imports ran, else `installed`, `version` (null when it is not four numeric parts, so no other text from the target reaches the report) and `managed` as the target showed them.
+The text report puts `  after: <version> (managed)`, `(unmanaged)`, or `  after: not installed` under that row's line, with `version not read` or `managed not read` for a null value.
+
 JSON follows [docs/schemas/deploy-apply.schema.json](schemas/deploy-apply.schema.json).
 
 ### Exit codes
 
-Exit codes: `0` applied (or a dry run that would apply), `1` refused or a flow not as expected, `2` usage error or a `--target` mismatch, `3` an unreadable plan file, zip or settings file, a failed `pac`, `az` or Web API call, a file changed before its import, or a failed import.
+Exit codes: `0` applied (or a dry run that would apply), `1` refused, a flow not as expected, or an imported solution the target doesn't show at the zip's version, `2` usage error or a `--target` mismatch, `3` an unreadable plan file, zip or settings file, a failed `pac`, `az` or Web API call (the read after good imports included), a file changed before its import, or a failed import.
 
 ### Agents
 

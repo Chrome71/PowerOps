@@ -190,6 +190,66 @@ public class DeployApplyTests
         Assert.True(DeployApply.FlowsAfter([], []).AsExpected);
     }
 
+    // ---- SolutionsAfter ----------------------------------------------------------------------------------------
+
+    private static DeployZip VZip(string name, string version) => DZip(name) with { Solution = B.Empty() with { UniqueName = name, Version = version, Managed = true } };
+
+    private static AppliedSolution Row(int order, string name, string import = ImportStatus.Ok) => new(order, name, name + ".zip", PlanAction.Install, import, null);
+
+    private static Snapshot At(string name, string? version, bool installed = true, bool? managed = true) => new("Test", name, installed, version, managed, true, [], [], [], []);
+
+    [Fact]
+    public void An_ok_row_at_the_zips_version_as_numbers_gets_after_and_no_mismatch()
+    {
+        var (rows, mismatch) = DeployApply.SolutionsAfter([Row(1, "A")], [VZip("A", "1.0.0.0")], [At("a", "1.0.0.00", managed: false)]);
+
+        Assert.Null(mismatch);
+        Assert.Equal(new SolutionAfter(true, "1.0.0.00", false), Assert.Single(rows).After);
+    }
+
+    [Fact]
+    public void A_lower_version_a_null_version_and_a_missing_snapshot_are_each_a_sentence_in_plan_order()
+    {
+        var (rows, mismatch) = DeployApply.SolutionsAfter(
+            [Row(1, "A"), Row(2, "B"), Row(3, "C"), Row(4, "D")],
+            [VZip("A", "1.0.0.1"), VZip("B", "1.0.0.1"), VZip("C", "1.0.0.1"), VZip("D", "1.0.0.1")],
+            [At("A", "1.0.0.0"), At("B", null, managed: null), At("D", null, installed: false, managed: null)]);
+
+        Assert.Equal(
+            "pac reported success, but the target shows A at version 1.0.0.0; check the solution's import history. "
+            + "pac reported success, but the target shows B at version unknown; check the solution's import history. "
+            + "pac reported success, but the target shows C not installed; check the solution's import history. "
+            + "pac reported success, but the target shows D not installed; check the solution's import history.",
+            mismatch);
+        Assert.Equal([new SolutionAfter(true, "1.0.0.0", true), new SolutionAfter(true, null, null), new SolutionAfter(false, null, null), new SolutionAfter(false, null, null)], rows.Select(r => r.After));
+    }
+
+    [Theory]
+    [InlineData("1.0.0.1\n::error::x")]
+    [InlineData("1.0.0")]
+    [InlineData("1.0.0.x")]
+    [InlineData("1.0.0.-1")]
+    public void A_version_that_is_not_four_numeric_parts_is_null_and_unknown_in_the_message(string version)
+    {
+        var (rows, mismatch) = DeployApply.SolutionsAfter([Row(1, "A")], [VZip("A", "1.0.0.1")], [At("A", version)]);
+
+        Assert.Equal(new SolutionAfter(true, null, true), Assert.Single(rows).After);
+        Assert.Equal("pac reported success, but the target shows A at version unknown; check the solution's import history.", mismatch);
+    }
+
+    [Fact]
+    public void Only_ok_rows_get_after_and_the_others_are_never_compared()
+    {
+        string[] others = [ImportStatus.Skipped, ImportStatus.Failed, ImportStatus.Unknown, ImportStatus.NotRun, ImportStatus.Planned];
+        var rows = others.Select((s, i) => Row(i + 1, "S" + i, s)).ToList();
+
+        var (after, mismatch) = DeployApply.SolutionsAfter(rows, [.. others.Select((_, i) => VZip("S" + i, "1.0.0.1"))], []);
+
+        Assert.Null(mismatch);
+        Assert.Equal(rows, after);
+        Assert.All(after, r => Assert.Null(r.After));
+    }
+
     // ---- ExpectedAgents / AgentsAfter --------------------------------------------------------------------------
 
     private static DeployZip AgentZip(string name, params string[] agents) =>

@@ -565,9 +565,9 @@ public static class DeployCommand
             return Finish(InternalError, plan.Target, reviewed.Hash, ApplyStatus.Failed, $"{failure.Value.Text} There is no rollback. {after}", Done(), [], ReadAgents());
         }
 
-        if (flowRefs.Count == 0)
+        if (imports.Count == 0)
         {
-            return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Imported, imports.Count == 0 ? "Nothing was imported: every solution was skipped." : null, Done(), [], ReadAgents());
+            return Finish(0, plan.Target, reviewed.Hash, ApplyStatus.Imported, "Nothing was imported: every solution was skipped.", Done(), [], ReadAgents());
         }
 
         DeployTarget second;
@@ -587,8 +587,10 @@ public static class DeployCommand
             return Finish(InternalError, plan.Target, reviewed.Hash, ApplyStatus.Imported, $"The imports succeeded. Reading the target again failed{why}", Done(), planned, ReadAgents());
         }
 
+        // pac's exit code alone is not trusted: each imported solution must show the zip's version, and each flow its expected state.
+        var (solutions, mismatch) = DeployApply.SolutionsAfter(Done(), now.Zips, second.Solutions);
         var flows = DeployApply.FlowsAfter(flowRefs, second.Solutions);
-        return Finish(flows.AsExpected ? 0 : 1, plan.Target, reviewed.Hash, ApplyStatus.Imported, null, Done(), flows.Flows, ReadAgents());
+        return Finish(flows.AsExpected && mismatch is null ? 0 : 1, plan.Target, reviewed.Hash, ApplyStatus.Imported, mismatch, solutions, flows.Flows, ReadAgents());
 
         static string UtcNow() => DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
 

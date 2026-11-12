@@ -19,7 +19,8 @@
       "zip": "A.zip",
       "action": "install",
       "import": "ok",
-      "pacExitCode": null
+      "pacExitCode": null,
+      "after": null
     },
     {
       "order": 2,
@@ -27,7 +28,8 @@
       "zip": "B.zip",
       "action": "install",
       "import": "unknown",
-      "pacExitCode": null
+      "pacExitCode": null,
+      "after": null
     },
     {
       "order": 3,
@@ -35,7 +37,8 @@
       "zip": "C.zip",
       "action": "install",
       "import": "not-run",
-      "pacExitCode": null
+      "pacExitCode": null,
+      "after": null
     }
   ],
   "flows": [],

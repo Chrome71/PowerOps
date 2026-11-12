@@ -31,10 +31,11 @@ public class DeployApplyCommandTests : DeployTestBase
 
     private static Snapshot Installed(string name, string version, bool managed = true) => new("Contoso Test", name, true, version, managed, true, [], [], [], []);
 
+    // The seed's second read after its import: the seed zip's version (1.0.0.1) and every flow in the given state.
     private static Dictionary<string, Snapshot> SeedAfter(string state)
     {
         var snap = SnapshotFile.Load(TestSnapshot);
-        return new(StringComparer.OrdinalIgnoreCase) { ["PowerOpsSeed"] = snap with { Flows = [.. snap.Flows.Select(f => f with { State = state })] } };
+        return new(StringComparer.OrdinalIgnoreCase) { ["PowerOpsSeed"] = snap with { Version = "1.0.0.1", Flows = [.. snap.Flows.Select(f => f with { State = state })] } };
     }
 
     private string SeedImportPath(string name) => Path.Combine(Path.GetFullPath(Folder), name);
@@ -546,7 +547,7 @@ public class DeployApplyCommandTests : DeployTestBase
         var planHash = (string)JsonNode.Parse(File.ReadAllText(PlanFile))!["hash"]!;
 
         var pac = new FakePac();
-        var r = ApplyApproved(SeedTarget(), pac, planHash);
+        var r = ApplyApproved(new FakeTarget { Snaps = SeedTarget().Snaps, After = SeedAfter("on") }, pac, planHash);
 
         Assert.Equal(0, r.Code);
         Assert.Single(pac.Calls);
@@ -636,8 +637,8 @@ public class DeployApplyCommandTests : DeployTestBase
         MakePlan();
         var planHash = (string)JsonNode.Parse(File.ReadAllText(PlanFile))!["hash"]!;
 
-        var viaCli = Json(ApplyApproved(SeedTarget(), new FakePac(), planHash));
-        var viaMcp = Json(ApplyApproved(SeedTarget(), new FakePac(), planHash, mcp: true));
+        var viaCli = Json(ApplyApproved(new FakeTarget { Snaps = SeedTarget().Snaps, After = SeedAfter("on") }, new FakePac(), planHash));
+        var viaMcp = Json(ApplyApproved(new FakeTarget { Snaps = SeedTarget().Snaps, After = SeedAfter("on") }, new FakePac(), planHash, mcp: true));
 
         Assert.Equal("cli", (string?)viaCli["executor"]);
         Assert.Equal("form", (string?)viaCli["approval"]!["mode"]);
@@ -656,7 +657,7 @@ public class DeployApplyCommandTests : DeployTestBase
         var (o, e) = (new StringWriter(), new StringWriter());
         var pac = new FakePac();
 
-        var code = Program.Run(["deploy", "apply", PlanFile, "--target", TargetValue, "--format", "json", "--apply", "--github-run", "contoso/widgets run 7 attempt 1"], o, e, pac.Run, null, SeedTarget().Read, null, planHash, deployAgents: new FakeAgents().Read);
+        var code = Program.Run(["deploy", "apply", PlanFile, "--target", TargetValue, "--format", "json", "--apply", "--github-run", "contoso/widgets run 7 attempt 1"], o, e, pac.Run, null, new FakeTarget { Snaps = SeedTarget().Snaps, After = SeedAfter("on") }.Read, null, planHash, deployAgents: new FakeAgents().Read);
 
         Assert.Equal(0, code);
         var doc = JsonNode.Parse(o.ToString())!;
@@ -809,7 +810,7 @@ public class DeployApplyCommandTests : DeployTestBase
         MakePlan();
         var pac = new FakePac();
 
-        var r = Apply(SeedTarget(), pac, "--apply");
+        var r = Apply(new FakeTarget { Snaps = SeedTarget().Snaps, After = SeedAfter("on") }, pac, "--apply");
 
         Assert.Equal(0, r.Code);
         var call = Assert.Single(pac.Calls);
@@ -834,7 +835,7 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Equal(["A.zip", "B.zip"], expected.Where(z => z is "A.zip" or "B.zip" or "C.zip").Take(2));
         var pac = new FakePac();
 
-        var r = Apply(target, pac, "--apply", "--format", "json");
+        var r = Apply(new FakeTarget { Snaps = target.Snaps, After = AfterOf(Installed("A", "1.0.0.0"), Installed("B", "1.0.0.0"), Installed("C", "1.0.0.0"), Installed("Plain", "2.0.0.0", managed: false), Installed("Dash", "1.0.0.0")) }, pac, "--apply", "--format", "json");
 
         Assert.Equal(0, r.Code);
         Assert.Equal(
@@ -876,6 +877,7 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Empty(doc["flows"]!.AsArray());
         Assert.Empty(pac.Calls);
         Assert.Equal(2, target.Calls);
+        Assert.Null(doc["solutions"]![0]!["after"]);
 
         var text = Apply(new FakeTarget { Snaps = { ["Kept"] = Installed("Kept", "1.0.0.0") } }, new FakePac(), "--apply");
 
@@ -891,7 +893,7 @@ public class DeployApplyCommandTests : DeployTestBase
         MakePlan(target);
         var pac = new FakePac();
 
-        var r = Apply(target, pac, "--apply", "--format", "json");
+        var r = Apply(new FakeTarget { After = AfterOf(Installed("Solo", "1.0.0.0")) }, pac, "--apply", "--format", "json");
 
         Assert.Equal(0, r.Code);
         var doc = Json(r);
@@ -925,12 +927,12 @@ public class DeployApplyCommandTests : DeployTestBase
         Chain();
         MakePlan(new FakeTarget());
 
-        var r = Apply(new FakeTarget(), new FakePac(), "--apply");
+        var r = Apply(new FakeTarget { After = ChainAfter() }, new FakePac(), "--apply");
 
         Assert.Equal(0, r.Code);
         Assert.Equal("", r.Err);
         Assert.StartsWith("environment: Contoso Test\nimporting 1 A (A.zip)\nimported A\nimporting 2 B (B.zip)\nimported B\nimporting 3 C (C.zip)\nimported C\nTarget: Contoso Test\n", r.Out);
-        Assert.EndsWith("3 C (C.zip): install, ok\napplied\n", r.Out);
+        Assert.EndsWith("3 C (C.zip): install, ok\n  after: 1.0.0.0 (managed)\napplied\n", r.Out);
     }
 
     // ---- failures ----------------------------------------------------------------------------------------------
@@ -1193,6 +1195,240 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Equal(fake.Solutions[0], fake.Solutions[1]);
     }
 
+    // ---- the solutions after the imports (M98) -------------------------------------------------------------------
+
+    private static Dictionary<string, Snapshot> AfterOf(params Snapshot[] snaps) => snaps.ToDictionary(x => x.Solution, StringComparer.OrdinalIgnoreCase);
+
+    // The second read after the imports of Chain(), or of AgentZip(), at each zip's version.
+    private static Dictionary<string, Snapshot> ChainAfter() => AfterOf(Installed("A", "1.0.0.0"), Installed("B", "1.0.0.0"), Installed("C", "1.0.0.0"));
+
+    private static Dictionary<string, Snapshot> AgentToolsAfter() => AfterOf(Installed("PowerOpsAgentTools", "1.0.0.0", managed: false));
+
+    private static string Mismatch(string solution, string what) => $"pac reported success, but the target shows {solution} {what}; check the solution's import history.";
+
+    private static JsonNode? AfterOf(JsonObject doc, int row) => doc["solutions"]![row]!["after"];
+
+    [Fact]
+    public void A_flowless_import_reads_the_target_again_and_at_the_zips_version_exits_0_with_after_set()
+    {
+        SmallZip(Folder, "Solo");
+        MakePlan(new FakeTarget());
+        var fake = new FakeTarget { After = AfterOf(Installed("Solo", "1.0.0.0")) };
+
+        var r = Apply(fake, new FakePac(), "--apply", "--format", "json");
+
+        Assert.Equal(0, r.Code);
+        var doc = Json(r);
+        Assert.Equal("imported", (string?)doc["status"]);
+        Assert.Null((string?)doc["message"]);
+        Assert.Equal("""{"installed":true,"version":"1.0.0.0","managed":true}""", AfterOf(doc, 0)?.ToJsonString());
+        Assert.Equal(2, fake.Calls);
+        Assert.Equal(fake.Solutions[0], fake.Solutions[1]);
+    }
+
+    [Fact]
+    public void A_flowless_import_the_target_does_not_show_exits_1_with_status_imported_and_the_not_installed_message()
+    {
+        SmallZip(Folder, "Solo");
+        MakePlan(new FakeTarget());
+
+        var r = Apply(new FakeTarget(), new FakePac(), "--apply", "--format", "json");
+
+        Assert.Equal(1, r.Code);
+        var doc = Json(r);
+        Assert.Equal("imported", (string?)doc["status"]);
+        Assert.Equal(Mismatch("Solo", "not installed"), (string?)doc["message"]);
+        Assert.Equal("""{"installed":false,"version":null,"managed":null}""", AfterOf(doc, 0)?.ToJsonString());
+
+        var text = Apply(new FakeTarget(), new FakePac(), "--apply");
+
+        Assert.Equal(1, text.Code);
+        Assert.Contains("1 Solo (Solo.zip): install, ok\n  after: not installed\n", text.Out);
+        Assert.EndsWith($"applied: {Mismatch("Solo", "not installed")}\n", text.Out);
+    }
+
+    [Fact]
+    public void A_flowless_upgrade_the_target_shows_at_a_lower_version_exits_1_with_the_at_version_message()
+    {
+        SmallZip(Folder, "Solo", version: "1.0.0.1");
+        MakePlan(new FakeTarget { Snaps = { ["Solo"] = Installed("Solo", "1.0.0.0") } });
+
+        var r = Apply(new FakeTarget { Snaps = { ["Solo"] = Installed("Solo", "1.0.0.0") }, After = AfterOf(Installed("Solo", "1.0.0.0")) }, new FakePac(), "--apply", "--format", "json");
+
+        Assert.Equal(1, r.Code);
+        var doc = Json(r);
+        Assert.Equal("imported", (string?)doc["status"]);
+        Assert.Equal(Mismatch("Solo", "at version 1.0.0.0"), (string?)doc["message"]);
+        Assert.Equal("1.0.0.0", (string?)AfterOf(doc, 0)?["version"]);
+    }
+
+    [Fact]
+    public void A_failed_read_after_a_flowless_import_exits_3_with_every_after_null_and_the_agents_still_read_after_the_reads_stderr()
+    {
+        AgentZip(Folder);
+        MakePlan();
+        var agents = new FakeAgents { Answer = _ => [("demo_Helper", true)] };
+
+        var r = ApplyAgents(new FakeTarget { FailAfter = new DriftReadException("the read failed", "tool line") }, new FakePac(), agents.Read, "--apply", "--format", "json");
+
+        Assert.Equal(3, r.Code);
+        var doc = Json(r);
+        Assert.Equal("imported", (string?)doc["status"]);
+        Assert.StartsWith("The imports succeeded. Reading the target again failed: the read failed", (string?)doc["message"]);
+        Assert.Equal(["PowerOpsAgentTools:ok"], Statuses(doc));
+        Assert.All(doc["solutions"]!.AsArray(), s => Assert.Null(s!["after"]));
+        Assert.Empty(doc["flows"]!.AsArray());
+        Assert.Equal(("found", true), AgentOf(doc));
+        Assert.EndsWith("\n  | tool line\n", r.Err);
+
+        var both = ApplyAgents(new FakeTarget { FailAfter = new DriftReadException("the read failed", "tool line") }, new FakePac(), (_, _, _) => throw new DriftReadException("agents failed"), "--apply", "--format", "json");
+
+        Assert.Equal(3, both.Code);
+        Assert.EndsWith("\n  | tool line\nwarning: the agent read-back failed: agents failed\n", both.Err);
+    }
+
+    [Fact]
+    public void A_staged_upgrade_the_target_shows_at_the_zips_version_exits_0_and_at_the_old_version_exits_1()
+    {
+        SmallZip(Folder, "Solo", version: "1.0.0.1");
+        var before = Installed("Solo", "1.0.0.0");
+        MakePlan(new FakeTarget { Snaps = { ["Solo"] = before } });
+        var pac = new FakePac();
+
+        var good = Apply(new FakeTarget { Snaps = { ["Solo"] = before }, After = AfterOf(Installed("Solo", "1.0.0.1")) }, pac, "--apply", "--format", "json");
+
+        Assert.Contains("--stage-and-upgrade", Assert.Single(pac.Calls));
+        Assert.Equal(0, good.Code);
+        Assert.Null((string?)Json(good)["message"]);
+        Assert.Equal("""{"installed":true,"version":"1.0.0.1","managed":true}""", AfterOf(Json(good), 0)?.ToJsonString());
+
+        var old = Apply(new FakeTarget { Snaps = { ["Solo"] = before }, After = AfterOf(before) }, new FakePac(), "--apply", "--format", "json");
+
+        Assert.Equal(1, old.Code);
+        Assert.Equal(Mismatch("Solo", "at version 1.0.0.0"), (string?)Json(old)["message"]);
+    }
+
+    [Fact]
+    public void A_dry_run_has_every_after_null_and_reads_the_target_once()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var fake = new FakeTarget { Snaps = SeedTarget().Snaps, After = SeedAfter("on") };
+
+        var r = Apply(fake, new FakePac(), "--format", "json");
+
+        Assert.Equal(0, r.Code);
+        Assert.All(Json(r)["solutions"]!.AsArray(), s => Assert.Null(s!["after"]));
+        Assert.True(Json(r)["solutions"]![0]!.AsObject().ContainsKey("after"));
+        Assert.Equal(1, fake.Calls);
+        Assert.DoesNotContain("after:", Apply(SeedTarget(), new FakePac()).Out);
+    }
+
+    [Fact]
+    public void Flows_as_expected_with_a_version_that_differs_exit_1_with_the_version_message_and_the_flows_reported()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var after = AfterOf(SeedAfter("on")["PowerOpsSeed"] with { Version = "1.0.0.0" });
+
+        var r = Apply(new FakeTarget { Snaps = SeedTarget().Snaps, After = after }, new FakePac(), "--apply", "--format", "json");
+
+        Assert.Equal(1, r.Code);
+        var doc = Json(r);
+        Assert.Equal("imported", (string?)doc["status"]);
+        Assert.Equal(Mismatch("PowerOpsSeed", "at version 1.0.0.0"), (string?)doc["message"]);
+        Assert.Equal(("on", "on"), ((string?)doc["flows"]![0]!["expectedState"], (string?)doc["flows"]![0]!["stateAfter"]));
+    }
+
+    [Fact]
+    public void Flows_at_the_zips_version_with_a_flow_off_exit_1_with_no_message_and_the_flow_sentence()
+    {
+        SeedZip(Folder);
+        MakePlan();
+
+        var r = Apply(new FakeTarget { Snaps = SeedTarget().Snaps, After = SeedAfter("off") }, new FakePac(), "--apply", "--format", "json");
+        var text = Apply(new FakeTarget { Snaps = SeedTarget().Snaps, After = SeedAfter("off") }, new FakePac(), "--apply");
+
+        Assert.Equal(1, r.Code);
+        Assert.Null((string?)Json(r)["message"]);
+        Assert.Equal("1.0.0.1", (string?)AfterOf(Json(r), 0)?["version"]);
+        Assert.Contains("PowerOpsSeed (PowerOpsSeed.zip): upgrade, ok\n  after: 1.0.0.1 (managed)\n", text.Out);
+        Assert.EndsWith("applied, but 1 flow is not in its expected state\n", text.Out);
+    }
+
+    [Fact]
+    public void A_flow_off_and_a_version_mismatch_together_exit_1_with_the_version_message_and_the_flow_rows()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var after = AfterOf(SeedAfter("off")["PowerOpsSeed"] with { Version = "1.0.0.0" });
+
+        var r = Apply(new FakeTarget { Snaps = SeedTarget().Snaps, After = after }, new FakePac(), "--apply", "--format", "json");
+        var text = Apply(new FakeTarget { Snaps = SeedTarget().Snaps, After = after }, new FakePac(), "--apply");
+
+        Assert.Equal(1, r.Code);
+        Assert.Equal(Mismatch("PowerOpsSeed", "at version 1.0.0.0"), (string?)Json(r)["message"]);
+        Assert.Equal(("on", "off"), ((string?)Json(r)["flows"]![0]!["expectedState"], (string?)Json(r)["flows"]![0]!["stateAfter"]));
+        Assert.Contains("flow PowerOpsSeed/Stamp work item status: expected on, now off\n", text.Out);
+        Assert.EndsWith($"applied: {Mismatch("PowerOpsSeed", "at version 1.0.0.0")}\n", text.Out);
+    }
+
+    [Fact]
+    public void Two_mismatched_solutions_give_one_sentence_each_in_plan_order()
+    {
+        SmallZip(Folder, "A");
+        SmallZip(Folder, "B", version: "1.0.0.1");
+        var target = new FakeTarget { Snaps = { ["B"] = Installed("B", "1.0.0.0") } };
+        MakePlan(target);
+
+        var r = Apply(target, new FakePac(), "--apply", "--format", "json");
+
+        Assert.Equal(1, r.Code);
+        var doc = Json(r);
+        Assert.Equal(["A:ok", "B:ok"], Statuses(doc));
+        Assert.Equal($"{Mismatch("A", "not installed")} {Mismatch("B", "at version 1.0.0.0")}", (string?)doc["message"]);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_failed_or_timed_out_later_import_makes_no_read_and_leaves_the_earlier_ok_row_after_null(bool timedOut)
+    {
+        Chain();
+        MakePlan(new FakeTarget());
+        var fake = new FakeTarget { After = AfterOf(Installed("A", "1.0.0.0"), Installed("B", "1.0.0.0"), Installed("C", "1.0.0.0")) };
+        var pac = new FakePac { Answer = n => n == 1 ? new PacResult(true, timedOut, timedOut ? 0 : 1, "boom") : null };
+
+        var r = Apply(fake, pac, "--apply", "--format", "json");
+
+        Assert.Equal(3, r.Code);
+        var doc = Json(r);
+        Assert.Equal(["A:ok", timedOut ? "B:unknown" : "B:failed", "C:not-run"], Statuses(doc));
+        Assert.All(doc["solutions"]!.AsArray(), s => Assert.Null(s!["after"]));
+        Assert.Equal(1, fake.Calls);
+    }
+
+    [Fact]
+    public void A_version_from_the_read_that_is_not_four_numeric_parts_is_null_in_after_and_unknown_in_the_message()
+    {
+        SmallZip(Folder, "Solo");
+        MakePlan(new FakeTarget());
+        var after = AfterOf(Installed("Solo", "1.0.0.0\n::error::HOSTILE"));
+
+        var r = Apply(new FakeTarget { After = after }, new FakePac(), "--apply", "--format", "json");
+        var text = Apply(new FakeTarget { After = after }, new FakePac(), "--apply");
+
+        Assert.Equal(1, r.Code);
+        Assert.Equal(true, (bool?)AfterOf(Json(r), 0)?["installed"]);
+        Assert.Null(AfterOf(Json(r), 0)!["version"]);
+        Assert.Equal(Mismatch("Solo", "at version unknown"), (string?)Json(r)["message"]);
+        Assert.DoesNotContain("HOSTILE", r.Out);
+        Assert.Equal(1, text.Code);
+        Assert.Contains("1 Solo (Solo.zip): install, ok\n  after: version not read (managed)\n", text.Out);
+        Assert.EndsWith($"applied: {Mismatch("Solo", "at version unknown")}\n", text.Out);
+        Assert.DoesNotContain("HOSTILE", text.Out + text.Err);
+    }
+
     // ---- the agents after the imports --------------------------------------------------------------------------
 
     private const string HelperPublished = """{"value":[{"schemaname":"demo_Helper","publishedon":"2026-01-01T00:00:00Z"}]}""";
@@ -1227,7 +1463,7 @@ public class DeployApplyCommandTests : DeployTestBase
         var agents = new FakeAgents { Answer = _ => [("DEMO_helper", true)] };
         var pac = new FakePac();
 
-        var r = ApplyAgents(new FakeTarget(), pac, agents.Read, "--apply", "--format", "json");
+        var r = ApplyAgents(new FakeTarget { After = AgentToolsAfter() }, pac, agents.Read, "--apply", "--format", "json");
 
         Assert.Equal(0, r.Code);
         var call = Assert.Single(agents.Calls);
@@ -1249,7 +1485,7 @@ public class DeployApplyCommandTests : DeployTestBase
         MakePlan();
         var live = new LiveAgents { Web = _ => new WebResult(200, body, false) };
 
-        var r = ApplyAgents(new FakeTarget(), new FakePac(), live.Read, "--apply", "--format", "json");
+        var r = ApplyAgents(new FakeTarget { After = AgentToolsAfter() }, new FakePac(), live.Read, "--apply", "--format", "json");
 
         Assert.Equal(0, r.Code);
         Assert.Equal((state, published), AgentOf(Json(r)));
@@ -1275,7 +1511,7 @@ public class DeployApplyCommandTests : DeployTestBase
             },
         };
 
-        var r = ApplyAgents(new FakeTarget(), new FakePac(), live.Read, "--apply", "--format", "json");
+        var r = ApplyAgents(new FakeTarget { After = AgentToolsAfter() }, new FakePac(), live.Read, "--apply", "--format", "json");
 
         Assert.Equal(0, r.Code);
         var doc = Json(r);
@@ -1295,7 +1531,7 @@ public class DeployApplyCommandTests : DeployTestBase
         AgentZip(Folder);
         MakePlan();
 
-        var r = ApplyAgents(new FakeTarget(), new FakePac(), (_, _, _) => throw new HttpRequestException("SENTINEL"), "--apply", "--format", "json");
+        var r = ApplyAgents(new FakeTarget { After = AgentToolsAfter() }, new FakePac(), (_, _, _) => throw new HttpRequestException("SENTINEL"), "--apply", "--format", "json");
 
         Assert.Equal(0, r.Code);
         Assert.Equal(("not-read", null), AgentOf(Json(r)));
@@ -1309,7 +1545,7 @@ public class DeployApplyCommandTests : DeployTestBase
         AgentZip(Folder);
         MakePlan();
 
-        var r = ApplyAgents(new FakeTarget(), new FakePac(), (_, _, _) => throw new DriftReadException("the read failed", "tool line"), "--apply");
+        var r = ApplyAgents(new FakeTarget { After = AgentToolsAfter() }, new FakePac(), (_, _, _) => throw new DriftReadException("the read failed", "tool line"), "--apply");
 
         Assert.Equal(0, r.Code);
         Assert.Equal("  | tool line\nwarning: the agent read-back failed: the read failed\n", r.Err);
@@ -1393,6 +1629,7 @@ public class DeployApplyCommandTests : DeployTestBase
         var after = new Dictionary<string, Snapshot>(StringComparer.OrdinalIgnoreCase)
         {
             ["Flows"] = Installed("Flows", "1.0.0.0") with { Flows = [new SnapshotFlow(Guid.Parse("11111111-2222-3333-4444-555555555555"), "F", "on")] },
+            ["PowerOpsAgentTools"] = Installed("PowerOpsAgentTools", "1.0.0.0", managed: false),
         };
 
         var r = ApplyAgents(new FakeTarget { After = after }, new FakePac(), new FakeAgents { Answer = _ => [("demo_Helper", true)] }.Read, "--apply", "--format", "json");
@@ -1419,7 +1656,7 @@ public class DeployApplyCommandTests : DeployTestBase
         File.Delete(Path.Combine(Folder, "PowerOpsAgentTools.settings.json"));
         SmallZip(Folder, "Solo");
         MakePlan();
-        var plain = ApplyAgents(new FakeTarget(), new FakePac(), agents.Read, "--apply", "--format", "json");
+        var plain = ApplyAgents(new FakeTarget { After = AfterOf(Installed("Solo", "1.0.0.0")) }, new FakePac(), agents.Read, "--apply", "--format", "json");
 
         Assert.Equal(0, plain.Code);
         Assert.Empty(Json(plain)["agents"]!.AsArray());
@@ -1466,7 +1703,7 @@ public class DeployApplyCommandTests : DeployTestBase
         MakePlan();
         var agents = new FakeAgents { Answer = _ => found ? [("demo_Helper", true)] : [] };
 
-        var r = ApplyAgents(new FakeTarget(), new FakePac(), agents.Read, "--apply", "--format", "json");
+        var r = ApplyAgents(new FakeTarget { After = AgentToolsAfter() }, new FakePac(), agents.Read, "--apply", "--format", "json");
         var after = Now();
 
         Assert.Equal(0, r.Code);
@@ -1486,7 +1723,7 @@ public class DeployApplyCommandTests : DeployTestBase
         MakePlan();
         var agents = new FakeAgents { Answer = _ => [("demo_Helper", true)] };
 
-        var r = ApplyAgents(new FakeTarget(), new FakePac(), agents.Read, "--apply");
+        var r = ApplyAgents(new FakeTarget { After = AgentToolsAfter() }, new FakePac(), agents.Read, "--apply");
         var after = Now();
 
         Assert.Equal(0, r.Code);
@@ -1526,8 +1763,8 @@ public class DeployApplyCommandTests : DeployTestBase
         AgentZip(Folder);
         MakePlan();
 
-        var json = ApplyAgents(new FakeTarget(), new FakePac(), (_, _, _) => throw new HttpRequestException("SENTINEL"), "--apply", "--format", "json");
-        var text = ApplyAgents(new FakeTarget(), new FakePac(), (_, _, _) => throw new HttpRequestException("SENTINEL"), "--apply");
+        var json = ApplyAgents(new FakeTarget { After = AgentToolsAfter() }, new FakePac(), (_, _, _) => throw new HttpRequestException("SENTINEL"), "--apply", "--format", "json");
+        var text = ApplyAgents(new FakeTarget { After = AgentToolsAfter() }, new FakePac(), (_, _, _) => throw new HttpRequestException("SENTINEL"), "--apply");
 
         AssertNoReadTime(json, text);
         Assert.Equal((0, 0), (json.Code, text.Code));
@@ -1580,8 +1817,8 @@ public class DeployApplyCommandTests : DeployTestBase
         MakePlan();
         var live = new LiveAgents();
 
-        var json = ApplyAgents(new FakeTarget(), new FakePac(), live.Read, "--apply", "--format", "json");
-        var text = ApplyAgents(new FakeTarget(), new FakePac(), live.Read, "--apply");
+        var json = ApplyAgents(new FakeTarget { After = AgentToolsAfter() }, new FakePac(), live.Read, "--apply", "--format", "json");
+        var text = ApplyAgents(new FakeTarget { After = AgentToolsAfter() }, new FakePac(), live.Read, "--apply");
 
         Assert.Equal((0, 0), (json.Code, text.Code));
         Assert.Equal(("not-read", null), AgentOf(Json(json)));
@@ -1628,7 +1865,7 @@ public class DeployApplyCommandTests : DeployTestBase
             return (
                 $"no review covers B.zip: {NoneRecords} (2 zips in all; the warning lines name each); nothing was imported.",
                 $"warning: B.zip: {NoneRecords}\nwarning: C.zip: {NoneRecords}\n",
-                () => new FakeTarget());
+                () => new FakeTarget { After = ChainAfter() });
         }
 
         SeedZip(Folder);
@@ -1709,7 +1946,7 @@ public class DeployApplyCommandTests : DeployTestBase
         Reviewed(solo);
         var pac = new FakePac();
 
-        var r = Apply(new FakeTarget { Snaps = { ["Kept"] = Installed("Kept", "1.0.0.0") } }, pac, "--require-reviews", "--apply");
+        var r = Apply(new FakeTarget { Snaps = { ["Kept"] = Installed("Kept", "1.0.0.0") }, After = AfterOf(Installed("Solo", "1.0.0.0")) }, pac, "--require-reviews", "--apply");
 
         Assert.Equal(0, r.Code);
         Assert.Equal("", r.Err);
@@ -1779,7 +2016,7 @@ public class DeployApplyCommandTests : DeployTestBase
         var seen = new List<int>();
         var pac = new FakePac { UnpackFrom = reviews["A"], Answer = n => { seen.Add(n); return null; } };
 
-        var r = Apply(new FakeTarget(), pac, "--apply");
+        var r = Apply(new FakeTarget { After = ChainAfter() }, pac, "--apply");
 
         // A's unpack is copied for every zip, so B and C warn; the imports still run as 0, 1, 2.
         Assert.Equal(0, r.Code);

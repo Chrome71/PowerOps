@@ -1255,14 +1255,26 @@ public sealed class McpCommandTests : IAsyncLifetime
         File.WriteAllText(planFile, plan.ToJsonString());
     }
 
+    // The target once an import has run: the seed at the version of DeployFolder's zip.
+    private static DeployTarget ReadAfterImport(string target, IReadOnlyList<string> solutions, IReadOnlyList<string> dependencies)
+    {
+        var read = ReadTarget(target, solutions, dependencies);
+        return read with { Solutions = [.. read.Solutions.Select(s => s with { Version = "1.0.0.1" })] };
+    }
+
     // The fakes of a tenant that matches the plan, and a pac that records the imports it is asked for.
+    // The first read after an import returned answers the import's version: keyed on an import having run, not on a read count (through the form the target is read twice before any import),
+    // and only that read, so a later call of the same test, and a read made while an import is still running, start from the plan's tenant again.
     private void ImportFakes(Func<int, PacResult>? pac = null)
     {
-        _fakes.TargetBehavior = ReadTarget;
+        var imported = 0;
+        _fakes.TargetBehavior = (t, s, d) => Interlocked.Exchange(ref imported, 0) == 1 ? ReadAfterImport(t, s, d) : ReadTarget(t, s, d);
         _fakes.PacBehavior = a =>
         {
             _imports.Enqueue([.. a]);
-            return pac?.Invoke(_imports.Count) ?? Ok("imported\n");
+            var result = pac?.Invoke(_imports.Count) ?? Ok("imported\n");
+            Interlocked.Exchange(ref imported, 1);
+            return result;
         };
     }
 
@@ -1276,7 +1288,17 @@ public sealed class McpCommandTests : IAsyncLifetime
     private (int Code, string Out, string Err) CliApply(string planFile, bool apply, PacResult? pac = null)
     {
         string[] args = ["deploy", "apply", planFile, "--target", Secret, "--format", "json", "--require-reviews", .. (apply ? new[] { "--apply" } : [])];
-        return ViaTool(new Fakes { TargetBehavior = ReadTarget, PacBehavior = _ => pac ?? Ok("imported\n") }, apply ? (string)JsonNode.Parse(File.ReadAllText(planFile))!["hash"]! : null, args);
+        var imported = false;
+        var fakes = new Fakes
+        {
+            TargetBehavior = (t, s, d) => imported ? ReadAfterImport(t, s, d) : ReadTarget(t, s, d),
+            PacBehavior = _ =>
+            {
+                imported = true;
+                return pac ?? Ok("imported\n");
+            },
+        };
+        return ViaTool(fakes, apply ? (string)JsonNode.Parse(File.ReadAllText(planFile))!["hash"]! : null, args);
     }
 
     // The time of an apply is the second it started; the comparison with the tool's report leaves it out.
@@ -1455,6 +1477,41 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.DoesNotContain(folder, form.Message);
     }
 
+    [Fact]
+    public async Task An_accepted_form_reports_the_solution_as_the_target_shows_it_after_the_import()
+    {
+        var (_, planFile) = SavedPlan();
+        ImportFakes();
+        await using var pair = await Connect(_fakes, "2026-07-28", new Forms(_ => Accepted(TargetName)));
+
+        var result = await Apply(pair, ApplyArgs(planFile));
+
+        Assert.False(result.IsError);
+        var report = JsonNode.Parse(Text(result))!;
+        Assert.Equal("imported", (string?)report["status"]);
+        Assert.Null((string?)report["message"]);
+        Assert.Equal("""{"installed":true,"version":"1.0.0.1","managed":true}""", report["solutions"]![0]!["after"]?.ToJsonString());
+        Assert.Single(_imports);
+    }
+
+    [Fact]
+    public async Task An_accepted_form_whose_read_after_the_import_shows_the_old_version_reports_it_and_is_no_error()
+    {
+        var (_, planFile) = SavedPlan();
+        ImportFakes();
+        _fakes.TargetBehavior = ReadTarget;
+        await using var pair = await Connect(_fakes, "2026-07-28", new Forms(_ => Accepted(TargetName)));
+
+        var result = await Apply(pair, ApplyArgs(planFile));
+
+        Assert.False(result.IsError);
+        var report = JsonNode.Parse(Text(result))!;
+        Assert.Equal("imported", (string?)report["status"]);
+        Assert.Equal("pac reported success, but the target shows PowerOpsSeed at version 1.0.0.0; check the solution's import history.", (string?)report["message"]);
+        Assert.Equal("1.0.0.0", (string?)report["solutions"]![0]!["after"]?["version"]);
+        Assert.Single(_imports);
+    }
+
     // The made agent fixture (solution PowerOpsAgentTools, agent demo_Helper) as a zip with its settings file, planned as an install into an empty target.
     private static DeployTarget EmptyTarget(string target, IReadOnlyList<string> solutions, IReadOnlyList<string> dependencies) =>
         new("Contoso Test", Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), [.. solutions.Select(n => new Snapshot("Contoso Test", n, false, null, null, true, [], [], [], []))], dependencies.ToDictionary(d => d, _ => (string?)null));
@@ -1493,12 +1550,16 @@ public sealed class McpCommandTests : IAsyncLifetime
     public async Task The_form_for_a_zip_with_an_agent_names_it_and_the_publication_note_and_the_import_reads_it_back()
     {
         var planFile = SavedAgentPlan();
+        // The read after the import shows the zip's version.
+        _fakes.TargetBehavior = (t, s, d) => _imports.IsEmpty ? EmptyTarget(t, s, d)
+            : EmptyTarget(t, s, d) with { Solutions = [.. s.Select(n => new Snapshot("Contoso Test", n, true, "1.0.0.0", false, true, [], [], [], []))] };
         var forms = new Forms(_ => Accepted(TargetName));
         await using var pair = await Connect(_fakes, "2026-07-28", forms);
 
         var result = await Apply(pair, ApplyArgs(planFile));
 
         Assert.False(result.IsError);
+        Assert.Null((string?)JsonNode.Parse(Text(result))!["message"]);
         var form = Assert.Single(forms.Seen);
         Assert.Contains($"\nSolution zips: PowerOpsAgentTools.zip\nCopilot Studio agents: demo_Helper (PowerOpsAgentTools)\n{McpCommand.AgentFormNote}\n\nTo import, type the target environment's name", form.Message);
         Assert.Single(_imports);
@@ -1777,6 +1838,8 @@ public sealed class McpCommandTests : IAsyncLifetime
         var (inImport, release) = (new SemaphoreSlim(0), new ManualResetEventSlim());
         var finished = 0;
         ImportFakes();
+        // The read after the import shows the zip's version.
+        _fakes.TargetBehavior = (t, s, d) => Volatile.Read(ref finished) == 1 ? ReadAfterImport(t, s, d) : ReadTarget(t, s, d);
         _fakes.PacBehavior = args =>
         {
             _imports.Enqueue([.. args]);
