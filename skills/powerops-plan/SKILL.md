@@ -25,7 +25,7 @@ An agent that answers for the person under the person's brief is not autopilot: 
 
 ## 2. Start or resume
 
-1. Check that `powerops` runs (for example `powerops --version`). If not found, tell the user to install PowerOps as the Install section of its README says (https://github.com/Chrome71/PowerOps#install), and stop.
+1. Check that `powerops` runs (for example `powerops --version`). If it is not found, tell the user to install PowerOps as the Install section of its README says (https://github.com/Chrome71/PowerOps#install), and stop.
 2. Pick a plan name in kebab-case from the idea (`site-visits`). The folder is `docs/plans/<name>/`.
 3. If the folder exists, read `plan.md` and `decisions.md`, then run `powerops plan status docs/plans/<name> --json`. If it exits 2, show the reason and fix the header with the user first. Keep the `depth` from the header (section 6). Then continue where the plan stopped:
    - `draft`: go to the what-next menu (section 6).
@@ -85,7 +85,7 @@ supersedes: null
 - `Data` has one row per table and list: `| Artefact | Kind | Store | Goal line | Reuse, Extend or Create | Why not a column or choice | Rows now, 3 years |`. Its Goal line is the number of the line that would fail without it.
 - `Automation` and `Screens` give each flow and screen its Goal line too.
 - When the plan names new data or a flow, read `references/data.md` beside this file: the store, the gates, table design, each flow's card and the data round. When it names an app, page, site, report or agent, read `references/route.md` and the product files it names.
-- `Constraints` holds DLP, deadlines and, when the plan names a connector, table, app, flow, site, report or agent, a `### Licences` table, one row per need beyond Microsoft 365's standard rights: `| Need | Product or feature | Who needs it | Standard alternative | Held |`. With none, the heading stays with only the line "No need beyond Microsoft 365's standard rights.". Rows and values: `references/licensing.md`. A row with `Held` `unknown` gets a step checking it before its first use.
+- `Constraints` holds DLP, deadlines and, when the plan names a connector, table, app, flow, site, report or agent, a `### Licences` table, one row per need beyond Microsoft 365's standard rights: `| Need | Product or feature | Who needs it | Standard alternative | Held |`. With none, the heading stays with only the line "No need beyond Microsoft 365's standard rights.". Rows and values: `references/licensing.md`. A row with `Held` `unknown` gets a step checking it before first use.
 - `Steps` is a numbered list of implementation steps: small, in order, each one checkable.
 - A skill, CLI or MCP tool the plan says a step uses: check that it is callable (in your skill or tool list, or found by `command -v` or `Get-Command`). If it isn't, or you can't check, say so in Assumptions.
 - `Open questions` and `Questions for your admin` hold one top-level `- ` item per question. When there are none, leave the section empty. Do not write "None": the tool counts list items. Move an item out when it is answered.
@@ -113,7 +113,7 @@ Answer: <the user's answer> (answered by: person)
 - The recommended option is always option 1. "In your own words" is always the last option.
 - For `Answer:`, write the text of the option chosen, or the user's own words (redacted, see section 4).
 - End each `Answer:` line, and each Log line of an approval, acceptance or sign-off, with `(answered by: person)` or `(answered by: agent <session>)`.
-- Everything not a question goes as a `- ` line under a `## Log` heading at the end: approvals, "approved without: environments, constraints", fast-path choices, sign-off. Add new rounds above `## Log`, and new log lines at its end (oldest first).
+- Everything that is not a question goes as a `- ` line under a `## Log` heading at the end: approvals, "approved without: environments, constraints", fast-path choices, sign-off. Add new rounds above `## Log`, and new log lines at the end of it (oldest first).
 
 ## 6. Question rounds
 
@@ -121,7 +121,7 @@ Each round:
 
 1. Ask at most three questions. Each has two or three options, the recommended one first, plus "in your own words". An option is a label of at most six words and one sentence of at most 20 words on what changes. Sources and detail go into the plan. A recommended option never states a fact about the person's tenant, licences or data: read it (section 3), or make option 1 "Not sure" (recommended).
 2. Use the agent's choice tool if it has one. Otherwise print the numbered options as plain text and tell the user how to answer: "Answer like `1 2 1`, or in your own words." Then end your turn.
-3. After the answers, append each question and answer to `decisions.md`.
+3. Right after the answers, append each question and answer to `decisions.md`.
 4. Update `plan.md`. Put assumptions and open items in the plan, not in chat.
 5. Show exactly three lines, one per change to the plan. Nothing else.
 6. Ask what next, with lettered options: **A** another round, **B** approve the draft, **C** stop for now, **D** sketch the screens first. End your turn.
@@ -135,7 +135,7 @@ Question order: outcome and users, then data, then automation, then environments
 
 Do not ask what the facts already answer. When nothing is left to ask, recommend B.
 
-**Defaults.** A safe default is reversible, changes no cost, security or data, and is no tenant fact. Don't ask it: write `default: <choice>` under Assumptions. The cost tier, `Held`, environments, security roles and data-round questions are never defaults.
+**Defaults.** A safe default is reversible, changes no cost, security or data, and is no tenant fact. Don't ask: write `default: <choice>` under Assumptions. The cost tier, `Held`, environments, security roles and data-round questions are never defaults.
 
 **Budget.** Under `standard`, aim for five rounds or fewer before approval. After round five, each question names the plan line it unblocks. Open each round's message with "Round <k> of about <n>", in chat only: `decisions.md` keeps `## Round <k>` headings.
 
@@ -154,7 +154,7 @@ After each round, judge engagement from the answers. "Just pick", "whatever you 
 ## 7. Approve (B)
 
 1. Run `powerops plan status docs/plans/<name> --json`. Show the open and admin question counts and which of the five areas (users, data, automation, environments and ALM, constraints) were never asked.
-2. If any area was never asked, ask one confirmation: approve anyway, or ask about it first. Wait. Then, if Assumptions holds `default:` lines, ask once, "Keep these N defaults?", by label: **Keep all** (recommended) or **Change some**, then ask about those. Under `quick`, ask nothing: the approval keeps them. Log `defaults kept: <N>` or `defaults changed: <labels>`, marked `(answered by: ...)`, under `## Log`, not as a `### Q`.
+2. If any area was never asked, ask one confirmation: approve anyway, or ask about it first. Wait. Then, if Assumptions holds `default:` lines, ask once, "Keep these N defaults?", by label: **Keep all** (recommended) or **Change some**, then ask about those. Under `quick`, ask nothing: the approval keeps them. Log `defaults kept: <N>` or `defaults changed: <labels>`, marked `(answered by: ...)`, under `## Log`, not a `### Q`.
 3. If `Steps` is empty, draft it from the plan and tell the user.
 4. Log the approval under `## Log`. If areas were skipped, log `approved without: <areas>`.
 5. Set `status: approved` in the header.
@@ -188,7 +188,7 @@ Run this after the review, or when the user says "sign off".
 
 1. Run `powerops plan status docs/plans/<name> --json`.
 2. Show: the open and admin question counts; the unresolved findings in `review.md` (those with `Resolution: open`, by R-number); its first three lines and its `stale` value.
-3. Ask once, lettered: **A** sign off now, **B** go back (resolve findings, or more rounds). When there is no `review.md`, add **C** skip the review and sign off: set `review: skipped` and log it. Before the menu, findings that only need a design assumption confirmed, none High and none a tenant, licence or data fact, go in one question, "Confirm these N assumptions?": **Confirm all** (recommended) or **Change some**. Give each confirmed one `Resolution: accepted` and log `assumptions confirmed: R<n>, ...` with its mark. The plan body doesn't change.
+3. Ask once, lettered: **A** sign off now, **B** go back (resolve findings, or more rounds). When there is no `review.md`, add **C** skip the review and sign off: set `review: skipped` and log it. Before the menu, findings that only need a design assumption confirmed, none High, none a tenant, licence or data fact, go in one question, "Confirm these N assumptions?": **Confirm all** (recommended) or **Change some**. Give each confirmed one `Resolution: accepted` and log `assumptions confirmed: R<n>, ...` with its mark. The plan body doesn't change.
 4. On A or C, run `powerops plan sign-off docs/plans/<name>`, then `powerops plan status docs/plans/<name>`, and show the result.
 5. If sign-off refuses, show why and fix the cause with the user.
 
