@@ -589,6 +589,18 @@ The third end-to-end trial (2026-11-11) ran `drift` between Dev and Test right a
 
 87. `fix:` M88: the plan, then the comparison and its tests, the docs (built 2026-11-11, [plan](plans/m88-drift-choices/plan.md))
 
+## M92: redaction by default
+
+The third end-to-end trial's blind grade rated it High that `analyze` (PO006, PO014) and `diff` print the URLs and environment variable defaults they find unless `--redact` is given, and that the MCP `analyze` and `diff` tools can't hide them. The owner answered "Hide by default" (2026-11-11). The [plan](plans/m92-redact-default/plan.md) makes redaction the default and keeps the baseline as the exception (decision 63).
+
+| Milestone | Release | Scope | Done when |
+|---|---|---|---|
+| **M92. Redaction by default** | the next minor release, which release-please makes from the `feat!:` commit | <ul><li>Planned 2026-11-11 ([plan](plans/m92-redact-default/plan.md))</li><li>`analyze` and `diff` replace URLs, and `diff` a changed `defaultValue`, by default; `--show-values` prints them; `--redact` is accepted and changes nothing</li><li>The MCP `analyze` and `diff` tools always redact; the baseline file and the MCP `baseline` tool keep the URLs</li><li>The Action's `redact` input defaults to `'true'`; `'false'` passes `--show-values`</li></ul> | `dotnet test --project tests/PowerOps.Cli.Tests --filter "AnalyzeCommandTests\|DiffCommandTests\|McpCommandTests\|ActionScriptTests\|ActionYmlTests\|BaselineCommandTests\|RoleEvalTests"` passes, and `analyze` of the seed fixture prints no URL |
+
+### Build order, M92 (continues the list below)
+
+88. `feat!:` M92: the plan, then the default and its tests, the docs (built 2026-11-11, [plan](plans/m92-redact-default/plan.md))
+
 ## Testing
 
 | Layer | What | Runs |
@@ -820,3 +832,9 @@ Made after decisions 59 and 60, on the owner's answer to one question.
 Made in the [M88 plan](plans/m88-drift-choices/plan.md); its `decisions.md` weighs the options.
 
 62. **`drift` leaves global choices out by id and counts setting definitions; `variable-value` stays drift.** A global choice was seen to get a new id on a first managed import, and a solution's setting definition was seen listed in Dev and not in Test, where Microsoft owns its managed definition; both are observed once (trial 3) and not stated on Learn. A really missing choice now shows only in `notCompared`, and a missing custom setting definition only in its count. Comparing choices by name and a `drift --settings <file>` that treats the file's values as expected are left for 1.0.x.
+
+## Decisions, M92 redaction by default (2026-11-11)
+
+Made in the [M92 plan](plans/m92-redact-default/plan.md); its `decisions.md` weighs the options.
+
+63. **Outputs hide URLs and default values by default; the baseline keeps them.** `analyze` and `diff`, their MCP tools and the Action replace each URL with `[redacted URL]` and print a changed `defaultValue` as added, removed or changed, unless `--show-values` (or the Action's `redact: 'false'`) is given; the MCP tools have no way to show them. Asked "Should outputs hide URLs and default values by default?", the owner answered "Hide by default" (2026-11-11). This reverses their D7 of 2026-11-04 ([M61](plans/m61-redact/decisions.md), opt-in `--redact`), which stays accepted and changes nothing. The baseline file and the MCP `baseline` tool are the exception: a baseline must match the unredacted findings, so a committed baseline holds the URLs its findings name. For the release notes: a SARIF fingerprint is taken over the printed text, so the first code scanning upload after this change closes the alerts of findings that held a URL and opens new ones, once, and by default two findings that differ only in their URL share one fingerprint. The change reaches one eval baseline line (`solution-08`'s `diff`), so under decision 40 M96 reruns the Verifier pass as well as the security pass, with the cap raised to USD 40 (the owner, 2026-11-11).
