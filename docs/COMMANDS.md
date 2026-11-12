@@ -39,7 +39,7 @@ A target that is a symbolic link is refused with exit `2` and an `error:` line, 
 
 A target that is a file the command was given as an input is refused the same way: an `analyze`, `baseline` or `inventory` zip, `--baseline`, the two solutions of `diff`, the path of `test`, the solution of `settings generate`, an `--env` snapshot file of `drift`, the plan file of `deploy apply`.
 
-The files a scan found count too: the zips and `solution.yml` files that `analyze`, `baseline`, `diff` and `test` found under a folder, the `*.flowtest.json` files `test` found, and the zips and settings files in the folder of `deploy plan` or beside the plan file of `deploy apply`; each command lists them before the refusal, which stays before its work and before any read of a tenant.
+The files a scan found count too: the zips and `solution.yml` files that `analyze`, `baseline`, `diff`, `inventory` and `test` found under a folder, the `*.flowtest.json` files `test` found, and the zips and settings files in the folder of `deploy plan` or beside the plan file of `deploy apply`; each command lists them before the refusal, which stays before its work and before any read of a tenant.
 The files a reader opens inside an unpacked solution folder do not count, so a report can still be written into the folder it scanned, as the Action does with `powerops-plan.json`.
 `plan sign-off` through a linked `plan.md` exits `3`, as it does for a linked plan it reads.
 

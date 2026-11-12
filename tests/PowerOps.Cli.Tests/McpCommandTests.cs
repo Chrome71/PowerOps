@@ -297,6 +297,17 @@ public sealed class McpCommandTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Inventory_replaces_the_ids_in_the_agent_zips_reference_names()
+    {
+        var zip = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "agents", "new-ui", "v1.zip");
+
+        var text = Text(await Call("inventory", new() { ["paths"] = new[] { zip } }));
+
+        Assert.Contains("[id]", text, StringComparison.Ordinal);
+        Assert.DoesNotMatch("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[0-9a-fA-F]{32}", text);
+    }
+
+    [Fact]
     public async Task Plan_status_carries_the_reports_list_and_it_matches_the_schema()
     {
         var plans = PlanFolder("status: draft\nreview: pending");
