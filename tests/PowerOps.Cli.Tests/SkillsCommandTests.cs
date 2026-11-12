@@ -454,12 +454,12 @@ public partial class SkillsCommandTests : IDisposable
     [Fact]
     public void Plan_skill_stays_under_its_word_ceiling()
     {
-        // M41: the 2,483 words the skill had before the ledger, plus 300. M81: plus 50 for the engagement rule and the callable-tool rule. Decision 52: plus 40 for the three options and the pick. M91: plus 494 for the option format, the defaults batch, the budget and the licence read. On ASCII text a split on whitespace counts as wc -w does.
+        // M41: the 2,483 words the skill had before the ledger, plus 300. M81: plus 50 for the engagement rule and the callable-tool rule. Decision 52: plus 40 for the three options and the pick. M91: plus 494 for the option format, the defaults batch, the budget and the licence read. M93: plus 144 for the early sketch, the redone pick and the unproven line. On ASCII text a split on whitespace counts as wc -w does.
         var text = SkillsCommand.Shipped()["powerops-plan/SKILL.md"];
         var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
 
         Assert.All(text, c => Assert.True(c < 128, $"non-ASCII character U+{(int)c:X4}"));
-        Assert.InRange(words, 1, 3363);
+        Assert.InRange(words, 1, 3507);
     }
 
     private static string PlanSkill() => SkillsCommand.Shipped()["powerops-plan/SKILL.md"];
@@ -783,5 +783,74 @@ public partial class SkillsCommandTests : IDisposable
         Assert.Contains("`logic.md`", route);
         Assert.All(review, s => Assert.Contains(s, shipped["powerops-review-plan/SKILL.md"]));
         Assert.All(implement, s => Assert.Contains(s, shipped["powerops-implement/SKILL.md"]));
+    }
+
+    // The text between a heading and the next one given, as the sections of a skill.
+    private static string Between(string text, string start, string stop)
+    {
+        var from = text.IndexOf(start, StringComparison.Ordinal);
+        Assert.True(from >= 0, $"{start} not found");
+        var to = text.IndexOf(stop, from, StringComparison.Ordinal);
+        Assert.True(to > from, $"{stop} not found after {start}");
+        return text[from..to];
+    }
+
+    [Fact]
+    public void Plan_skill_marks_unproven_capabilities_and_probes_them_first()
+    {
+        // M93: in section 5, which the fast path writes too.
+        var files = Between(PlanSkill(), "## 5. Files", "## 6. Question rounds");
+
+        Assert.All(new[] { "`unproven: <capability>; probed by step <n>`", "before every step that depends on it" }, s => Assert.Contains(s, files));
+    }
+
+    [Fact]
+    public void Plan_skill_sketches_in_the_rounds_and_asks_only_an_open_pick_at_approval()
+    {
+        var text = PlanSkill();
+        var rounds = Between(text, "## 6. Question rounds", "## 7. Approve (B)");
+        var step6 = Between(text, "6. If `Screens` names anything:", "7. Recommend a review");
+
+        Assert.All(new[] { "write the first `Screens` lines from the idea or round 1", "Once `Users`, the route and a `Screens` line exist", "no later than the first data question" }, s => Assert.Contains(s, rounds));
+        Assert.All(new[] { "ask only a pick still open", "redo `pick <letter>`" }, s => Assert.Contains(s, step6));
+    }
+
+    [Fact]
+    public void Route_reference_and_prototype_skill_give_the_pick_its_lifecycle_in_the_rounds()
+    {
+        var shipped = SkillsCommand.Shipped();
+        var route = shipped["powerops-plan/references/route.md"];
+        var prototype = shipped["powerops-prototype/SKILL.md"];
+        string[] wording =
+        [
+            "under `quick` and in the fast path, start it at approval",
+            "log the `prototype:` line under `## Log` at once",
+            "or at approval when no round follows",
+            "run `options` again",
+            "or you can't tell whether they did",
+            "one file, not three new options",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, route));
+        Assert.DoesNotContain("and start `powerops-prototype` at approval", route);
+        Assert.Contains("an early options run", prototype);
+        Assert.DoesNotContain("starts it at approval", prototype);
+    }
+
+    [Fact]
+    public void Logic_reference_enforces_a_valid_record_at_the_write_with_its_dated_sources()
+    {
+        var logic = SkillsCommand.Shipped()["powerops-plan/references/logic.md"];
+
+        Assert.All(new[] { "a second line, not the control", "can't secure `statecode` or `statuscode`", "`prvBypassCustomBusinessLogic`", "Checked on 2026-11-12" }, s => Assert.Contains(s, logic));
+        Assert.True(logic.IndexOf("Checked on 2026-11-12", StringComparison.Ordinal) > logic.IndexOf("## Sources\n\nChecked on 2026-11-05", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Review_plan_skill_checks_buildability_and_what_each_role_sets_at_create()
+    {
+        var text = SkillsCommand.Shipped()["powerops-review-plan/SKILL.md"];
+
+        Assert.All(new[] { "13. Buildability:", "Two plan lines that can't both hold are a High finding.", "which columns it can set when it creates a row" }, s => Assert.Contains(s, text));
     }
 }

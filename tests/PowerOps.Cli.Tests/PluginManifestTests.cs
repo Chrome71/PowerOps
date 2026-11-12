@@ -190,6 +190,19 @@ public class PluginManifestTests
         Assert.True(differing.Count == 0, $"plugins/claude/agents/ differs from the generated specialists ({string.Join(", ", differing)}); rerun the tests with POWEROPS_UPDATE_GOLDEN=1");
     }
 
+    // M93: these read the sources; Plugin_agents_are_the_generated_specialists carries them into the copies.
+    [Fact]
+    public void Specialist_rules_mark_a_proposed_line_with_no_source_as_unproven()
+    {
+        Assert.Contains("`(unproven: <probe>)`", PluginAgents.SharedRules(Lf(Repo("CLAUDE.md"))));
+    }
+
+    [Fact]
+    public void Workflow_logic_enforces_a_valid_record_at_the_write_not_in_a_flow_after_it()
+    {
+        Assert.Contains("a second line, not the control", Lf(Repo(".claude", "agents", "powerops-workflow-logic.md")));
+    }
+
     [Fact]
     public void A_changed_missing_or_extra_agent_copy_is_stale()
     {

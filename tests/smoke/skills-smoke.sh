@@ -146,7 +146,7 @@ idea="an app for tracking site visits by our field engineers"
 scenario=rounds
 new_repo
 goal="At a what-next menu: if you have answered none so far, choose A (another round); otherwise choose B (approve). Confirm if asked to approve anyway. When asked to pick a sketch option or skip the sketch, skip it with a reason. When the review or the sign-off is offered, choose the option that signs off now."
-# One more turn: a plan with screens asks to pick a sketch option or skip the sketch before it signs off (M70, decision 52).
+# A plan with screens asks to pick a sketch option or skip the sketch as a round 2 question, with the data questions (M70, decision 52, M93).
 max_turns=$((max_turns + 2)) # ...and the defaults question at approval ("Keep these N defaults?", M91)
 converse "Use the powerops-plan skill. My idea: $idea." '[ -n "$(plan_dir)" ] && [ "$(header status)" = signed-off ]' || true
 max_turns=$((max_turns - 2))
@@ -266,15 +266,33 @@ else
   fail "no plan folder under docs/plans"
 fi
 
-# 6. Depth standard: the data round within three questions a round, then the sketch (D): three options, a pick,
-# and the picked sketch. Every sketch file passes the 81,920-byte check and `plan status` has no prototype warning.
+# 6. Depth standard, run through approval: the data round within three questions a round, and the sketch in the
+# rounds (M93): the options come after the round that names users and screens, the pick is a question of the next
+# round, no later than the first data question, and its log line is written while the plan is a draft; approval
+# leaves the options as they are. Every sketch file passes the 81,920-byte check and `plan status` has no prototype warning.
 scenario=standard
 new_repo
 sketch_offered=0
+early=0
+logged=0
+early_sum=
+# While the plan is a draft: whether option-a.html exists (its cksum saved the first time) and the pick is logged under ## Log.
+note_early() {
+  local plan
+  plan="$(plan_dir)"
+  [ -n "$plan" ] && [ -f "$plan/plan.md" ] || return 0
+  [ "$(header status 2>/dev/null)" = draft ] || return 0
+  if [ -f "$plan/mockups/option-a.html" ]; then
+    early=1
+    [ -n "$early_sum" ] || early_sum="$(cksum <"$plan/mockups/option-a.html")"
+  fi
+  if awk '/^## Log/ { inlog = 1; next } /^## / { inlog = 0 } inlog && /^- .*prototype: approved/ { found = 1 } END { exit !found }' "$plan/decisions.md" 2>/dev/null; then logged=1; fi
+  return 0
+}
 # Answers in a sentence or two of the user's own words keep the depth at standard; scenario 9 checks bare option numbers.
-goal="Answer each question in a sentence or two of your own words that takes the recommended option. At a what-next menu: if you have answered fewer than two menus, choose A (another round); if exactly two, reply with just: D (or B if the menu has no D), even when another option is marked recommended; otherwise choose B (approve the draft). Confirm if asked to approve anyway. When asked to pick a sketch option, pick the recommended one with no changes. When asked to approve the picked sketch, approve it. When a review or a sign-off is offered, say you will do it later."
-max_turns=$((max_turns + 7)) # three rounds, the sketch options, the pick, the approval, the sketch question and the defaults question
-converse "Use the powerops-plan skill. My idea: $loans." 'note_sketch; [ -n "$(plan_dir)" ] && grep -q "^- .*prototype:" "$(plan_dir)/decisions.md" 2>/dev/null' || true
+goal="Answer each question in a sentence or two of your own words that takes the recommended option. When asked to pick a sketch option, pick the recommended one with no changes. When asked to approve a picked or redrawn sketch, approve it. At a what-next menu, choose A (another round) while you have answered fewer than two menus, then B (approve the draft). Confirm if asked to approve anyway. When a review or a sign-off is offered, say you will do it later."
+max_turns=$((max_turns + 7)) # three rounds with the options and the pick inside them, the pick's approval, the approval and the defaults question
+converse "Use the powerops-plan skill. My idea: $loans." 'note_sketch; note_early; [ -n "$(plan_dir)" ] && [ "$(header status)" = approved ] && grep -q "^- .*prototype:" "$(plan_dir)/decisions.md" 2>/dev/null' || true
 max_turns=$((max_turns - 7))
 if [ -n "$(plan_dir)" ]; then
   check_decisions
@@ -297,6 +315,25 @@ if [ -n "$(plan_dir)" ]; then
     fi
   done
   if cmp -s "$(plan_dir)/mockups/option-a.html" "$(plan_dir)/mockups/option-b.html"; then fail "options a and b are the same file"; fi
+  [ "$early" = 1 ] || fail "the sketch options were not written while the plan was a draft"
+  [ "$logged" = 1 ] || fail "the pick was not logged while the plan was a draft"
+  if [ -n "$early_sum" ] && [ "$(cksum <"$(plan_dir)/mockups/option-a.html" 2>/dev/null)" != "$early_sum" ]; then fail "approval rewrote the options"; fi
+  # The round of the first pick question (its whole ### Q block: heading or options) and of the first data-round
+  # question. The data matcher is narrower than the rows check above, which a users question about recording loans
+  # can match; it can miss a reworded data question, and then the order is not checked.
+  rounds="$(awk '
+    function done() { if (block != "") { b = tolower(block); if (!pick && b ~ /sketch|option [abc]|direction/) pick = round; if (!data && b ~ /where does the data live|how many rows|rows .*three years|live today|in three years/) data = round }; block = "" }
+    /^## / { done(); if ($0 ~ /^## Round /) round++; next }
+    /^### Q/ { done(); block = $0; next }
+    block != "" { block = block " " $0 }
+    END { done(); print pick + 0, data + 0 }' "$(plan_dir)/decisions.md")"
+  pick_round="${rounds% *}"
+  data_round="${rounds#* }"
+  if [ "$pick_round" = 0 ]; then
+    fail "no pick question in the rounds"
+  elif [ "$data_round" != 0 ] && [ "$data_round" -lt "$pick_round" ]; then
+    fail "a data-round question came before the sketch pick"
+  fi
   # An option file's warning names mockups/, not the word prototype.
   if powerops plan status "$(plan_dir)" 2>&1 | grep -iE 'warning: .*(prototype|mockups/)' >/dev/null; then fail "plan status warns about the prototype"; fi
 else

@@ -601,6 +601,18 @@ The third end-to-end trial's blind grade rated it High that `analyze` (PO006, PO
 
 88. `feat!:` M92: the plan, then the default and its tests, the docs (built 2026-11-11, [plan](plans/m92-redact-default/plan.md))
 
+## M93: design process
+
+The third end-to-end trial's owner finding A, process side: the sketches came after the main question rounds, six plan lines could not be built as written, and a rule that keeps a record valid was only reported by a flow after the save. The [plan](plans/m93-design-process/plan.md) moves the sketch options into the question rounds (decision 64), adds a buildability check, and has the plan enforce a valid record at the write.
+
+| Milestone | Release | Scope | Done when |
+|---|---|---|---|
+| **M93. Design process** | the next minor release, which release-please makes from the `feat:` commit | <ul><li>Planned 2026-11-12 ([plan](plans/m93-design-process/plan.md))</li><li>Under `standard` and `deep`, `powerops-plan` writes the sketch options in the question rounds and asks the pick no later than the first data question; approval redoes the pick when the Theme block or `Screens` changed after it</li><li>A step that rests on an unproven platform capability gets an `unproven:` line and a probe before its first use; `powerops-review-plan` gains item 13, Buildability, and the specialists mark such lines</li><li>`logic.md`, review item 8 and `powerops-workflow-logic` say a rule that keeps a record valid at create is enforced at the write, and a flow after the save is a second line, not the control</li></ul> | `dotnet test --project tests/PowerOps.Cli.Tests --filter "SkillsCommandTests\|PluginManifestTests\|PlanFactsSkillTests"` passes, and the Claude smoke's `standard` scenario sees the options and the pick's log line while the plan is a draft |
+
+### Build order, M93 (continues the list below)
+
+89. `feat:` M93: the plan, then the pins and the skill text, the docs, the smoke checks and the plugin copies (built 2026-11-12, [plan](plans/m93-design-process/plan.md))
+
 ## Testing
 
 | Layer | What | Runs |
@@ -838,3 +850,9 @@ Made in the [M88 plan](plans/m88-drift-choices/plan.md); its `decisions.md` weig
 Made in the [M92 plan](plans/m92-redact-default/plan.md); its `decisions.md` weighs the options.
 
 63. **Outputs hide URLs and default values by default; the baseline keeps them.** `analyze` and `diff`, their MCP tools and the Action replace each URL with `[redacted URL]` and print a changed `defaultValue` as added, removed or changed, unless `--show-values` (or the Action's `redact: 'false'`) is given; the MCP tools have no way to show them. Asked "Should outputs hide URLs and default values by default?", the owner answered "Hide by default" (2026-11-11). This reverses their D7 of 2026-11-04 ([M61](plans/m61-redact/decisions.md), opt-in `--redact`), which stays accepted and changes nothing. The baseline file and the MCP `baseline` tool are the exception: a baseline must match the unredacted findings, so a committed baseline holds the URLs its findings name. For the release notes: a SARIF fingerprint is taken over the printed text, so the first code scanning upload after this change closes the alerts of findings that held a URL and opens new ones, once, and by default two findings that differ only in their URL share one fingerprint. The change reaches one eval baseline line (`solution-08`'s `diff`), so under decision 40 M96 reruns the Verifier pass as well as the security pass, with the cap raised to USD 40 (the owner, 2026-11-11).
+
+## Decisions, M93 design process (2026-11-12)
+
+Made in the [M93 plan](plans/m93-design-process/plan.md); its `decisions.md` weighs the options.
+
+64. **The sketch options come in the question rounds.** Under `standard` and `deep`, `powerops-plan` starts `powerops-prototype` in `options` mode once `Users`, the route and a `Screens` line exist and asks the pick in the next round, no later than the first data question, and a route change after the pick runs the options again; `quick` and the fast path keep it at approval. Approval redoes `pick <letter>` when the Theme block or `Screens` changed after the pick, and the person approves the redrawn file. This amends the timing of decision 52; its sign-off rule is unchanged.
