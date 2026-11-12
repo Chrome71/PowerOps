@@ -26,15 +26,21 @@ Decided: 1. M37 (`same-version-differs`) and M73 (`agent`) both appended; append
 
 ### Q4. The message
 1. "An unmanaged import leaves this in the target; the zip no longer has it." (the upgrade plan's wording)
-2. "An unmanaged import does not delete this from the target; the zip no longer has it." (recommended after research 1 and 2)
+2. "An unmanaged import does not delete this from the target; the zip does not have it." (recommended after research 1 and 2 and the Fable plan review)
 
-Decided: 2. Learn supports that nothing is deleted from the environment, and says nothing about whether the solution's component list keeps the component (research 2). "Does not delete" claims only the supported half and doesn't suggest the import touches the component; neither wording says anything about solution membership.
+Decided: 2. Learn supports that nothing is deleted from the environment, and says nothing about whether the solution's component list keeps the component (research 2). "Does not delete" claims only the supported half and doesn't suggest the import touches the component; neither wording says anything about solution membership. "Does not have it" replaces "no longer has it" (Fable plan review, finding 3): an unmanaged solution in a target can hold components added there directly that were never in any zip, and the plan can't see that history.
 
 ### Q5. A dedicated golden
 1. Yes, `deploy-plan-stays.json`, from the seed as an unmanaged zip over an unmanaged install (recommended)
 2. No; Core and MCP tests only
 
 Decided: 1. `OutputSchemaTests` validates every `deploy-plan*` golden against the schema, so the new golden is what proves the enum accepts `stays`; it costs one test, as M37's `deploy-plan-same-version.json` did.
+
+### Q6. Severity and the summary line
+1. `info`, and the summary line stays `plan ok` (recommended)
+2. `warning`, or a summary-line note as `agent` has
+
+Decided: 1. Nothing is lost or changed by the import: the component is in the target before and after, so the item is information for the person deciding whether to remove it by hand, not a risk of the import. The upgrade plan's M106 section sets `info`. The `agent` note exists because the import may change the agent's published state; `stays` describes no change.
 
 ## Assumptions and research
 
@@ -54,3 +60,4 @@ Claims research (a `powerops-researcher` subagent, Opus, Learn and open sources 
 - areas not asked: users, automation, environments and ALM, screens, solution and publisher; the change is to this repo's report and docs, and the plan answers each or marks it not applicable.
 - 2026-11-12: claims research back (see above): Q1 changed to no `stays` over a managed install, Q4 to the "does not delete" wording, and an `unproven:` line for solution membership.
 - approved 2026-11-12 by the building session, under the owner's approval of the upgrade plan ("Before trial 4", 2026-11-12), for the Fable plan review and a fresh-context review.
+- 2026-11-12: plan reviews of the first version. Fable (PLAN REVIEW, Fable 5.2): REJECTED, 6 findings (2 Medium, 4 Low). Fresh-context `powerops-review-plan` (Sonnet): 0 High, 0 Medium, 6 Low (`review.md`, R1 to R6). Answered in `plan.md`: test (h), a managed zip over an unmanaged install keeps today's `deletes` and gets no `stays`, and (f) asserts the full list of kinds (Fable 1, R1); Done when 5 requires the `deploy plan` paragraph to say `stays` covers only three types, so no item does not mean the target matches, and to name the Learn pages with the read date and say the claim is documented, not observed, and silent on solution membership (Fable 2, R3; the decision says the same); "the zip does not have it" (Fable 3, Q4); row 2 fixes the two `JsonOutput` comments (Fable 4); a schema-enum-equals-`PlanKind.Order` test in `OutputSchemaTests` (Fable 5); the exact `kind` description and a required version-2 `deploy apply` case (Fable 6); the separate version-2 `DeployPlanFileTests` case folded into the existing `InlineData` (R2, in part); the probe of the `unproven:` line recorded as a follow-up for trial 4 (R4); Done when 1 to 7 named as the whole requirement (R5); Q6 records why `info` and `plan ok` (R6). Not taken: R2's suggestion to drop the MCP case: the upgrade plan's section 8 and this milestone's brief require a `deploy_plan` MCP case returning `stays`. Fable's WATCH notes are binding on the executor.
