@@ -222,6 +222,27 @@ public class FixtureRuleTests
     }
 
     [Fact]
+    public void Flow_secrets_gives_PO041_once_and_PO042_twice_and_nothing_else()
+    {
+        var s = SolutionLoader.Load(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "flow-secrets"));
+
+        var f = Analyzer.Run(s);
+
+        Assert.Equal(["PO041", "PO042", "PO042"], f.Select(x => x.RuleId));
+        Assert.Equal(["demo_ApiToken", "Call_partner", "Get_partner_secret"], f.Select(x => x.Component));
+        Assert.Contains("has an authentication block and its secure inputs are off", f[1].Message);
+        Assert.Contains("reads a secret without secure outputs", f[2].Message);
+        Assert.Empty(Analyzer.NotChecked(s));
+        Assert.All(f.SelectMany(x => new[] { x.Message, x.Component }), t =>
+        {
+            Assert.DoesNotContain("contoso", t, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("http", t, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("@", t, StringComparison.Ordinal);
+            Assert.DoesNotMatch(@"[0-9a-f]{8}-[0-9a-f]{4}-", t);
+        });
+    }
+
+    [Fact]
     public void Flow_navigation_gives_PO035_for_the_expand_and_the_wrong_case_bind_key_and_nothing_else()
     {
         var s = SolutionLoader.Load(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "flow-navigation"));

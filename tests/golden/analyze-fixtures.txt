@@ -74,6 +74,10 @@ tests/fixtures/flow-limits: PowerOpsFlowLimits 1.0.0.0 (publisher demopub, prefi
 tests/fixtures/flow-navigation: PowerOpsNavigation 1.0.0.0 (publisher demopub, prefix demo)
   warning PO035 Workflows/Reviewexpenses-00000000-0000-0000-0000-000000000061.json: Flow 'Review expenses' action 'Add_expense' names 'demo_costcentre' on 'demo_expenses', but the navigation property of table 'demo_Expense' is 'demo_CostCentre'; the Web API matches navigation property names by case.
   warning PO035 Workflows/Reviewexpenses-00000000-0000-0000-0000-000000000061.json: Flow 'Review expenses' action 'List_expenses' names 'demo_costcentre' on 'demo_expenses', but the navigation property of table 'demo_Expense' is 'demo_CostCentre'; the Web API matches navigation property names by case.
+tests/fixtures/flow-secrets: PowerOpsFlowSecrets 1.0.0.0 (publisher demopub, prefix demo)
+  warning PO041 environmentvariabledefinitions/demo_ApiToken/environmentvariabledefinition.xml: Environment variable 'demo_ApiToken' is of type Text, but its name suggests it holds a secret.
+  warning PO042 Workflows/Callpartnerapi-00000000-0000-0000-0000-000000000093.json: Flow 'Call partner API' action 'Call_partner' has an authentication block and its secure inputs are off.
+  warning PO042 Workflows/Callpartnerapi-00000000-0000-0000-0000-000000000093.json: Flow 'Call partner API' action 'Get_partner_secret' reads a secret without secure outputs, so the secret shows in the run history.
 tests/fixtures/flowtests/capture/solution: PowerOpsCapture 1.0.0.0 (publisher powerops, prefix pops)
   requires Active
   warning PO016 Workflows/PowerOpscapture-00000000-0000-0000-0000-000000000058.json: Flow 'PowerOps capture' has 120 actions and a nesting depth of 1.
@@ -102,4 +106,4 @@ tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip: Contoso_sample 1.0.0.1 (
   warning PO010 solution.xml: Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher.
 tests/fixtures/zips/polymorphiclookupexamplesolution.zip: polymorphiclookupexamplesolution 1.0.0.0 (publisher examplepublisher, prefix sample)
   no findings
-21 solutions, 0 errors, 73 warnings
+22 solutions, 0 errors, 76 warnings

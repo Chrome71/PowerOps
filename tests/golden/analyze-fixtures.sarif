@@ -568,6 +568,34 @@
               "defaultConfiguration": {
                 "level": "warning"
               }
+            },
+            {
+              "id": "PO041",
+              "name": "TextSecretVariable",
+              "shortDescription": {
+                "text": "Text environment variable looks like it holds a secret"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO041.md",
+              "help": {
+                "text": "Make it an environment variable of type Secret backed by Azure Key Vault, and remove its value from the solution and the settings files."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "PO042",
+              "name": "SecretWithoutSecureData",
+              "shortDescription": {
+                "text": "Flow reads or sends a secret without secure inputs or outputs"
+              },
+              "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO042.md",
+              "help": {
+                "text": "Turn on secure outputs on every action that reads a secret, and secure inputs on every action that sends one."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
             }
           ]
         }
@@ -2086,6 +2114,75 @@
           ],
           "partialFingerprints": {
             "poFinding/v1": "405d4a8dd5cfb19ec3888d42730f518723f05fa30501a712732d18d303a3c829"
+          }
+        },
+        {
+          "ruleId": "PO041",
+          "ruleIndex": 40,
+          "level": "warning",
+          "message": {
+            "text": "Environment variable 'demo_ApiToken' is of type Text, but its name suggests it holds a secret."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/flow-secrets/environmentvariabledefinitions/demo_ApiToken/environmentvariabledefinition.xml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "4c74ef491e0fac8b0a8fe3c20143e761fce05dba03d57a2021df98f5c18aabaf"
+          }
+        },
+        {
+          "ruleId": "PO042",
+          "ruleIndex": 41,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Call partner API' action 'Call_partner' has an authentication block and its secure inputs are off."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/flow-secrets/Workflows/Callpartnerapi-00000000-0000-0000-0000-000000000093.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "599da2fc726a2a9dd2c25d5d74d78e22571b5fd5888e548de2e84e74368dbb47"
+          }
+        },
+        {
+          "ruleId": "PO042",
+          "ruleIndex": 41,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Call partner API' action 'Get_partner_secret' reads a secret without secure outputs, so the secret shows in the run history."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/flow-secrets/Workflows/Callpartnerapi-00000000-0000-0000-0000-000000000093.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "04d2bc2cdfb51ec6167f90044f4914122ae074fed946ad49e14947b079da4dd9"
           }
         },
         {

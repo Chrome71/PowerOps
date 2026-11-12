@@ -46,6 +46,8 @@ public static class Analyzer
         new PO038StaticResultOn(),
         new PO039RareTrigger(),
         new PO040LongApproval(),
+        new PO041TextSecretVariable(),
+        new PO042SecretWithoutSecureData(),
     }.OrderBy(r => r.Id, StringComparer.Ordinal).ToList();
 
     public static string HelpUri(string ruleId) => $"{Output.SarifReport.Repo}/blob/main/docs/rules/{ruleId}.md";

@@ -1,0 +1,57 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": { "connectionReferenceLogicalName": "demo_Dataverse" },
+        "api": { "name": "shared_commondataserviceforapps" }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": { "defaultValue": {}, "type": "Object" },
+        "$authentication": { "defaultValue": {}, "type": "SecureObject" }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "Button",
+          "inputs": { "schema": { "type": "object", "properties": {}, "required": [] } }
+        }
+      },
+      "actions": {
+        "Get_partner_secret": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_commondataserviceforapps",
+              "operationId": "PerformUnboundAction",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+            },
+            "parameters": {
+              "actionName": "RetrieveEnvironmentVariableSecretValue",
+              "item/EnvironmentVariableName": "demo_PartnerSecret"
+            },
+            "authentication": "@parameters('$authentication')"
+          },
+          "runAfter": {}
+        },
+        "Call_partner": {
+          "type": "Http",
+          "inputs": {
+            "method": "POST",
+            "uri": "https://api.contoso.com/partner/orders",
+            "authentication": {
+              "type": "Raw",
+              "value": "@{outputs('Get_partner_secret')?['body/EnvironmentVariableSecretValue']}"
+            }
+          },
+          "runAfter": { "Get_partner_secret": [ "Succeeded" ] }
+        }
+      }
+    }
+  },
+  "schemaVersion": "1.0.0.0"
+}

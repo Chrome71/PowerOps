@@ -1,6 +1,6 @@
 ## PowerOps analyze
 
-**21 solutions, 0 errors, 73 warnings**
+**22 solutions, 0 errors, 76 warnings**
 
 ### tests/fixtures/agents/dataverse-tools: PowerOpsAgentTools 1.0.0.0
 
@@ -133,6 +133,14 @@ No findings.
 |---|---|---|---|---|
 | warning | [PO035](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO035.md) | Workflows/Reviewexpenses-00000000-0000-0000-0000-000000000061.json | Flow 'Review expenses' action 'Add\_expense' names 'demo\_costcentre' on 'demo\_expenses', but the navigation property of table 'demo\_Expense' is 'demo\_CostCentre'; the Web API matches navigation property names by case. | Write the navigation property name exactly as the table's relationship defines it, in the same case. |
 | warning | [PO035](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO035.md) | Workflows/Reviewexpenses-00000000-0000-0000-0000-000000000061.json | Flow 'Review expenses' action 'List\_expenses' names 'demo\_costcentre' on 'demo\_expenses', but the navigation property of table 'demo\_Expense' is 'demo\_CostCentre'; the Web API matches navigation property names by case. | Write the navigation property name exactly as the table's relationship defines it, in the same case. |
+
+### tests/fixtures/flow-secrets: PowerOpsFlowSecrets 1.0.0.0
+
+| Severity | Rule | File | Message | Fix |
+|---|---|---|---|---|
+| warning | [PO041](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO041.md) | environmentvariabledefinitions/demo\_ApiToken/environmentvariabledefinition.xml | Environment variable 'demo\_ApiToken' is of type Text, but its name suggests it holds a secret. | Make it an environment variable of type Secret backed by Azure Key Vault, and remove its value from the solution and the settings files. |
+| warning | [PO042](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO042.md) | Workflows/Callpartnerapi-00000000-0000-0000-0000-000000000093.json | Flow 'Call partner API' action 'Call\_partner' has an authentication block and its secure inputs are off. | Turn on secure outputs on every action that reads a secret, and secure inputs on every action that sends one. |
+| warning | [PO042](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO042.md) | Workflows/Callpartnerapi-00000000-0000-0000-0000-000000000093.json | Flow 'Call partner API' action 'Get\_partner\_secret' reads a secret without secure outputs, so the secret shows in the run history. | Turn on secure outputs on every action that reads a secret, and secure inputs on every action that sends one. |
 
 ### tests/fixtures/flowtests/capture/solution: PowerOpsCapture 1.0.0.0
 
