@@ -76,6 +76,43 @@ public class AnalyzeCommandTests : IDisposable
         Assert.Equal(0, Run("analyze", _temp, "--fail-on", "none").Code);
     }
 
+    [Theory]
+    [InlineData("text")]
+    [InlineData("json")]
+    [InlineData("sarif")]
+    [InlineData("markdown")]
+    public void Flow_environment_variable_default_fires_PO007_in_every_format_without_the_value(string format)
+    {
+        Directory.CreateDirectory(Path.Combine(_temp, "Other"));
+        File.WriteAllText(Path.Combine(_temp, "Other", "Solution.xml"), """
+            <ImportExportXml><SolutionManifest>
+              <UniqueName>Demo</UniqueName><Version>1.0.0.0</Version><Managed>0</Managed>
+              <Publisher><UniqueName>demopub</UniqueName><CustomizationPrefix>demo</CustomizationPrefix></Publisher>
+            </SolutionManifest></ImportExportXml>
+            """);
+        Directory.CreateDirectory(Path.Combine(_temp, "Workflows"));
+        File.WriteAllText(Path.Combine(_temp, "Workflows", "Invoices.json.data.xml"), """
+            <Workflow WorkflowId="{AA-11}" Name="Invoices">
+              <JsonFileName>/Workflows/Invoices.json</JsonFileName><Category>5</Category><StateCode>1</StateCode>
+            </Workflow>
+            """);
+        File.WriteAllText(
+            Path.Combine(_temp, "Workflows", "Invoices.json"),
+            """{"properties":{"definition":{"parameters":{"Mail (demo_Mail)":{"type":"String","defaultValue":"ann.lee@contoso.com"}},"actions":{}}}}""");
+
+        var (code, output, err) = Run("analyze", _temp, "--fail-on", "warning", "--format", format);
+
+        Assert.Equal(1, code);
+        Assert.Contains("PO007", output);
+        Assert.Contains("Invoices", output);
+        Assert.Contains("demo_Mail", output.Replace("\\_", "_")); // markdown escapes underscores
+        foreach (var part in new[] { "ann.lee@contoso.com", "ann.lee", "contoso.com", "contoso" })
+        {
+            Assert.DoesNotContain(part, output, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(part, err, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     [Fact]
     public void Missing_path_exits_two()
     {

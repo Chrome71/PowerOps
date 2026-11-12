@@ -21,6 +21,9 @@ public sealed record NestedLoop(string Outer, string Inner);
 /// </summary>
 public sealed record DataverseAction(string Name, string? EntitySet, string? Expand, IReadOnlyList<string> Binds);
 
+/// <summary>The string <c>defaultValue</c> of a flow parameter bound to the environment variable <paramref name="SchemaName"/>, as written in the flow.</summary>
+public sealed record EnvironmentVariableDefault(string SchemaName, string Value);
+
 /// <summary>The parts of a cloud flow's clientdata JSON that the analyzer rules need. <c>ActionCount</c> counts every action under <c>definition.actions</c>, containers and the actions in all their branches included, not the trigger. <c>Depth</c> is the number of containers around the deepest action (0 for a top-level action).</summary>
 public sealed partial record FlowDefinition(
     IReadOnlyList<FlowConnectionReference> ConnectionReferences,
@@ -34,6 +37,9 @@ public sealed partial record FlowDefinition(
 {
     /// <summary>Every action of the Microsoft Dataverse connector (<c>inputs.host.apiId</c> ending in <c>/shared_commondataserviceforapps</c>, ignoring case), at any depth, in walk order.</summary>
     public IReadOnlyList<DataverseAction> DataverseActions { get; init; } = [];
+
+    /// <summary>The string default of each parameter under <c>definition.parameters</c> bound to an environment variable, in key order.</summary>
+    public IReadOnlyList<EnvironmentVariableDefault> EnvironmentVariableDefaults { get; init; } = [];
 
     private static readonly string[] SkippedParameters = ["$connections", "$authentication"];
     private static readonly string[] SkippedProperties = ["metadata", "$schema", "operationMetadataId"];
@@ -82,6 +88,7 @@ public sealed partial record FlowDefinition(
             var maxDepth = 0;
             var nestedLoops = new List<NestedLoop>();
             var dataverse = new List<DataverseAction>();
+            var envDefaults = new List<EnvironmentVariableDefault>();
 
             if (Get(doc.RootElement, "properties") is not { } props)
             {
@@ -108,6 +115,10 @@ public sealed partial record FlowDefinition(
                         if (EnvironmentVariableSchema(p.Name, Str(Get(Get(p.Value, "metadata"), "schemaName"))) is { } schema)
                         {
                             envVars.Add(schema);
+                            if (Str(Get(p.Value, "defaultValue")) is { } value)
+                            {
+                                envDefaults.Add(new EnvironmentVariableDefault(schema, value));
+                            }
                         }
                     }
                 }
@@ -137,7 +148,7 @@ public sealed partial record FlowDefinition(
                 Walk(definition, 0, false, false, children, literals);
             }
 
-            return new FlowDefinition(connections, envVars, children.Distinct().ToList(), literals, triggers, actionCount, maxDepth, nestedLoops) { DataverseActions = dataverse };
+            return new FlowDefinition(connections, envVars, children.Distinct().ToList(), literals, triggers, actionCount, maxDepth, nestedLoops) { DataverseActions = dataverse, EnvironmentVariableDefaults = envDefaults };
         }
         // InvalidOperationException: GetString on a string with a lone surrogate.
         catch (Exception ex) when (ex is JsonException or InvalidOperationException)

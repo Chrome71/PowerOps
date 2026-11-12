@@ -152,12 +152,31 @@ public class FlowDefinitionTests
     }
 
     [Fact]
+    public void Environment_variable_defaults_are_read_for_bound_string_defaults_only()
+    {
+        var flow = FlowDefinition.Parse(Flow("{}", "{\"parameters\":{"
+            + "\"$connections\":{\"defaultValue\":\"x\"}"
+            + ",\"$authentication\":{\"defaultValue\":\"x\"}"
+            + ",\"Mail (demo_Mail)\":{\"type\":\"String\",\"defaultValue\":\" a@b.example \"}"
+            + ",\"Other\":{\"type\":\"String\",\"defaultValue\":\"y\",\"metadata\":{\"schemaName\":\"demo_Meta\"}}"
+            + ",\"Unbound\":{\"type\":\"String\",\"defaultValue\":\"https://example.com\"}"
+            + ",\"Number (demo_Num)\":{\"defaultValue\":30}"
+            + ",\"Object (demo_Obj)\":{\"defaultValue\":{\"a\":1}}"
+            + ",\"NoDefault (demo_None)\":{\"type\":\"String\"}"
+            + "},\"actions\":{}}"));
+
+        Assert.Equal([new EnvironmentVariableDefault("demo_Mail", " a@b.example "), new EnvironmentVariableDefault("demo_Meta", "y")], flow.EnvironmentVariableDefaults);
+        Assert.Equal(["demo_Mail", "demo_Meta", "demo_Num", "demo_Obj", "demo_None"], flow.EnvironmentVariables);
+    }
+
+    [Fact]
     public void Missing_sections_give_empty_lists()
     {
         var flow = FlowDefinition.Parse("""{"properties":{}}""");
 
         Assert.Empty(flow.ConnectionReferences);
         Assert.Empty(flow.EnvironmentVariables);
+        Assert.Empty(flow.EnvironmentVariableDefaults);
         Assert.Empty(flow.ChildFlowIds);
         Assert.Empty(flow.StringLiterals);
         Assert.Equal(0, flow.ActionCount);

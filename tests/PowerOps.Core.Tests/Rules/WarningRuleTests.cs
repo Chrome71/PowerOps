@@ -238,6 +238,121 @@ public class WarningRuleTests
         Assert.Empty(Run(new PO007EnvironmentSpecificDefaultValue(), s));
     }
 
+    private const string FlowName = "Invoices";
+
+    // One flow whose definition.parameters holds one parameter; `meta` becomes metadata.schemaName, `valueJson` is the raw JSON of its defaultValue.
+    private static Workflow FlowWithParam(string key, string? meta, string valueJson)
+    {
+        var metadata = meta is null ? "" : ",\"metadata\":{\"schemaName\":\"" + meta + "\"}";
+        var json = "{\"properties\":{\"definition\":{\"parameters\":{" + System.Text.Json.JsonSerializer.Serialize(key)
+            + ":{\"type\":\"String\",\"defaultValue\":" + valueJson + metadata + "}},\"actions\":{}}}}";
+        return B.Flow(name: FlowName) with { ClientData = json };
+    }
+
+    private static string Quote(string v) => System.Text.Json.JsonSerializer.Serialize(v);
+
+    private static string SchemaOf(string key, string? meta) => meta ?? key[(key.IndexOf('(') + 1)..^1];
+
+    private static List<Finding> FlowFindings(Solution s) =>
+        Run(new PO007EnvironmentSpecificDefaultValue(), s).Where(f => f.Message.StartsWith("Flow '", StringComparison.Ordinal)).ToList();
+
+    // The value, and the parts of it a finding must not hold: local part, host, domain, the groups of a GUID.
+    private static IEnumerable<string> ValueParts(string value)
+    {
+        var v = value.Trim();
+        yield return v;
+        var tokens = v.Split(['@', '/', ':']).Where(t => t.Length > 0 && t is not ("http" or "https")).ToList();
+        if (Guid.TryParse(v, out _))
+        {
+            tokens.AddRange(v.Trim('{', '}').Split('-'));
+        }
+
+        foreach (var t in tokens)
+        {
+            yield return t;
+            var labels = t.Split('.');
+            if (labels.Length > 2)
+            {
+                yield return string.Join('.', labels[^2..]);
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData("Mail", "demo_Mail", "ann.lee@contoso.com", "", "an email address")]
+    [InlineData("Mail", "demo_Mail", "ann.lee@contoso.com", "bob.ray@fabrikam.example", "an email address")]
+    [InlineData("Portal (demo_Portal)", null, "https://portal.fabrikam.example/sites/hr", null, "a URL")]
+    [InlineData("Tenant (demo_Tenant)", null, "9f3c2a7e-5b41-4d8a-a6c0-7e12b3d4f5a6", null, "a GUID")]
+    [InlineData("Mail (demo_Mail)", null, "  ann.lee@contoso.com\t ", null, "an email address")]
+    public void PO007_fires_on_a_flow_default_and_holds_no_part_of_the_value(string key, string? meta, string value, string? definitionDefault, string kind)
+    {
+        var schema = SchemaOf(key, meta);
+        var s = B.Empty() with
+        {
+            Workflows = [FlowWithParam(key, meta, Quote(value))],
+            EnvironmentVariables = definitionDefault is null ? [] : [B.Env(schema, def: definitionDefault)],
+        };
+
+        var flow = s.Workflows[0];
+        var f = Assert.Single(FlowFindings(s));
+
+        Assert.Equal("PO007", f.RuleId);
+        Assert.Equal(Severity.Warning, f.Severity);
+        Assert.Equal($"Flow '{FlowName}' holds a default for environment variable '{schema}' that looks like {kind}.", f.Message);
+        Assert.Equal(flow.File, f.File);
+        Assert.Equal(schema, f.Component);
+        foreach (var part in ValueParts(value))
+        {
+            Assert.False(f.Message.Contains(part, StringComparison.OrdinalIgnoreCase), "message holds a part of the value");
+            Assert.False(f.File!.Contains(part, StringComparison.OrdinalIgnoreCase), "file holds a part of the value");
+            Assert.False(f.Component!.Contains(part, StringComparison.OrdinalIgnoreCase), "component holds a part of the value");
+        }
+    }
+
+    [Theory]
+    [InlineData("Mail (demo_Mail)", "\"\"")]
+    [InlineData("Mail (demo_Mail)", "\"   \"")]
+    [InlineData("Days (demo_Days)", "\"30\"")]
+    [InlineData("Days (demo_Days)", "30")]
+    [InlineData("$connections", "\"https://portal.fabrikam.example/sites/hr\"")]
+    [InlineData("Unbound", "\"https://portal.fabrikam.example/sites/hr\"")]
+    public void PO007_quiet_for_a_flow_default_that_is_empty_plain_or_not_bound(string key, string valueJson)
+    {
+        var s = B.Empty() with { Workflows = [FlowWithParam(key, null, valueJson)] };
+
+        Assert.Empty(FlowFindings(s));
+    }
+
+    [Theory]
+    [InlineData("demo_Mail", "ann.lee@contoso.com", "ann.lee@contoso.com")]
+    [InlineData("DEMO_MAIL", "ann.lee@contoso.com", "ann.lee@contoso.com")]
+    [InlineData("demo_Mail", "ann.lee@contoso.com", "  ann.lee@contoso.com ")]
+    [InlineData("demo_Mail", "  ann.lee@contoso.com ", "ann.lee@contoso.com")]
+    public void PO007_leaves_a_flow_default_identical_to_the_definitions_to_the_definitions_finding(string definitionSchema, string definitionDefault, string flowDefault)
+    {
+        var s = B.Empty() with
+        {
+            Workflows = [FlowWithParam("Mail (demo_Mail)", null, Quote(flowDefault))],
+            EnvironmentVariables = [B.Env(definitionSchema, def: definitionDefault)],
+        };
+
+        var f = Assert.Single(Run(new PO007EnvironmentSpecificDefaultValue(), s));
+
+        Assert.Equal($"Environment variable '{definitionSchema}' has a default value that looks like an email address.", f.Message);
+    }
+
+    [Fact]
+    public void PO007_flow_default_differing_only_in_case_from_the_definitions_still_fires()
+    {
+        var s = B.Empty() with
+        {
+            Workflows = [FlowWithParam("Mail (demo_Mail)", null, Quote("Ann.Lee@contoso.com"))],
+            EnvironmentVariables = [B.Env("demo_Mail", def: "ann.lee@contoso.com")],
+        };
+
+        Assert.Single(FlowFindings(s));
+    }
+
     [Fact]
     public void PO008_fires_with_values_file()
     {

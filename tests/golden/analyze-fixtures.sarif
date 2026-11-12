@@ -1527,6 +1527,121 @@
           }
         },
         {
+          "ruleId": "PO007",
+          "ruleIndex": 6,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Deprecated | Admin | Sync Audit Logs' holds a default for environment variable 'admin_AdminMail' that looks like an email address."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/coe-auditlogs/Workflows/DeprecatedAdminSyncAuditLogs-FA91974D-6E68-EA11-A811-000D3A31CF04.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "71f0d620867e19e09b8d7ee33bade17ed163a3442621c222df5cbedd377c1401"
+          }
+        },
+        {
+          "ruleId": "PO007",
+          "ruleIndex": 6,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Deprecated | [Child] Admin | Sync Logs' holds a default for environment variable 'admin_AdminMail' that looks like an email address."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/coe-auditlogs/Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "b06528ea238703eac989f9d96088fb5cf51bb84717015f63c0da25eb40aba5a0"
+          }
+        },
+        {
+          "ruleId": "PO007",
+          "ruleIndex": 6,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Deprecated | Admin | Sync Audit Logs' holds a default for environment variable 'admin_PowerAutomateEnvironmentVariable' that looks like a URL."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/coe-auditlogs/Workflows/DeprecatedAdminSyncAuditLogs-FA91974D-6E68-EA11-A811-000D3A31CF04.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "b16203255ebd301ad949b1fdd8982924a1f0267cc1264eae0403e4015bdb7953"
+          }
+        },
+        {
+          "ruleId": "PO007",
+          "ruleIndex": 6,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Deprecated | [Child] Admin | Sync Logs' holds a default for environment variable 'admin_PowerAutomateEnvironmentVariable' that looks like a URL."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/coe-auditlogs/Workflows/DeprecatedChildAdminSyncLogs-751183FC-DB68-EA11-A811-000D3A31CF04.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "2223619d0e15faf33fa513af1d59744f495841d280ee50cb7ae255b2dd0ce8ca"
+          }
+        },
+        {
+          "ruleId": "PO007",
+          "ruleIndex": 6,
+          "level": "warning",
+          "message": {
+            "text": "Flow 'Deprecated | Admin | Sync Audit Logs' holds a default for environment variable 'admin_TenantID' that looks like a GUID."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "tests/fixtures/coe-auditlogs/Workflows/DeprecatedAdminSyncAuditLogs-FA91974D-6E68-EA11-A811-000D3A31CF04.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "poFinding/v1": "56eeb45d95b0b3220a61f225db5166c053bea1ea0717131f7485bf16a6686a5f"
+          }
+        },
+        {
           "ruleId": "PO009",
           "ruleIndex": 8,
           "level": "warning",
