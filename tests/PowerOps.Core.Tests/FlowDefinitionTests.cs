@@ -1,4 +1,5 @@
 using PowerOps.Core.Flows;
+using PowerOps.Core.Readers;
 using PowerOps.Tests.Shared;
 
 namespace PowerOps.Core.Tests;
@@ -194,8 +195,132 @@ public class FlowDefinitionTests
         var flow = FlowDefinition.Parse(Flow("{}", definition));
 
         Assert.Equal(actions, flow.ActionCount);
+        Assert.Equal(actions, flow.Actions.Count);
         Assert.Equal(0, flow.Depth);
         Assert.Empty(flow.NestedLoops);
+    }
+
+    private static IEnumerable<string> Walked(FlowDefinition flow) => flow.Actions.Select(a => $"{a.Name}|{a.Depth}|{a.Descendants}");
+
+    [Fact]
+    public void Actions_count_equals_ActionCount_on_every_cloud_flow_under_the_fixtures()
+    {
+        var root = Path.Combine(Golden.RepoRoot, "tests", "fixtures");
+        var flows = 0;
+        foreach (var path in SolutionDiscovery.Find(root).Where(p => !p.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)))
+        {
+            foreach (var w in SolutionLoader.Load(path).Workflows.Where(w => w.Category == 5 && w.ClientData is not null))
+            {
+                var flow = FlowDefinition.Parse(w.ClientData!);
+                Assert.True(flow.Actions.Count == flow.ActionCount, $"{path} {w.Name}: {flow.Actions.Count} actions, ActionCount {flow.ActionCount}");
+                flows++;
+            }
+        }
+
+        Assert.True(flows > 10, $"only {flows} flows");
+    }
+
+    [Fact]
+    public void Actions_are_read_in_scopes_conditions_and_switches_in_walk_order()
+    {
+        var flow = FlowDefinition.Parse(Flow("{}", """
+            {"actions":{
+              "Scope":{"type":"Scope","actions":{
+                "If":{"type":"If","actions":{"Yes":{"type":"Compose"}},"else":{"actions":{"No":{"type":"Compose"}}}},
+                "Inner":{"type":"Scope","actions":{"Deep":{"type":"Compose"}}}
+              }},
+              "Switch":{"type":"Switch","default":{"actions":{"Other":{"type":"Compose"}}},"cases":{"B":{"actions":{"CaseB":{"type":"Compose"}}},"A":{"actions":{"CaseA":{"type":"Compose"}}}}},
+              "Last":{"type":"Compose"}
+            }}
+            """));
+
+        Assert.Equal(["Scope", "If", "Yes", "No", "Inner", "Deep", "Switch", "Other", "CaseB", "CaseA", "Last"], flow.Actions.Select(a => a.Name));
+        Assert.Equal(flow.ActionCount, flow.Actions.Count);
+    }
+
+    [Fact]
+    public void Depth_and_descendants_slice_each_container_in_walk_order()
+    {
+        var flow = FlowDefinition.Parse(Flow("{}", """
+            {"actions":{
+              "Scope":{"type":"Scope","actions":{"Condition":{"type":"If","actions":{},"else":{"actions":{"Act":{"type":"Compose"}}}}}},
+              "Switch":{"type":"Switch","cases":{"One":{"actions":{"C1":{"type":"Compose"}}}},"default":{"actions":{"D1":{"type":"Compose"},"D2":{"type":"Compose"}}}},
+              "After":{"type":"Compose"}
+            }}
+            """));
+
+        Assert.Equal(["Scope|0|2", "Condition|1|1", "Act|2|0", "Switch|0|3", "D1|1|0", "D2|1|0", "C1|1|0", "After|0|0"], Walked(flow));
+    }
+
+    [Fact]
+    public void RunAfter_keeps_predecessors_in_key_order_and_statuses_as_written()
+    {
+        var flow = FlowDefinition.Parse(Flow("{}", """
+            {"actions":{
+              "Many":{"runAfter":{"Zed":["Failed","timedOut"],"Alpha":["Succeeded",5,"Skipped"]}},
+              "Empty":{"runAfter":{}},
+              "NotArray":{"runAfter":{"Zed":"Failed"}},
+              "NotObject":{"runAfter":["Zed"]},
+              "None":{}
+            }}
+            """));
+
+        var runAfter = flow.Actions.ToDictionary(a => a.Name, a => a.RunAfter.Select(r => $"{r.Action}:{string.Join(",", r.Statuses)}").ToList());
+        Assert.Equal(["Zed:Failed,timedOut", "Alpha:Succeeded,Skipped"], runAfter["Many"]);
+        Assert.Empty(runAfter["Empty"]);
+        Assert.Equal(["Zed:"], runAfter["NotArray"]);
+        Assert.Empty(runAfter["NotObject"]);
+        Assert.Empty(runAfter["None"]);
+    }
+
+    [Fact]
+    public void Action_fields_are_read_when_of_the_expected_kind()
+    {
+        var flow = FlowDefinition.Parse(Flow("{}", """
+            {"actions":{
+              "Mail":{"type":"OpenApiConnection","inputs":{"host":{"apiId":"/providers/Microsoft.PowerApps/apis/shared_office365","operationId":"SendEmailV2"},"runStatus":"Failed"},"limit":{"timeout":"P2D"}},
+              "Stop":{"type":"terminate","inputs":{"runStatus":"Failed"}},
+              "On":{"type":"Http","runtimeConfiguration":{"staticResult":{"name":"On0","staticResultOptions":"Enabled"}}},
+              "Off":{"type":"Http","runtimeConfiguration":{"staticResult":{"name":"Off0","staticResultOptions":"Disabled"}}},
+              "Odd":{"type":5,"inputs":{"host":{"apiId":1}},"runtimeConfiguration":{"staticResult":"Enabled"},"limit":{"timeout":30}},
+              "Bare":1
+            }}
+            """));
+
+        var a = flow.Actions.ToDictionary(x => x.Name);
+        Assert.Equal(("OpenApiConnection", "/providers/Microsoft.PowerApps/apis/shared_office365", "SendEmailV2", null, false, "P2D"), (a["Mail"].Type, a["Mail"].ApiId, a["Mail"].OperationId, a["Mail"].RunStatus, a["Mail"].StaticResult, a["Mail"].Timeout));
+        Assert.Equal(("terminate", "Failed"), (a["Stop"].Type, a["Stop"].RunStatus));
+        Assert.True(a["On"].StaticResult);
+        Assert.False(a["Off"].StaticResult);
+        Assert.Equal(new FlowAction("Odd", null, null, null, [], null, false, null, 0, 0), a["Odd"] with { RunAfter = [] });
+        Assert.Equal(new FlowAction("Bare", null, null, null, [], null, false, null, 0, 0), a["Bare"] with { RunAfter = [] });
+        Assert.Empty(a["Bare"].RunAfter);
+    }
+
+    [Fact]
+    public void Trigger_type_frequency_and_interval_are_read()
+    {
+        var flow = FlowDefinition.Parse(Flow("{}", """
+            {"triggers":{
+              "Number":{"type":"Recurrence","recurrence":{"frequency":"Day","interval":90}},
+              "Text":{"type":"recurrence","recurrence":{"frequency":"day","interval":"90"}},
+              "Expression":{"type":"Recurrence","recurrence":{"frequency":"Week","interval":"@parameters('n')"}},
+              "Huge":{"type":"Recurrence","recurrence":{"frequency":"Second","interval":99999999999}},
+              "Missing":{"type":"Recurrence"},
+              "Webhook":{"type":"OpenApiConnection","recurrence":{"frequency":"Day","interval":120}}
+            },"actions":{}}
+            """));
+
+        Assert.Equal(
+            [
+                "Number|Recurrence|Day|90",
+                "Text|recurrence|day|90",
+                "Expression|Recurrence|Week|",
+                "Huge|Recurrence|Second|",
+                "Missing|Recurrence||",
+                "Webhook|OpenApiConnection||120",
+            ],
+            flow.Triggers.Select(t => $"{t.Name}|{t.Type}|{t.Frequency}|{t.Interval}"));
     }
 
     [Fact]

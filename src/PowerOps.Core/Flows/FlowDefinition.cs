@@ -10,7 +10,17 @@ public sealed record FlowConnectionReference(string Key, string? LogicalName, st
 public sealed record StringLiteral(bool InParameters, string Value);
 
 /// <summary>A trigger of a cloud flow. <paramref name="Message"/> is the Dataverse subscription message (1 create, 2 delete, 3 update, ...), null when absent or not a number.</summary>
-public sealed record FlowTrigger(string Name, string? OperationId, int? Message, string? Entity, string? FilteringAttributes);
+public sealed record FlowTrigger(string Name, string? OperationId, int? Message, string? Entity, string? FilteringAttributes)
+{
+    /// <summary>The trigger's <c>type</c>.</summary>
+    public string? Type { get; init; }
+
+    /// <summary><c>recurrence.frequency</c> when <see cref="Type"/> is <c>Recurrence</c> (ignoring case), else null.</summary>
+    public string? Frequency { get; init; }
+
+    /// <summary><c>recurrence.interval</c> when it is a number that fits an <c>int</c> or a string that reads as one, else null.</summary>
+    public int? Interval { get; init; }
+}
 
 /// <summary>A loop (<c>Foreach</c> or <c>Until</c>) that runs inside another loop, by action name; <paramref name="Outer"/> is the nearest enclosing loop.</summary>
 public sealed record NestedLoop(string Outer, string Inner);
@@ -20,6 +30,17 @@ public sealed record NestedLoop(string Outer, string Inner);
 /// <paramref name="Binds"/> are the <c>&lt;name&gt;</c> of each <c>item/&lt;name&gt;@odata.bind</c> parameter key, in key order.
 /// </summary>
 public sealed record DataverseAction(string Name, string? EntitySet, string? Expand, IReadOnlyList<string> Binds);
+
+/// <summary>One entry of an action's <c>runAfter</c> object, in key order; <paramref name="Statuses"/> are the strings of its array as written (empty when the value is not an array).</summary>
+public sealed record FlowRunAfter(string Action, IReadOnlyList<string> Statuses);
+
+/// <summary>
+/// An action of a cloud flow, at any depth. <paramref name="ApiId"/> and <paramref name="OperationId"/> are <c>inputs.host</c>'s; <paramref name="RunStatus"/> is <c>inputs.runStatus</c> of a <c>Terminate</c> only;
+/// <paramref name="StaticResult"/> is true when <c>runtimeConfiguration.staticResult.staticResultOptions</c> is <c>Enabled</c>; <paramref name="Timeout"/> is the string <c>limit.timeout</c>.
+/// <paramref name="Depth"/> counts the containers around the action; the next <paramref name="Descendants"/> entries of <see cref="FlowDefinition.Actions"/> are the actions inside it.
+/// A field is null, empty, false or 0 when its key is missing or of another JSON kind.
+/// </summary>
+public sealed record FlowAction(string Name, string? Type, string? ApiId, string? OperationId, IReadOnlyList<FlowRunAfter> RunAfter, string? RunStatus, bool StaticResult, string? Timeout, int Depth, int Descendants);
 
 /// <summary>The string <c>defaultValue</c> of a flow parameter bound to the environment variable <paramref name="SchemaName"/>, as written in the flow.</summary>
 public sealed record EnvironmentVariableDefault(string SchemaName, string Value);
@@ -37,6 +58,9 @@ public sealed partial record FlowDefinition(
 {
     /// <summary>Every action of the Microsoft Dataverse connector (<c>inputs.host.apiId</c> ending in <c>/shared_commondataserviceforapps</c>, ignoring case), at any depth, in walk order.</summary>
     public IReadOnlyList<DataverseAction> DataverseActions { get; init; } = [];
+
+    /// <summary>Every action under <c>definition.actions</c>, at any depth, in walk order: an action, then its own <c>actions</c>, its <c>else</c>, its <c>default</c> and each of its <c>cases</c>.</summary>
+    public IReadOnlyList<FlowAction> Actions { get; init; } = [];
 
     /// <summary>The string default of each parameter under <c>definition.parameters</c> bound to an environment variable, in key order.</summary>
     public IReadOnlyList<EnvironmentVariableDefault> EnvironmentVariableDefaults { get; init; } = [];
@@ -89,6 +113,7 @@ public sealed partial record FlowDefinition(
             var nestedLoops = new List<NestedLoop>();
             var dataverse = new List<DataverseAction>();
             var envDefaults = new List<EnvironmentVariableDefault>();
+            var all = new List<FlowAction>();
 
             if (Get(doc.RootElement, "properties") is not { } props)
             {
@@ -129,26 +154,27 @@ public sealed partial record FlowDefinition(
                     {
                         var inputs = Get(t.Value, "inputs");
                         var triggerParams = Get(inputs, "parameters");
-                        var message = Get(triggerParams, "subscriptionRequest/message");
+                        var type = Str(Get(t.Value, "type"));
+                        var recurrence = Get(t.Value, "recurrence");
                         triggers.Add(new FlowTrigger(
                             t.Name,
                             Str(Get(Get(inputs, "host"), "operationId")),
-                            message switch
-                            {
-                                { ValueKind: JsonValueKind.Number } n when n.TryGetInt32(out var i) => i,
-                                { ValueKind: JsonValueKind.String } sv when int.TryParse(sv.GetString(), out var i) => i,
-                                _ => null,
-                            },
+                            Int(Get(triggerParams, "subscriptionRequest/message")),
                             Str(Get(triggerParams, "subscriptionRequest/entityname")),
-                            Str(Get(triggerParams, "subscriptionRequest/filteringattributes"))));
+                            Str(Get(triggerParams, "subscriptionRequest/filteringattributes")))
+                        {
+                            Type = type,
+                            Frequency = string.Equals(type, "Recurrence", StringComparison.OrdinalIgnoreCase) ? Str(Get(recurrence, "frequency")) : null,
+                            Interval = Int(Get(recurrence, "interval")),
+                        });
                     }
                 }
 
-                WalkActions(definition, 0, null, ref actionCount, ref maxDepth, nestedLoops, dataverse);
+                WalkActions(definition, 0, null, ref actionCount, ref maxDepth, nestedLoops, dataverse, all);
                 Walk(definition, 0, false, false, children, literals);
             }
 
-            return new FlowDefinition(connections, envVars, children.Distinct().ToList(), literals, triggers, actionCount, maxDepth, nestedLoops) { DataverseActions = dataverse, EnvironmentVariableDefaults = envDefaults };
+            return new FlowDefinition(connections, envVars, children.Distinct().ToList(), literals, triggers, actionCount, maxDepth, nestedLoops) { DataverseActions = dataverse, EnvironmentVariableDefaults = envDefaults, Actions = all };
         }
         // InvalidOperationException: GetString on a string with a lone surrogate.
         catch (Exception ex) when (ex is JsonException or InvalidOperationException)
@@ -157,8 +183,8 @@ public sealed partial record FlowDefinition(
         }
     }
 
-    /// <summary>Counts the actions under <paramref name="holder"/>'s <c>actions</c> object, at <paramref name="depth"/>, and everything nested in them. A holder or <c>actions</c> value that is not an object is skipped.</summary>
-    private static void WalkActions(JsonElement? holder, int depth, string? enclosingLoop, ref int count, ref int maxDepth, List<NestedLoop> nested, List<DataverseAction> dataverse)
+    /// <summary>Counts and records the actions under <paramref name="holder"/>'s <c>actions</c> object, at <paramref name="depth"/>, and everything nested in them. A holder or <c>actions</c> value that is not an object is skipped.</summary>
+    private static void WalkActions(JsonElement? holder, int depth, string? enclosingLoop, ref int count, ref int maxDepth, List<NestedLoop> nested, List<DataverseAction> dataverse, List<FlowAction> all)
     {
         if (Get(holder, "actions") is not { ValueKind: JsonValueKind.Object } actions)
         {
@@ -169,7 +195,8 @@ public sealed partial record FlowDefinition(
         {
             count++;
             maxDepth = Math.Max(maxDepth, depth);
-            var isLoop = Str(Get(a.Value, "type")) is { } type
+            var actionType = Str(Get(a.Value, "type"));
+            var isLoop = actionType is { } type
                 && (type.Equals("Foreach", StringComparison.OrdinalIgnoreCase) || type.Equals("Until", StringComparison.OrdinalIgnoreCase));
             if (isLoop && enclosingLoop is not null)
             {
@@ -177,7 +204,21 @@ public sealed partial record FlowDefinition(
             }
 
             var inputs = Get(a.Value, "inputs");
-            if (Str(Get(Get(inputs, "host"), "apiId")) is { } api && api.EndsWith("/shared_commondataserviceforapps", StringComparison.OrdinalIgnoreCase))
+            var host = Get(inputs, "host");
+            var index = all.Count;
+            all.Add(new FlowAction(
+                a.Name,
+                actionType,
+                Str(Get(host, "apiId")),
+                Str(Get(host, "operationId")),
+                RunAfter(Get(a.Value, "runAfter")),
+                string.Equals(actionType, "Terminate", StringComparison.OrdinalIgnoreCase) ? Str(Get(inputs, "runStatus")) : null,
+                Str(Get(Get(Get(a.Value, "runtimeConfiguration"), "staticResult"), "staticResultOptions")) == "Enabled",
+                Str(Get(Get(a.Value, "limit"), "timeout")),
+                depth,
+                0));
+
+            if (all[index].ApiId is { } api && api.EndsWith("/shared_commondataserviceforapps", StringComparison.OrdinalIgnoreCase))
             {
                 var parameters = Get(inputs, "parameters");
                 dataverse.Add(new DataverseAction(
@@ -191,15 +232,20 @@ public sealed partial record FlowDefinition(
 
             // Whatever the action's type, these hold the next level: its own actions, a Condition's else, a Switch's default and cases.
             var loop = isLoop ? a.Name : enclosingLoop;
-            WalkActions(a.Value, depth + 1, loop, ref count, ref maxDepth, nested, dataverse);
-            WalkActions(Get(a.Value, "else"), depth + 1, loop, ref count, ref maxDepth, nested, dataverse);
-            WalkActions(Get(a.Value, "default"), depth + 1, loop, ref count, ref maxDepth, nested, dataverse);
+            WalkActions(a.Value, depth + 1, loop, ref count, ref maxDepth, nested, dataverse, all);
+            WalkActions(Get(a.Value, "else"), depth + 1, loop, ref count, ref maxDepth, nested, dataverse, all);
+            WalkActions(Get(a.Value, "default"), depth + 1, loop, ref count, ref maxDepth, nested, dataverse, all);
             if (Get(a.Value, "cases") is { ValueKind: JsonValueKind.Object } cases)
             {
                 foreach (var c in cases.EnumerateObject())
                 {
-                    WalkActions(c.Value, depth + 1, loop, ref count, ref maxDepth, nested, dataverse);
+                    WalkActions(c.Value, depth + 1, loop, ref count, ref maxDepth, nested, dataverse, all);
                 }
+            }
+
+            if (all.Count - index - 1 is > 0 and var descendants)
+            {
+                all[index] = all[index] with { Descendants = descendants };
             }
         }
     }
@@ -236,6 +282,20 @@ public sealed partial record FlowDefinition(
 
     private static JsonElement? Get(JsonElement? e, string name) =>
         e is { ValueKind: JsonValueKind.Object } o && o.TryGetProperty(name, out var v) ? v : null;
+
+    private static int? Int(JsonElement? e) => e switch
+    {
+        { ValueKind: JsonValueKind.Number } n when n.TryGetInt32(out var i) => i,
+        { ValueKind: JsonValueKind.String } s when int.TryParse(s.GetString(), out var i) => i,
+        _ => null,
+    };
+
+    private static IReadOnlyList<FlowRunAfter> RunAfter(JsonElement? e) =>
+        e is { ValueKind: JsonValueKind.Object } o
+            ? [.. o.EnumerateObject().Select(p => new FlowRunAfter(
+                p.Name,
+                p.Value.ValueKind == JsonValueKind.Array ? [.. p.Value.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()!)] : []))]
+            : [];
 
     private static string? Str(JsonElement? e) => e is { ValueKind: JsonValueKind.String } s ? s.GetString() : null;
 
