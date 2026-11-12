@@ -30,7 +30,7 @@ A list is the store only when all eight hold. In the list's `Store` cell, say th
 4. **Small flow volume.** Get items returns 100 items by default and at most 5,000 a call. A filtered Get items without Pagination returns nothing when no match is in the first 5,000 items. The SharePoint connector allows 600 calls per connection every 60 seconds, shared by every flow that uses the connection.
 5. **Permissions.** Site or list permission is enough: no row-level or column security.
 6. **No native offline.** Canvas offline mode doesn't support SharePoint.
-7. **A real licence saving.** In a Managed Environment every user of an app needs a qualifying licence, standard apps included, and from February 2027 users without one can't open the app.
+7. **A real licence saving.** In a Managed Environment every user of an app needs a qualifying licence, standard apps included, and from February 2027 users without one can't open the app. Which licence covers what, and the standard alternative: `licensing.md`.
 8. **An owner for the schema.** Lists sit outside the solution, and SharePoint doesn't fully support ALM, so someone owns each list's columns in every environment.
 
 ## 3. Table design

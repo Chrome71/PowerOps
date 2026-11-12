@@ -454,12 +454,151 @@ public partial class SkillsCommandTests : IDisposable
     [Fact]
     public void Plan_skill_stays_under_its_word_ceiling()
     {
-        // M41: the 2,483 words the skill had before the ledger, plus 300. M81: plus 50 for the engagement rule and the callable-tool rule. Decision 52: plus 40 for the three options and the pick. On ASCII text a split on whitespace counts as wc -w does.
+        // M41: the 2,483 words the skill had before the ledger, plus 300. M81: plus 50 for the engagement rule and the callable-tool rule. Decision 52: plus 40 for the three options and the pick. M91: plus 494 for the option format, the defaults batch, the budget and the licence read. On ASCII text a split on whitespace counts as wc -w does.
         var text = SkillsCommand.Shipped()["powerops-plan/SKILL.md"];
         var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
 
         Assert.All(text, c => Assert.True(c < 128, $"non-ASCII character U+{(int)c:X4}"));
-        Assert.InRange(words, 1, 2873);
+        Assert.InRange(words, 1, 3363);
+    }
+
+    private static string PlanSkill() => SkillsCommand.Shipped()["powerops-plan/SKILL.md"];
+
+    // The fast path as PlanFactsSkillTests.FastPath takes it: section 8 up to section 9.
+    private static string FastPathOf(string text)
+    {
+        var start = text.IndexOf("## 8. Fast path", StringComparison.Ordinal);
+        return text[start..text.IndexOf("## 9.", start, StringComparison.Ordinal)];
+    }
+
+    [Fact]
+    public void Plan_skill_reads_the_licences_once_under_its_condition_and_falls_back_to_a_neutral_question()
+    {
+        var text = PlanSkill();
+        string[] wording =
+        [
+            "Only after the user has named the environment and said `az` is signed in",
+            "me/licenseDetails",
+            "never counts as held",
+            "never its text",
+            "option 1 \"Not sure\" (recommended)",
+            "Under `quick` ask nothing",
+            "Other people's licences, test users' included, are always the person's answer",
+            "after round 1's answers (under `quick` too)",
+            "After a failed read",
+            "pac and az are optional",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, text));
+    }
+
+    [Fact]
+    public void Plan_skill_writes_the_licences_table_in_constraints()
+    {
+        var text = PlanSkill();
+        string[] wording =
+        [
+            "`### Licences`",
+            "`| Need | Product or feature | Who needs it | Standard alternative | Held |`",
+            "when the plan names a connector, table, app, flow, site, report or agent",
+            "the heading stays",
+            "No need beyond Microsoft 365's standard rights.",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, text));
+    }
+
+    [Fact]
+    public void Plan_skill_asks_short_options_the_cost_tier_and_keeps_safe_defaults_and_a_round_budget()
+    {
+        var text = PlanSkill();
+        string[] wording =
+        [
+            "at most six words",
+            "at most 20 words",
+            "never states a fact about the person's tenant, licences or data",
+            "**Not sure: standard first**",
+            "**Standard licences only**",
+            "**Premium where needed**",
+            "A safe default is reversible",
+            "are never defaults",
+            "five rounds or fewer",
+            "`## Round <k>`",
+            "or make option 1 \"Not sure\" (recommended)",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, text));
+    }
+
+    [Fact]
+    public void Plan_skill_confirms_defaults_and_assumptions_in_one_question_each()
+    {
+        var text = PlanSkill();
+        string[] wording =
+        [
+            "Keep these N defaults?",
+            "defaults kept: <N>",
+            "Under `quick`, ask nothing: the approval keeps them",
+            "Confirm these N assumptions?",
+            "none High",
+            "assumptions confirmed: R<n>",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, text));
+    }
+
+    [Fact]
+    public void Plan_skill_fast_path_writes_an_unknown_licences_table_and_reads_nothing()
+    {
+        var fast = FastPathOf(PlanSkill());
+        string[] wording = ["every `Held` `unknown`", "`cost tier: Not sure: standard first (not asked)`", "A or B keeps the `default:` lines"];
+
+        Assert.All(wording, s => Assert.Contains(s, fast));
+        Assert.DoesNotMatch(@"\baz\b", fast);
+        Assert.DoesNotContain("licenseDetails", fast);
+    }
+
+    [Fact]
+    public void Licensing_reference_holds_the_tiers_the_held_values_and_the_part_numbers_and_data_names_it()
+    {
+        var shipped = SkillsCommand.Shipped();
+        var licensing = shipped["powerops-plan/references/licensing.md"];
+        string[] wording =
+        [
+            "# Licences: what needs which, and the standard alternative",
+            "## 1. The table",
+            "## 2. Needs",
+            "## 3. Part numbers",
+            "## Sources",
+            "Checked on 2026-11-11",
+            "`yes (read)`",
+            "`no (read)`",
+            "`person says yes`",
+            "`person says no`",
+            "`unknown`",
+            "**Not sure: standard first**",
+            "**Standard licences only**",
+            "**Premium where needed**",
+            "A row with none keeps its premium product with `Held` read or asked, and becomes an Open question when `Held` is `no (read)` or `person says no`.",
+            "A row with none becomes a question",
+            "keeps the premium rows, with `Held` still read or asked",
+            "covers no row",
+            "is `unknown`",
+            "managed developer environments remain",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, licensing));
+        var gate7 = shipped["powerops-plan/references/data.md"].Split('\n').Single(l => l.StartsWith("7. **A real licence saving.**", StringComparison.Ordinal));
+        Assert.Contains("`licensing.md`", gate7);
+    }
+
+    [Fact]
+    public void Review_plan_skill_makes_a_missing_or_unchecked_licences_table_a_medium_finding()
+    {
+        var text = SkillsCommand.Shipped()["powerops-review-plan/SKILL.md"];
+        string[] wording = ["no `### Licences` heading under `Constraints`", "The heading with only the line", "is complete"];
+
+        Assert.All(wording, s => Assert.Contains(s, text));
     }
 
     [Fact]
@@ -594,7 +733,7 @@ public partial class SkillsCommandTests : IDisposable
         Assert.Equal(0, code);
         foreach (var root in new[] { ".claude", ".agents" })
         {
-            foreach (var name in ProductReferences.Concat(["data.md", "route.md", "design.md", "logic.md", "look.md"]))
+            foreach (var name in ProductReferences.Concat(["data.md", "route.md", "design.md", "logic.md", "look.md", "licensing.md"]))
             {
                 var file = P(root, "skills", "powerops-plan", "references", name);
                 Assert.Equal(SkillsCommand.Shipped()[$"powerops-plan/references/{name}"], File.ReadAllText(file));

@@ -18,7 +18,7 @@ PowerOps is a free, open-source toolkit for Windows and Linux. It works alongsid
 
 ## What you need
 
-The .NET 10 SDK. `pac`, and `az` for `drift` and `deploy`, are needed only for the commands that read an environment.
+The .NET 10 SDK. `pac`, and `az` for `drift` and `deploy`, are needed only for the commands that read an environment; the planning skill also uses `az`, optionally, to read the names of your licences.
 
 ## Install
 
@@ -106,7 +106,7 @@ On GitHub Actions, use the action: it writes a job summary and annotations, and 
 | [`skills install`](docs/COMMANDS.md#plan-and-skills) | Copies the agent skills into the repo |
 | [`mcp`](docs/COMMANDS.md#mcp) | Runs an MCP server whose tools run these commands |
 
-`settings apply`, `drift`, `deploy plan`, `deploy apply`, `deploy gate` and `plan facts` read an environment, so `pac` must be signed in, and `az` too for `drift` and `deploy` (`drift` can also compare saved snapshot files offline). The others work offline on files. Only `settings apply --apply` and `deploy apply --apply` write to an environment; without `--apply` they are dry runs.
+`settings apply`, `drift`, `deploy plan`, `deploy apply`, `deploy gate` and `plan facts` read an environment, so `pac` must be signed in, and `az` too for `drift` and `deploy` (`drift` can also compare saved snapshot files offline). The planning skill also uses `az`, optionally, for one read of the part numbers of the signed-in account's licences. The others work offline on files. Only `settings apply --apply` and `deploy apply --apply` write to an environment; without `--apply` they are dry runs.
 
 Every option, output format and exit code is in the [command reference](docs/COMMANDS.md).
 

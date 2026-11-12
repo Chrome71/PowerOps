@@ -37,7 +37,7 @@ Check the plan for each item. Report a gap, a risk or an unanswered area as a fi
 
 1. Solution boundaries and publisher prefix: one clear solution per deployable unit, a named publisher and prefix, no overlap with solutions from `plan facts` (only if you read the facts).
 2. Connection references and environment variables instead of hard-coded values (URLs, IDs, mailboxes, connection names).
-3. Premium connector and licence impact: which connectors and tables need which licence, and who pays.
+3. Premium connector and licence impact: which connectors and tables need which licence, and who pays. When the plan names a connector, table, app, flow, site, report or agent: no `### Licences` heading under `Constraints`, or a row whose `Held` is `unknown` with no step that checks it before its first use, is a Medium finding. The heading with only the line "No need beyond Microsoft 365's standard rights." is complete.
 4. DLP fit: the connectors used must be allowed together. If nobody checked, say so.
 5. Dev to Test to Prod route: where it is built, how it moves, who approves.
 6. Managed or unmanaged: right for each environment.
