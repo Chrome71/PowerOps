@@ -20,7 +20,7 @@ public static class DeployApplyReport
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
     };
 
-    /// <summary>Target and hash, one line per solution, per flow and per agent, then a summary; "\n" line endings.</summary>
+    /// <summary>Target and hash, one line per solution (and its <c>after:</c> line when read), per flow and per agent, then a summary; "\n" line endings.</summary>
     public static void WriteText(DeployApplyResult result, TextWriter writer)
     {
         static string C(string? s) => TextReport.Clean(s);
@@ -38,6 +38,11 @@ public static class DeployApplyReport
         foreach (var s in result.Solutions)
         {
             text.Append($"{s.Order} {C(s.Solution)} ({C(s.Zip)}): {C(s.Action)}, {C(s.Import)}\n");
+            if (s.After is { } after)
+            {
+                var managed = after.Managed switch { true => "managed", false => "unmanaged", null => "managed not read" };
+                text.Append(after.Installed ? $"  after: {C(after.Version ?? "version not read")} ({managed})\n" : "  after: not installed\n");
+            }
         }
 
         foreach (var f in result.Flows)

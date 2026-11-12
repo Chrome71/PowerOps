@@ -212,7 +212,7 @@ runs:
         fi
         case "$PO_APPLY_EXIT" in
           "" | 0) ;;
-          1) echo "::error::powerops deploy apply refused, or a flow is not in its expected state" ;;
+          1) echo "::error::powerops deploy apply refused, a flow is not in its expected state, or the target doesn't show the imported version" ;;
           2) echo "::error::powerops deploy apply: usage error or --target mismatch" ;;
           3) echo "::error::powerops deploy apply failed; there is no rollback, see the report" ;;
           *) echo "::error::powerops deploy apply exited with code $PO_APPLY_EXIT" ;;

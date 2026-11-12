@@ -182,4 +182,45 @@ public class DeployApplyReportTests
         Assert.All(text.Split('\n', StringSplitOptions.RemoveEmptyEntries), l => Assert.DoesNotMatch(@"^\s*::", l));
         Assert.Contains("note: agents read at 2026-11-04T10:00:05Z ::error::x; an agent", text);
     }
+
+    // ---- after (M98) ----------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void Text_has_an_after_line_right_under_each_solution_line_whose_after_is_set()
+    {
+        var text = Text(Result(ApplyStatus.Imported, true, solutions:
+        [
+            Sol(1, "A", "install", ImportStatus.Ok) with { After = new(true, "1.0.0.1", true) },
+            Sol(2, "B", "upgrade", ImportStatus.Ok) with { After = new(true, "2.0.0.0", false) },
+            Sol(3, "C", "install", ImportStatus.Ok) with { After = new(false, null, null) },
+            Sol(4, "D", "install", ImportStatus.Ok) with { After = new(true, null, true) },
+            Sol(5, "E", "install", ImportStatus.Ok) with { After = new(true, "1.0.0.0", null) },
+            Sol(6, "F", "skip", ImportStatus.Skipped),
+        ]));
+
+        Assert.EndsWith(
+            "1 A (A.zip): install, ok\n  after: 1.0.0.1 (managed)\n2 B (B.zip): upgrade, ok\n  after: 2.0.0.0 (unmanaged)\n3 C (C.zip): install, ok\n  after: not installed\n"
+            + "4 D (D.zip): install, ok\n  after: version not read (managed)\n5 E (E.zip): install, ok\n  after: 1.0.0.0 (managed not read)\n6 F (F.zip): skip, skipped\napplied\n",
+            text);
+    }
+
+    [Fact]
+    public void Text_cleans_the_after_version()
+    {
+        var text = Text(Result(ApplyStatus.Imported, true, solutions: [Sol(1, "A", "install", ImportStatus.Ok) with { After = new(true, "1\n::error::x", true) }]));
+
+        Assert.All(text.Split('\n', StringSplitOptions.RemoveEmptyEntries), l => Assert.DoesNotMatch(@"^\s*::", l));
+        Assert.Contains("\n  after: 1 ::error::x (managed)\n", text);
+    }
+
+    [Fact]
+    public void Json_writes_after_as_the_last_property_of_a_row_and_null_when_not_set()
+    {
+        var json = Json(Result(ApplyStatus.Imported, true, solutions: [Sol(1, "A", "install", ImportStatus.Ok) with { After = new(true, "1.0.0.1", true) }, Sol(2, "B", "skip", ImportStatus.Skipped)]));
+
+        Assert.Contains(
+            "      \"pacExitCode\": null,\n      \"after\": {\n        \"installed\": true,\n        \"version\": \"1.0.0.1\",\n        \"managed\": true\n      }\n    },\n",
+            json);
+        Assert.Contains("      \"pacExitCode\": null,\n      \"after\": null\n    }\n  ],\n", json);
+    }
 }

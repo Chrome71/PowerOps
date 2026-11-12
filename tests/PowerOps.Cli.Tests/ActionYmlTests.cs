@@ -91,6 +91,14 @@ public sealed class ActionYmlTests
     }
 
     [Fact]
+    public void The_apply_result_names_a_version_the_target_does_not_show_for_exit_1()
+    {
+        var run = Text(Steps().Single(s => Text(s, "name") == "Apply plan result"), "run")!;
+
+        Assert.Contains("\n  1) echo \"::error::powerops deploy apply refused, a flow is not in its expected state, or the target doesn't show the imported version\" ;;\n", run);
+    }
+
+    [Fact]
     public void The_analyze_steps_run_through_powerops_sh_so_only_error_and_note_lines_reach_the_log()
     {
         var steps = Steps();

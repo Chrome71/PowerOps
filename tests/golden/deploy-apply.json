@@ -19,7 +19,12 @@
       "zip": "PowerOpsSeed.zip",
       "action": "upgrade",
       "import": "ok",
-      "pacExitCode": null
+      "pacExitCode": null,
+      "after": {
+        "installed": true,
+        "version": "1.0.0.1",
+        "managed": true
+      }
     }
   ],
   "flows": [

@@ -3,8 +3,11 @@ using PowerOps.Core.Settings;
 
 namespace PowerOps.Core.Deploy;
 
-/// <summary>What <c>deploy apply</c> did with one planned solution. <paramref name="PacExitCode"/> is set only when <c>pac</c> failed.</summary>
-public sealed record AppliedSolution(int Order, string Solution, string Zip, string Action, string Import, int? PacExitCode);
+/// <summary>What <c>deploy apply</c> did with one planned solution. <paramref name="PacExitCode"/> is set only when <c>pac</c> failed. <paramref name="After"/> is what the read after the imports showed, set only on an <c>ok</c> row when that read ran.</summary>
+public sealed record AppliedSolution(int Order, string Solution, string Zip, string Action, string Import, int? PacExitCode, SolutionAfter? After = null);
+
+/// <summary>The solution as the read after the imports showed it. <paramref name="Version"/> is null unless it is four numeric parts; <paramref name="Managed"/> is reported, not compared.</summary>
+public sealed record SolutionAfter(bool Installed, string? Version, bool? Managed);
 
 /// <summary>One planned cloud flow and its state after the imports (null in a dry run or when the second read failed).</summary>
 public sealed record AppliedFlow(string Solution, string Name, string ExpectedState, string? StateAfter);
@@ -185,6 +188,36 @@ public static class DeployApply
             return new AppliedFlow(f.Solution, f.Flow.Name, f.Flow.ExpectedState, state);
         }).ToList();
         return new FlowsAfterResult(applied, applied.All(f => f.StateAfter == f.ExpectedState));
+    }
+
+    /// <summary>The rows with <see cref="AppliedSolution.After"/> set on each <c>ok</c> row from the read after the imports, and one sentence per row that is not installed or not at its zip's version, or null.</summary>
+    public static (IReadOnlyList<AppliedSolution> Solutions, string? Mismatch) SolutionsAfter(IReadOnlyList<AppliedSolution> rows, IReadOnlyList<DeployZip> zips, IReadOnlyList<Snapshot> after)
+    {
+        var sentences = new List<string>();
+        var applied = rows.Select(row =>
+        {
+            if (row.Import != ImportStatus.Ok)
+            {
+                return row;
+            }
+
+            var zip = zips.First(z => z.File == row.Zip);
+            var snap = after.FirstOrDefault(s => string.Equals(s.Solution, zip.Solution.UniqueName, StringComparison.OrdinalIgnoreCase));
+            // Only a version of four numeric parts is kept, so no other text from the target reaches the report.
+            var shown = snap is null ? new SolutionAfter(false, null, null)
+                : new SolutionAfter(snap.Installed, DeployPlan.EqualVersions(snap.Version, snap.Version) ? snap.Version : null, snap.Managed);
+            if (!shown.Installed)
+            {
+                sentences.Add($"pac reported success, but the target shows {row.Solution} not installed; check the solution's import history.");
+            }
+            else if (!DeployPlan.EqualVersions(shown.Version, zip.Solution.Version))
+            {
+                sentences.Add($"pac reported success, but the target shows {row.Solution} at version {shown.Version ?? "unknown"}; check the solution's import history.");
+            }
+
+            return row with { After = shown };
+        }).ToList();
+        return (applied, sentences.Count == 0 ? null : string.Join(' ', sentences));
     }
 
     /// <summary>The agents of the planned solutions <paramref name="include"/> accepts, as (solution, name) in plan order and then the order of <see cref="Model.Solution.Agents"/>, a name once per solution (ignoring case).</summary>

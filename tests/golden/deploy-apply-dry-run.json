@@ -16,7 +16,8 @@
       "zip": "PowerOpsSeed.zip",
       "action": "upgrade",
       "import": "planned",
-      "pacExitCode": null
+      "pacExitCode": null,
+      "after": null
     }
   ],
   "flows": [

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/deploy-apply.schema.json",
   "title": "powerops deploy apply --format json",
-  "description": "The JSON written by 'powerops deploy apply --format json': what a dry run would import, or what an apply imported, the state of each planned cloud flow afterwards, and the Copilot Studio agents of the imported zips. It never holds an environment id or URL, a folder path, a connection id, an environment variable value, the --target value or pac's output text; only the target's friendly name, the tool version, file names, solution names, flow names, agent names, states and the reviewed plan's hash. Keep the report in private places, because the names can still identify a tenant.",
+  "description": "The JSON written by 'powerops deploy apply --format json': what a dry run would import, or what an apply imported, each imported solution's version and managed flag as read from the target afterwards, the state of each planned cloud flow afterwards, and the Copilot Studio agents of the imported zips. It never holds an environment id or URL, a folder path, a connection id, an environment variable value, the --target value or pac's output text; only the target's friendly name, the tool version, file names, solution names, flow names, agent names, states and the reviewed plan's hash. Keep the report in private places, because the names can still identify a tenant.",
   "type": "object",
   "required": ["schemaVersion", "tool", "applied", "target", "hash", "status", "message", "appliedAt", "executor", "approval", "solutions", "flows", "agents", "agentsReadAt"],
   "properties": {
@@ -13,9 +13,9 @@
     "hash": { "type": "string", "pattern": "^([0-9a-f]{64})?$", "description": "The reviewed plan file's hash, never the new plan's. Empty when the plan file was made by another powerops version." },
     "status": {
       "enum": ["refused", "planned", "imported", "failed"],
-      "description": "refused: nothing was imported (exit 1), because the plan file is blocked or from another version, the new plan's hash differs, the new plan is blocked, or, with --require-reviews, a zip the plan imports is not covered by both review reports of one plan folder or no readable docs/plans exists. planned: a dry run (exit 0). imported: the imports ran, or, with the message 'Nothing was imported: every solution was skipped.', none was needed and nothing changed; see message and flows for exit 1 and 3. failed: an import failed, pac was not found, or a file changed before its import, or an import timed out, which leaves its row unknown (exit 3); there is no rollback."
+      "description": "refused: nothing was imported (exit 1), because the plan file is blocked or from another version, the new plan's hash differs, the new plan is blocked, or, with --require-reviews, a zip the plan imports is not covered by both review reports of one plan folder or no readable docs/plans exists. planned: a dry run (exit 0). imported: the imports ran, or, with the message 'Nothing was imported: every solution was skipped.', none was needed and nothing changed; see message, each solution's after and flows for exit 1 (an imported solution the target doesn't show at the zip's version, or a flow not in its expected state) and 3. failed: an import failed, pac was not found, or a file changed before its import, or an import timed out, which leaves its row unknown (exit 3); there is no rollback."
     },
-    "message": { "type": ["string", "null"], "description": "Why a run stopped, or null. For a failure it says there is no rollback and names the imported solutions; after good imports, a second read that failed starts with 'The imports succeeded.'. With status imported, 'Nothing was imported: every solution was skipped.' means every solution was a skip and nothing changed." },
+    "message": { "type": ["string", "null"], "description": "Why a run stopped, or null. For a failure it says there is no rollback and names the imported solutions; after good imports, a second read that failed starts with 'The imports succeeded.', and an imported solution the target doesn't show at the zip's version gives one sentence each, in plan order, starting 'pac reported success, but the target shows'. With status imported, 'Nothing was imported: every solution was skipped.' means every solution was a skip and nothing changed." },
     "appliedAt": {
       "type": ["string", "null"],
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
@@ -36,10 +36,10 @@
     },
     "solutions": {
       "type": "array",
-      "description": "In plan order; empty when the run was refused before the re-plan.",
+      "description": "In plan order; empty when the run was refused before the re-plan. After good imports each ok row holds the solution as the target then shows it, and one not installed or not at the zip's version makes the run exit 1.",
       "items": {
         "type": "object",
-        "required": ["order", "solution", "zip", "action", "import", "pacExitCode"],
+        "required": ["order", "solution", "zip", "action", "import", "pacExitCode", "after"],
         "properties": {
           "order": { "type": "integer", "minimum": 1, "description": "The position in the import order, from 1." },
           "solution": { "type": "string", "description": "The solution's unique name." },
@@ -49,7 +49,17 @@
             "enum": ["ok", "failed", "unknown", "not-run", "planned", "skipped"],
             "description": "ok: imported. failed: pac failed, pac was not found, or a file changed before its import. unknown: the import timed out; it may have finished or still be running in the environment, so check the solution's import history. not-run: nothing was imported for it (the run stopped first or was refused). planned: a dry run would import it. skipped: its action is skip (not in a refusal, where every row is not-run)."
           },
-          "pacExitCode": { "type": ["integer", "null"], "description": "pac's exit code when it failed; null otherwise, also for a timeout or a changed file." }
+          "pacExitCode": { "type": ["integer", "null"], "description": "pac's exit code when it failed; null otherwise, also for a timeout or a changed file." },
+          "after": {
+            "type": ["object", "null"],
+            "description": "The solution as the read of the target after every import went through showed it; null unless import is ok and that read ran (a dry run, a refusal, a failed or timed-out import, or a failed read leaves it null). Not installed, or a version that is not the zip's (compared as four numbers), makes the run exit 1.",
+            "required": ["installed", "version", "managed"],
+            "properties": {
+              "installed": { "type": "boolean", "description": "False when the target doesn't hold the solution." },
+              "version": { "type": ["string", "null"], "description": "The target's version of the solution, compared with the zip's; null when it is not read or is not four numeric parts." },
+              "managed": { "type": ["boolean", "null"], "description": "Whether the target holds the solution as managed; reported, not compared. Null when not read." }
+            }
+          }
         }
       }
     },
