@@ -27,6 +27,7 @@ public class SolutionDiscoveryTests
                 "equipment-checkout",
                 "flow-navigation",
                 "flowtests/capture/solution",
+                "flowtests/skipped-body",
                 "powerops-seed-yaml/v1/solutions/PowerOpsSeed/solution.yml",
                 "powerops-seed-yaml/v2/solutions/PowerOpsSeed/solution.yml",
                 "powerops-seed/v1",

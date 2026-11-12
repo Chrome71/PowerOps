@@ -67,6 +67,8 @@ tests/fixtures/flow-navigation: PowerOpsNavigation 1.0.0.0 (publisher demopub, p
 tests/fixtures/flowtests/capture/solution: PowerOpsCapture 1.0.0.0 (publisher powerops, prefix pops)
   requires Active
   warning PO016 Workflows/PowerOpscapture-00000000-0000-0000-0000-000000000058.json: Flow 'PowerOps capture' has 120 actions and a nesting depth of 1.
+tests/fixtures/flowtests/skipped-body: PowerOpsSkippedBody 1.0.0.0 (publisher demopub, prefix demo)
+  no findings
 tests/fixtures/powerops-seed-yaml/v1: PowerOpsSeed 1.0.0.0 (publisher powerops, prefix pops)
   no findings
 tests/fixtures/powerops-seed-yaml/v2: PowerOpsSeed 1.0.0.0 (publisher powerops, prefix pops)
@@ -90,4 +92,4 @@ tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip: Contoso_sample 1.0.0.1 (
   warning PO010 solution.xml: Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher.
 tests/fixtures/zips/polymorphiclookupexamplesolution.zip: polymorphiclookupexamplesolution 1.0.0.0 (publisher examplepublisher, prefix sample)
   no findings
-19 solutions, 0 errors, 63 warnings
+20 solutions, 0 errors, 63 warnings

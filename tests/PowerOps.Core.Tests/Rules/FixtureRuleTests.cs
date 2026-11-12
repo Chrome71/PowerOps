@@ -191,6 +191,14 @@ public class FixtureRuleTests
     }
 
     [Fact]
+    public void Skipped_body_gives_no_finding()
+    {
+        var s = SolutionLoader.Load(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "flowtests", "skipped-body"));
+
+        Assert.Empty(Analyzer.Run(s));
+    }
+
+    [Fact]
     public void Flow_navigation_gives_PO035_for_the_expand_and_the_wrong_case_bind_key_and_nothing_else()
     {
         var s = SolutionLoader.Load(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "flow-navigation"));

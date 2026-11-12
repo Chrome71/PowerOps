@@ -1,0 +1,43 @@
+{
+  "properties": {
+    "connectionReferences": {},
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": { "defaultValue": {}, "type": "Object" },
+        "$authentication": { "defaultValue": {}, "type": "SecureObject" }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "Button",
+          "inputs": { "schema": { "type": "object", "properties": { "skip": { "type": "boolean" } }, "required": ["skip"] } }
+        }
+      },
+      "actions": {
+        "Check_skip": {
+          "type": "If",
+          "expression": { "equals": ["@triggerBody()?['skip']", true] },
+          "actions": {},
+          "else": {
+            "actions": {
+              "Get_status": {
+                "type": "Http",
+                "inputs": { "method": "GET", "uri": "https://api.contoso.com/status" },
+                "runAfter": {}
+              }
+            }
+          },
+          "runAfter": {}
+        },
+        "Pick_code": {
+          "type": "Compose",
+          "inputs": "@coalesce(body('Get_status')?['code'], 'd')",
+          "runAfter": { "Check_skip": ["Succeeded", "Failed", "TimedOut"] }
+        }
+      }
+    }
+  },
+  "schemaVersion": "1.0.0.0"
+}

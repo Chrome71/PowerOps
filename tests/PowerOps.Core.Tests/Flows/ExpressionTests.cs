@@ -34,6 +34,7 @@ public class ExpressionTests
         {
             "Get_user" => GetUser,
             "No_body" => JsonNode.Parse("""{"statusCode":204}"""),
+            "Did_not_run" => null,
             _ => throw new ExpressionException($"No outputs for '{action}'."),
         };
 
@@ -319,6 +320,15 @@ public class ExpressionTests
         AssertEval("body('Get_user')", """{"FullName":"Contoso Corporation","Id":283541717,"UserName":"ContosoInc"}""");
         Assert.Throws<ExpressionException>(() => Eval("body('No_body')"));
         Assert.Throws<ExpressionException>(() => Eval("body('Unknown')"));
+    }
+
+    [Fact]
+    public void Body_of_an_action_whose_outputs_are_null_is_null_and_a_plain_read_after_it_still_fails()
+    {
+        Assert.Null(Eval("body('Did_not_run')"));
+        Assert.Null(Eval("body('Did_not_run')?['code']"));
+        var e = Assert.Throws<ExpressionException>(() => Eval("body('Did_not_run')['code']"));
+        Assert.Contains("Cannot read a property or item of null", e.Message);
     }
 
     // triggerOutputs: https://learn.microsoft.com/azure/logic-apps/expression-functions-reference#triggerOutputs (no example)

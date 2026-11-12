@@ -495,6 +495,73 @@ public class FlowSimulatorTests
         Assert.Equal("Succeeded", run.Status);
     }
 
+    private const string BodyOfA = """{"A":{"type":"Http","inputs":{"method":"GET","uri":"https://contoso.example/x"},"runAfter":{}},"P":""";
+
+    private static FlowRun RunBodyOfA(string expression, FlowMock? mock, string status = "Succeeded") =>
+        Run(BodyOfA + Compose("\"" + expression + "\"", After("A", status)) + "}", In(mocks: mock is null ? null : Mocks(("A", [mock]))));
+
+    [Fact]
+    public void Body_of_a_skipped_action_gives_null_for_coalesce()
+    {
+        var run = Run("""
+            {"X":{"type":"Compose","inputs":1,"runAfter":{}},
+             "A":{"type":"Compose","inputs":1,"runAfter":{"X":["Failed"]}},
+             "P":{"type":"Compose","inputs":"@coalesce(body('A')?['x'], 'd')","runAfter":{"A":["Skipped"]}}}
+            """);
+
+        Assert.Equal("Skipped", St(run, "A"));
+        Assert.Equal("Succeeded", St(run, "P"));
+        Same("\"d\"", run.Calls["P"][0].Outputs);
+    }
+
+    [Fact]
+    public void Body_of_a_timed_out_mock_without_outputs_is_null()
+    {
+        var run = RunBodyOfA("@body('A')", TimedOut(), "TimedOut");
+
+        Assert.Equal("Succeeded", St(run, "P"));
+        Assert.Null(run.Calls["P"][0].Outputs);
+    }
+
+    [Fact]
+    public void Body_of_a_failed_mock_with_outputs_is_its_body()
+    {
+        var run = RunBodyOfA("@body('A')", new FlowMock("Failed", J("""{"body":{"code":1}}"""), null), "Failed");
+
+        Same("""{"code":1}""", run.Calls["P"][0].Outputs);
+    }
+
+    [Fact]
+    public void Body_of_outputs_without_a_body_property_still_fails_the_action()
+    {
+        var run = RunBodyOfA("@body('A')", Ok("""{"statusCode":204}"""));
+
+        Assert.Equal("Failed", St(run, "P"));
+        Assert.Contains("The property 'body' does not exist.", (string?)run.Calls["P"][0].Error!["message"]);
+    }
+
+    [Fact]
+    public void Body_of_an_action_that_has_not_run_still_fails_the_action()
+    {
+        var run = Run("""
+            {"A":{"type":"Compose","inputs":1,"runAfter":{}},
+             "P":{"type":"Compose","inputs":"@body('B')","runAfter":{"A":["Succeeded"]}},
+             "B":{"type":"Compose","inputs":1,"runAfter":{"P":["Succeeded"]}}}
+            """);
+
+        Assert.Equal("Failed", St(run, "P"));
+        Assert.Contains("has not run", (string?)run.Calls["P"][0].Error!["message"]);
+    }
+
+    [Fact]
+    public void Body_of_a_succeeded_mock_without_outputs_is_null()
+    {
+        var run = RunBodyOfA("@body('A')", Ok());
+
+        Assert.Equal("Succeeded", St(run, "P"));
+        Assert.Null(run.Calls["P"][0].Outputs);
+    }
+
     [Fact]
     public void A_failure_is_handled_only_by_a_handler_that_ran()
     {

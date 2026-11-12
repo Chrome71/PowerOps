@@ -66,6 +66,18 @@ public class TestCommandTests : IDisposable
     }
 
     [Fact]
+    public void The_skipped_body_tests_pass()
+    {
+        var folder = Path.Combine(Fixtures, "flowtests", "skipped-body");
+
+        var (code, output, err) = Run(folder, "--tests", folder);
+
+        Assert.Equal(0, code);
+        Assert.Equal("", err);
+        Assert.Contains("3 tests: 3 passed, 0 failed, 0 unmocked, 0 unsupported", output);
+    }
+
+    [Fact]
     public void The_alm_makers_tests_pass_and_match_the_text_golden()
     {
         var (code, output, err) = Run(Alm, "--tests", AlmTests);

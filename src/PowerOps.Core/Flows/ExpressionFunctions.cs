@@ -23,7 +23,8 @@ public static class ExpressionFunctions
     {
         // Workflow
         ["outputs"] = (a, c) => c.Outputs(Str("outputs", Count("outputs", a, 1)[0])),
-        ["body"] = (a, c) => Expression.Read(c.Outputs(Str("body", Count("body", a, 1)[0])), JsonValue.Create("body"), false),
+        // null outputs (a skipped action, seen in the live run of 2026-11-11) give null, not an error; outputs without a body still fail
+        ["body"] = (a, c) => { var o = c.Outputs(Str("body", Count("body", a, 1)[0])); return Expression.Read(o, JsonValue.Create("body"), o is null); },
         ["triggerOutputs"] = (a, c) => NoArguments("triggerOutputs", a, c).TriggerOutputs(),
         ["triggerBody"] = (a, c) => Expression.Read(NoArguments("triggerBody", a, c).TriggerOutputs(), JsonValue.Create("body"), false),
         ["variables"] = (a, c) => c.Variable(Str("variables", Count("variables", a, 1)[0])),
