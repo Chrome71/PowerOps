@@ -86,7 +86,7 @@ None.
 ## Steps
 
 1. This plan and `decisions.md`, the claims research, the Fable plan review and a fresh-context `powerops-review-plan` into `review.md`, fixes, and the sign-off.
-2. A baseline `dotnet build` and `dotnet test` at `e185b56`, recorded; `PlanKind.Stays` declared (not yet in `Order` or used) so the project compiles; then row 4's tests, run and seen to fail on their assertions (not on a compile error).
+2. A baseline `dotnet build` and `dotnet test` at `e185b56`, recorded; `PlanKind.Stays` declared (not yet in `Order` or used) so the project compiles; then row 4's tests, run: (a), (c), (g), `Kinds_are_in_the_documented_order`, the version assertions, the CLI golden case, the MCP case and the version-2 `deploy apply` case are seen to fail on their assertions (not on a compile error); (b), (d), (e), (f), (h) and `Deploy_plan_schema_kinds_equal_PlanKind_Order` are guard tests that pin today's behaviour and pass before the change, and the report says so.
 3. Rows 1 and 2 and the schema until every test passes; then the goldens by the "Update goldens" recipe, reading the diff.
 4. Row 3's docs, worded against the code of step 3.
-5. The checks of Done when 6 and 7, the Fable work review, and the merge under the chain's protocol (the decision takes its number then).
+5. The checks of Done when 6 and 7, the Fable work review, the merge under the chain's protocol (the decision takes its number then), and `reports/trial-3/chain/m106-done-handover.md` (outside the repo), which records the pull request, the merge commit, what wasn't checked and the probe of the `unproven:` line.
