@@ -445,7 +445,8 @@ public sealed partial class RoleEvalTests
         var text = new StringBuilder();
         foreach (var args in BaselineCommands)
         {
-            var (code, output, error) = RunCli(caseDir, args);
+            // shortcut: tests/eval/roles/baseline/*.txt were recorded before M92 hid values by default; M96 regenerates them and drops --show-values here
+            var (code, output, error) = RunCli(caseDir, args[0] == "diff" ? [.. args, "--show-values"] : args);
             text.Append("$ powerops ").Append(string.Join(' ', args)).Append('\n').Append(output);
             if (output.Length > 0 && !output.EndsWith('\n'))
             {

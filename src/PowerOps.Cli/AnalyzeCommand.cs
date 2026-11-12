@@ -26,14 +26,16 @@ public static class AnalyzeCommand
         failOn.AcceptOnlyFromAmong("error", "warning", "none");
         var baseline = new Option<string?>("--baseline") { Description = "Ignore findings listed in this baseline file (see 'powerops baseline')." };
 
-        var redact = new Option<bool>("--redact") { Description = "Replace URLs in findings, notes and stderr with a placeholder." };
+        var showValues = new Option<bool>("--show-values") { Description = "Print the URLs in findings, notes and stderr; by default each is replaced with a placeholder." };
+        // Declared, never read: redaction is the default, so only --show-values changes the output.
+        var redact = new Option<bool>("--redact") { Description = "The default: replace URLs with a placeholder. Kept so scripts that pass it keep working." };
 
         var command = new Command("analyze", "Check unpacked or exported solutions for common problems (offline, read-only).")
         {
-            paths, format, outFile, failOn, baseline, redact,
+            paths, format, outFile, failOn, baseline, showValues, redact,
         };
         command.SetAction(parse => Execute(
-            parse.GetValue(paths)!, parse.GetValue(format)!, parse.GetValue(outFile), parse.GetValue(failOn)!, parse.GetValue(baseline), parse.GetValue(redact), output, error));
+            parse.GetValue(paths)!, parse.GetValue(format)!, parse.GetValue(outFile), parse.GetValue(failOn)!, parse.GetValue(baseline), !parse.GetValue(showValues), output, error));
         return command;
     }
 

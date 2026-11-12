@@ -392,8 +392,10 @@ public sealed class ActionScriptTests : IDisposable
     }
 
     [Theory]
-    [InlineData("", "false", "powerops.dll analyze sol dir --fail-on warning --format sarif --out a b.sarif")]
-    [InlineData("base line.json", "true", "powerops.dll analyze sol dir --fail-on warning --baseline base line.json --redact --format sarif --out a b.sarif")]
+    [InlineData("", "true", "powerops.dll analyze sol dir --fail-on warning --format sarif --out a b.sarif")]
+    [InlineData("", "", "powerops.dll analyze sol dir --fail-on warning --format sarif --out a b.sarif")]
+    [InlineData("", "yes", "powerops.dll analyze sol dir --fail-on warning --format sarif --out a b.sarif")]
+    [InlineData("base line.json", "false", "powerops.dll analyze sol dir --fail-on warning --baseline base line.json --show-values --format sarif --out a b.sarif")]
     public void Analyze_builds_the_arguments_from_the_environment_and_passes_the_exit_code(string baseline, string redact, string call)
     {
         Tools.Require("bash");
@@ -676,10 +678,11 @@ public sealed class ActionScriptTests : IDisposable
     }
 
     [Theory]
-    [InlineData("true", true)]
-    [InlineData("false", false)]
+    [InlineData("false", true)]
+    [InlineData("true", false)]
     [InlineData("", false)]
-    public void Diff_adds_redact_only_when_PO_REDACT_is_true(string redact, bool expected)
+    [InlineData("yes", false)]
+    public void Diff_adds_show_values_only_when_PO_REDACT_is_false(string redact, bool expected)
     {
         Tools.Require("bash", "git");
         var clone = MakeMergeClone();
@@ -687,7 +690,8 @@ public sealed class ActionScriptTests : IDisposable
         var run = RunDiff(clone, exit: 1, redact: redact);
 
         Assert.Equal(0, run.Code);
-        Assert.Equal(expected, run.DotnetCalls.Single().EndsWith(" --redact", StringComparison.Ordinal));
+        Assert.Equal(expected, run.DotnetCalls.Single().EndsWith(" --show-values", StringComparison.Ordinal));
+        Assert.DoesNotContain("--redact", run.DotnetCalls.Single());
     }
 
     [Fact]

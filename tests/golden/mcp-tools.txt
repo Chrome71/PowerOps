@@ -1,7 +1,7 @@
 [
   {
     "name": "analyze",
-    "description": "Check solution folders or exported zips for common problems, offline. Read-only; returns the JSON of \u0060powerops analyze --format json\u0060 (docs/schemas/analyze.schema.json).",
+    "description": "Check solution folders or exported zips for common problems, offline. Read-only; returns the JSON of \u0060powerops analyze --format json\u0060 (docs/schemas/analyze.schema.json). URLs in findings and notes are replaced with [redacted URL], as the command does by default.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -47,7 +47,7 @@
   },
   {
     "name": "baseline",
-    "description": "Record the current analyze findings of solution folders or zips as a baseline for analyze\u0027s \u0060baseline\u0060 input. Read-only: returns the baseline file\u0027s text (a file format with its own \u0060version\u0060, no schema) and writes nothing.",
+    "description": "Record the current analyze findings of solution folders or zips as a baseline for analyze\u0027s \u0060baseline\u0060 input. Read-only: returns the baseline file\u0027s text (a file format with its own \u0060version\u0060, no schema) and writes nothing. Its findings keep their URLs, because a baseline must match the unredacted findings.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -74,7 +74,7 @@
   },
   {
     "name": "diff",
-    "description": "Compare two versions of a solution (exported zips or unpacked folders) component by component, offline. Read-only; returns the JSON of \u0060powerops diff --format json\u0060 (docs/schemas/diff.schema.json).",
+    "description": "Compare two versions of a solution (exported zips or unpacked folders) component by component, offline. Read-only; returns the JSON of \u0060powerops diff --format json\u0060 (docs/schemas/diff.schema.json). A changed defaultValue is printed only as added, removed or changed, and URLs are replaced with [redacted URL], as the command does by default.",
     "inputSchema": {
       "type": "object",
       "properties": {
