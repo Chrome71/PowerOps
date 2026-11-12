@@ -625,6 +625,18 @@ The third end-to-end trial's owner finding D: the build asked before each of 166
 
 90. `feat:` M94: the plan, then the journal warning, the pins and the skill and doc text, the smoke scenario and the plugin copies (built 2026-11-12, [plan](plans/m94-build-autonomy/plan.md))
 
+## M95: product references after trial 3
+
+The third end-to-end trial hit five things the references and docs didn't say or got wrong: Copilot Studio's new experience and the limit of `pac copilot pack`, canvas modern controls, Power BI validators that weren't installed and a base theme that can't be written without Desktop, a specialist that didn't read the build standard, and Dev's address in a tracked `.msapp`. The [plan](plans/m95-references/plan.md) adds what Learn says and what the trial observed to the references, and keeps every canvas `.msapp` out of Git by default (decision 68).
+
+| Milestone | Release | Scope | Done when |
+|---|---|---|---|
+| **M95. Product references after trial 3** | the next minor release, which release-please makes from the `feat:` commit | <ul><li>Planned 2026-11-12 ([plan](plans/m95-references/plan.md))</li><li>`copilot-studio.md`, `canvas.md` and `power-bi.md` say what Learn says (checked 2026-11-12) and what one run observed: the Microsoft Copilot harness and the new experience, the pack limit, confirmation with general knowledge off, forms, focus and the custom theme dialog, the validator that didn't run and the base theme</li><li>Hand-off step 3 keeps every `.msapp`, the zips, the settings file and the managed unpack folder out of Git, with a `.gitignore` block; the canvas checks run on the zip, and `powerops-implement` checks the `.gitignore` before it commits an export</li><li>`powerops-workflow-logic` reads the build standard; `licensing.md` names the FAQ page by its Learn title; ECO-0020 records the harness's new name</li></ul> | `dotnet test --project tests/PowerOps.Cli.Tests --filter "SkillsCommandTests\|PluginManifestTests\|DocsDriftTests\|HandoffDocTests\|EcosystemDocsTests"` passes |
+
+### Build order, M95 (continues the list below)
+
+91. `feat:` M95: the plan, then the pins, the reference, skill, agent and doc text, and the plugin copies (built 2026-11-12, [plan](plans/m95-references/plan.md))
+
 ## Testing
 
 | Layer | What | Runs |
@@ -886,3 +898,9 @@ Made in the [M106 plan](plans/m106-plan-stays/plan.md); its `decisions.md` weigh
 Made in the [M94 plan](plans/m94-build-autonomy/plan.md); its `decisions.md` weighs the options.
 
 67. **After sign-off the build writes to Dev without asking; one yes per target environment per deployment.** A sign-off authorizes, for its hash and the Dev environment only (with a null header, the one the person names as Dev before the first write), each Dev write a Step names, the Dev settings its Log line lists, retries, exports and local files; each journal row names its authority. A plan signed before this decision, or by an agent, asks once at the build's preflight. A deployment is one saved `deploy plan` file to one target; one yes covers its import (with `--require-reviews`, the agent line quoted in full), `settings apply --apply` and the plan's steps there, and ends once they are done or on a refusal, a declined, cancelled or failed form, a re-planned or changed plan file, a changed plan hash or a blocked report. Everything else stops for the person, and the stop list wins over a Step that names its item: sign-ins, anything outside the plan, deletes, licences, tenant-level and admin writes, writes outside Dev, writes that reach someone the plan doesn't name, and findings only a person accepts. Amendments stay person-signed. Asked "After sign-off, does Test or Prod still get a yes?", the owner answered "One yes per deployment" (2026-11-11). This extends decision 61's ending rule; its enforcement is unchanged.
+
+## Decisions, M95 product references (2026-11-12)
+
+Made in the [M95 plan](plans/m95-references/plan.md); its `decisions.md` weighs the options.
+
+68. **Canvas packages stay out of Git by default; a canvas app is checked on the exported zip.** A canvas app's `.msapp` caches the URL of the environment it was made in, and the two zips and the managed unpack folder hold the same files, so step 3 of [HANDOFF.md](HANDOFF.md) gives a `.gitignore` block for them and the settings file, for its export route, in any repository. In the XML layout `analyze` reads a canvas app's formulas only from its `.msapp`, so the canvas checks run on the zip; a rebuild exports again from Dev and never packs from Git. The ephemeral recipe of [docs/examples/](examples/README.md), which commits its deploy zips, is the exception, for a private repository only. A repository bound to Dataverse Git integration is not covered: whether its canvas folder caches the address, and whether the service honours `.gitignore`, is unproven. Asked "Keep canvas packages (`.msapp`) out of Git by default?", the owner answered "Keep out of Git" (2026-11-11).

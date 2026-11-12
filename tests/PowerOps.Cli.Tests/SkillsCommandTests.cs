@@ -939,6 +939,70 @@ public partial class SkillsCommandTests : IDisposable
         Assert.True(logic.IndexOf("Checked on 2026-11-12", StringComparison.Ordinal) > logic.IndexOf("## Sources\n\nChecked on 2026-11-05", StringComparison.Ordinal));
     }
 
+    // M95: a reference's new Sources block is its last, and the first block stays the 2026-11-03 one.
+    private static void AssertCheckedLast(string text)
+    {
+        var sources = Between(text + "\n## end", "## Sources\n\nChecked on 2026-11-03", "\n## end");
+        Assert.Equal(sources.IndexOf("Checked on 2026-11-12", StringComparison.Ordinal), sources.LastIndexOf("Checked on ", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Copilot_studio_reference_maps_the_new_harness_name_and_says_where_pack_and_a_read_back_failed()
+    {
+        var text = SkillsCommand.Shipped()["powerops-plan/references/copilot-studio.md"];
+        var harness = Between(text, "## 1. The harness first", "## 2. The plan");
+        var plan = Between(text, "## 2. The plan", "## 3. MCP apps");
+
+        Assert.All(new[] { "Microsoft Copilot harness", "Other ways to build", "Add a tool → Connector" }, s => Assert.Contains(s, harness));
+        Assert.Contains("observed in one run (2026-11-11)", Between(plan, "**The route to Test.**", "\n"));
+        Assert.Contains("Ask the end user before running", plan);
+        AssertCheckedLast(text);
+    }
+
+    [Fact]
+    public void Canvas_reference_says_what_is_not_preview_how_forms_focus_and_the_theme_get_built()
+    {
+        var text = SkillsCommand.Shipped()["powerops-plan/references/canvas.md"];
+
+        Assert.Contains("Create custom theme", Between(text, "## 1. The plan", "## 2. The sketch"));
+        Assert.Contains("the Card gallery, the Form and the Data Grid are not marked preview", Between(text, "## 2. The sketch", "## 3. The look"));
+        Assert.All(new[] { "Edit fields", "`SetFocus`", "observed in one run (2026-11-11)" }, s => Assert.Contains(s, Between(text, "## 3. The look", "## Sources")));
+        AssertCheckedLast(text);
+    }
+
+    [Fact]
+    public void Power_bi_reference_says_when_the_validator_did_not_run_what_the_base_theme_is_and_where_licences_are()
+    {
+        var text = SkillsCommand.Shipped()["powerops-plan/references/power-bi.md"];
+        var efficiency = Between(text, "## 1. Efficiency", "## 2. Design");
+
+        Assert.Contains("`licensing.md`", Between(efficiency, "**Licence fit.**", "\n"));
+        Assert.All(new[] { "**Base theme.**", "Classic 2026", "Windows only" }, s => Assert.Contains(s, Between(text, "## 3. The sketch", "## 4. Microsoft's gates")));
+        Assert.All(new[] { "validator: not run", "render-and-measure" }, s => Assert.Contains(s, Between(text, "## 4. Microsoft's gates", "## Sources")));
+        AssertCheckedLast(text);
+    }
+
+    [Fact]
+    public void Licensing_reference_names_the_faq_page_by_its_learn_title()
+    {
+        var text = SkillsCommand.Shipped()["powerops-plan/references/licensing.md"];
+
+        Assert.Contains("Power Platform licensing FAQs", text);
+        Assert.DoesNotContain("Power Apps and Power Automate licensing FAQ", text);
+        Assert.True(text.IndexOf("Checked on 2026-11-12", StringComparison.Ordinal) > text.IndexOf("Checked on 2026-11-11", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Implement_skill_keeps_canvas_packages_out_of_git_and_says_when_the_power_bi_validator_did_not_run()
+    {
+        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        var finish = Between(text, "## 4. Finish", "## 5. Power BI");
+
+        Assert.Contains("a canvas app's formulas are checked on the exported zip", Between(finish, "1. Run `powerops analyze`", "\n2. "));
+        Assert.All(new[] { "the repo's `.gitignore` holds `*.msapp`", "stage no `.msapp`", "keeps that choice", "`git rm --cached <file>`" }, s => Assert.Contains(s, Between(finish, "\n2. Before you open a pull request", "\n3. ")));
+        Assert.Contains("validator: not run", Between(text, "## 5. Power BI", "## Per agent"));
+    }
+
     [Fact]
     public void Review_plan_skill_checks_buildability_and_what_each_role_sets_at_create()
     {

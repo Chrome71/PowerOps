@@ -181,6 +181,8 @@ jobs:
             ${{ runner.temp }}/deploy/powerops-plan.json
 ```
 
+The snippets above analyze folders from Git (`path: solutions`, `path: solutions/ContosoApp`). Keep that use for the flow tests and the diff, which run on committed files only. Under step 3 of the [hand-off guide](HANDOFF.md#the-steps), every canvas app's `.msapp` stays out of Git, so on such a folder the canvas checks (PO014, PO018, PO036) read nothing. Run them in a second use of the action with `path` on the deploy folder and its own `category`, without `tests`, `comment` or `target`, and with `redact` at its default. Under that default `exports/` isn't in Git either, so the zips that the "Build the deploy folder" step copies come from an export in the job, as the [promotion example](examples/README.md) does, or the repository keeps them in Git on purpose, as the ephemeral recipe in the same folder does.
+
 A complete Dev to Test promotion (a plan on the PR, then an apply in an environment with required reviewers) is in [docs/examples/](examples/README.md); read its README for the setup and the risks.
 
 An opt-in recipe that gives each pull request its own short-lived environment, with a sweep for leftovers, is in the same folder. It was not run end to end: read [its section](examples/README.md#example-an-ephemeral-environment-per-pull-request) first, which opens with the risk.

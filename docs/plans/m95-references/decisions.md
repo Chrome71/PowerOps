@@ -1,0 +1,46 @@
+# Decisions: m95-references
+
+The owner's answer that applies to this milestone, given 2026-11-11 in the planning session's question form to "Q3. Keep canvas packages (`.msapp`) out of Git by default?": "Keep out of Git" (option a: "Git holds the rest of the unpacked source, and the canvas app is checked on the exported zips"). The fix plan's other answers (Q1 "One yes per deployment", Q2 "Hide by default", Q4 "Rerun it") were built by M94, M92 and M96 and change nothing here; M94's consent wording is kept. The routine choices below were made by the building session under the owner's direction of 2026-11-11 ("as autonomous as possible") and the standing instruction that sessions sign off their own milestone plans.
+
+## Round 1 (planning)
+
+### Q1. What does the `.gitignore` block in Hand-off step 3 hold?
+1. Every path that holds a canvas package or the target's values, anchored: `*.msapp`, `/ContosoApp.zip`, `/deploy/*.zip`, `/deploy/*.settings.json` and `/review/` (recommended)
+2. Only `**/CanvasApps/*.msapp`, as the fix plan names it, with the zips still kept out of public repositories only
+3. In your own words
+Answer: 1. The blind grade's point was Dev's host in a tracked file; a zip or the managed unpack folder holds the same `.msapp`, so ignoring the folder copy alone would leave the host in Git. `*.msapp` replaces the fix plan's `**/CanvasApps/*.msapp` because it also covers the YAML layout, which Learn keeps under `canvasapps/<name>/` (A14), and any other path; the other lines are anchored so that a folder named `review` deeper in the repo isn't ignored. The settings file already "stays out of Git in any repository" (step 3), so its line is that sentence made copyable. The default is for Hand-off step 3's export route: a repository bound to Dataverse Git integration gets its commits from the service, and its canvas folder holds no `.msapp` (the repo's YAML fixture); whether that folder caches the address, and whether the service honours `.gitignore`, is unproven and goes to the done hand-over as a follow-up. The ephemeral recipe, which commits zips in `deploy/`, is named as the exception, and the CI import of a review-linked zip gets its sentence in step 7 (row 7). (answered by: agent m95 session, on the owner's standing direction)
+
+### Q2. Does `analyze` get a note for a canvas app whose `.msapp` the folder doesn't hold?
+1. Not in M95: document it, and log a follow-up for after M96 (recommended)
+2. Yes, in M95
+3. In your own words
+Answer: 1. It changes `analyze` output, which the chain keeps still until M96's eval has run, and the brief allows no `src/` change. Hand-off steps 3 and 4 say the canvas checks run on the zip. The follow-up goes in the done hand-over. (answered by: agent m95 session, on the owner's standing direction)
+
+### Q3. Learn now names the other harness the Microsoft Copilot harness. What changes?
+1. `copilot-studio.md` maps the name in its new bullet; the other files keep "GitHub Copilot harness"; ECO-0020 records the rename with the files that use the old name, `done` for the references and the rest left as they are (recommended)
+2. Rename it in every file now
+3. In your own words
+Answer: 1. The old name still matches Learn's URL slugs and the copilot-studio-plugin README ("GHCP Harness"), so no reader is misled once the reference maps it; a rename across `docs/COMMANDS.md` (M107 writes it now), `docs/rules/PO027.md`, `HANDOFF.md`, the specialist and a code comment is a wider edit than the trial asked for. (answered by: agent m95 session, on the owner's standing direction)
+
+### Q4. Does `.claude/agents/powerops-copilot-studio.md` change?
+1. Only step 5, which names `pac copilot pack` as the check, gains the fallback of row 2; its checklist item 7 ("Tools that change data ask the user before running", line 43, which M94 left as it was) is re-read: it is right and names no route (recommended)
+2. Add the tool setting's name to item 7
+3. In your own words
+Answer: 1. The confirmation route belongs in the reference the specialist reads, `copilot-studio.md`; adding it to item 7 would duplicate it. Step 5 is where the specialist runs pack, so the fallback goes there (the fresh review's round-2 R2). (answered by: agent m95 session, on the owner's standing direction)
+
+### Q5. A smoke run?
+1. No (recommended)
+2. Yes, the Claude leg
+3. In your own words
+Answer: 1, for the reasons in Constraints: no scenario asserts on a changed line, the reference text changes no question, round or order, and trial 4's R-package and R5 test the result live. (answered by: agent m95 session, on the owner's standing direction)
+
+## Log
+
+- 2026-11-12: started by the M95 building session (Opus) in its own worktree at `87a31dd` (`origin/main`). Depth `standard`: reference and doc text, three test files; no product code.
+- 2026-11-12: research by `powerops-researcher` (Opus, Learn and Microsoft's public GitHub only, no tenant call), recorded in `plan.md` Assumptions A1 to A13. Mode B of `docs/ecosystem/README.md`: rows power-platform-skills, skills-for-copilot-studio, copilot-studio-plugin and skills-for-fabric of `compatibility.md` (verified 2026-11-10) and the open entries of `changes.md` read; none of the open entries (ECO-0009 to ECO-0013, ECO-0015 to ECO-0018) covers the new experience, the canvas references or the Power BI validator.
+- 2026-11-12: checked before planning: M91's follow-up on `docs/PLANNING-SKILLS.md:189` ("the trade-offs") has no match at `87a31dd`, so it was closed by a later milestone.
+- 2026-11-12: approved for review by the building session; plan review round 1: REJECTED by the `fable-reviewer` subagent (Fable) with five findings, and the fresh `powerops-review-plan` pass (`review.md`, plan-hash `9b0ec81`, Opus, fresh context): 1 High, 5 Medium, 7 Low. All answered in round 2 (`cb2c737`); A14 read on Learn by the building session (pac solution, SolutionPackager tool).
+- 2026-11-12: plan review round 2: APPROVED by the `fable-reviewer` subagent (Fable), assigning step 2 and step 3 to Opus and step 4 to Sonnet, with WATCH notes (step 7's hash wording, row 1's source, the stand-alone skill sentence, row 9 (f) in `DocsDriftTests`, red first, M94's wording, no trial values). The fresh `powerops-review-plan` rerun (`review.md`, plan-hash `a7fa884`, Opus, fresh context): 1 High, 3 Medium, 5 Low, answered in round 3 by the building session: R1 fixed (step 3's check leaves the copy tests to step 4), R2 fixed (the pack fallback in the specialist's step 5 and `HANDOFF.md:25`, decisions Q4), R3 fixed (the second use has its own `category`), R4 fixed (`examples/README.md:155` builds the zips by a managed export), R5 to R8 fixed, R9 accepted (public Learn and GitHub addresses). Fable's WATCH notes on wording were applied to rows 1 and 6 in the same round.
+- 2026-11-12: the fresh `powerops-review-plan` third pass (`review.md`, plan-hash `31c2405`, Opus, fresh context): 0 High, 2 Medium, 4 Low, answered by the building session: R1 fixed (the default is said to cover step 3's export route only; Dataverse Git integration repositories are named, unproven, and a follow-up, decisions Q1), R2 fixed (step 7's plan file is made where the reviewed zip is; a CI plan needs an export in the job), R3 to R5 fixed, R6 accepted. These are wording fixes inside rows 6 and 7 that Fable approved in round 3; `review.md` reads stale after them, which is expected and recorded here.
+- 2026-11-12: signed off by the building session (agent m95, Opus) with `powerops plan sign-off`, on the owner's standing instruction that sessions sign off their own milestone plans after clean reviews (2026-10-22, repeated 2026-11-09 as "Sessions sign off") and the owner's "Start the build" (2026-11-11) for M86 to M97. Fable approved round 3; the fresh review has no finding open. `plan status`: 0 violations, 1 warning (the stale `review.md` of the line above).
+- 2026-11-12: built by Opus (steps 2 and 3, `7277789`, the 8 new tests red first), the orchestrator (step 7's wording, `522d0b8`) and Sonnet (step 4, the plugin copies, `99c6d41`). Fable work review round 1: FAIL with one correction (Hand-off step 3 stated the Git-integration layout's unpacked folder as fact against Learn), applied by the step-3 executor in `f9f7439`; round 2: PASS. Checks at `f9f7439`: `dotnet build` 0 warnings, `dotnet test` 5,357 total 0 failed, format clean, frozen paths unchanged against the merge base, leak scan 0 hits with the control found, `plan status` 0 violations. `status: done`.

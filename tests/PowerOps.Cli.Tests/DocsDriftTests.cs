@@ -385,6 +385,17 @@ public partial class DocsDriftTests
         Assert.Contains("no exit codes in the deploy apply section of COMMANDS.md", RecoveryProblems(runbook, "", ApplySchema()));
     }
 
+    // M95: with canvas packages out of Git, the canvas checks run on the deploy folder, and the ephemeral recipe is the exception.
+    [Fact]
+    public void The_action_page_runs_the_canvas_checks_on_the_deploy_folder_and_the_examples_name_the_exception()
+    {
+        var examples = Page("docs/examples/README.md");
+
+        Assert.Contains("in a second use of the action with `path` on the deploy folder and its own `category`", Page("docs/GITHUB-ACTION.md"));
+        Assert.Contains("This recipe is the exception to the default of [Hand-off step 3]", examples);
+        Assert.DoesNotContain("`--packagetype Both`", examples);
+    }
+
     // A reader, or an agent whose file reader cuts long lines, must reach the end of each line of the command reference.
     internal static List<string> LongLines(string text) =>
         [.. text.Split('\n').Select((l, i) => (l, i)).Where(x => x.l.Length > 1500).Select(x => $"line {x.i + 1} has {x.l.Length} characters")];
