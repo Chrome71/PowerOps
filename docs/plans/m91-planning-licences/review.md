@@ -1,8 +1,26 @@
-plan-hash: c6656af28cda37864863c9d641dcb5040ae1e37048109c5a10bdcb49551d5afc
+plan-hash: 2b360bff3a07c4606c2fd075cbc90c5be7a94e0db33dd2ded6c4656866d80af7
 model: claude-opus-5-5
 fresh-context: yes
 
-Environment facts were not read: the request did not say that the person confirmed a signed-in `pac`, so `powerops plan facts` was not run. No `pac`, `az` or tenant call was made. `powerops` was run as `dotnet run --project src/PowerOps.Cli --`. Tools the steps name were found: `dotnet`, `claude`, `jq`; the leak scan is `reports/leakscan.sh` in the main checkout (git-ignored, not in this worktree). HEAD is `bb21731`; it differs from `b065f23` only in this plan folder, so the Data rows' line numbers were checked against the files at HEAD. They match: `SKILL.md:36-46`, `:87`, `:117-145`, `:130`, `:149-162`, `:168-169`, `:184-188`; `references/data.md:33` (gate 7); `powerops-review-plan/SKILL.md:37` (item 3); `docs/PLANNING-SKILLS.md:153`, `:157-174`, `:178`, `:186`, `:249`; smoke `:249`. Checklist items 1, 2, 4, 5, 6, 7 and 8 do not apply: the plan changes skill text, docs and tests, and names no solution, connector, environment or role.
+Environment facts were not read. The request did not say the person confirmed a signed-in `pac`, so `powerops plan facts` was not run, and no `pac`, `az` or tenant call was made. `powerops` was run as `dotnet run --project src/PowerOps.Cli --`. This is a new review from scratch, and it replaces the review of plan-hash `c6656af`. HEAD is `70e1ada`, which differs from `b065f23` only in this plan folder, so the Data rows were checked against the files at HEAD. The line numbers and quoted current text match: `SKILL.md:5`, `:36-46`, `:87`, `:117-145`, `:130`, `:139`, `:152`, `:168-174`, `:186`, and the cross-references at `:170`, `:173`, `:174` and `:208`; `references/data.md:33`; `powerops-review-plan/SKILL.md:37`; `docs/PLANNING-SKILLS.md:35`, `:153`, `:157-174`, `:178`, `:186`, `:227` and `:249`; `README.md:21` and `:109`; `SkillsCommandTests.cs:462` and `:621`; smoke `:249`. The only mismatch is the fake `pac` (R9). Tools the steps name were found: `dotnet`, `claude`, `jq`, `git` and `bash`. The leak scan is not in this worktree (R11). Checklist items 1, 2, 4, 5, 6, 7 and 8 don't apply: the plan changes skill text, docs and tests, and names no solution, connector, environment or role.
+
+The earlier findings, checked against the plan as it stands:
+
+- R1 (renumbered steps): closed. Rows 4 and 6 add sentences to section 7 step 2 and section 9 step 3. Row 5 has the fast path's A and B keep the defaults, and row 12 (e) pins it.
+- R2 (the Held question under `quick`): closed. Row 1 says "Under `quick` ask nothing", and row 12 (a) pins it.
+- R3 (where the batches are logged): closed. Rows 4 and 6 log both batches as `## Log` lines with marks and no `### Q`. Row 6 excludes High findings, sets `Resolution: accepted` and leaves the body unchanged. Row 12 (d) pins this.
+- R4 (smoke turn budgets): closed. Row 13 adds one turn each to scenarios 1 and 6. Step 5 fixes any other overrun the new questions cause in the script.
+- R5 (the recommended tier with no standard alternative): closed in the text of row 7. The rule is not pinned (R6).
+- R6 (safe default): closed. Row 3 defines it and lists what is never a default, and row 12 (c) pins it.
+- R7 (Developer Plan note): closed. Row 7 and Assumptions say only unmanaged developer environments stop and managed ones remain, sourced to ECO-0006. The pinned phrase differs from row 7's wording (R9).
+- R8 (two homes, no budget): partly closed. `licensing.md` section 1 is now the only home of the `Held` values and tier rules, and the ceiling is named (3,123). The quoted wording does not fit that ceiling (R1).
+- R9 (no fake `az`): closed. Row 13 adds the fake `az`, and Environments and route says so.
+- R10 (docs on `az` and planning reads): closed. Row 10 names principle 7 and `README.md:21` and `:109`, and row 1 names `az` in the front matter. Other doc lines are still missing (R10 below).
+- R11 (the Graph row's "where" cell): closed by row 11.
+- R12 (Power Pages part numbers): closed. Assumptions says neither the Power Pages packs nor the credit pack is listed, so both read `unknown`.
+- R13 (four or five headings): closed. Row 12 (f) names the five headings of row 7.
+- R14 (commits): closed. Steps 3 and 4 each commit locally.
+- R15 (URLs): accepted by the building session. The same content is still there, so this role reports it again (R12 below).
 
 ## Findings
 
@@ -12,94 +30,76 @@ No findings.
 
 ### Medium
 
-#### R1. New steps in sections 7 and 9 renumber the steps other lines point to
-- Area: 9. Testability
-- Finding: Row 4 adds a step after step 2 of section 7, and row 6 one after step 2 of section 9. That moves section 7's steps 3, 4 and 6 and section 9's step 4, which `SKILL.md:170` ("section 7 step 6"), `:173` ("section 7, from step 3"), `:174` ("section 7 step 4", "section 7 step 6", "section 9 step 4") and `:208` ("section 7 step 6") name. `SkillsCommandTests.cs:621` pins "Ask nothing else, except the sketch question (section 7 step 6)", so a stale number would keep passing. The fast path's A ("section 7, from step 3") would then run the defaults question, but Goal 2 says the fast path keeps the defaults with the approval. Rows 4 and 5 say how `quick` keeps them ("say so beside B" in section 6's menu), but say nothing about the fast path's own A/B menu (section 8 step 5).
-- Suggested fix: Say in rows 4 and 6 that the new text is a sentence inside an existing step (for example, section 7 step 2 and section 9 step 2), so no number moves. Otherwise list each cross-reference and the pinned string at `:621` to update. Add to row 5 that the fast path's A and B keep the `default:` lines and log `defaults kept: <N>`, and pin that in row 12 (e).
+#### R1. The quoted wording is about twice the word budget
+- Area: 9. Testability (step 3's done-condition)
+- Finding: `SKILL.md` has 2,869 words, and the new ceiling of 3,123 leaves 254. The new text quoted in rows 1 to 6 adds about 520 words and removes about 18, so the net growth is about 500. Step 3 is done only at 3,123 words or fewer, and every phrase row 12 pins must stay. Data says "the executor may shorten it", but halving the wording means redrafting skill text during the build, after both reviews have read the plan. The quoted text would then not be the text that ships.
+- Suggested fix: Before sign-off, cut the quoted text in rows 1, 3, 4 and 6 so that it fits 250 words, and count it. For example: in row 1, drop the repeated guards that row 3 or `licensing.md` already holds; in row 3, keep "**Budget.**" to its two pinned sentences. Or set the ceiling to the measured size, and give the reason in row 12's note.
 - Resolution: open
 
-#### R2. Under `quick`, the fallback Held question has no round to go in
+#### R2. Goal 2's rule that `quick` keeps the defaults is in no Data row
 - Area: 9. Testability
-- Finding: Row 1's fallback asks "in the next round" which products the account holds. Under `quick` there is one round, and the cost tier and environments questions are already in it, so the fallback either opens a second round or goes unasked. Smoke scenario 5 fails both ways: `skills-smoke.sh:248` ("quick asked more than one round"), or `:251` if the question joins round 1 as a third question that names neither licences nor environments, alongside data question 1. Goal 5 covers the fast path (`unknown` plus a check step), but not `quick`.
-- Suggested fix: In row 1, say that under `quick` the Held question is not asked: each row is written as `unknown`, with the check step, the same as in the fast path. Pin this in row 12 (a).
+- Finding: Goal 2 says "under `quick` and in the fast path, the approval keeps them", and Round 1's Q2 says the same. Row 5 covers only the fast path. Row 4 puts "Keep these N defaults?" into section 7 step 2, which a `quick` plan reaches through B, and it names no exception. As written, `quick` would ask the defaults question, and row 12 pins nothing about `quick`. Scenario 5's budget (`skills-smoke.sh:242`) has room for the extra turn, so the smoke would not catch the gap.
+- Suggested fix: Add to row 4: "Under `quick`, B keeps them: log `defaults kept: <N>`." Pin it in row 12 (d). Or, if `quick` should ask after all, drop `quick` from Goal 2 and Q2.
 - Resolution: open
 
-#### R3. Where the two batch questions are logged, and what confirming one changes, is not stated
-- Area: 9. Testability
-- Finding: Neither "Keep these N defaults?" (row 4) nor "Confirm these N assumptions?" (row 6) says how it goes into `decisions.md`. Section 5 says questions go under `## Round` headings and everything else goes under `## Log`. `check_decisions` (`skills-smoke.sh:123-138`) counts every `### Q` against the last `## Round`, fails a round with more than three, and needs option 1 marked recommended. If the agent writes a `### Q` after a full round, scenarios 1 and 6 fail. Row 6 sets findings to `Resolution: fixed` but adds no Log line with an `(answered by: ...)` mark, which section 9's "Log each acceptance" and section 5 expect. It doesn't exclude High findings, though only a person accepts a High. It also doesn't say whether the confirmed Assumptions line is rewritten. A rewrite changes the body hash and makes the review stale.
-- Suggested fix: State the form in rows 4 and 6. For example, both are Log lines: `defaults kept: <N>` or `defaults changed: <labels>`, and `assumptions confirmed: R<n>, ...`, each with an `(answered by: ...)` mark and no `### Q`. Also say that no High finding goes into the batch, and that a confirmation leaves the plan body unchanged (or, if it changes it, that the sign-off will name the review as stale). Pin the Log forms in row 12 (d).
+#### R3. The skill and the review item use different triggers for the `### Licences` table, and the smoke relies on it
+- Area: 3. Premium connector and licence impact; 9. Testability
+- Finding: Row 2 (and Goal 4) writes the table "when the plan names anything to license". Row 9 makes a missing table a Medium finding when the plan names "a connector, table, app, flow, site, report or agent". Row 13 fails scenarios 5 and 6 without the table. Those scenarios plan a canvas app over new SharePoint lists, which the recommended tier keeps standard. An agent can fairly read a standard-only canvas app on lists as "nothing to license" and write no table. The smoke would then fail, and the reviewer would raise a Medium the planner had no rule for.
+- Suggested fix: Use row 9's list in row 2 and in Goal 4 ("when the plan names a connector, table, app, flow, site, report or agent"), and pin that sentence in row 12 (b).
 - Resolution: open
 
-#### R4. The smoke turn budgets and the simulated user's goals do not cover the new questions
-- Area: 9. Testability
-- Finding: Under `standard`, scenario 1 (`skills-smoke.sh:145-149`, a budget of 12 plus 1, ending at sign-off) and scenario 6 (`:265-270`, plus 6, "three rounds, the sketch options, the pick, the approval and the sketch question") each gain one defaults turn at approval. Scenario 1 may also gain the assumptions batch before the sign-off menu, and the round for the neutral Held question. Row 13 adds only the `### Licences` grep. A run that ends with "did not finish within N turns" would be a failure that step 5 has to explain.
-- Suggested fix: In row 13, add one turn to each budget comment for the defaults question in scenarios 1 and 6, and say whether scenario 1's goal answers the batch questions (recommended is the default). Or record in step 5 that a budget overrun caused by these questions is fixed in the script, not logged as unrelated.
-- Resolution: open
-
-#### R5. The recommended tier doesn't say what happens to a need with no standard alternative
+#### R4. Section 3 maps free, trial and developer part numbers with no rule for what they cover
 - Area: 3. Premium connector and licence impact
-- Finding: Row 3 defines "Not sure: standard first" only by "the standard alternative wherever the table has one". It doesn't say what happens to a need that has none (Dataverse-only features, a Copilot Studio agent, Power Pages). "Standard licences only" turns such a need into a question, and "Premium where needed" keeps it, so the recommended tier is the only one with no rule for this case. The executor would have to invent one in both `SKILL.md` and `licensing.md` section 1.
-- Suggested fix: Add the rule to row 3. For example: "a need with no standard alternative keeps its premium row, with `Held` read or asked, and becomes an Open question if `Held` is no." Pin it in row 12 (c).
-- Resolution: open
-
-#### R6. "Safe default" is not defined
-- Area: 10. Unanswered areas and the open-question count
-- Finding: Row 3's "**Defaults.**" says that an item with a safe default is not asked, but nothing says what makes a default safe. An agent could default the very things M91 stops it assuming, such as licences held, data volume, security roles, or the environment and route. That would contradict Goal 1's rule that a recommended option never states a fact about the tenant, licences or data. It would also leave an area "never asked", so section 7 step 2 would add a confirmation of its own. Section 6's data round, which asks six questions under `standard`, does not say how it interacts with the rule either.
-- Suggested fix: In row 3, add one sentence that defines a safe default (reversible, and no change to cost, security or data) and names what is never defaulted: the cost tier under `standard` and `deep`, `Held`, the environments question, security roles and the data round's questions. Pin the sentence in row 12 (c).
-- Resolution: open
-
-#### R7. The Developer Plan note in row 7 contradicts the repo's own record
-- Area: 3. Premium connector and licence impact (ecosystem rule)
-- Finding: Row 7 has `licensing.md` say that "the Developer Plan creates no developer environment from 2026-11-15". `docs/FOUNDATION.md:91` and ECO-0006 in `docs/ecosystem/changes.md` say that only unmanaged developer environments stop being created from that date, and that managed developer environments remain, one per user. The claim is also missing from the researcher's verified list in Assumptions. A wrong licence statement in the new single home for licence facts is the failure this milestone is meant to fix.
-- Suggested fix: Reword the note to "unmanaged developer environments, including the Developer Plan's, can't be created from 2026-11-15; managed developer environments remain", source it to the same Learn page as ECO-0006, and add it to the verified list in Assumptions.
+- Finding: Assumptions lists `POWERAPPS_DEV`, `POWERAPPS_VIRAL`, `FLOW_FREE`, `CCIBOTS_PRIVPREV_VIRAL` and `POWER_BI_STANDARD` among the part numbers for `licensing.md` section 3, whose table is only `| Part number | Product |`. Section 1 writes `yes (read)` when a part number "maps to a product that covers the row". Nothing says which section 2 need each product covers, or for whom, and the `Who needs it` column separates the builder from the users. An executor could map the Developer Plan or a trial to the premium product a row needs and write `yes (read)` for a licence the account doesn't hold for that use. That is the trial-3 failure this milestone exists to fix, and no pin or smoke check would catch it.
+- Suggested fix: In row 7, give section 3 a column that names the section 2 needs each part number covers. Write a free, trial or developer plan as itself, never as the paid product, and say which use it covers: for example, the Developer Plan covers the builder's own use in a developer environment only. Have `powerops-researcher` confirm those scopes, put them in Assumptions, and pin the rule in row 12 (f).
 - Resolution: open
 
 ### Low
 
-#### R8. The Held and tier rules have two homes, and the word ceiling has no budget
-- Area: 11. Size
-- Finding: Rows 1 and 3 write the `Held` values and the tier rules into `SKILL.md`, and row 7 writes them again into `licensing.md` section 1 ("the tier rules of rows 1 to 3"). Goal 6 calls `licensing.md` the one home. `SKILL.md` already has 2,869 words against a ceiling of 2,873 (`SkillsCommandTests.cs:462`). The quoted text of rows 1 to 6 adds roughly 500 words, and row 12 leaves the new ceiling as "plus N" with no N. `docs/PLANNING-SKILLS.md:153` says the references exist "so the core skill stays small".
-- Suggested fix: Keep the `Held` mapping and the tier rules only in `licensing.md` section 1, with `SKILL.md` pointing to it (as `data.md` is pointed to), and pin them there. Name a word budget for N in row 12.
-- Resolution: open
-
-#### R9. The smoke script fakes `pac` but not `az`
-- Area: 9. Testability
-- Finding: The Environments and route section says the read never runs in the smoke because `pac` is a fake. The read uses `az`, though, and a real `az` is on PATH on this machine. Claude's `--allowedTools` (`skills-smoke.sh:18`) blocks it. The Codex run (`-s workspace-write`, `:57`) runs whatever its sandbox allows, and the scenarios that widen `allowed_tools` (`:385`, `:499`) don't name `az`, so they are safe today only by omission.
-- Suggested fix: In row 13, add a fake `az` that is never signed in, next to the fake `pac` (`:35-37`), and correct the sentence in Environments and route.
-- Resolution: open
-
-#### R10. Docs that describe `az` use and planning reads are not in row 10
-- Area: 10. Unanswered areas
-- Finding: `README.md:21` and `:109` say `az` is needed only for `drift` and `deploy`. `docs/PLANNING-SKILLS.md:35` (principle 7) says planning may read environment facts, but the licence read is of the signed-in account, which is not an environment fact. Row 10 changes neither line.
-- Suggested fix: Add both lines to row 10: `az` is optional for the planning licence read, and principle 7 names the one account read.
-- Resolution: open
-
-#### R11. The Graph row in row 11 has no "Where it is pinned" cell
-- Area: 9. Testability
-- Finding: `EcosystemDocsTests` requires six cells in every row of `compatibility.md` (`EcosystemDocsTests.cs:184-199`). Row 11 gives the `Azure CLI (az)` row its "where" cell, but gives the `Microsoft Graph licenseDetails` row only a version, limits and a date.
-- Suggested fix: Name its "where" cell, for example ``skills/powerops-plan/SKILL.md` section 3, through `az rest``.
-- Resolution: open
-
-#### R12. The Power Pages part numbers are not named
+#### R5. A successful read never settles a standard row
 - Area: 3. Premium connector and licence impact
-- Finding: Assumptions lists every part number by name except "the Power Pages authenticated-user packs", so the executor would have to look them up again for `licensing.md` section 3. The plan doesn't say that this lookup was verified.
-- Suggested fix: Name those part numbers in Assumptions from the researcher's CSV read, or leave them out and let such a tenant read as `unknown`, as the plan already does for the Copilot Studio credit pack.
+- Finding: Microsoft 365 bundles are not in section 3, so they read `unknown` (Assumptions). The standard rows of section 2 (standard connectors, and SharePoint lists with Microsoft 365) are what "Not sure: standard first" picks most often. Even after a successful read, they stay `unknown` with a check step. The owner asked for a licence check at the start, and for the most common plan the read settles nothing.
+- Suggested fix: Say this in `licensing.md` section 1 and in the docs paragraph of row 10, so that the check step is expected. Or, after a researcher check, list the bundle part numbers that include Power Apps and Power Automate for Microsoft 365, mapped to the standard rows only.
 - Resolution: open
 
-#### R13. Row 12 (f) says "four headings", but row 7 names five
+#### R6. Nothing pins the `Held` values and tier rules in `licensing.md`, though the smoke greps their spelling
 - Area: 9. Testability
-- Finding: Row 7 lists `# Licences: ...`, `## 1. The table`, `## 2. Needs`, `## 3. Part numbers` and `## Sources`. Row 12 (f) pins "its four headings" and doesn't say which four.
-- Suggested fix: List the pinned headings in row 12 (f).
+- Finding: Row 12 (f) pins the headings, the date, "`unknown`" and the developer-environment note, but not the four `Held` values (`yes (read)`, `no (read)`, `person says yes`, `person says no`) or the three tier rules. Row 13's smoke fails on `(read)` and `person says yes`, so a rewording in `licensing.md` would silently make those checks blind. The rule that closed the earlier R5 is unpinned too.
+- Suggested fix: Pin the four `Held` values and one key phrase of each tier rule in row 12 (f).
 - Resolution: open
 
-#### R14. Step 5 runs "on the committed skills", but no step commits
+#### R7. "The cost tier under `standard` and `deep`" lets `quick` treat the tier as a default
+- Area: 10. Unanswered areas
+- Finding: In row 3's never-defaults list, the cost tier is never a default only under `standard` and `deep`. The same row has the `quick` line (`:139`) ask the cost tier, and smoke scenario 5 (`:249`) needs a licensing question in the `quick` round. The intended exception is the fast path (row 5), not `quick`.
+- Suggested fix: Write "the cost tier outside the fast path" in row 3.
+- Resolution: open
+
+#### R8. Row 1 has the neutral question asked after a successful read too
 - Area: 9. Testability
-- Finding: Steps 2 to 4 don't commit. The smoke script builds from the working tree (`skills-smoke.sh:30`), so "committed" is either a missing commit step or a word too many.
-- Suggested fix: Say which step commits, and how (Conventional Commits, local only), or drop "committed".
+- Finding: Row 1 says "Then, and when the condition doesn't hold, ask neutrally which of the table's products the account holds". After "Write product names only" and the failed-read sentence, "Then" can mean after any read. Goal 5 asks it only when the read fails or the condition doesn't hold.
+- Suggested fix: Write "After a failed read, and when the condition doesn't hold, ask neutrally...".
 - Resolution: open
 
-#### R15. The plan and decisions.md hold URLs
+#### R9. Small mismatches in the Data rows
+- Area: 9. Testability
+- Finding: Row 12 (f) pins "managed developer environments remain", but row 7's wording is "while managed ones remain", so writing row 7 as quoted fails its own pin. Row 14 names `SkillsCommandTests` as the plugin-copy check, but that check is `PluginManifestTests.Plugin_skills_are_the_shipped_skills`, which step 3's filter doesn't run. Its "apart from the plugin-copy checks" is therefore empty, and step 4 doesn't name the test. Row 13 puts the fake `pac` at `skills-smoke.sh:35-37`; it is at `:36-38`.
+- Suggested fix: Align row 7's wording with the pin, name `PluginManifestTests` in row 14 and in step 4's done-condition, and correct the line range.
+- Resolution: open
+
+#### R10. Row 10 leaves out doc lines that describe what changes
+- Area: 10. Unanswered areas
+- Finding: Goal 8 says the docs "say the same". `docs/PLANNING-SKILLS.md` still has, unchanged by row 10: the Review checklist's "premium connector and licence impact" bullet (`:212`), which doesn't mention the `### Licences` table check; the "Product references" paragraph (`:155`), which lists every reference but `licensing.md`; and the Review "Output" line (`:222`), which says the user resolves or accepts each finding, with no mention of the assumptions batch at sign-off.
+- Suggested fix: Add these three places to row 10.
+- Resolution: open
+
+#### R11. The leak scan and the cited reports are not in this worktree
+- Area: 12. Tools
+- Finding: Goal 10 and step 6 need "the leak scan" but give no path. The script is `reports/leakscan.sh` in the main checkout, which is git-ignored and not in this worktree. Goal and Constraints cite `reports/trial-3/fix-plan.md` and `reports/trial-3/chain/chain-rules.md`, which are not here either. Assumptions doesn't say so.
+- Suggested fix: Name the script and where it runs in step 6 or Assumptions, and note that the `reports/` sources are in the main checkout only.
+- Resolution: open
+
+#### R12. The plan and decisions.md hold URLs
 - Area: Tenant data
-- Finding: Data row 1 in `plan.md` spells out a host and path for the Graph call. The `## Log` line on research in `decisions.md` holds about ten host-and-path references to public Learn and GitHub pages. They are public documentation, not tenant values, and `plan status` reports no violation, but this role reports every URL.
-- Suggested fix: Accept as public sources, or replace them with the pages' titles and keep the paths in the compatibility rows and `licensing.md`'s Sources.
+- Finding: Row 1 in `plan.md` spells out the Graph host and path, without the scheme. The research line of the `## Log` in `decisions.md` holds about ten host-and-path references to public Learn and GitHub pages. They are public documentation, not tenant values, `plan status` reports no violation, and the earlier R15 on the same content was accepted. This role reports every URL.
+- Suggested fix: Keep the earlier acceptance, or replace them with page titles and keep the paths in `licensing.md`'s Sources and the compatibility rows.
 - Resolution: open
