@@ -604,7 +604,7 @@ public static class DeployCommand
             try
             {
                 var read = DeployApply.AgentsAfter(expected, deployAgents!(target!, now.Target.Id, [.. expected.Select(e => e.Name)]));
-                // An agent no name of which powerops sends is not-read with no call, so only found or missing dates a read.
+                // Names powerops doesn't send come back not-read with no call, so only found or missing dates a read.
                 agentsReadAt = read.Any(a => a.State is AgentState.Found or AgentState.Missing) ? UtcNow() : null;
                 return [.. read];
             }
