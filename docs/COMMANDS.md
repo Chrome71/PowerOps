@@ -177,7 +177,7 @@ Some changes carry a risk label:
 
 Markdown is cut at a whole row below 60,000 characters, with a note on how many changes were left out, so it fits in a pull request comment.
 JSON follows [docs/schemas/diff.schema.json](schemas/diff.schema.json).
-Its `schemaVersion` is 3 (`deploy plan` and `drift` are at 2, and every other output is at 1): version 2 added the `agent` and `agentTool` components and the two agent risk labels, version 3 added the `same-version` risk label, and neither removed or renamed anything, so a consumer that checks the version accepts 3, and one that validates the output takes the new schema ([Versioning](schemas/README.md#versioning)).
+Its `schemaVersion` is 3 (`deploy plan` is at 3, `drift` at 2, and every other output is at 1): version 2 added the `agent` and `agentTool` components and the two agent risk labels, version 3 added the `same-version` risk label, and neither removed or renamed anything, so a consumer that checks the version accepts 3, and one that validates the output takes the new schema ([Versioning](schemas/README.md#versioning)).
 
 ### Exit codes
 
@@ -536,13 +536,13 @@ These are warnings:
 - `unmanaged-layer`
 - and `agent`.
 
-These are information: `layers-not-read`, `components-not-checked` and `same-version-differs`.
+These are information: `layers-not-read`, `components-not-checked`, `same-version-differs` and `stays`.
 
 An `agent` item names each Copilot Studio agent (by its schema name) in a zip whose action is `install` or `upgrade`; a skipped zip gives none.
 The import may leave the agent published in the target: one live run did, and Learn describes publishing as a separate step (*Export and import agents using solutions*, read 2026-11-09).
 So a plan that forbids a published agent there should not be imported until the person has said yes to that and the plan is amended.
 The item does not block, and the summary line then reads `plan ok, but the import holds <n> Copilot Studio agent(s) it may leave published` instead of `plan ok`.
-Its JSON is at `schemaVersion` 2 for the new kind, and `deploy apply` reads only plan files of version 2, so plan again after an upgrade.
+Its JSON is at `schemaVersion` 3 (the `agent` kind came with version 2, `stays` with 3), and `deploy apply` reads only plan files of version 3, so plan again after an upgrade.
 
 The deletion check applies to the upgrade of a managed zip.
 It names the cloud flows, environment variables and connection references of the target's solution that the zip no longer has, which the upgrade deletes.
@@ -558,6 +558,14 @@ It names each cloud flow (by id; other workflows are not compared), environment 
 It comes from what the plan already reads, so it costs no extra read, it does not block, and it does not change the plan hash.
 It sees only which of these exist: it cannot see a changed flow action, a renamed flow, a changed value or connector, or any other component type, so no item does not mean that the zip equals the target.
 To import a zip that did change, raise its version: the plan then gives an `upgrade`.
+
+`stays` applies to an unmanaged zip whose action is `upgrade` over a solution installed unmanaged in the target.
+It names each cloud flow or other workflow (by name, else `29 <id>`), environment variable (by schema name, ignoring case) and connection reference (by logical name, ignoring case) of the target's solution that the zip does not have, the set a managed upgrade would list as `deletes`, with the message `An unmanaged import does not delete this from the target; the zip does not have it.`
+An unmanaged zip over a managed install gets none, because that import fails and `managed-conflict` blocks it.
+It comes from the read the plan already makes, so it costs no extra read, it does not block, it leaves the summary line at `plan ok` and it does not change the plan hash.
+It covers only these three kinds: tables, canvas apps and every other component type the zip dropped also stay in the target and are not listed, so no `stays` item does not mean that the target matches the zip.
+That an unmanaged import deletes nothing is documented, not observed in a tenant: Learn's *Upgrade or update a solution* and *Solution concepts* (read 2026-11-12) say that only an upgrade deletes the components a new version lacks.
+Learn does not say whether the solution's own component list keeps the component after the import, so the item says only that the import does not delete it from the target.
 
 `deploy plan` also says which zips no review covers.
 It looks for `docs/plans` in the deploy folder and then in each folder above it, no further than the folder that holds `.git`, and takes the first it finds as the repository's.
