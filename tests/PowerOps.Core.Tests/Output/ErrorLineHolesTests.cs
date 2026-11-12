@@ -44,12 +44,14 @@ public class ErrorLineHolesTests
         // Not one Clean call, but every part that comes from input is cleaned inside the expression.
         "src/PowerOps.Cli/DiffCommand.cs: {string.Join(\", \", found.Select(TextReport.Clean))}",   // each joined path is cleaned by the method group
         "src/PowerOps.Cli/AnalyzeCommand.cs: {string.Join(\", \", paths.Select(p => $\"\\\"{TextReport.Clean(p)}\\\"\"))}",   // each joined path is cleaned; the quotes are fixed text
+        "src/PowerOps.Cli/InventoryCommand.cs: {string.Join(\", \", paths.Select(p => $\"\\\"{TextReport.Clean(p)}\\\"\"))}",   // each joined path is cleaned; the quotes are fixed text
         "src/PowerOps.Cli/DeployCommand.cs: {string.Join(\" and \", g.Select(z => Clean(z.File)))}",   // each joined file is cleaned
         "src/PowerOps.Cli/DriftCommand.cs: {(ex is InvalidDataException ? TextReport.Clean(ex.Message) : \"the snapshot file could not be read\")}",   // one branch cleaned, the other fixed text
 
         // A SafeWrite refusal: the path in it is cleaned by SafeWrite.Refusal (see SafeWrite.cs).
         "src/PowerOps.Cli/AnalyzeCommand.cs: {refusal.Text}",
         "src/PowerOps.Cli/DiffCommand.cs: {refusal.Text}",
+        "src/PowerOps.Cli/InventoryCommand.cs: {refusal.Text}",
         "src/PowerOps.Cli/SettingsCommand.cs: {refusal.Text}",
         "src/PowerOps.Cli/TestCommand.cs: {refusal.Text}",
     ];

@@ -616,6 +616,37 @@ public class InventoryReportTests
         Assert.Equal(["Demo", "Other"], i.Solutions.Select(s => s.UniqueName));
     }
 
+    private static Inventory FixturesInventory() =>
+        InventoryReport.Build(AnalysisResult.LoadFound(SolutionDiscovery.Find(Path.Combine(Golden.RepoRoot, "tests", "fixtures")), Golden.RepoRoot));
+
+    // The one writer of the inventory goldens (M107, Data row 8).
+    [Fact]
+    public void The_fixtures_match_the_goldens()
+    {
+        var i = FixturesInventory();
+
+        Golden.Verify(Text(i), "inventory.txt");
+        Golden.Verify(Json(i), "inventory.json");
+        Golden.Verify(Markdown(i), "inventory.md");
+    }
+
+    [Fact]
+    public void By_default_the_fixtures_print_no_id_address_other_url_or_standard_in_any_format()
+    {
+        var sources = InventoryReport.Drivers.SelectMany(d => d.Sources).ToHashSet(StringComparer.Ordinal);
+
+        foreach (var output in Formats(FixturesInventory()))
+        {
+            Assert.DoesNotMatch(@"(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", output);
+            Assert.DoesNotMatch(@"(?i)[0-9a-f]{32}", output);
+            Assert.DoesNotMatch(@"(?i)[a-z0-9._%+-]+@\u200B?[a-z0-9-]+\.[a-z0-9.-]+", output);
+            Assert.DoesNotContain("standard", output, StringComparison.OrdinalIgnoreCase);
+            // A URL is a scheme and "://", possibly broken by Markdown's zero-width space; each must be one of the drivers' sources.
+            var urls = System.Text.RegularExpressions.Regex.Matches(output, @"(?i)\b[a-z][a-z0-9+.-]*:/\u200B?/[^\s|)""]*").Select(m => m.Value).ToList();
+            Assert.All(urls, u => Assert.Contains(u, sources));
+        }
+    }
+
     [Fact]
     public void LoadFound_shows_a_yaml_solution_as_its_root_and_reads_each_path_once()
     {

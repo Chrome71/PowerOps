@@ -370,6 +370,85 @@
       "affects": "the Power BI branch",
       "everyDays": 90,
       "lastChecked": "2026-11-10"
+    },
+    {
+      "id": "docs-license-designation",
+      "title": "Learn: How to check license designation for an app",
+      "kind": "github-commits",
+      "target": "MicrosoftDocs/powerapps-docs",
+      "path": "powerapps-docs/maker/canvas-apps/license-designation.md",
+      "areas": [
+        "apps",
+        "governance"
+      ],
+      "affects": "`inventory`'s drivers `http-action` and `custom-connector` (their sources)",
+      "lastSeen": "cc40846ddae025054d572df3a1d075e246bb8467",
+      "lastChecked": "2026-11-12"
+    },
+    {
+      "id": "docs-power-automate-license-types",
+      "title": "Learn: Types of Power Automate licenses",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/power-platform/admin/power-automate-licensing/types",
+      "areas": [
+        "automate",
+        "governance"
+      ],
+      "affects": "`inventory`'s drivers `http-action`, `custom-connector` and `desktop-flow-call` (their sources and `need` lines); manual because the mirror sync of MicrosoftDocs/power-platform is not known",
+      "everyDays": 30,
+      "lastChecked": "2026-11-12"
+    },
+    {
+      "id": "docs-powerapps-licensing-faq",
+      "title": "Learn: Power Apps licensing FAQs",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/power-platform/admin/powerapps-licensing-faq",
+      "areas": [
+        "apps",
+        "governance"
+      ],
+      "affects": "`inventory`'s drivers `dataverse-in-canvas-app` and `model-driven-app` (their source and `need` lines); manual because the mirror sync of MicrosoftDocs/power-platform is not known",
+      "everyDays": 30,
+      "lastChecked": "2026-11-12"
+    },
+    {
+      "id": "docs-desktop-flows-connector",
+      "title": "Learn: Desktop flows connector reference",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/connectors/uiflow/",
+      "areas": [
+        "automate",
+        "governance"
+      ],
+      "affects": "`inventory`'s driver `desktop-flow-call` (the operations `RunUIFlow_V2` and `ExecuteDesktopUIFlow`, the api `shared_uiflow`, and its source)",
+      "everyDays": 30,
+      "lastChecked": "2026-11-12"
+    },
+    {
+      "id": "docs-desktop-flow-license-check",
+      "title": "Learn: Failed license check on a desktop flow run",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/troubleshoot/power-platform/power-automate/desktop-flows/desktop-flow-run-time-license-check",
+      "areas": [
+        "automate",
+        "governance"
+      ],
+      "affects": "`inventory`'s driver `desktop-flow-call` (its `need` line and source)",
+      "everyDays": 30,
+      "lastChecked": "2026-11-12"
+    },
+    {
+      "id": "docs-http-webhook-training",
+      "title": "Learn training: HTTP Webhook built-in connector",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/training/modules/http-connectors/2-webhook",
+      "areas": [
+        "automate",
+        "governance"
+      ],
+      "affects": "`inventory`'s driver `http-action` (its source for `HttpWebhook`)",
+      "everyDays": 30,
+      "lastChecked": "2026-11-12"
     }
   ]
 }

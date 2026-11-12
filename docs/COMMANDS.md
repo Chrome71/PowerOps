@@ -11,6 +11,7 @@ powerops analyze path/to/solution.zip --show-values   # the same findings, with 
 powerops rules                        # list every rule with its severity, title and fix (add --format json for machine output; --json is the older spelling, and wins over --format text)
 powerops diff old.zip new.zip         # compare two versions component by component (zip or unpacked folder; --format text|json|markdown, --out <file>)
 powerops manifest path/to/unpacked    # list a solution's files with a SHA-256 for each and one digest (a .zip prints its SHA-256); with two unpacked folders, compare them file by file; --format json prints the same as JSON
+powerops inventory path/to/solution    # what a solution connects to and what makes it premium: connectors, HTTP actions, request triggers, child flows, licence drivers (--format text|json|markdown, --out <file>, --show-values)
 powerops test path/to/solution --tests tests/flows   # run offline flow tests (*.flowtest.json) against the cloud flows, with mocked connector actions (--format text|json|markdown, --out <file>)
 powerops settings generate path/to/solution --out deploymentsettings.json   # pac deployment settings with empty values to fill in
 powerops settings validate path/to/solution --settings deploymentsettings.json   # missing or extra entries, empty connection ids and values
@@ -36,7 +37,7 @@ powerops mcp                          # run an MCP server over stdio for agents:
 Every file PowerOps writes (`--out`, `--save`, the baseline file, the plan that `plan sign-off` edits, the skill files of `skills install`) goes through one rule.
 A target that is a symbolic link is refused with exit `2` and an `error:` line, before the command does its work, and the file behind the link is not touched; for `skills install` that includes a link at a skill file or at a folder on the way down from the repo folder (the repo folder itself may be a link), so `.agents/skills` as a link to `.claude/skills` is refused too.
 
-A target that is a file the command was given as an input is refused the same way: an `analyze` or `baseline` zip, `--baseline`, the two solutions of `diff`, the path of `test`, the solution of `settings generate`, an `--env` snapshot file of `drift`, the plan file of `deploy apply`.
+A target that is a file the command was given as an input is refused the same way: an `analyze`, `baseline` or `inventory` zip, `--baseline`, the two solutions of `diff`, the path of `test`, the solution of `settings generate`, an `--env` snapshot file of `drift`, the plan file of `deploy apply`.
 
 The files a scan found count too: the zips and `solution.yml` files that `analyze`, `baseline`, `diff` and `test` found under a folder, the `*.flowtest.json` files `test` found, and the zips and settings files in the folder of `deploy plan` or beside the plan file of `deploy apply`; each command lists them before the refusal, which stays before its work and before any read of a tenant.
 The files a reader opens inside an unpacked solution folder do not count, so a report can still be written into the folder it scanned, as the Action does with `powerops-plan.json`.
@@ -238,6 +239,43 @@ Exit codes: `0` for one path, or for two folders with no difference; `1` when tw
 ### Limits
 
 The read has the caps of `analyze` (100,000 files, 50 MB for a file, 256 MB in all, 100 MB for a zip).
+
+## inventory
+
+### Synopsis
+
+`inventory [paths...]` lists, per solution, what it connects to and what makes it premium, offline and read-only. It takes the paths `analyze` takes (default `.`) and finds solutions the same way; the rules are not run.
+
+### Options
+
+- `--format text|json|markdown` (default `text`). JSON has `schemaVersion` 1 and follows [inventory.schema.json](schemas/inventory.schema.json); Markdown is one table per section, for a pull request.
+- `--out <file>` writes the report to the file instead of stdout, under the rule in [Writing files](#writing-files).
+- `--show-values` prints the host of each literal HTTP endpoint, and names as written.
+
+### Output
+
+Per solution, in this order:
+
+- `licenceDrivers`: the drivers that fire, from a closed set, each with what it needs, its Learn sources, the date they were checked (`verified`) and what fires it (`where`):
+  - `http-action`: an `Http` or `HttpWebhook` action. Sources: [license designation](https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation), [HTTP Webhook connector](https://learn.microsoft.com/training/modules/http-connectors/2-webhook), [Types of Power Automate licenses](https://learn.microsoft.com/power-platform/admin/power-automate-licensing/types).
+  - `custom-connector`: a custom connector, in the solution or named by a missing dependency or a canvas app. Sources: license designation, Types of Power Automate licenses.
+  - `dataverse-in-canvas-app`: a canvas app (not a custom page or a code app) with a Dataverse table or connection. Source: [Power Apps licensing FAQs](https://learn.microsoft.com/power-platform/admin/powerapps-licensing-faq).
+  - `model-driven-app`: an app module. Source: Power Apps licensing FAQs.
+  - `desktop-flow-call`: a cloud flow action that runs a desktop flow (`RunUIFlow_V2`, or the deprecated `ExecuteDesktopUIFlow`). Sources: [Desktop flows connector](https://learn.microsoft.com/connectors/uiflow/), [Failed license check on a desktop flow run](https://learn.microsoft.com/troubleshoot/power-platform/power-automate/desktop-flows/desktop-flow-run-time-license-check), Types of Power Automate licenses.
+- `notClassified`: every other connector, with `tier not classified: check the connector's reference page`. PowerOps ships no connector tier list.
+- `connectors`: each connector id (the last segment of the id, in lower case) with the connection references that name it and its users (flows, canvas apps, custom pages, code apps, agent tools). A custom connector's ids are gathered under its name.
+- `customConnectors`, `httpActions` (flow, action, type and endpoint: `literal`, `variable` for flow parameters such as environment variables, or `expression`), `requestTriggers` (with their `kind`), `childFlows` (the called flow's name, or a flow not in this solution).
+- `notRead`: what was not read, also printed as `note:` lines on stderr: canvas apps, model-driven apps and agents of a YAML-layout solution, and a canvas app whose connections or tables can't be read.
+
+A missing driver doesn't mean no premium licence is needed: the text and Markdown end with a line that says so. The "When an HTTP request is received" trigger is listed under `requestTriggers` but is not a driver, because Learn doesn't call it premium.
+
+### Redaction
+
+By default, URLs, GUIDs (with or without hyphens and braces) and email addresses in names become `[redacted URL]`, `[id]` and `[redacted address]`, the hosts of HTTP endpoints are not shown, and stderr is redacted as `analyze`'s is. No URL value, header, parameter value or id is read into the report at all. `--show-values` turns off the name redaction and adds the host of a literal endpoint, nothing else. The MCP tool `inventory` always redacts.
+
+### Exit codes
+
+`0` with a report (never `1`: it is not a check); `2` for a path that does not exist, no solution found, or a refused `--out`; `3` for an unreadable solution or flow (the message starts with the solution path, then the flow file).
 
 ## test
 

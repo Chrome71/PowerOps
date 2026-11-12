@@ -216,6 +216,9 @@ public static partial class McpCommand
                     new("new", Kind.Path, true, "Absolute path of the newer solution: an exported zip or an unpacked folder."),
                 ],
                 (v, o, e, _) => Cli(["diff", "--format", "json", "--", v.Text("old"), v.Text("new")], o, e)),
+            new("inventory", "List what solution folders or exported zips connect to and what makes them premium, offline: connectors and who uses them, custom connectors, HTTP actions with their endpoint kind, request triggers, child flows, licence drivers from a closed set with Learn sources, and every other connector as tier not classified. " + Json + "inventory --format json` (docs/schemas/inventory.schema.json). Hosts are never shown, and GUIDs, addresses and URLs in names are replaced.",
+                [new("paths", Kind.Paths, true, PathsText, 1)],
+                (v, o, e, _) => Cli(["inventory", "--format", "json", "--", .. v.List("paths")], o, e)),
             new("test", "Run the offline flow tests (*.flowtest.json) against the cloud flows of the solutions under a path, with mocked connector actions. " + Json + "test --format json` (docs/schemas/test.schema.json).",
                 [
                     new("path", Kind.Path, true, "Absolute path of the solution folder or zip to test against; folders are searched recursively."),

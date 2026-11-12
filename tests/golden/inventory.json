@@ -1,0 +1,1472 @@
+{
+  "schemaVersion": 1,
+  "solutions": [
+    {
+      "path": "tests/fixtures/agents/dataverse-tools",
+      "uniqueName": "PowerOpsAgentTools",
+      "licenceDrivers": [],
+      "notClassified": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "note": "tier not classified: check the connector's reference page"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "references": [
+            "demo_Helper.shared_commondataserviceforapps.shared-commondataser-0000001"
+          ],
+          "users": []
+        }
+      ],
+      "customConnectors": [],
+      "httpActions": [],
+      "requestTriggers": [],
+      "childFlows": [],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/agents/new-ui/v1-no-learn-tool.zip",
+      "uniqueName": "PowerOpsLiveAgent",
+      "licenceDrivers": [],
+      "notClassified": [
+        {
+          "id": "shared_microsoftlearndocsmcpserver",
+          "note": "tier not classified: check the connector's reference page"
+        },
+        {
+          "id": "shared_workiqmcp",
+          "note": "tier not classified: check the connector's reference page"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "shared_microsoftlearndocsmcpserver",
+          "references": [
+            "cr123_loanhelper_abc123.cr.shared_microsoftlearndocsmcpserver.[id]"
+          ],
+          "users": []
+        },
+        {
+          "id": "shared_workiqmcp",
+          "references": [
+            "cr123_draft_def456.cr.shared_workiqmcp.shared-workiqmcp-[id]"
+          ],
+          "users": [
+            {
+              "kind": "agentTool",
+              "name": "cr123_draft_def456.tool.WorkIQMCPServer_mVi"
+            }
+          ]
+        }
+      ],
+      "customConnectors": [],
+      "httpActions": [],
+      "requestTriggers": [],
+      "childFlows": [],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/agents/new-ui/v1.zip",
+      "uniqueName": "PowerOpsLiveAgent",
+      "licenceDrivers": [],
+      "notClassified": [
+        {
+          "id": "shared_microsoftlearndocsmcpserver",
+          "note": "tier not classified: check the connector's reference page"
+        },
+        {
+          "id": "shared_workiqmcp",
+          "note": "tier not classified: check the connector's reference page"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "shared_microsoftlearndocsmcpserver",
+          "references": [
+            "cr123_loanhelper_abc123.cr.shared_microsoftlearndocsmcpserver.[id]"
+          ],
+          "users": [
+            {
+              "kind": "agentTool",
+              "name": "cr123_loanhelper_abc123.tool.MicrosoftLearnDocsMCP-MicrosoftLearnDocsMCPServer_Liw"
+            }
+          ]
+        },
+        {
+          "id": "shared_workiqmcp",
+          "references": [
+            "cr123_draft_def456.cr.shared_workiqmcp.shared-workiqmcp-[id]"
+          ],
+          "users": [
+            {
+              "kind": "agentTool",
+              "name": "cr123_draft_def456.tool.WorkIQMCPServer_mVi"
+            }
+          ]
+        }
+      ],
+      "customConnectors": [],
+      "httpActions": [],
+      "requestTriggers": [],
+      "childFlows": [],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/agents/new-ui/v2.zip",
+      "uniqueName": "PowerOpsLiveAgent",
+      "licenceDrivers": [],
+      "notClassified": [
+        {
+          "id": "shared_microsoftlearndocsmcpserver",
+          "note": "tier not classified: check the connector's reference page"
+        },
+        {
+          "id": "shared_workiqmcp",
+          "note": "tier not classified: check the connector's reference page"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "shared_microsoftlearndocsmcpserver",
+          "references": [
+            "cr123_loanhelper_abc123.cr.shared_microsoftlearndocsmcpserver.[id]"
+          ],
+          "users": [
+            {
+              "kind": "agentTool",
+              "name": "cr123_loanhelper_abc123.tool.MicrosoftLearnDocsMCP-MicrosoftLearnDocsMCPServer_Liw"
+            }
+          ]
+        },
+        {
+          "id": "shared_workiqmcp",
+          "references": [
+            "cr123_draft_def456.cr.shared_workiqmcp.shared-workiqmcp-[id]"
+          ],
+          "users": [
+            {
+              "kind": "agentTool",
+              "name": "cr123_draft_def456.tool.WorkIQMCPServer_mVi"
+            }
+          ]
+        }
+      ],
+      "customConnectors": [],
+      "httpActions": [],
+      "requestTriggers": [],
+      "childFlows": [],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/alm-makers",
+      "uniqueName": "ALMAcceleratorforMakers",
+      "licenceDrivers": [
+        {
+          "id": "http-action",
+          "need": "A flow with a premium connector, such as HTTP, needs Power Automate Premium for its users or a Process licence for the flow.",
+          "sources": [
+            "https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation",
+            "https://learn.microsoft.com/training/modules/http-connectors/2-webhook",
+            "https://learn.microsoft.com/power-platform/admin/power-automate-licensing/types"
+          ],
+          "verified": "2026-11-12",
+          "where": [
+            "flow 'AssignRole' action 'HTTP'",
+            "flow 'AssignRole' action 'GetRoleId'",
+            "flow 'AssignRole' action 'GetUserId'",
+            "flow 'AssignRole' action 'Get_Token'",
+            "flow 'CreateSolution' action 'Create_Solution'",
+            "flow 'CreateSolution' action 'Get_Solution_'",
+            "flow 'CreateSolution' action 'Get_Token'",
+            "flow 'GetAppsAndFlows' action 'Get_Apps'",
+            "flow 'GetAppsAndFlows' action 'Get_Token'",
+            "flow 'GetSolution' action 'Get_Solution_'",
+            "flow 'GetSolution' action 'Get_Token'"
+          ]
+        }
+      ],
+      "notClassified": [
+        {
+          "id": "shared_approvals",
+          "note": "tier not classified: check the connector's reference page"
+        },
+        {
+          "id": "shared_commondataserviceforapps",
+          "note": "tier not classified: check the connector's reference page"
+        },
+        {
+          "id": "shared_conversionservice",
+          "note": "tier not classified: check the connector's reference page"
+        },
+        {
+          "id": "shared_github",
+          "note": "tier not classified: check the connector's reference page"
+        },
+        {
+          "id": "shared_office365",
+          "note": "tier not classified: check the connector's reference page"
+        },
+        {
+          "id": "shared_powerappsforappmakers",
+          "note": "tier not classified: check the connector's reference page"
+        },
+        {
+          "id": "shared_powerplatformforadmins",
+          "note": "tier not classified: check the connector's reference page"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "shared_approvals",
+          "references": [
+            "cat_ApprovalConnection"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "CreateProject"
+            },
+            {
+              "kind": "flow",
+              "name": "DeployToProd"
+            }
+          ]
+        },
+        {
+          "id": "shared_commondataserviceforapps",
+          "references": [
+            "cat_CDSConnection",
+            "new_sharedcommondataserviceforapps_06411"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "AssignRole"
+            },
+            {
+              "kind": "flow",
+              "name": "BuildRequestCancellation"
+            },
+            {
+              "kind": "flow",
+              "name": "CreateEnvironment"
+            },
+            {
+              "kind": "flow",
+              "name": "CreateProject"
+            },
+            {
+              "kind": "flow",
+              "name": "DeleteProjectCleanUp"
+            },
+            {
+              "kind": "flow",
+              "name": "DeployToProd"
+            },
+            {
+              "kind": "flow",
+              "name": "DeployToStage"
+            },
+            {
+              "kind": "flow",
+              "name": "FetchLocalizedText"
+            },
+            {
+              "kind": "flow",
+              "name": "GetAppsAndFlows"
+            },
+            {
+              "kind": "flow",
+              "name": "LogTelemetry"
+            },
+            {
+              "kind": "flow",
+              "name": "ReadEnvironmentVariable"
+            },
+            {
+              "kind": "flow",
+              "name": "SetUpDevEvnironment"
+            },
+            {
+              "kind": "flow",
+              "name": "WorkflowCompleteNotification"
+            }
+          ]
+        },
+        {
+          "id": "shared_conversionservice",
+          "references": [
+            "cat_ContentConversionConnection"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "DeployToStage"
+            }
+          ]
+        },
+        {
+          "id": "shared_github",
+          "references": [
+            "cat_GitHub"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "CreateRepo"
+            },
+            {
+              "kind": "flow",
+              "name": "DeployToProd"
+            },
+            {
+              "kind": "flow",
+              "name": "DeployToStage"
+            },
+            {
+              "kind": "flow",
+              "name": "SetUpDevEvnironment"
+            }
+          ]
+        },
+        {
+          "id": "shared_office365",
+          "references": [
+            "cat_sharedoffice365_4ee46"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "SendEmailNotification"
+            }
+          ]
+        },
+        {
+          "id": "shared_powerappsforappmakers",
+          "references": [
+            "new_sharedpowerappsforappmakers_87b9a"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "GetAppsAndFlows"
+            }
+          ]
+        },
+        {
+          "id": "shared_powerplatformforadmins",
+          "references": [
+            "cat_AdminConnection"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "AssignRole"
+            },
+            {
+              "kind": "flow",
+              "name": "BuildRequestCancellation"
+            },
+            {
+              "kind": "flow",
+              "name": "CreateEnvironment"
+            },
+            {
+              "kind": "flow",
+              "name": "DeleteEnvironment"
+            },
+            {
+              "kind": "flow",
+              "name": "WorkflowCompleteNotification"
+            }
+          ]
+        }
+      ],
+      "customConnectors": [],
+      "httpActions": [
+        {
+          "flow": "AssignRole",
+          "action": "HTTP",
+          "type": "Http",
+          "endpoint": "expression",
+          "host": null
+        },
+        {
+          "flow": "AssignRole",
+          "action": "GetRoleId",
+          "type": "Http",
+          "endpoint": "expression",
+          "host": null
+        },
+        {
+          "flow": "AssignRole",
+          "action": "GetUserId",
+          "type": "Http",
+          "endpoint": "expression",
+          "host": null
+        },
+        {
+          "flow": "AssignRole",
+          "action": "Get_Token",
+          "type": "Http",
+          "endpoint": "literal",
+          "host": null
+        },
+        {
+          "flow": "CreateSolution",
+          "action": "Create_Solution",
+          "type": "Http",
+          "endpoint": "expression",
+          "host": null
+        },
+        {
+          "flow": "CreateSolution",
+          "action": "Get_Solution_",
+          "type": "Http",
+          "endpoint": "expression",
+          "host": null
+        },
+        {
+          "flow": "CreateSolution",
+          "action": "Get_Token",
+          "type": "Http",
+          "endpoint": "literal",
+          "host": null
+        },
+        {
+          "flow": "GetAppsAndFlows",
+          "action": "Get_Apps",
+          "type": "Http",
+          "endpoint": "expression",
+          "host": null
+        },
+        {
+          "flow": "GetAppsAndFlows",
+          "action": "Get_Token",
+          "type": "Http",
+          "endpoint": "literal",
+          "host": null
+        },
+        {
+          "flow": "GetSolution",
+          "action": "Get_Solution_",
+          "type": "Http",
+          "endpoint": "expression",
+          "host": null
+        },
+        {
+          "flow": "GetSolution",
+          "action": "Get_Token",
+          "type": "Http",
+          "endpoint": "literal",
+          "host": null
+        }
+      ],
+      "requestTriggers": [
+        {
+          "flow": "AssignRole",
+          "trigger": "manual",
+          "kind": "Button"
+        },
+        {
+          "flow": "CreateEnvironment",
+          "trigger": "manual",
+          "kind": "Button"
+        },
+        {
+          "flow": "CreateRepo",
+          "trigger": "manual",
+          "kind": "Button"
+        },
+        {
+          "flow": "CreateSolution",
+          "trigger": "manual",
+          "kind": "Button"
+        },
+        {
+          "flow": "DeleteEnvironment",
+          "trigger": "manual",
+          "kind": "Button"
+        },
+        {
+          "flow": "DeployToProd",
+          "trigger": "manual",
+          "kind": "Button"
+        },
+        {
+          "flow": "FetchLocalizedText",
+          "trigger": "manual",
+          "kind": "Button"
+        },
+        {
+          "flow": "GetAppsAndFlows",
+          "trigger": "manual",
+          "kind": "Button"
+        },
+        {
+          "flow": "GetSolution",
+          "trigger": "manual",
+          "kind": "Button"
+        },
+        {
+          "flow": "LogTelemetry",
+          "trigger": "manual",
+          "kind": "Button"
+        },
+        {
+          "flow": "ReadEnvironmentVariable",
+          "trigger": "manual",
+          "kind": "Button"
+        },
+        {
+          "flow": "SendEmailNotification",
+          "trigger": "manual",
+          "kind": "Button"
+        },
+        {
+          "flow": "SetUpDevEvnironment",
+          "trigger": "manual",
+          "kind": "Button"
+        },
+        {
+          "flow": "WorkflowCompleteNotification",
+          "trigger": "manual",
+          "kind": "Http"
+        }
+      ],
+      "childFlows": [
+        {
+          "flow": "AssignRole",
+          "child": "FetchLocalizedText"
+        },
+        {
+          "flow": "AssignRole",
+          "child": "ReadEnvironmentVariable"
+        },
+        {
+          "flow": "CreateEnvironment",
+          "child": "FetchLocalizedText"
+        },
+        {
+          "flow": "CreateProject",
+          "child": "FetchLocalizedText"
+        },
+        {
+          "flow": "CreateProject",
+          "child": "LogTelemetry"
+        },
+        {
+          "flow": "CreateProject",
+          "child": "SendEmailNotification"
+        },
+        {
+          "flow": "CreateProject",
+          "child": "AssignRole"
+        },
+        {
+          "flow": "CreateProject",
+          "child": "CreateSolution"
+        },
+        {
+          "flow": "CreateProject",
+          "child": "CreateRepo"
+        },
+        {
+          "flow": "CreateProject",
+          "child": "ReadEnvironmentVariable"
+        },
+        {
+          "flow": "CreateProject",
+          "child": "CreateEnvironment"
+        },
+        {
+          "flow": "CreateProject",
+          "child": "SetUpDevEvnironment"
+        },
+        {
+          "flow": "CreateRepo",
+          "child": "FetchLocalizedText"
+        },
+        {
+          "flow": "CreateRepo",
+          "child": "ReadEnvironmentVariable"
+        },
+        {
+          "flow": "CreateSolution",
+          "child": "FetchLocalizedText"
+        },
+        {
+          "flow": "CreateSolution",
+          "child": "ReadEnvironmentVariable"
+        },
+        {
+          "flow": "DeleteProjectCleanUp",
+          "child": "DeleteEnvironment"
+        },
+        {
+          "flow": "DeployToProd",
+          "child": "FetchLocalizedText"
+        },
+        {
+          "flow": "DeployToProd",
+          "child": "LogTelemetry"
+        },
+        {
+          "flow": "DeployToProd",
+          "child": "SendEmailNotification"
+        },
+        {
+          "flow": "DeployToStage",
+          "child": "FetchLocalizedText"
+        },
+        {
+          "flow": "DeployToStage",
+          "child": "LogTelemetry"
+        },
+        {
+          "flow": "DeployToStage",
+          "child": "SendEmailNotification"
+        },
+        {
+          "flow": "DeployToStage",
+          "child": "CreateEnvironment"
+        },
+        {
+          "flow": "DeployToStage",
+          "child": "DeployToProd"
+        },
+        {
+          "flow": "DeployToStage",
+          "child": "ReadEnvironmentVariable"
+        },
+        {
+          "flow": "FetchLocalizedText",
+          "child": "ReadEnvironmentVariable"
+        },
+        {
+          "flow": "GetAppsAndFlows",
+          "child": "FetchLocalizedText"
+        },
+        {
+          "flow": "GetAppsAndFlows",
+          "child": "ReadEnvironmentVariable"
+        },
+        {
+          "flow": "GetSolution",
+          "child": "FetchLocalizedText"
+        },
+        {
+          "flow": "GetSolution",
+          "child": "ReadEnvironmentVariable"
+        },
+        {
+          "flow": "SendEmailNotification",
+          "child": "FetchLocalizedText"
+        },
+        {
+          "flow": "SetUpDevEvnironment",
+          "child": "ReadEnvironmentVariable"
+        },
+        {
+          "flow": "SetUpDevEvnironment",
+          "child": "FetchLocalizedText"
+        },
+        {
+          "flow": "SetUpDevEvnironment",
+          "child": "SendEmailNotification"
+        },
+        {
+          "flow": "WorkflowCompleteNotification",
+          "child": "FetchLocalizedText"
+        },
+        {
+          "flow": "WorkflowCompleteNotification",
+          "child": "LogTelemetry"
+        },
+        {
+          "flow": "WorkflowCompleteNotification",
+          "child": "ReadEnvironmentVariable"
+        },
+        {
+          "flow": "WorkflowCompleteNotification",
+          "child": "GetAppsAndFlows"
+        },
+        {
+          "flow": "WorkflowCompleteNotification",
+          "child": "GetSolution"
+        },
+        {
+          "flow": "WorkflowCompleteNotification",
+          "child": "SendEmailNotification"
+        }
+      ],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/alm-sample",
+      "uniqueName": "ALMAcceleratorSampleSolution",
+      "licenceDrivers": [
+        {
+          "id": "custom-connector",
+          "need": "Custom connectors are premium: an app's users need Power Apps Premium or per app, and a flow needs Power Automate Premium or a Process licence.",
+          "sources": [
+            "https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation",
+            "https://learn.microsoft.com/power-platform/admin/power-automate-licensing/types"
+          ],
+          "verified": "2026-11-12",
+          "where": [
+            "cat_5Fenvironmentvariableconnector"
+          ]
+        },
+        {
+          "id": "dataverse-in-canvas-app",
+          "need": "A canvas app that uses Dataverse needs Power Apps Premium or per app for its users.",
+          "sources": [
+            "https://learn.microsoft.com/power-platform/admin/powerapps-licensing-faq"
+          ],
+          "verified": "2026-11-12",
+          "where": [
+            "cat_devopskitsamplecanvasapp_c7ec5"
+          ]
+        },
+        {
+          "id": "model-driven-app",
+          "need": "A model-driven app is premium: its users need Power Apps Premium or per app.",
+          "sources": [
+            "https://learn.microsoft.com/power-platform/admin/powerapps-licensing-faq"
+          ],
+          "verified": "2026-11-12",
+          "where": [
+            "cat_AlmAcceleratorSampleMda"
+          ]
+        }
+      ],
+      "notClassified": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "note": "tier not classified: check the connector's reference page"
+        },
+        {
+          "id": "shared_logicflows",
+          "note": "tier not classified: check the connector's reference page"
+        },
+        {
+          "id": "shared_msnweather",
+          "note": "tier not classified: check the connector's reference page"
+        },
+        {
+          "id": "shared_office365",
+          "note": "tier not classified: check the connector's reference page"
+        },
+        {
+          "id": "shared_sharepointonline",
+          "note": "tier not classified: check the connector's reference page"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "cat_5fenvironmentvariableconnector",
+          "references": [],
+          "users": [
+            {
+              "kind": "canvasApp",
+              "name": "cat_devopskitsamplecanvasapp_c7ec5"
+            }
+          ]
+        },
+        {
+          "id": "shared_commondataserviceforapps",
+          "references": [
+            "cat_CDS_Current"
+          ],
+          "users": [
+            {
+              "kind": "canvasApp",
+              "name": "cat_devopskitsamplecanvasapp_c7ec5"
+            },
+            {
+              "kind": "flow",
+              "name": "Like Quote"
+            }
+          ]
+        },
+        {
+          "id": "shared_logicflows",
+          "references": [],
+          "users": [
+            {
+              "kind": "canvasApp",
+              "name": "cat_devopskitsamplecanvasapp_c7ec5"
+            }
+          ]
+        },
+        {
+          "id": "shared_msnweather",
+          "references": [
+            "cat_sharedmsnweather_9d437"
+          ],
+          "users": [
+            {
+              "kind": "canvasApp",
+              "name": "cat_devopskitsamplecanvasapp_c7ec5"
+            },
+            {
+              "kind": "flow",
+              "name": "Get Current Temperature"
+            }
+          ]
+        },
+        {
+          "id": "shared_office365",
+          "references": [
+            "cat_sharedoffice365_4ee46"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "Email Quote"
+            },
+            {
+              "kind": "flow",
+              "name": "SÆmple Ø ærlig forsøk"
+            }
+          ]
+        },
+        {
+          "id": "shared_sharepointonline",
+          "references": [],
+          "users": [
+            {
+              "kind": "canvasApp",
+              "name": "cat_devopskitsamplecanvasapp_c7ec5"
+            }
+          ]
+        }
+      ],
+      "customConnectors": [
+        {
+          "name": "cat_5Fenvironmentvariableconnector",
+          "inSolution": true
+        }
+      ],
+      "httpActions": [],
+      "requestTriggers": [
+        {
+          "flow": "App Title",
+          "trigger": "manual",
+          "kind": "PowerApp"
+        },
+        {
+          "flow": "Email Quote",
+          "trigger": "manual",
+          "kind": "Button"
+        },
+        {
+          "flow": "Get Current Temperature",
+          "trigger": "manual",
+          "kind": "PowerAppV2"
+        },
+        {
+          "flow": "GetEnvironmentVariableValues",
+          "trigger": "manual",
+          "kind": "PowerApp"
+        },
+        {
+          "flow": "Like Quote",
+          "trigger": "manual",
+          "kind": "PowerAppV2"
+        },
+        {
+          "flow": "SÆmple Ø ærlig forsøk",
+          "trigger": "manual",
+          "kind": "Button"
+        }
+      ],
+      "childFlows": [
+        {
+          "flow": "Email Quote",
+          "child": "App Title"
+        },
+        {
+          "flow": "Like Quote",
+          "child": "Email Quote"
+        }
+      ],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/coe-auditlogs",
+      "uniqueName": "CenterofExcellenceAuditLogs",
+      "licenceDrivers": [
+        {
+          "id": "custom-connector",
+          "need": "Custom connectors are premium: an app's users need Power Apps Premium or per app, and a flow needs Power Automate Premium or a Process licence.",
+          "sources": [
+            "https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation",
+            "https://learn.microsoft.com/power-platform/admin/power-automate-licensing/types"
+          ],
+          "verified": "2026-11-12",
+          "where": [
+            "admin_5Foffice-20365-20management-20api"
+          ]
+        }
+      ],
+      "notClassified": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "note": "tier not classified: check the connector's reference page"
+        },
+        {
+          "id": "shared_office365",
+          "note": "tier not classified: check the connector's reference page"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "admin_5foffice-20365-20management-20api",
+          "references": [
+            "admin_sharedadmin5foffice2036520management20api5f7fc9343cf45734fe_8f08c",
+            "admin_sharedadmin5foffice2036520management20api5ff18d20b7ec3dbffe_a3e3b"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "Deprecated | [Child] Admin | Sync Logs"
+            }
+          ]
+        },
+        {
+          "id": "shared_commondataserviceforapps",
+          "references": [
+            "admin_sharedcommondataserviceforapps_8f10b",
+            "admin_sharedcommondataserviceforapps_98924",
+            "new_CoEAuditLogsDataverse"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "Deprecated | Admin | Sync Audit Logs"
+            },
+            {
+              "kind": "flow",
+              "name": "Deprecated | [Child] Admin | Sync Logs"
+            }
+          ]
+        },
+        {
+          "id": "shared_office365",
+          "references": [
+            "new_CoEAuditLogsO365Outlook"
+          ],
+          "users": []
+        }
+      ],
+      "customConnectors": [
+        {
+          "name": "admin_5Foffice-20365-20management-20api",
+          "inSolution": false
+        }
+      ],
+      "httpActions": [],
+      "requestTriggers": [
+        {
+          "flow": "Deprecated | [Child] Admin | Sync Logs",
+          "trigger": "manual",
+          "kind": "Button"
+        }
+      ],
+      "childFlows": [
+        {
+          "flow": "Deprecated | Admin | Sync Audit Logs",
+          "child": "Deprecated | [Child] Admin | Sync Logs"
+        },
+        {
+          "flow": "Deprecated | Admin | Sync Audit Logs",
+          "child": null
+        },
+        {
+          "flow": "Deprecated | [Child] Admin | Sync Logs",
+          "child": null
+        }
+      ],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/core-portal",
+      "uniqueName": "msgov_coreportal",
+      "licenceDrivers": [],
+      "notClassified": [],
+      "connectors": [],
+      "customConnectors": [],
+      "httpActions": [],
+      "requestTriggers": [],
+      "childFlows": [],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/equipment-checkout",
+      "uniqueName": "EquipmentCheckout",
+      "licenceDrivers": [
+        {
+          "id": "model-driven-app",
+          "need": "A model-driven app is premium: its users need Power Apps Premium or per app.",
+          "sources": [
+            "https://learn.microsoft.com/power-platform/admin/powerapps-licensing-faq"
+          ],
+          "verified": "2026-11-12",
+          "where": [
+            "equipment_checkout_a1a05935"
+          ]
+        }
+      ],
+      "notClassified": [],
+      "connectors": [],
+      "customConnectors": [],
+      "httpActions": [],
+      "requestTriggers": [],
+      "childFlows": [],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/flow-limits",
+      "uniqueName": "PowerOpsFlowLimits",
+      "licenceDrivers": [
+        {
+          "id": "http-action",
+          "need": "A flow with a premium connector, such as HTTP, needs Power Automate Premium for its users or a Process licence for the flow.",
+          "sources": [
+            "https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation",
+            "https://learn.microsoft.com/training/modules/http-connectors/2-webhook",
+            "https://learn.microsoft.com/power-platform/admin/power-automate-licensing/types"
+          ],
+          "verified": "2026-11-12",
+          "where": [
+            "flow 'Quarterly cleanup' action 'Get_status'"
+          ]
+        }
+      ],
+      "notClassified": [
+        {
+          "id": "shared_approvals",
+          "note": "tier not classified: check the connector's reference page"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "shared_approvals",
+          "references": [
+            "demo_FlowApprovals"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "Request long approval"
+            }
+          ]
+        }
+      ],
+      "customConnectors": [],
+      "httpActions": [
+        {
+          "flow": "Quarterly cleanup",
+          "action": "Get_status",
+          "type": "Http",
+          "endpoint": "literal",
+          "host": null
+        }
+      ],
+      "requestTriggers": [
+        {
+          "flow": "Request long approval",
+          "trigger": "manual",
+          "kind": "Button"
+        }
+      ],
+      "childFlows": [],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/flow-navigation",
+      "uniqueName": "PowerOpsNavigation",
+      "licenceDrivers": [],
+      "notClassified": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "note": "tier not classified: check the connector's reference page"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "references": [
+            "demo_FlowDataverse"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "Review expenses"
+            }
+          ]
+        }
+      ],
+      "customConnectors": [],
+      "httpActions": [],
+      "requestTriggers": [
+        {
+          "flow": "Review expenses",
+          "trigger": "manual",
+          "kind": "Button"
+        }
+      ],
+      "childFlows": [],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/flow-secrets",
+      "uniqueName": "PowerOpsFlowSecrets",
+      "licenceDrivers": [
+        {
+          "id": "http-action",
+          "need": "A flow with a premium connector, such as HTTP, needs Power Automate Premium for its users or a Process licence for the flow.",
+          "sources": [
+            "https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation",
+            "https://learn.microsoft.com/training/modules/http-connectors/2-webhook",
+            "https://learn.microsoft.com/power-platform/admin/power-automate-licensing/types"
+          ],
+          "verified": "2026-11-12",
+          "where": [
+            "flow 'Call partner API' action 'Call_partner'"
+          ]
+        }
+      ],
+      "notClassified": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "note": "tier not classified: check the connector's reference page"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "references": [
+            "demo_Dataverse"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "Call partner API"
+            }
+          ]
+        }
+      ],
+      "customConnectors": [],
+      "httpActions": [
+        {
+          "flow": "Call partner API",
+          "action": "Call_partner",
+          "type": "Http",
+          "endpoint": "literal",
+          "host": null
+        }
+      ],
+      "requestTriggers": [
+        {
+          "flow": "Call partner API",
+          "trigger": "manual",
+          "kind": "Button"
+        }
+      ],
+      "childFlows": [],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/flowtests/capture/solution",
+      "uniqueName": "PowerOpsCapture",
+      "licenceDrivers": [],
+      "notClassified": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "note": "tier not classified: check the connector's reference page"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "references": [
+            "pops_CaptureDataverse"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "PowerOps capture"
+            }
+          ]
+        }
+      ],
+      "customConnectors": [],
+      "httpActions": [],
+      "requestTriggers": [
+        {
+          "flow": "PowerOps capture",
+          "trigger": "manual",
+          "kind": "Button"
+        }
+      ],
+      "childFlows": [],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/flowtests/skipped-body",
+      "uniqueName": "PowerOpsSkippedBody",
+      "licenceDrivers": [
+        {
+          "id": "http-action",
+          "need": "A flow with a premium connector, such as HTTP, needs Power Automate Premium for its users or a Process licence for the flow.",
+          "sources": [
+            "https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation",
+            "https://learn.microsoft.com/training/modules/http-connectors/2-webhook",
+            "https://learn.microsoft.com/power-platform/admin/power-automate-licensing/types"
+          ],
+          "verified": "2026-11-12",
+          "where": [
+            "flow 'Skipped body' action 'Get_status'"
+          ]
+        }
+      ],
+      "notClassified": [],
+      "connectors": [],
+      "customConnectors": [],
+      "httpActions": [
+        {
+          "flow": "Skipped body",
+          "action": "Get_status",
+          "type": "Http",
+          "endpoint": "literal",
+          "host": null
+        }
+      ],
+      "requestTriggers": [
+        {
+          "flow": "Skipped body",
+          "trigger": "manual",
+          "kind": "Button"
+        }
+      ],
+      "childFlows": [],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/powerops-seed-yaml/v1",
+      "uniqueName": "PowerOpsSeed",
+      "licenceDrivers": [],
+      "notClassified": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "note": "tier not classified: check the connector's reference page"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "references": [
+            "pops_SeedDataverse"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "Stamp work item status"
+            }
+          ]
+        }
+      ],
+      "customConnectors": [],
+      "httpActions": [],
+      "requestTriggers": [],
+      "childFlows": [],
+      "notRead": [
+        "canvas apps, model-driven apps and agents are not read in the YAML layout, so dataverse-in-canvas-app, model-driven-app and their users are not reported"
+      ]
+    },
+    {
+      "path": "tests/fixtures/powerops-seed-yaml/v2",
+      "uniqueName": "PowerOpsSeed",
+      "licenceDrivers": [],
+      "notClassified": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "note": "tier not classified: check the connector's reference page"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "references": [
+            "pops_SeedDataverse",
+            "pops_SpareDataverse"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "Stamp work item status"
+            }
+          ]
+        }
+      ],
+      "customConnectors": [],
+      "httpActions": [],
+      "requestTriggers": [],
+      "childFlows": [],
+      "notRead": [
+        "canvas apps, model-driven apps and agents are not read in the YAML layout, so dataverse-in-canvas-app, model-driven-app and their users are not reported"
+      ]
+    },
+    {
+      "path": "tests/fixtures/powerops-seed/v1",
+      "uniqueName": "PowerOpsSeed",
+      "licenceDrivers": [
+        {
+          "id": "dataverse-in-canvas-app",
+          "need": "A canvas app that uses Dataverse needs Power Apps Premium or per app for its users.",
+          "sources": [
+            "https://learn.microsoft.com/power-platform/admin/powerapps-licensing-faq"
+          ],
+          "verified": "2026-11-12",
+          "where": [
+            "pops_workitems_2af60"
+          ]
+        }
+      ],
+      "notClassified": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "note": "tier not classified: check the connector's reference page"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "references": [
+            "pops_SeedDataverse"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "Stamp work item status"
+            }
+          ]
+        }
+      ],
+      "customConnectors": [],
+      "httpActions": [],
+      "requestTriggers": [],
+      "childFlows": [],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/powerops-seed/v2",
+      "uniqueName": "PowerOpsSeed",
+      "licenceDrivers": [
+        {
+          "id": "dataverse-in-canvas-app",
+          "need": "A canvas app that uses Dataverse needs Power Apps Premium or per app for its users.",
+          "sources": [
+            "https://learn.microsoft.com/power-platform/admin/powerapps-licensing-faq"
+          ],
+          "verified": "2026-11-12",
+          "where": [
+            "pops_workitems_2af60"
+          ]
+        }
+      ],
+      "notClassified": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "note": "tier not classified: check the connector's reference page"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "references": [
+            "pops_SeedDataverse",
+            "pops_SpareDataverse"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "Stamp work item status"
+            }
+          ]
+        }
+      ],
+      "customConnectors": [],
+      "httpActions": [],
+      "requestTriggers": [],
+      "childFlows": [],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/zips/ColumnLevelSecuritySampleSolution.zip",
+      "uniqueName": "ColumnLevelSecuritySampleSolution",
+      "licenceDrivers": [],
+      "notClassified": [],
+      "connectors": [],
+      "customConnectors": [],
+      "httpActions": [],
+      "requestTriggers": [],
+      "childFlows": [],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/zips/ColumnLevelSecuritySampleSolution_managed.zip",
+      "uniqueName": "ColumnLevelSecuritySampleSolution",
+      "licenceDrivers": [],
+      "notClassified": [],
+      "connectors": [],
+      "customConnectors": [],
+      "httpActions": [],
+      "requestTriggers": [],
+      "childFlows": [],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip",
+      "uniqueName": "Contoso_sample",
+      "licenceDrivers": [],
+      "notClassified": [
+        {
+          "id": "shared_dynamicscrmonline",
+          "note": "tier not classified: check the connector's reference page"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "shared_dynamicscrmonline",
+          "references": [
+            "new_D365connection"
+          ],
+          "users": []
+        }
+      ],
+      "customConnectors": [],
+      "httpActions": [],
+      "requestTriggers": [],
+      "childFlows": [],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/zips/polymorphiclookupexamplesolution.zip",
+      "uniqueName": "polymorphiclookupexamplesolution",
+      "licenceDrivers": [],
+      "notClassified": [],
+      "connectors": [],
+      "customConnectors": [],
+      "httpActions": [],
+      "requestTriggers": [],
+      "childFlows": [],
+      "notRead": []
+    }
+  ]
+}

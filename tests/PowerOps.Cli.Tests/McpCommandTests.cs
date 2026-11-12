@@ -27,7 +27,7 @@ public sealed class McpCommandTests : IAsyncLifetime
     private static readonly string DevFile = Path.Combine(Fixtures, "drift", "seed-dev.json");
     private static readonly string TestFile = Path.Combine(Fixtures, "drift", "seed-test.json");
     private static readonly string OrgWho = Path.Combine(Fixtures, "pac", "org-who.txt");
-    private static readonly string[] ToolNames = ["analyze", "rules", "baseline", "diff", "test", "settings_generate", "settings_validate", "plan_status", "plan_facts", "drift", "deploy_plan", "deploy_apply"];
+    private static readonly string[] ToolNames = ["analyze", "rules", "baseline", "diff", "inventory", "test", "settings_generate", "settings_validate", "plan_status", "plan_facts", "drift", "deploy_plan", "deploy_apply"];
 
     private const string SolutionTable = """
         Unique Name           Friendly Name                         Version Managed
@@ -272,6 +272,28 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Equal(tool is "analyze" or "drift" ? 2 : 1, result.Content.Count);
         Assert.Equal(expected.Out, Text(result));
         Assert.Equal("", OutputSchemaTests.Errors(OutputSchemaTests.Load(schema), JsonNode.Parse(Text(result))!));
+    }
+
+    [Fact]
+    public async Task Inventory_returns_the_http_actions_and_driver_of_alm_makers_and_none_of_its_hosts()
+    {
+        // The hosts of the fixture's literal HTTP URLs, read from its flow files so no host is written here.
+        var hosts = Directory.GetFiles(Path.Combine(Alm, "Workflows"), "*.json")
+            .SelectMany(f => System.Text.RegularExpressions.Regex.Matches(File.ReadAllText(f), "\"uri\":\\s*\"([^\"@]*)\"").Select(m => m.Groups[1].Value))
+            .Select(u => Uri.TryCreate(u, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" ? uri.Host : null)
+            .OfType<string>().Distinct().ToList();
+        Assert.NotEmpty(hosts);
+
+        var result = await Call("inventory", new() { ["paths"] = new[] { Alm } });
+
+        Assert.False(result.IsError);
+        var text = Text(result);
+        Assert.Equal("", OutputSchemaTests.Errors(OutputSchemaTests.Load("inventory.schema.json"), JsonNode.Parse(text)!));
+        var solution = JsonNode.Parse(text)!["solutions"]![0]!;
+        Assert.NotEmpty(solution["httpActions"]!.AsArray());
+        Assert.Contains("http-action", solution["licenceDrivers"]!.AsArray().Select(d => (string?)d!["id"]));
+        Assert.All(hosts, h => Assert.DoesNotContain(h, text, StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(Cli(["inventory", "--format", "json", "--", Alm]).Out, text);
     }
 
     [Fact]

@@ -162,7 +162,7 @@ public static class AnalyzeCommand
         }
     }
 
-    private static int Fail(Exception ex, TextWriter error)
+    internal static int Fail(Exception ex, TextWriter error)
     {
         error.WriteLine(Environment.GetEnvironmentVariable("POWEROPS_DEBUG") == "1" ? ex.ToString() : $"error: {TextReport.Clean(ex.Message)}");
         return InternalError;

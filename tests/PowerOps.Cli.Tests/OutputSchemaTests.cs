@@ -20,6 +20,7 @@ public class OutputSchemaTests
         ("deploy-plan", "deploy-plan.schema.json"),
         ("diff-", "diff.schema.json"),
         ("drift-", "drift.schema.json"),
+        ("inventory", "inventory.schema.json"),
         ("manifest-", "manifest.schema.json"),
         ("plan-status", "plan-status.schema.json"),
         ("plan-facts", "plan-facts.schema.json"),
