@@ -1,6 +1,6 @@
 ## PowerOps analyze
 
-**19 solutions, 0 errors, 63 warnings**
+**20 solutions, 0 errors, 63 warnings**
 
 ### tests/fixtures/agents/dataverse-tools: PowerOpsAgentTools 1.0.0.0
 
@@ -125,6 +125,10 @@ No findings.
 | Severity | Rule | File | Message | Fix |
 |---|---|---|---|---|
 | warning | [PO016](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO016.md) | Workflows/PowerOpscapture-00000000-0000-0000-0000-000000000058.json | Flow 'PowerOps capture' has 120 actions and a nesting depth of 1. | Move self-contained parts of the flow into child flows, and reduce nested scopes, conditions and loops. |
+
+### tests/fixtures/flowtests/skipped-body: PowerOpsSkippedBody 1.0.0.0
+
+No findings.
 
 ### tests/fixtures/powerops-seed-yaml/v1: PowerOpsSeed 1.0.0.0
 

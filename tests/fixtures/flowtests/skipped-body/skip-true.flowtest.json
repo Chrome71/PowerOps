@@ -1,0 +1,25 @@
+{
+  "$schema": "../../../../docs/schemas/flow-test.schema.json",
+  "flow": "Skipped body",
+  "trigger": {
+    "body": {
+      "skip": true
+    }
+  },
+  "assertions": [
+    {
+      "kind": "runStatus",
+      "equals": "Succeeded"
+    },
+    {
+      "kind": "actionStatus",
+      "action": "Get_status",
+      "equals": "Skipped"
+    },
+    {
+      "kind": "outputs",
+      "action": "Pick_code",
+      "equals": "d"
+    }
+  ]
+}

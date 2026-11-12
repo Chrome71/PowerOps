@@ -1,0 +1,25 @@
+{
+  "$schema": "../../../../docs/schemas/flow-test.schema.json",
+  "flow": "Skipped body",
+  "trigger": {
+    "body": {
+      "skip": false
+    }
+  },
+  "mocks": {
+    "Get_status": {
+      "status": "TimedOut"
+    }
+  },
+  "assertions": [
+    {
+      "kind": "runStatus",
+      "equals": "Succeeded"
+    },
+    {
+      "kind": "outputs",
+      "action": "Pick_code",
+      "equals": "d"
+    }
+  ]
+}

@@ -104,6 +104,8 @@ Scrubbed before committing (by a script kept outside the repository; the raw fil
 
 Scrubbed (nothing came from a tenant): publisher `demopub` with prefix `demo` and the display name "PowerOps Fixtures"; made-up GUIDs `00000000-0000-0000-0000-0000000000xx`; no tenant or environment URL, environment id, user name, email, secret or app binary.
 
+`flowtests/skipped-body/` is the unpacked solution `PowerOpsSkippedBody`, made for this project for the plan `m86-body-null` under the same licence, and hand-written: it was never exported from a tenant or imported into one, so the file layout follows `flow-navigation/`. It holds one cloud flow, on, "Skipped body", with no connection reference: a manual trigger with a boolean `skip`, an If on it whose false branch holds an Http GET `Get_status` on `https://api.contoso.com/status`, and a Compose `Pick_code` after the If (on `Succeeded`, `Failed` and `TimedOut`) that reads `coalesce(body('Get_status')?['code'], 'd')`. Its three flow tests sit in the same folder: `Get_status` skipped, a `TimedOut` mock without outputs, and a `Failed` mock with a body. Publisher `demopub` with prefix `demo`, made-up GUIDs, no tenant value. `analyze` finds nothing in it.
+
 ## Licence
 
 MIT License. Copyright lines from each repo's `LICENSE`:

@@ -649,6 +649,19 @@
       "notChecked": []
     },
     {
+      "path": "tests/fixtures/flowtests/skipped-body",
+      "uniqueName": "PowerOpsSkippedBody",
+      "version": "1.0.0.0",
+      "managed": false,
+      "publisher": {
+        "uniqueName": "demopub",
+        "prefix": "demo"
+      },
+      "requires": [],
+      "findings": [],
+      "notChecked": []
+    },
+    {
       "path": "tests/fixtures/powerops-seed-yaml/v1",
       "uniqueName": "PowerOpsSeed",
       "version": "1.0.0.0",
@@ -853,7 +866,7 @@
     }
   ],
   "summary": {
-    "solutions": 19,
+    "solutions": 20,
     "errors": 0,
     "warnings": 63,
     "baselined": 0
