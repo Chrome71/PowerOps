@@ -36,6 +36,9 @@ chmod +x "$work/path/powerops"
 # A pac that is never signed in, so a run by hand reads no tenant: `plan facts` reports itself unavailable, as in CI.
 printf '#!/bin/sh\necho "No profiles were found on this computer." >&2\nexit 1\n' >"$work/path/pac"
 chmod +x "$work/path/pac"
+# An az that is never signed in, so the planning skill's licence read fails and the neutral question is asked, as in CI.
+printf '#!/bin/sh\necho "Please run '"'"'az login'"'"' to setup account." >&2\nexit 1\n' >"$work/path/az"
+chmod +x "$work/path/az"
 export PATH="$work/path:$PATH"
 
 # One turn of the agent under test, in the current scenario's repo. Prints the agent's reply.
@@ -144,9 +147,9 @@ scenario=rounds
 new_repo
 goal="At a what-next menu: if you have answered none so far, choose A (another round); otherwise choose B (approve). Confirm if asked to approve anyway. When asked to pick a sketch option or skip the sketch, skip it with a reason. When the review or the sign-off is offered, choose the option that signs off now."
 # One more turn: a plan with screens asks to pick a sketch option or skip the sketch before it signs off (M70, decision 52).
-max_turns=$((max_turns + 1))
+max_turns=$((max_turns + 2)) # ...and the defaults question at approval ("Keep these N defaults?", M91)
 converse "Use the powerops-plan skill. My idea: $idea." '[ -n "$(plan_dir)" ] && [ "$(header status)" = signed-off ]' || true
-max_turns=$((max_turns - 1))
+max_turns=$((max_turns - 2))
 if [ -n "$(plan_dir)" ]; then
   check_decisions
   [ "$(header status)" = signed-off ] || fail "status is '$(header status)', expected signed-off"
@@ -244,6 +247,11 @@ converse "Use the powerops-plan skill. My idea: $loans." 'note_sketch; [ -n "$(p
 max_turns=$((max_turns - 1))
 if [ -n "$(plan_dir)" ]; then
   check_decisions
+  grep -q '^### Licences' "$(plan_dir)/plan.md" || fail "no ### Licences table in plan.md"
+  # No az read can succeed here, so a Held cell saying (read) was invented.
+  if grep -q '^|.*(read)' "$(plan_dir)/plan.md"; then fail "a Held cell says (read), but no read can run here"; fi
+  # Under quick nothing asks Held: 'person says yes' would be an invented answer.
+  if grep -q 'person says yes' "$(plan_dir)/plan.md"; then fail "quick wrote 'person says yes' in plan.md, but it asked no licence question"; fi
   [ "$(header depth)" = quick ] || fail "depth is '$(header depth)', expected quick from the earlier plan"
   [ "$(grep -c '^## Round ' "$(plan_dir)/decisions.md")" = 1 ] || fail "quick asked more than one round"
   questions | grep -qi 'licen' || fail "no licensing question"
@@ -265,11 +273,14 @@ new_repo
 sketch_offered=0
 # Answers in a sentence or two of the user's own words keep the depth at standard; scenario 9 checks bare option numbers.
 goal="Answer each question in a sentence or two of your own words that takes the recommended option. At a what-next menu: if you have answered fewer than two menus, choose A (another round); if exactly two, reply with just: D (or B if the menu has no D), even when another option is marked recommended; otherwise choose B (approve the draft). Confirm if asked to approve anyway. When asked to pick a sketch option, pick the recommended one with no changes. When asked to approve the picked sketch, approve it. When a review or a sign-off is offered, say you will do it later."
-max_turns=$((max_turns + 6)) # three rounds, the sketch options, the pick, the approval and the sketch question
+max_turns=$((max_turns + 7)) # three rounds, the sketch options, the pick, the approval, the sketch question and the defaults question
 converse "Use the powerops-plan skill. My idea: $loans." 'note_sketch; [ -n "$(plan_dir)" ] && grep -q "^- .*prototype:" "$(plan_dir)/decisions.md" 2>/dev/null' || true
-max_turns=$((max_turns - 6))
+max_turns=$((max_turns - 7))
 if [ -n "$(plan_dir)" ]; then
   check_decisions
+  grep -q '^### Licences' "$(plan_dir)/plan.md" || fail "no ### Licences table in plan.md"
+  # No az read can succeed here, so a Held cell saying (read) was invented.
+  if grep -q '^|.*(read)' "$(plan_dir)/plan.md"; then fail "a Held cell says (read), but no read can run here"; fi
   questions | grep -qiE 'rows|records|how many' || fail "no data round question about rows (depth $(header depth))"
   [ "$sketch_offered" = 1 ] || fail "no lettered option to sketch the screens"
   grep -q '^- .*prototype: approved mockups/prototype.html (option [abcABC]' "$(plan_dir)/decisions.md" || fail "no 'prototype: approved mockups/prototype.html (option <letter>' log line"
