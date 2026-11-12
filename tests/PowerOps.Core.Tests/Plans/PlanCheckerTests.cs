@@ -181,6 +181,13 @@ public class PlanCheckerTests : IDisposable
     [InlineData("environment: Jane Doe’s environment", "personal environment name", "Jane")]
     [InlineData("environment: Jane Doe's (1) environment", "personal environment name", "Jane")]
     [InlineData("see Jane Doe's Environment", "personal environment name", "Jane")]
+    [InlineData("see Ana's (1) Environment", "personal environment name", "Ana")]
+    [InlineData("see Željka's Environment", "personal environment name", "Željka")]
+    [InlineData("environment: jane's environment", "personal environment name", "jane")]
+    [InlineData("environment: jane doe's Environment", "personal environment name", "jane")]
+    [InlineData("see Jane Doe (Contoso)'s Environment", "personal environment name", "Jane")]
+    [InlineData("see Doe2's Environment", "personal environment name", "Doe2")]
+    [InlineData("see 李雷's Environment", "personal environment name", "李雷")]
     public void Tenant_data_is_reported_with_file_and_line_but_never_the_value(string line, string kind, string value)
     {
         Write(Plan());
@@ -198,6 +205,9 @@ public class PlanCheckerTests : IDisposable
     [InlineData("Codex's environment")]
     [InlineData("Each maker's environment")]
     [InlineData("environment: Jane Doe's environments")]
+    [InlineData("the dialog's Environment security roles")]
+    [InlineData("the user's Environment")]
+    [InlineData("Environment: the customer's environment is offline")]
     public void Prose_and_product_possessives_are_not_a_personal_environment_name(string line)
     {
         Write(Plan());
