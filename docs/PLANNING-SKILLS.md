@@ -158,7 +158,7 @@ Questions only someone else can answer (licensing and DLP often sit with an admi
 
 Each round:
 
-1. Ask at most **three** questions. Each has two or three choices with the recommended one first, plus "in your own words". A choice is a label of at most six words and one sentence of at most 20 words on what changes; sources and detail go into the plan. A recommended choice never states a fact about the person's tenant, licences or data: the skill reads it or asks neutrally. (Three is the common limit: Codex's question tool allows at most three questions of two or three options.)
+1. Ask at most **three** questions. Each has two or three choices with the recommended one first, plus "in your own words". A choice is a label of at most six words and one sentence of at most 20 words on what changes; sources and detail go into the plan. A recommended choice never states a fact about the person's tenant, licences or data: the skill reads it, or option 1 is "Not sure" (recommended). (Three is the common limit: Codex's question tool allows at most three questions of two or three options.)
 2. Use the agent's choice tool if it has one. Otherwise, list numbered options in plain text.
 3. Append the questions and answers to `decisions.md` straight away, so a lost session loses nothing.
 4. Show **exactly three lines**, one per change to the plan. Assumptions and open items go into `plan.md`, not into this message.

@@ -524,7 +524,7 @@ public partial class SkillsCommandTests : IDisposable
             "are never defaults",
             "five rounds or fewer",
             "`## Round <k>`",
-            "its options and answer to `decisions.md`; option 1 keeps `(recommended)`",
+            "or make option 1 \"Not sure\" (recommended)",
         ];
 
         Assert.All(wording, s => Assert.Contains(s, text));

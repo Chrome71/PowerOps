@@ -119,9 +119,9 @@ Answer: <the user's answer> (answered by: person)
 
 Each round:
 
-1. Ask at most three questions. Each has two or three options, the recommended one first, plus "in your own words". An option is a label of at most six words and one sentence of at most 20 words on what changes. Sources and detail go into the plan. A recommended option never states a fact about the person's tenant, licences or data: read it (section 3) or ask neutrally.
+1. Ask at most three questions. Each has two or three options, the recommended one first, plus "in your own words". An option is a label of at most six words and one sentence of at most 20 words on what changes. Sources and detail go into the plan. A recommended option never states a fact about the person's tenant, licences or data: read it (section 3), or make option 1 "Not sure" (recommended).
 2. Use the agent's choice tool if it has one. Otherwise print the numbered options as plain text and tell the user how to answer: "Answer like `1 2 1`, or in your own words." Then end your turn.
-3. After the answers, append each question, its options and answer to `decisions.md`; option 1 keeps `(recommended)`.
+3. After the answers, append each question and answer to `decisions.md`.
 4. Update `plan.md`. Put assumptions and open items in the plan, not in chat.
 5. Show exactly three lines, one per change to the plan. Nothing else.
 6. Ask what next, with lettered options: **A** another round, **B** approve the draft, **C** stop for now, **D** sketch the screens first. End your turn.
