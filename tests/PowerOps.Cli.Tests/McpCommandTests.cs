@@ -402,7 +402,7 @@ public sealed class McpCommandTests : IAsyncLifetime
     public async Task Deploy_plan_of_an_unmanaged_zip_over_an_unmanaged_install_lists_what_stays()
     {
         var folder = DeployFolder(managed: false);
-        DeployTarget Unmanaged(string t, IReadOnlyList<string> s, IReadOnlyList<string> d) =>
+        static DeployTarget Unmanaged(string t, IReadOnlyList<string> s, IReadOnlyList<string> d) =>
             ReadTarget(t, s, d) with { Solutions = [.. ReadTarget(t, s, d).Solutions.Select(x => x with { Managed = false })] };
         _fakes.TargetBehavior = Unmanaged;
 
