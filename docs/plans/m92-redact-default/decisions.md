@@ -41,6 +41,21 @@ Decided: 1. The fingerprint is already taken over the printed text (M61 Q4); onl
 
 Decided: 1. A default output changes, and SARIF alerts reopen once; the release notes should carry it. With `bump-minor-pre-major` this is a minor release, which release-please manages.
 
+### Q7. The Verifier's eval rerun (asked of the owner)
+
+Asked in a question form on 2026-11-11, because decision 40 needs a rerun of each pinned role whose eval baseline a change reaches, and M96's approved rerun (cap USD 30) covers only the security role. This change reaches one baseline line that both roles see: `solution-08`'s `diff` printed `defaultValue: New → Triage` and now prints `defaultValue changed`. Options: add the Verifier pass to M96 with a cap of USD 40 (recommended); a written exception to decision 40 for this one line; stop M92. The owner chose "Add to M96, cap USD 40 (Recommended)" (2026-11-11). So M92 touches nothing under `tests/eval/`: `RoleEvalTests` runs that recorded `diff` with `--show-values` (plan row 6a, a commented shortcut), and M96 reruns both passes, regenerates the baseline files and drops the bridge. The hand-over note tells M96.
+
+## Round 2: the reviews
+
+Fable's plan review (REJECTED: 1 High, 3 Medium, 1 Low) and the fresh `powerops-review-plan` (`review.md`: 0 High, 1 Medium, 5 Low) overlap; each finding is answered in `plan.md`.
+
+- Fable 1 (High), the eval baseline `RoleEvalTests` matches: Q7; plan row 6a, step 2's files, the Done when 7 filter and the corrected Assumptions line (M96 reruns the security pass; the owner added the Verifier).
+- Fable 2 (Medium) = review R1, R2, R4: the filter is project-scoped (`--project tests/PowerOps.Cli.Tests`), the checks run the branch's own `powerops.dll`, and the leak scan's command and folder are given (Done when 7, step 1).
+- Fable 3 (Medium) = review R3: tests look for `redacted URL` without brackets where Markdown is among the formats (Done when 1, row 6 (a)).
+- Fable 4 (Medium) = review R5: `docs/rules/PO006.md` and `PO014.md` gain one sentence (row 7a, step 3), and rows 7, 8 and 9 and Done when 6 say that two findings that differ only in their URL share one fingerprint by default.
+- Fable 5 (Low) = review R6: row 2 gives `diff`'s own option texts; row 3 gives each MCP tool its own sentence; row 6 (b) gains the `--redact --show-values` case.
+- Review's closing note (an Action pinned to an older release): the Action builds the CLI from its own commit, so script and CLI never differ (Assumptions).
+
 ## Log
 
 - depth: standard; the fix plan and M61's record give the design
