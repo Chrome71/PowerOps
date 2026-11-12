@@ -40,7 +40,20 @@ public sealed record FlowRunAfter(string Action, IReadOnlyList<string> Statuses)
 /// <paramref name="Depth"/> counts the containers around the action; the next <paramref name="Descendants"/> entries of <see cref="FlowDefinition.Actions"/> are the actions inside it.
 /// A field is null, empty, false or 0 when its key is missing or of another JSON kind.
 /// </summary>
-public sealed record FlowAction(string Name, string? Type, string? ApiId, string? OperationId, IReadOnlyList<FlowRunAfter> RunAfter, string? RunStatus, bool StaticResult, string? Timeout, int Depth, int Descendants);
+public sealed record FlowAction(string Name, string? Type, string? ApiId, string? OperationId, IReadOnlyList<FlowRunAfter> RunAfter, string? RunStatus, bool StaticResult, string? Timeout, int Depth, int Descendants)
+{
+    /// <summary>True when <c>runtimeConfiguration.secureData.properties</c> is an array holding the string <c>inputs</c> (ignoring case; non-string items skipped).</summary>
+    public bool SecureInputs { get; init; }
+
+    /// <summary>True when <c>runtimeConfiguration.secureData.properties</c> is an array holding the string <c>outputs</c> (ignoring case; non-string items skipped).</summary>
+    public bool SecureOutputs { get; init; }
+
+    /// <summary>True when <c>inputs.authentication</c> is an object or a string (an expression), or the same holds for <c>inputs.subscribe.authentication</c> or <c>inputs.unsubscribe.authentication</c>. Whatever the action's type, and nothing of its value is kept.</summary>
+    public bool Authentication { get; init; }
+
+    /// <summary><c>inputs.parameters.actionName</c> when it is a string with no <c>@</c>, else null.</summary>
+    public string? UnboundAction { get; init; }
+}
 
 /// <summary>The string <c>defaultValue</c> of a flow parameter bound to the environment variable <paramref name="SchemaName"/>, as written in the flow.</summary>
 public sealed record EnvironmentVariableDefault(string SchemaName, string Value);
@@ -205,6 +218,7 @@ public sealed partial record FlowDefinition(
 
             var inputs = Get(a.Value, "inputs");
             var host = Get(inputs, "host");
+            var secure = Get(Get(Get(a.Value, "runtimeConfiguration"), "secureData"), "properties");
             var index = all.Count;
             all.Add(new FlowAction(
                 a.Name,
@@ -216,7 +230,13 @@ public sealed partial record FlowDefinition(
                 Str(Get(Get(Get(a.Value, "runtimeConfiguration"), "staticResult"), "staticResultOptions")) == "Enabled",
                 Str(Get(Get(a.Value, "limit"), "timeout")),
                 depth,
-                0));
+                0)
+            {
+                SecureInputs = Secures(secure, "inputs"),
+                SecureOutputs = Secures(secure, "outputs"),
+                Authentication = HasAuthentication(inputs) || HasAuthentication(Get(inputs, "subscribe")) || HasAuthentication(Get(inputs, "unsubscribe")),
+                UnboundAction = Literal(Get(Get(inputs, "parameters"), "actionName")),
+            });
 
             if (all[index].ApiId is { } api && api.EndsWith("/shared_commondataserviceforapps", StringComparison.OrdinalIgnoreCase))
             {
@@ -296,6 +316,11 @@ public sealed partial record FlowDefinition(
                 p.Name,
                 p.Value.ValueKind == JsonValueKind.Array ? [.. p.Value.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()!)] : []))]
             : [];
+
+    private static bool Secures(JsonElement? properties, string name) =>
+        properties is { ValueKind: JsonValueKind.Array } a && a.EnumerateArray().Any(x => x.ValueKind == JsonValueKind.String && string.Equals(x.GetString(), name, StringComparison.OrdinalIgnoreCase));
+
+    private static bool HasAuthentication(JsonElement? e) => Get(e, "authentication") is { ValueKind: JsonValueKind.Object or JsonValueKind.String };
 
     private static string? Str(JsonElement? e) => e is { ValueKind: JsonValueKind.String } s ? s.GetString() : null;
 

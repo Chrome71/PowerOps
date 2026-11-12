@@ -2708,4 +2708,206 @@ public class WarningRuleTests
             Assert.DoesNotMatch(@"[0-9a-f]{8}-[0-9a-f]{4}-", t);
         });
     }
+
+    // M100: PO041 reads an environment variable's type and name; PO042 reads FlowAction's secure-data, authentication and unbound-action fields.
+
+    private static EnvironmentVariable Text(string name) => B.Env(name);
+
+    private static IReadOnlyList<Finding> Po041(params EnvironmentVariable[] variables) =>
+        Run(new PO041TextSecretVariable(), B.Empty() with { EnvironmentVariables = variables });
+
+    [Theory]
+    [InlineData("demo_ApiToken")]
+    [InlineData("demo_DbPassword")]
+    [InlineData("demo_AdminPwd")]
+    [InlineData("demo_PartnerApiKey")]
+    [InlineData("demo_Partner_Api_Key")]
+    [InlineData("demo_SqlConnectionString")]
+    [InlineData("demo_ClientSecret")]
+    [InlineData("DEMO_APITOKEN")]
+    [InlineData("demo_TokenEndpoint")]
+    [InlineData("demo_SecretVersion")]
+    public void PO041_fires_on_a_text_variable_whose_name_has_a_secret_word(string name)
+    {
+        var v = Text(name);
+
+        var f = Assert.Single(Po041(v));
+
+        Assert.Equal($"Environment variable '{name}' is of type Text, but its name suggests it holds a secret.", f.Message);
+        Assert.Equal(("PO041", Severity.Warning, v.File, name), (f.RuleId, f.Severity, f.File, f.Component));
+    }
+
+    [Theory]
+    [InlineData("demo_SecretName")]
+    [InlineData("demo_SortKey")]
+    [InlineData("demo_TokenId")]
+    [InlineData("demo_TokenUrl")]
+    [InlineData("demo_TokenUri")]
+    [InlineData("demo_SecretRef")]
+    [InlineData("demo_SecretReference")]
+    [InlineData("demo_SecretPath")]
+    [InlineData("demo_TokenDate")]
+    [InlineData("demo_TokenExpiry")]
+    [InlineData("demo_TokenExpiration")]
+    [InlineData("demo_PasswordName")]
+    [InlineData("demo_PasswordValid")]
+    public void PO041_quiet_on_a_text_variable_whose_name_ends_in_a_name_like_suffix_or_has_no_secret_word(string name) =>
+        Assert.Empty(Po041(Text(name)));
+
+    [Theory]
+    [InlineData("100000005")]
+    [InlineData("100000001")]
+    [InlineData(null)]
+    public void PO041_quiet_on_a_variable_that_is_not_of_type_text(string? type) =>
+        Assert.Empty(Po041(Text("demo_ApiToken") with { Type = type }));
+
+    [Fact]
+    public void PO041_is_a_registered_warning_with_a_fix_sentence()
+    {
+        var rule = new PO041TextSecretVariable();
+
+        Assert.Equal(("PO041", Severity.Warning, "Text environment variable looks like it holds a secret"), (rule.Id, rule.Severity, rule.Title));
+        Assert.Equal("Make it an environment variable of type Secret backed by Azure Key Vault, and remove its value from the solution and the settings files.", rule.Fix);
+    }
+
+    private const string DataverseApi = "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps";
+
+    private const string KeyVaultApi = "/providers/Microsoft.PowerApps/apis/shared_keyvault";
+
+    private static string Secure(string? properties) =>
+        properties is null ? "" : ",\"runtimeConfiguration\":{\"secureData\":{\"properties\":" + properties + "}}";
+
+    private static string Connector(string api, string operation, string? actionName = null, string? properties = null) =>
+        "{\"type\":\"OpenApiConnection\",\"inputs\":{\"host\":{\"apiId\":\"" + api + "\",\"operationId\":\"" + operation + "\"}"
+        + (actionName is null ? "" : ",\"parameters\":{\"actionName\":" + actionName + "}") + "}" + Secure(properties) + "}";
+
+    private static string SecretRead(string operation = "PerformUnboundAction", string api = DataverseApi, string actionName = "\"RetrieveEnvironmentVariableSecretValue\"", string? properties = null) =>
+        Connector(api, operation, actionName, properties);
+
+    private static string Send(string? authentication, string? properties = null, string type = "Http") =>
+        "{\"type\":\"" + type + "\",\"inputs\":{\"method\":\"POST\"" + (authentication is null ? "" : ",\"authentication\":" + authentication) + "}" + Secure(properties) + "}";
+
+    private const string Basic = """{"type":"Basic","username":"demo","password":"demo-only"}""";
+
+    private static IReadOnlyList<Finding> Po042(string actions) => Run(new PO042SecretWithoutSecureData(), FlowOf(actions));
+
+    public static TheoryData<string> UnsecuredSecretReads() => new()
+    {
+        { "{\"Get\":" + SecretRead() + "}" },
+        { "{\"Get\":" + SecretRead(properties: """["inputs"]""") + "}" },
+        { "{\"Get\":" + SecretRead("PerformUnboundActionWithOrganization") + "}" },
+        { "{\"Get\":" + SecretRead("performunboundaction", "/providers/Microsoft.PowerApps/apis/SHARED_COMMONDATASERVICEFORAPPS", "\"retrieveenvironmentvariablesecretvalue\"") + "}" },
+        { "{\"Get\":" + Connector(KeyVaultApi, "GetSecret") + "}" },
+        { "{\"Get\":" + Connector(KeyVaultApi, "GetSecretVersion") + "}" },
+        { "{\"Get\":" + Connector(KeyVaultApi, "getsecret") + "}" },
+        { "{\"Box\":{\"type\":\"Scope\",\"actions\":{\"If\":{\"type\":\"If\",\"actions\":{},\"else\":{\"actions\":{\"Get\":" + SecretRead() + "}}}}}}" },
+    };
+
+    [Theory]
+    [MemberData(nameof(UnsecuredSecretReads))]
+    public void PO042_fires_on_a_secret_read_without_secure_outputs(string actions)
+    {
+        var s = FlowOf(actions);
+
+        var f = Assert.Single(Run(new PO042SecretWithoutSecureData(), s));
+
+        Assert.Equal("Flow 'Flow' action 'Get' reads a secret without secure outputs, so the secret shows in the run history.", f.Message);
+        Assert.Equal(("PO042", Severity.Warning, s.Workflows[0].File, "Get"), (f.RuleId, f.Severity, f.File, f.Component));
+    }
+
+    public static TheoryData<string> UnsecuredSends() => new()
+    {
+        { "{\"Send\":" + Send(Basic) + "}" },
+        { "{\"Send\":" + Send(Basic, """["outputs"]""") + "}" },
+        { "{\"Send\":" + Send("\"@parameters('p')\"") + "}" },
+        { "{\"Send\":" + Send(Basic, type: "http") + "}" },
+        { "{\"Send\":{\"type\":\"HttpWebhook\",\"inputs\":{\"subscribe\":{\"method\":\"POST\",\"authentication\":" + Basic + "}}}}" },
+        { "{\"Send\":{\"type\":\"HttpWebhook\",\"inputs\":{\"subscribe\":{\"method\":\"POST\"},\"unsubscribe\":{\"method\":\"POST\",\"authentication\":" + Basic + "}}}}" },
+        // The accepted false-positive class: the credentials come from a secret read whose outputs are secured, and the sending action's inputs are not.
+        { "{\"Get\":" + SecretRead(properties: """["outputs"]""") + ",\"Send\":" + Send("{\"type\":\"Raw\",\"value\":\"@{outputs('Get')?['body/EnvironmentVariableSecretValue']}\"}") + "}" },
+    };
+
+    [Theory]
+    [MemberData(nameof(UnsecuredSends))]
+    public void PO042_fires_on_a_sending_action_with_an_authentication_block_and_no_secure_inputs(string actions)
+    {
+        var s = FlowOf(actions);
+
+        var f = Assert.Single(Run(new PO042SecretWithoutSecureData(), s));
+
+        Assert.Equal("Flow 'Flow' action 'Send' has an authentication block and its secure inputs are off.", f.Message);
+        Assert.Equal(("PO042", Severity.Warning, s.Workflows[0].File, "Send"), (f.RuleId, f.Severity, f.File, f.Component));
+    }
+
+    public static TheoryData<string> QuietActions() => new()
+    {
+        { "{\"Get\":" + SecretRead(properties: """["outputs"]""") + "}" },
+        { "{\"Get\":" + SecretRead(properties: """["Outputs"]""") + "}" },
+        { "{\"Get\":" + SecretRead(properties: """["inputs","outputs"]""") + "}" },
+        { "{\"Get\":" + Connector(KeyVaultApi, "GetSecret", properties: """["outputs"]""") + "}" },
+        { "{\"Get\":" + Connector(KeyVaultApi, "GetSecretVersion", properties: """["outputs"]""") + "}" },
+        { "{\"Send\":" + Send(Basic, """["inputs"]""") + "}" },
+        { "{\"Send\":{\"type\":\"HttpWebhook\",\"inputs\":{\"subscribe\":{\"authentication\":" + Basic + "}}" + Secure("""["inputs"]""") + "}}" },
+        { "{\"Send\":" + Send(null) + "}" },
+        { "{\"Send\":" + Send(Basic, type: "Compose") + "}" },
+        { "{\"Send\":" + Connector(DataverseApi, "ListRecords") .Replace("\"inputs\":{", "\"inputs\":{\"authentication\":\"@parameters('$authentication')\",", StringComparison.Ordinal) + "}" },
+        // The Raw object form that 49 alm-makers connector actions hold: the type gate keeps it quiet.
+        { "{\"Send\":" + Connector(DataverseApi, "ListRecords").Replace("\"inputs\":{", "\"inputs\":{\"authentication\":{\"type\":\"Raw\",\"value\":\"@json(parameters('$authentication'))\"},", StringComparison.Ordinal) + "}" },
+        { "{\"Get\":" + SecretRead(actionName: "\"SomethingElse\"") + "}" },
+        { "{\"Get\":" + SecretRead(actionName: "\"@parameters('n')\"") + "}" },
+        { "{\"Get\":" + Connector(KeyVaultApi, "ListSecrets") + "}" },
+        { "{\"Get\":" + Connector(KeyVaultApi, "GetSecretMetadata") + "}" },
+        { "{\"Get\":" + Connector("/providers/Microsoft.PowerApps/apis/shared_other", "GetSecret") + "}" },
+    };
+
+    [Theory]
+    [MemberData(nameof(QuietActions))]
+    public void PO042_quiet_on_secured_actions_and_on_everything_it_does_not_read(string actions) =>
+        Assert.Empty(Po042(actions));
+
+    [Fact]
+    public void PO042_gives_one_finding_per_action_and_none_for_a_trigger()
+    {
+        var s = B.Empty() with
+        {
+            Workflows = [B.Flow() with { ClientData = "{\"properties\":{\"definition\":{\"triggers\":{\"On\":" + Send(Basic) + "},\"actions\":{\"Get\":" + SecretRead() + ",\"Send\":" + Send(Basic) + "}}}}" }],
+        };
+
+        Assert.Equal(["Get", "Send"], Run(new PO042SecretWithoutSecureData(), s).Select(f => f.Component));
+    }
+
+    [Fact]
+    public void PO042_is_a_registered_warning_with_a_fix_sentence()
+    {
+        var rule = new PO042SecretWithoutSecureData();
+
+        Assert.Equal(("PO042", Severity.Warning, "Flow reads or sends a secret without secure inputs or outputs"), (rule.Id, rule.Severity, rule.Title));
+        Assert.Equal("Turn on secure outputs on every action that reads a secret, and secure inputs on every action that sends one.", rule.Fix);
+    }
+
+    [Fact]
+    public void PO041_and_PO042_name_variables_flows_and_actions_never_values()
+    {
+        const string Url = "https://api.contoso.com/orders";
+        const string Id = "12345678-aaaa-bbbb-cccc-1234567890ab";
+        const string Address = "pat@contoso.com";
+        var variable = B.Env("demo_ApiToken", def: "tok-" + Id, cur: "cur-" + Address);
+        var send = "{\"type\":\"Http\",\"inputs\":{\"method\":\"POST\",\"uri\":\"" + Url + "\",\"headers\":{\"x-id\":\"" + Id + "\",\"from\":\"" + Address + "\"},"
+            + "\"authentication\":{\"type\":\"Basic\",\"username\":\"" + Address + "\",\"password\":\"pw-" + Id + "\"}}}";
+        var s = FlowOf("{\"Get\":" + SecretRead() + ",\"Call_partner\":" + send + "}") with { EnvironmentVariables = [variable] };
+        var rules = new IRule[] { new PO041TextSecretVariable(), new PO042SecretWithoutSecureData() };
+
+        var texts = rules.SelectMany(r => r.Evaluate(s)).Select(f => f.Message + " " + f.Component).ToList();
+
+        Assert.Equal(3, texts.Count);
+        Assert.All(texts, t =>
+        {
+            Assert.DoesNotContain("contoso", t, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("http", t, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("@", t, StringComparison.Ordinal);
+            Assert.DoesNotContain("pw-", t, StringComparison.Ordinal);
+            Assert.DoesNotContain("tok-", t, StringComparison.Ordinal);
+            Assert.DoesNotMatch(@"[0-9a-f]{8}-[0-9a-f]{4}-", t);
+        });
+    }
 }
