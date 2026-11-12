@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml version="9.2.26094.166" SolutionPackageVersion="9.2" languagecode="1033" generatedBy="CrmLive" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" OrganizationVersion="9.2.26094.166" OrganizationSchemaType="Standard" CRMServerServiceabilityVersion="9.2.26094.00166">
+  <SolutionManifest>
+    <UniqueName>PowerOpsFlowLimits</UniqueName>
+    <LocalizedNames>
+      <LocalizedName description="PowerOps flow limits" languagecode="1033" />
+    </LocalizedNames>
+    <Descriptions />
+    <Version>1.0.0.0</Version>
+    <Managed>0</Managed>
+    <Publisher>
+      <UniqueName>demopub</UniqueName>
+      <LocalizedNames>
+        <LocalizedName description="PowerOps Fixtures" languagecode="1033" />
+      </LocalizedNames>
+      <Descriptions />
+      <EMailAddress xsi:nil="true"></EMailAddress>
+      <SupportingWebsiteUrl xsi:nil="true"></SupportingWebsiteUrl>
+      <CustomizationPrefix>demo</CustomizationPrefix>
+      <CustomizationOptionValuePrefix>41762</CustomizationOptionValuePrefix>
+    </Publisher>
+    <RootComponents>
+      <RootComponent type="29" id="{00000000-0000-0000-0000-000000000091}" behavior="0" />
+      <RootComponent type="29" id="{00000000-0000-0000-0000-000000000092}" behavior="0" />
+    </RootComponents>
+    <MissingDependencies />
+  </SolutionManifest>
+</ImportExportXml>

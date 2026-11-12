@@ -66,6 +66,11 @@ tests/fixtures/equipment-checkout: EquipmentCheckout 1.0.0.0 (publisher contoso,
   warning PO033 Roles/IT staff.xml: Role 'IT staff' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.
   warning PO034 Roles/Front desk.xml: Role 'Front desk' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs.
   warning PO034 Roles/IT staff.xml: Role 'IT staff' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs.
+tests/fixtures/flow-limits: PowerOpsFlowLimits 1.0.0.0 (publisher demopub, prefix demo)
+  warning PO037 Workflows/Quarterlycleanup-00000000-0000-0000-0000-000000000091.json: Flow 'Quarterly cleanup' has a failure handler 'Catch' that tells no one, so the run ends as succeeded.
+  warning PO038 Workflows/Quarterlycleanup-00000000-0000-0000-0000-000000000091.json: Flow 'Quarterly cleanup' action 'Get_status' returns its static result instead of running.
+  warning PO039 Workflows/Quarterlycleanup-00000000-0000-0000-0000-000000000091.json: Flow 'Quarterly cleanup' runs on a Recurrence with frequency Month and interval 3; a flow not triggered within 90 days may be turned off.
+  warning PO040 Workflows/Requestlongapproval-00000000-0000-0000-0000-000000000092.json: Flow 'Request long approval' approval 'Start_and_wait_for_an_approval' has a timeout of 60 days; a run lasts at most 30 days.
 tests/fixtures/flow-navigation: PowerOpsNavigation 1.0.0.0 (publisher demopub, prefix demo)
   warning PO035 Workflows/Reviewexpenses-00000000-0000-0000-0000-000000000061.json: Flow 'Review expenses' action 'Add_expense' names 'demo_costcentre' on 'demo_expenses', but the navigation property of table 'demo_Expense' is 'demo_CostCentre'; the Web API matches navigation property names by case.
   warning PO035 Workflows/Reviewexpenses-00000000-0000-0000-0000-000000000061.json: Flow 'Review expenses' action 'List_expenses' names 'demo_costcentre' on 'demo_expenses', but the navigation property of table 'demo_Expense' is 'demo_CostCentre'; the Web API matches navigation property names by case.
@@ -73,7 +78,7 @@ tests/fixtures/flowtests/capture/solution: PowerOpsCapture 1.0.0.0 (publisher po
   requires Active
   warning PO016 Workflows/PowerOpscapture-00000000-0000-0000-0000-000000000058.json: Flow 'PowerOps capture' has 120 actions and a nesting depth of 1.
 tests/fixtures/flowtests/skipped-body: PowerOpsSkippedBody 1.0.0.0 (publisher demopub, prefix demo)
-  no findings
+  warning PO037 Workflows/Skippedbody-00000000-0000-0000-0000-000000000071.json: Flow 'Skipped body' has a failure handler 'Pick_code' that tells no one, so the run ends as succeeded.
 tests/fixtures/powerops-seed-yaml/v1: PowerOpsSeed 1.0.0.0 (publisher powerops, prefix pops)
   no findings
 tests/fixtures/powerops-seed-yaml/v2: PowerOpsSeed 1.0.0.0 (publisher powerops, prefix pops)
@@ -97,4 +102,4 @@ tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip: Contoso_sample 1.0.0.1 (
   warning PO010 solution.xml: Publisher 'DefaultPublisherorg8a403877' (prefix 'new') is a default or generated publisher.
 tests/fixtures/zips/polymorphiclookupexamplesolution.zip: polymorphiclookupexamplesolution 1.0.0.0 (publisher examplepublisher, prefix sample)
   no findings
-20 solutions, 0 errors, 68 warnings
+21 solutions, 0 errors, 73 warnings

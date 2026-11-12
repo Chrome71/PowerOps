@@ -71,6 +71,28 @@ public class InputLimitsTests(ITestOutputHelper log)
         Assert.True(allocated < 200L * 1024 * 1024, $"allocated {allocated / (1024 * 1024)} MB");
     }
 
+    [Fact]
+    public void Flow_of_120_nested_scopes_over_80000_leaf_actions_allocates_under_100_MB()
+    {
+        var json = new StringBuilder("{\"properties\":{\"definition\":{\"actions\":{");
+        for (var i = 0; i < 120; i++)
+        {
+            json.Append("\"S").Append(i).Append("\":{\"type\":\"Scope\",\"actions\":{");
+        }
+
+        json.Append(string.Join(',', Enumerable.Range(0, 80_000).Select(i => $"\"L{i}\":{{\"type\":\"Compose\"}}")));
+        json.Append('}', 242).Append("}}");
+        var text = json.ToString();
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var flow = FlowDefinition.Parse(text);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        log.WriteLine($"M99 actions: {allocated / (1024 * 1024)} MB allocated");
+        Assert.Equal(80_120, flow.Actions.Count);
+        Assert.True(allocated < 100L * 1024 * 1024, $"allocated {allocated / (1024 * 1024)} MB");
+    }
+
     // R-2
 
     [Fact]

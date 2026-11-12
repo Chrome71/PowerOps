@@ -42,6 +42,10 @@ public static class Analyzer
         new PO034RoleWritesUnusedTable(),
         new PO035NavigationName(),
         new PO036CanvasRepeatedFormula(),
+        new PO037CatchTellsNoOne(),
+        new PO038StaticResultOn(),
+        new PO039RareTrigger(),
+        new PO040LongApproval(),
     }.OrderBy(r => r.Id, StringComparer.Ordinal).ToList();
 
     public static string HelpUri(string ruleId) => $"{Output.SarifReport.Repo}/blob/main/docs/rules/{ruleId}.md";

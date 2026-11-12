@@ -257,7 +257,7 @@
       "areas": [
         "automate"
       ],
-      "affects": "PO016, PO017; manual because the public mirror's main branch has not synced since 2026-04-28",
+      "affects": "PO016, PO017, PO039, PO040; manual because the public mirror's main branch has not synced since 2026-04-28",
       "everyDays": 30,
       "lastChecked": "2026-11-10"
     },

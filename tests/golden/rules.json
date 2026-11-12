@@ -252,6 +252,34 @@
       "title": "Canvas app repeats the same formula in three or more places",
       "fix": "Define the formula once as a named formula or user-defined function in App.Formulas, or in a component, and use that name in each place.",
       "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO036.md"
+    },
+    {
+      "id": "PO037",
+      "severity": "warning",
+      "title": "Flow catches a failure, tells no one and ends as succeeded",
+      "fix": "End the failure path with a Terminate action set to Failed, or send the failure to someone, so a failed run is noticed.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO037.md"
+    },
+    {
+      "id": "PO038",
+      "severity": "warning",
+      "title": "Flow action has its static result turned on",
+      "fix": "Turn off the action's static result before you export, so the action runs instead of returning test output.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO038.md"
+    },
+    {
+      "id": "PO039",
+      "severity": "warning",
+      "title": "Flow is scheduled about every 90 days or less often",
+      "fix": "Trigger the flow at least every 90 days, or give it an owner with a premium or Process licence, or the service may turn it off.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO039.md"
+    },
+    {
+      "id": "PO040",
+      "severity": "warning",
+      "title": "Approval can wait as long as a run can last",
+      "fix": "Set the approval's timeout under 30 days and handle its expiry, or create the approval in one flow and act on the response in a second.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO040.md"
     }
   ]
 }

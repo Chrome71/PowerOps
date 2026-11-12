@@ -453,6 +453,18 @@ public sealed class McpCommandTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Analyze_of_flow_limits_returns_PO037_to_PO040()
+    {
+        var result = await Call("analyze", new() { ["paths"] = new[] { Path.Combine(Fixtures, "flow-limits") } });
+
+        Assert.False(result.IsError);
+        using var doc = JsonDocument.Parse(Text(result));
+        var ids = doc.RootElement.GetProperty("solutions").EnumerateArray()
+            .SelectMany(s => s.GetProperty("findings").EnumerateArray()).Select(f => f.GetProperty("ruleId").GetString());
+        Assert.Equal(["PO037", "PO038", "PO039", "PO040"], ids.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
     public async Task Analyze_with_a_baseline_equals_the_cli_and_lists_fewer_findings()
     {
         var baseline = Path.Combine(_temp, "baseline.json");

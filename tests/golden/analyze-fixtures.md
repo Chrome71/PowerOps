@@ -1,6 +1,6 @@
 ## PowerOps analyze
 
-**20 solutions, 0 errors, 68 warnings**
+**21 solutions, 0 errors, 73 warnings**
 
 ### tests/fixtures/agents/dataverse-tools: PowerOpsAgentTools 1.0.0.0
 
@@ -118,6 +118,15 @@ No findings.
 | warning | [PO034](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO034.md) | Roles/Front desk.xml | Role 'Front desk' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs. | Check whether the role's users need to create or write that table, and remove those privileges from the role if they don't. |
 | warning | [PO034](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO034.md) | Roles/IT staff.xml | Role 'IT staff' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs. | Check whether the role's users need to create or write that table, and remove those privileges from the role if they don't. |
 
+### tests/fixtures/flow-limits: PowerOpsFlowLimits 1.0.0.0
+
+| Severity | Rule | File | Message | Fix |
+|---|---|---|---|---|
+| warning | [PO037](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO037.md) | Workflows/Quarterlycleanup-00000000-0000-0000-0000-000000000091.json | Flow 'Quarterly cleanup' has a failure handler 'Catch' that tells no one, so the run ends as succeeded. | End the failure path with a Terminate action set to Failed, or send the failure to someone, so a failed run is noticed. |
+| warning | [PO038](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO038.md) | Workflows/Quarterlycleanup-00000000-0000-0000-0000-000000000091.json | Flow 'Quarterly cleanup' action 'Get\_status' returns its static result instead of running. | Turn off the action's static result before you export, so the action runs instead of returning test output. |
+| warning | [PO039](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO039.md) | Workflows/Quarterlycleanup-00000000-0000-0000-0000-000000000091.json | Flow 'Quarterly cleanup' runs on a Recurrence with frequency Month and interval 3; a flow not triggered within 90 days may be turned off. | Trigger the flow at least every 90 days, or give it an owner with a premium or Process licence, or the service may turn it off. |
+| warning | [PO040](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO040.md) | Workflows/Requestlongapproval-00000000-0000-0000-0000-000000000092.json | Flow 'Request long approval' approval 'Start\_and\_wait\_for\_an\_approval' has a timeout of 60 days; a run lasts at most 30 days. | Set the approval's timeout under 30 days and handle its expiry, or create the approval in one flow and act on the response in a second. |
+
 ### tests/fixtures/flow-navigation: PowerOpsNavigation 1.0.0.0
 
 | Severity | Rule | File | Message | Fix |
@@ -133,7 +142,9 @@ No findings.
 
 ### tests/fixtures/flowtests/skipped-body: PowerOpsSkippedBody 1.0.0.0
 
-No findings.
+| Severity | Rule | File | Message | Fix |
+|---|---|---|---|---|
+| warning | [PO037](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO037.md) | Workflows/Skippedbody-00000000-0000-0000-0000-000000000071.json | Flow 'Skipped body' has a failure handler 'Pick\_code' that tells no one, so the run ends as succeeded. | End the failure path with a Terminate action set to Failed, or send the failure to someone, so a failed run is noticed. |
 
 ### tests/fixtures/powerops-seed-yaml/v1: PowerOpsSeed 1.0.0.0
 

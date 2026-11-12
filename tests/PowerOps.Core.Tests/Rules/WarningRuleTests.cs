@@ -2436,4 +2436,276 @@ public class WarningRuleTests
         Assert.Equal("Canvas app repeats the same formula in three or more places", rule.Title);
         Assert.Equal("Define the formula once as a named formula or user-defined function in App.Formulas, or in a component, and use that name in each place.", rule.Fix);
     }
+
+    // M99: PO037 to PO040 read FlowDefinition.Actions and the trigger's recurrence.
+
+    private static Solution FlowOf(string actions, string triggers = "{}") =>
+        B.Empty() with { Workflows = [B.Flow() with { ClientData = "{\"properties\":{\"definition\":{\"triggers\":" + triggers + ",\"actions\":" + actions + "}}}" }] };
+
+    private const string MailHost = """{"host":{"apiId":"/providers/Microsoft.PowerApps/apis/shared_office365","operationId":"SendEmailV2"}}""";
+
+    private static string Mail(string runAfter = "{}") => """{"type":"OpenApiConnection","runAfter":""" + runAfter + ""","inputs":""" + MailHost + "}";
+
+    private static string Outward(string type) => "{\"type\":\"" + type + "\",\"inputs\":" + MailHost + "}";
+
+    private const string Try = "\"Try\":" + """{"type":"Scope","actions":{"Get":{"type":"Http","inputs":{"method":"GET"}}}}""";
+
+    private static string Catch(string inner = "\"Set\":" + """{"type":"SetVariable"}""", string statuses = """["Failed","TimedOut"]""") =>
+        "\"Catch\":" + """{"type":"Scope","runAfter":{"Try":""" + statuses + """},"actions":{""" + inner + "}}";
+
+    private static IReadOnlyList<Finding> Po037(string actions) => Run(new PO037CatchTellsNoOne(), FlowOf(actions));
+
+    [Fact]
+    public void PO037_fires_on_a_catch_that_only_sets_a_variable()
+    {
+        var s = FlowOf("{" + Try + "," + Catch() + "}");
+
+        var f = Assert.Single(Run(new PO037CatchTellsNoOne(), s));
+
+        Assert.Equal("Flow 'Flow' has a failure handler 'Catch' that tells no one, so the run ends as succeeded.", f.Message);
+        Assert.Equal(("PO037", Severity.Warning, "Flow", s.Workflows[0].File), (f.RuleId, f.Severity, f.Component, f.File));
+    }
+
+    [Fact]
+    public void PO037_fires_on_a_handler_on_timed_out_only() =>
+        Assert.Single(Po037("{" + Try + "," + Catch(statuses: """["timedOut"]""") + "}"));
+
+    [Fact]
+    public void PO037_fires_when_a_terminate_ends_the_run_as_succeeded() =>
+        Assert.Single(Po037("{" + Try + "," + Catch("\"Stop\":" + """{"type":"Terminate","inputs":{"runStatus":"Succeeded"}}""") + "}"));
+
+    [Fact]
+    public void PO037_fires_when_the_only_mail_is_on_the_success_path() =>
+        Assert.Single(Po037("{" + Try + "," + Catch() + ",\"Mail\":" + Mail("""{"Try":["Succeeded"]}""") + "}"));
+
+    [Fact]
+    public void PO037_reads_repeated_names_by_position_not_by_name()
+    {
+        // A mail named Notify inside the catch, a Compose named Notify elsewhere.
+        Assert.Empty(Po037("{" + Try + "," + Catch("\"Notify\":" + Mail()) + ""","Later":{"type":"Scope","actions":{"Notify":{"type":"Compose"}}}}"""));
+
+        // The same names swapped: the mail is on the success path, the Compose in the catch.
+        var tryWithMail = "\"Try\":" + """{"type":"Scope","actions":{"Notify":""" + Mail() + "}}";
+        Assert.Single(Po037("{" + tryWithMail + "," + Catch("\"Notify\":" + """{"type":"Compose"}""") + "}"));
+    }
+
+    [Theory]
+    [InlineData("""{"Try":["Succeeded"]}""")]
+    [InlineData("""{"Catch":["Succeeded"]}""")]
+    public void PO037_quiet_when_a_terminate_fails_the_run_anywhere(string runAfter) =>
+        Assert.Empty(Po037("{" + Try + "," + Catch() + ""","Stop":{"type":"Terminate","runAfter":""" + runAfter + ""","inputs":{"runStatus":"failed"}}}"""));
+
+    [Fact]
+    public void PO037_quiet_when_a_terminate_cancels_the_run() =>
+        Assert.Empty(Po037("{" + Try + "," + Catch("\"Stop\":" + """{"type":"Terminate","inputs":{"runStatus":"Cancelled"}}""") + "}"));
+
+    [Fact]
+    public void PO037_quiet_when_a_response_is_anywhere() =>
+        Assert.Empty(Po037("{" + Try + "," + Catch() + ""","Reply":{"type":"Response","runAfter":{"Try":["Succeeded"]},"inputs":{"statusCode":200}}}"""));
+
+    public static TheoryData<string, string> NestedOutward()
+    {
+        var data = new TheoryData<string, string>();
+        foreach (var type in new[] { "OpenApiConnection", "Http", "Workflow", "ApiConnection" })
+        {
+            data.Add(type, "\"Inner\":" + """{"type":"Scope","actions":{"Send":{0}}}""");
+            data.Add(type, "\"Inner\":" + """{"type":"Scope","actions":{"If":{"type":"If","actions":{},"else":{"actions":{"Send":{0}}}}}}""");
+            data.Add(type, "\"Pick\":" + """{"type":"Switch","cases":{"One":{"actions":{"Send":{0}}}}}""");
+            data.Add(type, "\"Pick\":" + """{"type":"Switch","cases":{},"default":{"actions":{"Send":{0}}}}""");
+        }
+
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(NestedOutward))]
+    public void PO037_quiet_when_the_catch_sends_from_deep_inside(string type, string inner) =>
+        Assert.Empty(Po037("{" + Try + "," + Catch(inner.Replace("{0}", Outward(type), StringComparison.Ordinal)) + "}"));
+
+    [Fact]
+    public void PO037_quiet_when_a_mail_runs_after_the_catch_on_succeeded() =>
+        Assert.Empty(Po037("{" + Try + "," + Catch() + ",\"Mail\":" + Mail("""{"Catch":["Succeeded"]}""") + "}"));
+
+    [Fact]
+    public void PO037_quiet_without_a_handler() =>
+        Assert.Empty(Po037("{" + Try + ",\"Mail\":" + Mail("""{"Try":["Succeeded","Skipped"]}""") + "}"));
+
+    [Fact]
+    public void PO037_follows_a_chain_of_50000_actions_listed_in_reverse_in_linear_time()
+    {
+        var actions = new List<string> { "\"A50000\":" + Mail("""{"A49999":["Succeeded"]}""") };
+        for (var i = 49_999; i >= 1; i--)
+        {
+            var previous = i == 1 ? "Handler" : $"A{i - 1}";
+            actions.Add($"\"A{i}\":" + "{\"type\":\"Compose\",\"runAfter\":{\"" + previous + "\":[\"Succeeded\"]}}");
+        }
+
+        actions.Add("\"Handler\":" + """{"type":"SetVariable","runAfter":{"Try":["Failed"]}}""");
+        actions.Add(Try);
+        var s = FlowOf("{" + string.Join(",", actions) + "}");
+
+        var sw = Stopwatch.StartNew();
+        var findings = Run(new PO037CatchTellsNoOne(), s);
+
+        Assert.Empty(findings);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(5), $"took {sw.Elapsed}");
+    }
+
+    private static string StaticResult(string options) => """{"type":"Http","inputs":{"method":"GET"},"runtimeConfiguration":{"staticResult":{"name":"Get0","staticResultOptions":""" + $"\"{options}\"}}}}}}";
+
+    [Fact]
+    public void PO038_fires_on_an_enabled_static_result_also_inside_a_switch_case()
+    {
+        var s = FlowOf("{\"Get\":" + StaticResult("Enabled") + ""","Pick":{"type":"Switch","cases":{"One":{"actions":{"Deep":""" + StaticResult("Enabled") + "}}}}}");
+
+        var found = Run(new PO038StaticResultOn(), s);
+
+        Assert.Equal(["Get", "Deep"], found.Select(f => f.Component));
+        Assert.Equal("Flow 'Flow' action 'Get' returns its static result instead of running.", found[0].Message);
+        Assert.All(found, f => Assert.Equal(("PO038", Severity.Warning, s.Workflows[0].File), (f.RuleId, f.Severity, f.File)));
+    }
+
+    [Fact]
+    public void PO038_quiet_on_a_disabled_or_absent_static_result() =>
+        Assert.Empty(Run(new PO038StaticResultOn(), FlowOf("{\"Off\":" + StaticResult("Disabled") + ""","None":{"type":"Http"}}""")));
+
+    private static IReadOnlyList<Finding> Po039(string trigger) => Run(new PO039RareTrigger(), FlowOf("{}", "{\"Every\":" + trigger + "}"));
+
+    private static string Recurrence(string frequency, string interval) => """{"type":"Recurrence","recurrence":{"frequency":""" + $"\"{frequency}\",\"interval\":{interval}}}}}";
+
+    [Theory]
+    [InlineData("Day", "90", "90")]
+    [InlineData("Week", "13", "13")]
+    [InlineData("Month", "3", "3")]
+    [InlineData("Hour", "2160", "2160")]
+    [InlineData("Minute", "129600", "129600")]
+    [InlineData("Second", "7776000", "7776000")]
+    [InlineData("day", "\"90\"", "90")]
+    public void PO039_fires_on_a_schedule_of_90_days_or_rarer(string frequency, string interval, string shown)
+    {
+        var f = Assert.Single(Po039(Recurrence(frequency, interval)));
+
+        Assert.Equal($"Flow 'Flow' runs on a Recurrence with frequency {frequency} and interval {shown}; a flow not triggered within 90 days may be turned off.", f.Message);
+        Assert.Equal(("PO039", Severity.Warning, "Every"), (f.RuleId, f.Severity, f.Component));
+    }
+
+    [Theory]
+    [InlineData("Day", "89")]
+    [InlineData("Week", "12")]
+    [InlineData("Month", "2")]
+    [InlineData("Day", "\"@parameters('Days')\"")]
+    [InlineData("Day", "0")]
+    [InlineData("Day", "-100")]
+    [InlineData("Year", "1")]
+    public void PO039_quiet_below_the_threshold_or_without_a_literal_interval(string frequency, string interval) =>
+        Assert.Empty(Po039(Recurrence(frequency, interval)));
+
+    [Fact]
+    public void PO039_quiet_on_a_missing_interval_and_on_a_recurrence_under_another_trigger_type()
+    {
+        Assert.Empty(Po039("""{"type":"Recurrence","recurrence":{"frequency":"Day"}}"""));
+        Assert.Empty(Po039("""{"type":"OpenApiConnection","recurrence":{"frequency":"Day","interval":120}}"""));
+    }
+
+    private static string Approval(string? timeout, string operation = "StartAndWaitForAnApproval", string api = "/providers/Microsoft.PowerApps/apis/shared_approvals", string inputs = "") =>
+        """{"type":"OpenApiConnectionWebhook","inputs":{"host":{"apiId":""" + $"\"{api}\",\"operationId\":\"{operation}\"}}{inputs}}}"
+        + (timeout is null ? "" : $",\"limit\":{{\"timeout\":\"{timeout}\"}}") + "}";
+
+    private static (IReadOnlyList<Finding> Findings, IReadOnlyList<string> Notes) Po040(string action)
+    {
+        var s = FlowOf("{\"Approve\":" + action + "}");
+        var rule = new PO040LongApproval();
+        return (Run(rule, s), rule.NotChecked(s).ToList());
+    }
+
+    [Theory]
+    [InlineData("P30D", 30)]
+    [InlineData("PT720H", 30)]
+    [InlineData("P60D", 60)]
+    [InlineData("P1M", 30)]
+    [InlineData("P1Y", 365)]
+    public void PO040_fires_on_a_timeout_of_30_days_or_more(string timeout, int days)
+    {
+        var (findings, notes) = Po040(Approval(timeout));
+
+        var f = Assert.Single(findings);
+        Assert.Equal($"Flow 'Flow' approval 'Approve' has a timeout of {days} days; a run lasts at most 30 days.", f.Message);
+        Assert.Equal(("PO040", Severity.Warning, "Approve"), (f.RuleId, f.Severity, f.Component));
+        Assert.Empty(notes);
+    }
+
+    [Theory]
+    [InlineData("WaitForAnApproval", "/providers/Microsoft.PowerApps/apis/shared_approvals")]
+    [InlineData("startandwaitforanapproval", "/providers/Microsoft.PowerApps/apis/Shared_Approvals")]
+    [InlineData("StartAndWaitForATextSuggestionApproval", "/providers/Microsoft.PowerApps/apis/shared_approvals")]
+    [InlineData("approvalSubscribe", "/providers/Microsoft.PowerApps/apis/shared_approvals")]
+    [InlineData("approvalSubscribeV2", "/providers/Microsoft.PowerApps/apis/shared_approvals")]
+    public void PO040_fires_on_every_wait_operation_ignoring_case(string operation, string api) =>
+        Assert.Single(Po040(Approval("P30D", operation, api)).Findings);
+
+    [Theory]
+    [InlineData("P29D")]
+    [InlineData("-P60D")]
+    [InlineData(null)]
+    public void PO040_quiet_on_a_shorter_negative_or_missing_timeout(string? timeout)
+    {
+        var (findings, notes) = Po040(Approval(timeout));
+
+        Assert.Empty(findings);
+        Assert.Empty(notes);
+    }
+
+    [Fact]
+    public void PO040_quiet_on_an_until_and_on_an_approval_that_does_not_wait()
+    {
+        Assert.Equal((0, 0), Count(Po040("""{"type":"Until","limit":{"timeout":"P60D"}}""")));
+        Assert.Equal((0, 0), Count(Po040("""{"type":"Until","limit":{"timeout":"PT1H"}}""")));
+        Assert.Equal((0, 0), Count(Po040(Approval("P60D", "CreateAnApproval"))));
+
+        static (int, int) Count((IReadOnlyList<Finding> F, IReadOnlyList<string> N) r) => (r.F.Count, r.N.Count);
+    }
+
+    [Theory]
+    [InlineData("bad")]
+    [InlineData("@parameters('x')")]
+    [InlineData("P5W")]
+    [InlineData("p30d")]
+    [InlineData("P99999999D")]
+    public void PO040_notes_a_timeout_it_cannot_read_as_a_duration(string timeout)
+    {
+        var (findings, notes) = Po040(Approval(timeout));
+
+        Assert.Empty(findings);
+        Assert.Equal(["PO040 not checked for flow 'Flow': approval 'Approve' has a timeout this rule can't read as a duration."], notes);
+    }
+
+    [Fact]
+    public void PO037_to_PO040_name_flows_actions_and_triggers_never_values()
+    {
+        const string Address = "pat@contoso.com";
+        const string Url = "https://api.contoso.com/orders";
+        const string Id = "12345678-aaaa-bbbb-cccc-1234567890ab";
+        var values = $",\"parameters\":{{\"assignedTo\":\"{Address}\",\"uri\":\"{Url}\",\"item\":\"{Id}\"}}";
+        var actions = "{"
+            + "\"Try\":" + """{"type":"Scope","actions":{"Get":{"type":"Http","inputs":{"uri":""" + $"\"{Url}\",\"headers\":{{\"x-id\":\"{Id}\",\"from\":\"{Address}\"}}}},"
+            + "\"runtimeConfiguration\":" + """{"staticResult":{"name":"Get0","staticResultOptions":"Enabled"}}}}}"""
+            + ""","Catch":{"type":"Scope","runAfter":{"Try":["Failed"]},"actions":{"Set":{"type":"SetVariable","inputs":{"name":"v","value":""" + $"\"{Address} {Url} {Id}\"}}}}}}}}"
+            + ",\"Approve\":" + Approval("P60D", inputs: values)
+            + ",\"Approve_later\":" + Approval($"@{{concat('{Url}','{Id}','{Address}')}}", inputs: values)
+            + "}";
+        var s = FlowOf(actions, "{\"Every\":" + Recurrence("Month", "3") + "}");
+        var rules = new IRule[] { new PO037CatchTellsNoOne(), new PO038StaticResultOn(), new PO039RareTrigger(), new PO040LongApproval() };
+
+        var texts = rules.SelectMany(r => r.Evaluate(s)).Select(f => f.Message + " " + f.Component)
+            .Concat(rules.OfType<INotChecked>().SelectMany(r => r.NotChecked(s))).ToList();
+
+        Assert.Equal(5, texts.Count);
+        Assert.All(texts, t =>
+        {
+            Assert.DoesNotContain("contoso", t, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("http", t, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("@", t, StringComparison.Ordinal);
+            Assert.DoesNotMatch(@"[0-9a-f]{8}-[0-9a-f]{4}-", t);
+        });
+    }
 }
