@@ -146,7 +146,8 @@ public partial class HandoffDocTests
 
         Assert.Equal(skills.Keys, rows.Keys);
         Assert.All(skills, s => Assert.Contains(s.Value, rows[s.Key]));
-        Assert.Contains("needs a yes", rows["Power BI"]);
+        // M94: a Power BI write a Step names is covered by the sign-off; it no longer needs a yes each time.
+        Assert.Contains("a Step names", rows["Power BI"]);
         Assert.Contains("(step 11)", rows["Copilot Studio agent"]);
 
         // M69: Microsoft's successor plugin, and the deployment pipelines limit on PBIR.

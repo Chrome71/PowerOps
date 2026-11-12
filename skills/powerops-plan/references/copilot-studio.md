@@ -16,7 +16,7 @@ Read this when a plan names a Copilot Studio agent. Write the answers in `Users`
 - **Tools.** One line per tool with its Goal line: connector, flow, MCP server, prompt or connected agent. Keep each agent to 25 to 30 tools, and move groups to child agents beyond that; PO031 still counts a child agent's tools with the agent's. An MCP server's tools change with the server, so name the server and who owns it.
 - **Instructions.** Who writes them, in at most 8,000 characters.
 - **Knowledge.** One line per source with its Goal line.
-- **The route to Test.** The agent goes in the plan's solution. `pac copilot pack` makes a solution from a `.mcs.yml` workspace locally, and `analyze` reads that solution, not the workspace. `pac copilot init` with `--environment`, or with an auth profile active (its help says the flag then defaults to the profile's environment), `push` and `publish`, and Apply in VS Code, write to the environment: Dev only, each with the user's yes. For a local scaffold, run `init` with no auth profile.
+- **The route to Test.** The agent goes in the plan's solution. `pac copilot pack` makes a solution from a `.mcs.yml` workspace locally, and `analyze` reads that solution, not the workspace. `pac copilot init` with `--environment`, or with an auth profile active (its help says the flag then defaults to the profile's environment), `push` and `publish`, and Apply in VS Code, write to the environment: Dev only, covered when a Step names them. For a local scaffold, run `init` with no auth profile.
 
 ## 3. MCP apps
 

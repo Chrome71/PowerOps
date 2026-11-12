@@ -15,7 +15,7 @@ Read this when a plan names a Power BI semantic model, report or dashboard. Powe
 - **Licence fit.** Pro gives a 1 GB model, 8 scheduled refreshes a day, no XMLA write and no deployment pipelines. More needs Premium Per User or Fabric capacity: put that under Constraints.
 - **Security.** Name the route: workspace roles, or row-level security with its roles.
 - **Files and route.** The model and report are a Power BI project (PBIP) in Git, with one named deploy route: fabric-cicd, Git integration or deployment pipelines. Deployment pipelines don't support PBIR reports, and PBIR is the default report format, so a PBIR report goes by fabric-cicd or Git integration; Git integration marks reports and semantic models as preview. Deployment pipelines also don't support a DirectQuery or composite model that uses auto date/time or variation tables.
-- **Sensitivity labels** aren't supported in a PBIP: a plan that needs one sets it in the service after the deploy, a write that needs a yes.
+- **Sensitivity labels** aren't supported in a PBIP: a plan that needs one sets it in the service after the deploy, a write a Step names.
 - **The solution** holds only an embedded dashboard and its environment variable, when a model-driven app shows the report.
 
 ## 2. Design

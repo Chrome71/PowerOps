@@ -751,7 +751,8 @@ Agents: run `deploy apply` without `--apply` freely against an environment the u
 The yes to an import is held in two places an agent can't answer for: the form of the MCP tool `deploy_apply` with `apply: true`, where the user types the environment's name (interactive clients only), and the Action's apply job in a GitHub environment with required reviewers ([the Action](GITHUB-ACTION.md)).
 Call the tool with `apply: true` only after the user said yes to that environment in the session.
 A local `deploy apply --apply` passes no form, and the yes before it is held nowhere and enforced by nothing: an agent runs it only with `--require-reviews`, after the user said yes to that environment in the session.
-A declined, cancelled or failed form ends an earlier yes: the agent says so and asks again, and never imports if the user says they declined.
+That yes is one per deployment: one saved plan file to one target, covering its import, `settings apply --apply` to that target and the plan's named steps there. It ends once they are done.
+A declined, cancelled or failed form ends an earlier yes, and so do a refusal, a re-planned or changed plan file, a changed plan hash (the `signed-off-hash` of the PowerOps plan behind the build) and a blocked report: the agent says so and asks again, and never imports if the user says they declined.
 Without both review reports the import stays the person's own command.
 The gate's message to a blocked agent names the same routes, and the tool's refusal of a declined, cancelled or failed form tells the agent to ask again.
 
@@ -900,6 +901,7 @@ A report that is a link, binary or over 1 MB keeps the warning it had and shows 
 `plan status` also lists the plan's write journal, `writes.md`, where `powerops-implement` adds a table row for each tenant write it attempts.
 In the JSON, `writes` is null when the folder has none, and otherwise holds `entries`, the table's rows without header and separator lines, and `openCleanup`, the rows whose last cell is neither `none` nor starts with `done`; both are null when the file was not read.
 The text output prints `writes writes.md: <n> entries, <n> open cleanups`, or `not read`.
+In a table whose header row has an `Authority` cell, each row whose Authority cell is empty, only backticks or missing (a short row) adds the warning `write '<first cell>' has no Authority (<file>:<line>)`; a table without that cell is not checked, and the warning doesn't change the exit code.
 
 It warns on each item under `## Log` in `decisions.md` that is marked `answered by: agent` and names a sign-off (`sign-off answered by an agent`) or an acceptance (`acceptance answered by an agent`), with its file and line.
 The agent writes the marker itself, so the warning catches honest marking only.
