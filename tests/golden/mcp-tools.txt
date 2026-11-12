@@ -101,6 +101,33 @@
     }
   },
   {
+    "name": "inventory",
+    "description": "List what solution folders or exported zips connect to and what makes them premium, offline: connectors and who uses them, custom connectors, HTTP actions with their endpoint kind, request triggers, child flows, licence drivers from a closed set with Learn sources, and every other connector as tier not classified. Read-only; returns the JSON of \u0060powerops inventory --format json\u0060 (docs/schemas/inventory.schema.json). Hosts are never shown, and GUIDs, addresses and URLs in names are replaced.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "Absolute paths of solution folders or exported zips; folders are searched recursively."
+        }
+      },
+      "required": [
+        "paths"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    }
+  },
+  {
     "name": "test",
     "description": "Run the offline flow tests (*.flowtest.json) against the cloud flows of the solutions under a path, with mocked connector actions. Read-only; returns the JSON of \u0060powerops test --format json\u0060 (docs/schemas/test.schema.json).",
     "inputSchema": {

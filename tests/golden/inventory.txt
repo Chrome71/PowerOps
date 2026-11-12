@@ -1,0 +1,478 @@
+tests/fixtures/agents/dataverse-tools (PowerOpsAgentTools)
+  licenceDrivers (0):
+    none
+  notClassified (1):
+    shared_commondataserviceforapps: tier not classified: check the connector's reference page
+  connectors (1):
+    shared_commondataserviceforapps: references demo_Helper.shared_commondataserviceforapps.shared-commondataser-0000001; users none
+  customConnectors (0):
+    none
+  httpActions (0):
+    none
+  requestTriggers (0):
+    none
+  childFlows (0):
+    none
+  notRead (0):
+    none
+tests/fixtures/agents/new-ui/v1-no-learn-tool.zip (PowerOpsLiveAgent)
+  licenceDrivers (0):
+    none
+  notClassified (2):
+    shared_microsoftlearndocsmcpserver: tier not classified: check the connector's reference page
+    shared_workiqmcp: tier not classified: check the connector's reference page
+  connectors (2):
+    shared_microsoftlearndocsmcpserver: references cr123_loanhelper_abc123.cr.shared_microsoftlearndocsmcpserver.[id]; users none
+    shared_workiqmcp: references cr123_draft_def456.cr.shared_workiqmcp.shared-workiqmcp-[id]; users agentTool 'cr123_draft_def456.tool.WorkIQMCPServer_mVi'
+  customConnectors (0):
+    none
+  httpActions (0):
+    none
+  requestTriggers (0):
+    none
+  childFlows (0):
+    none
+  notRead (0):
+    none
+tests/fixtures/agents/new-ui/v1.zip (PowerOpsLiveAgent)
+  licenceDrivers (0):
+    none
+  notClassified (2):
+    shared_microsoftlearndocsmcpserver: tier not classified: check the connector's reference page
+    shared_workiqmcp: tier not classified: check the connector's reference page
+  connectors (2):
+    shared_microsoftlearndocsmcpserver: references cr123_loanhelper_abc123.cr.shared_microsoftlearndocsmcpserver.[id]; users agentTool 'cr123_loanhelper_abc123.tool.MicrosoftLearnDocsMCP-MicrosoftLearnDocsMCPServer_Liw'
+    shared_workiqmcp: references cr123_draft_def456.cr.shared_workiqmcp.shared-workiqmcp-[id]; users agentTool 'cr123_draft_def456.tool.WorkIQMCPServer_mVi'
+  customConnectors (0):
+    none
+  httpActions (0):
+    none
+  requestTriggers (0):
+    none
+  childFlows (0):
+    none
+  notRead (0):
+    none
+tests/fixtures/agents/new-ui/v2.zip (PowerOpsLiveAgent)
+  licenceDrivers (0):
+    none
+  notClassified (2):
+    shared_microsoftlearndocsmcpserver: tier not classified: check the connector's reference page
+    shared_workiqmcp: tier not classified: check the connector's reference page
+  connectors (2):
+    shared_microsoftlearndocsmcpserver: references cr123_loanhelper_abc123.cr.shared_microsoftlearndocsmcpserver.[id]; users agentTool 'cr123_loanhelper_abc123.tool.MicrosoftLearnDocsMCP-MicrosoftLearnDocsMCPServer_Liw'
+    shared_workiqmcp: references cr123_draft_def456.cr.shared_workiqmcp.shared-workiqmcp-[id]; users agentTool 'cr123_draft_def456.tool.WorkIQMCPServer_mVi'
+  customConnectors (0):
+    none
+  httpActions (0):
+    none
+  requestTriggers (0):
+    none
+  childFlows (0):
+    none
+  notRead (0):
+    none
+tests/fixtures/alm-makers (ALMAcceleratorforMakers)
+  licenceDrivers (1):
+    http-action: A flow with a premium connector, such as HTTP, needs Power Automate Premium for its users or a Process licence for the flow. where: flow 'AssignRole' action 'HTTP'; flow 'AssignRole' action 'GetRoleId'; flow 'AssignRole' action 'GetUserId'; flow 'AssignRole' action 'Get_Token'; flow 'CreateSolution' action 'Create_Solution'; flow 'CreateSolution' action 'Get_Solution_'; flow 'CreateSolution' action 'Get_Token'; flow 'GetAppsAndFlows' action 'Get_Apps'; flow 'GetAppsAndFlows' action 'Get_Token'; flow 'GetSolution' action 'Get_Solution_'; flow 'GetSolution' action 'Get_Token' sources: https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation https://learn.microsoft.com/training/modules/http-connectors/2-webhook https://learn.microsoft.com/power-platform/admin/power-automate-licensing/types
+  notClassified (7):
+    shared_approvals: tier not classified: check the connector's reference page
+    shared_commondataserviceforapps: tier not classified: check the connector's reference page
+    shared_conversionservice: tier not classified: check the connector's reference page
+    shared_github: tier not classified: check the connector's reference page
+    shared_office365: tier not classified: check the connector's reference page
+    shared_powerappsforappmakers: tier not classified: check the connector's reference page
+    shared_powerplatformforadmins: tier not classified: check the connector's reference page
+  connectors (7):
+    shared_approvals: references cat_ApprovalConnection; users flow 'CreateProject', flow 'DeployToProd'
+    shared_commondataserviceforapps: references cat_CDSConnection, new_sharedcommondataserviceforapps_06411; users flow 'AssignRole', flow 'BuildRequestCancellation', flow 'CreateEnvironment', flow 'CreateProject', flow 'DeleteProjectCleanUp', flow 'DeployToProd', flow 'DeployToStage', flow 'FetchLocalizedText', flow 'GetAppsAndFlows', flow 'LogTelemetry', flow 'ReadEnvironmentVariable', flow 'SetUpDevEvnironment', flow 'WorkflowCompleteNotification'
+    shared_conversionservice: references cat_ContentConversionConnection; users flow 'DeployToStage'
+    shared_github: references cat_GitHub; users flow 'CreateRepo', flow 'DeployToProd', flow 'DeployToStage', flow 'SetUpDevEvnironment'
+    shared_office365: references cat_sharedoffice365_4ee46; users flow 'SendEmailNotification'
+    shared_powerappsforappmakers: references new_sharedpowerappsforappmakers_87b9a; users flow 'GetAppsAndFlows'
+    shared_powerplatformforadmins: references cat_AdminConnection; users flow 'AssignRole', flow 'BuildRequestCancellation', flow 'CreateEnvironment', flow 'DeleteEnvironment', flow 'WorkflowCompleteNotification'
+  customConnectors (0):
+    none
+  httpActions (11):
+    flow 'AssignRole' action 'HTTP' Http expression
+    flow 'AssignRole' action 'GetRoleId' Http expression
+    flow 'AssignRole' action 'GetUserId' Http expression
+    flow 'AssignRole' action 'Get_Token' Http literal host not shown (--show-values)
+    flow 'CreateSolution' action 'Create_Solution' Http expression
+    flow 'CreateSolution' action 'Get_Solution_' Http expression
+    flow 'CreateSolution' action 'Get_Token' Http literal host not shown (--show-values)
+    flow 'GetAppsAndFlows' action 'Get_Apps' Http expression
+    flow 'GetAppsAndFlows' action 'Get_Token' Http literal host not shown (--show-values)
+    flow 'GetSolution' action 'Get_Solution_' Http expression
+    flow 'GetSolution' action 'Get_Token' Http literal host not shown (--show-values)
+  requestTriggers (14):
+    flow 'AssignRole' trigger 'manual' kind Button
+    flow 'CreateEnvironment' trigger 'manual' kind Button
+    flow 'CreateRepo' trigger 'manual' kind Button
+    flow 'CreateSolution' trigger 'manual' kind Button
+    flow 'DeleteEnvironment' trigger 'manual' kind Button
+    flow 'DeployToProd' trigger 'manual' kind Button
+    flow 'FetchLocalizedText' trigger 'manual' kind Button
+    flow 'GetAppsAndFlows' trigger 'manual' kind Button
+    flow 'GetSolution' trigger 'manual' kind Button
+    flow 'LogTelemetry' trigger 'manual' kind Button
+    flow 'ReadEnvironmentVariable' trigger 'manual' kind Button
+    flow 'SendEmailNotification' trigger 'manual' kind Button
+    flow 'SetUpDevEvnironment' trigger 'manual' kind Button
+    flow 'WorkflowCompleteNotification' trigger 'manual' kind Http
+  childFlows (41):
+    flow 'AssignRole' calls 'FetchLocalizedText'
+    flow 'AssignRole' calls 'ReadEnvironmentVariable'
+    flow 'CreateEnvironment' calls 'FetchLocalizedText'
+    flow 'CreateProject' calls 'FetchLocalizedText'
+    flow 'CreateProject' calls 'LogTelemetry'
+    flow 'CreateProject' calls 'SendEmailNotification'
+    flow 'CreateProject' calls 'AssignRole'
+    flow 'CreateProject' calls 'CreateSolution'
+    flow 'CreateProject' calls 'CreateRepo'
+    flow 'CreateProject' calls 'ReadEnvironmentVariable'
+    flow 'CreateProject' calls 'CreateEnvironment'
+    flow 'CreateProject' calls 'SetUpDevEvnironment'
+    flow 'CreateRepo' calls 'FetchLocalizedText'
+    flow 'CreateRepo' calls 'ReadEnvironmentVariable'
+    flow 'CreateSolution' calls 'FetchLocalizedText'
+    flow 'CreateSolution' calls 'ReadEnvironmentVariable'
+    flow 'DeleteProjectCleanUp' calls 'DeleteEnvironment'
+    flow 'DeployToProd' calls 'FetchLocalizedText'
+    flow 'DeployToProd' calls 'LogTelemetry'
+    flow 'DeployToProd' calls 'SendEmailNotification'
+    flow 'DeployToStage' calls 'FetchLocalizedText'
+    flow 'DeployToStage' calls 'LogTelemetry'
+    flow 'DeployToStage' calls 'SendEmailNotification'
+    flow 'DeployToStage' calls 'CreateEnvironment'
+    flow 'DeployToStage' calls 'DeployToProd'
+    flow 'DeployToStage' calls 'ReadEnvironmentVariable'
+    flow 'FetchLocalizedText' calls 'ReadEnvironmentVariable'
+    flow 'GetAppsAndFlows' calls 'FetchLocalizedText'
+    flow 'GetAppsAndFlows' calls 'ReadEnvironmentVariable'
+    flow 'GetSolution' calls 'FetchLocalizedText'
+    flow 'GetSolution' calls 'ReadEnvironmentVariable'
+    flow 'SendEmailNotification' calls 'FetchLocalizedText'
+    flow 'SetUpDevEvnironment' calls 'ReadEnvironmentVariable'
+    flow 'SetUpDevEvnironment' calls 'FetchLocalizedText'
+    flow 'SetUpDevEvnironment' calls 'SendEmailNotification'
+    flow 'WorkflowCompleteNotification' calls 'FetchLocalizedText'
+    flow 'WorkflowCompleteNotification' calls 'LogTelemetry'
+    flow 'WorkflowCompleteNotification' calls 'ReadEnvironmentVariable'
+    flow 'WorkflowCompleteNotification' calls 'GetAppsAndFlows'
+    flow 'WorkflowCompleteNotification' calls 'GetSolution'
+    flow 'WorkflowCompleteNotification' calls 'SendEmailNotification'
+  notRead (0):
+    none
+tests/fixtures/alm-sample (ALMAcceleratorSampleSolution)
+  licenceDrivers (3):
+    custom-connector: Custom connectors are premium: an app's users need Power Apps Premium or per app, and a flow needs Power Automate Premium or a Process licence. where: cat_5Fenvironmentvariableconnector sources: https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation https://learn.microsoft.com/power-platform/admin/power-automate-licensing/types
+    dataverse-in-canvas-app: A canvas app that uses Dataverse needs Power Apps Premium or per app for its users. where: cat_devopskitsamplecanvasapp_c7ec5 sources: https://learn.microsoft.com/power-platform/admin/powerapps-licensing-faq
+    model-driven-app: A model-driven app is premium: its users need Power Apps Premium or per app. where: cat_AlmAcceleratorSampleMda sources: https://learn.microsoft.com/power-platform/admin/powerapps-licensing-faq
+  notClassified (5):
+    shared_commondataserviceforapps: tier not classified: check the connector's reference page
+    shared_logicflows: tier not classified: check the connector's reference page
+    shared_msnweather: tier not classified: check the connector's reference page
+    shared_office365: tier not classified: check the connector's reference page
+    shared_sharepointonline: tier not classified: check the connector's reference page
+  connectors (6):
+    cat_5fenvironmentvariableconnector: references none; users canvasApp 'cat_devopskitsamplecanvasapp_c7ec5'
+    shared_commondataserviceforapps: references cat_CDS_Current; users canvasApp 'cat_devopskitsamplecanvasapp_c7ec5', flow 'Like Quote'
+    shared_logicflows: references none; users canvasApp 'cat_devopskitsamplecanvasapp_c7ec5'
+    shared_msnweather: references cat_sharedmsnweather_9d437; users canvasApp 'cat_devopskitsamplecanvasapp_c7ec5', flow 'Get Current Temperature'
+    shared_office365: references cat_sharedoffice365_4ee46; users flow 'Email Quote', flow 'SÆmple Ø ærlig forsøk'
+    shared_sharepointonline: references none; users canvasApp 'cat_devopskitsamplecanvasapp_c7ec5'
+  customConnectors (1):
+    cat_5Fenvironmentvariableconnector (in solution)
+  httpActions (0):
+    none
+  requestTriggers (6):
+    flow 'App Title' trigger 'manual' kind PowerApp
+    flow 'Email Quote' trigger 'manual' kind Button
+    flow 'Get Current Temperature' trigger 'manual' kind PowerAppV2
+    flow 'GetEnvironmentVariableValues' trigger 'manual' kind PowerApp
+    flow 'Like Quote' trigger 'manual' kind PowerAppV2
+    flow 'SÆmple Ø ærlig forsøk' trigger 'manual' kind Button
+  childFlows (2):
+    flow 'Email Quote' calls 'App Title'
+    flow 'Like Quote' calls 'Email Quote'
+  notRead (0):
+    none
+tests/fixtures/coe-auditlogs (CenterofExcellenceAuditLogs)
+  licenceDrivers (1):
+    custom-connector: Custom connectors are premium: an app's users need Power Apps Premium or per app, and a flow needs Power Automate Premium or a Process licence. where: admin_5Foffice-20365-20management-20api sources: https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation https://learn.microsoft.com/power-platform/admin/power-automate-licensing/types
+  notClassified (2):
+    shared_commondataserviceforapps: tier not classified: check the connector's reference page
+    shared_office365: tier not classified: check the connector's reference page
+  connectors (3):
+    admin_5foffice-20365-20management-20api: references admin_sharedadmin5foffice2036520management20api5f7fc9343cf45734fe_8f08c, admin_sharedadmin5foffice2036520management20api5ff18d20b7ec3dbffe_a3e3b; users flow 'Deprecated | [Child] Admin | Sync Logs'
+    shared_commondataserviceforapps: references admin_sharedcommondataserviceforapps_8f10b, admin_sharedcommondataserviceforapps_98924, new_CoEAuditLogsDataverse; users flow 'Deprecated | Admin | Sync Audit Logs', flow 'Deprecated | [Child] Admin | Sync Logs'
+    shared_office365: references new_CoEAuditLogsO365Outlook; users none
+  customConnectors (1):
+    admin_5Foffice-20365-20management-20api (not in solution)
+  httpActions (0):
+    none
+  requestTriggers (1):
+    flow 'Deprecated | [Child] Admin | Sync Logs' trigger 'manual' kind Button
+  childFlows (3):
+    flow 'Deprecated | Admin | Sync Audit Logs' calls 'Deprecated | [Child] Admin | Sync Logs'
+    flow 'Deprecated | Admin | Sync Audit Logs' calls a flow not in this solution
+    flow 'Deprecated | [Child] Admin | Sync Logs' calls a flow not in this solution
+  notRead (0):
+    none
+tests/fixtures/core-portal (msgov_coreportal)
+  licenceDrivers (0):
+    none
+  notClassified (0):
+    none
+  connectors (0):
+    none
+  customConnectors (0):
+    none
+  httpActions (0):
+    none
+  requestTriggers (0):
+    none
+  childFlows (0):
+    none
+  notRead (0):
+    none
+tests/fixtures/equipment-checkout (EquipmentCheckout)
+  licenceDrivers (1):
+    model-driven-app: A model-driven app is premium: its users need Power Apps Premium or per app. where: equipment_checkout_a1a05935 sources: https://learn.microsoft.com/power-platform/admin/powerapps-licensing-faq
+  notClassified (0):
+    none
+  connectors (0):
+    none
+  customConnectors (0):
+    none
+  httpActions (0):
+    none
+  requestTriggers (0):
+    none
+  childFlows (0):
+    none
+  notRead (0):
+    none
+tests/fixtures/flow-limits (PowerOpsFlowLimits)
+  licenceDrivers (1):
+    http-action: A flow with a premium connector, such as HTTP, needs Power Automate Premium for its users or a Process licence for the flow. where: flow 'Quarterly cleanup' action 'Get_status' sources: https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation https://learn.microsoft.com/training/modules/http-connectors/2-webhook https://learn.microsoft.com/power-platform/admin/power-automate-licensing/types
+  notClassified (1):
+    shared_approvals: tier not classified: check the connector's reference page
+  connectors (1):
+    shared_approvals: references demo_FlowApprovals; users flow 'Request long approval'
+  customConnectors (0):
+    none
+  httpActions (1):
+    flow 'Quarterly cleanup' action 'Get_status' Http literal host not shown (--show-values)
+  requestTriggers (1):
+    flow 'Request long approval' trigger 'manual' kind Button
+  childFlows (0):
+    none
+  notRead (0):
+    none
+tests/fixtures/flow-navigation (PowerOpsNavigation)
+  licenceDrivers (0):
+    none
+  notClassified (1):
+    shared_commondataserviceforapps: tier not classified: check the connector's reference page
+  connectors (1):
+    shared_commondataserviceforapps: references demo_FlowDataverse; users flow 'Review expenses'
+  customConnectors (0):
+    none
+  httpActions (0):
+    none
+  requestTriggers (1):
+    flow 'Review expenses' trigger 'manual' kind Button
+  childFlows (0):
+    none
+  notRead (0):
+    none
+tests/fixtures/flow-secrets (PowerOpsFlowSecrets)
+  licenceDrivers (1):
+    http-action: A flow with a premium connector, such as HTTP, needs Power Automate Premium for its users or a Process licence for the flow. where: flow 'Call partner API' action 'Call_partner' sources: https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation https://learn.microsoft.com/training/modules/http-connectors/2-webhook https://learn.microsoft.com/power-platform/admin/power-automate-licensing/types
+  notClassified (1):
+    shared_commondataserviceforapps: tier not classified: check the connector's reference page
+  connectors (1):
+    shared_commondataserviceforapps: references demo_Dataverse; users flow 'Call partner API'
+  customConnectors (0):
+    none
+  httpActions (1):
+    flow 'Call partner API' action 'Call_partner' Http literal host not shown (--show-values)
+  requestTriggers (1):
+    flow 'Call partner API' trigger 'manual' kind Button
+  childFlows (0):
+    none
+  notRead (0):
+    none
+tests/fixtures/flowtests/capture/solution (PowerOpsCapture)
+  licenceDrivers (0):
+    none
+  notClassified (1):
+    shared_commondataserviceforapps: tier not classified: check the connector's reference page
+  connectors (1):
+    shared_commondataserviceforapps: references pops_CaptureDataverse; users flow 'PowerOps capture'
+  customConnectors (0):
+    none
+  httpActions (0):
+    none
+  requestTriggers (1):
+    flow 'PowerOps capture' trigger 'manual' kind Button
+  childFlows (0):
+    none
+  notRead (0):
+    none
+tests/fixtures/flowtests/skipped-body (PowerOpsSkippedBody)
+  licenceDrivers (1):
+    http-action: A flow with a premium connector, such as HTTP, needs Power Automate Premium for its users or a Process licence for the flow. where: flow 'Skipped body' action 'Get_status' sources: https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation https://learn.microsoft.com/training/modules/http-connectors/2-webhook https://learn.microsoft.com/power-platform/admin/power-automate-licensing/types
+  notClassified (0):
+    none
+  connectors (0):
+    none
+  customConnectors (0):
+    none
+  httpActions (1):
+    flow 'Skipped body' action 'Get_status' Http literal host not shown (--show-values)
+  requestTriggers (1):
+    flow 'Skipped body' trigger 'manual' kind Button
+  childFlows (0):
+    none
+  notRead (0):
+    none
+tests/fixtures/powerops-seed-yaml/v1 (PowerOpsSeed)
+  licenceDrivers (0):
+    none
+  notClassified (1):
+    shared_commondataserviceforapps: tier not classified: check the connector's reference page
+  connectors (1):
+    shared_commondataserviceforapps: references pops_SeedDataverse; users flow 'Stamp work item status'
+  customConnectors (0):
+    none
+  httpActions (0):
+    none
+  requestTriggers (0):
+    none
+  childFlows (0):
+    none
+  notRead (1):
+    canvas apps, model-driven apps and agents are not read in the YAML layout, so dataverse-in-canvas-app, model-driven-app and their users are not reported
+tests/fixtures/powerops-seed-yaml/v2 (PowerOpsSeed)
+  licenceDrivers (0):
+    none
+  notClassified (1):
+    shared_commondataserviceforapps: tier not classified: check the connector's reference page
+  connectors (1):
+    shared_commondataserviceforapps: references pops_SeedDataverse, pops_SpareDataverse; users flow 'Stamp work item status'
+  customConnectors (0):
+    none
+  httpActions (0):
+    none
+  requestTriggers (0):
+    none
+  childFlows (0):
+    none
+  notRead (1):
+    canvas apps, model-driven apps and agents are not read in the YAML layout, so dataverse-in-canvas-app, model-driven-app and their users are not reported
+tests/fixtures/powerops-seed/v1 (PowerOpsSeed)
+  licenceDrivers (1):
+    dataverse-in-canvas-app: A canvas app that uses Dataverse needs Power Apps Premium or per app for its users. where: pops_workitems_2af60 sources: https://learn.microsoft.com/power-platform/admin/powerapps-licensing-faq
+  notClassified (1):
+    shared_commondataserviceforapps: tier not classified: check the connector's reference page
+  connectors (1):
+    shared_commondataserviceforapps: references pops_SeedDataverse; users flow 'Stamp work item status'
+  customConnectors (0):
+    none
+  httpActions (0):
+    none
+  requestTriggers (0):
+    none
+  childFlows (0):
+    none
+  notRead (0):
+    none
+tests/fixtures/powerops-seed/v2 (PowerOpsSeed)
+  licenceDrivers (1):
+    dataverse-in-canvas-app: A canvas app that uses Dataverse needs Power Apps Premium or per app for its users. where: pops_workitems_2af60 sources: https://learn.microsoft.com/power-platform/admin/powerapps-licensing-faq
+  notClassified (1):
+    shared_commondataserviceforapps: tier not classified: check the connector's reference page
+  connectors (1):
+    shared_commondataserviceforapps: references pops_SeedDataverse, pops_SpareDataverse; users flow 'Stamp work item status'
+  customConnectors (0):
+    none
+  httpActions (0):
+    none
+  requestTriggers (0):
+    none
+  childFlows (0):
+    none
+  notRead (0):
+    none
+tests/fixtures/zips/ColumnLevelSecuritySampleSolution.zip (ColumnLevelSecuritySampleSolution)
+  licenceDrivers (0):
+    none
+  notClassified (0):
+    none
+  connectors (0):
+    none
+  customConnectors (0):
+    none
+  httpActions (0):
+    none
+  requestTriggers (0):
+    none
+  childFlows (0):
+    none
+  notRead (0):
+    none
+tests/fixtures/zips/ColumnLevelSecuritySampleSolution_managed.zip (ColumnLevelSecuritySampleSolution)
+  licenceDrivers (0):
+    none
+  notClassified (0):
+    none
+  connectors (0):
+    none
+  customConnectors (0):
+    none
+  httpActions (0):
+    none
+  requestTriggers (0):
+    none
+  childFlows (0):
+    none
+  notRead (0):
+    none
+tests/fixtures/zips/Contoso_sample_1_0_0_1_managed.zip (Contoso_sample)
+  licenceDrivers (0):
+    none
+  notClassified (1):
+    shared_dynamicscrmonline: tier not classified: check the connector's reference page
+  connectors (1):
+    shared_dynamicscrmonline: references new_D365connection; users none
+  customConnectors (0):
+    none
+  httpActions (0):
+    none
+  requestTriggers (0):
+    none
+  childFlows (0):
+    none
+  notRead (0):
+    none
+tests/fixtures/zips/polymorphiclookupexamplesolution.zip (polymorphiclookupexamplesolution)
+  licenceDrivers (0):
+    none
+  notClassified (0):
+    none
+  connectors (0):
+    none
+  customConnectors (0):
+    none
+  httpActions (0):
+    none
+  requestTriggers (0):
+    none
+  childFlows (0):
+    none
+  notRead (0):
+    none
+Drivers come from a closed set with sources; a solution with no driver listed may still need a premium licence.

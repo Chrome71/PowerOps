@@ -9,7 +9,7 @@ namespace PowerOps.Core.Output;
 /// <summary>The text or JSON of <c>powerops manifest</c>, with "\n" line endings on every OS.</summary>
 public static class ManifestReport
 {
-    private static readonly JsonSerializerOptions Options = new()
+    internal static readonly JsonSerializerOptions Options = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true,

@@ -117,7 +117,7 @@ public class PackedToolTests
             using var init = JsonDocument.Parse(initialize);
             Assert.Equal(version, init.RootElement.GetProperty("result").GetProperty("serverInfo").GetProperty("version").GetString());
             using var list = JsonDocument.Parse(tools);
-            Assert.Equal(12, list.RootElement.GetProperty("result").GetProperty("tools").GetArrayLength());
+            Assert.Equal(13, list.RootElement.GetProperty("result").GetProperty("tools").GetArrayLength());
             using var call = JsonDocument.Parse(rules);
             Assert.Equal(Run(exe, ["rules", "--json"]).Out, call.RootElement.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString());
             Assert.Equal("", stderr.GetAwaiter().GetResult());
