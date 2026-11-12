@@ -821,7 +821,7 @@ What the planning skills do, and how to install them as a plugin: [Planning skil
 `plan status` takes a repo folder (the default is `.`), a plan folder or a `plan.md`.
 Only a folder directly inside a `docs/plans` folder counts as a plan folder; any other folder is a repo folder, even when it holds a `plan.md` of its own, so a `plan.md` at the repo root does not hide the plans under `docs/plans`.
 
-`plan status` checks the header, that a signed-off plan still matches its recorded hash, that the review is done (with `review.md`) or skipped, and that no file in the plan folder holds a URL, GUID, email or personal environment name, the default name of a Developer environment (`Jane Doe's Environment` or `Jane Doe's (1) environment`; the lower-case form is caught on an `environment:` line; add `<!-- plan-status: allow -->` to a line to allow it).
+`plan status` checks the header, that a signed-off plan still matches its recorded hash, that the review is done (with `review.md`) or skipped, and that no file in the plan folder holds a URL, GUID, email or personal environment name, the default name of a Developer environment (`Jane Doe's Environment` or `Jane Doe's (1) environment`; the lower-case form is caught on an `environment:` line; in prose, a lower-case word before `'s` is not read as a name; add `<!-- plan-status: allow -->` to a line to allow it).
 The name is never printed.
 
 `plan sign-off` refuses unless `status` is `approved`, the review is done or skipped, and the scan is clean; it edits only the header.

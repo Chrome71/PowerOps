@@ -974,7 +974,8 @@ public static partial class PlanChecker
     private static partial Regex UrlRegex();
 
     // The default name of a Developer environment is its owner's name plus 's Environment (Learn shows both casings, and a second one as 's (1) environment). Case-sensitive, so prose such as "the user's environment" stays quiet unless it is on an environment: line.
-    [GeneratedRegex(@"['’]s(?: \(\d+\))? Environment\b|^\s*environment:.*['’]s(?: \(\d+\))? environment\b")]
+    // In prose, a lower-case word before 's is read as ordinary prose, so a name whose last word is lower case is caught only on an environment: line; a capitalised word before a UI label (Dev's Environment variables) still matches, and the allow marker is the way out.
+    [GeneratedRegex(@"(?<!\b\p{Ll}[\p{L}\p{M}.-]*)['’]s(?: \(\d+\))? Environment\b|^\s*environment:.*['’]s(?: \(\d+\))? [Ee]nvironment\b")]
     private static partial Regex PersonalEnvironmentRegex();
 
     [GeneratedRegex(@"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b")]
