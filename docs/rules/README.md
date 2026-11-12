@@ -44,3 +44,5 @@
 | [PO038](PO038.md) | warning | Flow action has its static result turned on |
 | [PO039](PO039.md) | warning | Flow is scheduled about every 90 days or less often |
 | [PO040](PO040.md) | warning | Approval can wait as long as a run can last |
+| [PO041](PO041.md) | warning | Text environment variable looks like it holds a secret |
+| [PO042](PO042.md) | warning | Flow reads or sends a secret without secure inputs or outputs |

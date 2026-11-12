@@ -719,6 +719,47 @@
       "notChecked": []
     },
     {
+      "path": "tests/fixtures/flow-secrets",
+      "uniqueName": "PowerOpsFlowSecrets",
+      "version": "1.0.0.0",
+      "managed": false,
+      "publisher": {
+        "uniqueName": "demopub",
+        "prefix": "demo"
+      },
+      "requires": [],
+      "findings": [
+        {
+          "ruleId": "PO041",
+          "severity": "warning",
+          "message": "Environment variable 'demo_ApiToken' is of type Text, but its name suggests it holds a secret.",
+          "file": "environmentvariabledefinitions/demo_ApiToken/environmentvariabledefinition.xml",
+          "component": "demo_ApiToken",
+          "fix": "Make it an environment variable of type Secret backed by Azure Key Vault, and remove its value from the solution and the settings files.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO041.md"
+        },
+        {
+          "ruleId": "PO042",
+          "severity": "warning",
+          "message": "Flow 'Call partner API' action 'Call_partner' has an authentication block and its secure inputs are off.",
+          "file": "Workflows/Callpartnerapi-00000000-0000-0000-0000-000000000093.json",
+          "component": "Call_partner",
+          "fix": "Turn on secure outputs on every action that reads a secret, and secure inputs on every action that sends one.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO042.md"
+        },
+        {
+          "ruleId": "PO042",
+          "severity": "warning",
+          "message": "Flow 'Call partner API' action 'Get_partner_secret' reads a secret without secure outputs, so the secret shows in the run history.",
+          "file": "Workflows/Callpartnerapi-00000000-0000-0000-0000-000000000093.json",
+          "component": "Get_partner_secret",
+          "fix": "Turn on secure outputs on every action that reads a secret, and secure inputs on every action that sends one.",
+          "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO042.md"
+        }
+      ],
+      "notChecked": []
+    },
+    {
       "path": "tests/fixtures/flowtests/capture/solution",
       "uniqueName": "PowerOpsCapture",
       "version": "1.0.0.0",
@@ -971,9 +1012,9 @@
     }
   ],
   "summary": {
-    "solutions": 21,
+    "solutions": 22,
     "errors": 0,
-    "warnings": 73,
+    "warnings": 76,
     "baselined": 0
   }
 }

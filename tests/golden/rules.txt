@@ -118,3 +118,9 @@ PO039 warning Flow is scheduled about every 90 days or less often
 PO040 warning Approval can wait as long as a run can last
   fix: Set the approval's timeout under 30 days and handle its expiry, or create the approval in one flow and act on the response in a second.
   https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO040.md
+PO041 warning Text environment variable looks like it holds a secret
+  fix: Make it an environment variable of type Secret backed by Azure Key Vault, and remove its value from the solution and the settings files.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO041.md
+PO042 warning Flow reads or sends a secret without secure inputs or outputs
+  fix: Turn on secure outputs on every action that reads a secret, and secure inputs on every action that sends one.
+  https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO042.md

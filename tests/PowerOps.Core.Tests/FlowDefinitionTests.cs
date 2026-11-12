@@ -297,6 +297,77 @@ public class FlowDefinitionTests
         Assert.Empty(a["Bare"].RunAfter);
     }
 
+    private static FlowAction One(string action) =>
+        Assert.Single(FlowDefinition.Parse(Flow("{}", "{\"actions\":{\"A\":" + action + "}}")).Actions);
+
+    [Theory]
+    [InlineData("""["inputs"]""", true, false)]
+    [InlineData("""["outputs"]""", false, true)]
+    [InlineData("""["inputs","outputs"]""", true, true)]
+    [InlineData("""["Outputs"]""", false, true)]
+    [InlineData("""["INPUTS"]""", true, false)]
+    [InlineData("""[5,"outputs",null]""", false, true)]
+    [InlineData("""[]""", false, false)]
+    [InlineData("""[5]""", false, false)]
+    [InlineData("""{"inputs":true}""", false, false)]
+    [InlineData("\"inputs\"", false, false)]
+    public void Secure_data_is_read_from_the_properties_array_ignoring_case(string properties, bool inputs, bool outputs)
+    {
+        var a = One("{\"type\":\"Http\",\"runtimeConfiguration\":{\"secureData\":{\"properties\":" + properties + "}}}");
+
+        Assert.Equal((inputs, outputs), (a.SecureInputs, a.SecureOutputs));
+    }
+
+    [Theory]
+    [InlineData("""{"type":"Http"}""")]
+    [InlineData("""{"type":"Http","runtimeConfiguration":{"secureData":"inputs"}}""")]
+    [InlineData("""{"type":"Http","runtimeConfiguration":{"secureData":["inputs"]}}""")]
+    [InlineData("""{"type":"Http","runtimeConfiguration":"secureData"}""")]
+    public void Secure_data_is_false_without_an_object_holding_a_properties_array(string action)
+    {
+        var a = One(action);
+
+        Assert.False(a.SecureInputs || a.SecureOutputs);
+    }
+
+    [Theory]
+    [InlineData("""{"type":"Http","inputs":{"authentication":{"type":"Basic"}}}""", true)]
+    [InlineData("""{"type":"Http","inputs":{"authentication":"@parameters('$authentication')"}}""", true)]
+    [InlineData("""{"type":"OpenApiConnection","inputs":{"authentication":{"type":"Raw","value":"@parameters('$authentication')"}}}""", true)]
+    [InlineData("""{"type":"Http","inputs":{"authentication":null}}""", false)]
+    [InlineData("""{"type":"Http","inputs":{"authentication":5}}""", false)]
+    [InlineData("""{"type":"Http","inputs":{"authentication":true}}""", false)]
+    [InlineData("""{"type":"Http","inputs":{}}""", false)]
+    [InlineData("""{"type":"Http"}""", false)]
+    [InlineData("""{"type":"HttpWebhook","inputs":{"subscribe":{"method":"POST","authentication":{"type":"Basic"}}}}""", true)]
+    [InlineData("""{"type":"HttpWebhook","inputs":{"unsubscribe":{"method":"POST","authentication":{"type":"Basic"}}}}""", true)]
+    [InlineData("""{"type":"HttpWebhook","inputs":{"subscribe":{"method":"POST"},"unsubscribe":{"method":"POST"}}}""", false)]
+    public void Authentication_is_true_for_an_object_or_a_string_also_under_subscribe_and_unsubscribe(string action, bool expected) =>
+        Assert.Equal(expected, One(action).Authentication);
+
+    [Theory]
+    [InlineData("""{"type":"OpenApiConnection","inputs":{"parameters":{"actionName":"RetrieveEnvironmentVariableSecretValue"}}}""", "RetrieveEnvironmentVariableSecretValue")]
+    [InlineData("""{"type":"OpenApiConnection","inputs":{"parameters":{"actionName":"@parameters('n')"}}}""", null)]
+    [InlineData("""{"type":"OpenApiConnection","inputs":{"parameters":{"actionName":"A@b"}}}""", null)]
+    [InlineData("""{"type":"OpenApiConnection","inputs":{"parameters":{"actionName":5}}}""", null)]
+    [InlineData("""{"type":"OpenApiConnection","inputs":{"parameters":{}}}""", null)]
+    [InlineData("""{"type":"OpenApiConnection","inputs":{"parameters":"actionName"}}""", null)]
+    public void Unbound_action_is_the_literal_action_name_only(string action, string? expected) =>
+        Assert.Equal(expected, One(action).UnboundAction);
+
+    [Fact]
+    public void Secure_data_authentication_and_unbound_action_are_read_inside_a_conditions_else()
+    {
+        var flow = FlowDefinition.Parse(Flow("{}", """
+            {"actions":{"If":{"type":"If","actions":{},"else":{"actions":{
+              "Deep":{"type":"Http","inputs":{"authentication":{"type":"Basic"},"parameters":{"actionName":"Name"}},"runtimeConfiguration":{"secureData":{"properties":["inputs","outputs"]}}}
+            }}}}}
+            """));
+
+        var deep = flow.Actions.Single(x => x.Name == "Deep");
+        Assert.Equal((true, true, true, "Name"), (deep.SecureInputs, deep.SecureOutputs, deep.Authentication, deep.UnboundAction));
+    }
+
     [Fact]
     public void Trigger_type_frequency_and_interval_are_read()
     {

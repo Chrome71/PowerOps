@@ -280,6 +280,20 @@
       "title": "Approval can wait as long as a run can last",
       "fix": "Set the approval's timeout under 30 days and handle its expiry, or create the approval in one flow and act on the response in a second.",
       "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO040.md"
+    },
+    {
+      "id": "PO041",
+      "severity": "warning",
+      "title": "Text environment variable looks like it holds a secret",
+      "fix": "Make it an environment variable of type Secret backed by Azure Key Vault, and remove its value from the solution and the settings files.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO041.md"
+    },
+    {
+      "id": "PO042",
+      "severity": "warning",
+      "title": "Flow reads or sends a secret without secure inputs or outputs",
+      "fix": "Turn on secure outputs on every action that reads a secret, and secure inputs on every action that sends one.",
+      "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO042.md"
     }
   ]
 }
