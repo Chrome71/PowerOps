@@ -18,3 +18,7 @@ No question in this milestone needed the owner: the packet settles what each lin
 - signed off 2026-11-13 by the building session on the owner's answers "All recommended" and "Yes, same as the chains" (2026-11-13, quoted above) (answered by: agent m112 building session), after the Fable plan review approved it and `powerops-review-plan` left no finding open.
 
 ## Log
+- build 2026-11-13, step 2 (a general-purpose subagent, Opus, `286d831`): rows 1 to 11 inserted as worded, no wording change, no test touched; `dotnet build` 0 warnings; `dotnet test` 5,427 (5,421 passed, 0 failed, 6 skipped); format clean; diff = the eight doc files (28 added, 12 removed lines).
+- Fable work review 2026-11-13 (fable-reviewer, Fable, WORK REVIEW): PASS at `286d831`, with its own build, test, format, `plan status` and leak-scan runs, the anchors, the frozen paths' diff and a read of both GitHub pages. Note kept, not applied: row 3 could say "adds no control that keeps" if that paragraph is touched again.
+- checks 2026-11-13 at `286d831`, the building session: `plan status` 0 violations, 0 warnings; the frozen paths (`src/`, `skills/`, `plugins/`, `.claude/agents/`, `tests/eval/`, `tests/golden/`, the example `.yml` files) unchanged against `origin/main`; leak scan 174 patterns, control found, 0 hits.
+- 2026-11-13: `status: done`, set by the building session before the merge.
