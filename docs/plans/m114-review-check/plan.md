@@ -1,11 +1,11 @@
 ---
-status: approved
+status: signed-off
 review: done
 environment: null
 depth: standard
 supersedes: null
-signed-off: null
-signed-off-hash: null
+signed-off: 2026-11-13
+signed-off-hash: c841d33a7f387cb2ba3975cf047410d4fd446a9bde380d32068a6b9e1ff209c6
 ---
 
 # M114: The shared review check reads the plan's sign-off and open High findings
