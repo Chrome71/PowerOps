@@ -1,9 +1,9 @@
-plan-hash: 19520f7f5f5285475334e434c4a398a70bb79255aaf0f5197a15149591b8277f
+plan-hash: 8aa961de16e900fb2b3838662a369f5ce2d6da31cc36d69d857b5ca302fb1161
 model: claude-opus-5-5
 fresh-context: yes
 
-Second pass, on revision 2 (`fd55ee8`). The first pass reviewed plan-hash `de4d7a34131fb40de15c9fb602805df46cdb352902c194e5758cb9ad22ac27ac`. This pass gives R1 to R9 their status and adds R10 and R11.
-Review state: open. R1 to R9 are resolved; R10 (Medium) and R11 (Low) are open.
+Third pass, on revision 3 (`3e8e730`). Earlier passes: the first on plan-hash `de4d7a34131fb40de15c9fb602805df46cdb352902c194e5758cb9ad22ac27ac` (R1 to R9), the second on revision 2, plan-hash `19520f7f5f5285475334e434c4a398a70bb79255aaf0f5197a15149591b8277f` (R1 to R9 resolved, R10 and R11 added). Revision 3 changes only rows 3 and 4 and a `decisions.md` line. This pass adds no finding.
+Review state: closed. Every finding, R1 to R11, is resolved; none is open.
 Environment facts were not read: the request gave no confirmation that `pac` is signed in to the plan's `environment:` (it is `null`; tenant offline), so `powerops plan facts` was not run.
 Tools: `powerops` and `dotnet` were found with `command -v`. The leak scan named in Done when 2 exists at that path in the main checkout, and its usage line is `<base> <head>`. The Fable plan review is a session-level reviewer, not a tool on this machine's path, and was not checked.
 Checked at `ccf9833` (`origin/main`): `PlanChecker.ReadReports`, `Reviews`, `PlansUnder` (no status filter) and `ReviewProblems`; `DeployReviews.Fault`, `Ready` and `Cover`; `action/check-apply.sh`; both example workflows (four `Chrome71/PowerOps@cbc31e7` pins, "main on 2026-11-10"); `SkillsCommand.cs`; `skills/powerops-implement/SKILL.md`; `plugins/` (no hook file, no `hooks` key); the anchors `#deploy-plan` (its `### Output`), `#sign-in-state`, `#the-steps`, `#gate-microsofts-imports` and `#github-environments-and-secrets`; and each target line of rows 1 to 11 (`docs/COMMANDS.md` 722 and 723, `docs/examples/README.md` 9, 21, 44, 87, 108, 148 and 271), with the text around it.
@@ -51,7 +51,7 @@ No findings.
 - Area: 13. Buildability (Done when 1: each line states only what `main` does)
 - Finding: Revision 2's row 3 says that PowerOps adds nothing that keeps a builder from editing "a report, a hook or the client's settings file: the roles' instructions say not to". For hooks and settings this holds: `skills/powerops-implement/SKILL.md` says "never edit a hook, a permission rule or a setting to get past it". For reports it doesn't. No instruction tells the builder not to edit `verify.md` or `security-solution.md`, and the same skill tells it to edit one: "A violation that names `verify.md` or `security-solution.md` is fixed by replacing the value in that report with a placeholder". The clause gives the reader a protection the skills don't contain, on the very point (a builder editing a report the cover trusts) that the paragraph exists to make clear.
 - Suggested fix: Make the clause true as written: "the builder's instructions say never to edit a hook, a permission rule or a setting to get past the gate, and nothing in them stops it from editing a report; the gate doesn't block such an edit, ...". Or drop "the roles' instructions say not to" and keep the rest of the sentence.
-- Resolution: open
+- Resolution: resolved (revision 3). Row 3 now reads "`powerops-implement` tells the builder never to edit a hook, a permission rule or a setting to get past a block, no instruction forbids editing a report, ...". Both halves hold at `ccf9833`: the first matches the skill's sign-off rule, and a search of `skills/*/SKILL.md` finds no instruction that forbids an edit of `verify.md` or `security-solution.md`.
 
 ### Low
 
@@ -83,4 +83,4 @@ No findings.
 - Area: 13. Buildability
 - Finding: Row 4 says the agent "can use every `pac` and `az` sign-in of the account it runs as", and it sends the Prod import to "an account no agent runs as". The account meant is the operating-system user whose `pac` auth profiles and `az` profile the agent reads (`decisions.md`: "pac's auth profiles are shared"). In a page about tenant sign-ins, "account" reads naturally as an Entra or GitHub account. A reader who signs `pac` in to Prod with a second Microsoft account, under the same operating-system user, follows the words and still leaves Prod's sign-in in the agent's reach.
 - Suggested fix: Write "the operating-system user it runs as" (or "the computer account it runs as") in both places, for example "... run the Prod import as an operating-system user no agent runs as".
-- Resolution: open
+- Resolution: resolved (revision 3). Row 4 says "the operating-system user it runs as", "sign that user in" and "as an operating-system user no agent runs as".

@@ -1,9 +1,11 @@
 ---
-status: approved
-review: pending
+status: signed-off
+review: done
 environment: null
 depth: quick
 supersedes: null
+signed-off: 2026-11-13
+signed-off-hash: 8aa961de16e900fb2b3838662a369f5ce2d6da31cc36d69d857b5ca302fb1161
 ---
 
 # M112: Say what the checks don't prove
