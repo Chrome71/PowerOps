@@ -722,6 +722,19 @@ Without the option the same `warning:` lines are written and the run goes on and
 The check reads what the reports say and doesn't prove that a role wrote them, so the form, the person's yes or the GitHub environment's approval stays the authorization.
 The MCP tool `deploy_apply` and `deploy gate` always require the reviews, and the Action does unless its `require-reviews` input is `false` ([the Action](GITHUB-ACTION.md)).
 
+The check reads each report's header lines only: `state:`, `plan-hash:`, `solution-hash:` and `deploy-hash:`.
+`ready` is the role's own word: the check reads no finding, no resolution and no check line, so a `ready` report with an open finding, or with every check `not verified`, covers the zip all the same.
+It doesn't read the plan's `status:`, its sign-off or its `review.md` either: only the plan body's hash.
+A cover binds the zip, always by its SHA-256 (and for a `deploy-hash:` link also by the digest of its unpack), and the plan body, by `plan-hash:`.
+It doesn't bind:
+
+- the settings file: the plan file's hash covers it ([deploy plan](#deploy-plan), Output), so a plan file made before the settings file changed is refused, but once `deploy plan` has run again the same reports cover the zip with the new settings;
+- the target: no header line names an environment, so reviews are stage-agnostic, and the reports that cover a zip for Test cover the same zip for Prod; the yes to that deployment (the form, the GitHub environment's approval or the person's yes in the session) picks the target;
+- the `powerops` version the review ran with, the version of the role that wrote a report, and when it was written: an old report covers as well as a new one.
+
+Two ready reports also say nothing about what the checks don't read: the Copilot Studio settings a solution doesn't carry ([HANDOFF step 11](HANDOFF.md#the-steps)), the behaviour of a code app's built bundle, and SharePoint lists, which no solution holds.
+Read both reports before the yes, and check those yourself.
+
 ### What it does
 
 It refuses before reading the target when the plan file is blocked or was made by another powerops version (exit `1`); the version is what `powerops --version` prints, which for a build from a clone includes its commit, so a build of another commit counts as another version.
