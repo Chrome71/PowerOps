@@ -1,6 +1,6 @@
 {
   "name": "powerops",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Plan, review and gate Microsoft Power Platform builds: powerops-plan turns an idea into a signed-off plan, powerops-prototype sketches its screens, powerops-review-plan reviews it in a fresh context, and powerops-implement builds only from a signed-off plan, handing the build to Microsoft's skills. After the build, powerops-verify checks it against the plan and powerops-review-security reads it for security, each in a fresh context. It also ships six advisory Power Platform specialist agents (apps, automate, BI, design lead, workflow logic, Copilot Studio) that plan and review alongside the skills; their findings never block. It also starts the PowerOps MCP server (`powerops mcp`), whose tools check, diff, test and plan a deploy, and import only after the user types the target's name. Needs the `powerops` CLI on PATH: see Install in the PowerOps README.",
   "author": {
     "name": "PowerOps contributors"
@@ -8,5 +8,11 @@
   "homepage": "https://github.com/Chrome71/PowerOps",
   "repository": "https://github.com/Chrome71/PowerOps",
   "license": "Apache-2.0",
-  "keywords": ["power-platform", "dataverse", "planning", "alm", "powerops"]
+  "keywords": [
+    "power-platform",
+    "dataverse",
+    "planning",
+    "alm",
+    "powerops"
+  ]
 }
