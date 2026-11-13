@@ -1312,11 +1312,12 @@ public sealed class McpCommandTests : IAsyncLifetime
         return (folder, planFile);
     }
 
-    private const string ReviewedPlanText = "---\nstatus: signed-off\nreview: done\nsigned-off: 2026-01-01\nsigned-off-hash: null\nenvironment: null\n---\n# Plan\n";
+    // A valid sign-off (M114), the same text as DeployTestBase.ReviewedPlanText.
+    private static readonly string ReviewedPlanText = $"---\nstatus: signed-off\nreview: skipped\nsigned-off: 2026-01-01\nsigned-off-hash: {PlanDocument.Parse("---\n---\n# Plan\n").BodyHash}\nenvironment: null\n---\n# Plan\n";
 
     // Writes docs/plans/<new>/plan.md and both reports for a zip under the test's folder, the walk up from the deploy folder reaches them (the equivalent of DeployTestBase.Reviewed).
     // With deployZip, the input is that zip's unpacked folder and the reports record the zip's SHA-256 as their deploy-hash (M83).
-    private void Reviewed(string zip, string? deployZip = null)
+    private string Reviewed(string zip, string? deployZip = null)
     {
         var folder = Directory.CreateDirectory(Path.Combine(_temp, "docs", "plans", "m-" + Guid.NewGuid().ToString("N"))).FullName;
         File.WriteAllText(Path.Combine(folder, "plan.md"), ReviewedPlanText);
@@ -1324,6 +1325,7 @@ public sealed class McpCommandTests : IAsyncLifetime
         var head = $"state: ready\nplan-hash: {PlanDocument.Parse(ReviewedPlanText).BodyHash}\ninput: {Path.GetRelativePath(_temp, zip).Replace('\\', '/')}\nsolution-hash: {PowerOps.Core.Readers.Manifest.Read(zip).Digest}\n{deploy}\n# Report\n";
         File.WriteAllText(Path.Combine(folder, "verify.md"), head);
         File.WriteAllText(Path.Combine(folder, "security-solution.md"), head);
+        return folder;
     }
 
     private static void EditPlan(string planFile, Action<JsonObject> edit)
@@ -1841,6 +1843,51 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Empty(forms.Seen);
         Assert.Equal(0, _fakes.Pacs);
         AssertNoApply(pair);
+    }
+
+    // M114: a plan with no valid sign-off, or a ready report that lists an open High, is refused before the form, with no pac call.
+    [Theory]
+    [InlineData("draft")]
+    [InlineData("approved")]
+    [InlineData("malformed")]
+    [InlineData("changed")]
+    [InlineData("null-hash")]
+    [InlineData("open-high")]
+    public async Task An_apply_under_a_plan_with_no_valid_sign_off_or_with_an_open_high_is_refused_before_any_form(string kind)
+    {
+        var (folder, planFile) = SavedPlan(reviewed: false);
+        var plan = Reviewed(Path.Combine(folder, "PowerOpsSeed.zip"));
+        var sentence = DeployTestBase.Unsign(plan, kind);
+        ImportFakes();
+        var forms = NoFormExpected();
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
+
+        var result = await Apply(pair, ApplyArgs(planFile));
+
+        Assert.True(result.IsError);
+        Assert.Equal("refused", Status(result));
+        Assert.Equal($"no review covers PowerOpsSeed.zip: docs/plans/{Path.GetFileName(plan)}: {sentence}; nothing was imported.", (string)JsonNode.Parse(Text(result))!["message"]!);
+        Assert.Empty(forms.Seen);
+        Assert.Equal(0, _fakes.Pacs);
+        Assert.Empty(_imports);
+        AssertNoApply(pair);
+    }
+
+    // M114 Done 3: reports with every check not verified and only an open Medium still cover.
+    [Fact]
+    public async Task Reports_with_checks_not_verified_and_an_open_medium_still_import_after_the_form()
+    {
+        var (folder, planFile) = SavedPlan(reviewed: false);
+        Assert.Null(DeployTestBase.Unsign(Reviewed(Path.Combine(folder, "PowerOpsSeed.zip")), "not-verified"));
+        ImportFakes();
+        var forms = new Forms(_ => Accepted(TargetName));
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
+
+        var result = await Apply(pair, ApplyArgs(planFile));
+
+        Assert.False(result.IsError);
+        Assert.Single(forms.Seen);
+        Assert.Equal(["solution", "import"], Assert.Single(_imports).Take(2));
     }
 
     [Fact]

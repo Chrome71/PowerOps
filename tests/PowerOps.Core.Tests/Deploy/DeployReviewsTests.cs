@@ -33,7 +33,7 @@ public class DeployReviewsTests : IDisposable
 
     [Fact]
     public void Both_reports_of_one_folder_ready_current_and_recording_the_zip_cover_it() =>
-        Assert.Null(DeployReviews.Problem([new("a", V(), S())], Zip));
+        Assert.Null(DeployReviews.Problem([new("a", V(), S(), null)], Zip));
 
     public static TheoryData<PlanReportFile?, PlanReportFile?, string> SingleFailures => new()
     {
@@ -48,30 +48,30 @@ public class DeployReviewsTests : IDisposable
     [Theory]
     [MemberData(nameof(SingleFailures))]
     public void Each_failure_of_the_first_recording_folder_is_named(PlanReportFile? verify, PlanReportFile? security, string failure) =>
-        Assert.Equal($"docs/plans/a: {failure}", DeployReviews.Problem([new("a", verify, security)], Zip));
+        Assert.Equal($"docs/plans/a: {failure}", DeployReviews.Problem([new("a", verify, security, null)], Zip));
 
     [Fact]
     public void Two_failures_are_joined_and_only_the_first_failure_of_a_report_is_named() =>
         Assert.Equal(
             "docs/plans/a: verify.md is blocked; security-solution.md records another deploy-hash and solution-hash",
-            DeployReviews.Problem([new("a", V("blocked", stale: null), S("failed", hash: Other))], Zip));
+            DeployReviews.Problem([new("a", V("blocked", stale: null), S("failed", hash: Other), null)], Zip));
 
     // A rule that pools the reports of all folders would take a's verify.md and b's security-solution.md as a cover.
     [Fact]
     public void Reports_split_across_two_folders_do_not_cover_the_zip() =>
-        Assert.Equal("docs/plans/a: security-solution.md is missing", DeployReviews.Problem([new("a", V(), null), new("b", null, S())], Zip));
+        Assert.Equal("docs/plans/a: security-solution.md is missing", DeployReviews.Problem([new("a", V(), null, null), new("b", null, S(), null)], Zip));
 
     [Fact]
     public void A_later_folder_that_covers_the_zip_wins_over_an_earlier_one_that_does_not() =>
-        Assert.Null(DeployReviews.Problem([new("a", V("blocked"), S()), new("b", V(), S())], Zip));
+        Assert.Null(DeployReviews.Problem([new("a", V("blocked"), S(), null), new("b", V(), S(), null)], Zip));
 
     [Fact]
     public void No_report_recording_the_zip_gives_the_first_sentence()
     {
-        Assert.Equal(NoneRecords, DeployReviews.Problem([new("a", V(hash: Other), S(hash: Other))], Zip));
+        Assert.Equal(NoneRecords, DeployReviews.Problem([new("a", V(hash: Other), S(hash: Other), null)], Zip));
         Assert.Equal(NoneRecords, DeployReviews.Problem([], Zip));
-        Assert.False(DeployReviews.Recorded([new("a", V(hash: Other), S(hash: Other))], Zip));
-        Assert.True(DeployReviews.Recorded([new("a", null, S("blocked"))], Zip));
+        Assert.False(DeployReviews.Recorded([new("a", V(hash: Other), S(hash: Other), null)], Zip));
+        Assert.True(DeployReviews.Recorded([new("a", null, S("blocked"), null)], Zip));
     }
 
     // ---- Problem and Cover: the deploy-hash link (M83 row 2) ----
@@ -91,7 +91,7 @@ public class DeployReviewsTests : IDisposable
     [Fact]
     public void Both_reports_linked_by_deploy_hash_with_the_unpacks_digest_cover_the_zip()
     {
-        PlanReviews[] plans = [new("a", DV(), DS())];
+        PlanReviews[] plans = [new("a", DV(), DS(), null)];
 
         Assert.Null(DeployReviews.Problem(plans, Zip, Same));
         Assert.Equal("a", DeployReviews.Cover(plans, Zip, Same)?.Plan);
@@ -114,7 +114,7 @@ public class DeployReviewsTests : IDisposable
     [MemberData(nameof(DeployHashFailures))]
     public void Each_failure_of_a_deploy_hash_link_is_named_in_order(PlanReportFile? verify, PlanReportFile? security, ZipUnpack? unpack, string failure)
     {
-        PlanReviews[] plans = [new("a", verify, security)];
+        PlanReviews[] plans = [new("a", verify, security, null)];
 
         Assert.Equal($"docs/plans/a: {failure}", DeployReviews.Problem(plans, Zip, unpack));
         Assert.Null(DeployReviews.Cover(plans, Zip, unpack));
@@ -123,18 +123,18 @@ public class DeployReviewsTests : IDisposable
     [Fact]
     public void M75s_direct_link_covers_with_no_unpack_and_with_a_failed_one()
     {
-        Assert.Null(DeployReviews.Problem([new("a", V(), S())], Zip));
-        Assert.Null(DeployReviews.Problem([new("a", V() with { DeployHash = Zip }, S())], Zip, new(null, "pac was not found")));
-        Assert.Equal("a", DeployReviews.Cover([new("a", V(), S())], Zip, null)?.Plan);
+        Assert.Null(DeployReviews.Problem([new("a", V(), S(), null)], Zip));
+        Assert.Null(DeployReviews.Problem([new("a", V() with { DeployHash = Zip }, S(), null)], Zip, new(null, "pac was not found")));
+        Assert.Equal("a", DeployReviews.Cover([new("a", V(), S(), null)], Zip, null)?.Plan);
     }
 
     [Fact]
     public void A_verify_md_linked_by_deploy_hash_and_a_security_solution_md_linked_directly_in_one_folder_cover() =>
-        Assert.Null(DeployReviews.Problem([new("a", DV(), S())], Zip, Same));
+        Assert.Null(DeployReviews.Problem([new("a", DV(), S(), null)], Zip, Same));
 
     [Fact]
     public void Reports_of_two_folders_linked_either_way_do_not_cover_the_zip() =>
-        Assert.Equal("docs/plans/a: security-solution.md is missing", DeployReviews.Problem([new("a", DV(), null), new("b", null, S())], Zip, Same));
+        Assert.Equal("docs/plans/a: security-solution.md is missing", DeployReviews.Problem([new("a", DV(), null, null), new("b", null, S(), null)], Zip, Same));
 
     [Fact]
     public void The_first_folder_named_counts_a_deploy_hash_and_the_first_covering_folder_is_ordinal()
@@ -143,22 +143,85 @@ public class DeployReviewsTests : IDisposable
 
         Assert.Equal(
             "docs/plans/b: verify.md's solution-hash is not the digest of this zip's unpack, so it reviewed another folder; security-solution.md's solution-hash is not the digest of this zip's unpack, so it reviewed another folder",
-            DeployReviews.Problem([new("c", V(hash: Other), S(hash: Other)), new("b", DV(), DS())], Zip, different));
-        Assert.Equal("a", DeployReviews.Cover([new("b", V(), S()), new("a", DV(), DS())], Zip, Same)?.Plan);
+            DeployReviews.Problem([new("c", V(hash: Other), S(hash: Other), null), new("b", DV(), DS(), null)], Zip, different));
+        Assert.Equal("a", DeployReviews.Cover([new("b", V(), S(), null), new("a", DV(), DS(), null)], Zip, Same)?.Plan);
     }
 
     [Fact]
     public void Needs_unpack_only_when_a_solution_report_records_the_zip_as_its_deploy_hash()
     {
-        Assert.True(DeployReviews.NeedsUnpack([new("a", null, DS("blocked"))], Zip));
-        Assert.False(DeployReviews.NeedsUnpack([new("a", V(), S())], Zip));
-        Assert.False(DeployReviews.NeedsUnpack([new("a", DV(deploy: Other), DS(deploy: Other))], Zip));
+        Assert.True(DeployReviews.NeedsUnpack([new("a", null, DS("blocked"), null)], Zip));
+        Assert.False(DeployReviews.NeedsUnpack([new("a", V(), S(), null)], Zip));
+        Assert.False(DeployReviews.NeedsUnpack([new("a", DV(deploy: Other), DS(deploy: Other), null)], Zip));
         Assert.False(DeployReviews.NeedsUnpack([], Zip));
     }
 
     [Fact]
     public void Recorded_still_counts_only_a_solution_hash() =>
-        Assert.False(DeployReviews.Recorded([new("a", DV(), DS())], Zip));
+        Assert.False(DeployReviews.Recorded([new("a", DV(), DS(), null)], Zip));
+
+    // ---- Problem and Cover: the plan's sign-off and open High findings (M114 rows 3 and 5) ----
+
+    public static TheoryData<string> NoSignOffReasons => new() { "could not be read", "malformed header", "status draft", "status approved", "signed without the tool", "changed since sign-off" };
+
+    [Theory]
+    [MemberData(nameof(NoSignOffReasons))]
+    public void A_plan_with_no_valid_sign_off_is_named_first_alone_and_before_a_report_fault(string reason)
+    {
+        Assert.Equal($"docs/plans/a: plan.md has no valid sign-off ({reason})", DeployReviews.Problem([new("a", V(), S(), reason)], Zip));
+        Assert.Equal($"docs/plans/a: plan.md has no valid sign-off ({reason}); verify.md is blocked", DeployReviews.Problem([new("a", V("blocked"), S(), reason)], Zip));
+        Assert.Null(DeployReviews.Cover([new("a", V(), S(), reason)], Zip, null));
+    }
+
+    [Fact]
+    public void A_ready_report_that_lists_an_open_high_is_no_cover()
+    {
+        Assert.Equal("docs/plans/a: verify.md is ready but lists 1 open High finding", DeployReviews.Problem([new("a", V() with { OpenHigh = 1 }, S(), null)], Zip));
+        Assert.Equal(
+            "docs/plans/a: plan.md has no valid sign-off (status draft); verify.md is ready but lists 1 open High finding; security-solution.md is ready but lists 2 open High findings",
+            DeployReviews.Problem([new("a", V() with { OpenHigh = 1 }, S() with { OpenHigh = 2 }, "status draft")], Zip));
+        Assert.Null(DeployReviews.Cover([new("a", V(), S() with { OpenHigh = 1 }, null)], Zip, null));
+    }
+
+    [Fact]
+    public void A_stale_report_with_an_open_high_gives_the_stale_sentence() =>
+        Assert.Equal("docs/plans/a: verify.md was not written for the current plan", DeployReviews.Problem([new("a", V(stale: true) with { OpenHigh = 1 }, S(), null)], Zip));
+
+    [Fact]
+    public void A_later_valid_folder_covers_when_the_first_has_no_valid_sign_off()
+    {
+        PlanReviews[] plans = [new("a", V(), S(), "status draft"), new("b", V(), S(), null)];
+
+        Assert.Null(DeployReviews.Problem(plans, Zip));
+        Assert.Equal("b", DeployReviews.Cover(plans, Zip, null)?.Plan);
+    }
+
+    [Fact]
+    public void A_deploy_hash_link_under_an_unsigned_plan_with_a_matching_unpack_is_refused_with_the_plans_sentence()
+    {
+        PlanReviews[] plans = [new("a", DV(), DS(), "status approved")];
+
+        Assert.True(DeployReviews.NeedsUnpack(plans, Zip));
+        Assert.Equal("docs/plans/a: plan.md has no valid sign-off (status approved)", DeployReviews.Problem(plans, Zip, Same));
+        Assert.Null(DeployReviews.Cover(plans, Zip, Same));
+    }
+
+    // Row 5: an edited body is changed since sign-off and leaves both reports stale; a re-sign of the edited body leaves only the stale reports.
+    [Fact]
+    public void An_edited_body_gives_all_three_clauses_and_a_re_signed_one_gives_the_stale_reports_alone()
+    {
+        static string PlanText(string hash) => $"---\nstatus: signed-off\nreview: skipped\nsigned-off: 2026-01-01\nsigned-off-hash: {hash}\nenvironment: null\n---\n# Plan, edited\n";
+        var old = PlanDocument.Parse("---\nstatus: draft\nreview: skipped\n---\n# Plan\n").BodyHash!;
+        var edited = PlanDocument.Parse(PlanText(old)).BodyHash!;
+        var report = $"state: ready\nplan-hash: {old}\ninput: solutions/seed\nsolution-hash: {Zip}\n\n# Report\n";
+        _t.Write("docs/plans/m/plan.md", PlanText(old)).Write("docs/plans/m/verify.md", report).Write("docs/plans/m/security-solution.md", report);
+        const string Stale = "verify.md was not written for the current plan; security-solution.md was not written for the current plan";
+
+        Assert.Equal($"docs/plans/m: plan.md has no valid sign-off (changed since sign-off); {Stale}", DeployReviews.Problem(PlanChecker.Reviews(_t.Path)!, Zip));
+
+        _t.Write("docs/plans/m/plan.md", PlanText(edited));
+        Assert.Equal($"docs/plans/m: {Stale}", DeployReviews.Problem(PlanChecker.Reviews(_t.Path)!, Zip));
+    }
 
     // ---- Evidence: the notes (row 3) ----
 
@@ -220,7 +283,7 @@ public class DeployReviewsTests : IDisposable
     }
 
     private static PlanReviews Both(string plan, string hash, string input = "solutions/seed", string state = "ready") =>
-        new(plan, R("verify.md", state, hash: hash, input: input), R("security-solution.md", state, hash: hash, input: input));
+        new(plan, R("verify.md", state, hash: hash, input: input), R("security-solution.md", state, hash: hash, input: input), null);
 
     private IReadOnlyList<string> Notes(IReadOnlyList<PlanReviews> plans, DeployZip zip) =>
         DeployReviews.Evidence(_t.Path, plans, [zip]).GetValueOrDefault(zip.File) ?? [];
@@ -256,8 +319,8 @@ public class DeployReviewsTests : IDisposable
         var zip = SeedZip();
         File.AppendAllText(Path.Combine(_t.Path, "solutions", "seed", "Other", "Relationships.xml"), "\n");
 
-        Assert.Equal([Count(1)], Notes([new("a", R("verify.md", hash: digest), null)], zip));
-        Assert.Equal([Count(3)], Notes([new("a", R("verify.md", hash: digest), null), new("b", null, R("security-solution.md", hash: digest)), new("c", R("verify.md", hash: digest), R("security-solution.md", "blocked", hash: digest))], zip));
+        Assert.Equal([Count(1)], Notes([new("a", R("verify.md", hash: digest), null, null)], zip));
+        Assert.Equal([Count(3)], Notes([new("a", R("verify.md", hash: digest), null, null), new("b", null, R("security-solution.md", hash: digest), null), new("c", R("verify.md", hash: digest), R("security-solution.md", "blocked", hash: digest), null)], zip));
     }
 
     [Fact]
@@ -311,7 +374,7 @@ public class DeployReviewsTests : IDisposable
     {
         var digest = SeedFolder();
         var zip = SeedZip();
-        var plans = new[] { new PlanReviews("a", R("verify.md", hash: digest) with { DeployHash = zip.Sha256 }, R("security-solution.md", hash: digest) with { DeployHash = zip.Sha256 }) };
+        var plans = new[] { new PlanReviews("a", R("verify.md", hash: digest) with { DeployHash = zip.Sha256 }, R("security-solution.md", hash: digest) with { DeployHash = zip.Sha256 }, null) };
 
         Assert.Equal([Note("docs/plans/a", 0)], Notes(plans, zip));
     }

@@ -698,6 +698,12 @@ public class DeployGateCommandTests : DeployTestBase
     [InlineData("no-report")]
     [InlineData("security-blocked")]
     [InlineData("no-docs-plans")]
+    [InlineData("draft")]
+    [InlineData("approved")]
+    [InlineData("malformed")]
+    [InlineData("changed")]
+    [InlineData("null-hash")]
+    [InlineData("open-high")]
     public void An_import_no_review_covers_is_blocked_by_the_dry_run(string kind)
     {
         SeedZip(Folder);
@@ -714,6 +720,10 @@ public class DeployGateCommandTests : DeployTestBase
                 Edit(Path.Combine(Reviewed(SeedZipPath), "security-solution.md"), "state: ready", "state: blocked");
                 (warning, why) = ("warning: PowerOpsSeed.zip: docs/plans/m: security-solution.md is blocked\n", "no review covers PowerOpsSeed.zip: docs/plans/m: security-solution.md is blocked; nothing was imported.");
                 break;
+            case var unsigned when Refusing.Contains(unsigned):
+                var sentence = $"docs/plans/m: {Unsign(Reviewed(SeedZipPath), kind)}";
+                (warning, why) = ($"warning: PowerOpsSeed.zip: {sentence}\n", $"no review covers PowerOpsSeed.zip: {sentence}; nothing was imported.");
+                break;
             default:
                 // The .git folder ends the walk, so a docs/plans above the temp folder can't change this test.
                 Directory.CreateDirectory(Path.Combine(_root, ".git"));
@@ -728,6 +738,21 @@ public class DeployGateCommandTests : DeployTestBase
         Assert.Equal(2, r.Code);
         Assert.Equal("", r.Out);
         Assert.Equal($"{warning}{Prefix}the dry run did not pass: {why}\n{ImportGuidance}\n", r.Err);
+        Assert.Empty(pac.Calls);
+    }
+
+    // M114 Done 3: reports with every check not verified and only an open Medium still cover.
+    [Fact]
+    public void Reports_with_checks_not_verified_and_an_open_medium_pass()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        Unsign(Reviewed(SeedZipPath), "not-verified");
+        var pac = new FakePac();
+
+        var r = Gate(Seeded(), SeedCall(), pac);
+
+        Assert.Equal((0, "", ""), (r.Code, r.Out, r.Err));
         Assert.Empty(pac.Calls);
     }
 

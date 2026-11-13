@@ -1894,9 +1894,16 @@ public class DeployApplyCommandTests : DeployTestBase
                 Edit(Path.Combine(Reviewed(SeedZipPath), "security-solution.md"), "state: ready", "state: blocked");
                 return ("no review covers PowerOpsSeed.zip: docs/plans/m: security-solution.md is blocked; nothing was imported.", "warning: PowerOpsSeed.zip: docs/plans/m: security-solution.md is blocked\n", SeedAfterOn);
             case "stale":
-                Edit(Path.Combine(Reviewed(SeedZipPath), "plan.md"), "# Plan", "# Plan, edited");
+                EditBody(Reviewed(SeedZipPath), resign: false);
+                const string Changed = "docs/plans/m: plan.md has no valid sign-off (changed since sign-off); verify.md was not written for the current plan; security-solution.md was not written for the current plan";
+                return ($"no review covers PowerOpsSeed.zip: {Changed}; nothing was imported.", $"warning: PowerOpsSeed.zip: {Changed}\n", SeedAfterOn);
+            case "stale-re-signed":
+                EditBody(Reviewed(SeedZipPath), resign: true);
                 const string Stale = "docs/plans/m: verify.md was not written for the current plan; security-solution.md was not written for the current plan";
                 return ($"no review covers PowerOpsSeed.zip: {Stale}; nothing was imported.", $"warning: PowerOpsSeed.zip: {Stale}\n", SeedAfterOn);
+            case var unsigned when Refusing.Contains(unsigned):
+                var sentence = $"docs/plans/m: {Unsign(Reviewed(SeedZipPath), kind)}";
+                return ($"no review covers PowerOpsSeed.zip: {sentence}; nothing was imported.", $"warning: PowerOpsSeed.zip: {sentence}\n", SeedAfterOn);
             case "no-docs-plans":
                 // The .git folder ends the walk, so a docs/plans above the temp folder can't change this test.
                 Directory.CreateDirectory(Path.Combine(_root, ".git"));
@@ -1913,6 +1920,13 @@ public class DeployApplyCommandTests : DeployTestBase
     [Theory]
     [InlineData("security-blocked")]
     [InlineData("stale")]
+    [InlineData("stale-re-signed")]
+    [InlineData("draft")]
+    [InlineData("approved")]
+    [InlineData("malformed")]
+    [InlineData("changed")]
+    [InlineData("null-hash")]
+    [InlineData("open-high")]
     [InlineData("no-docs-plans")]
     [InlineData("linked-docs")]
     [InlineData("two-zips")]
@@ -1940,6 +1954,13 @@ public class DeployApplyCommandTests : DeployTestBase
     [Theory]
     [InlineData("security-blocked")]
     [InlineData("stale")]
+    [InlineData("stale-re-signed")]
+    [InlineData("draft")]
+    [InlineData("approved")]
+    [InlineData("malformed")]
+    [InlineData("changed")]
+    [InlineData("null-hash")]
+    [InlineData("open-high")]
     [InlineData("no-docs-plans")]
     [InlineData("linked-docs")]
     [InlineData("two-zips")]
@@ -1953,6 +1974,22 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Equal(0, r.Code);
         Assert.Equal(warnings, r.Err);
         Assert.NotEmpty(pac.Calls);
+    }
+
+    // M114 Done 3: a report with every check not verified and only an open Medium still covers.
+    [Fact]
+    public void With_require_reviews_reports_with_checks_not_verified_and_an_open_medium_still_cover()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        Assert.Null(Unsign(Reviewed(SeedZipPath), "not-verified"));
+        var pac = new FakePac();
+
+        var r = Apply(SeedAfterOn(), pac, "--require-reviews", "--apply");
+
+        Assert.Equal(0, r.Code);
+        Assert.Equal("", r.Err);
+        Assert.Single(pac.Calls);
     }
 
     [Fact]

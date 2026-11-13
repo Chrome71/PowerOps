@@ -253,7 +253,8 @@ public abstract class DeployTestBase : IDisposable
 
     // ---- review reports ----------------------------------------------------------------------------------------
 
-    protected const string ReviewedPlanText = "---\nstatus: signed-off\nreview: done\nsigned-off: 2026-01-01\nsigned-off-hash: null\nenvironment: null\n---\n# Plan\n";
+    // A valid sign-off (M114): the signed-off-hash is the body hash of the same text, so plan status passes it too.
+    protected static readonly string ReviewedPlanText = $"---\nstatus: signed-off\nreview: skipped\nsigned-off: 2026-01-01\nsigned-off-hash: {PlanDocument.Parse("---\n---\n# Plan\n").BodyHash}\nenvironment: null\n---\n# Plan\n";
 
     /// <summary>
     /// Writes <c>docs/plans/&lt;plan&gt;/plan.md</c> under <paramref name="repo"/> (the test's root by default, which the walk up from <see cref="Folder"/> reaches)
@@ -270,6 +271,61 @@ public abstract class DeployTestBase : IDisposable
         File.WriteAllText(Path.Combine(folder, "verify.md"), head);
         File.WriteAllText(Path.Combine(folder, "security-solution.md"), head);
         return folder;
+    }
+
+    /// <summary>The cases M114 refuses on a folder <see cref="Reviewed"/> wrote: five plans with no valid sign-off and a ready verify.md that lists an open High.</summary>
+    internal static readonly string[] Refusing = ["draft", "approved", "malformed", "changed", "null-hash", "open-high"];
+
+    /// <summary>
+    /// Makes one of the <see cref="Refusing"/> cases on <paramref name="folder"/> and returns the sentence that follows <c>docs/plans/&lt;plan&gt;: </c>,
+    /// or, for <c>not-verified</c>, gives both reports every check <c>not verified</c>, <c>No findings.</c> under <c>### High</c> and an open Medium, which still cover, and returns null.
+    /// </summary>
+    internal static string? Unsign(string folder, string kind)
+    {
+        var plan = Path.Combine(folder, "plan.md");
+        var hash = PlanDocument.Parse(ReviewedPlanText).BodyHash!;
+        switch (kind)
+        {
+            case "draft":
+                File.WriteAllText(plan, "---\nstatus: draft\nreview: pending\nenvironment: null\n---\n# Plan\n");
+                return "plan.md has no valid sign-off (status draft)";
+            case "approved":
+                File.WriteAllText(plan, "---\nstatus: approved\nreview: skipped\nenvironment: null\n---\n# Plan\n");
+                return "plan.md has no valid sign-off (status approved)";
+            case "malformed":
+                Edit(plan, "status: signed-off", "status: nonsense");
+                return "plan.md has no valid sign-off (malformed header)";
+            case "changed":
+                Edit(plan, hash, new string('a', 64));
+                return "plan.md has no valid sign-off (changed since sign-off)";
+            case "null-hash":
+                Edit(plan, hash, "null");
+                return "plan.md has no valid sign-off (signed without the tool)";
+            case "open-high":
+                File.AppendAllText(Path.Combine(folder, "verify.md"), "\n## Findings\n\n### High\n\n#### V1. A High\n- Area: analyze\n- Finding: what is wrong\n- Suggested fix: what to change\n- Resolution: open\n\n### Medium\n\nNo findings.\n\n### Low\n\nNo findings.\n");
+                return "verify.md is ready but lists 1 open High finding";
+            default:
+                Assert.Equal("not-verified", kind);
+                foreach (var report in new[] { "verify.md", "security-solution.md" })
+                {
+                    File.AppendAllText(
+                        Path.Combine(folder, report),
+                        "\n## Checks\n\n- analyze: not verified (no time)\n- test: not verified (no time)\n- diff: not verified (no time)\n\n## Findings\n\n### High\n\nNo findings.\n\n### Medium\n\n#### V1. A Medium\n- Area: diff\n- Finding: what is wrong\n- Suggested fix: what to change\n- Resolution: open\n\n### Low\n\nNo findings.\n");
+                }
+
+                return null;
+        }
+    }
+
+    /// <summary>Edits the body of the plan <see cref="Reviewed"/> wrote, so both reports are stale, and with <paramref name="resign"/> writes the new body hash as its signed-off-hash.</summary>
+    protected static void EditBody(string folder, bool resign)
+    {
+        var plan = Path.Combine(folder, "plan.md");
+        Edit(plan, "# Plan", "# Plan, edited");
+        if (resign)
+        {
+            Edit(plan, PlanDocument.Parse(ReviewedPlanText).BodyHash!, PlanDocument.Parse(File.ReadAllText(plan)).BodyHash!);
+        }
     }
 
     /// <summary>

@@ -635,6 +635,79 @@ public class PlanCheckerTests : IDisposable
         Assert.Empty(Check().Warnings);
     }
 
+    // ---- open High findings (M114 row 2) ----
+
+    // A findings block in the format the kept roles prescribe, with the given High and Medium entries.
+    private static string Findings(string high, string medium = "No findings.\n") =>
+        $"## Checks\n\n- analyze: done\n\n## Findings\n\n### High\n\n{high}\n### Medium\n\n{medium}\n### Low\n\nNo findings.\n";
+
+    private static string Finding(string resolution, string id = "V1") =>
+        $"#### {id}. A title\n- Area: the check\n- Finding: what is wrong\n- Suggested fix: what to change\n{resolution}\n";
+
+    private int OpenHigh(string text, string name = "verify.md")
+    {
+        Write(Plan());
+        Report(name, $"state: ready\nplan-hash: {Hash}\n\n" + text);
+        return Assert.Single(Check().Reports, r => r.File == name).OpenHigh;
+    }
+
+    [Theory]
+    [InlineData("- Resolution: fixed")]
+    [InlineData("- Resolution: fixed. The reason.")]
+    [InlineData("- Resolution: Accepted (the reason)")]
+    [InlineData("- Resolution: accepted")]
+    [InlineData("- Resolution: resolved")]
+    [InlineData("- Resolution: answered")]
+    [InlineData("- Resolution: closed")]
+    [InlineData("- Resolution: withdrawn")]
+    [InlineData("- Resolution: kept")]
+    [InlineData("- Resolution: done")]
+    [InlineData("- Resolution: Fixed, with a reason")]
+    [InlineData("- Resolution: fixed: the reason")]
+    [InlineData("- Resolution: fixed; the reason")]
+    [InlineData("- Resolution: fixed)")]
+    [InlineData("  - Resolution:   FIXED  ")]
+    public void A_high_whose_first_resolution_word_closes_it_is_not_open(string resolution) =>
+        Assert.Equal(0, OpenHigh(Findings(Finding(resolution))));
+
+    [Theory]
+    [InlineData("- Resolution: open")]
+    [InlineData("- Resolution: Open.")]
+    [InlineData("- Resolution: Reopened")]
+    [InlineData("- Resolution: Not done (the reason)")]
+    [InlineData("- Resolution: no change needed")]
+    [InlineData("- Resolution: (a) accepted by the person")]
+    [InlineData("- Resolution: later")]
+    [InlineData("- Resolution:")]
+    [InlineData("- Resolution:   ")]
+    [InlineData("- Resolution: open\n- Resolution: fixed")]
+    [InlineData("- Note: fixed")]
+    public void A_high_with_any_other_resolution_or_none_is_open(string resolution) =>
+        Assert.Equal(1, OpenHigh(Findings(Finding(resolution))));
+
+    [Theory]
+    [InlineData("state: ready\n\n# Report\n", 0)]
+    [InlineData("## Findings\n\n### High\n\nNo findings.\n\n### Medium\n\nNo findings.\n", 0)]
+    [InlineData("## Findings\n\n### High\n\n#### V1. A title\n- Area: a\n\n### Medium\n\n#### V2. Another\n- Resolution: fixed\n", 1)]
+    [InlineData("## Findings\n\n### High\n\nNo findings.\n\n### Medium\n\n#### V1. A title\n- Resolution: open\n", 0)]
+    [InlineData("## Findings\n\n### High\n\n#### V1. A\n- Resolution: open\n\n#### V2. B\n- Resolution: open\n#### V3. C\n- Resolution: fixed\n", 2)]
+    [InlineData("## Findings\n\n```\n### High\n\n#### V1. <short title>\n- Resolution: open\n```\n", 0)]
+    [InlineData("## Findings\n\n### high\n\n#### V1. A\n- Resolution: open\n", 1)]
+    [InlineData("## Findings\r\n\r\n### High\r\n\r\n#### V1. A\r\n- Resolution: open\r\n\r\n### Medium\r\n", 1)]
+    [InlineData("### High\n\n## Notes\n\n#### V1. A\n- Resolution: open\n", 0)]
+    [InlineData("### High\n\n#### V1. A\n- Resolution: open\n### Low\n#### V2. B\n- Resolution: open\n", 1)]
+    [InlineData("### High findings\n\n#### V1. A\n- Resolution: open\n", 0)]
+    public void Open_highs_are_counted_only_in_the_high_section_outside_fenced_blocks(string text, int open) =>
+        Assert.Equal(open, OpenHigh(text));
+
+    [Fact]
+    public void A_review_md_in_the_review_roles_format_counts_its_open_high_and_plan_status_prints_nothing_new()
+    {
+        var text = $"model: m\nfresh-context: yes\n\nIntro.\n\n{Findings(Finding("- Resolution: open", "R1"), Finding("- Resolution: open", "R2"))}";
+        Assert.Equal(1, OpenHigh(text, "review.md"));
+        Assert.Empty(Check().Warnings);
+    }
+
     [Theory]
     [InlineData("draft", 1, "status is draft; sign-off needs status: approved")]
     [InlineData("approved", 1, "review is pending")]
@@ -663,6 +736,28 @@ public class PlanCheckerTests : IDisposable
         Assert.Contains("error: remove tenant data before signing off", r.Err);
         Assert.DoesNotContain(r.Err, e => e.Contains("a@contoso"));
         Assert.Equal(text, File.ReadAllText(PlanFile));
+    }
+
+    // M114 row 4 (Q6): an open High in review.md warns, and the sign-off still goes through.
+    [Theory]
+    [InlineData("- Resolution: open", "- Resolution: fixed", "warning: review.md lists 1 open High finding: only a person accepts one")]
+    [InlineData("- Resolution: open", "- Resolution: open", "warning: review.md lists 2 open High findings: only a person accepts one")]
+    [InlineData("- Resolution: fixed. Done.", "- Resolution: accepted by the person", null)]
+    [InlineData(null, null, null)]
+    public void Sign_off_warns_on_an_open_high_in_review_md_and_signs_off(string? first, string? second, string? warning)
+    {
+        Write(Plan("approved", "done"));
+        var high = first is null ? "No findings.\n" : Finding(first, "R1") + "\n" + Finding(second!, "R2");
+        _t.Write("docs/plans/demo/review.md", $"plan-hash: {Hash}\nmodel: m\nfresh-context: yes\n\n{Findings(high)}");
+
+        var r = SignOff();
+        var status = Check();
+
+        Assert.Equal(0, r.ExitCode);
+        Assert.Equal("signed-off", status.Status);
+        Assert.Empty(status.Violations);
+        Assert.Equal(warning is null ? [] : [warning], r.Err);
+        Assert.DoesNotContain(status.Warnings, w => w.Contains("open High", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -1178,6 +1273,46 @@ public class PlanCheckerTests : IDisposable
         _t.Write("docs/plans/d/plan.md", "---\nstatus: draft\n# Plan\n").Write("docs/plans/d/verify.md", Six());
 
         Assert.Equal([false, true, null, null], PlanChecker.Reviews(_t.Path)!.Select(r => r.Verify!.Stale));
+    }
+
+    // M114 row 1: the plan's sign-off, per folder; the reason strings are fixed and no header text reaches them.
+    [Theory]
+    [InlineData("---\nstatus: nonsense\nreview: done\n---\n# Plan\n", "malformed header")]
+    [InlineData("---\nstatus: draft\n# Plan\n", "malformed header")]
+    [InlineData("# Plan\n", "malformed header")]
+    [InlineData("draft", "status draft")]
+    [InlineData("approved", "status approved")]
+    [InlineData("signed-off/null", "signed without the tool")]
+    [InlineData("signed-off/no-date", "signed without the tool")]
+    [InlineData("implementing/null", "signed without the tool")]
+    [InlineData("signed-off/other", "changed since sign-off")]
+    [InlineData("done/other", "changed since sign-off")]
+    [InlineData("signed-off/good", null)]
+    [InlineData("implementing/good", null)]
+    [InlineData("done/good", null)]
+    public void Reviews_gives_each_folder_the_reason_its_plan_has_no_valid_sign_off(string plan, string? reason)
+    {
+        var parts = plan.Split('/');
+        var text = plan.StartsWith('-') || plan.StartsWith('#') ? plan : parts.Length == 1 ? Plan(plan, "skipped") : parts[1] switch
+        {
+            "null" => Plan(parts[0], "skipped", date: "2026-10-19"),
+            "no-date" => Plan(parts[0], "skipped", hash: Hash),
+            "other" => Plan(parts[0], "skipped", hash: Other, date: "2026-10-19"),
+            _ => Plan(parts[0], "skipped", hash: Hash, date: "2026-10-19"),
+        };
+        _t.Write("docs/plans/a/plan.md", text).Write("docs/plans/a/verify.md", Six());
+
+        Assert.Equal(reason, Assert.Single(PlanChecker.Reviews(_t.Path)!).NoSignOff);
+    }
+
+    [Fact]
+    public void Reviews_gives_could_not_be_read_for_a_plan_over_1_mb_and_null_for_a_superseded_signed_plan()
+    {
+        _t.Write("docs/plans/a/plan.md", Plan("signed-off", "skipped", body: new string('x', 1024 * 1024 + 1), hash: Hash, date: "2026-10-19")).Write("docs/plans/a/verify.md", Six());
+        _t.Write("docs/plans/old/plan.md", Plan("signed-off", "skipped", hash: Hash, date: "2026-10-19")).Write("docs/plans/old/verify.md", Six());
+        _t.Write("docs/plans/v2/plan.md", "---\nstatus: draft\nreview: pending\nsupersedes: old\n---\n# Plan\n");
+
+        Assert.Equal([("a", "could not be read"), ("old", null)], PlanChecker.Reviews(_t.Path)!.Select(r => (r.Plan, r.NoSignOff)));
     }
 
     [Fact]
