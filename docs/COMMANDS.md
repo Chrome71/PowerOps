@@ -609,24 +609,30 @@ Learn does not say whether the solution's own component list keeps the component
 It looks for `docs/plans` in the deploy folder and then in each folder above it, no further than the folder that holds `.git`, and takes the first it finds as the repository's.
 It checks only the zips the plan imports; a zip the plan skips is not imported, so it gets no line.
 
-For each of them, in plan order, it prints `warning: <zip>: <sentence>` on stderr unless one plan folder covers the zip: that folder's `verify.md` and `security-solution.md`
+For each of them, in plan order, it prints `warning: <zip>: <sentence>` on stderr unless one plan folder covers the zip: that folder's `plan.md` has a valid sign-off (status `signed-off`, `implementing` or `done`, with the `signed-off-hash` that `powerops plan sign-off` wrote for the current body), and its `verify.md` and `security-solution.md`
 
 - both exist,
 - both have `state: ready`,
 - both carry the plan's current hash as `plan-hash:`,
+- neither lists an open High finding,
 - and each is linked to the zip ([plan status](#plan-and-skills) reads the same lines).
+
+A report lists an open High finding when, under its `### High` heading (up to the next `##` or `###` heading, and outside fenced code blocks), a `####` entry's first `- Resolution:` line doesn't start with one of the closing words `fixed`, `resolved`, `answered`, `accepted`, `closed`, `withdrawn`, `kept` or `done` (in any case, with a trailing `.`, `,`, `:`, `;` or `)` ignored).
+An entry with no such line, an empty one, or any other first word (such as `open`, `reopened` or `not done`) is open; a report with no `### High` heading lists none.
 
 A report is linked when its `solution-hash:` is the zip's SHA-256, or when its `deploy-hash:` is the zip's SHA-256 and its `solution-hash:` equals the digest of a fresh `pac solution unpack` of that zip.
 A `verify.md` of one plan and a `security-solution.md` of another make no cover.
 
-The sentence is either `no verify.md or security-solution.md under docs/plans records this zip's SHA-256 as its deploy-hash or its solution-hash`, or, when a report of some plan folder does record it, `docs/plans/<name>: ` for the first such folder in name order, then what is wrong with its reports, joined with `; `:
+The sentence is either `no verify.md or security-solution.md under docs/plans records this zip's SHA-256 as its deploy-hash or its solution-hash`, or, when a report of some plan folder does record it, `docs/plans/<name>: ` for the first such folder in name order, then what is wrong with its plan and its reports, joined with `; `:
 
+- first, `plan.md has no valid sign-off (<reason>)`, where the reason is `could not be read`, `malformed header`, `status draft`, `status approved`, `signed without the tool` or `changed since sign-off`,
 - `<file> is missing`,
 - `<file> records another deploy-hash and solution-hash`,
 - `<file> records this zip as its deploy-hash, but the zip's unpack could not be checked: <failure>`,
 - `<file>'s solution-hash is not the digest of this zip's unpack, so it reviewed another folder`,
 - `<file> has no state` or `<file> is <state>` (such as `blocked`),
-- or `<file> was not written for the current plan`.
+- `<file> was not written for the current plan`,
+- or `<file> is ready but lists <n> open High findings` (`1 open High finding` for one).
 
 With no such `docs/plans` it says nothing about reports, and when that folder can't be read it prints `warning: docs/plans could not be read, so the zips were not matched with review reports`.
 The check reads only those reports: it changes neither the report, the plan file, the hash nor the exit code.
@@ -722,9 +728,10 @@ Without the option the same `warning:` lines are written and the run goes on and
 The check reads what the reports say and doesn't prove that a role wrote them, so the form, the person's yes or the GitHub environment's approval stays the authorization.
 The MCP tool `deploy_apply` and `deploy gate` always require the reviews, and the Action does unless its `require-reviews` input is `false` ([the Action](GITHUB-ACTION.md)).
 
-The check reads each report's header lines only: `state:`, `plan-hash:`, `solution-hash:` and `deploy-hash:`.
-`ready` is the role's own word: the check reads no finding, no resolution and no check line, so a `ready` report with an open finding, or with every check `not verified`, covers the zip all the same.
-It doesn't read the plan's `status:`, its sign-off or its `review.md` either: only the plan body's hash.
+The check reads each report's header lines (`state:`, `plan-hash:`, `solution-hash:` and `deploy-hash:`) and the findings under its `### High` heading, and refuses a `ready` report that lists an open High finding ([deploy plan](#deploy-plan) gives the rule).
+It reads no other finding and no check line, so a `ready` report with every check `not verified`, or with an open Medium or Low finding, covers the zip all the same.
+It refuses a folder whose `plan.md` has no valid sign-off, but doesn't read its `review.md` or who signed it.
+
 A cover binds the zip, always by its SHA-256 (and for a `deploy-hash:` link also by the digest of its unpack), and the plan body, by `plan-hash:`.
 It doesn't bind:
 
@@ -734,6 +741,13 @@ It doesn't bind:
 
 Two ready reports also say nothing about what the checks don't read: the Copilot Studio settings a solution doesn't carry ([HANDOFF step 11](HANDOFF.md#the-steps)), the behaviour of a code app's built bundle, and SharePoint lists, which no solution holds.
 Read both reports before the yes, and check those yourself.
+
+A refusal clears by its reason:
+
+- `status draft`, `status approved` or `signed without the tool`: set `status: approved` and run `powerops plan sign-off`; a sign-off of an unchanged body keeps the reports current.
+- `changed since sign-off`: revert the edits, or set `status: approved`, run `powerops plan sign-off` and run both roles again, because the reports were written for the old body.
+- `could not be read` or `malformed header`: run `powerops plan status` on the folder, which names the problem, and fix the file.
+- an open High finding: fix it and run that role again, or a person accepts it and runs `deploy apply` without `--require-reviews`.
 
 ### What it does
 
@@ -910,7 +924,7 @@ Only a folder directly inside a `docs/plans` folder counts as a plan folder; any
 The name is never printed.
 
 `plan sign-off` refuses unless `status` is `approved`, the review is done or skipped, and the scan is clean; it edits only the header.
-On success it also prints, on stderr, the report warnings `plan status` gives for the folder (a stale or hashless `review.md`, a stale `verify.md` or `security-solution.md`, an unknown state) and still exits `0`.
+On success it also prints, on stderr, the report warnings `plan status` gives for the folder (a stale or hashless `review.md`, a stale `verify.md` or `security-solution.md`, an unknown state), and `review.md lists <n> open High findings: only a person accepts one` (`1 open High finding` for one) when `review.md` lists an open High finding (the rule of [deploy plan](#deploy-plan)), and still exits `0`; `plan status` gives no such warning.
 When `Screens` names anything, it also refuses until the last `prototype:` line under `## Log` in `decisions.md` is `approved mockups/prototype.html`, with a file that passes the sketch checks beside at least three options (`mockups/option-*.html`) that pass them and differ, one of which the line names as `(option <letter>: <why>)`, or `skipped (<reason>)` ending `(answered by: person)`.
 `plan status` shows the same prototype problems as warnings on a `draft` or `approved` plan, and warns when an `approved` line is not marked `(answered by: person)`.
 
