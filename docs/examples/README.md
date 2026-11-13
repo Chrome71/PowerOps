@@ -6,7 +6,7 @@ How it runs:
 
 1. On a pull request, the `plan` job signs in to Dev with GitHub OIDC (no stored credential), exports `ContosoApp` as managed, builds the Test settings file, runs `powerops deploy plan` against Test, and posts the plan as one PR comment. It keeps the exported zip and the plan file as the artifact `powerops-plan`.
 2. After the PR is merged, the `find` job looks up the newest unexpired `powerops-plan` artifact made for the PR's last commit and writes its run id, artifact id and plan hash to the job summary. Compare them with the PR comment.
-3. The `apply` job runs in the GitHub environment `test`, which has required reviewers, so it waits for an approval. Then it downloads that artifact and runs `powerops deploy apply --apply`. That command plans again against Test, refuses if anything differs from the reviewed plan, imports the zips in plan order and reports each cloud flow's state.
+3. The `apply` job runs in the GitHub environment `test`, and waits for an approval when `test` has required reviewers. Adding them is your step ([below](#github-environments-and-secrets)): the action checks only that the job names an environment, not its reviewers, and a workflow that names a missing environment creates it with none, so without them every merge imports into Test with no approval. Then it downloads that artifact and runs `powerops deploy apply --apply`. That command plans again against Test, refuses if anything differs from the reviewed plan, imports the zips in plan order and reports each cloud flow's state.
 
 The workflow runs only for pull requests into `main` (`branches: [main]`), so a PR merged into a scratch branch never promotes. Change it if your release branch has another name.
 
@@ -18,7 +18,7 @@ All values below are fake: `contoso` stands for your own.
 
 The artifact holds Dev's managed export. A canvas app's `.msapp` caches the URL of the environment it was made in, and flow definitions can hold hard-coded values (rule PO006). In a public repository, anyone signed in to GitHub can download an artifact while it is kept (30 days here).
 
-For a public repository the example encrypts the zip before the upload (`openssl enc -aes-256-cbc -pbkdf2 -salt`), with a key stored as the secret `POWEROPS_ZIP_KEY` in both GitHub environments, and the apply job decrypts it. Make the key with `openssl rand -base64 32` and pipe it into `gh secret set`, so it is never printed. A private repository can drop the encrypt step, the decrypt step and the `.enc` in the upload path.
+For a public repository the example encrypts the zip before the upload (`openssl enc -aes-256-cbc -pbkdf2 -salt`), with a key stored as the secret `POWEROPS_ZIP_KEY` in both GitHub environments, and the apply job decrypts it. Make the key with `openssl rand -base64 32` and pipe it into `gh secret set`, so it is never printed. A private repository can drop the encrypt step, the decrypt step and the `.enc` in the upload path. A private repository may not get the required reviewers the apply job relies on: see [GitHub environments and secrets](#github-environments-and-secrets).
 
 Encryption does not make a promoted value safe. Set `fail-on: warning` in the plan job (with a baseline for findings you accept) to stop hard-coded values (PO006) and shipped current values (PO008) from being promoted.
 
@@ -41,7 +41,7 @@ Also:
 - Make the `plan` job a required status check. Otherwise a PR can be merged with no plan for its last commit, and `find` fails.
 - Run flow tests in their own workflow, as in the Action's [merge gate](../GITHUB-ACTION.md#merge-gate-flow-tests), not in the `plan` job: its `path` is Dev's export, so the test report in the job summary would show values from it, and the job is skipped on fork PRs. The merge-gate workflow tests the committed solution.
 
-For a quick trial in a repository only you can push to, one app registration with both federated credentials works. Do not do that where others can push branches.
+For a quick trial in a repository only you can push to, one app registration with both federated credentials works. Do not do that where others can push branches. An agent that pushes with your GitHub token pushes as you, so with an agent at work the repository is no longer one only you can push to: use the two app registrations.
 
 ### The plan app's role in Test
 
@@ -84,7 +84,7 @@ The imported components are owned by the application user. Share the connection 
 
 ## GitHub environments and secrets
 
-Create two environments, `test-plan` (no reviewers) and `test` (required reviewers). Required reviewers are available on public repositories on GitHub Free. Secrets belong to the environment, one secret per value, because log masking matches exact text and can miss parts of a JSON blob. The same names go in both environments:
+Create two environments, `test-plan` (no reviewers) and `test` (required reviewers). On GitHub Free, Pro and Team, required reviewers and the administrator bypass setting work only in public repositories, and Free can't configure environments for a private repository at all ([Deployments and environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments), [Managing environments for deployment](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments), read 2026-11-13). So on Free the example doesn't run in a private repository as written. Check your GitHub plan before you rely on reviewers in a private repository, and never make a client's repository public to get them: on Pro or Team without reviewers, drop the `apply` job and run the import yourself. Secrets belong to the environment, one secret per value, because log masking matches exact text and can miss parts of a JSON blob. The same names go in both environments:
 
 | Secret | Example (fake) |
 |---|---|
@@ -105,7 +105,7 @@ Fork pull requests get no secrets, so every job skips them.
 `deploy apply` plans again against Test and refuses (exit 1, nothing imported) if the new plan's hash differs from the reviewed one. The message names the first input that differs. Causes when nothing was meant to change:
 
 - A secret that differs between `test-plan` and `test`, or that was rotated after the plan.
-- The settings script, or the `Chrome71/PowerOps` ref, changed in the PR after the plan ran. The plan file's `tool` must equal the version that applies it, and two builds of one release cannot be told apart, so pin the action to one commit SHA (the example pins `main` as of 2026-10-29; pin the newest commit of `main` when you copy it) and use the same SHA in both jobs.
+- The settings script, or the `Chrome71/PowerOps` ref, changed in the PR after the plan ran. The plan file's `tool` must equal the version that applies it, and two builds of one release cannot be told apart, so pin the action to one commit SHA (the example pins `main` as of 2026-11-10; pin the newest commit of `main` when you copy it) and use the same SHA in both jobs.
 - A platform update of a dependency solution in Test (each dependency's version is part of the hash).
 - A change made in Test since the plan.
 
@@ -145,7 +145,7 @@ Recommended:
 
 - Run it in a tenant, or a region, that has no production environments.
 - Keep the approval gate: the job runs in the GitHub environment `ephemeral` with required reviewers and "Prevent self-review", so each run waits for an approval, and the federated credential is bound to that environment, not to `pull_request`. Prevent self-review means a second person, not the one who triggered the run, has to approve it.
-- Use an Entra app for nothing else, and a private repository.
+- Use an Entra app for nothing else, and a private repository on a GitHub plan that gives it required reviewers ([GitHub environments and secrets](#github-environments-and-secrets)).
 - Protect `.github/workflows/` and `docs/examples/powerops/` (or your copy of it) with CODEOWNERS or a repository ruleset. A `pull_request` run uses the workflow file from the PR.
 - Secrets in the job are configuration (tenant id, app id), never credentials.
 - A fork PR gets no token, so the job skips forks. It skips Dependabot runs too, which get no secrets: the job checks the actor and the PR's author, because a person who re-runs a Dependabot PR becomes the actor.
@@ -268,7 +268,7 @@ The offline tests (`tests/PowerOps.Cli.Tests/EphemeralScriptTests.cs` and `Examp
 
 ## A safe first use
 
-1. A throwaway private repository, a tenant or region with no production environments **and no environment whose name matches the pattern** (the PR workflow's own sweep step deletes this PR's finished leftovers without the variable), a dedicated app, a second person to approve each run (Prevent self-review), and a `ContosoTables`-like solution with no connection reference in `deploy/`.
+1. A throwaway private repository, a tenant or region with no production environments **and no environment whose name matches the pattern** (the PR workflow's own sweep step deletes this PR's finished leftovers without the variable), a dedicated app, a second person to approve each run (Prevent self-review) (in a private repository, only on a GitHub plan that gives it required reviewers: see [GitHub environments and secrets](#github-environments-and-secrets)), and a `ContosoTables`-like solution with no connection reference in `deploy/`.
 2. Run the sweep by hand with `delete` off. It must list nothing, or only what you expect.
 3. Open one PR, approve it, and watch the run. Check with `pac admin list` that the environment was created, deployed into and deleted.
 4. Cancel one run during the create step, then run the sweep with `delete` off, then on, and note what happened.

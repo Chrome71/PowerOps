@@ -35,7 +35,7 @@ claude plugin install powerops@powerops --scope user
 
 To get the two build roles and the changed `powerops-implement` from an earlier version, update the CLI, then uninstall and install the plugin as above, or in a repo with copied skills run `powerops skills install --force`. A Codex plugin update has not been tried.
 
-The plugin also starts the PowerOps MCP server: see [MCP server](#mcp-server).
+The plugin also starts the PowerOps MCP server: see [MCP server](#mcp-server). It installs no hook: the import gate is configuration you add yourself, the hooks and deny rules in [Gate Microsoft's imports](HANDOFF.md#gate-microsofts-imports).
 
 For a team, `powerops skills install` stays the default: the skills then live in the repo, so every contributor and CI sees the same gate. Use one or the other in a repo; with both, each skill is listed twice.
 

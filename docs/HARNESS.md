@@ -26,6 +26,8 @@ Copilot CLI, Antigravity CLI and Pi with local Qwen (provisional) and Gemini CLI
 
 Treat "not checked" as absent: import by the Action route or your own command, and don't rely on the gate there. The details for Claude Code and Codex, with their sources, are in [MCP server](USE-WITH-AGENTS.md#mcp-server) and [Gate Microsoft's imports](HANDOFF.md#gate-microsofts-imports).
 
+A fresh context is not a separate permission set. The builder and the two report roles run in one session, with its tools, permissions and sign-ins, so PowerOps adds nothing that keeps a builder from editing a report, a hook or the client's settings file: `powerops-implement` tells the builder never to edit a hook, a permission rule or a setting to get past a block, no instruction forbids editing a report, the gate doesn't block such an edit, and what your client's own permission prompts or deny rules stop is not checked here.
+
 ## Without a person at the keyboard
 
 - **A headless run** (`claude -p`, `codex exec`) can plan, analyze, test and run `deploy_apply` without `apply`, but its forms are cancelled, so it never imports through the MCP tool. The import goes by the Action's apply job in a GitHub environment with required reviewers ([the example](examples/README.md)), or the person runs `powerops deploy apply --apply`. Nothing checks who runs that command, and a headless run has no user in the session to say yes, so an agent never runs it there.
