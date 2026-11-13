@@ -23,11 +23,11 @@ public sealed record PlanReport(
     IReadOnlyList<PlanReportFile> Reports,
     PlanWrites? Writes);
 
-/// <summary>One agent report in a plan folder. State and Stale are null when the report does not say, or could not be read. Input (a relative path) and SolutionHash (64 lowercase hex characters, else "unknown") are null for review.md; for the two solution reports Input is null when there is no valid input: line. SolutionStale is null for review.md and when nothing was compared (no valid input and hash, or a solution that could not be read); else true when the digest of the solution Input names differs from SolutionHash. DeployHash (the deployed zip's SHA-256, 64 lowercase hex characters, else "unknown") is null for review.md; plan status doesn't print it.</summary>
-public sealed record PlanReportFile(string File, string? State, bool? Stale, string? Input = null, string? SolutionHash = null, bool? SolutionStale = null, string? DeployHash = null);
+/// <summary>One agent report in a plan folder. OpenHigh counts the findings under its `### High` heading that no closing word resolves; plan status doesn't print it. State and Stale are null when the report does not say, or could not be read. Input (a relative path) and SolutionHash (64 lowercase hex characters, else "unknown") are null for review.md; for the two solution reports Input is null when there is no valid input: line. SolutionStale is null for review.md and when nothing was compared (no valid input and hash, or a solution that could not be read); else true when the digest of the solution Input names differs from SolutionHash. DeployHash (the deployed zip's SHA-256, 64 lowercase hex characters, else "unknown") is null for review.md; plan status doesn't print it.</summary>
+public sealed record PlanReportFile(string File, string? State, bool? Stale, string? Input = null, string? SolutionHash = null, bool? SolutionStale = null, string? DeployHash = null, int OpenHigh = 0);
 
-/// <summary>The two solution reports of one plan folder under docs/plans: Plan is the folder's name; a report is null when the folder has none.</summary>
-public sealed record PlanReviews(string Plan, PlanReportFile? Verify, PlanReportFile? Security);
+/// <summary>The two solution reports of one plan folder under docs/plans: Plan is the folder's name; a report is null when the folder has none. NoSignOff is why the folder's plan.md has no valid sign-off (could not be read, malformed header, status draft, status approved, signed without the tool, changed since sign-off), or null when it has one.</summary>
+public sealed record PlanReviews(string Plan, PlanReportFile? Verify, PlanReportFile? Security, string? NoSignOff);
 
 /// <summary>The write journal (writes.md) of a plan folder: its table rows and those whose cleanup is still open. Both are null when the file could not be read.</summary>
 public sealed record PlanWrites(int? Entries, int? OpenCleanup);
@@ -148,13 +148,11 @@ public static partial class PlanChecker
         }
         else if (h.Status is "signed-off" or "implementing" or "done")
         {
-            if (h.SignedOff is null || h.SignedOffHash is null)
+            if (SignOffFault(h, doc.BodyHash) is { } fault)
             {
-                violations.Add("signed off without the tool: run `powerops plan sign-off`");
-            }
-            else if (h.SignedOffHash != doc.BodyHash)
-            {
-                violations.Add("changed since sign-off (or signed by hand): set status to approved and run `powerops plan sign-off` again, or revert the edits");
+                violations.Add(fault == SignedWithoutTool
+                    ? "signed off without the tool: run `powerops plan sign-off`"
+                    : "changed since sign-off (or signed by hand): set status to approved and run `powerops plan sign-off` again, or revert the edits");
             }
 
             violations.AddRange(ReviewProblems(h.Review, reviewFile));
@@ -199,6 +197,21 @@ public static partial class PlanChecker
             reports,
             writes);
     }
+
+    private const string SignedWithoutTool = "signed without the tool";
+
+    /// <summary>Why the sign-off of a plan whose status is signed-off, implementing or done is not valid, or null when it is: no date or hash, or a hash that is not the body's.</summary>
+    internal static string? SignOffFault(PlanHeader h, string? bodyHash) =>
+        h.SignedOff is null || h.SignedOffHash is null ? SignedWithoutTool
+        : h.SignedOffHash != bodyHash ? "changed since sign-off"
+        : null;
+
+    // Why a plan has no valid sign-off, in fixed words (no header text is echoed), or null when it has one.
+    private static string? NoSignOff(PlanDocument? doc) =>
+        doc is null ? "could not be read"
+        : doc.Header is not { } h ? "malformed header"
+        : h.Status is "draft" or "approved" ? $"status {h.Status}"
+        : SignOffFault(h, doc.BodyHash);
 
     // The digest of an input, or why there is none: Problem is null for a path that is not there (no warning).
     private sealed record Comparison(string? Digest, string? Problem);
@@ -312,23 +325,23 @@ public static partial class PlanChecker
         var reviews = new List<PlanReviews>();
         foreach (var planFile in PlansUnder(root, null))
         {
-            string? hash;
+            PlanDocument? doc;
             try
             {
-                hash = PlanDocument.Parse(ReadPlan(planFile)).BodyHash;
+                doc = PlanDocument.Parse(ReadPlan(planFile));
             }
             catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
             {
-                hash = null;
+                doc = null;
             }
 
             var folder = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(planFile))!;
-            var reports = ReadReports(folder, root, hash, new List<string>());
+            var reports = ReadReports(folder, root, doc?.BodyHash, new List<string>());
             var verify = reports.Find(r => r.File == "verify.md");
             var security = reports.Find(r => r.File == "security-solution.md");
             if (verify is not null || security is not null)
             {
-                reviews.Add(new PlanReviews(System.IO.Path.GetFileName(folder), verify, security));
+                reviews.Add(new PlanReviews(System.IO.Path.GetFileName(folder), verify, security, NoSignOff(doc)));
             }
         }
 
@@ -520,10 +533,41 @@ public static partial class PlanChecker
                 }
             }
 
-            reports.Add(new PlanReportFile(name, state, stale, input, solutionHash, DeployHash: deployHash));
+            reports.Add(new PlanReportFile(name, state, stale, input, solutionHash, DeployHash: deployHash, OpenHigh: OpenHighs(text)));
         }
 
         return reports;
+    }
+
+    // The first words of the `- Resolution:` lines under docs/plans that close a finding (M114 Q4); any other wording leaves it open.
+    private static readonly string[] ClosingWords = ["fixed", "resolved", "answered", "accepted", "closed", "withdrawn", "kept", "done"];
+
+    // The findings (#### headings) under a `### High` heading, outside fenced blocks, whose first `- Resolution:` line doesn't start with a closing word.
+    private static int OpenHighs(string text)
+    {
+        var (open, fenced, high, finding) = (0, false, false, false);
+        bool? closed = null; // what the current finding's first Resolution line says; null until one is read
+        foreach (var line in Lines(text).Select(l => l.Trim()))
+        {
+            if (line.StartsWith("```", StringComparison.Ordinal))
+            {
+                fenced = !fenced;
+            }
+            else if (!fenced && (line.StartsWith("## ", StringComparison.Ordinal) || line.StartsWith("### ", StringComparison.Ordinal) || line.StartsWith("#### ", StringComparison.Ordinal)))
+            {
+                open += finding && closed != true ? 1 : 0;
+                var entry = line.StartsWith("#### ", StringComparison.Ordinal);
+                high = entry ? high : line.StartsWith("### ", StringComparison.Ordinal) && line[4..].Trim().Equals("High", StringComparison.OrdinalIgnoreCase);
+                (finding, closed) = (high && entry, null);
+            }
+            else if (!fenced && finding && closed is null && line.StartsWith("- Resolution:", StringComparison.Ordinal))
+            {
+                var word = line["- Resolution:".Length..].Trim().Split(' ')[0].ToLowerInvariant().TrimEnd('.', ',', ':', ';', ')');
+                closed = ClosingWords.Contains(word);
+            }
+        }
+
+        return open + (finding && closed != true ? 1 : 0);
     }
 
     private const string UnknownHash = "unknown";

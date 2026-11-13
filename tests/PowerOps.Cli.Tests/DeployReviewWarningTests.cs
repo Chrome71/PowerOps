@@ -36,7 +36,8 @@ public class DeployReviewWarningTests : DeployTestBase
     [Theory]
     [InlineData("only-verify", "docs/plans/m: security-solution.md is missing")]
     [InlineData("security-blocked", "docs/plans/m: security-solution.md is blocked")]
-    [InlineData("stale", "docs/plans/m: verify.md was not written for the current plan; security-solution.md was not written for the current plan")]
+    [InlineData("stale", "docs/plans/m: plan.md has no valid sign-off (changed since sign-off); verify.md was not written for the current plan; security-solution.md was not written for the current plan")]
+    [InlineData("draft", "docs/plans/m: plan.md has no valid sign-off (status draft)")]
     [InlineData("another-hash", NoneRecords)]
     public void A_report_that_does_not_cover_the_zip_gives_one_warning_and_the_same_plan(string kind, string sentence)
     {
@@ -54,7 +55,10 @@ public class DeployReviewWarningTests : DeployTestBase
                 Edit(Path.Combine(plan, "security-solution.md"), "state: ready", "state: blocked");
                 break;
             case "stale":
-                Edit(Path.Combine(plan, "plan.md"), "# Plan", "# Plan, edited");
+                EditBody(plan, resign: false);
+                break;
+            case "draft":
+                Unsign(plan, kind);
                 break;
             default:
                 // Not recorded: the reviewed input (the zip itself) no longer has the recorded digest, so the count line follows.
