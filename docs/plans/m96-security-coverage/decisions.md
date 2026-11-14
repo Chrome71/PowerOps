@@ -72,3 +72,5 @@ Answer: 1 (answered by: agent m96-security-coverage). The person's model routing
 ## Log
 
 - 2026-11-14: plan started by the M96 session (worktree `m96-role-rerun-9271cf`, branch `claude/m96-role-rerun-9271cf`) on `a442b17`, with M115 running in another session.
+- 2026-11-14: powerops-researcher (Opus), Learn and microsoft/PowerApps-Tooling only: a `.msapp` is a zip (confirmed); it holds `Properties.json`, `References/DataSources.json` and `Src/*.pa.yaml` (confirmed); a Dataverse source records the environment's address (partly: the legacy unpacker models `instanceUrl` and `InstanceUrl`, no open sample shows a value); Microsoft says only `Src/` is for source control and doesn't name environment values. So P1's last sentence says "can hold" (plan, Assumptions).
+- 2026-11-14: plan review round 1. Fable REJECTED (2 High: the case's package stored uncompressed, the scoring copy undefined; 3 Medium: the absent-package finding on the old cases, the cover-condition texts under `src/` and in the Action docs, P1 widened beyond SE:07; 3 Low). Fresh `powerops-review-plan` 0 High, 5 Medium, 8 Low (`review.md`). All answered in revision 2 of `plan.md`.
