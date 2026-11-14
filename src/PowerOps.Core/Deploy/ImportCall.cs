@@ -36,13 +36,15 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
     private const string RouteCopilotPublish = "pac copilot publish publishes an agent that no plan holds";
     private const string RouteCopilotInit = "pac copilot init may import a solution that no plan holds";
     private const string RouteManageAgent = "copilot-studio's manage-agent push and publish change an agent that no plan holds";
+    private const string RouteSettingsApply = "powerops settings apply --apply imports a zip that no review check covers";
+    private const string RouteDeployApply = "powerops deploy apply --apply without --require-reviews imports even when no review covers the zip";
 
     private const string CantRead = "the command holds an import that the gate can't read";
     private const string Stray = "the command has a word the gate doesn't read";
     private const string PathHint = "must be a literal absolute path (no $, backtick, escape, ~ or wildcard)";
     private const string AnsiC = "the command has a $'...' word with an escape, which the gate can't read";
 
-    private static readonly string[] Routes = [RouteModelApps, RoutePowerPages, RoutePipeline, RouteTemplate, RoutePackage, RouteUpgrade, RoutePcf, RouteApplication, RouteCode, RouteCatalog, RouteAppPackage, RoutePaPush, RoutePagesUpload, RoutePagesCodeSite, RoutePagesMigrate, RouteGenpage, RouteCopilotPush, RouteCopilotPublish, RouteCopilotInit, RouteManageAgent];
+    private static readonly string[] Routes = [RouteModelApps, RoutePowerPages, RoutePipeline, RouteTemplate, RoutePackage, RouteUpgrade, RoutePcf, RouteApplication, RouteCode, RouteCatalog, RouteAppPackage, RoutePaPush, RoutePagesUpload, RoutePagesCodeSite, RoutePagesMigrate, RouteGenpage, RouteCopilotPush, RouteCopilotPublish, RouteCopilotInit, RouteManageAgent, RouteSettingsApply, RouteDeployApply];
 
     private static readonly Dictionary<string, string> Canonical = new(StringComparer.Ordinal)
     {
@@ -71,6 +73,10 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
         ("__app_management_install_application_package", RouteAppPackage),
     ];
 
+    // The options of powerops deploy apply and settings apply, true for a switch; a Cli test keeps them equal to the commands' own.
+    internal static readonly Dictionary<string, bool> DeployApplyOptions = new(StringComparer.Ordinal) { ["--target"] = false, ["--format"] = false, ["--out"] = false, ["--github-run"] = false, ["--apply"] = true, ["--require-reviews"] = true };
+    internal static readonly Dictionary<string, bool> SettingsApplyOptions = new(StringComparer.Ordinal) { ["--settings"] = false, ["--target"] = false, ["--format"] = false, ["--apply"] = true };
+
     private static readonly string[] Switches = ["--stage-and-upgrade", "--async"];
     private static readonly string[] McpKeys = ["--path", "--environment", "--settings-file", "--stage-and-upgrade", "--async", "--max-async-wait-time"];
 
@@ -80,8 +86,13 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
 
     private sealed record Given(string Value, bool Literal);
 
-    [GeneratedRegex($"solution{Gap}import|solution{Gap}upgrade|pipeline{Gap}deploy|package{Gap}deploy|solution-settings\\.js|import-template-solution|encode-solution-file|ImportSolution|StageAndUpgrade|DeployPackageAsync|RetryFailedDeploymentAsync|(?<!\\w)(?:pcf{Gap}push|application{Gap}install|code{Gap}push|catalog{Gap}install|(?:apps?{Gap}push|(?:pages|powerpages|paportal){Gap}(?:upload|migrate-datamodel)|genpage{Gap}upload|copilot{Gap}(?:push|publish|init))(?!\\w))|install-application-package|Import-CrmSolution|manage-agent\\.bundle", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    // settings apply and deploy apply mark PowerOps's own imports (decision 71): text the gate doesn't read as a powerops call blocks like a pac import.
+    [GeneratedRegex($"solution{Gap}import|solution{Gap}upgrade|pipeline{Gap}deploy|package{Gap}deploy|solution-settings\\.js|import-template-solution|encode-solution-file|ImportSolution|StageAndUpgrade|DeployPackageAsync|RetryFailedDeploymentAsync|(?<!\\w)(?:pcf{Gap}push|application{Gap}install|code{Gap}push|catalog{Gap}install|(?:apps?{Gap}push|(?:pages|powerpages|paportal){Gap}(?:upload|migrate-datamodel)|genpage{Gap}upload|copilot{Gap}(?:push|publish|init))(?!\\w))|install-application-package|Import-CrmSolution|manage-agent\\.bundle|(?<![\\w-])(?:settings|deploy){Gap}apply(?![\\w-])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex Markers();
+
+    // An optional fd number and a redirection operator, then nothing, &digit or a plain target: a redirection that holds no word the shell would expand.
+    [GeneratedRegex(@"^[0-9]*(?:>>|&>|>|<)(?:&[0-9]|[A-Za-z0-9/._-]*)$")]
+    private static partial Regex PlainRedirect();
 
     // A $'...' word holding a backslash: its escapes (\x70, \160, \u0070) can spell any text.
     [GeneratedRegex(@"\$'[^']*\\")]
@@ -383,6 +394,14 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
                     recognized.Add(segment);
                 }
             }
+            else if (program is "powerops" or "powerops.exe")
+            {
+                recognized.Add(segment);
+                if (ReadPowerOps(words) is { } line)
+                {
+                    lines.Add(line);
+                }
+            }
         }
 
         // Every marker must sit in a recognized segment: what is left after their text is removed must hold none.
@@ -411,6 +430,85 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
     }
 
     private static string Join(Segment segment) => string.Join(' ', segment.Words.Select(w => w.Value));
+
+    private static bool Marked(IEnumerable<Word> words) => Markers().IsMatch(string.Join(' ', words.Select(w => w.Value)));
+
+    // PowerOps's own imports (decision 71), read fail-closed: the line for the call, or null when it imports nothing.
+    private static string? ReadPowerOps(Word[] words)
+    {
+        // A command substitution in the program word would run unseen.
+        if (!words[0].Literal || (words.Length > 1 && !words[1].Literal))
+        {
+            return CantRead;
+        }
+
+        var group = words.Length > 1 ? words[1].Value.ToLowerInvariant() : "";
+        if (group is not ("settings" or "deploy") || words.Length < 3)
+        {
+            return Marked(words.Skip(1)) ? CantRead : null;
+        }
+
+        if (!words[2].Literal)
+        {
+            return CantRead;
+        }
+
+        if (!words[2].Value.Equals("apply", StringComparison.OrdinalIgnoreCase))
+        {
+            // An option before the subcommand must not hide an apply.
+            var hidden = words[2].Value.StartsWith('-') && words.Skip(3).Any(w => w.Value.Equals("apply", StringComparison.OrdinalIgnoreCase));
+            return hidden || Marked(words.Skip(1)) ? CantRead : null;
+        }
+
+        var rest = words[3..];
+        var dryRun = !rest.Any(w => w.Value.Contains("apply", StringComparison.OrdinalIgnoreCase))
+            && rest.All(w => w.Redirect ? PlainRedirect().IsMatch(w.Raw) : w.Literal);
+        if (dryRun)
+        {
+            return Marked(rest) ? CantRead : null;
+        }
+
+        // The shell removes 2>&1 and >&2 before the CLI sees its arguments, so the options are paired without them.
+        var args = rest.Where(w => !(w.Redirect && w.Raw is "2>&1" or ">&2")).ToArray();
+        if (args.Any(w => !w.Literal || w.Redirect || w.Raw.StartsWith('#')))
+        {
+            return CantRead;
+        }
+
+        var options = group == "deploy" ? DeployApplyOptions : SettingsApplyOptions;
+        var given = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < args.Length; i++)
+        {
+            var word = args[i];
+            if (!word.Value.StartsWith('-'))
+            {
+                continue;
+            }
+
+            if (!options.TryGetValue(word.Value, out var isSwitch) || !given.Add(word.Value))
+            {
+                return CantRead;
+            }
+
+            // A word after a switch could be its value (false), and an option word after a value option would be taken as that value.
+            var next = i + 1 < args.Length ? args[i + 1].Value : null;
+            if (isSwitch ? next is not null && !next.StartsWith('-') : next is null || next.StartsWith('-'))
+            {
+                return CantRead;
+            }
+
+            if (!isSwitch)
+            {
+                i++;
+            }
+        }
+
+        return Marked(rest) ? CantRead
+            : !given.Contains("--apply") ? null
+            : group == "settings" ? RouteSettingsApply
+            : given.Contains("--require-reviews") ? null
+            : RouteDeployApply;
+    }
 
     private static string FileName(string path) => path[(path.LastIndexOfAny(['/', '\\']) + 1)..];
 
