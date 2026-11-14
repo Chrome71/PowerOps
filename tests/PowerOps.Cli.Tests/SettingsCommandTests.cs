@@ -18,6 +18,13 @@ public class SettingsCommandTests
         return (Program.Run(args, o, e), o.ToString(), e.ToString());
     }
 
+    // The text without its last line, settings-hash: <64 lowercase hex> (M96), which the tests of that line check.
+    private static string Hashless(string output)
+    {
+        Assert.Matches("\nsettings-hash: [0-9a-f]{64}\n$", output);
+        return output[..output.LastIndexOf("settings-hash: ", StringComparison.Ordinal)];
+    }
+
     [Fact]
     public void Generate_prints_the_settings_file_and_matches_golden()
     {
@@ -70,7 +77,8 @@ public class SettingsCommandTests
             SolutionZip.Create(Seed, zip);
 
             Assert.Equal(Run("settings", "generate", Seed).Out, Run("settings", "generate", zip).Out);
-            Assert.Equal((0, "no problems\n", ""), Run("settings", "validate", zip, "--settings", Valid));
+            var r = Run("settings", "validate", zip, "--settings", Valid);
+            Assert.Equal((0, "no problems\n", ""), (r.Code, Hashless(r.Out), r.Err));
         }
         finally
         {
@@ -100,7 +108,7 @@ public class SettingsCommandTests
             var (code, output, _) = Run("settings", "validate", Seed, "--settings", file);
 
             Assert.Equal(0, code);
-            Assert.Equal("no problems\n", output);
+            Assert.Equal("no problems\n", Hashless(output));
         }
         finally
         {
@@ -123,7 +131,7 @@ public class SettingsCommandTests
                 "emptyConnectionId connectionReference pops_SeedDataverse: has no ConnectionId\n" +
                 "emptyValue environmentVariable pops_DefaultStatus: has an empty Value, which pac solution import rejects; set a value, or leave the entry out to keep its default or current value\n" +
                 "2 problems\n",
-                output);
+                Hashless(output));
         }
         finally
         {
@@ -138,7 +146,7 @@ public class SettingsCommandTests
 
         Assert.Equal(0, code);
         Assert.Equal("", err);
-        Assert.Equal("no problems\n", output);
+        Assert.Equal("no problems\n", Hashless(output));
     }
 
     [Fact]
@@ -160,6 +168,65 @@ public class SettingsCommandTests
         Assert.Equal("schemaVersion", doc.RootElement.EnumerateObject().First().Name);
         // The settings path is echoed as given; make it repo-relative for the golden.
         Golden.Verify(output.Replace(Problems.Replace("\\", "\\\\"), "tests/fixtures/settings/powerops-seed-v1.problems.json"), "settings-validate.json");
+    }
+
+    // ---- settings-hash (M96 row 1): the SHA-256 of the file's bytes, which deploy plan records as its settingsSha256 ----
+
+    // The bytes of each file and their SHA-256, computed once with sha256sum.
+    internal const string PlainSettings = """{"EnvironmentVariables":[{"SchemaName":"pops_DefaultStatus","Value":"Open"}],"ConnectionReferences":[{"LogicalName":"pops_SeedDataverse","ConnectionId":"fake-connection-id","ConnectorId":"/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"}]}""";
+    internal const string PlainSha256 = "abc99232c27f450bf1a79ee2edb32522d58f09aad1420f94fb59b19545b691d4";
+    internal const string BomCrlfSettings = "\uFEFF{\r\n\"EnvironmentVariables\":[{\"SchemaName\":\"pops_DefaultStatus\",\"Value\":\"Open\"}],\r\n\"ConnectionReferences\":[{\"LogicalName\":\"pops_SeedDataverse\",\"ConnectionId\":\"fake-connection-id\",\"ConnectorId\":\"/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps\"}]\r\n}\r\n";
+    internal const string BomCrlfSha256 = "64faf0940bbe0ec26903d3cde8cef20f48b4222b9d53a07008003e5be5ca4d8d";
+    private const string EmptySettings = """{"EnvironmentVariables":[],"ConnectionReferences":[]}""";
+    private const string EmptySha256 = "4dcfc0cb195a42fd227309ae44ee2c3c1ed07d95b58689f85f61b38c1c9ae5f8";
+
+    [Theory]
+    [InlineData(PlainSettings, PlainSha256, 0)]
+    [InlineData(BomCrlfSettings, BomCrlfSha256, 0)]
+    [InlineData(EmptySettings, EmptySha256, 1)]
+    public void The_last_line_and_the_json_field_give_the_settings_files_sha256(string text, string sha256, int exit)
+    {
+        var file = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            // UTF-8 with no BOM of its own, so the bytes are exactly the text's (a leading U+FEFF is written as EF BB BF).
+            File.WriteAllText(file, text);
+
+            var (code, output, err) = Run("settings", "validate", Seed, "--settings", file);
+            var (jsonCode, json, _) = Run("settings", "validate", Seed, "--settings", file, "--format", "json");
+
+            Assert.Equal((exit, exit, ""), (code, jsonCode, err));
+            Assert.EndsWith($"\nsettings-hash: {sha256}\n", output);
+            Assert.Matches("^(no problems|[0-9]+ problems?)$", output.Split('\n')[^3]);
+            var names = JsonNode.Parse(json)!.AsObject().Select(p => p.Key).ToList();
+            Assert.Equal(["schemaVersion", "solution", "settings", "settingsSha256", "problems"], names);
+            Assert.Equal(sha256, (string?)JsonNode.Parse(json)!["settingsSha256"]);
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
+    [Fact]
+    public void Exit_2_and_3_print_no_settings_hash()
+    {
+        var file = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            File.WriteAllText(file, "{" + new string(' ', 1024 * 1024) + "}");
+
+            var large = Run("settings", "validate", Seed, "--settings", file);
+            var absent = Run("settings", "validate", Seed, "--settings", file + ".absent");
+            File.WriteAllText(file, "{ not json");
+            var invalid = Run("settings", "validate", Seed, "--settings", file, "--format", "json");
+
+            Assert.Equal([(3, ""), (2, ""), (3, "")], new[] { large, absent, invalid }.Select(r => (r.Code, r.Out)));
+        }
+        finally
+        {
+            File.Delete(file);
+        }
     }
 
     [Fact]

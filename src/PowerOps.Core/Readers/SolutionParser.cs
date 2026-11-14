@@ -96,7 +96,7 @@ internal static partial class SolutionParser
             .Select(p => CheckedMeta(files, p))
             .Concat((customizations?.Element("CanvasApps")?.Elements("CanvasApp") ?? []).Select(e => (Text: e.ToString(SaveOptions.DisableFormatting), Element: (XElement?)e, File: customizationsPath!)))
             .ToList();
-        var (canvasFormulas, canvasWithoutSource) = ReadMsapps(files, paths, canvasMeta.Select(m => m.Element));
+        var (canvasFormulas, canvasWithoutSource, canvasWithoutPackage) = ReadMsapps(files, paths, canvasMeta.Select(m => m.Element));
 
         var agentConnectionReferences = paths.TryGetValue("Assets/botcomponent_connectionreferenceset.xml", out var agentPath)
             ? LoadXml(files, agentPath).Elements("botcomponent_connectionreference")
@@ -167,6 +167,7 @@ internal static partial class SolutionParser
             PowerPageComponents = powerPageComponents,
             CanvasFormulas = canvasFormulas,
             CanvasAppsWithoutSource = canvasWithoutSource,
+            CanvasAppsWithoutPackage = canvasWithoutPackage,
             AppModules = appModules,
             SiteMaps = siteMaps,
             CanvasApps = canvasApps,
@@ -905,9 +906,10 @@ internal static partial class SolutionParser
 
     /// <summary>
     /// Reads each `CanvasApps/&lt;name&gt;.msapp` (a zip) in ordinal order. The app's name comes from the metadata whose <c>DocumentUri</c> names the file, else from the file name.
-    /// An app whose package holds no source is listed instead of read. A <c>DocumentUri</c> that names no listed <c>.msapp</c> is not read and not noted: the file is never opened.
+    /// An app whose package holds no source is listed instead of read. A <c>DocumentUri</c> that names a <c>CanvasApps/&lt;file&gt;.msapp</c> the solution doesn't list is not read; in a layout that opens packages
+    /// it is listed with the app's name (M96, amending M44 Q3).
     /// </summary>
-    private static (List<CanvasFormula> Formulas, List<string> WithoutSource) ReadMsapps(SolutionFiles files, Dictionary<string, string> paths, IEnumerable<XElement?> metadata)
+    private static (List<CanvasFormula> Formulas, List<string> WithoutSource, List<(string Name, string Path)> WithoutPackage) ReadMsapps(SolutionFiles files, Dictionary<string, string> paths, IEnumerable<XElement?> metadata)
     {
         var apps = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var app in metadata.OfType<XElement>().Where(e => e.Name.LocalName == "CanvasApp"))
@@ -917,21 +919,18 @@ internal static partial class SolutionParser
                 continue;
             }
 
-            if ((Text(app, "DisplayName") ?? Text(app, "Name")) is { } name)
-            {
-                apps.TryAdd(uri, name);
-            }
+            apps.TryAdd(uri, Text(app, "DisplayName") ?? Text(app, "Name") ?? FileName(uri));
         }
 
         var formulas = new List<CanvasFormula>();
         var withoutSource = new List<string>();
+        var withoutPackage = new List<(string Name, string Path)>();
         if (files.OpenRead is { } open)
         {
+            withoutPackage.AddRange(apps.Where(a => MsappPath().IsMatch(a.Key) && !paths.ContainsKey(a.Key)).OrderBy(a => a.Key, StringComparer.Ordinal).Select(a => (a.Value, a.Key)));
             foreach (var msapp in paths.Values.Where(p => MsappPath().IsMatch(p)).Order(StringComparer.Ordinal))
             {
-                var fileName = msapp[(msapp.LastIndexOf('/') + 1)..];
-                var name = apps.GetValueOrDefault(msapp)
-                    ?? (fileName.EndsWith("_DocumentUri.msapp", StringComparison.OrdinalIgnoreCase) ? fileName[..^"_DocumentUri.msapp".Length] : fileName[..^".msapp".Length]);
+                var name = apps.GetValueOrDefault(msapp) ?? FileName(msapp);
                 if (CanvasSource.ReadMsapp(ReadCappedBytes(open(msapp), msapp, files.Budget, files.Budget.MaxZipBytes), msapp, name, files.Budget) is { } read)
                 {
                     formulas.AddRange(read);
@@ -943,7 +942,15 @@ internal static partial class SolutionParser
             }
         }
 
-        return (formulas, withoutSource);
+        return (formulas, withoutSource, withoutPackage);
+
+        // The app's name from its package's file name, for an app whose metadata gives none.
+        static string FileName(string path)
+        {
+            var file = path[(path.LastIndexOf('/') + 1)..];
+            return file.EndsWith("_DocumentUri.msapp", StringComparison.OrdinalIgnoreCase) ? file[..^"_DocumentUri.msapp".Length]
+                : file.EndsWith(".msapp", StringComparison.OrdinalIgnoreCase) ? file[..^".msapp".Length] : file;
+        }
     }
 
     /// <summary>

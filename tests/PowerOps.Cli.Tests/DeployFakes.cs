@@ -259,7 +259,8 @@ public abstract class DeployTestBase : IDisposable
     /// <summary>
     /// Writes <c>docs/plans/&lt;plan&gt;/plan.md</c> under <paramref name="repo"/> (the test's root by default, which the walk up from <see cref="Folder"/> reaches)
     /// and both review reports for <paramref name="input"/>, a zip or an unpacked folder under the repo: <c>state: ready</c>, the plan's hash,
-    /// the input's path relative to the repo, and its digest (a zip's SHA-256) as the solution-hash. Returns the plan folder.
+    /// the input's path relative to the repo, and its digest (a zip's SHA-256) as the solution-hash. When the deployed zip (<paramref name="deployZip"/>, else <paramref name="input"/>)
+    /// has a <c>&lt;name&gt;.settings.json</c> beside it, the reports record that file's SHA-256 as their settings-hash (M96), as the roles do. Returns the plan folder.
     /// </summary>
     protected string Reviewed(string input, string? repo = null, string plan = "m", string? deployZip = null)
     {
@@ -267,10 +268,17 @@ public abstract class DeployTestBase : IDisposable
         var folder = Directory.CreateDirectory(Path.Combine(repo, "docs", "plans", plan)).FullName;
         File.WriteAllText(Path.Combine(folder, "plan.md"), ReviewedPlanText);
         var deploy = deployZip is null ? "" : $"deploy-hash: {Core.Readers.Manifest.Read(deployZip).Digest}\n";
-        var head = $"state: ready\nplan-hash: {PlanDocument.Parse(ReviewedPlanText).BodyHash}\ninput: {Path.GetRelativePath(repo, input).Replace('\\', '/')}\nsolution-hash: {Core.Readers.Manifest.Read(input).Digest}\n{deploy}\n# Report\n";
+        var head = $"state: ready\nplan-hash: {PlanDocument.Parse(ReviewedPlanText).BodyHash}\ninput: {Path.GetRelativePath(repo, input).Replace('\\', '/')}\nsolution-hash: {Core.Readers.Manifest.Read(input).Digest}\n{deploy}{SettingsLine(deployZip ?? input)}\n# Report\n";
         File.WriteAllText(Path.Combine(folder, "verify.md"), head);
         File.WriteAllText(Path.Combine(folder, "security-solution.md"), head);
         return folder;
+    }
+
+    /// <summary>The settings-hash line of the reports for <paramref name="zip"/>: the SHA-256 of the settings file beside it, or no line when it has none.</summary>
+    internal static string SettingsLine(string zip)
+    {
+        var settings = Path.Combine(Path.GetDirectoryName(zip)!, Path.GetFileNameWithoutExtension(zip) + ".settings.json");
+        return File.Exists(settings) ? $"settings-hash: {DeployPlan.Sha256Hex(File.ReadAllBytes(settings))}\n" : "";
     }
 
     /// <summary>The cases M114 refuses on a folder <see cref="Reviewed"/> wrote: five plans with no valid sign-off and a ready verify.md that lists an open High.</summary>

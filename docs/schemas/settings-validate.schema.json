@@ -9,6 +9,7 @@
     "schemaVersion": { "const": 1, "description": "Version of this output format." },
     "solution": { "type": "string", "description": "Unique name of the checked solution." },
     "settings": { "type": "string", "description": "The settings file path as given on the command line." },
+    "settingsSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the settings file's bytes, as deploy plan records it; the value a review report's settings-hash: line takes. Older versions don't write it." },
     "problems": {
       "type": "array",
       "description": "Sorted by component type, name, kind. Empty when the file is clean.",

@@ -660,6 +660,25 @@ public class DeployCommandTests : IDisposable
         Golden.Verify(Scrub(r.Out), golden);
     }
 
+    // M96 row 1: settings validate's settings-hash line is the settingsSha256 deploy plan records, for a file with a BOM and CRLF too.
+    [Theory]
+    [InlineData(SettingsCommandTests.PlainSettings, SettingsCommandTests.PlainSha256)]
+    [InlineData(SettingsCommandTests.BomCrlfSettings, SettingsCommandTests.BomCrlfSha256)]
+    public void The_settings_hash_of_settings_validate_is_the_one_deploy_plan_records(string text, string sha256)
+    {
+        SeedZip(Folder, settings: false);
+        var settings = Path.Combine(Folder, "PowerOpsSeed.settings.json");
+        File.WriteAllText(settings, text);
+        var o = new StringWriter();
+
+        var plan = Plan(SeedTarget(), "--format", "json");
+        var code = Program.Run(["settings", "validate", Path.Combine(Folder, "PowerOpsSeed.zip"), "--settings", settings], o, new StringWriter());
+
+        Assert.Equal((0, 0), (plan.Code, code));
+        Assert.Equal(sha256, (string?)Json(plan)["inputs"]!["zips"]![0]!["settingsSha256"]);
+        Assert.EndsWith($"\nsettings-hash: {sha256}\n", o.ToString().ReplaceLineEndings("\n"));
+    }
+
     [Fact]
     public void A_same_version_seed_skip_with_differences_matches_the_golden()
     {

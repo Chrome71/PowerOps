@@ -756,6 +756,33 @@ public class DeployGateCommandTests : DeployTestBase
         Assert.Empty(pac.Calls);
     }
 
+    // M96 [R-C]: the settings file edited after the review and the plan made again, with the same reports.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_settings_file_changed_after_the_review_is_blocked_with_no_import(bool deployHash)
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var pac = deployHash ? new FakePac { UnpackFrom = ReviewedUnpack(SeedZipPath) } : new FakePac();
+        if (!deployHash)
+        {
+            Reviewed(SeedZipPath);
+        }
+
+        Edit(SeedSettingsPath, "\"Value\": \"Open\"", "\"Value\": \"Closed\"");
+        Edit(SeedSettingsPath, "fake-connection-id", "another-connection-id");
+        MakePlan();
+
+        var r = Gate(Seeded(), SeedCall(), pac);
+
+        const string Why = "docs/plans/m: verify.md's settings-hash is not the SHA-256 of this deployment's settings file; security-solution.md's settings-hash is not the SHA-256 of this deployment's settings file";
+        Assert.Equal(2, r.Code);
+        Assert.Equal($"warning: PowerOpsSeed.zip: {Why}\n{Prefix}the dry run did not pass: no review covers PowerOpsSeed.zip: {Why}; nothing was imported.\n{ImportGuidance}\n", r.Err);
+        Assert.Empty(pac.Calls);
+        Assert.Equal(deployHash ? 1 : 0, pac.Unpacks.Count);
+    }
+
     // The plan file's actions are not covered by its hash: the zips checked are those the fresh plan imports.
     [Fact]
     public void A_plan_file_edited_to_skip_the_uncovered_zip_is_still_blocked()

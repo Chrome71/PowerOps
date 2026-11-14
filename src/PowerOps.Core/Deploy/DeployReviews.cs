@@ -17,11 +17,12 @@ public static class DeployReviews
     private const string Verify = "verify.md";
     private const string Security = "security-solution.md";
 
-    /// <summary>Null when one plan folder covers the zip: its plan.md has a valid sign-off, both its reports exist, each is linked to it (see <see cref="Cover"/>), is ready, was written for the plan's current hash and lists no open High finding. Otherwise one sentence: why the first folder (ordinal) that records <paramref name="sha256"/> as a deploy-hash or a solution-hash doesn't cover it, or that none records it. Reads no file.</summary>
+    /// <summary>Null when one plan folder covers the zip: its plan.md has a valid sign-off, both its reports exist, each is linked to it (see <see cref="Cover"/>), is ready, was written for the plan's current hash, lists no open High finding and records the settings file the deployment imports. Otherwise one sentence: why the first folder (ordinal) that records <paramref name="sha256"/> as a deploy-hash or a solution-hash doesn't cover it, or that none records it. Reads no file.</summary>
     /// <param name="unpack">What a pac solution unpack of the zip gave; null when none was run.</param>
-    public static string? Problem(IReadOnlyList<PlanReviews> plans, string sha256, ZipUnpack? unpack = null)
+    /// <param name="settingsSha256">The SHA-256 of the settings file the deployment imports with the zip; null when it imports none.</param>
+    public static string? Problem(IReadOnlyList<PlanReviews> plans, string sha256, ZipUnpack? unpack = null, string? settingsSha256 = null)
     {
-        if (Cover(plans, sha256, unpack) is not null)
+        if (Cover(plans, sha256, unpack, settingsSha256) is not null)
         {
             return null;
         }
@@ -33,13 +34,13 @@ public static class DeployReviews
 
         // The plan's fault comes first: it is the one a person fixes before the reports can matter.
         var plan = first.NoSignOff is null ? null : $"plan.md has no valid sign-off ({first.NoSignOff})";
-        return $"docs/plans/{first.Plan}: " + string.Join("; ", new[] { plan, Fault(Verify, first.Verify, sha256, unpack), Fault(Security, first.Security, sha256, unpack) }.OfType<string>());
+        return $"docs/plans/{first.Plan}: " + string.Join("; ", new[] { plan, Fault(Verify, first.Verify, sha256, unpack, settingsSha256), Fault(Security, first.Security, sha256, unpack, settingsSha256) }.OfType<string>());
     }
 
-    /// <summary>The first plan folder (ordinal) whose plan.md has a valid sign-off and whose two reports are both ready, current, linked to the zip and list no open High finding, or null. A report is linked when its solution-hash is <paramref name="sha256"/>, or when its deploy-hash is and <paramref name="unpack"/>'s digest is its solution-hash.</summary>
-    public static PlanReviews? Cover(IReadOnlyList<PlanReviews> plans, string sha256, ZipUnpack? unpack) =>
+    /// <summary>The first plan folder (ordinal) whose plan.md has a valid sign-off and whose two reports are both ready, current, linked to the zip, list no open High finding and record <paramref name="settingsSha256"/> as their settings-hash (none, or no settings-hash line, when it is null), or null. A report is linked when its solution-hash is <paramref name="sha256"/>, or when its deploy-hash is and <paramref name="unpack"/>'s digest is its solution-hash.</summary>
+    public static PlanReviews? Cover(IReadOnlyList<PlanReviews> plans, string sha256, ZipUnpack? unpack, string? settingsSha256 = null) =>
         // Both reports of one folder: a verify.md of one plan and a security-solution.md of another are no cover.
-        plans.Where(p => p.NoSignOff is null && Fault(Verify, p.Verify, sha256, unpack) is null && Fault(Security, p.Security, sha256, unpack) is null).MinBy(p => p.Plan, StringComparer.Ordinal);
+        plans.Where(p => p.NoSignOff is null && Fault(Verify, p.Verify, sha256, unpack, settingsSha256) is null && Fault(Security, p.Security, sha256, unpack, settingsSha256) is null).MinBy(p => p.Plan, StringComparer.Ordinal);
 
     /// <summary>Whether some verify.md or security-solution.md records <paramref name="sha256"/> as its deploy-hash, so a check needs the zip's unpack.</summary>
     public static bool NeedsUnpack(IReadOnlyList<PlanReviews> plans, string sha256) => plans.Any(p => Reports(p).Any(r => r.DeployHash == sha256));
@@ -50,20 +51,25 @@ public static class DeployReviews
     private static IEnumerable<PlanReportFile> Reports(PlanReviews plan) => new[] { plan.Verify, plan.Security }.OfType<PlanReportFile>();
 
     // The first reason the report doesn't cover the zip, or null when it does. A Stale of null (no plan-hash line, or a plan that can't be read) is not current.
-    private static string? Fault(string file, PlanReportFile? report, string sha256, ZipUnpack? unpack) =>
+    private static string? Fault(string file, PlanReportFile? report, string sha256, ZipUnpack? unpack, string? settingsSha256) =>
         report is null ? $"{file} is missing"
-        : report.SolutionHash == sha256 ? Ready(file, report)
+        : report.SolutionHash == sha256 ? Ready(file, report, settingsSha256)
         : report.DeployHash != sha256 ? $"{file} records another deploy-hash and solution-hash"
         : unpack?.Digest is null ? $"{file} records this zip as its deploy-hash, but the zip's unpack could not be checked: {unpack?.Failure ?? "no unpack was given"}"
         : unpack.Digest != report.SolutionHash ? $"{file}'s solution-hash is not the digest of this zip's unpack, so it reviewed another folder"
-        : Ready(file, report);
+        : Ready(file, report, settingsSha256);
 
-    private static string? Ready(string file, PlanReportFile report) =>
+    // The settings check comes last, so M114's sentences keep their order. A report with no settings-hash line (from before M96) reads as none; unknown equals nothing.
+    private static string? Ready(string file, PlanReportFile report, string? settingsSha256) =>
         report.State is null ? $"{file} has no state"
         : report.State != "ready" ? $"{file} is {report.State}"
         : report.Stale != false ? $"{file} was not written for the current plan"
         : report.OpenHigh > 0 ? $"{file} is ready but lists {Count(report.OpenHigh, "open High finding")}"
-        : null;
+        : (report.SettingsHash ?? "none") == (settingsSha256 ?? "none") && report.SettingsHash != "unknown" ? null
+        : settingsSha256 is null ? $"{file} records a settings-hash, but this deployment imports no settings file"
+        : report.SettingsHash is null ? $"{file} has no settings-hash line, but this deployment imports a settings file"
+        : report.SettingsHash == "none" ? $"{file} reviewed no settings file, but this deployment imports one"
+        : $"{file}'s settings-hash is not the SHA-256 of this deployment's settings file";
 
     /// <summary>For each zip that no report records (<see cref="Recorded"/> false), keyed by its file name, the notes on the ready reviews of a solution with its unique name: one per input whose digest is still the reviewed one, with what <c>diff</c> finds between it and the zip, or one line counting the reviews whose input changed since. An input that is missing, passes through a link, leaves <paramref name="root"/> or can't be read gives no note. No sentence holds a full path.</summary>
     public static IReadOnlyDictionary<string, IReadOnlyList<string>> Evidence(string root, IReadOnlyList<PlanReviews> plans, IReadOnlyList<DeployZip> zips) =>

@@ -678,6 +678,36 @@
                   }
                 }
               ]
+            },
+            {
+              "level": "note",
+              "message": {
+                "text": "PO014, PO018 and PO036 not checked for canvas app 'Work Items': its package CanvasApps/pops_workitems_2af60_DocumentUri.msapp is not in the solution (canvas packages are kept out of Git by default; analyze the exported zip to check it)."
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "tests/fixtures/powerops-seed/v1"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "level": "note",
+              "message": {
+                "text": "PO014, PO018 and PO036 not checked for canvas app 'Work Items': its package CanvasApps/pops_workitems_2af60_DocumentUri.msapp is not in the solution (canvas packages are kept out of Git by default; analyze the exported zip to check it)."
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "tests/fixtures/powerops-seed/v2"
+                    }
+                  }
+                }
+              ]
             }
           ]
         }

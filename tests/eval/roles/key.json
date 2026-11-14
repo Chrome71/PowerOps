@@ -382,5 +382,14 @@
     "severity": "High",
     "sentence": "AppModules/pops_WorkItemBoard/AppModule.xml lists the role Work Item Contractor in its role map, where Screens says the role map lists Work Item Reader only and the contractors are kept out of the app.",
     "baseline": "not-shown"
+  },
+  {
+    "id": "F47",
+    "case": "solution-09",
+    "pass": "security-solution",
+    "point": "SE:07",
+    "severity": "Medium",
+    "sentence": "CanvasApps/pops_workitems_2af60_DocumentUri.msapp is a package the scan of the folder doesn't open, and its Properties.json and References/DataSources.json hold the host dev.contoso.example: the report names the package as not opened and its secrets and hosts as not verified, or names the host; a report that says it found no host without that limit misses it.",
+    "baseline": "not-shown"
   }
 ]

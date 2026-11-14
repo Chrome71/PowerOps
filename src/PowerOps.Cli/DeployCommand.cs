@@ -67,7 +67,7 @@ public static class DeployCommand
         format.AcceptOnlyFromAmong("text", "json");
         var outFile = new Option<string?>("--out") { Description = "Write the report here instead of stdout." };
         var githubRun = new Option<string?>("--github-run") { Description = "For the GitHub Action: its run, attempt and environment (1 to 500 characters, no control or format character). Recorded as the report's executor action and, with --apply, as the approval's receipt; not checked." };
-        var requireReviews = new Option<bool>("--require-reviews") { Description = "Refuse, before any import, unless for each zip the plan imports one plan folder under docs/plans holds a verify.md and a security-solution.md, from a plan with a valid sign-off, that are both ready, were written for the plan's current hash, list no open High finding and record that zip's SHA-256 as their solution-hash, or as their deploy-hash with a solution-hash that equals the digest of the zip's pac solution unpack. Without it the same check only warns." };
+        var requireReviews = new Option<bool>("--require-reviews") { Description = "Refuse, before any import, unless for each zip the plan imports one plan folder under docs/plans holds a verify.md and a security-solution.md, from a plan with a valid sign-off, that are both ready, were written for the plan's current hash, list no open High finding, record that zip's SHA-256 as their solution-hash, or as their deploy-hash with a solution-hash that equals the digest of the zip's pac solution unpack, and record the SHA-256 of the zip's settings file as their settings-hash (none, or no settings-hash line, when the zip has no settings file). Without it the same check only warns." };
         var command = new Command("apply", "Plan again against the target, refuse when an input of the plan changed since the review (a zip, a settings file, the target environment, its solution state or a dependency's version), then import the zips in plan order through pac (only with --apply).")
         {
             planFile, targetOption, apply, format, outFile, githubRun, requireReviews,
@@ -125,7 +125,7 @@ public static class DeployCommand
         // A zip is unpacked only when a report names it as its deploy-hash, so plans without such a report call no pac.
         var checks = imports.Select(i => zips.First(z => z.File == i.Zip))
             .Select(z => (Zip: z, Unpack: DeployReviews.NeedsUnpack(plans, z.Sha256) ? Unpack(Path.Combine(folder, z.File), z.Solution.Managed, pac, left) : null))
-            .Select(c => (c.Zip, c.Unpack, Problem: DeployReviews.Problem(plans, c.Zip.Sha256, c.Unpack)))
+            .Select(c => (c.Zip, c.Unpack, Problem: DeployReviews.Problem(plans, c.Zip.Sha256, c.Unpack, c.Zip.SettingsSha256)))
             .ToList();
         var open = checks.Where(c => c.Problem is not null).Select(c => (c.Zip, c.Problem)).ToList();
         var notes = evidence && open.Count > 0 ? DeployReviews.Evidence(root, plans, [.. open.Select(o => o.Zip)]) : null;
@@ -133,7 +133,7 @@ public static class DeployCommand
         {
             if (problem is null)
             {
-                if (evidence && DeployReviews.Cover(plans, zip.Sha256, unpack) is { Verify: { } verify, Security: { } security } cover
+                if (evidence && DeployReviews.Cover(plans, zip.Sha256, unpack, zip.SettingsSha256) is { Verify: { } verify, Security: { } security } cover
                     && verify.SolutionHash != zip.Sha256 && security.SolutionHash != zip.Sha256)
                 {
                     error.WriteLine($"note: {Clean(zip.File)}: docs/plans/{Clean(cover.Plan)}: both reports record this zip's SHA-256 as their deploy-hash, and the digest of its pac solution unpack is their solution-hash");

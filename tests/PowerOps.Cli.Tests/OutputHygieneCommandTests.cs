@@ -67,8 +67,9 @@ public class OutputHygieneCommandTests : IDisposable
     {
         var (code, _, err) = Run("analyze", Copy(Path.Combine(Seed, "v1"), "plain"));
 
+        // The one note is the canvas package the seed folder doesn't hold (M96).
         Assert.Equal(0, code);
-        Assert.Equal("", err);
+        Assert.Contains(": PO014, PO018 and PO036 not checked for canvas app 'Work Items': its package ", Assert.Single(err.Split('\n', StringSplitOptions.RemoveEmptyEntries)));
     }
 
     [Fact]

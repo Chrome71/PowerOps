@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -445,8 +446,7 @@ public sealed partial class RoleEvalTests
         var text = new StringBuilder();
         foreach (var args in BaselineCommands)
         {
-            // shortcut: tests/eval/roles/baseline/*.txt were recorded before M92 hid values by default; M96 regenerates them and drops --show-values here
-            var (code, output, error) = RunCli(caseDir, args[0] == "diff" ? [.. args, "--show-values"] : args);
+            var (code, output, error) = RunCli(caseDir, args);
             text.Append("$ powerops ").Append(string.Join(' ', args)).Append('\n').Append(output);
             if (output.Length > 0 && !output.EndsWith('\n'))
             {
@@ -503,13 +503,13 @@ public sealed partial class RoleEvalTests
         return problems;
     }
 
-    // A fenced block with the seven header lines on consecutive lines, in this order, each at the start of its line.
+    // A fenced block with the eight header lines on consecutive lines, in this order, each at the start of its line.
     internal static List<string> HeaderLineProblems(string skillText)
     {
-        string[] prefixes = ["plan-hash: ", "model: ", "fresh-context: ", "state: ", "input: ", "solution-hash: ", "deploy-hash: "];
+        string[] prefixes = ["plan-hash: ", "model: ", "fresh-context: ", "state: ", "input: ", "solution-hash: ", "deploy-hash: ", "settings-hash: "];
         var found = Fence().Matches(skillText.Replace("\r\n", "\n")).Select(m => m.Groups[1].Value.Split('\n')).Any(lines =>
             Enumerable.Range(0, Math.Max(0, lines.Length - prefixes.Length + 1)).Any(i => prefixes.Select((p, k) => lines[i + k].StartsWith(p, StringComparison.Ordinal)).All(x => x)));
-        return found ? [] : ["no fenced block has the lines plan-hash: , model: , fresh-context: , state: , input: , solution-hash: and deploy-hash: one after the other"];
+        return found ? [] : ["no fenced block has the lines plan-hash: , model: , fresh-context: , state: , input: , solution-hash: , deploy-hash: and settings-hash: one after the other"];
     }
 
     // The first code span of each bullet under "## Commands you may run" that starts with "powerops ". Null when the section is missing.
@@ -552,12 +552,12 @@ public sealed partial class RoleEvalTests
 
     private static string[] MainPlans => [.. Enumerable.Range(1, 14).Select(n => $"plan-{n:00}")];
 
-    private static string[] MainSolutions => [.. Enumerable.Range(1, 8).Select(n => $"solution-{n:00}")];
+    private static string[] MainSolutions => [.. Enumerable.Range(1, 9).Select(n => $"solution-{n:00}")];
 
     [Fact]
     public void Every_key_entry_names_a_real_case_and_pass_and_every_case_and_pass_has_its_flaw_count()
     {
-        KeyChecks(Path.Combine(Roles, "key.json"), Cases, MainPlans, MainSolutions, perCase: 3, flawedPlan: 10, flawedSolution: 6, security: 8, verify: 8, RoleAppCases.ToDictionary(c => c, _ => 2));
+        KeyChecks(Path.Combine(Roles, "key.json"), Cases, MainPlans, MainSolutions, perCase: 3, flawedPlan: 10, flawedSolution: 7, security: 9, verify: 8, RoleAppCases.Select(c => (c, 2)).Append(("solution-09", 1)).ToDictionary());
     }
 
     [Fact]
@@ -583,7 +583,7 @@ public sealed partial class RoleEvalTests
         var folders = CaseNames(Cases, "solution").Select(n => (Name: n, Dir: Path.Combine(Cases, n))).Concat(CaseNames(Pilot, "solution").Select(n => (Name: n, Dir: Path.Combine(Pilot, n)))).ToList();
         var files = Directory.Exists(Path.Combine(Roles, "baseline")) ? Directory.GetFiles(Path.Combine(Roles, "baseline"), "*.txt").Select(f => Path.GetFileNameWithoutExtension(f)!).Order(StringComparer.Ordinal).ToList() : [];
 
-        Assert.Equal(9, folders.Count);
+        Assert.Equal(10, folders.Count);
         Assert.Equal(folders.Select(f => f.Name).Order(StringComparer.Ordinal), files);
         foreach (var (name, dir) in folders)
         {
@@ -620,12 +620,37 @@ public sealed partial class RoleEvalTests
     {
         var cases = CaseNames(Cases, "solution").Select(n => Path.Combine(Cases, n)).Concat(CaseNames(Pilot, "solution").Select(n => Path.Combine(Pilot, n))).ToList();
 
-        Assert.Equal(9, cases.Count);
+        Assert.Equal(10, cases.Count);
         Assert.All(cases, c => Assert.Empty(SolutionCaseProblems(c)));
         Assert.All(cases.SelectMany(c => new[] { Path.Combine(c, "docs"), Path.Combine(c, "settings.json"), Path.Combine(c, "flowtests") }).SelectMany(CaseFilesOrFile), f => Assert.Empty(FakeValueProblems(f, Read(f))));
     }
 
     private static IEnumerable<string> CaseFilesOrFile(string path) => File.Exists(path) ? [path] : CaseFiles(path);
+
+    // A canvas package in a case is a zip written with deflate, as an export is, so the scans of the raw bytes don't read its text: each entry's text gets the same checks here.
+    [Fact]
+    public void Each_canvas_package_in_the_cases_is_deflated_and_its_entries_hold_only_fake_values()
+    {
+        var packages = CaseFiles(Cases).Where(f => f.EndsWith(".msapp", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        Assert.NotEmpty(packages);
+        foreach (var package in packages)
+        {
+            using var zip = ZipFile.OpenRead(package);
+            Assert.NotEmpty(zip.Entries);
+            foreach (var entry in zip.Entries)
+            {
+                var path = $"{Rel(Roles, package)}/{entry.FullName}";
+                using var reader = new StreamReader(entry.Open());
+                var text = reader.ReadToEnd();
+
+                Assert.True(!entry.FullName.EndsWith(".json", StringComparison.OrdinalIgnoreCase) || entry.CompressedLength < entry.Length, $"{path} is stored, not deflated");
+                Assert.Empty(FakeValueProblems(path, text));
+                Assert.Empty(MarkerProblems(path, text));
+                Assert.Empty(ModelIdProblems(path, text));
+            }
+        }
+    }
 
     [Fact]
     public void Analyze_test_and_settings_validate_report_nothing_on_the_clean_solution_cases()
@@ -676,7 +701,7 @@ public sealed partial class RoleEvalTests
     }
 
     [Fact]
-    public void The_drafts_have_portable_front_matter_and_the_seven_header_lines()
+    public void The_drafts_have_portable_front_matter_and_the_eight_header_lines()
     {
         foreach (var name in Drafts)
         {
@@ -863,6 +888,7 @@ public sealed partial class RoleEvalTests
         input: <the current solution>
         solution-hash: <the digest>
         deploy-hash: <the zip digest>
+        settings-hash: <the settings hash>
         ```
         """.Replace("\r\n", "\n");
 
@@ -894,6 +920,8 @@ public sealed partial class RoleEvalTests
         Assert.NotEmpty(HeaderLineProblems(GoodSkill.Replace("input: <the current solution>\nsolution-hash: <the digest>", "solution-hash: <the digest>\ninput: <the current solution>")));
         Assert.NotEmpty(HeaderLineProblems(GoodSkill.Replace("deploy-hash: <the zip digest>\n", "")));
         Assert.NotEmpty(HeaderLineProblems(GoodSkill.Replace("solution-hash: <the digest>\ndeploy-hash: <the zip digest>", "deploy-hash: <the zip digest>\nsolution-hash: <the digest>")));
+        Assert.NotEmpty(HeaderLineProblems(GoodSkill.Replace("settings-hash: <the settings hash>\n", "")));
+        Assert.NotEmpty(HeaderLineProblems(GoodSkill.Replace("deploy-hash: <the zip digest>\nsettings-hash: <the settings hash>", "settings-hash: <the settings hash>\ndeploy-hash: <the zip digest>")));
         Assert.Null(ListedCommands(GoodSkill.Replace("## Commands you may run", "## Commands")));
         Assert.Equal(["powerops analyze <current solution>"], ListedCommands(GoodSkill.Replace("- `powerops settings validate <current solution> --settings <settings file>`", "- no code here").Replace("- `powerops plan facts`", "- `plan facts`")));
         Assert.Equal(["powerops deploy apply x --apply"], NotAllowed(["powerops analyze x", "powerops deploy apply x --apply", "powerops plan facts"], ["powerops analyze"]));

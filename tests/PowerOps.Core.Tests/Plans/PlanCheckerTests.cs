@@ -380,6 +380,60 @@ public class PlanCheckerTests : IDisposable
             reports.Reports.Select(r => (r.File, r.State, r.Input, r.SolutionHash, r.DeployHash)));
     }
 
+    // ---- settings-hash (M96 row 2): read from the first eight lines ----
+
+    private static readonly string SettingsHash = new string('0', 63) + "d";
+
+    [Theory]
+    [InlineData("SETTINGS", "SETTINGS")]
+    [InlineData("none", "none")]
+    [InlineData("", "unknown")]
+    [InlineData("unknown", "unknown")]
+    [InlineData("0123", "unknown")]
+    [InlineData("000000000000000000000000000000000000000000000000000000000000000D", "unknown")]
+    public void An_eight_line_report_reads_its_settings_hash(string value, string expected)
+    {
+        Write(Plan());
+        value = value == "SETTINGS" ? SettingsHash : value;
+        Report("verify.md", Six() + $"deploy-hash: {DeployHash}\nsettings-hash: {value}\n");
+
+        var report = Assert.Single(Check().Reports);
+
+        Assert.Equal((DeployHash, expected == "SETTINGS" ? SettingsHash : expected), (report.DeployHash, report.SettingsHash));
+    }
+
+    [Fact]
+    public void A_seven_line_report_and_review_md_read_no_settings_hash_and_line_nine_is_not_read()
+    {
+        Write(Plan());
+        Report("review.md", $"plan-hash: {Hash}\nsettings-hash: {SettingsHash}\n");
+        Report("security-solution.md", Six() + $"deploy-hash: {DeployHash}\n\nsettings-hash: {SettingsHash}\n");
+        Report("verify.md", Six() + $"deploy-hash: {DeployHash}\n");
+
+        Assert.Equal([("review.md", null), ("security-solution.md", null), ("verify.md", null)], Check().Reports.Select(r => (r.File, r.SettingsHash)));
+    }
+
+    [Fact]
+    public void A_settings_hash_on_line_five_is_read_and_the_other_keys_keep_their_lines()
+    {
+        Write(Plan());
+        Report("verify.md", $"state: ready\nplan-hash: {Hash}\ninput: solutions/demo\nsolution-hash: {SolutionHash}\nsettings-hash: none\n");
+
+        var report = Assert.Single(Check().Reports);
+
+        Assert.Equal(("ready", "solutions/demo", SolutionHash, "unknown", "none"), (report.State, report.Input, report.SolutionHash, report.DeployHash, report.SettingsHash));
+    }
+
+    [Fact]
+    public void A_report_that_cannot_be_read_has_an_unknown_settings_hash_and_review_md_none()
+    {
+        Write(Plan());
+        Report("verify.md", "state: ready\n" + new string(' ', (int)PlanChecker.MaxFileBytes));
+        Report("review.md", "plan-hash: x\n" + new string(' ', (int)PlanChecker.MaxFileBytes));
+
+        Assert.Equal([("review.md", null), ("verify.md", "unknown")], Check().Reports.Select(r => (r.File, r.SettingsHash)));
+    }
+
     [Fact]
     public void A_legacy_four_line_report_reads_unknown_and_its_input_on_line_five_or_six_is_still_read()
     {

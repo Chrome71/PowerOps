@@ -1,5 +1,7 @@
 using System.CommandLine;
+using System.Text;
 
+using PowerOps.Core.Deploy;
 using PowerOps.Core.Model;
 using PowerOps.Core.Output;
 using PowerOps.Core.Readers;
@@ -85,18 +87,18 @@ public static class SettingsCommand
             }
 
             var loaded = SolutionLoader.Load(path);
-            if (Problems(loaded, file, error) is not { } problems)
+            if (Problems(loaded, file, error) is not (var problems, var sha256))
             {
                 return InternalError;
             }
 
             if (parse.GetValue(format) == "json")
             {
-                SettingsReport.WriteJson(loaded.UniqueName, file, problems, output);
+                SettingsReport.WriteJson(loaded.UniqueName, file, sha256, problems, output);
             }
             else
             {
-                SettingsReport.WriteText(problems, output);
+                SettingsReport.WriteText(problems, sha256, output);
             }
 
             return problems.Count > 0 ? 1 : 0;
@@ -104,17 +106,19 @@ public static class SettingsCommand
         return command;
     }
 
-    // The problems of the settings file for the solution; null after an error line that starts with the path.
-    private static IReadOnlyList<SettingsProblem>? Problems(Solution loaded, string file, TextWriter error)
+    // The problems of the settings file for the solution and the SHA-256 of its bytes; null after an error line that starts with the path.
+    private static (IReadOnlyList<SettingsProblem> Problems, string Sha256)? Problems(Solution loaded, string file, TextWriter error)
     {
-        if (ReadSettings(file, error) is not { } text)
+        if (ReadSettings(file, error) is not { } bytes)
         {
             return null;
         }
 
         try
         {
-            return DeploymentSettings.Validate(loaded, text);
+            // Decoded as File.ReadAllText does, from the bytes that are hashed, so the hash is of the file that was checked (DeployZip.SettingsSha256 hashes the same bytes).
+            using var reader = new StreamReader(new MemoryStream(bytes), Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+            return (DeploymentSettings.Validate(loaded, reader.ReadToEnd()), DeployPlan.Sha256Hex(bytes));
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
         {
@@ -123,12 +127,12 @@ public static class SettingsCommand
         }
     }
 
-    // The settings file, capped at 1 MB as deploy's settings files are; null after an error line that starts with the path.
-    private static string? ReadSettings(string file, TextWriter error)
+    // The settings file's bytes, capped at 1 MB as deploy's settings files are; null after an error line that starts with the path.
+    private static byte[]? ReadSettings(string file, TextWriter error)
     {
         try
         {
-            return BoundedRead.ReadAllText(file, 1024 * 1024);
+            return BoundedRead.ReadAllBytes(file, 1024 * 1024);
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
         {
@@ -186,7 +190,7 @@ public static class SettingsCommand
             }
 
             var loaded = SolutionLoader.Load(path);
-            if (Problems(loaded, file, error) is not { } problems)
+            if (Problems(loaded, file, error) is not (var problems, _))
             {
                 return InternalError;
             }

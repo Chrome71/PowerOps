@@ -23,8 +23,8 @@ public sealed record PlanReport(
     IReadOnlyList<PlanReportFile> Reports,
     PlanWrites? Writes);
 
-/// <summary>One agent report in a plan folder. OpenHigh counts the findings under its `### High` heading that no closing word resolves; plan status doesn't print it. State and Stale are null when the report does not say, or could not be read. Input (a relative path) and SolutionHash (64 lowercase hex characters, else "unknown") are null for review.md; for the two solution reports Input is null when there is no valid input: line. SolutionStale is null for review.md and when nothing was compared (no valid input and hash, or a solution that could not be read); else true when the digest of the solution Input names differs from SolutionHash. DeployHash (the deployed zip's SHA-256, 64 lowercase hex characters, else "unknown") is null for review.md; plan status doesn't print it.</summary>
-public sealed record PlanReportFile(string File, string? State, bool? Stale, string? Input = null, string? SolutionHash = null, bool? SolutionStale = null, string? DeployHash = null, int OpenHigh = 0);
+/// <summary>One agent report in a plan folder. OpenHigh counts the findings under its `### High` heading that no closing word resolves; plan status doesn't print it. State and Stale are null when the report does not say, or could not be read. Input (a relative path) and SolutionHash (64 lowercase hex characters, else "unknown") are null for review.md; for the two solution reports Input is null when there is no valid input: line. SolutionStale is null for review.md and when nothing was compared (no valid input and hash, or a solution that could not be read); else true when the digest of the solution Input names differs from SolutionHash. DeployHash (the deployed zip's SHA-256, 64 lowercase hex characters, else "unknown") is null for review.md; plan status doesn't print it. SettingsHash (the reviewed settings file's SHA-256, "none", else "unknown") is null for review.md and for a report with no settings-hash: line; plan status doesn't print it.</summary>
+public sealed record PlanReportFile(string File, string? State, bool? Stale, string? Input = null, string? SolutionHash = null, bool? SolutionStale = null, string? DeployHash = null, int OpenHigh = 0, string? SettingsHash = null);
 
 /// <summary>The two solution reports of one plan folder under docs/plans: Plan is the folder's name; a report is null when the folder has none. NoSignOff is why the folder's plan.md has no valid sign-off (could not be read, malformed header, status draft, status approved, signed without the tool, changed since sign-off), or null when it has one.</summary>
 public sealed record PlanReviews(string Plan, PlanReportFile? Verify, PlanReportFile? Security, string? NoSignOff);
@@ -463,7 +463,7 @@ public static partial class PlanChecker
 
     private static readonly string[] ReportStates = ["ready", "blocked", "failed", "dropped"];
 
-    // State, plan-hash, input and solution-hash come from a report's first six lines (review.md's plan-hash, as before, from the first such line anywhere); deploy-hash from the first seven.
+    // State, plan-hash, input and solution-hash come from a report's first six lines (review.md's plan-hash, as before, from the first such line anywhere); deploy-hash from the first seven; settings-hash from the first eight.
     // In plan status a stale or unknown-state report only warns and changes no plan's status: the report is data. The deploy routes read the two solution reports through Reviews.
     internal static List<PlanReportFile> ReadReports(string folder, string baseDir, string? bodyHash, ICollection<string> warnings)
     {
@@ -478,11 +478,12 @@ public static partial class PlanChecker
 
             if (ReadScannable(file, baseDir, warnings) is not { } text)
             {
-                reports.Add(name == "review.md" ? new PlanReportFile(name, null, null) : new PlanReportFile(name, null, null, null, UnknownHash, DeployHash: UnknownHash));
+                reports.Add(name == "review.md" ? new PlanReportFile(name, null, null) : new PlanReportFile(name, null, null, null, UnknownHash, DeployHash: UnknownHash, SettingsHash: UnknownHash));
                 continue;
             }
 
-            var seven = Lines(text).Take(7).Select(l => l.Trim()).ToList();
+            var eight = Lines(text).Take(8).Select(l => l.Trim()).ToList();
+            var seven = eight.Take(7).ToList();
             var head = seven.Take(6).ToList();
             var state = HeadValue(head, "state:");
             bool? stale = null;
@@ -519,10 +520,12 @@ public static partial class PlanChecker
             string? input = null;
             string? solutionHash = null;
             string? deployHash = null;
+            string? settingsHash = null;
             if (name != "review.md")
             {
                 solutionHash = Sha256Value(HeadValue(head, "solution-hash:"));
                 deployHash = Sha256Value(HeadValue(seven, "deploy-hash:"));
+                settingsHash = HeadValue(eight, "settings-hash:") switch { null => null, "none" => "none", var hex => Sha256Value(hex) };
                 if (HeadValue(head, "input:") is { } value)
                 {
                     input = IsLocator(value) ? value.TrimEnd('/') : null;
@@ -533,7 +536,7 @@ public static partial class PlanChecker
                 }
             }
 
-            reports.Add(new PlanReportFile(name, state, stale, input, solutionHash, DeployHash: deployHash, OpenHigh: OpenHighs(text)));
+            reports.Add(new PlanReportFile(name, state, stale, input, solutionHash, DeployHash: deployHash, OpenHigh: OpenHighs(text), SettingsHash: settingsHash));
         }
 
         return reports;

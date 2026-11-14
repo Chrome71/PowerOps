@@ -33,6 +33,24 @@ public class DeployReviewWarningTests : DeployTestBase
         Assert.Equal("", r.Err);
     }
 
+    // M96: the reports record the settings file's SHA-256, so editing the file after the review gives the settings sentence and the same plan otherwise.
+    [Fact]
+    public void A_settings_file_changed_after_the_review_gives_one_warning()
+    {
+        SeedZip(Folder);
+        Reviewed(Path.Combine(Folder, "PowerOpsSeed.zip"));
+        var before = Plan(Folder, SeedTarget());
+        Assert.Equal("", before.Err);
+
+        Edit(Path.Combine(Folder, "PowerOpsSeed.settings.json"), "fake-connection-id", "another-connection-id");
+        var r = Plan(Folder, SeedTarget());
+
+        Assert.Equal(before.Code, r.Code);
+        Assert.Equal(
+            "warning: PowerOpsSeed.zip: docs/plans/m: verify.md's settings-hash is not the SHA-256 of this deployment's settings file; security-solution.md's settings-hash is not the SHA-256 of this deployment's settings file\n",
+            r.Err);
+    }
+
     [Theory]
     [InlineData("only-verify", "docs/plans/m: security-solution.md is missing")]
     [InlineData("security-blocked", "docs/plans/m: security-solution.md is blocked")]

@@ -2,6 +2,8 @@ $ powerops analyze solution/current
 solution/current: PowerOpsSeed 1.1.0.0 (publisher powerops, prefix pops)
   no findings
 1 solution, 0 errors, 0 warnings
+stderr:
+note: solution/current: PO014, PO018 and PO036 not checked for canvas app 'Work Items': its package CanvasApps/pops_workitems_2af60_DocumentUri.msapp is not in the solution (canvas packages are kept out of Git by default; analyze the exported zip to check it).
 exit code: 0
 
 $ powerops test solution/current --tests flowtests
@@ -24,5 +26,6 @@ exit code: 1
 
 $ powerops settings validate solution/current --settings settings.json
 no problems
+settings-hash: ce616aa0f6d13417dc7b78dfb5f5b534d5ac64a5f557f58a81ae752aba5c8cf7
 exit code: 0
 

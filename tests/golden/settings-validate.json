@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "solution": "PowerOpsSeed",
   "settings": "tests/fixtures/settings/powerops-seed-v1.problems.json",
+  "settingsSha256": "0f68a96b4e5ee84cb83c609a70be87e5b52c40b84badf7232d69e1caf0e9f9e7",
   "problems": [
     {
       "kind": "extra",
