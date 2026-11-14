@@ -397,7 +397,10 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
             else if (program is "powerops" or "powerops.exe")
             {
                 recognized.Add(segment);
-                if (ReadPowerOps(words) is { } line)
+
+                // The shell goes on past a ( that ends the segment, as in <(...), =(...) or a glob qualifier, and a ) before it can close a $(...) that runs it.
+                var cut = Next(command, segment.End) == '(' || Previous(command, segment.Start) == ')';
+                if ((cut ? CantRead : ReadPowerOps(words)) is { } line)
                 {
                     lines.Add(line);
                 }
@@ -433,11 +436,35 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
 
     private static bool Marked(IEnumerable<Word> words) => Markers().IsMatch(string.Join(' ', words.Select(w => w.Value)));
 
+    // The character after at, or before at, past spaces, tabs and backslash-newline pairs; '\0' at the end of the text.
+    private static char Next(string s, int at)
+    {
+        while (at < s.Length && (s[at] is ' ' or '\t' || (s[at] == '\\' && at + 1 < s.Length && s[at + 1] == '\n')))
+        {
+            at += s[at] == '\\' ? 2 : 1;
+        }
+
+        return at < s.Length ? s[at] : '\0';
+    }
+
+    private static char Previous(string s, int at)
+    {
+        while (at > 0 && (s[at - 1] is ' ' or '\t' || (s[at - 1] == '\n' && at > 1 && s[at - 2] == '\\')))
+        {
+            at -= s[at - 1] == '\n' ? 2 : 1;
+        }
+
+        return at > 0 ? s[at - 1] : '\0';
+    }
+
+    // zsh's extendedglob makes ^, # and a ~ after the first character glob operators, which can expand to --apply.
+    private static bool Plain(Word w) => w.Literal && w.Raw.IndexOfAny(['^', '#']) < 0 && w.Raw.IndexOf('~', 1) < 0;
+
     // PowerOps's own imports (decision 71), read fail-closed: the line for the call, or null when it imports nothing.
     private static string? ReadPowerOps(Word[] words)
     {
         // A command substitution in the program word would run unseen.
-        if (!words[0].Literal || (words.Length > 1 && !words[1].Literal))
+        if (!Plain(words[0]) || (words.Length > 1 && !Plain(words[1])))
         {
             return CantRead;
         }
@@ -448,7 +475,7 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
             return Marked(words.Skip(1)) ? CantRead : null;
         }
 
-        if (!words[2].Literal)
+        if (!Plain(words[2]))
         {
             return CantRead;
         }
@@ -461,8 +488,12 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
         }
 
         var rest = words[3..];
+
+        // A bare > or < takes the next word as its target; with none, the tokenizer cut the redirection off (>|, <&0, > >(...)).
         var dryRun = !rest.Any(w => w.Value.Contains("apply", StringComparison.OrdinalIgnoreCase))
-            && rest.All(w => w.Redirect ? PlainRedirect().IsMatch(w.Raw) : w.Literal);
+            && rest.Select((w, j) => w.Redirect
+                ? PlainRedirect().IsMatch(w.Raw) && (w.Raw[^1] is not ('>' or '<') || (j + 1 < rest.Length && !rest[j + 1].Redirect))
+                : Plain(w)).All(ok => ok);
         if (dryRun)
         {
             return Marked(rest) ? CantRead : null;
@@ -470,7 +501,7 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
 
         // The shell removes 2>&1 and >&2 before the CLI sees its arguments, so the options are paired without them.
         var args = rest.Where(w => !(w.Redirect && w.Raw is "2>&1" or ">&2")).ToArray();
-        if (args.Any(w => !w.Literal || w.Redirect || w.Raw.StartsWith('#')))
+        if (args.Any(w => !Plain(w) || w.Redirect))
         {
             return CantRead;
         }

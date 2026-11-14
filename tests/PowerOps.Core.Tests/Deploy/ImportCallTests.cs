@@ -158,6 +158,8 @@ public class ImportCallTests
     [InlineData("X=a/power-apps.cmd push")]
     // A known miss: the gate doesn't read inside a nested string, so a quote there hides settings apply, as it hides a pac import.
     [InlineData("bash -c 'powerops settings ap\"\"ply /x/s.zip --settings /x/s.json --apply'")]
+    // A known miss: the gate doesn't read comments, so a quote in one runs on into the next line.
+    [InlineData(": # it's\npowerops settings ap\"\"ply /x/s.zip --settings /x/s.json --ap\"\"ply")]
     public void A_shell_command_without_an_import_is_not_one(string command)
     {
         Assert.IsType<ImportRead.NotImport>(Bash(command));
@@ -495,6 +497,24 @@ public class ImportCallTests
             // The program word must be literal, so a powerops call by a ~ or variable path is unreadable whatever it runs.
             { "~/.dotnet/tools/powerops analyze .", CantRead },
             { "\"$HOME/.dotnet/tools/powerops\" plan status docs/plans/x", CantRead },
+            // Amendment 1: the shell runs each of these with --apply while the segment read alone looks like a dry run.
+            { $"{SettingsCall} >|/x/out --apply", CantRead },
+            { $"{PlanCall} >|/x/out --apply", CantRead },
+            { "powerops settings apply /x/s.zip --settings <(cat /x/s.json) --apply", CantRead },
+            { $"{SettingsCall} > >(cat) --apply", CantRead },
+            { $"{PlanCall} < <(true) --apply", CantRead },
+            { $"{SettingsCall} <&0 --apply", CantRead },
+            { $"{PlanCall} <&0 --apply", CantRead },
+            { "powerops settings apply /x/s.zip --settings =(cat /x/s.json) --apply", CantRead },
+            { "powerops settings nosuchfile(N) apply /x/s.zip --settings /x/s.json --apply", CantRead },
+            { "powerops settings nosuchfile\\\n(N) apply /x/s.zip --settings /x/s.json --apply", CantRead },
+            { $"{PlanCall} >", CantRead },
+            { $"printf -- --apply | $(printf xargs) {SettingsCall} --target \"Contoso Test\"", CantRead },
+            { $"printf -- --apply | $(printf xargs)\\\n {SettingsCall} --target \"Contoso Test\"", CantRead },
+            { $"{SettingsCall} --target \"Contoso Test\" ^z", CantRead },
+            { $"{SettingsCall} --appl#y", CantRead },
+            { $"powerops() {{ echo; }}; {SettingsCall} --apply", CantRead },
+            { $"case $X in a) {PlanCall} ;; esac", CantRead },
         };
 
         foreach (var flag in Unread)
@@ -579,6 +599,12 @@ public class ImportCallTests
     [InlineData("powerops deploy gate \"$CLAUDE_PROJECT_DIR/deploy/powerops-plan.json\"")]
     [InlineData("powerops --version")]
     [InlineData("powerops")]
+    // A ( after a separator, or a ) before one, is another command.
+    [InlineData(PlanCall + " | (cat)")]
+    [InlineData(PlanCall + " && (echo ok)")]
+    [InlineData("(cd /x && ls); " + PlanCall)]
+    [InlineData("echo $(date) && " + PlanCall)]
+    [InlineData("X=$(date)\n" + PlanCall)]
     public void A_guarded_powerops_import_a_dry_run_or_another_powerops_command_is_not_an_import(string command)
     {
         Assert.IsType<ImportRead.NotImport>(Bash(command));

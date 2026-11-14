@@ -306,6 +306,6 @@ public partial class HandoffDocTests
             },
             s => Assert.Contains(s, always));
         Assert.StartsWith("What it doesn't do:\n\n- It sees only the agent's own tool calls that the hooks match, and only while the hooks are installed: not the person's terminal, the MCP tool `deploy_apply` (which always checks the reviews itself) or the Action.\n", doesnt);
-        Assert.All(new[] { "runs `pac` or `powerops` itself", "a shell function", "`bash -c '... settings ap\"\"ply ...'`" }, s => Assert.Contains(s, unseen));
+        Assert.All(new[] { "runs `pac` or `powerops` itself", "a shell function", "words after a `#` comment that holds a quote", "`bash -c '... settings ap\"\"ply ...'`" }, s => Assert.Contains(s, unseen));
     }
 }
