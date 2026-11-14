@@ -1,8 +1,12 @@
-plan-hash: 8347de843a63e4e8150bb355965f90380264b2a6af27a91be8fdfd031d2ec8f5
+plan-hash: 92dcad60195330628b0f3278a48bfb37d84b3550a8169b882d5f9a172af48fa7
 model: claude-opus-5-5
 fresh-context: yes
 
 Environment facts were not read: the plan's `environment:` is null and the request said `tenant: offline`, so `powerops plan facts` was not run and no tenant was called.
+
+Third pass, on revision 3 (`d771bff`). The planning chat is not in this context. This pass read `plan.md` and `review.md`, `git diff 6abbb6b d771bff` of the plan folder (`decisions.md` is unchanged), and at `a442b17` the line ranges revision 3 cites in `skills/powerops-review-security/SKILL.md`, `skills/powerops-verify/SKILL.md` and `skills/powerops-implement/SKILL.md`, plus the leak-scan lines of the M88 and M92 plans. The unchanged parts of the plan were not re-reviewed in depth, and the second pass's tool check (item 12) was not run again.
+
+Each of R14 to R19 was checked against the plan as it stands; all six are resolved and keep their resolutions. Remarks: R14 holds, `:87` at `a442b17` is the import-routes bullet and row 10 now names it; R15 matches M92's Goal 7; R16 holds, every line number rows 5 and 6 give (`:26`, `:52`, `:54`, `:80`, `:81-89`, `:92`; `:35`, `:57`, `:58-66`, `:69`) is the line it names at `a442b17`, and P1's place is now one place; R17 holds; R18 holds but its placeholder lost the quotes M88 and M92 put around it (R20); R19 holds, with one extra blank line still left under `## Constraints` (plan line 124 to 125), which Markdown ignores. R1 to R13 are unchanged by revision 3. One new finding, R20.
 
 Second pass, on revision 2 (`6abbb6b`). The planning chat is not in this context. This pass read `plan.md`, `decisions.md` (no `mockups/`), the first pass's findings below, `git diff 10a160f 6abbb6b` of the plan, and the repo at `6abbb6b`: `PlanChecker.cs`, `PlanStatusReport.cs`, `DeployReviews.cs`, `DeployCommand.cs` (the review check, `Load`, the `--require-reviews` help), `McpCommand.cs`, `SettingsCommand.cs`, `SolutionParser.cs` (`ReadMsapps`), `PO018CanvasForAllPatch.cs`, `SolutionDiff.cs`, `RoleEvalTests.cs`, `HandoffDocTests.cs`, `SkillsCommandTests.cs`, the two kept roles, `powerops-implement`, `run.sh`, `key.json`, `action.yml`, `global.json`, `.gitignore`, the seed and eval cases' canvas metadata, and `reports/leakscan.sh` in the main checkout.
 
@@ -135,3 +139,9 @@ No findings.
 - Finding: R5's fix put `### Licences` at the top of `## Constraints`, followed by a blank line too many and then the AGENTS.md, kept-role, output-shape and eval bullets, with no heading of their own. They read as licence lines.
 - Suggested fix: Move `### Licences` and its line to the end of `## Constraints`, or put a heading such as `### Rules` before the bullets, and drop the extra blank line.
 - Resolution: fixed: `### Licences` moved to the end of Constraints, after its bullets.
+
+#### R20. Step 7's `<main checkout>` placeholder is unquoted, and the real path has a space
+- Area: 9 (testability), 12 (tools)
+- Finding: R18's fix writes `cd <main checkout> && bash reports/leakscan.sh ...` and `bash <main checkout>/reports/ci-watch.sh <PR>` with no quotes. The main checkout's path holds a space, so an executor that puts the path in place of the placeholder as written gets a `cd` that fails and a `bash` that can't find the script. Both fail loudly rather than silently, but they stop step 7. M88 and M92 write `cd "<main checkout>"`, and R18's suggested fix had the quotes.
+- Suggested fix: Write `cd "<main checkout>" && bash reports/leakscan.sh origin/main claude/m96-role-rerun-9271cf` and `bash "<main checkout>/reports/ci-watch.sh" <PR>`.
+- Resolution: accepted: fixed in the step 6 revision of the plan, which gets a review pass anyway; until then this session runs both commands itself with the path quoted.

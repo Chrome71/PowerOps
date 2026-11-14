@@ -1,9 +1,11 @@
 ---
-status: approved
+status: signed-off
 review: done
 environment: null
 depth: standard
 supersedes: null
+signed-off: 2026-11-14
+signed-off-hash: 92dcad60195330628b0f3278a48bfb37d84b3550a8169b882d5f9a172af48fa7
 ---
 
 # M96: The security role says what it opened, the reviews bind the settings file, and `analyze` says when a canvas package is missing
