@@ -1,14 +1,16 @@
-plan-hash: 64712bec9abb2a7175ac59b819283f5c4b39314ff9aa1c804ff443ee43bc6584
+plan-hash: 8347de843a63e4e8150bb355965f90380264b2a6af27a91be8fdfd031d2ec8f5
 model: claude-opus-5-5
 fresh-context: yes
 
 Environment facts were not read: the plan's `environment:` is null and the request said `tenant: offline`, so `powerops plan facts` was not run and no tenant was called.
 
-The planning chat is not in this context. The review read `plan.md`, `decisions.md` (no `mockups/`), and the repo at `10a160f`: `DeployCommand.cs`, `DeployReviews.cs`, `PlanChecker.cs`, `SettingsCommand.cs`, `McpCommand.cs`, `SolutionParser.cs`, `ZipReader.cs`, `XmlUnpackReader.cs`, `SolutionDiff.cs`, `PO018CanvasForAllPatch.cs`, `RoleEvalTests.cs`, `HandoffDocTests.cs`, the two kept roles, `powerops-implement`, `run.sh`, the eval `NOTICE.md`, the seed `v2` canvas metadata and `docs/schemas/settings-validate.schema.json`.
+Second pass, on revision 2 (`6abbb6b`). The planning chat is not in this context. This pass read `plan.md`, `decisions.md` (no `mockups/`), the first pass's findings below, `git diff 10a160f 6abbb6b` of the plan, and the repo at `6abbb6b`: `PlanChecker.cs`, `PlanStatusReport.cs`, `DeployReviews.cs`, `DeployCommand.cs` (the review check, `Load`, the `--require-reviews` help), `McpCommand.cs`, `SettingsCommand.cs`, `SolutionParser.cs` (`ReadMsapps`), `PO018CanvasForAllPatch.cs`, `SolutionDiff.cs`, `RoleEvalTests.cs`, `HandoffDocTests.cs`, `SkillsCommandTests.cs`, the two kept roles, `powerops-implement`, `run.sh`, `key.json`, `action.yml`, `global.json`, `.gitignore`, the seed and eval cases' canvas metadata, and `reports/leakscan.sh` in the main checkout.
 
-This plan changes PowerOps itself and deploys nothing, so checklist items 1, 2 and 4 to 8 (solution boundary, connection references, DLP, route, managed state, delegation, security roles) don't apply and have no findings. Item 11 (size): the plan has a `Won't build` list, and each of rows 1 to 13 serves a Goal line; no finding.
+Each of R1 to R13 was checked against the plan as it stands; all thirteen are resolved and keep their resolutions. Remarks: R6 holds because Assumptions now names sources for the claim, which meets item 13, though its `unproven:` line says "probed by none"; R7 leaves the exact `diff` lines to the build report, with the test "exactly the version change and the canvas app's change"; R11 doesn't say how the stub clients are put on `PATH`, which Automation's "as M83" covers (M83 step 3); R12's fix brought in R18. New findings start at R14.
 
-Tools (item 12): `powerops`, `zip`, `claude`, `codex`, `sha256sum` and `gh` are on `PATH`; the agents `powerops-researcher` and `fable-reviewer` and the skill `powerops-review-plan` are available to this session. `reports/ci-watch.sh` and `reports/leakscan.sh` exist in the main checkout only (see R12). Whether the Claude CLI and Codex are signed in was not checked: the plan checks it right before the run.
+This plan changes PowerOps itself and deploys nothing, so checklist items 1, 2 and 4 to 8 (solution boundary, connection references, DLP, route, managed state, delegation, security roles) don't apply and have no findings. Item 3: the `### Licences` heading now says no licence is needed and why (see R19 for its placement). Item 11 (size): the plan has a `Won't build` list, and each of rows 1 to 13 serves a Goal line; no finding.
+
+Tools (item 12): `powerops`, `zip`, `claude`, `codex`, `sha256sum`, `gh`, `dotnet` and `git` are on `PATH`; `reports/leakscan.sh` and `reports/ci-watch.sh` exist in the main checkout; the agents `powerops-researcher` and `fable-reviewer` and the skill `powerops-review-plan` are available to this session. Whether the Claude CLI and Codex are signed in was not checked: the plan checks it right before the run.
 
 ## Findings
 
@@ -47,6 +49,12 @@ No findings.
 - Finding: The plan names a canvas app (`Work Items`, in the seed fixture and `solution-09`) and flows (the case's flow tests), and `Constraints` has no `### Licences` heading. Nothing is deployed, so no licence is needed, but the checklist asks for the heading whenever a plan names an app or a flow.
 - Suggested fix: Add `### Licences` under Constraints with the line "No need beyond Microsoft 365's standard rights." Or add a line saying the named app and flows are offline test fixtures that are never imported.
 - Resolution: fixed: Constraints gains `### Licences`: offline fixtures, never imported.
+
+#### R14. `powerops-implement` still tells the build agent that only a changed zip needs the roles run again
+- Area: 13 (buildability), 9 (testability)
+- Finding: Row 10 changes only the request bullet of `skills/powerops-implement/SKILL.md` (`:84`). The bullet three lines below (`:87`, "Neither report changes the plan's status, but the import routes read them") lists what the import routes check (ready, current plan, linked to the zip) and says "a build that changes the zip needs both roles run again". After row 3 a changed settings file is refused too, so an agent that follows the skill, edits `<zip name>.settings.json` and goes on to `deploy plan` and the import meets a refusal that the skill never told it to expect or how to clear. This is the skill text agents act on, like the help strings R2 added to row 3, and no row changes it (rows 11 and 12 touch only docs and `AGENTS.md`).
+- Suggested fix: Add `:87` to row 10: the routes also need each report's `settings-hash:` to be the SHA-256 of the settings file the deployment imports, and a build that changes the zip or its settings file needs both roles run again. It lands in the freeze commit with row 10, and its plugin copies wait for step 6 as row 10's do.
+- Resolution: fixed: row 10 adds line 87 (a changed settings file needs both roles run again), in the freeze commit.
 
 ### Low
 
@@ -97,3 +105,33 @@ No findings.
 - Finding: Rows 8 and F47 and the Constraints name a host (`<host>`) on the reserved example domain. It is a fake value that the case needs, but the checklist reports every URL or host in a plan.
 - Suggested fix: Keep it if it is intended as the case's planted fake value, and say so in Constraints. Otherwise refer to it as "the case's fake Dataverse host".
 - Resolution: kept: Constraints names `dev.contoso.example` as the case's planted fake host.
+
+#### R15. Done-when 3's test filter runs at solution level, where the repo's test runner exits 8
+- Area: 9 (testability)
+- Finding: Done-when 3 checks `dotnet test --filter "RoleEvalTests|PluginManifestTests"`. `global.json` selects Microsoft.Testing.Platform, and M92's plan records that a solution-level filter exits 8 because the Core project matches nothing. Both classes are in `tests/PowerOps.Cli.Tests`, so the check as written fails when everything is right.
+- Suggested fix: Write `dotnet test --project tests/PowerOps.Cli.Tests --filter "RoleEvalTests|PluginManifestTests"`, as M92's Goal 7 does.
+- Resolution: fixed: Done-when 3 adds `--project tests/PowerOps.Cli.Tests`.
+
+#### R16. Row 5's placement of P1 and its line numbers don't point at one place in the frozen text
+- Area: 9 (testability)
+- Finding: Row 5 puts P1 "at the end of 'Review', before the checklist", but the Well-Architected checklist and the Points list are inside `## Review` (`skills/powerops-review-security/SKILL.md:54-76`), so "the end of Review" and "before the checklist" are two different places, and row 5's `64-66` falls in the middle of the checklist (SE:07 to SE:09). Its other line numbers also miss: the `settings validate` bullet that S1 replaces is at `:26`, not `:24`, and "These are the first seven lines" is at `:92` in the security role and `:69` in the Verifier, outside the ranges `79-90` and `55-66` row 5 and row 6 give. The text is frozen and pinned by blob id, so where it lands is part of what the rerun evaluates.
+- Suggested fix: Say "after the paragraph that starts 'Write that a security role, table, column, form, view or app role map is unchanged', before `Well-Architected Security checklist:`" (or the end of the Points list, whichever is meant), and correct the line numbers to `:26, 52-54, 80-92` and `:35, 57-69`.
+- Resolution: fixed: rows 5 and 6 and P1 name the place (after the "Write that a security role" paragraph, before the checklist) and the lines at `a442b17`.
+
+#### R17. Step 7 names the pull request and `ci-watch.sh` twice
+- Area: 9 (testability)
+- Finding: Step 7 reads "pull request, `bash .../ci-watch.sh <PR>`, pull request, `ci-watch.sh`, squash merge". Revision 2 added the full command in front of the old words without removing them, so the step reads as two pull requests and two watches.
+- Suggested fix: Drop the second "pull request, `ci-watch.sh`".
+- Resolution: fixed: step 7 names them once.
+
+#### R18. Step 7 holds an absolute path with the owner's home folder name
+- Area: values in the plan
+- Finding: R12's fix wrote the leak scan and `ci-watch.sh` commands with the main checkout's absolute path (`<path>`), whose home folder is the owner's account name. The plan is committed to a public repository, and `reports/leakscan.sh` prints that pattern among the identifier-shaped strings of the diff for a human look. M88 and M92 wrote the same command with a placeholder.
+- Suggested fix: Write `cd "<main checkout>" && bash reports/leakscan.sh origin/main <this branch>` and `bash "<main checkout>/reports/ci-watch.sh" <PR>`, as M88 and M92 do.
+- Resolution: fixed: step 7 uses `<main checkout>`.
+
+#### R19. The rest of Constraints now sits under the `### Licences` heading
+- Area: 3 (licences), polish
+- Finding: R5's fix put `### Licences` at the top of `## Constraints`, followed by a blank line too many and then the AGENTS.md, kept-role, output-shape and eval bullets, with no heading of their own. They read as licence lines.
+- Suggested fix: Move `### Licences` and its line to the end of `## Constraints`, or put a heading such as `### Rules` before the bullets, and drop the extra blank line.
+- Resolution: fixed: `### Licences` moved to the end of Constraints, after its bullets.
