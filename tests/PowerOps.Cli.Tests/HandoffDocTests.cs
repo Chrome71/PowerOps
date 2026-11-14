@@ -277,4 +277,35 @@ public partial class HandoffDocTests
         Assert.Contains("`powerops test ", step4);
         Assert.All(new[] { "is not the reviewed zip: no report records the new export's hash", "`require-reviews: 'false'`" }, s => Assert.Contains(s, step7));
     }
+
+    // M115: settings apply leaves the deployment yes, and the gate blocks an agent's unguarded PowerOps imports.
+    [Fact]
+    public void Step_8_keeps_settings_apply_out_of_the_deployment_yes()
+    {
+        var step = Page().Split('\n').Single(l => l.StartsWith("8. **Import.**", StringComparison.Ordinal));
+
+        Assert.Contains("One yes covers one deployment, one saved plan file to one target: its import with `deploy apply` and the plan's steps there. `settings apply --apply` checks no review, so it stays the person's own command, outside that yes.", step);
+        Assert.DoesNotContain("`settings apply --apply` to that target", step);
+    }
+
+    [Fact]
+    public void The_gate_section_lists_powerops_own_imports_and_says_what_it_sees()
+    {
+        var page = Page();
+        var always = page.Split('\n').Single(l => l.StartsWith("What the gate blocks always:", StringComparison.Ordinal));
+        var doesnt = page[page.IndexOf("What it doesn't do:\n\n", StringComparison.Ordinal)..];
+        var unseen = page.Split('\n').Single(l => l.StartsWith("- It doesn't see a script file", StringComparison.Ordinal));
+
+        Assert.All(
+            new[]
+            {
+                "So are an agent's `powerops settings apply --apply`, which checks no review, and `powerops deploy apply --apply` without `--require-reviews`.",
+                "no option twice and no redirection but `2>&1` or `>&2`; it passes dry runs and `settings apply` without `--apply`.",
+                "`dotnet`, `env`, `sh -c`, a variable, a `~` path or a wildcard, dry runs included",
+                "In the PowerShell tool every such command is blocked, the guarded form and dry runs too",
+            },
+            s => Assert.Contains(s, always));
+        Assert.StartsWith("What it doesn't do:\n\n- It sees only the agent's own tool calls that the hooks match, and only while the hooks are installed: not the person's terminal, the MCP tool `deploy_apply` (which always checks the reviews itself) or the Action.\n", doesnt);
+        Assert.All(new[] { "runs `pac` or `powerops` itself", "a shell function", "`bash -c 'powerops settings ap\"\"ply ...'`" }, s => Assert.Contains(s, unseen));
+    }
 }
