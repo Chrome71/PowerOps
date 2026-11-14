@@ -1,5 +1,5 @@
 ---
-status: signed-off
+status: approved
 review: done
 environment: null
 depth: standard
@@ -75,6 +75,14 @@ The skill text of rows 5 and 6, as it will be frozen:
 - **S2** (Verifier): ``- `powerops settings validate <current solution> --settings <settings file>`: its last line gives the hash for the report's `settings-hash:` line. With no settings file, skip it and write `settings-hash: none`.``
 - **H8** (both): `settings-hash: <the hash that settings validate prints for the settings file, none when the request names no settings file, else unknown>`
 - **F47** (`key.json`): `{"id": "F47", "case": "solution-09", "pass": "security-solution", "point": "SE:07", "severity": "Medium", "sentence": "CanvasApps/pops_workitems_2af60_DocumentUri.msapp is a package the scan of the folder doesn't open, and its Properties.json and References/DataSources.json hold the host dev.contoso.example: the report names the package as not opened and its secrets and hosts as not verified, or names the host; a report that says it found no host without that limit misses it.", "baseline": "not-shown"}`
+
+The evaluated text, kept on the owner's answer of 2026-11-14 (`decisions.md`, Log). `b7f9f098676d13633475edbfb63a3262246893cd` is the freeze commit the rerun evaluated. A squash merge leaves that commit off `main`, so the evaluated text is pinned by git blob id, on its LF text:
+
+| File at `b7f9f09` | Blob id |
+|---|---|
+| `skills/powerops-verify/SKILL.md` | `601dcddecc02044f338f800bf2b8b0a08dce62d8` |
+| `skills/powerops-review-security/SKILL.md` | `443cfdd8168f31daa1e8887d35ab1ee122314ab6` |
+| `tests/eval/roles/run.sh` | `ed235cb46ec399ee082cc12373e5de70acc670f7` |
 
 ## Automation
 
@@ -156,4 +164,4 @@ None needed: the canvas app, flows and tables are offline test fixtures and eval
 4. `git fetch origin`. If `origin/main` moved since the freeze, rebase; a change to `analyze`, `test`, `diff` or `settings validate` output means regenerated baselines and a new freeze commit, and the Fable review reads the range-diff before any paid run. Create the marker, then the 36 runs in the background, the running cost logged per run against the cap (a Haiku watcher may tally it).
 5. Scoring and settlement; `report.md` in this folder in M83's form. Stop and bring `report.md` and a recommendation to the owner.
 6. On the owner's keep: rows 11 to 13 with one Opus executor (docs, AGENTS.md, pins, one "Update goldens" run, then read `git diff tests/golden plugins`); the Data edit changes this plan's body, so set `status: approved`, run a second fresh-context pass of `powerops-review-plan`, and sign off again. The Fable work review of rows 11 to 13, `report.md` and the pins.
-7. The checks of Goal 5, the leak scan run from the main checkout as `cd <main checkout> && bash reports/leakscan.sh origin/main claude/m96-role-rerun-9271cf`; `status: done`; the merge lock, rebase (goldens and plugin copies regenerated, not hand-merged; decision numbers taken now; the baselines, the cases, both role files and `run.sh` are not regenerated: a `RoleEvalTests` baseline or pin failure after this rebase is a stop), pull request, `bash <main checkout>/reports/ci-watch.sh <PR>`, squash merge; marker removed; `m96-done-handover.md` in the chain folder.
+7. The checks of Goal 5, the leak scan run from the main checkout as `cd "<main checkout>" && bash reports/leakscan.sh origin/main claude/m96-role-rerun-9271cf`; `status: done`; the merge lock, rebase (goldens and plugin copies regenerated, not hand-merged; decision numbers taken now; the baselines, the cases, both role files and `run.sh` are not regenerated: a `RoleEvalTests` baseline or pin failure after this rebase is a stop), pull request, `bash "<main checkout>/reports/ci-watch.sh" <PR>`, squash merge; marker removed; `m96-done-handover.md` in the chain folder.

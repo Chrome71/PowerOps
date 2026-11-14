@@ -26,7 +26,7 @@ This list is instruction, not enforcement. Run nothing else.
 
 - `powerops plan status docs/plans/<name> --json`: gives `status` and `bodyHash`.
 - `powerops analyze <current solution>`
-- `powerops settings validate <current solution> --settings <settings file>`: only with a settings file. With none, skip it, write under the header lines of the report that `settings validate` was skipped because the request named no settings file, and record what depended on that check as not verified.
+- `powerops settings validate <current solution> --settings <settings file>`: only with a settings file. Its last line gives the hash for the report's `settings-hash:` line. With none, skip it, write `settings-hash: none`, write under the header lines of the report that `settings validate` was skipped because the request named no settings file, and record what depended on that check as not verified.
 - `powerops diff <previous solution> <current solution>`: only with a previous solution. With none, skip it and write under the header lines of the report that `diff` was skipped because the request named no previous solution.
 - `powerops manifest <current solution>`: gives the digest for the report's `solution-hash:` line.
 - `powerops manifest <previous solution> <current solution>`: only with a previous solution, and only when both solutions are unpacked folders. Otherwise skip it and write under the header lines of the report why it was skipped.
@@ -54,6 +54,8 @@ Never infer tenant configuration from a clean export.
 
 Write that a security role, table, column, form, view or app role map is unchanged only when the file-by-file `manifest` comparison lists none of its files as added, removed or changed. In an unpacked solution a security role is `Roles/<name>.xml`, an app module and its role map are `AppModules/<name>/AppModule.xml`, and a table with its columns, forms and views is the folder `Entities/<table>/`. A changed `Other/Customizations.xml` counts as a change to all of them. Otherwise read that component's files in the current solution, check them against the plan, and say that you read them and did not compare them. When either solution is a zip, the comparison can't run and its files can't be read: say that the component was not verified.
 
+A scan of the unpacked folder doesn't see inside a nested package: a canvas app's `.msapp` and any zip inside the solution are packages. Name each package under the header lines and say that you didn't open it. A "found none" covers only the files you read: on the SE:07 line of `## Coverage`, after its outcome, add that each package you didn't open is not verified for secrets and hosts. A canvas package can hold the address of its environment for a Dataverse data source.
+
 Well-Architected Security checklist:
 
 - SE:01 security baseline
@@ -80,7 +82,7 @@ Points:
 
 ## Write the report
 
-Write the report to the path in "The request". The first seven lines are exactly:
+Write the report to the path in "The request". The first eight lines are exactly:
 
 ```
 plan-hash: <bodyHash>
@@ -90,9 +92,10 @@ state: ready|blocked|failed|dropped
 input: <the current solution's path as the request gives it, relative to the repository root, with / between folders>
 solution-hash: <the digest that the manifest command prints for the current solution, else unknown>
 deploy-hash: <the digest that the manifest command prints for the deployed zip, else unknown>
+settings-hash: <the hash that settings validate prints for the settings file, none when the request names no settings file, else unknown>
 ```
 
-These are the first seven lines of the report. Write `fresh-context: yes` only if this runs in a context that does not contain the planning conversation. Be honest. If unsure, write `no`.
+These are the first eight lines of the report. Write `fresh-context: yes` only if this runs in a context that does not contain the planning conversation. Be honest. If unsure, write `no`.
 
 | State | Meaning |
 |---|---|

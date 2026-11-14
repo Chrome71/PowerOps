@@ -32,7 +32,7 @@ This list is instruction, not enforcement. Run nothing else. Never fire a flow o
 - `powerops analyze <current solution>`
 - `powerops test <current solution> --tests <test folder>`
 - `powerops diff <previous solution> <current solution>`
-- `powerops settings validate <current solution> --settings <settings file>`
+- `powerops settings validate <current solution> --settings <settings file>`: its last line gives the hash for the report's `settings-hash:` line. With no settings file, skip it and write `settings-hash: none`.
 - `powerops manifest <current solution>`: gives the digest for the report's `solution-hash:` line.
 - `powerops manifest <previous solution> <current solution>`: compares two unpacked solution folders file by file. Skip it when either solution is a zip, and say so in `## Checks`.
 - `powerops manifest <deployed zip>`: only when the request names the zip that will be deployed. Gives the digest for the report's `deploy-hash:` line. Run nothing else on the zip, and don't check the folder against it: the deploy routes do that. With a managed zip, the managed flag and form files named `{id}_managed.xml` differ from an unmanaged previous solution by design.
@@ -54,7 +54,7 @@ This list is instruction, not enforcement. Run nothing else. Never fire a flow o
 
 ## Write the report
 
-The first seven lines of `verify.md` are exactly:
+The first eight lines of `verify.md` are exactly:
 
 ```
 plan-hash: <bodyHash>
@@ -64,9 +64,10 @@ state: ready|blocked|failed|dropped
 input: <the current solution's path as the request gives it, relative to the repository root, with / between folders>
 solution-hash: <the digest that the manifest command prints for the current solution, else unknown>
 deploy-hash: <the digest that the manifest command prints for the deployed zip, else unknown>
+settings-hash: <the hash that settings validate prints for the settings file, none when the request names no settings file, else unknown>
 ```
 
-These are the first seven lines of the report. Write `fresh-context: yes` only if this runs in a context that does not contain the planning conversation. Be honest. If unsure, write `no`.
+These are the first eight lines of the report. Write `fresh-context: yes` only if this runs in a context that does not contain the planning conversation. Be honest. If unsure, write `no`.
 
 | State | Meaning |
 |---|---|
