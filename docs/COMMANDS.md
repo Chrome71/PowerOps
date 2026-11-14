@@ -351,7 +351,7 @@ There is no rollback: on a failure, fix the cause and run again.
 
 ### Agents
 
-Agents: run the dry run freely, as one plain command with literal words where the gate's hooks are on, and show the user the target line. `--apply` is the person's own command: it checks no review, so no deployment yes covers it for an agent, and with the hooks on the gate blocks an agent's call to it.
+Agents: run the dry run freely against an environment the user named (it reads pac's current environment and its flows), as one plain command with literal words where the gate's hooks are on, and show the user the target line. `--apply` is the person's own command: it checks no review, so no deployment yes covers it for an agent, and with the hooks on the gate blocks an agent's call to it.
 
 ## drift
 
