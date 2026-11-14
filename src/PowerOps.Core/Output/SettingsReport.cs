@@ -15,8 +15,8 @@ public static class SettingsReport
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    /// <summary>One line per problem, then a summary line, with "\n" line endings.</summary>
-    public static void WriteText(IReadOnlyList<SettingsProblem> problems, TextWriter writer)
+    /// <summary>One line per problem, a summary line, then the settings file's SHA-256 (the value of a review's settings-hash: line), with "\n" line endings.</summary>
+    public static void WriteText(IReadOnlyList<SettingsProblem> problems, string settingsSha256, TextWriter writer)
     {
         foreach (var p in problems)
         {
@@ -24,6 +24,7 @@ public static class SettingsReport
         }
 
         writer.Write(Count(problems.Count) + "\n");
+        writer.Write($"settings-hash: {settingsSha256}\n");
     }
 
     internal static string Line(SettingsProblem p) => $"{TextReport.Clean(p.Kind)} {TextReport.Clean(p.ComponentType)} {TextReport.Clean(p.Name)}: {TextReport.Clean(p.Message)}\n";
@@ -31,8 +32,8 @@ public static class SettingsReport
     internal static string Count(int n) => n switch { 0 => "no problems", 1 => "1 problem", _ => $"{n} problems" };
 
     /// <summary>Writes the problems as JSON (stable property order, "\n" line endings, trailing newline).</summary>
-    public static void WriteJson(string solution, string settings, IReadOnlyList<SettingsProblem> problems, TextWriter writer) =>
-        writer.Write(JsonSerializer.Serialize(new Doc(JsonOutput.SchemaVersion, solution, settings, problems), Options) + "\n");
+    public static void WriteJson(string solution, string settings, string settingsSha256, IReadOnlyList<SettingsProblem> problems, TextWriter writer) =>
+        writer.Write(JsonSerializer.Serialize(new Doc(JsonOutput.SchemaVersion, solution, settings, settingsSha256, problems), Options) + "\n");
 
-    private sealed record Doc(int SchemaVersion, string Solution, string Settings, IReadOnlyList<SettingsProblem> Problems);
+    private sealed record Doc(int SchemaVersion, string Solution, string Settings, string SettingsSha256, IReadOnlyList<SettingsProblem> Problems);
 }

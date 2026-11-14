@@ -183,6 +183,49 @@ public class DeployReviewsTests : IDisposable
         Assert.Null(DeployReviews.Cover([new("a", V(), S() with { OpenHigh = 1 }, null)], Zip, null));
     }
 
+    // ---- settings-hash (M96 row 3): last in the chain ----
+
+    private static readonly string Settings = new('e', 64);
+
+    [Theory]
+    [InlineData(null, "verify.md has no settings-hash line, but this deployment imports a settings file")]
+    [InlineData("none", "verify.md reviewed no settings file, but this deployment imports one")]
+    [InlineData("unknown", "verify.md's settings-hash is not the SHA-256 of this deployment's settings file")]
+    [InlineData("dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "verify.md's settings-hash is not the SHA-256 of this deployment's settings file")]
+    public void A_deployment_with_a_settings_file_needs_its_hash_in_each_report(string? hash, string sentence)
+    {
+        PlanReviews[] plans = [new("a", V() with { SettingsHash = hash }, S() with { SettingsHash = Settings }, null)];
+
+        Assert.Equal($"docs/plans/a: {sentence}", DeployReviews.Problem(plans, Zip, null, Settings));
+        Assert.Null(DeployReviews.Cover(plans, Zip, null, Settings));
+    }
+
+    [Theory]
+    [InlineData("unknown")]
+    [InlineData("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")]
+    public void A_deployment_with_no_settings_file_is_not_covered_by_a_report_that_records_one(string hash)
+    {
+        PlanReviews[] plans = [new("a", V(), S() with { SettingsHash = hash }, null)];
+
+        Assert.Equal("docs/plans/a: security-solution.md records a settings-hash, but this deployment imports no settings file", DeployReviews.Problem(plans, Zip));
+        Assert.Null(DeployReviews.Cover(plans, Zip, null));
+    }
+
+    [Fact]
+    public void An_equal_settings_hash_covers_and_an_old_or_none_report_covers_only_a_deployment_with_no_settings_file()
+    {
+        Assert.Equal("a", DeployReviews.Cover([new("a", V() with { SettingsHash = Settings }, S() with { SettingsHash = Settings }, null)], Zip, null, Settings)?.Plan);
+        Assert.Null(DeployReviews.Problem([new("a", V(), S() with { SettingsHash = "none" }, null)], Zip, null, null));
+        Assert.Equal("a", DeployReviews.Cover([new("a", DV() with { SettingsHash = Settings }, DS() with { SettingsHash = Settings }, null)], Zip, Same, Settings)?.Plan);
+        Assert.Null(DeployReviews.Cover([new("a", DV(), DS(), null)], Zip, Same, Settings));
+    }
+
+    [Fact]
+    public void An_open_high_comes_before_a_settings_mismatch() =>
+        Assert.Equal(
+            "docs/plans/a: verify.md is ready but lists 1 open High finding; security-solution.md reviewed no settings file, but this deployment imports one",
+            DeployReviews.Problem([new("a", V() with { OpenHigh = 1, SettingsHash = "none" }, S() with { SettingsHash = "none" }, null)], Zip, null, Settings));
+
     [Fact]
     public void A_stale_report_with_an_open_high_gives_the_stale_sentence() =>
         Assert.Equal("docs/plans/a: verify.md was not written for the current plan", DeployReviews.Problem([new("a", V(stale: true) with { OpenHigh = 1 }, S(), null)], Zip));

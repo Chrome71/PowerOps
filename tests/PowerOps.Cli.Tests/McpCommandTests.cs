@@ -350,8 +350,9 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.False(result.IsError);
         Assert.Equal(2, result.Content.Count);
         Assert.Equal(File.ReadAllText(file), Text(result));
-        // The note of alm-sample's .msapp, which has no Src (M44), and, last, the PO034 note for its role (M60: it holds a plugin assembly).
-        Assert.EndsWith("whose table use isn't read.", Text(result, 1));
+        // The note of alm-sample's .msapp, which has no Src (M44), the PO034 note for its role (M60: it holds a plugin assembly), and, last, the seed's canvas package that the folder doesn't hold (M96).
+        Assert.Contains("whose table use isn't read.\n", Text(result, 1));
+        Assert.EndsWith("is not in the solution (canvas packages are kept out of Git by default; analyze the exported zip to check it).", Text(result, 1));
         Assert.Contains(": PO014, PO018 and PO036 not checked for canvas app 'CanvasApps/cat_devopskitsamplecanvasapp_c7ec5_DocumentUri.msapp': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).", Text(result, 1));
     }
 
@@ -1121,8 +1122,10 @@ public sealed class McpCommandTests : IAsyncLifetime
         var result = await Call("analyze", new() { ["paths"] = new[] { sol } });
 
         Assert.Equal(2, result.Content.Count);
-        // The note names the link with "/" on every OS.
-        Assert.Equal($"note: {sol.Replace('\\', '/')}/Link.txt: a link inside the solution, not followed and not read", Text(result, 1));
+        // The note names the link with "/" on every OS; the seed's missing canvas package (M96) gives the second.
+        var notes = Text(result, 1).Split('\n');
+        Assert.Equal($"note: {sol.Replace('\\', '/')}/Link.txt: a link inside the solution, not followed and not read", notes[0]);
+        Assert.EndsWith("its package CanvasApps/pops_workitems_2af60_DocumentUri.msapp is not in the solution (canvas packages are kept out of Git by default; analyze the exported zip to check it).", Assert.Single(notes[1..]));
     }
 
     [Fact]
@@ -1317,12 +1320,13 @@ public sealed class McpCommandTests : IAsyncLifetime
 
     // Writes docs/plans/<new>/plan.md and both reports for a zip under the test's folder, the walk up from the deploy folder reaches them (the equivalent of DeployTestBase.Reviewed).
     // With deployZip, the input is that zip's unpacked folder and the reports record the zip's SHA-256 as their deploy-hash (M83).
+    // The reports record the SHA-256 of the settings file beside the deployed zip, if any, as their settings-hash (M96).
     private string Reviewed(string zip, string? deployZip = null)
     {
         var folder = Directory.CreateDirectory(Path.Combine(_temp, "docs", "plans", "m-" + Guid.NewGuid().ToString("N"))).FullName;
         File.WriteAllText(Path.Combine(folder, "plan.md"), ReviewedPlanText);
         var deploy = deployZip is null ? "" : $"deploy-hash: {PowerOps.Core.Readers.Manifest.Read(deployZip).Digest}\n";
-        var head = $"state: ready\nplan-hash: {PlanDocument.Parse(ReviewedPlanText).BodyHash}\ninput: {Path.GetRelativePath(_temp, zip).Replace('\\', '/')}\nsolution-hash: {PowerOps.Core.Readers.Manifest.Read(zip).Digest}\n{deploy}\n# Report\n";
+        var head = $"state: ready\nplan-hash: {PlanDocument.Parse(ReviewedPlanText).BodyHash}\ninput: {Path.GetRelativePath(_temp, zip).Replace('\\', '/')}\nsolution-hash: {PowerOps.Core.Readers.Manifest.Read(zip).Digest}\n{deploy}{DeployTestBase.SettingsLine(deployZip ?? zip)}\n# Report\n";
         File.WriteAllText(Path.Combine(folder, "verify.md"), head);
         File.WriteAllText(Path.Combine(folder, "security-solution.md"), head);
         return folder;
@@ -1915,6 +1919,65 @@ public sealed class McpCommandTests : IAsyncLifetime
         Assert.Null(JsonNode.Parse(Text(result))!["appliedAt"]);
         Assert.Equal(0, _fakes.Pacs);
         Assert.Empty(_imports);
+    }
+
+    // M96 [R-C]: the settings file edited after the review and deploy plan saved again, with the same reports; linked by solution-hash (no pac call)
+    // or by deploy-hash (one unpack, no import).
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_settings_file_changed_after_the_review_is_refused_before_the_form_with_no_import(bool deployHash)
+    {
+        var (folder, planFile) = SavedPlan(reviewed: false);
+        var zip = Path.Combine(folder, "PowerOpsSeed.zip");
+        var review = Path.Combine(_temp, "review", "seed-" + Guid.NewGuid().ToString("N"));
+        if (deployHash)
+        {
+            System.IO.Compression.ZipFile.ExtractToDirectory(zip, review);
+            Reviewed(review, zip);
+        }
+        else
+        {
+            Reviewed(zip);
+        }
+
+        var unpacks = new ConcurrentQueue<string>();
+        _fakes.TargetBehavior = ReadTarget;
+        _fakes.PacBehavior = a =>
+        {
+            if (a[1] != "unpack")
+            {
+                _imports.Enqueue([.. a]);
+                return Ok("imported\n");
+            }
+
+            var to = a[a.ToList().IndexOf("--folder") + 1];
+            unpacks.Enqueue(to);
+            foreach (var f in Directory.EnumerateFiles(review, "*", SearchOption.AllDirectories))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(to, Path.GetRelativePath(review, f)))!);
+                File.Copy(f, Path.Combine(to, Path.GetRelativePath(review, f)));
+            }
+
+            return Ok("");
+        };
+        var settings = Path.Combine(folder, "PowerOpsSeed.settings.json");
+        File.WriteAllText(settings, File.ReadAllText(settings).Replace("fake-connection-id", "another-connection-id", StringComparison.Ordinal));
+        Assert.Equal(0, CliWith(_fakes, "deploy", "plan", "--target", Secret, "--save", planFile, "--", folder).Code);
+        unpacks.Clear();
+        var forms = NoFormExpected();
+        await using var pair = await Connect(_fakes, "2026-07-28", forms);
+
+        var result = await Apply(pair, ApplyArgs(planFile));
+
+        Assert.Equal("refused", Status(result));
+        Assert.EndsWith(
+            "verify.md's settings-hash is not the SHA-256 of this deployment's settings file; security-solution.md's settings-hash is not the SHA-256 of this deployment's settings file; nothing was imported.",
+            (string)JsonNode.Parse(Text(result))!["message"]!);
+        Assert.Empty(forms.Seen);
+        Assert.Empty(_imports);
+        Assert.Equal(deployHash ? 1 : 0, unpacks.Count);
+        AssertNoApply(pair);
     }
 
     // M83: reports that record the zip as their deploy-hash but reviewed a folder its unpack doesn't give are no cover.

@@ -1,0 +1,167 @@
+---
+status: done
+review: done
+environment: null
+depth: standard
+supersedes: null
+signed-off: 2026-11-14
+signed-off-hash: 9bd73bfd2191608af15c39fce05510dabd566922c8dc595c1744a84a7715aeca
+---
+
+# M96: The security role says what it opened, the reviews bind the settings file, and `analyze` says when a canvas package is missing
+
+## Goal
+
+Three changes in one pull request, all at one freeze commit that the rerun of both kept roles evaluates, then the frozen-role procedure of `AGENTS.md`.
+
+1. **The security role says what it opened** (fix plan after trial 3, section 3 "M96"; record 15.3 point 3, blind C-7). `security-solution.md` of trial 3 said its scan "for addresses, keys, passwords, tokens and hosts found none", while the canvas app's `.msapp` held Dev's address. `skills/powerops-review-security/SKILL.md` gains a rule: a scan of the unpacked folder doesn't see inside a nested package (a canvas app's `.msapp`, a zip inside the solution); the report names each one and says it wasn't opened; a "found none" covers only what was read; a package not opened is `not verified` for secrets and hosts under SE:07, and a canvas package can hold its environment's address for a Dataverse data source.
+2. **`settings-hash:`** (audit decision 2(a), finding E-3, reproduction `[R-C]`). Both kept roles write an eighth header line, `settings-hash:`, the SHA-256 of the settings file they validated. `PlanChecker.ReadReports` reads it, and `DeployReviews` compares it with the settings file the deployment imports (`DeployZip.SettingsSha256`, the hash `deploy plan` already records as `ZipInput.SettingsSha256`), so a settings file changed after the review is refused on every guarded route: `deploy plan` warns, and `deploy apply --require-reviews`, MCP `deploy_apply`, `deploy gate` and the Action refuse before any import. With reports linked by `solution-hash:` no `pac` runs at all; with reports linked by `deploy-hash:` (M83's route, the one `powerops-implement` and the eval use) the local `pac solution unpack` runs first, as today, and nothing is imported.
+3. **The missing canvas package** (audit decision 5(a), finding C-1, amending M44 Q3). When a canvas app's metadata names a `.msapp` that the solution doesn't hold, `analyze` gives a `notChecked` entry and its `note:` line (decision 49) naming the app, instead of an empty `notChecked`.
+
+Then: rerun both passes (Verifier and Security reviewer) on all nine solution cases, the new one included, on both families; regenerate `tests/eval/roles/baseline/*.txt`; drop M92's `--show-values` bridge in `RoleEvalTests.LiveBaseline`; recompute the keep rules in `report.md`; bring the result to the owner, whose keep decision it is; pin the evaluated text in this plan's Data; merge only after their answer.
+
+Done when:
+
+1. The three changes are on `main` in one pull request.
+2. `report.md` in this folder shows every keep rule holding for both roles and both families, and the owner has renewed the keep decision, logged in `decisions.md`.
+3. The pins in this plan's Data match the kept text, `AGENTS.md` and `RoleEvalTests` point at this folder, the baselines match the live output, and `dotnet test --project tests/PowerOps.Cli.Tests --filter "RoleEvalTests|PluginManifestTests"` passes.
+4. Tests show: `[R-C]` (settings changed after the review, plan made again, same reports) refused on the CLI, MCP `deploy_apply` and `deploy gate` with no `pac` call (reports linked by `solution-hash:`), and with one unpack and no import call (reports linked by `deploy-hash:`); an unchanged settings file still covered; an old seven-line report with a deployment that has no settings file still covered; `analyze` on `tests/fixtures/powerops-seed/v2` naming the app `Work Items` under `notChecked`.
+5. `dotnet build` (0 warnings), `dotnet test`, `dotnet format --verify-no-changes`, `powerops plan status docs/plans/m96-security-coverage` (no violation) and the leak scan (0 hits, control found) are clean, and the PR is green on all checks.
+6. The marker `reports/trial-3/chain/m96-eval-started` is gone, this plan is `done`, and `m96-done-handover.md` exists in the chain folder.
+
+### Won't build
+
+- Skipping the unpack on the `deploy-hash:` route when the settings already differ: the unpack is local and M83's order stays.
+- An `analyze` note for every host a package holds (fix plan: every canvas app with a Dataverse source would carry one), or PowerOps opening a `.msapp` beyond the `Src/*.pa.yaml` it reads today.
+- A coverage check in `DeployReviews` (fix plan: it can't tell what a report read).
+- Binding the target environment to the reviews (E-4): not decided.
+- Showing `settings-hash` in `plan status` text or JSON, or a staleness check of it there; `deploy plan` is where the settings file exists to compare with.
+- A `schemaVersion` bump for `analyze`, `plan status` or `settings validate` (decisions Q7).
+- Any change to `skills/powerops-verify/SKILL.md` beyond the settings lines (fix plan: the Verifier's text is not changed for change 1).
+- A change to `tests/eval/roles/run.sh` (its prompts already name `Settings file: settings.json`, and it takes any case folder).
+- Any change to the plan cases, the pilot or `powerops-review-plan`.
+
+## Users
+
+- The build agent and the person who run the two roles before a promotion, who need the report to say what it didn't read and to be bound to the settings that ship.
+- `deploy plan`, `deploy apply --require-reviews`, MCP `deploy_apply`, `deploy gate` and the Action, which refuse an import no linked review covers.
+- A reader of `analyze` on a Git folder, where canvas packages are kept out of Git by default (M95, Q3), who needs to see that the canvas formulas were not checked.
+- Trial 4's graders (C-7, the C4 grade).
+
+## Data
+
+Line numbers are those of `a442b17`. Rows 1 to 10 are in the freeze commit; rows 11 and 12 come after it and change no evaluated text and no file under `src/`; row 13 waits for the owner.
+
+| # | Change | Where | Test |
+|---|---|---|---|
+| 1 | `settings validate` prints the settings file's SHA-256: the text form ends with one line `settings-hash: <64 lowercase hex>` after its count line (or after `no problems`), and the JSON form gains `"settingsSha256": "<hex>"` after `"settings"`. The hash is `DeployPlan.Sha256Hex` of the file's bytes as read under the same 1 MB cap, the same bytes `DeployZip.SettingsSha256` hashes (`DeployCommand.cs:1088`). MCP `settings_validate` prints the same through the same report | `src/PowerOps.Cli/SettingsCommand.cs:65-135`, `src/PowerOps.Core/Output/SettingsReport.cs`, `docs/schemas/settings-validate.schema.json` (optional property, no bump), `tests/golden/settings-validate.*`, the MCP golden if it quotes the output | `SettingsCommandTests`: the line and field equal a constant hex computed once with `sha256sum` and written into the test, for a plain file and for a file with a BOM and CRLF, and equal `DeployZip.SettingsSha256` of the same file through `deploy plan`; the line prints on exit 0 and 1 and never on exit 2 or 3; the file is read once (one bounded read of the bytes, hashed and decoded from the same buffer); goldens; `OutputSchemaTests` |
+| 2 | `PlanReportFile` gains `string? SettingsHash = null` as its last parameter. `ReadReports` reads `settings-hash:` from the first eight trimmed lines of `verify.md` and `security-solution.md`: absent gives null; exactly `none` gives `"none"`; 64 lowercase hex gives the hex; anything else gives `UnknownHash`; a report that can't be read (`PlanChecker.cs:481`) gives `UnknownHash`. `review.md` stays null. The other fields are read from the lines they are read from today (six, and seven for `deploy-hash:`); `plan status` text, JSON and schema don't change | `src/PowerOps.Core/Plans/PlanChecker.cs:26-27, 466-537` | `PlanCheckerTests`: an eight-line report reads its hash; `none`; a malformed value reads `unknown`; a seven-line report reads null; a `settings-hash:` on line 9 is not read; `review.md` null; `plan-status` goldens unchanged |
+| 3 | `DeployReviews.Problem`, `Cover` and the private `Fault` and `Ready` gain `string? settingsSha256` (null: the deployment imports no settings file), passed by `WarnUnreviewed` from each imported zip's `DeployZip.SettingsSha256`, to `Problem` and to the second `Cover` call in the note branch (`DeployCommand.cs:136`). The `--require-reviews` help (`DeployCommand.cs:70`) and the MCP `deploy_apply` description (`McpCommand.cs:261`, golden `mcp-tools.txt`), which list the cover conditions, gain the settings condition in this freeze commit. `Ready` keeps M114's sentences and order and adds, last, the settings check: the report's value, with null read as `none`, must equal the deployment's (`none` when it has no settings file); `unknown` equals nothing. Its sentences: with a settings file and no `settings-hash:` line (a report from before M96), `<file> has no settings-hash line, but this deployment imports a settings file`; with a settings file and `none`, `<file> reviewed no settings file, but this deployment imports one`; with a settings file and another value, `<file>'s settings-hash is not the SHA-256 of this deployment's settings file`; with no settings file and a value other than `none`, `<file> records a settings-hash, but this deployment imports no settings file`. `NeedsUnpack`, `Recorded` and `Evidence` don't change | `src/PowerOps.Core/Deploy/DeployReviews.cs:20-66`, `src/PowerOps.Cli/DeployCommand.cs:70, 99-160`, `src/PowerOps.Cli/McpCommand.cs:261`, `tests/golden/mcp-tools.txt` | `Core.Tests/Deploy/DeployReviewsTests.cs`: each sentence; an equal hash covers; an old report (null) and a `none` report cover a deployment with no settings file; an old report doesn't cover one with a settings file; `unknown` covers neither; with both an open High finding and a settings mismatch, the report's sentence is the open-High one. `Cli.Tests`: the audit's `[R-C]` (settings edited after the review, `deploy plan` run again, same reports) refused by `deploy apply --require-reviews` (exit 1, zero `FakePac` calls), MCP `deploy_apply` and `deploy gate` (exit 2), each with the sentence; the same `[R-C]` with reports linked by `deploy-hash:` refused with one unpack call and no import call; `deploy plan` warns with it; the existing M114 tests' sentences and order are byte-identical; the same flow with the settings file unchanged covers and imports; the existing seed tests whose reports carry no `settings-hash:` keep passing where the deployment has no settings file, and gain the line where it has one |
+| 4 | The missing canvas package. `SolutionParser.ReadMsapps` also returns the canvas metadata whose `DocumentUri` names a `CanvasApps/<file>.msapp` the solution doesn't list, with the app's display name (else its name), when the layout can open packages (`files.OpenRead` is set). `Solution` gains `CanvasAppsWithoutPackage` (a list of `(Name, Path)` or two strings, the executor's choice), and `PO018CanvasForAllPatch.NotChecked` adds, per app: `PO014, PO018 and PO036 not checked for canvas app '<name>': its package <path> is not in the solution (canvas packages are kept out of Git by default; analyze the exported zip to check it).` The text form prints it as a `note:` line through `TextReport.WriteNotChecked`; the JSON, SARIF and Markdown forms carry it where they carry `notChecked` today. No finding, no exit-code change. A metadata path that leaves `CanvasApps/` or isn't `.msapp` gives no entry | `src/PowerOps.Core/Readers/SolutionParser.cs:99, 169, 906-946`, `src/PowerOps.Core/Model/Solution.cs:22, 39`, `src/PowerOps.Core/Rules/PO018CanvasForAllPatch.cs:35` | `AnalyzeCommandTests`: `powerops-seed/v2` names `Work Items` and `CanvasApps/pops_workitems_2af60_DocumentUri.msapp` under `notChecked` in JSON and as a `note:` on stderr, exit 0; a folder with the package gives no entry; a zip with the package gives none; a `DocumentUri` outside `CanvasApps/` gives none. `ReportTests`: `analyze-fixtures.*` goldens gain only these entries (the seed `v1` and `v2` folders and any other fixture whose metadata names an absent package, each listed in the build report, with no finding or exit-code change); `Analyze_test_and_settings_validate_report_nothing_on_the_clean_solution_cases` still passes |
+| 5 | `skills/powerops-review-security/SKILL.md` (frozen; exact text below): **P1** as a new paragraph after the one that starts "Write that a security role" (`:52`) and before "Well-Architected Security checklist:" (`:54`); **S1** replaces the `settings validate` bullet (`:26`); "The first seven lines are exactly:" (`:80`) and "These are the first seven lines" (`:92`) say eight, and the block (`:81-89`) gains **H8** after `deploy-hash:` | `skills/powerops-review-security/SKILL.md:26, 52-54, 80-92` | `RoleEvalTests`, the rerun |
+| 6 | `skills/powerops-verify/SKILL.md` (frozen): **S2** replaces the `settings validate` bullet (`:35`); "The first seven lines of `verify.md`" (`:57`) and "These are the first seven lines" (`:69`) say eight, and the block (`:58-66`) gains **H8** after `deploy-hash:` | `skills/powerops-verify/SKILL.md:35, 57-69` | as row 5 |
+| 7 | `RoleEvalTests`: `HeaderLineProblems` requires eight lines, ending `deploy-hash: ` and `settings-hash: `; the test named for seven header lines says eight; the good sample gains H8, and bad samples drop it and swap it with `deploy-hash:`. `LiveBaseline` drops the `--show-values` bridge and its `shortcut:` comment. The counts move for the new case: `MainSolutions` to 9, the folder counts that include the pilot from 9 to 10, `flawedSolution` 7, `security` 9, the exceptions gain `solution-09` with 1 flaw. `SolutionCaseProblems` reads the new case; a new check opens each `.msapp` under `cases/` with `ZipArchive`, asserts that its JSON entries are deflated, and runs `FakeValueProblems`, `MarkerProblems` and `ModelIdProblems` on each entry's text | `tests/PowerOps.Cli.Tests/RoleEvalTests.cs:443-450, 505-511, 557-627, 678-686, 855-895` | the samples; the real-file tests |
+| 8 | The new case `tests/eval/roles/cases/solution-09/`, made as the others (NOTICE.md): `solution/previous` is `tests/fixtures/powerops-seed/v1` byte for byte; `solution/current` is a copy at version 1.0.1.0 holding `CanvasApps/pops_workitems_2af60_DocumentUri.msapp`, a zip written with deflate, as an export is, whose `Properties.json` and `References/DataSources.json` hold the fake Dataverse host `dev.contoso.example` (as an `https` URL) and whose `Src/App.pa.yaml` and one screen file give `analyze` nothing to report, and the metadata's `AppVersion` moves to a later time (the app saved with its new screen); `settings.json` from `tests/fixtures/settings/powerops-seed-v1.valid.json`; the flow test of the other cases; a plan `docs/plans/<name>/` signed with `powerops plan sign-off` and set to `implementing`, whose change is the canvas app's new screen and whose text names no role (so the case is clean for the Verifier). The package is committed (it holds only fake values), with a `!tests/eval/roles/cases/**/*.msapp` exception to `.gitignore`'s `*.msapp` if one is needed. `key.json` gains **F47**. `NOTICE.md` gains one line for the case and the package | `tests/eval/roles/cases/solution-09/`, `tests/eval/roles/key.json`, `tests/eval/roles/NOTICE.md`, `.gitignore` | row 7's tests; `analyze`, `test` and `settings validate` give nothing on the case; `diff` gives exactly the version change and the canvas app's change, whose lines the build report lists; `solution/previous` byte-equal to seed `v1` |
+| 9 | Baselines: `tests/eval/roles/baseline/*.txt` regenerated from the freeze build, `solution-09.txt` new; each diff line explained in the build report (the missing-package notes, the `settings-hash:` line, M92's redacted `diff` values) | `tests/eval/roles/baseline/` | `RoleEvalTests.Every_solution_case_has_a_baseline_file_that_matches_the_live_output` |
+| 10 | `skills/powerops-implement/SKILL.md` section 4: the request bullet (`:84`): the settings file is the one the deployment imports, `<zip name>.settings.json` beside the zip in the deploy folder, else "no settings file"; both reports record its hash. The bullet on the import routes (`:87`): the routes also need both reports' `settings-hash:` to be that settings file's SHA-256, so a changed settings file, like a changed zip, needs both roles run again. Plugin copies of this skill only in step 6's "Update goldens" run (again in step 7 after a rebase) | `skills/powerops-implement/SKILL.md:84, 87` | `SkillsCommandTests` as it stands |
+| 11 | Docs, after the freeze: `docs/COMMANDS.md` the `deploy apply` settings bullet M112 wrote becomes the new rule and its recovery (run both roles again on the new settings file), the header-lines sentence gains `settings-hash:`, the `deploy plan` cover bullets gain the settings condition, `settings validate` gains its last line, and `analyze` (`:102`) the missing-package note; `docs/HANDOFF.md` steps 7 and 8 where they list the header lines or the cover conditions; `docs/rules/PO014.md`, `PO018.md` and `PO036.md`, whose sentence "such an app isn't read" gains the note; `docs/PLANNING-SKILLS.md` and `docs/USE-WITH-AGENTS.md` (`:69`) where they say seven header lines or list the cover conditions; `docs/GITHUB-ACTION.md` (`:80`, "A report covers a zip when") and `action.yml` (`:40`) where they list the cover conditions; three decisions in `docs/BUILD-PLAN.md` (numbered at merge): the security role's package rule (Q4 of the fix plan), `settings-hash:` (audit 2(a)), the missing-package note (audit 5(a), amending M44 Q3 and its row) | the files named | `DocsDriftTests`, `HandoffDocTests`, `RuleDocsTests` as they stand |
+| 12 | `AGENTS.md` kept-role rule: the recorded-comparison log moves to `docs/plans/m96-security-coverage/decisions.md` and the pins to this plan's Data | `AGENTS.md:40` | `RoleEvalTests` |
+| 13 | After the eval, with the owner's keep: this section gains the table of blob ids of both `SKILL.md` files and `run.sh` at the freeze commit, in the form `RoleEvalTests.PinnedRow` reads; `The_kept_roles_text_is_the_pinned_or_a_recorded_blob` reads this folder; the plugin copies of both roles and `powerops-implement` through one "Update goldens" run | this file, `tests/PowerOps.Cli.Tests/RoleEvalTests.cs:942-958`, `plugins/*/skills/` | `RoleEvalTests`, `PluginManifestTests` |
+
+The skill text of rows 5 and 6, as it will be frozen:
+
+- **P1** (Security reviewer, a paragraph after "Write that a security role ...", before the checklist): ``A scan of the unpacked folder doesn't see inside a nested package: a canvas app's `.msapp` and any zip inside the solution are packages. Name each package under the header lines and say that you didn't open it. A "found none" covers only the files you read: on the SE:07 line of `## Coverage`, after its outcome, add that each package you didn't open is not verified for secrets and hosts. A canvas package can hold the address of its environment for a Dataverse data source.``
+- **S1** (Security reviewer): ``- `powerops settings validate <current solution> --settings <settings file>`: only with a settings file. Its last line gives the hash for the report's `settings-hash:` line. With none, skip it, write `settings-hash: none`, write under the header lines of the report that `settings validate` was skipped because the request named no settings file, and record what depended on that check as not verified.``
+- **S2** (Verifier): ``- `powerops settings validate <current solution> --settings <settings file>`: its last line gives the hash for the report's `settings-hash:` line. With no settings file, skip it and write `settings-hash: none`.``
+- **H8** (both): `settings-hash: <the hash that settings validate prints for the settings file, none when the request names no settings file, else unknown>`
+- **F47** (`key.json`): `{"id": "F47", "case": "solution-09", "pass": "security-solution", "point": "SE:07", "severity": "Medium", "sentence": "CanvasApps/pops_workitems_2af60_DocumentUri.msapp is a package the scan of the folder doesn't open, and its Properties.json and References/DataSources.json hold the host dev.contoso.example: the report names the package as not opened and its secrets and hosts as not verified, or names the host; a report that says it found no host without that limit misses it.", "baseline": "not-shown"}`
+
+The evaluated text, kept on the owner's answer of 2026-11-14 (`decisions.md`, Log). `b7f9f098676d13633475edbfb63a3262246893cd` is the freeze commit the rerun evaluated. A squash merge leaves that commit off `main`, so the evaluated text is pinned by git blob id, on its LF text:
+
+| File at `b7f9f09` | Blob id |
+|---|---|
+| `skills/powerops-verify/SKILL.md` | `601dcddecc02044f338f800bf2b8b0a08dce62d8` |
+| `skills/powerops-review-security/SKILL.md` | `443cfdd8168f31daa1e8887d35ab1ee122314ab6` |
+| `tests/eval/roles/run.sh` | `ed235cb46ec399ee082cc12373e5de70acc670f7` |
+
+## Automation
+
+None of the product's automation changes. The rerun is fixed before the first run, as M83's (`docs/plans/m83-zip-linked-reviews/plan.md`, Automation), with these differences.
+
+| Pass | Cases | Runs per client |
+|---|---|---|
+| Verifier | `solution-01` to `solution-09` | 9 |
+| Security reviewer | `solution-01` to `solution-09` | 9 |
+
+That is 36 runs, through `run.sh` from a clean clone of the freeze commit outside the repo, with `EVAL_OUT` and a temp root outside the system temp folder for each client. Claude Code runs with `EVAL_MODEL=opus` and Codex with `gpt-6-astra`, both at `EVAL_EFFORT=high`. Client versions are recorded. The two clients run side by side, one run at a time each, case by case, Verifier first, from this session only, in the background. The marker `reports/trial-3/chain/m96-eval-started` is created in the main checkout's chain folder right before the first run, after the rebase on `origin/main` and the baseline regeneration, and removed after the merge or when M96 stops.
+
+**Freeze.** One commit holds rows 1 to 10 and this signed plan. A clean clone of it builds with 0 warnings, passes `dotnet format --verify-no-changes`, and passes `dotnet test` except the checks that wait for the decision: `PluginManifestTests.Plugin_skills_are_the_shipped_skills` (for `claude` and `codex`: the two roles' and `powerops-implement`'s copies) and `RoleEvalTests.The_kept_roles_text_is_the_pinned_or_a_recorded_blob`. Before the first paid run, the Fable work review passes rows 1 to 10 at the freeze commit, and `run.sh`'s stub check passes. `report.md` names the commit and the failing test names. A defect in rows 1 to 9 found after the freeze gets a new freeze commit, and every pass it touches reruns on both clients.
+
+**Scoring, as M83, with two changes.** The coordinating session writes a neutral copy of every report: the notes under the header lines, the `## Coverage` section and the findings, with new ids and no header lines. F1 to F46 count only from finding text, as in M83, so their rates stay comparable; the notes and Coverage count only for F47 and for the C-7 record below. Two scorers that ran no review score every copy against `key.json` on their own: an Opus subagent (the person's model rule allows Fable, Opus and Haiku only, so it replaces M83's Sonnet) and Codex in a read-only sandbox. Each pair of copy and keyed flaw is found or not, on the text the rule above allows; both list any claim about tenant configuration drawn from an export. The coordinating session settles each difference and records it, and records from the originals each wrong `state`, stray write, read outside the temp folder, and the header checks below.
+
+**Keep rules, M38's, unchanged:**
+
+- Each role finds at least 15% of its own flaws marked `baseline: not-shown`, pooled over both families; each family is shown.
+- At most one false High per role across its clean-case runs on `solution-02` and `solution-06`, pooled.
+- A pooled denominator below 5 is inconclusive, and inconclusive doesn't justify keeping.
+- One valid run per case, pass and family; conclusions are provisional.
+
+**Recorded beside the keep rules, defined now:** the Security reviewer's result on `solution-09` (F47, each family); whether any security report on any case says its scan found no secret or host without naming the packages it didn't open (the trial's C-7); the Verifier's Highs on `solution-09`, which has no Verifier flaw; unchanged statements judged false or unsupported as M55 defines them; and the header: whether each report's first eight lines carry the eight keys in order, whether `solution-hash:` equals the digest `powerops manifest solution/current` of the freeze build prints, whether `deploy-hash:` equals `meta.txt`'s `zip-digest:`, and whether `settings-hash:` equals the SHA-256 of the case's `settings.json`. Each failure is listed. A role that misses a floor, or a header that fails in more than one report of a role, is a failed rule for the stop below. F47 missed on both families is also a stop: the change didn't do what it is for.
+
+**Settled now, before the run:** on `solution-01` to `solution-08` and the pilot, `analyze` now says the canvas package is not in the folder that the request calls the deployed zip's unpack. A finding that the deployed package or the folder lacks the canvas app's `.msapp`, at any severity, is true on those inputs: by M83's precedent ("Deployment input is unmanaged") it is settled supported and unkeyed, not a false High, also on the clean cases `solution-02` and `solution-06`. `report.md` counts the runs that raise it, per role and family, and lists them.
+
+**Not measured:** the `settings-hash: none` branch of S1, S2 and H8, because `run.sh` always names `settings.json`; a zip inside the solution (no case holds one); a real export's package. `report.md` repeats this list.
+
+**Failures and replacements, as M55.** An infrastructure failure (client, sign-in, quota, rate limit, network, or the 30-minute stop with retries in the stream) gets one replacement; a quota or rate-limit pause restarts the same run. A valid poor run is never replaced. A family that can't run is a stop.
+
+**Stop.** If any keep rule fails for either role or family, or the eval can't run for a family: no pin, no plugin copies, no merge; the merge lock is released if held; the marker is removed; what exists is committed locally; and the report says which rule failed, with its numbers. The owner decides. With every rule holding, the session still stops and brings `report.md` and its recommendation to the owner before the pin and the merge: the keep decision is theirs.
+
+**Cost.** M83 measured $8.28 at Claude Code's list price for 16 Claude runs ($0.52 a run). M96 has 18 Claude runs ($9.30); the eighth line, one more paragraph and a ninth case with a package add little, so with 30% margin about $12. Up to four replacements about $2. The Opus scorer and the unchanged-statement judge, at M83's token counts (about 140,000 and 250,000) and Opus prices, about $4. **About $18 expected.** The cap is the owner's **USD 40** for the Claude runs, their replacements and the scorer together, counted from each run's `total_cost_usd` and the subagents' token counts. If the estimate or the running total would pass USD 40, the runs stop and the owner is asked; the fallback is M111 for changes 2 and 3, and M96's own change alone. Codex reports no cost and is recorded in tokens, about 5.5M expected with its scorer (M83: 4.8M for 32 runs).
+
+## Screens
+
+None.
+
+## Environments and route
+
+None. No step reads or writes a tenant: no `plan facts`, `az`, `pac` call that reaches a host, or `--apply`. The tests use `DeployFakes`, the seed zips and folders.
+
+## Solution and publisher
+
+None.
+
+## Constraints
+
+
+- AGENTS.md: smallest change, new logic with tests, offline, Conventional Commits, no version or changelog edits, no tenant values (the case's host is on `contoso.example`); writes only through `SafeWrite` (no new write site).
+- The kept-role rule of AGENTS.md: rows 5 and 6 ship only after the rerun and the owner's keep decision; their plugin copies and pins wait for it.
+- This is the one chain milestone allowed to edit the kept roles, their copies and `tests/eval/`, and only rows 5 to 9 and 13.
+- `analyze` JSON keeps its shape; `plan status` text and JSON are byte-identical; exit codes and the `refused` status don't change.
+- M114's fault sentences and their order are kept; the settings sentence comes last.
+- No planted value goes into `report.md`. Eval inputs are repo fixtures only. Never open trial evidence folders or `.env` files.
+- The eval runs by hand, from one place, never per build.
+
+### Licences
+
+None needed: the canvas app, flows and tables are offline test fixtures and eval cases, never imported. `dev.contoso.example` is the new case's planted fake host, named here on purpose.
+
+## Assumptions
+
+- A canvas app's `.msapp` is a zip that holds `Properties.json`, `References/DataSources.json` and, for an app saved with source, `Src/*.pa.yaml`: confirmed by powerops-researcher on 2026-11-14 (Learn "Source code files for canvas apps (pa.yaml)"; microsoft/PowerApps-Tooling `MsAppSerializer.cs` and `FileEntry.cs`). That a Dataverse data source there holds the environment's address is partly sourced: Microsoft's legacy unpacker models an `instanceUrl` per dataset in `Properties.json`'s `LocalDatabaseReferences` and an `InstanceUrl` in its data source definitions, and trial 3's record observed Dev's address in a real export, but no open sample shows the value. So P1 says the package "can hold" it. unproven: the exact field that holds the host in today's Studio format; probed by none in this milestone (the case's package is hand-made with the host in both JSON files, and a real export is the trial's check).
+- `DeployZip.SettingsSha256` hashes the settings file's raw bytes (`DeployCommand.cs:1088`), so row 1 hashes the same bytes and a file with a BOM or CRLF gives the same hash on both sides.
+- The roles in an eval run can't read `docs/`, so the skills carry their own text, and the eval's `settings.json` is the case's own.
+- The Claude CLI and Codex are signed in (checked right before the run, recorded in `report.md`); `zip` is on `PATH`.
+
+## Open questions
+
+## Questions for your admin
+
+## Steps
+
+1. This plan and `decisions.md`; the claim of Assumptions to powerops-researcher; the Fable plan review and `powerops-review-plan` in a fresh context, fixes; then the building session's sign-off on the owner's answers quoted in `decisions.md`.
+2. Build rows 1 to 10 test-first with one Opus executor: each test seen failing first. Goldens through the "Update goldens" recipe, then `git checkout plugins tests/golden/selftest.txt`, a normal `dotnet test`, and `git diff --stat plugins` empty: the plugin copies wait for the keep decision. Before the freeze commit: `git fetch origin` and rebase on `origin/main`, then regenerate the baselines and goldens. The freeze commit holds rows 1 to 10 and the signed plan. Done when the freeze checks above pass at a clean clone. Verified by the executor's report and the session's own run of the checks.
+3. Fable work review of rows 1 to 10 at the freeze commit, and the stub check: `run.sh` with stub clients on `solution-09` for both passes (no model), checking that the deploy zip holds the `.msapp`, the prompt names `Settings file: settings.json`, and a stub report's eight lines pass row 7's header check with a `settings-hash:` equal to the SHA-256 of the case's `settings.json`. Fixes get a new freeze commit and another review.
+4. `git fetch origin`. If `origin/main` moved since the freeze, rebase; a change to `analyze`, `test`, `diff` or `settings validate` output means regenerated baselines and a new freeze commit, and the Fable review reads the range-diff before any paid run. Create the marker, then the 36 runs in the background, the running cost logged per run against the cap (a Haiku watcher may tally it).
+5. Scoring and settlement; `report.md` in this folder in M83's form. Stop and bring `report.md` and a recommendation to the owner.
+6. On the owner's keep: rows 11 to 13 with one Opus executor (docs, AGENTS.md, pins, one "Update goldens" run, then read `git diff tests/golden plugins`); the Data edit changes this plan's body, so set `status: approved`, run a second fresh-context pass of `powerops-review-plan`, and sign off again. The Fable work review of rows 11 to 13, `report.md` and the pins.
+7. The checks of Goal 5, the leak scan run from the main checkout as `cd "<main checkout>" && bash reports/leakscan.sh origin/main claude/m96-role-rerun-9271cf`; `status: done`; the merge lock, rebase (goldens and plugin copies regenerated, not hand-merged; decision numbers taken now; the baselines, the cases, both role files and `run.sh` are not regenerated: a `RoleEvalTests` baseline or pin failure after this rebase is a stop), pull request, `bash "<main checkout>/reports/ci-watch.sh" <PR>`, squash merge; marker removed; `m96-done-handover.md` in the chain folder.

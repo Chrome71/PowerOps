@@ -3,3 +3,4 @@ missing connectionReference pops_SeedDataverse: in the solution but not in the s
 duplicate environmentVariable pops_DefaultStatus: listed more than once in the settings file
 extra environmentVariable pops_NotInSolution: in the settings file but not in the solution
 4 problems
+settings-hash: 0f68a96b4e5ee84cb83c609a70be87e5b52c40b84badf7232d69e1caf0e9f9e7

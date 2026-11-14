@@ -338,7 +338,8 @@ public class WritePathsTests : IDisposable
 
         Assert.Equal(0, code);
         Assert.Equal("", output);
-        Assert.Equal("", error);
+        // analyze's one line is the note on the seed's canvas package, which the folder doesn't hold (M96).
+        Assert.Equal(command == "analyze" ? ["note: "] : [], error.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l[..6]));
     }
 
     [Fact]

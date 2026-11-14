@@ -435,13 +435,71 @@ public class AnalyzeCommandTests : IDisposable
         Assert.EndsWith($": PO014, PO018 and PO036 not checked for canvas app '{SeedMsapp}': no Src/*.pa.yaml was read from its .msapp (an older app has none until it is resaved in Studio, and a file that isn't a zip, such as a Git LFS pointer, is not opened).", note);
     }
 
-    [Fact]
-    public void An_msapp_the_solution_names_but_does_not_hold_is_not_read_and_gives_no_note()
-    {
-        var (code, _, err) = Run("analyze", Path.Combine(Fixtures, "powerops-seed", "v2"));
+    // M96 row 4 (amends M44 Q3): a package the metadata names and the solution doesn't hold is not read, and analyze says so.
+    private const string MissingPackage = "PO014, PO018 and PO036 not checked for canvas app 'Work Items': its package CanvasApps/pops_workitems_2af60_DocumentUri.msapp is not in the solution (canvas packages are kept out of Git by default; analyze the exported zip to check it).";
 
-        Assert.Equal(0, code);
-        Assert.Equal("", err);
+    private static string[] NotChecked(string path)
+    {
+        using var json = JsonDocument.Parse(Run("analyze", path, "--format", "json").Out);
+        return [.. json.RootElement.GetProperty("solutions")[0].GetProperty("notChecked").EnumerateArray().Select(e => e.GetString()!)];
+    }
+
+    [Fact]
+    public void An_msapp_the_solution_names_but_does_not_hold_is_not_read_and_gives_the_note()
+    {
+        var seed = Path.Combine(Fixtures, "powerops-seed", "v2");
+        var zip = Path.Combine(_temp, "no-package.zip");
+        SolutionZip.Create(seed, zip);
+
+        foreach (var path in new[] { seed, zip })
+        {
+            var (code, _, err) = Run("analyze", path);
+
+            Assert.Equal(0, code);
+            Assert.Equal($"note: {path.Replace('\\', '/')}: {MissingPackage}\n", err.ReplaceLineEndings("\n").Replace('\\', '/'));
+            Assert.Equal([MissingPackage], NotChecked(path));
+        }
+    }
+
+    [Fact]
+    public void A_missing_package_of_an_app_with_no_name_in_its_metadata_is_named_from_its_file()
+    {
+        var path = Path.Combine(_temp, "no-name");
+        CopyDirectory(Path.Combine(Fixtures, "powerops-seed", "v2"), path);
+        var meta = Path.Combine(path, "CanvasApps", "pops_workitems_2af60.meta.xml");
+        File.WriteAllText(meta, File.ReadAllText(meta).Replace("<Name>pops_workitems_2af60</Name>", "", StringComparison.Ordinal).Replace("<DisplayName>Work Items</DisplayName>", "", StringComparison.Ordinal));
+
+        Assert.Equal([MissingPackage.Replace("'Work Items'", "'pops_workitems_2af60'", StringComparison.Ordinal)], NotChecked(path));
+    }
+
+    [Theory]
+    [InlineData("folder", null)]
+    [InlineData("zip", null)]
+    [InlineData("folder", "/Other/pops_workitems_2af60_DocumentUri.msapp")]
+    [InlineData("folder", "/CanvasApps/pops_workitems_2af60_DocumentUri.zip")]
+    [InlineData("folder", "/CanvasApps/sub/pops_workitems_2af60_DocumentUri.msapp")]
+    public void A_held_package_or_a_document_uri_outside_CanvasApps_gives_no_missing_package_note(string kind, string? uri)
+    {
+        string path;
+        if (uri is null)
+        {
+            path = SeedWithMsapp("held-" + kind);
+        }
+        else
+        {
+            path = Path.Combine(_temp, "uri-" + Guid.NewGuid().ToString("N"));
+            CopyDirectory(Path.Combine(Fixtures, "powerops-seed", "v2"), path);
+            var meta = Path.Combine(path, "CanvasApps", "pops_workitems_2af60.meta.xml");
+            File.WriteAllText(meta, File.ReadAllText(meta).Replace("/CanvasApps/pops_workitems_2af60_DocumentUri.msapp", uri, StringComparison.Ordinal));
+        }
+
+        if (kind == "zip")
+        {
+            SolutionZip.Create(path, path + ".zip");
+            path += ".zip";
+        }
+
+        Assert.DoesNotContain(NotChecked(path), l => l.Contains("is not in the solution", StringComparison.Ordinal));
     }
 
     [Fact]

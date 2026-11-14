@@ -1992,6 +1992,81 @@ public class DeployApplyCommandTests : DeployTestBase
         Assert.Single(pac.Calls);
     }
 
+    // ---- settings-hash (M96 row 3) ----
+
+    private const string SettingsChanged = "docs/plans/m: verify.md's settings-hash is not the SHA-256 of this deployment's settings file; security-solution.md's settings-hash is not the SHA-256 of this deployment's settings file";
+
+    // The audit's [R-C]: the settings file is edited after the review, the stale plan file is refused, and deploy plan is run again with the same reports.
+    private void SettingsEditedAfterTheReview()
+    {
+        var settings = Path.Combine(Folder, "PowerOpsSeed.settings.json");
+        Edit(settings, "\"Value\": \"Open\"", "\"Value\": \"Closed\"");
+        Edit(settings, "fake-connection-id", "another-connection-id");
+        var stale = Apply(SeedAfterOn(), new FakePac(), "--require-reviews", "--apply");
+        Assert.Equal(1, stale.Code);
+        Assert.Contains("the settings file of PowerOpsSeed.zip changed since the plan", stale.Out + stale.Err);
+        MakePlan();
+    }
+
+    [Fact]
+    public void With_require_reviews_a_settings_file_changed_after_the_review_is_refused_with_no_pac_call()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        Reviewed(SeedZipPath);
+        SettingsEditedAfterTheReview();
+        var pac = new FakePac();
+
+        var r = Apply(SeedAfterOn(), pac, "--require-reviews", "--apply", "--format", "json");
+
+        Assert.Equal(1, r.Code);
+        Assert.Equal($"no review covers PowerOpsSeed.zip: {SettingsChanged}; nothing was imported.", (string?)Json(r)["message"]);
+        Assert.Equal($"warning: PowerOpsSeed.zip: {SettingsChanged}\n", r.Err);
+        Assert.Empty(pac.Calls);
+        Assert.Empty(pac.Unpacks);
+    }
+
+    [Fact]
+    public void With_require_reviews_a_settings_file_changed_after_a_deploy_hash_review_is_refused_after_one_unpack_and_no_import()
+    {
+        SeedZip(Folder);
+        MakePlan();
+        var pac = new FakePac { UnpackFrom = ReviewedUnpack(SeedZipPath) };
+        SettingsEditedAfterTheReview();
+
+        var r = Apply(SeedAfterOn(), pac, "--require-reviews", "--apply");
+
+        Assert.Equal(1, r.Code);
+        Assert.Equal($"warning: PowerOpsSeed.zip: {SettingsChanged}\n", r.Err);
+        Assert.Empty(pac.Calls);
+        Assert.Single(pac.Unpacks);
+        UnpacksGone(pac, r);
+    }
+
+    [Fact]
+    public void With_require_reviews_a_report_from_before_M96_covers_only_a_deployment_with_no_settings_file()
+    {
+        var solo = SmallZip(Folder, "Solo");
+        MakePlan(new FakeTarget());
+        var folder = Reviewed(solo);
+        Assert.DoesNotContain("settings-hash:", File.ReadAllText(Path.Combine(folder, "verify.md")));
+        static FakeTarget Target() => new() { After = AfterOf(Installed("Solo", "1.0.0.0")) };
+        var covered = new FakePac();
+        var first = Apply(Target(), covered, "--require-reviews", "--apply");
+        Assert.Equal((0, ""), (first.Code, first.Err));
+        Assert.Single(covered.Calls);
+
+        File.WriteAllText(Path.Combine(Folder, "Solo.settings.json"), "{\"EnvironmentVariables\":[],\"ConnectionReferences\":[]}");
+        MakePlan(new FakeTarget());
+        var pac = new FakePac();
+
+        var r = Apply(Target(), pac, "--require-reviews", "--apply");
+
+        Assert.Equal(1, r.Code);
+        Assert.Equal("warning: Solo.zip: docs/plans/m: verify.md has no settings-hash line, but this deployment imports a settings file; security-solution.md has no settings-hash line, but this deployment imports a settings file\n", r.Err);
+        Assert.Empty(pac.Calls);
+    }
+
     [Fact]
     public void With_require_reviews_a_covered_import_beside_an_uncovered_skipped_zip_imports()
     {
@@ -2052,7 +2127,7 @@ public class DeployApplyCommandTests : DeployTestBase
         var review = ReviewedUnpack(SeedZipPath);
         File.WriteAllText(
             Path.Combine(_root, "docs", "plans", "m", "security-solution.md"),
-            $"state: ready\nplan-hash: {Core.Plans.PlanDocument.Parse(ReviewedPlanText).BodyHash}\ninput: folder/PowerOpsSeed.zip\nsolution-hash: {Core.Readers.Manifest.Read(SeedZipPath).Digest}\n\n# Report\n");
+            $"state: ready\nplan-hash: {Core.Plans.PlanDocument.Parse(ReviewedPlanText).BodyHash}\ninput: folder/PowerOpsSeed.zip\nsolution-hash: {Core.Readers.Manifest.Read(SeedZipPath).Digest}\n{SettingsLine(SeedZipPath)}\n# Report\n");
         var pac = new FakePac { UnpackFrom = review };
 
         var r = Apply(SeedAfterOn(), pac, "--require-reviews", "--apply");

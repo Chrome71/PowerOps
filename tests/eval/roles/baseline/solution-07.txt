@@ -3,6 +3,8 @@ solution/current: PowerOpsSeed 1.2.0.0 (publisher powerops, prefix pops)
   warning PO033 Roles/WorkItemAuditor.xml: Role 'Work Item Auditor' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.
   warning PO033 Roles/WorkItemEditor.xml: Role 'Work Item Editor' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app.
 1 solution, 0 errors, 2 warnings
+stderr:
+note: solution/current: PO014, PO018 and PO036 not checked for canvas app 'Work Items': its package CanvasApps/pops_workitems_2af60_DocumentUri.msapp is not in the solution (canvas packages are kept out of Git by default; analyze the exported zip to check it).
 exit code: 0
 
 $ powerops test solution/current --tests flowtests
@@ -18,5 +20,6 @@ exit code: 1
 
 $ powerops settings validate solution/current --settings settings.json
 no problems
+settings-hash: d53012b989c15641c7e3f8ea858649802a685e0465e2a104fbfb73fa0e33fd72
 exit code: 0
 

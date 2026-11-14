@@ -99,7 +99,7 @@ Options:
 It reads unpacked XML folders (`Other/Solution.xml`), exported zips and the YAML layout that Dataverse Git integration commits: point it at the folder that holds `solutions/`, and each `solutions/<name>/solution.yml` is reported as its own solution, with its components picked by its `solutioncomponents.yml`.
 
 Canvas app formulas are read from the `Src/*.pa.yaml` files: in the YAML layout from the folder, and in the XML layouts from inside each `.msapp`, in memory (PO014, PO018, PO036).
-An app whose `.msapp` has no `Src` (an older app, until it is resaved in Studio) prints a `note:` line, and so does an `.msapp` that isn't a zip, such as an empty file or a Git LFS pointer, which is not opened; an app whose `.msapp` the solution doesn't hold is not read and gets no note.
+An app whose `.msapp` has no `Src` (an older app, until it is resaved in Studio) prints a `note:` line, and so does an `.msapp` that isn't a zip, such as an empty file or a Git LFS pointer, which is not opened; an app whose metadata names a `CanvasApps/<file>.msapp` that the solution doesn't hold, as in a Git folder where canvas packages are kept out of Git, is not read and prints a `note:` line naming the app and the missing package.
 
 - Power Pages components are read from the `powerpagecomponents/` folder of the enhanced data model in a solution, unpacked or in a zip, and not from the `.powerpages-site/` layout (PO019 to PO023).
 - Model-driven app modules and site maps are read from the `AppModules/` and `AppModuleSiteMaps/` folders of an unpacked solution and from the same elements of a zip's `customizations.xml`, not from the YAML layout; generative pages (`uxagentprojects/`) are not read yet, so a site map entry for one prints a `note:` line (PO024, PO025).
@@ -295,6 +295,10 @@ By default, URLs, GUIDs (with or without hyphens and braces) and email addresses
 - connection references without a `ConnectionId` (it checks that a `ConnectionId` is present, not that the connection exists),
 - environment variables with no value in the file and no default or current value in the solution,
 - and any `"Value": ""`, which `pac solution import` rejects.
+
+The text form ends, after its count line (or `no problems`), with `settings-hash: <hex>`: the SHA-256 (lowercase hex) of the settings file's bytes, the same bytes `deploy plan` hashes for that file, and the value a review report's `settings-hash:` line takes.
+The JSON form gives the same value as `settingsSha256`, after `settings`.
+Neither is printed on exit `2` or `3`.
 
 ### What it does
 
@@ -615,13 +619,17 @@ For each of them, in plan order, it prints `warning: <zip>: <sentence>` on stder
 - both have `state: ready`,
 - both carry the plan's current hash as `plan-hash:`,
 - neither lists an open High finding,
-- and each is linked to the zip ([plan status](#plan-and-skills) reads the same lines).
+- each is linked to the zip ([plan status](#plan-and-skills) reads the same lines),
+- and both record the zip's settings file as their `settings-hash:` (below).
 
 A report lists an open High finding when, under its `### High` heading (up to the next `##` or `###` heading, and outside fenced code blocks), a `####` entry's first `- Resolution:` line doesn't start with one of the closing words `fixed`, `resolved`, `answered`, `accepted`, `closed`, `withdrawn`, `kept` or `done` (in any case, with a trailing `.`, `,`, `:`, `;` or `)` ignored).
 An entry with no such line, an empty one, or any other first word (such as `open`, `reopened` or `not done`) is open; a report with no `### High` heading lists none.
 
 A report is linked when its `solution-hash:` is the zip's SHA-256, or when its `deploy-hash:` is the zip's SHA-256 and its `solution-hash:` equals the digest of a fresh `pac solution unpack` of that zip.
 A `verify.md` of one plan and a `security-solution.md` of another make no cover.
+
+A report's `settings-hash:` (its eighth header line) must be the SHA-256 of the settings file the deployment imports with the zip, `<zip name without .zip>.settings.json`, the value `settings validate` prints.
+`none`, or no `settings-hash:` line (a report written before the line existed), covers only a zip with no settings file, and `unknown` covers none.
 
 The sentence is either `no verify.md or security-solution.md under docs/plans records this zip's SHA-256 as its deploy-hash or its solution-hash`, or, when a report of some plan folder does record it, `docs/plans/<name>: ` for the first such folder in name order, then what is wrong with its plan and its reports, joined with `; `:
 
@@ -632,7 +640,8 @@ The sentence is either `no verify.md or security-solution.md under docs/plans re
 - `<file>'s solution-hash is not the digest of this zip's unpack, so it reviewed another folder`,
 - `<file> has no state` or `<file> is <state>` (such as `blocked`),
 - `<file> was not written for the current plan`,
-- or `<file> is ready but lists <n> open High findings` (`1 open High finding` for one).
+- `<file> is ready but lists <n> open High findings` (`1 open High finding` for one),
+- and last, for an otherwise ready report, `<file> has no settings-hash line, but this deployment imports a settings file`, `<file> reviewed no settings file, but this deployment imports one`, `<file>'s settings-hash is not the SHA-256 of this deployment's settings file` or `<file> records a settings-hash, but this deployment imports no settings file`.
 
 With no such `docs/plans` it says nothing about reports, and when that folder can't be read it prints `warning: docs/plans could not be read, so the zips were not matched with review reports`.
 The check reads only those reports: it changes neither the report, the plan file, the hash nor the exit code.
@@ -662,6 +671,7 @@ The `<failure>` is one of
 For a zip whose covering plan folder links both reports through their deploy-hash, `deploy plan` also prints `note: <zip>: docs/plans/<name>: both reports record this zip's SHA-256 as their deploy-hash, and the digest of its pac solution unpack is their solution-hash`.
 
 A report is written for the managed zip's unpack when the review request names the zip and the unpack folder ([HANDOFF step 3](HANDOFF.md#the-steps)): the role records the zip's digest from `powerops manifest <zip>` as its `deploy-hash:` and the folder's digest as its `solution-hash:`.
+Both roles also record, as `settings-hash:`, the hash `settings validate` prints for the settings file the request names, or `none` when it names none.
 
 A zip that changed after the review has another SHA-256, so no `deploy-hash:` matches it and no unpack is run.
 A digest that differs although the folder is the zip's unpack comes from another `pac` version, another operating system (not checked), or another unpack option (`--localize`, `--map`, `--sourceLoc`, or what a skill adds).
@@ -714,7 +724,7 @@ The plan file's `target` is the environment's display name, which `--target` doe
 
 `--require-reviews` makes the review check of `deploy plan` a condition, for the dry run as well as for `--apply`.
 It runs after the plan was made again and passed its hash check and is not blocked, on the zips that the fresh plan imports, because the plan file's own actions are not covered by its hash: a plan file edited to mark an uncovered zip `skip` is still refused.
-A report covers a zip as in `deploy plan`: its `solution-hash:` is the zip's SHA-256, or its `deploy-hash:` is and its `solution-hash:` equals the digest of a fresh `pac solution unpack` of the zip (the unpack, its temp folder, its failure sentences and the recovery are described under [`deploy plan`](#deploy-plan)).
+A report covers a zip as in `deploy plan`: its `solution-hash:` is the zip's SHA-256, or its `deploy-hash:` is and its `solution-hash:` equals the digest of a fresh `pac solution unpack` of the zip, and its `settings-hash:` is the SHA-256 of the zip's settings file (the unpack, its temp folder, its failure sentences and the recovery are described under [`deploy plan`](#deploy-plan)).
 
 It writes the same `warning:` lines as `deploy plan` (no notes) to stderr, then refuses with exit `1` and status `refused`, before any import, in three cases, each with a `message` that ends in `nothing was imported.`:
 
@@ -728,14 +738,15 @@ Without the option the same `warning:` lines are written and the run goes on and
 The check reads what the reports say and doesn't prove that a role wrote them, so the form, the person's yes or the GitHub environment's approval stays the authorization.
 The MCP tool `deploy_apply` and `deploy gate` always require the reviews, and the Action does unless its `require-reviews` input is `false` ([the Action](GITHUB-ACTION.md)).
 
-The check reads each report's header lines (`state:`, `plan-hash:`, `solution-hash:` and `deploy-hash:`) and the findings under its `### High` heading, and refuses a `ready` report that lists an open High finding ([deploy plan](#deploy-plan) gives the rule).
+The check reads each report's header lines (`state:`, `plan-hash:`, `solution-hash:`, `deploy-hash:` and `settings-hash:`) and the findings under its `### High` heading, and refuses a `ready` report that lists an open High finding ([deploy plan](#deploy-plan) gives the rule).
 It reads no other finding and no check line, so a `ready` report with every check `not verified`, or with an open Medium or Low finding, covers the zip all the same.
 It refuses a folder whose `plan.md` has no valid sign-off, but doesn't read its `review.md` or who signed it.
 
-A cover binds the zip, always by its SHA-256 (and for a `deploy-hash:` link also by the digest of its unpack), and the plan body, by `plan-hash:`.
+A cover binds the zip, always by its SHA-256 (and for a `deploy-hash:` link also by the digest of its unpack), the plan body, by `plan-hash:`, and the settings file, by `settings-hash:`: both reports' `settings-hash:` must be the SHA-256 of the settings file the deployment imports with the zip.
+`none`, or no `settings-hash:` line (a report written before the line existed), covers only a deployment with no settings file, and `unknown` covers none.
+So a settings file changed after the review is refused even once `deploy plan` has run again, with one of the settings sentences listed under [`deploy plan`](#deploy-plan).
 It doesn't bind:
 
-- the settings file: the plan file's hash covers it ([deploy plan](#deploy-plan), Output), so a plan file made before the settings file changed is refused, but once `deploy plan` has run again the same reports cover the zip with the new settings;
 - the target: no header line names an environment, so reviews are stage-agnostic, and the reports that cover a zip for Test cover the same zip for Prod; the yes to that deployment (the form, the GitHub environment's approval or the person's yes in the session) picks the target;
 - the `powerops` version the review ran with, the version of the role that wrote a report, and when it was written: an old report covers as well as a new one.
 
@@ -748,6 +759,7 @@ A refusal clears by its reason:
 - `changed since sign-off`: revert the edits, or set `status: approved`, run `powerops plan sign-off` and run both roles again, because the reports were written for the old body.
 - `could not be read` or `malformed header`: run `powerops plan status` on the folder, which names the problem, and fix the file.
 - an open High finding: fix it and run that role again, or a person accepts it and runs `deploy apply` without `--require-reviews`.
+- a `settings-hash` sentence: run both roles again with the settings file the deployment imports, so each report records its hash, or `none` when the request names no settings file because the deployment imports none; or, when the settings file was changed, removed or renamed by mistake, put the reviewed file back beside the zip as `<zip name without .zip>.settings.json`.
 
 ### What it does
 

@@ -38,6 +38,9 @@ public sealed record Solution(
     /// <summary>The paths of the `.msapp` files of the XML layouts that hold no `Src/*.pa.yaml`; empty when every `.msapp` has source.</summary>
     public IReadOnlyList<string> CanvasAppsWithoutSource { get; init; } = CanvasAppsWithoutSource ?? [];
 
+    /// <summary>The canvas apps (name, then the package path) whose metadata names a `CanvasApps/&lt;file&gt;.msapp` the solution doesn't hold, in the layouts that open packages; empty otherwise (M96).</summary>
+    public IReadOnlyList<(string Name, string Path)> CanvasAppsWithoutPackage { get; init; } = [];
+
     /// <summary>The model-driven app modules of `AppModules/` or the `customizations.xml` `AppModules` element; empty when the solution has none.</summary>
     public IReadOnlyList<AppModule> AppModules { get; init; } = AppModules ?? [];
 

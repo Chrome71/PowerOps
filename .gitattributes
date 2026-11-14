@@ -1,3 +1,5 @@
 # A Windows checkout with core.autocrlf would give the shell scripts CRLF, which bash cannot run.
 *.sh text eol=lf
 docs/examples/gate-probe/pac text eol=lf
+# The role baselines print the SHA-256 of each case's settings file (M96), so a Windows checkout must not change its line endings.
+tests/eval/roles/**/settings.json -text

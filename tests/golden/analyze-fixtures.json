@@ -872,7 +872,9 @@
       },
       "requires": [],
       "findings": [],
-      "notChecked": []
+      "notChecked": [
+        "PO014, PO018 and PO036 not checked for canvas app 'Work Items': its package CanvasApps/pops_workitems_2af60_DocumentUri.msapp is not in the solution (canvas packages are kept out of Git by default; analyze the exported zip to check it)."
+      ]
     },
     {
       "path": "tests/fixtures/powerops-seed/v2",
@@ -904,7 +906,9 @@
           "helpUri": "https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO006.md"
         }
       ],
-      "notChecked": []
+      "notChecked": [
+        "PO014, PO018 and PO036 not checked for canvas app 'Work Items': its package CanvasApps/pops_workitems_2af60_DocumentUri.msapp is not in the solution (canvas packages are kept out of Git by default; analyze the exported zip to check it)."
+      ]
     },
     {
       "path": "tests/fixtures/zips/ColumnLevelSecuritySampleSolution.zip",

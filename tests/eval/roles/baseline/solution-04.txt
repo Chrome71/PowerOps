@@ -3,6 +3,8 @@ solution/current: PowerOpsSeed 1.1.0.0 (publisher powerops, prefix pops)
   warning PO005 Other/Customizations.xml: Connection reference 'pops_SeedOutlook' is not used by any flow or app.
   warning PO011 Workflows/Emaildailyworkitemsummary-00000000-0000-0000-0000-000000000F41.json: Flow 'Email daily work item summary' is turned off.
 1 solution, 0 errors, 2 warnings
+stderr:
+note: solution/current: PO014, PO018 and PO036 not checked for canvas app 'Work Items': its package CanvasApps/pops_workitems_2af60_DocumentUri.msapp is not in the solution (canvas packages are kept out of Git by default; analyze the exported zip to check it).
 exit code: 0
 
 $ powerops test solution/current --tests flowtests
@@ -23,5 +25,6 @@ exit code: 1
 
 $ powerops settings validate solution/current --settings settings.json
 no problems
+settings-hash: bd7df948ebfbca936601184b505b5491b7c57bfff00184cad9cdfada191e5317
 exit code: 0
 
