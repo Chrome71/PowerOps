@@ -759,7 +759,7 @@ A refusal clears by its reason:
 - `changed since sign-off`: revert the edits, or set `status: approved`, run `powerops plan sign-off` and run both roles again, because the reports were written for the old body.
 - `could not be read` or `malformed header`: run `powerops plan status` on the folder, which names the problem, and fix the file.
 - an open High finding: fix it and run that role again, or a person accepts it and runs `deploy apply` without `--require-reviews`.
-- a `settings-hash` sentence: run both roles again on the settings file the deployment imports, so each report records its hash.
+- a `settings-hash` sentence: run both roles again with the settings file the deployment imports, so each report records its hash, or `none` when the request names no settings file because the deployment imports none; or, when the settings file was changed, removed or renamed by mistake, put the reviewed file back beside the zip as `<zip name without .zip>.settings.json`.
 
 ### What it does
 
