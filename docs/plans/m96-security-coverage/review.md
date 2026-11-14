@@ -1,8 +1,14 @@
-plan-hash: 92dcad60195330628b0f3278a48bfb37d84b3550a8169b882d5f9a172af48fa7
+plan-hash: 9bd73bfd2191608af15c39fce05510dabd566922c8dc595c1744a84a7715aeca
 model: claude-opus-5-5
 fresh-context: yes
 
 Environment facts were not read: the plan's `environment:` is null and the request said `tenant: offline`, so `powerops plan facts` was not run and no tenant was called.
+
+Fourth pass, on the body after the keep (`8a588c4`), the second fresh pass step 6 calls for. The planning chat is not in this context. This pass ran `powerops plan status` (status `approved`, `review: done`, 0 open questions, 0 admin questions; warnings: this review was stale, and "sign-off answered by an agent" at `decisions.md:78`), read `plan.md`, `decisions.md` (no `mockups/`), the earlier findings below and `git diff 0011bdd 8a588c4` of the plan folder: the Data section gains the pin table and its paragraph, step 7's two placeholder paths are quoted, the header goes back to `approved`, and `decisions.md` gains three Log lines (the first freeze's failed work review, the eval, the owner's "Keep both"). The unchanged parts of the plan were not re-reviewed in depth.
+
+The pin table: `b7f9f098676d13633475edbfb63a3262246893cd` is the commit `b7f9f09`; the three blob ids equal `git rev-parse b7f9f09:<path>` and the blob of each file in this worktree; the rows match `RoleEvalTests.PinnedRow` and its header row doesn't, so the test reads exactly three pins; `The_kept_roles_text_is_the_pinned_or_a_recorded_blob` now reads this folder, and `AGENTS.md:40` points at it. `dotnet test --project tests/PowerOps.Cli.Tests --filter "RoleEvalTests|PluginManifestTests"` passed here (36 of 36), which is Done-when 3's test check. Tools (item 12): `powerops`, `zip`, `claude`, `codex`, `sha256sum`, `gh`, `dotnet` and `git` are on `PATH`, as in the second pass; sign-in was not checked.
+
+R20 is resolved by the step 7 edit. R1 to R19 are unchanged by this revision and keep their resolutions; none reopens. One new finding, R21.
 
 Third pass, on revision 3 (`d771bff`). The planning chat is not in this context. This pass read `plan.md` and `review.md`, `git diff 6abbb6b d771bff` of the plan folder (`decisions.md` is unchanged), and at `a442b17` the line ranges revision 3 cites in `skills/powerops-review-security/SKILL.md`, `skills/powerops-verify/SKILL.md` and `skills/powerops-implement/SKILL.md`, plus the leak-scan lines of the M88 and M92 plans. The unchanged parts of the plan were not re-reviewed in depth, and the second pass's tool check (item 12) was not run again.
 
@@ -144,4 +150,10 @@ No findings.
 - Area: 9 (testability), 12 (tools)
 - Finding: R18's fix writes `cd <main checkout> && bash reports/leakscan.sh ...` and `bash <main checkout>/reports/ci-watch.sh <PR>` with no quotes. The main checkout's path holds a space, so an executor that puts the path in place of the placeholder as written gets a `cd` that fails and a `bash` that can't find the script. Both fail loudly rather than silently, but they stop step 7. M88 and M92 write `cd "<main checkout>"`, and R18's suggested fix had the quotes.
 - Suggested fix: Write `cd "<main checkout>" && bash reports/leakscan.sh origin/main claude/m96-role-rerun-9271cf` and `bash "<main checkout>/reports/ci-watch.sh" <PR>`.
-- Resolution: accepted: fixed in the step 6 revision of the plan, which gets a review pass anyway; until then this session runs both commands itself with the path quoted.
+- Resolution: fixed: step 7 quotes both, `cd "<main checkout>"` and `bash "<main checkout>/reports/ci-watch.sh" <PR>` (checked in the fourth pass).
+
+#### R21. Step 6's second sign-off doesn't say whose answer it rests on, and `plan status` warns on the first one
+- Area: 10 (unanswered areas), 9 (testability)
+- Finding: `powerops plan status` warns "sign-off answered by an agent (`decisions.md:78`): only a person signs off a plan". Step 6 says only "sign off again" after this pass, and the Log line of the keep says "the plan is reviewed and signed off again" without naming the answer it rests on. The owner's "Keep both" decides the keep, not the changed body (the pins, rows 11 to 13), so a second agent sign-off logged like line 78 gives the same warning, and nothing in the plan says that warning is expected or where it is accepted. Goal 5 counts only violations, so nothing fails, but a reader of `plan status` at merge sees an agent sign-off the plan never explains for this body.
+- Suggested fix: In step 6 (or the Log line that records the second sign-off), name the owner's answers it rests on ("Keep both", 2026-11-14, with the standing instructions line 78 quotes) and say that `plan status`'s agent-sign-off warning is expected for this chain and is not a violation.
+- Resolution: accepted: the Log line of the second sign-off names the owner's answers it rests on and says the warning is expected (`decisions.md`, Log, 2026-11-14)
