@@ -17,7 +17,7 @@ public class DeployGateCommandTests : DeployTestBase
     private const string DevUrl = "https://dev-host-1c2d.crm.dynamics.com";
     private const string TwinUrl = "https://twin-host-9e8f.crm.dynamics.com";
     private const string Prefix = "error: deploy gate: ";
-    private const string ReadingGuidance = "The call was blocked. If it is an import, write it as one plain pac solution import command with literal absolute paths and the environment's id or https URL. If it only mentions an import, reword it.";
+    private const string ReadingGuidance = "The call was blocked. If it is an import, write it as one plain pac solution import command with literal absolute paths and the environment's id or https URL. If it runs powerops settings apply or deploy apply, write it as one plain powerops command in a Bash command, with literal words; an agent adds --apply only to deploy apply, with --require-reviews, after the user's yes. If it only mentions an import, reword it.";
     private const string ImportGuidance = "The import was blocked. To import a reviewed plan, ask the user for a yes to that environment, then call the MCP tool deploy_apply with apply: true, where the user types the environment's name in a form. If the client shows no form, run powerops deploy apply <plan file> --target <environment id or URL> --apply --require-reviews after that yes, or leave the import to the Action's approved job or to the user. Do not retry this import another way.";
 
     private string SeedZipPath => Path.Combine(Folder, "PowerOpsSeed.zip");
@@ -220,6 +220,8 @@ public class DeployGateCommandTests : DeployTestBase
     [InlineData("Bash", "pa app push publishes an app that no plan holds", "PA_CLI_ORIGIN=plugin/claude-code pa app push --solution-id x")]
     [InlineData("Bash", "pac copilot init may import a solution that no plan holds", "pac copilot init --environment 00000000-0000-0000-0000-000000000001")]
     [InlineData("Bash", "copilot-studio's manage-agent push and publish change an agent that no plan holds", "node ${CLAUDE_SKILL_DIR}/../../scripts/manage-agent.bundle.js publish --workspace /x/agent")]
+    [InlineData("Bash", "powerops settings apply --apply imports a zip that no review check covers", "powerops settings apply /x/s.zip --settings /x/s.json --apply --target \"Contoso Test\"")]
+    [InlineData("Bash", "powerops deploy apply --apply without --require-reviews imports even when no review covers the zip", "powerops deploy apply /x/p.json --target " + TargetIdText + " --apply")]
     public void A_write_route_with_no_plan_file_is_blocked_with_its_line_and_the_target_is_not_read(string tool, string line, string? command = null)
     {
         var test = SeedTarget();
@@ -253,6 +255,9 @@ public class DeployGateCommandTests : DeployTestBase
     [Theory]
     [InlineData("git status")]
     [InlineData("pac power-pages upload-certificate --path /x/cert.pfx")]
+    [InlineData("powerops deploy apply /x/p.json --target " + TargetIdText + " --apply --require-reviews")]
+    [InlineData("powerops deploy apply /x/p.json --target " + TargetIdText)]
+    [InlineData("powerops settings apply /x/s.zip --settings /x/s.json --target \"Contoso Test\"")]
     public void A_call_that_is_not_an_import_is_allowed_without_reading_anything(string command)
     {
         var test = SeedTarget();
@@ -261,6 +266,21 @@ public class DeployGateCommandTests : DeployTestBase
 
         Assert.Equal((0, "", ""), (r.Code, r.Out, r.Err));
         Assert.Equal(0, test.Calls);
+    }
+
+    // M115: a new option of either apply command must reach the gate's tables, or the gate could pass a call it doesn't read.
+    [Fact]
+    public void The_gates_option_tables_name_each_option_of_deploy_apply_and_settings_apply_and_its_kind()
+    {
+        var root = Program.Root(TextWriter.Null, TextWriter.Null, (_, _) => throw new InvalidOperationException("no pac call"));
+        IEnumerable<(string, bool)> Defined(string group) =>
+            root.Subcommands.Single(c => c.Name == group).Subcommands.Single(c => c.Name == "apply").Options
+                .SelectMany(o => o.Aliases.Prepend(o.Name).Select(n => (n, o.ValueType == typeof(bool))))
+                .Order();
+        static IEnumerable<(string, bool)> Table(Dictionary<string, bool> table) => table.Select(p => (p.Key, p.Value)).Order();
+
+        Assert.Equal(Defined("deploy"), Table(ImportCall.DeployApplyOptions));
+        Assert.Equal(Defined("settings"), Table(ImportCall.SettingsApplyOptions));
     }
 
     // ---- 6. blocked --------------------------------------------------------------------------------------------
@@ -417,6 +437,9 @@ public class DeployGateCommandTests : DeployTestBase
                 SeedZip(Folder);
                 MakePlan();
                 return new(Environments(new FakeTarget { Fail = new InvalidOperationException("secret detail") }), SeedCall(), Gated("internal error (InvalidOperationException)"));
+            case "powerops-dry-run-through-dotnet":
+                // M115: a dry run the gate doesn't read as a plain powerops command blocks as unreadable, before the plan is read.
+                return new(Seeded(), Hook("Bash", new JsonObject { ["command"] = $"dotnet run --project src/PowerOps.Cli -- deploy apply /x/p.json --target {TargetIdText}" }), [$"{Prefix}the command holds an import that the gate can't read\n{ReadingGuidance}\n"], Reading: true);
             case "target-read-fails":
                 SeedZip(Folder);
                 MakePlan();
@@ -523,6 +546,7 @@ public class DeployGateCommandTests : DeployTestBase
         "settings-file-different", "settings-file-extra", "upgrade-without-stage-and-upgrade", "install-with-stage-and-upgrade", "target-changed",
         "blocked-plan", "plan-file-missing", "plan-file-of-another-version", "plan-file-hash-edited", "plan-file-symbolic-link", "call-zip-missing", "call-settings-file-missing",
         "call-zip-symbolic-link", "call-zip-unreadable", "stdin-over-1-mb", "no-stdin", "target-read-throws", "target-read-fails",
+        "powerops-dry-run-through-dotnet",
     ];
 
     [Theory]

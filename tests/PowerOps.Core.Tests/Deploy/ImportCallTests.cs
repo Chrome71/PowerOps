@@ -23,6 +23,10 @@ public class ImportCallTests
     private const string CopilotPublish = "pac copilot publish publishes an agent that no plan holds";
     private const string CopilotInit = "pac copilot init may import a solution that no plan holds";
     private const string ManageAgent = "copilot-studio's manage-agent push and publish change an agent that no plan holds";
+    private const string SettingsApply = "powerops settings apply --apply imports a zip that no review check covers";
+    private const string DeployApply = "powerops deploy apply --apply without --require-reviews imports even when no review covers the zip";
+    private const string PlanCall = "powerops deploy apply /x/p.json --target " + Env;
+    private const string SettingsCall = "powerops settings apply /x/s.zip --settings /x/s.json";
 
     // The manage-agent skill's own command form (skills-for-copilot-studio at 9c42d3a).
     private const string Bundle = "node ${CLAUDE_SKILL_DIR}/../../scripts/manage-agent.bundle.js";
@@ -96,7 +100,6 @@ public class ImportCallTests
     [InlineData("pac auth list --verbose")]
     [InlineData("pac solution export --name Seed --path /x/seed.zip")]
     [InlineData("node \"${PLUGIN_ROOT}/scripts/solution-settings.js\" template --env https://contoso-test.crm.dynamics.com")]
-    [InlineData("powerops deploy apply deploy/powerops-plan.json --target 00000000-0000-0000-0000-000000000001 --apply")]
     [InlineData("echo \"it's fine")]
     [InlineData("pa app run")]
     [InlineData("pa app list")]
@@ -153,6 +156,10 @@ public class ImportCallTests
     [InlineData("X=/a/pac model genpage $Y")]
     [InlineData("PATH=/x/pac org who 'abc")]
     [InlineData("X=a/power-apps.cmd push")]
+    // A known miss: the gate doesn't read inside a nested string, so a quote there hides settings apply, as it hides a pac import.
+    [InlineData("bash -c 'powerops settings ap\"\"ply /x/s.zip --settings /x/s.json --apply'")]
+    // A known miss: the gate doesn't read comments, so a quote in one runs on into the next line.
+    [InlineData(": # it's\npowerops settings ap\"\"ply /x/s.zip --settings /x/s.json --ap\"\"ply")]
     public void A_shell_command_without_an_import_is_not_one(string command)
     {
         Assert.IsType<ImportRead.NotImport>(Bash(command));
@@ -433,6 +440,81 @@ public class ImportCallTests
             { "pac power-pages upload-certificate --path \"$(pac pages upload --path /x)\"", CantRead },
             { "pac PAGES Upload --path /x", PagesUpload },
             { "pac power-pages upload-certificate --path /x/cert.pfx && pac pages upload --path /x", PagesUpload },
+            // M115: a call of PowerOps's own imports that isn't read strictly, and any other text that holds one, is unreadable.
+            { $"{PlanCall} --apply --require-reviews --require-reviews false", CantRead },
+            { $"{PlanCall} --apply --require-reviews --require-reviews:false", CantRead },
+            { $"{PlanCall} --apply --require-reviews --require-reviews=false", CantRead },
+            { $"{PlanCall} --require-reviews:false --apply --require-reviews", CantRead },
+            { $"{PlanCall} --apply --require-reviews=false --require-reviews", CantRead },
+            { $"{PlanCall} --apply --require-reviews \" false\"", CantRead },
+            { $"{PlanCall} --apply --require-reviews 'false '", CantRead },
+            { $"{PlanCall} --apply --require-reviews false", CantRead },
+            { $"{PlanCall} --apply --require-reviews true", CantRead },
+            { $"{PlanCall} --apply --out --require-reviews", CantRead },
+            { $"{PlanCall} --apply --github-run --require-reviews", CantRead },
+            { $"{PlanCall} --apply # --require-reviews", CantRead },
+            { $"{PlanCall} --apply > --require-reviews", CantRead },
+            { $"{PlanCall} --apply <<< --require-reviews", CantRead },
+            { $"{PlanCall} --apply --require-reviews > /x/out false", CantRead },
+            { $"{PlanCall} --apply --require-reviews 2> /x/err false", CantRead },
+            { $"{PlanCall} --apply>/x/out.txt", CantRead },
+            { $"{PlanCall} --apply>&2", CantRead },
+            { $"{PlanCall} --apply&>/x/log", CantRead },
+            { $"{PlanCall} --apply</dev/null", CantRead },
+            { $"{SettingsCall} --apply>/x/out.txt", CantRead },
+            { $"{SettingsCall} --apply>&2", CantRead },
+            { $"{SettingsCall} --apply&>/x/log", CantRead },
+            { $"{SettingsCall} --apply</dev/null", CantRead },
+            { $"{PlanCall} --apply -- --require-reviews", CantRead },
+            { $"{PlanCall} --apply=true --require-reviews", CantRead },
+            { $"{PlanCall} --Apply --require-reviews", CantRead },
+            { $"{PlanCall} --apply --require-reviews -h", CantRead },
+            { $"{SettingsCall} ${{X:---app}}ly>/dev/null", CantRead },
+            { $"{SettingsCall} --ap{{p,p}}ly>/dev/null", CantRead },
+            { $"F=--apply; {SettingsCall} $F>&2", CantRead },
+            { $"{PlanCall} --apply --out 2>&1 --require-reviews", CantRead },
+            { $"{PlanCall} >/x/`id`.txt", CantRead },
+            { $"powerops deploy apply --target {Env} --apply --require-reviews /x/p.json", CantRead },
+            { $"powerops settings apply --apply /x/s.zip --settings /x/s.json", CantRead },
+            { $"\"`pac solution import --path /x/s.zip --environment {Env}`/powerops\" deploy apply /x/p.json --target {Env}", CantRead },
+            { $"dotnet run --project src/PowerOps.Cli -- deploy apply /x/p.json --target {Env} --apply --require-reviews", CantRead },
+            { $"dotnet run --project src/PowerOps.Cli -- deploy apply /x/p.json --target {Env}", CantRead },
+            { $"dotnet {SettingsCall}", CantRead },
+            { $"env {SettingsCall} --apply", CantRead },
+            { $"X=1 {PlanCall} --apply --require-reviews", CantRead },
+            { $"sh -c \"{SettingsCall} --apply\"", CantRead },
+            { "powerops \"$CMD\" apply", CantRead },
+            { "powerops deploy \"$SUB\"", CantRead },
+            { $"powerops deploy apply \"$PLAN\" --target {Env} --apply --require-reviews", CantRead },
+            { $"powerops deploy apply \"$PLAN\" --target {Env}", CantRead },
+            { $"powerops deploy apply ~/p.json --target {Env}", CantRead },
+            { $"{PlanCall} $FLAGS", CantRead },
+            { $"powerops deploy --format json apply /x/p.json --target {Env}", CantRead },
+            { "grep -n \"settings apply\" docs/COMMANDS.md", CantRead },
+            { "git commit -m \"fix: deploy apply\"", CantRead },
+            { "terraform -chdir=deploy apply", CantRead },
+            { "ls deploy apply", CantRead },
+            // The program word must be literal, so a powerops call by a ~ or variable path is unreadable whatever it runs.
+            { "~/.dotnet/tools/powerops analyze .", CantRead },
+            { "\"$HOME/.dotnet/tools/powerops\" plan status docs/plans/x", CantRead },
+            // Amendment 1: the shell runs each of these with --apply while the segment read alone looks like a dry run.
+            { $"{SettingsCall} >|/x/out --apply", CantRead },
+            { $"{PlanCall} >|/x/out --apply", CantRead },
+            { "powerops settings apply /x/s.zip --settings <(cat /x/s.json) --apply", CantRead },
+            { $"{SettingsCall} > >(cat) --apply", CantRead },
+            { $"{PlanCall} < <(true) --apply", CantRead },
+            { $"{SettingsCall} <&0 --apply", CantRead },
+            { $"{PlanCall} <&0 --apply", CantRead },
+            { "powerops settings apply /x/s.zip --settings =(cat /x/s.json) --apply", CantRead },
+            { "powerops settings nosuchfile(N) apply /x/s.zip --settings /x/s.json --apply", CantRead },
+            { "powerops settings nosuchfile\\\n(N) apply /x/s.zip --settings /x/s.json --apply", CantRead },
+            { $"{PlanCall} >", CantRead },
+            { $"printf -- --apply | $(printf xargs) {SettingsCall} --target \"Contoso Test\"", CantRead },
+            { $"printf -- --apply | $(printf xargs)\\\n {SettingsCall} --target \"Contoso Test\"", CantRead },
+            { $"{SettingsCall} --target \"Contoso Test\" ^z", CantRead },
+            { $"{SettingsCall} --appl#y", CantRead },
+            { $"powerops() {{ echo; }}; {SettingsCall} --apply", CantRead },
+            { $"case $X in a) {PlanCall} ;; esac", CantRead },
         };
 
         foreach (var flag in Unread)
@@ -467,6 +549,66 @@ public class ImportCallTests
     {
         Assert.True(Blocked(Bash("pac $s import")).Unreadable);
         Assert.False(Blocked(Bash("pac package deploy --package /x.zip --environment " + Url)).Unreadable);
+    }
+
+    // ---- 3. PowerOps's own imports (M115) -----------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(SettingsCall + " --apply --target \"Contoso Test\"", SettingsApply)]
+    [InlineData("powerops settings apply /x/s.zip --apply --settings /x/s.json --target \"Contoso Test\"", SettingsApply)]
+    [InlineData(SettingsCall + " --target \"Contoso Test\" --apply", SettingsApply)]
+    [InlineData("\"powerops\" settings apply /x/s.zip --settings /x/s.json --apply", SettingsApply)]
+    [InlineData("/home/u/.dotnet/tools/powerops settings apply /x/s.zip --settings /x/s.json --apply", SettingsApply)]
+    [InlineData("powerops.exe settings apply /x/s.zip --settings /x/s.json --apply", SettingsApply)]
+    [InlineData("powerops Settings Apply /x/s.zip --settings /x/s.json --apply", SettingsApply)]
+    [InlineData(PlanCall + " --apply", DeployApply)]
+    [InlineData("powerops deploy apply /x/p.json --apply --target " + Env, DeployApply)]
+    [InlineData("powerops deploy apply /x/p.json --format json --apply --out /x/r.json --target " + Env, DeployApply)]
+    [InlineData("powerops deploy plan deploy --target " + Env + " --save deploy/powerops-plan.json && " + PlanCall + " --apply", DeployApply)]
+    [InlineData("powerops deploy plan deploy --target " + Env + " --save deploy/powerops-plan.json; " + PlanCall + " --apply", DeployApply)]
+    // The audit's G02 reading, which passed before M115.
+    [InlineData("powerops deploy apply deploy/powerops-plan.json --target 00000000-0000-0000-0000-000000000001 --apply", DeployApply)]
+    public void A_powerops_import_that_checks_no_review_gives_its_route(string command, string line)
+    {
+        foreach (var tool in new[] { "Bash", "Monitor" })
+        {
+            var blocked = Blocked(Bash(command, tool));
+
+            Assert.Equal([line], blocked.Lines);
+            Assert.False(blocked.Unreadable);
+        }
+    }
+
+    [Theory]
+    [InlineData(PlanCall + " --apply --require-reviews")]
+    [InlineData("powerops deploy apply /x/p.json --target " + Env + " --require-reviews --apply")]
+    [InlineData("powerops deploy apply /x/p.json --require-reviews --target " + Env + " --apply")]
+    [InlineData(PlanCall + " --apply --require-reviews --format json")]
+    [InlineData(PlanCall + " --apply --require-reviews --out /x/r.json")]
+    [InlineData(PlanCall + " --apply --require-reviews 2>&1")]
+    [InlineData(PlanCall + " --apply --require-reviews >&2")]
+    [InlineData("powerops deploy apply \"/x/p.json\" --target " + Env + " --apply --require-reviews")]
+    [InlineData(PlanCall)]
+    [InlineData(PlanCall + " > /x/out.txt")]
+    [InlineData(SettingsCall)]
+    [InlineData(SettingsCall + " --target \"Contoso Test\"")]
+    [InlineData("powerops settings validate src/ContosoApp --settings deploy/ContosoApp_managed.settings.json")]
+    [InlineData("powerops deploy plan deploy --target " + Env + " --save deploy/powerops-plan.json")]
+    [InlineData("powerops analyze .")]
+    [InlineData("powerops plan status docs/plans/x")]
+    [InlineData("powerops deploy gate \"$CLAUDE_PROJECT_DIR/deploy/powerops-plan.json\"")]
+    [InlineData("powerops --version")]
+    [InlineData("powerops")]
+    // A ( after a separator, or a ) before one, is another command.
+    [InlineData(PlanCall + " | (cat)")]
+    [InlineData(PlanCall + " && (echo ok)")]
+    [InlineData("(cd /x && ls); " + PlanCall)]
+    [InlineData("echo $(date) && " + PlanCall)]
+    [InlineData("X=$(date)\n" + PlanCall)]
+    public void A_guarded_powerops_import_a_dry_run_or_another_powerops_command_is_not_an_import(string command)
+    {
+        Assert.IsType<ImportRead.NotImport>(Bash(command));
+        Assert.IsType<ImportRead.NotImport>(Bash(command, "Monitor"));
     }
 
     [Fact]
@@ -691,6 +833,10 @@ public class ImportCallTests
     [InlineData("pa app push")]
     [InlineData("node x/manage-agent.bundle.js pull")]
     [InlineData("pac power-pages upload-certificate --path /x/cert.pfx")]
+    [InlineData(SettingsCall + " --apply")]
+    [InlineData(SettingsCall)]
+    [InlineData(PlanCall + " --apply --require-reviews")]
+    [InlineData(PlanCall)]
     public void A_pac_or_import_command_in_the_powershell_tool_is_blocked(string command)
     {
         Assert.Contains("imports are read only in Bash commands, not in PowerShell", Blocked(Bash(command, "PowerShell")).Lines);

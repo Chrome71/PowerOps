@@ -351,7 +351,7 @@ There is no rollback: on a failure, fix the cause and run again.
 
 ### Agents
 
-Agents: run the dry run first and show the user the target line; run `--apply --target <name>` only after the user says yes to that environment, and never against an environment the user did not name.
+Agents: run the dry run freely against an environment the user named (it reads pac's current environment and its flows), as one plain command with literal words where the gate's hooks are on, and show the user the target line. `--apply` is the person's own command: it checks no review, so no deployment yes covers it for an agent, and with the hooks on the gate blocks an agent's call to it.
 
 ## drift
 
@@ -812,11 +812,11 @@ Exit codes: `0` applied (or a dry run that would apply), `1` refused, a flow not
 
 ### Agents
 
-Agents: run `deploy apply` without `--apply` freely against an environment the user named.
+Agents: run `deploy apply` without `--apply` freely against an environment the user named, as one plain command with literal words where the gate's hooks are on.
 The yes to an import is held in two places an agent can't answer for: the form of the MCP tool `deploy_apply` with `apply: true`, where the user types the environment's name (interactive clients only), and the Action's apply job in a GitHub environment with required reviewers ([the Action](GITHUB-ACTION.md)).
 Call the tool with `apply: true` only after the user said yes to that environment in the session.
 A local `deploy apply --apply` passes no form, and the yes before it is held nowhere and enforced by nothing: an agent runs it only with `--require-reviews`, after the user said yes to that environment in the session.
-That yes is one per deployment: one saved plan file to one target, covering its import, `settings apply --apply` to that target and the plan's named steps there. It ends once they are done.
+That yes is one per deployment: one saved plan file to one target, covering its import and the plan's named steps there. `settings apply --apply` is not in it: it checks no review, so it stays the person's own command. The yes ends once they are done.
 A declined, cancelled or failed form ends an earlier yes, and so do a refusal, a re-planned or changed plan file, a changed plan hash (the `signed-off-hash` of the PowerOps plan behind the build) and a blocked report: the agent says so and asks again, and never imports if the user says they declined.
 Without both review reports the import stays the person's own command.
 The gate's message to a blocked agent names the same routes, and the tool's refusal of a declined, cancelled or failed form tells the agent to ask again.
@@ -825,7 +825,7 @@ The gate's message to a blocked agent names the same routes, and the tool's refu
 
 ### Synopsis
 
-`deploy gate <plan file>` is the command that a `PreToolUse` hook of Claude Code or Codex runs before Microsoft's import tools.
+`deploy gate <plan file>` is the command that a `PreToolUse` hook of Claude Code or Codex runs before Microsoft's import tools and PowerOps's own apply commands.
 It reads the hook's JSON on stdin (UTF-8, at most 1 MB), writes nothing to stdout, and exits `0` or `2` only, because a hook blocks only on `2`.
 It never imports anything and never writes a file.
 
@@ -870,8 +870,12 @@ Everything else blocks:
   - `manage-agent.bundle.js push` and `publish` (the `copilot-studio` plugin's `manage-agent` skill; its other verbs pass when they are the word after the script, and any other call to the bundle is unreadable),
   - `Import-CrmSolution`,
   - any import in PowerShell,
-  - a command that holds an import or a route the gate cannot read (`sh -c`, `eval`, a variable, or a mention such as `grep "pac solution import" docs` or `git commit -m "... pa app push"`, or one that names the bundle, such as `ls scripts/manage-agent.bundle.js`, or a call holding an import or route marker led by other `NAME=value` words),
+  - an agent's `powerops settings apply --apply`, which checks no review,
+  - `powerops deploy apply --apply` without `--require-reviews`,
+  - a command that holds an import or a route the gate cannot read (`sh -c`, `eval`, a variable, or a mention such as `grep "pac solution import" docs` or `git commit -m "... pa app push"`, or one that names the bundle, such as `ls scripts/manage-agent.bundle.js`, or a call holding an import or route marker led by other `NAME=value` words, or `dotnet run -- deploy apply ...`, a dry run with a variable such as `powerops deploy apply "$PLAN" --target <id>`, or `git commit -m "... deploy apply"`),
   - and a Bash command with a `$'...'` word that holds an escape.
+
+The gate passes `powerops deploy apply --apply --require-reviews` only as one plain `powerops` command with literal words, options the command has, no value after either switch, no option twice and no redirection but `2>&1` or `>&2`, and the program word literal too (`~/.dotnet/tools/powerops` blocks whatever it runs). It passes plain dry runs of `deploy apply` and `settings apply` (no `--apply`) without reading the plan, in a Bash or Monitor command, not in PowerShell.
 
 A plan-file argument that starts with `-` blocks too.
 The gate has no help: `-h`, `/h`, `--help`, `-?` and `/?`, with or without a plan file, write one `error: deploy gate has no help` line and exit `2`, because help would exit `0` and let the call through.
@@ -896,8 +900,8 @@ The exit codes are `0` allowed and `2` blocked, for every other outcome.
 The gate blocks the routes it knows: a new pac command or MCP tool that installs, imports, uploads or publishes passes until the gate gets a route for it.
 For agents, it doesn't see Apply in the Copilot Studio extension for VS Code, the Copilot Studio MCP server's `manage_agents` and `manage_workflows`, FlowAgent's `copy_flow`, `publish_flow` and `update_flow`, or the Power BI Authoring MCP server, so those pass, and it has no route for `pa app share`, `pa connection create`, `pa app add data-source`, `pac copilot quarantine` or `pac copilot merge-translation`, or for the commands and MCP tools of pac's preview groups, which pass ([Hand-off](HANDOFF.md#gate-microsofts-imports)).
 
-The gate does not see powerops' own commands: an agent's own `powerops deploy apply --apply` passes through no gate, gets the warnings of the review check only, and goes on.
-A pass shows that the call matches the plan file at the given path and the live target.
+With the hooks on, the gate blocks an agent's own `powerops settings apply --apply` and a `powerops deploy apply --apply` without `--require-reviews`; it sees only the agent's hooked tool calls, not the person's terminal, the MCP tool `deploy_apply` (which always checks the reviews) or the Action.
+A pass of an import shows that the call matches the plan file at the given path and the live target.
 It is not a record that anyone reviewed that file, and it is not the user's yes to the import.
 
 ## plan and skills
