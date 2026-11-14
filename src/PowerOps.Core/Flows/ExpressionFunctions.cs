@@ -823,6 +823,13 @@ public static class ExpressionFunctions
         ["UTC-11"] = 2008,
     };
 
+    // On Linux, ICU maps these two to the old names Asia/Calcutta and Asia/Katmandu, which Ubuntu 24.04 and later ship only in tzdata-legacy (ECO-0021)
+    private static readonly Dictionary<string, string> CurrentIanaNames = new(StringComparer.Ordinal)
+    {
+        ["India Standard Time"] = "Asia/Kolkata",
+        ["Nepal Standard Time"] = "Asia/Kathmandu",
+    };
+
     // not on Learn, plan "Not on Learn": Windows and Linux hold different past rules, so only the zones the tests check on both are taken
     private static TimeZoneInfo Zone(string function, string name)
     {
@@ -831,7 +838,14 @@ public static class ExpressionFunctions
         {
             if (Zones.ContainsKey(name))
             {
-                return TimeZoneInfo.FindSystemTimeZoneById(name);
+                try
+                {
+                    return TimeZoneInfo.FindSystemTimeZoneById(name);
+                }
+                catch (TimeZoneNotFoundException) when (CurrentIanaNames.TryGetValue(name, out var iana))
+                {
+                    return TimeZoneInfo.FindSystemTimeZoneById(iana);
+                }
             }
         }
         catch (Exception e) when (e is TimeZoneNotFoundException or InvalidTimeZoneException or System.Security.SecurityException or UnauthorizedAccessException or IOException)
