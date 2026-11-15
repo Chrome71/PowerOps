@@ -77,7 +77,7 @@ Every sketch file obeys these. `powerops plan status` checks them as text, after
 
 - Fake values under the ledger's display names, and nothing from answers, environment facts or the tenant, the same rows in all three options.
 - Columns under column security or holding personal data (national IDs, phone numbers, dates of birth, home addresses, pay, health) show a mask such as `*****`, with a note in the map's "Who sees what". A column the plan puts on no screen isn't drawn.
-- A fake person is a name such as "Sample Person A", never an email or a real or customer name.
+- A fake person has a plausible made-up name of varied length, written as a first name and an initial ("Maria S.", as the samples do; S8), never an email, a full real name or a customer name.
 - Write no `@` in text; the only `@` rule allowed is `@media`, and nothing is animated: no `@keyframes`, no animation. Write no `http` (not even in text) and no GUID. The tenant-data scan reads every file in the plan folder and flags them.
 - Do not copy `<url>`, `<email>` or similar placeholders from the plan: write the words instead.
 
