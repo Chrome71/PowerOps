@@ -1,8 +1,10 @@
-plan-hash: 5e935d06393576c49fa9621b10dc832632f0aa57b9caeb45fcaf9e654615b9a9
+plan-hash: 31b58f3d1419f5e1ce0bb339a323722a3fc1fc12ae257b6bbec24fe04aa556d9
 model: claude-opus-5-5
 fresh-context: yes
 
 Second pass, 2026-11-15, on revision 2 (commit `cbdb0aa`, body hash above): R1 to R13 checked against the revised plan and resolved below; R14 to R16 are new. `powerops plan status` on revision 2 reports one violation, the subject of R14.
+
+Third pass, 2026-11-15, on the plan at `e93aba0` (R14 to R16 fixed in `c12f1d6`, and the five corrections of Fable's round-2 approval: Done when 8(b), Data rows 1 and 9): R14 to R16 resolved below; R17 is new. `powerops plan status` reports no violation.
 
 Environment facts were not read: tenant offline, and no confirmation that `pac` is signed in to the plan's environment (`environment: null`).
 
@@ -22,7 +24,7 @@ No findings.
 - Area: URLs, GUIDs, emails and names in the plan; 9 (testability)
 - Finding: Data row 3 (plan line 51) now spells out the desktop-flow row with two full Learn links. `powerops plan status` reports a violation on that line ("looks like a URL"), so Done when 9's clean `plan status` can't hold as written, and the rest of the plan names Learn pages by title and path only.
 - Suggested fix: In Data row 3, give the two pages by title and Learn path as Assumptions does (the links go into `licensing.md`, not the plan), or add the allow marker to that line with a reason.
-- Resolution: open
+- Resolution: fixed (`c12f1d6`: Data row 3 names the two pages by title and Learn path, linked in `licensing.md` only; `plan status` reports no violation on the third pass)
 
 #### R1. The 750 flow-run limit is checked per flow, but it is the environment's total
 - Area: 3 (licence impact), 7 (data volume)
@@ -108,10 +110,16 @@ No findings.
 - Area: URLs, GUIDs, emails and names in the plan
 - Finding: The two paths R12 asked for are written as absolute paths that hold the local account's home folder name. Plans are committed, and that name identifies the machine's user.
 - Suggested fix: Write them relative to the main checkout (`reports/trial-3/chain/chain-rules.md`, `reports/practitioner-research/upgrade-plan.md`, `reports/leakscan.sh`), saying they are git-ignored there.
-- Resolution: open
+- Resolution: fixed (`c12f1d6`: Constraints gives the paths relative to the main checkout, git-ignored there)
 
 #### R16. Step 1 names the previous solution by a request built later
 - Area: 13 (buildability)
 - Finding: Data row 1's new step 1 text says "Run `inventory` on the previous solution too (step 3's request names it)", but the request to the two roles is built after step 3's design check, after step 1 runs. Section 4 does define it ("the last export before this plan, from the repo's history", or "no previous solution"), so the step can be done, but the pointer sends an agent forward to a request that doesn't exist yet.
 - Suggested fix: Point to the definition instead: "the previous solution (the last export before this plan, from the repo's history), or none".
+- Resolution: fixed (`c12f1d6`, `e93aba0`: Data row 1 defines the previous solution as the last export before this plan, from the repo's history, and says every driver counts as new with none on disk or in the history)
+
+#### R17. The smoke scenario's route check can miss a route question
+- Area: 9 (testability)
+- Finding: Data row 9 now fails the `draft` scenario only when a `### Q` heading matches `route`, because section 3 step 1's question on the target environment and its sign-ins may still come. A route question worded without that word (for example "How does it reach Prod?") passes the check, so the scenario can pass while the draft's route was asked again. The `- from the draft:` Log line check doesn't catch that, because the line can be written and the question still asked.
+- Suggested fix: Also fail on a `### Q` heading or option that names both Test and Prod (case-insensitive `test.*prod|prod.*test`), which section 3 step 1's question doesn't need.
 - Resolution: open
