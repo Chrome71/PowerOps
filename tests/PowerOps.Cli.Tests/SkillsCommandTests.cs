@@ -1065,7 +1065,8 @@ public partial class SkillsCommandTests : IDisposable
         [
             "under `quick` and in the fast path, start it at approval",
             "log the `prototype:` line under `## Log` at once",
-            "or at approval when no round follows",
+            "before any \"What next?\" menu",
+            "in the reply that reports the change, never in a later round or at approval",
             "run `options` again",
             "or you can't tell whether they did",
             "one file, not three new options",
