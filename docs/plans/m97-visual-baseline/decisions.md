@@ -90,6 +90,10 @@ Answer: 1. The gate is the WCAG floor written for a sketch; WCAG doesn't hold di
 Asked of the person (relayed by the session that started this one), after step 5 found the passed Power Pages sample's avatar initials ("MS", beside "Maria S.") at 12 px: "May avatar initials shown beside the person's name go under the 14 px site text floor?"
 Answer: "Yes, exempt them" (2026-11-15). Gate 6's size floor exempts the initials inside an avatar shown beside the person's name, because they repeat that name; their contrast still counts. Logged like Q14's disabled-control exemption; the passed Power Pages sample stays `at baseline` in the calibration key. (answered by: person)
 
+### Q16. How does M97 go on after the judge failed two passed samples?
+Asked of the person (relayed by the session that started this one) after calibration round 1, where the judge failed the canvas and Power Pages samples the owner passed on four confirmed faults (`calibration.md`): "How should M97 handle the four faults in the passed samples?"
+Answer: "Fix samples, rerun" (2026-11-15). Fix the four faults in the canvas and Power Pages samples, reword gate 1 to "cover the title", as S1 does, and rerun all five rows; before the merge, the person sees the changed samples beside the originals, with the prototype verification output. Q15's exemption still covers only initials beside the name: the sample's phone header is fixed, and the exemption is not widened. This is the calibration's one revision (plan step 7). (answered by: person)
+
 ## Log
 
 - 2026-11-14: started by the M97 building session (Opus) in its own worktree at `69b339a` (`origin/main`). Depth `standard`: skill and reference text, a new skill with a script, sketch checks in `PlanChecker.cs`; no tenant.
@@ -103,3 +107,4 @@ Answer: "Yes, exempt them" (2026-11-15). Gate 6's size floor exempts the initial
 - 2026-11-14: step 5 found a confirmed gate 6 fault on the passed Power Pages sample (12 px avatar initials beside the name, under the 14 px site floor). By Done line 3 it went to the person (relayed through the session that started this one); the calibration run waits on the answer. Steps 2 to 6 committed: efe18cb, 7497732, ed29ee0, 53dc663, 0211957.
 - 2026-11-14: the verification run's judge round 1 showed that `powerops-prototype` section 5 ("a name such as \"Sample Person A\"") contradicted baseline S8 (plausible names of varied length) and the passed samples; the line now asks for a made-up first name and initial (commit after `f599fc2`). The plugin copies follow at the next goldens run.
 - 2026-11-15: the person's answer to the gate 6 question, quoted in Q15; the calibration runs after the exemption is in `baseline.md` and `measure.py`.
+- 2026-11-15: calibration round 1 (`calibration.md`, `cbf8921`) matched rows 1, 3 and 4 and missed rows 2 and 5 on confirmed faults in the passed samples; by Done line 3 it went to the person, whose answer is quoted in Q16.

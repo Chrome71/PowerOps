@@ -8,7 +8,7 @@ This folder holds three design samples, one per product, with a map file each, a
 
 ## What they are
 
-The samples are the level, not a template: copy their discipline, never their layout, content or brand. The owner passed them on 2026-11-11, and they ship unchanged, byte for byte.
+The samples are the level, not a template: copy their discipline, never their layout, content or brand. The owner passed them on 2026-11-11. The Power BI sample ships unchanged, byte for byte. The canvas and Power Pages samples carry the fixes of four faults the judge found in them, made on the person's answer of 2026-11-15 (M97 decision Q16): the phone list's "Log a repair" docked as its caption says, with lighter summary numbers; the accent kept for the main action (the step numbers and the "Repairs" label no longer use it); the selected row and radio box marked without the tint the "Scheduled" badge uses; and the phone header's initials at the 14 px floor.
 
 `kit.css` is the kit the samples embed, with two changes: the disabled button text is the token `--fg-disabled` instead of a raw hex, and it holds the browser frame rules (`.frame.browser` and `.chrome`) copied from the Power Pages sample.
 

@@ -78,7 +78,7 @@ The judge scores nine dimensions, each 0 to 4: **0** broken, **1** functional, *
 
 Any one gate fails the sketch, whatever its scores:
 
-1. **Lead.** The element the job line names as the first look is not the largest or strongest item in its frame, or two items compete for it.
+1. **Lead.** With the title covered, as S1's check does, the element the job line names as the first look is not the largest or strongest item in its frame, or two items compete for it (decision Q16 of M97).
 2. **Contradiction.** Two numbers, dates, references or statuses disagree, or one screen breaks a promise another makes.
 3. **Unbuildable.** A main frame draws a part the map marks "not confirmed", "not native" or "preview" without the plan recording that choice. The fallback is what gets drawn.
 4. **One meaning, two colours,** or one colour with two meanings.

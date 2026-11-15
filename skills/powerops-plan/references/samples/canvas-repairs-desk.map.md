@@ -60,8 +60,8 @@ This frame is a new call (Dele O., Flat 6, 18 Ropewalk, Ferry Road), not RP-2041
 |---|---|---|---|
 | One column below 600 px | App.SizeBreakpoints [600, 900, 1200]; Screen.Size = ScreenSize.Small hides the rail and the detail pane, shows the bottom bar | GA | `CA/create-responsive-layout` |
 | Phone header and logo | Horizontal container Fill ink; Image of the mark in a brand Container; Text; Avatar; back = Button IconOnly. The status strip with the time is the device, not the app. | GA | `CC/control-horizontal-container`, `MC/modern-control-button` |
-| "Log a repair" (filled, 44 px, focus ring) | Button Primary, Icon Add, Height 44, in the title row. Kept filled on purpose: on the phone list nothing else is primary, and the coordinator logs calls all day. | GA | `MC/modern-control-button` |
-| Summary chips cut off at the edge | Horizontal container, Horizontal Overflow Scroll, three Containers with Texts | GA | `CC/control-horizontal-container` |
+| "Log a repair" (filled, 44 px, docked) | Button Primary, Icon Add, Height 44, in a fixed footer container above the navigation (top border, DropShadow), as on Repair (phone). Kept filled on purpose: on the phone list nothing else is primary, and the coordinator logs calls all day; docked, it is the second look after the top emergency. | GA | `MC/modern-control-button`, `CC/control-horizontal-container` |
+| Summary chips cut off at the edge | Horizontal container, Horizontal Overflow Scroll, three Containers with Texts (value Text 20 Semibold, so the top emergency below leads) | GA | `CC/control-horizontal-container` |
 | Three tabs | Tab list with three items (no horizontal scroll in the Tab list; Parts and Overdue move to the filter) | GA | `MC/modern-control-tabs-or-tabs-list` |
 | Rows with wrapping titles | Classic Gallery, flexible height, TemplatePadding 12; title Text with Wrap on (two lines, no ellipsis), then a Horizontal container with Badge, time left with its time-used Progress bar (emergencies only) and reference; first row selected as on desktop | GA | `CC/control-gallery` |
 | Bottom navigation | Horizontal container shown when Screen.Size = ScreenSize.Small, with a soft top shadow (DropShadow on the container); each item a modern Icon (OnSelect, AccessibleLabel) over a Text. An icon above its label inside one Button: not confirmed (Button Layout is IconBefore, IconAfter or IconOnly). | GA | `CA/create-responsive-layout`, `MC/modern-control-icon` |
@@ -126,7 +126,7 @@ Theme:
   comes close. The page tone (`#F6F5F2`) is the screen Fill.
 - Status colours come from Badge Intent (Critical, Caution, Positive, Informative, Neutral), not from the theme: the
   theme has one ramp. Crit tints on the target block and message bars are set per container with ColorValue.
-- Type: 12 meta, 14 body, 16 record and card titles, 24 screen title and summary values, 32 Bold for the one lead number.
+- Type: 12 meta, 14 body, 16 record and card titles, 24 screen title and desktop summary values, 20 Semibold for the phone summary values, 32 Bold for the one lead number.
 - No dark mode (not supported for canvas).
 
 ## Not drawn
