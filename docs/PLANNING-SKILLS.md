@@ -43,7 +43,7 @@ PowerOps fills the gap between "I have an idea" and "the agent may start buildin
 ```
                  powerops-plan                         powerops-review-plan
 idea ──► draft ──(user: B approve)──► approved ──(agent forks reviewer)──► review.md  (review: done)
-                        (screens: powerops-prototype ──► three options in mockups/, the user picks one ──► prototype.html, or skips)
+                        (screens: powerops-prototype ──► three lead frames in mockups/, the user picks one ──► prototype.html, judged by powerops-review-sketch, or skips)
                                         │                                      │
                                         │ user: "sign off", review skipped     │ user resolves findings
                                         │ (review: skipped)                    │

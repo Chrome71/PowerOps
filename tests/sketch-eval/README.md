@@ -9,6 +9,7 @@ A change to the judge's text or `measure.py`, or to the scale or a gate in `skil
 Each row folder holds a short `plan.md`, with the `Screens` lines and any `Assumptions` line the judge needs. Rows 1 and 4 also hold their sketch, as `mockups/prototype.html` (row 4 with its map, `mockups/prototype.map.md`). Rows 2, 3 and 5 take their sketch and map from `skills/powerops-plan/references/samples/`, as `key.md` says.
 
 - Row 1's sketch is the picked sketch of trial 3 (its plan's `mockups/prototype.html` of 2026-11-11). It holds made-up data only and has no map.
+  Its one real-looking company name was replaced with a made-up one of the same length; nothing else changed.
 - Row 4's sketch and map are the first version of the Power Pages sample, which the owner failed.
 
 ## How to run a row

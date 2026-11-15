@@ -55,7 +55,7 @@ public static class SkillsCommand
         return files;
     }
 
-    /// <summary>The Claude Code copy of a file: the three role skills (plan review, security review, verify) run in a fresh context on the top-tier model alias.</summary>
+    /// <summary>The Claude Code copy of a file: the forked skills (prototype, plan review, security review, sketch judge, verify) run in a fresh context on the top-tier model alias.</summary>
     public static string ForClaude(string relativePath, string content)
     {
         if (!ForkedSkills.Contains(relativePath))
