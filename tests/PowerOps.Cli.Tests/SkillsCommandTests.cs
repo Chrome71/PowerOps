@@ -1,12 +1,13 @@
 using System.Text.RegularExpressions;
 
 using PowerOps.Core.Output;
+using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
 
 public partial class SkillsCommandTests : IDisposable
 {
-    private static readonly string[] Skills = ["powerops-plan", "powerops-prototype", "powerops-review-plan", "powerops-implement", "powerops-review-security", "powerops-verify"];
+    private static readonly string[] Skills = ["powerops-plan", "powerops-prototype", "powerops-review-plan", "powerops-implement", "powerops-review-security", "powerops-review-sketch", "powerops-verify"];
     private readonly string _temp = Directory.CreateTempSubdirectory("powerops-skills-").FullName;
 
     public void Dispose() => Directory.Delete(_temp, recursive: true);
@@ -26,7 +27,7 @@ public partial class SkillsCommandTests : IDisposable
     private static partial Regex NamePattern();
 
     [Fact]
-    public void Empty_dir_gets_both_targets_with_all_six_skills()
+    public void Empty_dir_gets_both_targets_with_all_seven_skills()
     {
         var (code, output, _) = Run("skills", "install", _temp);
 
@@ -184,6 +185,7 @@ public partial class SkillsCommandTests : IDisposable
     [InlineData("powerops-prototype")]
     [InlineData("powerops-review-plan")]
     [InlineData("powerops-review-security")]
+    [InlineData("powerops-review-sketch")]
     [InlineData("powerops-verify")]
     public void Only_the_claude_copies_of_the_forked_skills_get_the_fork_lines(string skill)
     {
@@ -205,6 +207,7 @@ public partial class SkillsCommandTests : IDisposable
     [InlineData("powerops-prototype/SKILL.md")]
     [InlineData("powerops-review-plan/SKILL.md")]
     [InlineData("powerops-review-security/SKILL.md")]
+    [InlineData("powerops-review-sketch/SKILL.md")]
     [InlineData("powerops-verify/SKILL.md")]
     public void ForClaude_inserts_before_the_closing_fence_and_leaves_other_files_alone(string file)
     {
@@ -556,12 +559,12 @@ public partial class SkillsCommandTests : IDisposable
     [Fact]
     public void Plan_skill_stays_under_its_word_ceiling()
     {
-        // M41: the 2,483 words the skill had before the ledger, plus 300. M81: plus 50 for the engagement rule and the callable-tool rule. Decision 52: plus 40 for the three options and the pick. M91: plus 494 for the option format, the defaults batch, the budget and the licence read. M93: plus 144 for the early sketch, the redone pick and the unproven line. M94: plus 108 for the sign-off lines, their log line and the start of the build. On ASCII text a split on whitespace counts as wc -w does.
+        // M41: the 2,483 words the skill had before the ledger, plus 300. M81: plus 50 for the engagement rule and the callable-tool rule. Decision 52: plus 40 for the three options and the pick. M91: plus 494 for the option format, the defaults batch, the budget and the licence read. M93: plus 144 for the early sketch, the redone pick and the unproven line. M94: plus 108 for the sign-off lines, their log line and the start of the build. M97: plus 119 for the side-by-side pick, the pass question and the four end states. On ASCII text a split on whitespace counts as wc -w does.
         var text = SkillsCommand.Shipped()["powerops-plan/SKILL.md"];
         var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
 
         Assert.All(text, c => Assert.True(c < 128, $"non-ASCII character U+{(int)c:X4}"));
-        Assert.InRange(words, 1, 3615);
+        Assert.InRange(words, 1, 3734);
     }
 
     private static string PlanSkill() => SkillsCommand.Shipped()["powerops-plan/SKILL.md"];
@@ -753,10 +756,13 @@ public partial class SkillsCommandTests : IDisposable
         // M70: the skill writes what PlanChecker.PrototypeProblems accepts, so its numbers and markers must match.
         var text = SkillsCommand.Shipped()["powerops-prototype/SKILL.md"];
 
-        string[] rules = ["At most 81,920 bytes", "`route:`", "\"Sketch\"", "`data-screen=\"<name>\"`", "`href=\"#...\"`", "Write no `@` anywhere", "Never asks the user questions", "powerops plan status docs/plans/<name>", "Put `<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">` in each sketch's `head`, so a phone shows the narrow layout; it is the one `meta` allowed."];
+        string[] rules = ["`prototype.html` at most 163,840 bytes; an option at most 61,440 bytes", "`route:`", "\"Sketch\"", "`data-screen=\"<name>\"`", "`href=\"#...\"`", "Write no `@` in text; the only `@` rule allowed is `@media`", "Never asks the user questions", "powerops plan status docs/plans/<name>", "Put `<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">` in each sketch's `head`, so a phone shows the narrow layout; it is the one `meta` allowed."];
         Assert.All(rules, r => Assert.Contains(r, text));
         Assert.All(new[] { "empty", "loading", "error", "failed-save" }, s => Assert.Contains($"`data-state=\"{s}\"`", text));
-        Assert.All(new[] { "script", "link", "meta", "base", "iframe", "frame", "object", "embed", "img", "picture", "svg", "form", "video", "audio", "source" }, tag => Assert.Contains($"`{tag}`", text));
+        Assert.All(new[] { "script", "link", "meta", "base", "iframe", "frame", "object", "embed", "img", "picture", "form", "video", "audio", "source" }, tag => Assert.Contains($"`{tag}`", text));
+        // M97: inline SVG is allowed, so `svg` left the banned tags.
+        Assert.DoesNotContain("`svg`", Between(text, "- **Banned.**", "\n"));
+        Assert.Equal(163_840, PowerOps.Core.Plans.PlanChecker.MaxPrototypeBytes);
         Assert.All(text, c => Assert.True(c < 128, $"non-ASCII character U+{(int)c:X4}"));
     }
 
@@ -772,13 +778,143 @@ public partial class SkillsCommandTests : IDisposable
             "**`change <file>`**",
             "A different colour, font, radius or wording alone isn't a direction.",
             "`look.md` in full",
-            "say \"not rendered\" in the report",
-            "Score each file with section 5 of `look.md`",
+            "stop and report \"not rendered: no sketch can be approved from this session\"",
+            "Start `powerops-review-sketch <name> prototype.html` in a fresh context.",
+            "`measure.py side-by-side <a.html> <b.html> <c.html> <out.png>`",
+            "An option holds one frame: the screen that carries the most Goal lines, at the product's size",
             "Never weaken a screen, state or pair to silence a check.",
         ];
 
         Assert.All(wording, s => Assert.Contains(s, text));
         Assert.Equal(3, PowerOps.Core.Plans.PlanChecker.MinOptions);
+    }
+
+    [Fact]
+    public void Prototype_skill_states_the_sketch_rules_of_the_visual_baseline()
+    {
+        // M97: section 3 states what PlanChecker checks for frames, states, options, SVG, tokens, the map and the judge file.
+        var rules = Between(SkillsCommand.Shipped()["powerops-prototype/SKILL.md"], "## 3. File rules", "## 4. Design");
+        string[] wording =
+        [
+            "the `data-screen` element, or its parent, has the class `frame` and one of `desktop`, `phone`, `browser` or `report`",
+            "Each frame holds exactly one element marked `data-lead`",
+            "at most one element with the classes `btn primary`",
+            "`data-for=\"<screen name>\"` naming a `data-screen` value in the file",
+            "In `prototype.html` each distinct screen has all four.",
+            "An option holds exactly one `data-screen` and no `data-state`.",
+            "Beside `prototype.html`, `mockups/prototype.map.md`, not empty, naming every `data-screen` value.",
+            "its Learn page by path, as `learn.microsoft.com/power-apps/...`, never with `http`",
+            "\"Who sees what\" (S16)",
+            "`mockups/prototype.judge.md` is written by `powerops-review-sketch` only",
+            "a `judge:` line, `fresh context` or `self-judged`",
+            "a `sketch-hash:` line, the SHA-256 of `prototype.html`'s text with CRLF made LF",
+            "a last line `verdict: at baseline` or `verdict: not at baseline`",
+            "refuses `not at baseline` unless the last `prototype:` line holds `(below baseline: <why>)` and ends `(answered by: person)`",
+            "refuses `self-judged` unless the approval line ends `(answered by: person)`",
+            "Inside an `svg`, never `script`, `foreignObject`, `image`, `a`, `style`, `animate`, `set`, `animateMotion` or `animateTransform`.",
+            "`href` and `xlink:href` go only to `#...`",
+            "No attribute anywhere in the file holds `url(`.",
+            "Write no `xmlns` attribute",
+            "No hex colour in a CSS declaration outside `:root`, in the `style` element or in a `style` attribute",
+            "An SVG presentation attribute (`fill`, `stroke`, `stop-color`) may hold hex.",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, rules));
+    }
+
+    [Fact]
+    public void Sketch_judge_writes_six_parts_and_a_verdict_and_never_passes_an_unseen_sketch()
+    {
+        // M97: the judge's file is what PlanChecker reads; its header and verdict lines must match.
+        var text = SkillsCommand.Shipped()["powerops-review-sketch/SKILL.md"];
+        string[] wording =
+        [
+            "compatibility: Needs Python 3 and Chrome or Chromium",
+            "You did not draw this sketch. Your job is to find what is still average or wrong in it, with evidence. Praise is not useful.",
+            "Read nothing from the author's report or the planning chat.",
+            "```\njudge: fresh context\nsketch-hash: <the sketch-hash measure.py printed>\n```",
+            "Otherwise write `judge: self-judged`.",
+            "Each run adds one section, `## Round <n>`",
+            "One line, exactly `verdict: at baseline` or `verdict: not at baseline`",
+            "**No render, no pass.**",
+            "Write the round with `verdict: not at baseline` and, under `not checked`, `not rendered: <the message>`. Give no scores.",
+        ];
+        string[] parts = ["1. **Baseline table.**", "2. **Scores.**", "3. **Gates.**", "4. **Faults.**", "5. **Map check.**", "6. **Verdict.**"];
+        string[] never =
+        [
+            "Never edit the sketch, the plan or the map. Write only the judge file.",
+            "Never reach a tenant, and never use the web",
+            "Never write `http`, a GUID or an email address in the judge file. Name a Learn page by its path, as `learn.microsoft.com/power-apps/...`.",
+            "Never pass a sketch you have not seen rendered.",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, text));
+        var at = parts.Select(p => text.IndexOf(p, StringComparison.Ordinal)).ToList();
+        Assert.All(at, i => Assert.True(i >= 0));
+        Assert.Equal(at.Order(), at);
+        Assert.All(never, s => Assert.Contains(s, Between(text, "## Never", "## Per agent")));
+        Assert.All(text, c => Assert.True(c < 128, $"non-ASCII character U+{(int)c:X4}"));
+        Assert.Contains("powerops-review-sketch/measure.py", SkillsCommand.Shipped().Keys);
+        Assert.Contains("compatibility: Needs the powerops CLI on PATH, and Python 3 and Chrome or Chromium to render.", SkillsCommand.Shipped()["powerops-prototype/SKILL.md"]);
+    }
+
+    [Fact]
+    public void Baseline_holds_every_statement_the_scale_and_the_eight_gates()
+    {
+        var baseline = SkillsCommand.Shipped()["powerops-plan/references/baseline.md"];
+        foreach (var (prefix, count) in new[] { ("S", 16), ("C", 10), ("P", 10), ("B", 12) })
+        {
+            Assert.All(Enumerable.Range(1, count), n => Assert.Contains($"\n- **{prefix}{n}. ", baseline));
+            Assert.DoesNotContain($"\n- **{prefix}{count + 1}. ", baseline);
+        }
+
+        var scale = Between(baseline, "## 5. The scale", "## 6. The gates");
+        Assert.Contains("**0** broken, **1** functional, **2** intentional, **3** crafted, **4** exceptional", scale);
+        Assert.Contains("1. First look and lead. 2. Hierarchy and type. 3. Colour and meaning. 4. Layout, spacing and fill. 5. Content and numbers. 6. States. 7. Product fit and frame. 8. Detail and finish. 9. Identity.", scale);
+        Assert.Contains("**At the baseline** means no gate fails and every dimension is 3 or more. The one exception is Identity, which may be 2 for canvas, model-driven and Power BI", scale);
+
+        var gates = Between(baseline, "## 6. The gates", "## 7. The ladder");
+        string[] names = ["1. **Lead.**", "2. **Contradiction.**", "3. **Unbuildable.**", "4. **One meaning, two colours,**", "5. **More than one filled primary action**", "6. **Unreadable.**", "7. **Not the product.**", "8. **Could belong to anyone,** for a Power Pages site"];
+        Assert.All(names, g => Assert.Contains(g, gates));
+        Assert.Contains("The text of a disabled control is exempt", gates);
+        Assert.Contains("more than 15% of a frame's content area is empty", gates);
+    }
+
+    [Fact]
+    public void The_visual_rules_the_baseline_replaced_are_gone()
+    {
+        var shipped = SkillsCommand.Shipped();
+        var look = shipped["powerops-plan/references/look.md"];
+        var canvas = shipped["powerops-plan/references/canvas.md"];
+        var powerBi = shipped["powerops-plan/references/power-bi.md"];
+        var prototype = shipped["powerops-prototype/SKILL.md"];
+        var designLead = File.ReadAllText(Path.Combine(Golden.RepoRoot, ".claude", "agents", "powerops-design-lead.md"));
+
+        Assert.All(new[] { "at most five sizes", "Add no other hue", "conic-gradient" }, s => Assert.DoesNotContain(s, look));
+        Assert.Contains("The author does not grade its own sketch: `powerops-review-sketch` does, in a fresh context.", look);
+        Assert.DoesNotContain("- Dialog or drawer: a separate screen.", canvas);
+        Assert.Contains("A sketch draws Fluent icons, never a character reference.", canvas);
+        Assert.All(new[] { "about 96 px", "A stand-in shape", "each visual drawn in CSS" }, s => Assert.DoesNotContain(s, powerBi));
+        Assert.Contains("At most 72 px high, text on the canvas with no filled band", powerBi);
+        Assert.All(new[] { "81,920", "Score each file with section 5", "add no other hue", "an icon as a character reference" }, s => Assert.DoesNotContain(s, prototype));
+        Assert.DoesNotContain("titled header band", designLead);
+        Assert.Contains("a sketch is judged by `powerops-review-sketch`, never by its author.", designLead);
+    }
+
+    [Fact]
+    public void The_three_passed_samples_and_their_kit_ship_with_the_plan_skill()
+    {
+        var shipped = SkillsCommand.Shipped();
+        foreach (var sample in new[] { "canvas-repairs-desk", "pages-tenant-repairs", "powerbi-repairs-performance" })
+        {
+            Assert.Contains($"powerops-plan/references/samples/{sample}.html", shipped.Keys);
+            Assert.Contains($"powerops-plan/references/samples/{sample}.map.md", shipped.Keys);
+        }
+
+        Assert.Contains("powerops-plan/references/samples/kit.css", shipped.Keys);
+        var notice = shipped["powerops-plan/references/samples/NOTICE.md"];
+        Assert.All(new[] { "MIT License", "Copyright (c) 2020 Microsoft Corporation", "Fluent System Icons", "The samples are the level, not a template" }, s => Assert.Contains(s, notice));
+        Assert.Contains("it is the level, not a template: copy its discipline, never its layout, content or brand", shipped["powerops-prototype/SKILL.md"]);
     }
 
     [Fact]
@@ -835,7 +971,7 @@ public partial class SkillsCommandTests : IDisposable
         Assert.Equal(0, code);
         foreach (var root in new[] { ".claude", ".agents" })
         {
-            foreach (var name in ProductReferences.Concat(["data.md", "route.md", "design.md", "logic.md", "look.md", "licensing.md"]))
+            foreach (var name in ProductReferences.Concat(["data.md", "route.md", "design.md", "logic.md", "look.md", "baseline.md", "licensing.md"]))
             {
                 var file = P(root, "skills", "powerops-plan", "references", name);
                 Assert.Equal(SkillsCommand.Shipped()[$"powerops-plan/references/{name}"], File.ReadAllText(file));
@@ -859,7 +995,7 @@ public partial class SkillsCommandTests : IDisposable
         Assert.InRange(plan.IndexOf(Pointer, StringComparison.Ordinal), 0, plan.IndexOf("## 6. Question rounds", StringComparison.Ordinal));
         Assert.Equal(2, Regex.Count(plan, Regex.Escape(Sketch)));
         Assert.True(plan.LastIndexOf(Sketch, StringComparison.Ordinal) > plan.IndexOf("## 8. Fast path", StringComparison.Ordinal));
-        string[] log = ["start `powerops-prototype <name>`", "`prototype: approved mockups/prototype.html (option <letter>: <why>)`", "three options in different design directions", "start it with `pick <letter>`", "if the pick had changes or `prototype.html` shows more screens, ask: approve or changes", "`prototype: skipped (<reason>)`", "`prototype: not needed (<reason>)`", "Ask nothing else, except the sketch question (section 7 step 6)", "Keep visual detail out of `Screens` and `Steps`"];
+        string[] log = ["start `powerops-prototype <name>`", "`prototype: approved mockups/prototype.html (option <letter>: <why>)`", "three options in different design directions", "start it with `pick <letter>`", "Show the side-by-side picture, then the three names with their bets, and ask \"Which direction?\"", "ask per product \"Does it pass?\": **Pass** or **Fail**", "`prototype: skipped (<reason>)`", "`prototype: not needed (<reason>)`", "Ask nothing else, except the sketch question (section 7 step 6)", "Keep visual detail out of `Screens` and `Steps`"];
         string[] data = ["## 6. The data round", "1. Where does the data live today?", "6. What is out of this version?", "`logic.md`"];
         string[] routeText = ["## 1. The route", "## 2. The sketch", "three options in different design directions", "`look.md`. Planning doesn't read it.", "`prototype: skipped (mock-data slice)`", "control map", "`design.md`", .. ProductReferences.Select(f => $"`{f}`")];
         string[] review = ["Per product, when the plan names it", "more than 12 data visuals", "accordion"];
