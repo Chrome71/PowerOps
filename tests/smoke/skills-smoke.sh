@@ -4,11 +4,13 @@
 # decisions.md logging, the stop behaviour, the fast path (also with a routing skill installed), the data
 # round and the sketch option at depth quick and standard, a build that must not delete its own stray object, a build
 # that stops for a plan amendment, option-number answers that keep the depth, a tool that can't be called named in Assumptions,
-# and a build that goes ahead in Dev without asking and stops at each stop class.
+# and a build that goes ahead in Dev without asking and stops at each stop class. Scenario `draft` runs first: the person
+# hands over a draft of their own, and the plan logs what it settles and asks only what it leaves open; SMOKE_ONLY=draft
+# runs it alone and stops there.
 # It costs model credits, so it runs weekly (.github/workflows/skills-smoke.yml), never per build.
 # Keep it bash 3.2 compatible (macOS): no ${x,,}, no mapfile, and guard empty arrays under set -u.
 #
-# Usage: tests/smoke/skills-smoke.sh claude|codex
+# Usage: tests/smoke/skills-smoke.sh claude|codex  (SMOKE_ONLY=draft runs scenario draft only)
 # Needs: dotnet, jq, git, and the agent CLI signed in (ANTHROPIC_API_KEY or OPENAI_API_KEY in CI).
 set -euo pipefail
 
@@ -150,7 +152,50 @@ check_decisions() {
   echo "$(grep -c '^## Round ' "$file") rounds logged"
 }
 
+# The summary the script ends with; scenario draft's early exit prints it too.
+summary() {
+  echo
+  if [ "$failures" -gt 0 ]; then
+    echo "$failures check(s) failed"
+    exit 1
+  fi
+  echo "all checks passed"
+}
+
 idea="an app for tracking site visits by our field engineers"
+
+# Draft (unnumbered, first): the person hands over a draft of a flow-only idea that settles the cost tier and the route
+# (M109). Each choice it settles is a `- from the draft:` Log line, and neither is asked again. Section 3 step 1's question
+# on the target and its sign-ins may still be asked, and is no failure. It names no screen, app, page, site or report.
+scenario=draft
+new_repo
+draft="Goal: when a supplier invoice arrives in the finance mailbox, a cloud flow saves the attachment to a SharePoint library and posts a notice in the finance team's Teams channel.
+Users: the finance team, about ten people, who get the notice.
+Licences: standard licences only.
+Environments: Dev, then Test, then Prod, managed after Dev."
+goal="Answer the first round of questions. At the first what-next menu (A/B/C) reply with just: C"
+converse "Use the powerops-plan skill. Here is my own draft of the plan:
+$draft" '[ "$turn" -gt 1 ] && [[ "$message" =~ ^[[:space:]]*C[[:space:][:punct:]]*$ ]]' || true
+if [ -n "$(plan_dir)" ] && [ -f "$(plan_dir)/decisions.md" ]; then
+  file="$(plan_dir)/decisions.md"
+  drafted="$(grep -E '^- from the draft:.*\(answered by: person\)[[:space:]]*$' "$file" || true)"
+  grep -qiE 'cost tier|licen' <<<"$drafted" || fail "no '- from the draft:' Log line for the cost tier ending (answered by: person)"
+  grep -qiE 'route|test.*prod' <<<"$drafted" || fail "no '- from the draft:' Log line for the route ending (answered by: person)"
+  headings="$(grep -E '^### Q' "$file" || true)"
+  if grep -qF 'Which licences should the plan assume?' <<<"$headings"; then fail "the cost tier was asked although the draft settled it"; fi
+  if grep -qi 'route' <<<"$headings"; then fail "a question heading names the route although the draft settled it"; fi
+  # Headings and their options, read whole before the grep: a grep -q that quits early would fail the pipe under pipefail.
+  asked="$(awk '/^### Q/ { q = 1; print; next } /^Answer:/ { q = 0 } q && /^[0-9]+\. /' "$file")"
+  if grep -qiE 'test.*prod|prod.*test' <<<"$asked"; then
+    fail "a question heading or option names both Test and Prod: the route was asked in other words"
+  fi
+  [ ! -d "$(plan_dir)/mockups" ] || fail "a mockups/ folder exists for a plan that names no screen"
+  [ "$(header status)" = draft ] || fail "status is '$(header status)' after stopping, expected draft"
+else
+  fail "no plan folder with a decisions.md under docs/plans"
+fi
+if [ "${SMOKE_ONLY:-}" = draft ]; then summary; exit 0; fi
+
 
 # 1. Question rounds to a signed-off plan.
 scenario=rounds
@@ -778,9 +823,4 @@ fi
 status="$(powerops plan status "$plan" 2>&1)" || fail "plan status exited non-zero: $status"
 if grep -q 'has no Authority' <<<"$status"; then fail "plan status warns about a journal row with no Authority: $(grep 'has no Authority' <<<"$status")"; fi
 
-echo
-if [ "$failures" -gt 0 ]; then
-  echo "$failures check(s) failed"
-  exit 1
-fi
-echo "all checks passed"
+summary
