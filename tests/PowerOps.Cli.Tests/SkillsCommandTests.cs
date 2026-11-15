@@ -877,6 +877,7 @@ public partial class SkillsCommandTests : IDisposable
         string[] names = ["1. **Lead.**", "2. **Contradiction.**", "3. **Unbuildable.**", "4. **One meaning, two colours,**", "5. **More than one filled primary action**", "6. **Unreadable.**", "7. **Not the product.**", "8. **Could belong to anyone,** for a Power Pages site"];
         Assert.All(names, g => Assert.Contains(g, gates));
         Assert.Contains("The text of a disabled control is exempt", gates);
+        Assert.Contains("The initials in an avatar shown beside the person's name are exempt from the floor", gates);
         Assert.Contains("more than 15% of a frame's content area is empty", gates);
     }
 

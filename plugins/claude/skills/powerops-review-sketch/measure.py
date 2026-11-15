@@ -190,7 +190,8 @@ MEASURE_JS = r"""
     // Floor, contrast, fonts, sizes, lead.
     var pairs = {}, stacks = {}, sizes = {}, largest = null;
     atoms.forEach(function (a) {
-      if (a.size < floor - 0.01) out["under-floor"].push({ text: a.text, size: Math.round(a.size * 10) / 10, element: desc(a.el) });
+      // Avatar initials repeat the name beside them, so the floor skips them (decision Q15); their contrast still counts.
+      if (a.size < floor - 0.01 && !a.el.closest(".av,.avatar")) out["under-floor"].push({ text: a.text, size: Math.round(a.size * 10) / 10, element: desc(a.el) });
       sizes[Math.round(a.size * 2) / 2] = true;
       if (!largest || a.size > largest.size || (a.size === largest.size && a.weight > largest.weight)) largest = a;
       if (!stacks[a.family]) stacks[a.family] = rendered(a.family);
@@ -583,7 +584,11 @@ def frame_html(name, change=""):
         cards[1] = '<div class="card"><p data-lead>Marked but small</p></div>'
     elif change == "sizes":
         cards[1] = '<div class="card">' + "".join('<p style="font-size:%dpx;margin:0">Size %d</p>' % (n, n) for n in (16, 18, 20, 24)) + "</div>"
-    return '<section class="frame desktop" data-screen="%s">%s</section>' % (name, "".join(cards))
+    elif change == "avatar":
+        cards[1] = ('<div class="card"><p><span class="av" style="font-size:12px;color:#06434A;background:#CBE4E7">MS</span> Maria S.</p>'
+                    '<p><span class="initials" style="font-size:12px">MS</span></p></div>')
+    kind = "browser" if change == "avatar" else "desktop"
+    return '<section class="frame %s" data-screen="%s">%s</section>' % (kind, name, "".join(cards))
 
 
 SELF_TEST_CSS = ("body{margin:0;background:#fff;font:14px/1.4 sans-serif;color:#242424}"
@@ -601,7 +606,7 @@ def self_test(chrome):
         problems.append("the script does not parse as Python 3.8: %s" % e)
     sketch = ('<!DOCTYPE html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1">'
               "\n<style>" + SELF_TEST_CSS + "</style></head>\n<body>\n" + frame_html("clean") + "\n" + frame_html("unmarked", "unmarked") + "\n"
-              + "\n".join(frame_html(k, k) for k in KINDS) + '\n<div class="state" data-state="empty" data-for="clean">None</div>\n</body></html>\n')
+              + "\n".join(frame_html(k, k) for k in KINDS) + "\n" + frame_html("avatar", "avatar") + '\n<div class="state" data-state="empty" data-for="clean">None</div>\n</body></html>\n')
     work = tempfile.mkdtemp(prefix="powerops-selftest-")
     try:
         path = os.path.join(work, "self-test.html")
@@ -624,6 +629,12 @@ def self_test(chrome):
             got = [f.split(":")[0] for f in frames[kind]["faults"]]
             if got != [kind]:
                 problems.append("the %s frame reports %s, not exactly [%s]" % (kind, frames[kind]["faults"], kind))
+        # A site frame: 12 px initials in an avatar are not under the floor, the same text outside one is; the avatar's contrast still counts.
+        av = frames["avatar"]
+        if [(u["text"], u["element"]) for u in av["under-floor"]] != [("MS", "span.initials")] or [f.split(":")[0] for f in av["faults"]] != ["floor"]:
+            problems.append("the avatar frame reports %s under the floor, faults %s" % (av["under-floor"], av["faults"]))
+        if not any(c["background"] == "#CBE4E7" and c["text"] == "MS" for c in av["contrast"]):
+            problems.append("the avatar's initials have no contrast entry")
         pics = shoot(path, os.path.join(work, "pictures"), 640, chrome)["pictures"]
         clean = next(p for p in pics if p["file"].endswith(".1-clean.png"))
         w, h, px = png_read(clean["file"])
@@ -633,8 +644,8 @@ def self_test(chrome):
         at = ((h // 2) * w + 2) * 3  # inside the frame's 8 px padding, left of the cards: its white background
         if tuple(px[at:at + 3]) != (255, 255, 255):
             problems.append("the clean frame's picture has %s where the frame is white" % (tuple(px[at:at + 3]),))
-        if len(pics) != 1 + len(KINDS) + 2 + 1:
-            problems.append("shoot wrote %d pictures, not %d" % (len(pics), len(KINDS) + 4))
+        if len(pics) != 1 + len(KINDS) + 3 + 1:
+            problems.append("shoot wrote %d pictures, not %d" % (len(pics), len(KINDS) + 5))
         joined = side_by_side([path, path, path], os.path.join(work, "pictures", "side.png"), chrome)
         if (joined["w"], joined["h"]) != (3 * (box["w"] // 2) + 4 * 24, box["h"] // 2 + 48):
             problems.append("side-by-side is %dx%d" % (joined["w"], joined["h"]))
@@ -642,7 +653,7 @@ def self_test(chrome):
         shutil.rmtree(work, ignore_errors=True)
     for p in problems:
         print("FAIL " + p)
-    print("self-test: %s (%d planted kinds, a clean and an unmarked frame, shoot and side-by-side)" % ("failed" if problems else "passed", len(KINDS)))
+    print("self-test: %s (%d planted kinds, a clean and an unmarked frame, avatar initials on a site, shoot and side-by-side)" % ("failed" if problems else "passed", len(KINDS)))
     return 1 if problems else 0
 
 
