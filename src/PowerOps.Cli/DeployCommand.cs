@@ -27,7 +27,7 @@ public static class DeployCommand
     // What the gate keeps of its deadline after an unpack's timeout, so no pac outlives the gate.
     private static readonly TimeSpan UnpackMargin = TimeSpan.FromSeconds(10);
 
-    private const string ReadingGuidance = "The call was blocked. If it is an import, write it as one plain pac solution import command with literal absolute paths and the environment's id or https URL. If it only mentions an import, reword it.";
+    private const string ReadingGuidance = "The call was blocked. If it is an import, write it as one plain pac solution import command with literal absolute paths and the environment's id or https URL. If it runs powerops settings apply or deploy apply, write it as one plain powerops command in a Bash command, with literal words; an agent adds --apply only to deploy apply, with --require-reviews, after the user's yes. If it only mentions an import, reword it.";
     private const string ImportGuidance = "The import was blocked. To import a reviewed plan, ask the user for a yes to that environment, then call the MCP tool deploy_apply with apply: true, where the user types the environment's name in a form. If the client shows no form, run powerops deploy apply <plan file> --target <environment id or URL> --apply --require-reviews after that yes, or leave the import to the Action's approved job or to the user. Do not retry this import another way.";
 
     /// <param name="pac">Runs pac: the imports of <c>deploy apply</c>, and the unpack of a zip that a review names as its deploy-hash.</param>

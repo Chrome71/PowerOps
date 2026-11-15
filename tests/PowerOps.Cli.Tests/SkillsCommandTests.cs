@@ -260,9 +260,18 @@ public partial class SkillsCommandTests : IDisposable
     public void Implement_skill_asks_for_a_yes_before_every_apply_that_writes_to_an_environment()
     {
         var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
-        string[] rule = ["Never run `powerops settings apply --apply` or `powerops deploy apply --apply`, or call the MCP tool `deploy_apply` with `apply: true`, unless the user said yes to that environment in this session", "Run each command without `--apply` first and show the user the target line"];
+        string[] rule =
+        [
+            "Never run `powerops deploy apply --apply`, or call the MCP tool `deploy_apply` with `apply: true`, unless the user said yes to that environment in this session.",
+            // M115: settings apply checks no review, so no yes covers it for an agent.
+            "Never run `powerops settings apply --apply`: it checks no review, so it is the person's own command and no yes covers it; give them the command if they want it.",
+            "One yes per deployment covers its import with `powerops deploy apply` and the plan's named steps there.",
+            "Run each command without `--apply` first and show the user the target line",
+        ];
 
         Assert.All(rule, s => Assert.Contains(s, text));
+        Assert.DoesNotContain("covers its import, `powerops settings apply --apply`", text);
+        Assert.DoesNotContain("`settings apply` takes the name they approved as `--target`.", text);
     }
 
     [Fact]
@@ -854,7 +863,7 @@ public partial class SkillsCommandTests : IDisposable
         string[] data = ["## 6. The data round", "1. Where does the data live today?", "6. What is out of this version?", "`logic.md`"];
         string[] routeText = ["## 1. The route", "## 2. The sketch", "three options in different design directions", "`look.md`. Planning doesn't read it.", "`prototype: skipped (mock-data slice)`", "control map", "`design.md`", .. ProductReferences.Select(f => $"`{f}`")];
         string[] review = ["Per product, when the plan names it", "more than 12 data visuals", "accordion"];
-        string[] implement = ["## 5. Power BI", "\"not applicable\"", "`powerbi-report-author validate`", "`semantic-model-authoring`", "`powerbi-report-cli`", "`pcf`", "`pac pcf push`", "the sketch's path, not a screenshot", "pass the plan's `### Theme` block word for word as constraints"];
+        string[] implement = ["## 5. Power BI", "\"not covered by PowerOps\"", "`powerbi-report-author validate`", "`semantic-model-authoring`", "`powerbi-report-cli`", "`pcf`", "`pac pcf push`", "the sketch's path, not a screenshot", "pass the plan's `### Theme` block word for word as constraints"];
 
         Assert.All(log, s => Assert.Contains(s, plan));
         Assert.All(data, s => Assert.Contains(s, shipped["powerops-plan/references/data.md"]));
@@ -876,6 +885,7 @@ public partial class SkillsCommandTests : IDisposable
         Assert.Contains("`logic.md`", route);
         Assert.All(review, s => Assert.Contains(s, shipped["powerops-review-plan/SKILL.md"]));
         Assert.All(implement, s => Assert.Contains(s, shipped["powerops-implement/SKILL.md"]));
+        Assert.DoesNotContain("is not a gap for section 4 step 4", shipped["powerops-implement/SKILL.md"]);
     }
 
     // The text between a heading and the next one given, as the sections of a skill.
