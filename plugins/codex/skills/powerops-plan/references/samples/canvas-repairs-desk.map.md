@@ -50,7 +50,7 @@ This frame is a new call (Dele O., Flat 6, 18 Ropewalk, Ferry Road), not RP-2041
 | Photos: "Add a photo" and the file row | Add picture (classic) styled as an outline button with the camera icon, plus a small Gallery of added files (Icon, Text, size, an IconOnly Button to remove). Add picture cannot sit inside an auto-layout container: place it in a manual container. | GA | `CA/build-responsive-apps`, `CC/control-gallery` |
 | Is anyone at risk? | Radio group, Layout Horizontal, Items Yes / No, aligned to the right edge of the field column; hint is a Text | GA | `MC/modern-controls-radio-group` |
 | Back, Save draft, Continue | Buttons Outline, Subtle, Primary in a pinned Container with a top border; "Save draft" is Subtle everywhere | GA | `MC/modern-control-button` |
-| Home card with open repairs | Container; Icon, Texts; small classic Gallery with Text and Badge (Intent Informative "Scheduled", Caution "Awaiting parts") | GA | `CC/control-gallery`, `MC/modern-controls-badge` |
+| Home card with open repairs | Container; Icon, Texts; small classic Gallery with Text and Badge (Intent Neutral "Scheduled", Caution "Awaiting parts"; not Informative, whose tint the selection uses) | GA | `CC/control-gallery`, `MC/modern-controls-badge` |
 | Is it an emergency? | Container; Icon Warning (caution colour); Text rows with 6 px dot Containers | GA | `MC/modern-control-icon` |
 | Target times | Container with label and value Texts: within 6 hours, 7 days, 28 days | GA | `CC/control-horizontal-container` |
 
