@@ -6,23 +6,29 @@
   measure.py side-by-side <a> <b> <c> <out.png>     the three lead frames at one width, joined at half scale
   measure.py --self-test                            check the script on a built-in page
 
-Python 3.8 or later, standard library only. The sketch is never changed: Chrome reads a copy in a temp folder,
-with a measuring script added, and the temp folder is removed. Every option takes --chrome <path>.
+Python 3.8 or later, standard library only. The sketch is never changed: a copy with a measuring script added is kept in a
+temp folder, which is removed, and served to Chrome from a loopback server that answers only that page, is Chrome's proxy for
+every request and allows no script but the measuring one, so the page can show no other file. Every option takes --chrome <path>.
 Exit codes: 0 done, 1 self-test failed, 2 usage error, 3 unreadable input, 77 no Chrome, or Chrome can't render.
 """
 import argparse
 import ast
 import base64
 import hashlib
+import http.client
+import http.server
 import json
 import math
 import os
 import re
+import secrets
 import shutil
+import socket
 import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import zlib
 from pathlib import Path
@@ -32,6 +38,7 @@ sys.dont_write_bytecode = True
 TILE_W, TILE_H = 1400, 1200
 CHROME_NAMES = ["google-chrome-stable", "google-chrome", "chromium", "chromium-browser", "chrome", "msedge"]
 MARK = "powerops-measure"
+CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; script-src 'nonce-%s'"
 
 
 class Unrenderable(Exception):
@@ -315,17 +322,51 @@ def sketch_hash(text):
     return hashlib.sha256(text.replace("\r\n", "\n").encode("utf-8")).hexdigest()
 
 
+class Page(http.server.BaseHTTPRequestHandler):
+    """Answers a GET of the session's page URL, in the absolute form a proxy request has, and 404 to anything else."""
+
+    def log_message(self, *args):
+        pass
+
+    def do_GET(self):
+        s = self.server.session
+        if self.path == "/%s/sketch.html" % s.token:  # the page asked for directly: Chrome went past the proxy
+            s.bypassed = True
+        if self.path != s.url:
+            self.send_error(404)
+            return
+        body = Path(s.page).read_bytes()
+        self.send_response(200)
+        for k, v in [("Content-Type", "text/html; charset=utf-8"), ("Content-Length", str(len(body))),
+                     ("Content-Security-Policy", CSP % s.nonce), ("Cache-Control", "no-store")]:
+            self.send_header(k, v)
+        self.end_headers()
+        self.wfile.write(body)
+
+
 class Session:
-    """A temp folder holding the copy and Chrome's profile, removed on exit."""
+    """A temp folder holding the copy and Chrome's profile, and the loopback server that serves the copy; both gone on exit."""
 
     def __init__(self, chrome):
         self.chrome = chrome
         self.dir = tempfile.mkdtemp(prefix="powerops-measure-")
+        self.token, self.nonce, self.page, self.bypassed = secrets.token_hex(16), secrets.token_hex(16), None, False
+        try:
+            self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Page)
+        except OSError as e:
+            shutil.rmtree(self.dir, ignore_errors=True)
+            raise Unrenderable("the measuring server could not start on 127.0.0.1: %s" % e)
+        self.server.session = self
+        self.port = self.server.server_address[1]
+        self.url = "http://127.0.0.1:%d/%s/sketch.html" % (self.port, self.token)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
 
     def __enter__(self):
         return self
 
     def __exit__(self, *exc):
+        self.server.shutdown()
+        self.server.server_close()
         for _ in range(10):  # Windows can hold Chrome's files for a moment after it exits
             shutil.rmtree(self.dir, ignore_errors=True)
             if not os.path.exists(self.dir):
@@ -333,7 +374,7 @@ class Session:
             time.sleep(0.3)
 
     def copy(self, text, name):
-        script = "<script>" + MEASURE_JS + "</script>"
+        script = '<script nonce="%s">' % self.nonce + MEASURE_JS + "</script>"
         at = text.lower().rfind("</body")
         page = text[:at] + script + text[at:] if at >= 0 else text + script
         path = os.path.join(self.dir, name)
@@ -342,10 +383,13 @@ class Session:
         return path
 
     def run(self, page, width, height, extra):
+        self.page, self.bypassed = page, False
+        # Loopback goes through the proxy too, so the page reaches no other local service; the resolver must still find the proxy.
         args = [self.chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run", "--no-default-browser-check",
                 "--disable-background-networking", "--disable-component-update", "--disable-sync", "--disable-extensions",
-                "--host-resolver-rules=MAP * ~NOTFOUND", "--user-data-dir=" + os.path.join(self.dir, "profile"),
-                "--window-size=%d,%d" % (width, height)] + extra + [Path(page).resolve().as_uri()]
+                "--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 127.0.0.1", "--proxy-server=http://127.0.0.1:%d" % self.port,
+                "--proxy-bypass-list=<-loopback>", "--user-data-dir=" + os.path.join(self.dir, "profile"),
+                "--window-size=%d,%d" % (width, height)] + extra + [self.url]
         try:
             done = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, timeout=90)
         except OSError as e:
@@ -359,13 +403,19 @@ class Session:
         out = done.stdout.decode("utf-8", "replace")
         m = re.search(r'<pre id="%s">([A-Za-z0-9+/=]+)</pre>' % MARK, out)
         if not m:
+            self.past_proxy()
             raise Unrenderable("Chrome ran but gave no measurement (exit %d): %s" % (done.returncode, tail(done.stderr)))
         return json.loads(base64.b64decode(m.group(1)).decode("ascii"))
 
     def shot(self, page, width, height, png):
         done = self.run(page, width, height, ["--screenshot=" + png])
         if not os.path.isfile(png):
+            self.past_proxy()
             raise Unrenderable("Chrome ran but wrote no picture (exit %d): %s" % (done.returncode, tail(done.stderr)))
+
+    def past_proxy(self):
+        if self.bypassed:  # a proxy policy can override --proxy-server; the page then gets the 404, so the render fails
+            raise Unrenderable("Chrome did not use the measuring proxy (a proxy policy?)")
 
 
 def tail(err):
@@ -598,6 +648,86 @@ SELF_TEST_CSS = ("body{margin:0;background:#fff;font:14px/1.4 sans-serif;color:#
 KINDS = ["overflow", "overlap", "floor", "contrast", "font", "empty", "lead", "sizes"]
 
 
+def escape_sketch(work):
+    """A green data: box that must show, and each way a page can reach a red file outside its folder, last the one that leaves the page."""
+    outside = Path(work) / "outside"
+    outside.mkdir()
+    png_write(str(outside / "red.png"), 8, 8, b"\xff\x00\x00" * 64)
+    (outside / "red.html").write_text('<body style="margin:0;background:#f00"></body>', encoding="utf-8")
+    data = []
+    for name, rgb in [("green.png", b"\x00\xff\x00"), ("white.png", b"\xff\xff\xff")]:
+        png_write(os.path.join(work, name), 8, 8, rgb * 64)
+        data.append("data:image/png;base64," + base64.b64encode(Path(work, name).read_bytes()).decode("ascii"))
+    png, page, box = (outside / "red.png").as_uri(), (outside / "red.html").as_uri(), 'width="120" height="80"'
+    control = '<table background="%s"><tr><td %s></td></tr></table>' % (data[0], box)
+    return control, [
+        '<iframe src="%s" %s></iframe>' % (page, box),
+        '<table background="%s"><tr><td %s></td></tr></table>' % (png, box),
+        '<svg %s><filter id="f" x="0" y="0" width="1" height="1"><feImage href="%s" %s preserveAspectRatio="none"/></filter><rect %s filter="url(#f)"/></svg>' % (box, png, box, box),
+        '<div style="width:120px;height:80px;background:url(%s)"></div>' % png,
+        '<script>document.body.style.background = "#f00"</script>',
+        '<img src="%s" onload="document.body.style.background = \'#f00\'">' % data[1],
+        '<script>location.replace("%s")</script>' % page]
+
+
+def colours(img):
+    """The red and the green pixels of a picture."""
+    px = img[2]
+    red = sum(1 for i in range(0, len(px), 3) if px[i] > 200 and px[i + 1] < 60 and px[i + 2] < 60)
+    green = sum(1 for i in range(0, len(px), 3) if px[i + 1] > 200 and px[i] < 60 and px[i + 2] < 60)
+    return red, green
+
+
+def escape_case(chrome, work):
+    control, parts = escape_sketch(work)
+    with Session(chrome) as s:
+        png = os.path.join(s.dir, "escape.png")
+        s.shot(s.copy('<!DOCTYPE html><html><body style="margin:0">' + control + "".join(parts) + "</body></html>", "sketch.html"), 640, 480, png)
+        red, green = colours(png_read(png))
+    problems = ["the escape sketch's picture shows %d red pixels from files outside it" % red] if red else []
+    return problems + ([] if green else ["the escape sketch's picture shows no green, so its check proves nothing"])
+
+
+def server_checks(chrome):
+    """The loopback server answers the page's absolute URL only, notes a request that went past the proxy, and is gone after the session."""
+    problems = []
+    with Session(chrome) as s:
+        s.page = s.copy("<p>page</p>", "sketch.html")
+        host = "http://127.0.0.1:%d" % s.port
+
+        def ask(method, target):
+            c = http.client.HTTPConnection("127.0.0.1", s.port, timeout=10)
+            try:
+                c.request(method, target)
+                r = c.getresponse()
+                r.read()
+                return r
+            finally:
+                c.close()
+        r = ask("GET", s.url)
+        heads = (r.getheader("Content-Security-Policy"), r.getheader("Content-Type"), r.getheader("Cache-Control"))
+        if r.status != 200 or heads != (CSP % s.nonce, "text/html; charset=utf-8", "no-store"):
+            problems.append("the page's URL gives %d with %s" % (r.status, heads))
+        for target in [host + "/%s/other.html" % s.token, host + "/%s/sketch.html" % ("0" * 32), "http://localhost:%d/%s/sketch.html" % (s.port, s.token)]:
+            if ask("GET", target).status != 404:
+                problems.append("%s is not 404" % target)
+        if s.bypassed:
+            problems.append("a proxy request was noted as going past the proxy")
+        if ask("GET", "/%s/sketch.html" % s.token).status != 404 or not s.bypassed:
+            problems.append("a direct request for the page was answered or not noted")
+        for method, target in [("POST", s.url), ("CONNECT", "127.0.0.1:443")]:
+            if ask(method, target).status == 200:
+                problems.append("%s is answered" % method)
+    try:
+        socket.create_connection(("127.0.0.1", s.port), timeout=5).close()
+        problems.append("the server still answers after the session")
+    except OSError:
+        pass
+    if os.path.exists(s.dir):
+        problems.append("the session's temp folder is still there")
+    return problems
+
+
 def self_test(chrome):
     problems = []
     try:
@@ -649,11 +779,12 @@ def self_test(chrome):
         joined = side_by_side([path, path, path], os.path.join(work, "pictures", "side.png"), chrome)
         if (joined["w"], joined["h"]) != (3 * (box["w"] // 2) + 4 * 24, box["h"] // 2 + 48):
             problems.append("side-by-side is %dx%d" % (joined["w"], joined["h"]))
+        problems += escape_case(chrome, work) + server_checks(chrome)
     finally:
         shutil.rmtree(work, ignore_errors=True)
     for p in problems:
         print("FAIL " + p)
-    print("self-test: %s (%d planted kinds, a clean and an unmarked frame, avatar initials on a site, shoot and side-by-side)" % ("failed" if problems else "passed", len(KINDS)))
+    print("self-test: %s (%d planted kinds, a clean and an unmarked frame, avatar initials on a site, shoot and side-by-side, a sketch reaching for files outside it, and the loopback server)" % ("failed" if problems else "passed", len(KINDS)))
     return 1 if problems else 0
 
 
