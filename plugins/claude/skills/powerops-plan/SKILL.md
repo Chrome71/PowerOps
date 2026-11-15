@@ -31,7 +31,8 @@ An agent that answers for the person under the person's brief is not autopilot: 
    - `draft`: go to the what-next menu (section 6).
    - `approved`: go to the review and sign-off steps (sections 7 and 9).
    - `signed-off`, `implementing`, `done`: tell the user any change to the plan body voids the sign-off. Continue only if they want changes (section 10).
-4. If it does not exist, first check `docs/plans/` for a plan on the same idea. A `draft` or `approved` one: resume it. A `signed-off`, `implementing` or `done` one: if the user wants a new version, follow "New version" in section 10. Otherwise create the folder and go to section 3.
+4. If it does not exist, first check `docs/plans/` for a plan on the same idea. A `draft` or `approved` one: resume it. A `signed-off`, `implementing` or `done` one: if the user wants a new version, follow "New version" in section 10. Otherwise create the folder, do step 5 if the person gave a draft, and go to section 3.
+5. **A draft of their own.** When the person hands you a plan they drafted (a document, notes or pasted text), map it onto the sections of section 5. Log each choice it settles under `## Log` as `- from the draft: <choice>: "<their words>" (answered by: person)`, redacted per section 4, and ask only what it leaves open. The cost tier and environments questions (section 6), the fast path's route (section 8) and an area at approval (section 7 step 1) count as asked when the draft settles them. A licence or tenant fact in it is the person's answer, never `yes (read)`.
 
 ## 3. Environment facts
 
@@ -172,8 +173,8 @@ After each round, judge engagement from the answers. "Just pick", "whatever you 
 
 Use this when the user asks to build without a signed-off plan, or `powerops-implement` hands over.
 
-1. Draft `plan.md` from the request and the repo. Read no environment facts here, even when the request names an environment: the fast path is offline. Put every guess under Assumptions. The status stays `draft`. Set `depth: quick`. Write the `### Licences` table with every `Held` `unknown` and, if it has a row, a first step checking held licences. Put `cost tier: Not sure: standard first (not asked)` under Assumptions.
-2. Ask one question: the route. Use the numbered format of a round question (section 6): two or three options, each a short label with one sentence on what changes, recommended first, then "In your own words".
+1. Draft `plan.md` from the request and the repo. Read no environment facts here, even when the request names an environment: the fast path is offline. Put every guess under Assumptions. The status stays `draft`. Set `depth: quick`. Write the `### Licences` table with every `Held` `unknown` and, if it has a row, a first step checking held licences. Put `cost tier: Not sure: standard first (not asked)` under Assumptions, unless the draft settled it (section 2 step 5).
+2. Ask one question: the route, unless the draft settled it (section 2 step 5). Use the numbered format of a round question (section 6): two or three options, each a short label with one sentence on what changes, recommended first, then "In your own words".
 3. Ask the publisher prefix too, only if the repo does not supply it. Ask nothing else, except the sketch question (section 7 step 6). Leave `environment: null` unless the request names an environment; then record its role (`Dev` unless the request says another), and write "the environment named in the request" in `decisions.md`. Either way, note the assumed target in Assumptions.
 4. Log the route in `decisions.md` as a normal question.
 5. Show one lettered menu. A or B keeps the `default:` lines: log `defaults kept: <N>`.

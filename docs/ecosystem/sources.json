@@ -262,6 +262,18 @@
       "lastChecked": "2026-11-10"
     },
     {
+      "id": "docs-developer-plan",
+      "title": "Learn: Power Apps Developer Plan",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/power-platform/developer/plan",
+      "areas": [
+        "governance"
+      ],
+      "affects": "`licensing.md`'s Developer Plan row (`POWERAPPS_DEV`) and its limits note, and `powerops-review-plan` item 3 (750 flow runs a month)",
+      "everyDays": 30,
+      "lastChecked": "2026-11-15"
+    },
+    {
       "id": "m365-roadmap",
       "title": "Microsoft 365 roadmap",
       "kind": "manual",
