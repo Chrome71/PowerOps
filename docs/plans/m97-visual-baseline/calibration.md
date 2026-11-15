@@ -42,3 +42,26 @@ By the plan (Done line 3), a confirmed gate fault on a passed sample is reported
 - Font fallbacks: confirmed (Segoe UI isn't installed on Linux); no gate.
 - Pages Home: six font sizes against S4; not a gate, and P4 replaces S4 on a site.
 - Pages "MS" initials at 12 px: exempt by decision Q15 beside "Maria S."; the phone header instance is the gate 6 miss above.
+
+## Round 2
+
+The person's answer to round 1 (decision Q16, "Fix samples, rerun"): the four faults fixed in the canvas and Power Pages samples, gate 1 reworded to cover the title, the judge's measuring step told so, and row 2's plan given the phone frame's own first look (`449db1a`). Same setup, at `449db1a` (`0.0.0+449db1a`), in five new scratch repos with new neutral names (`sample-g`, `-h`, `-k`, `-m`, `-p`) and five new fresh Opus contexts.
+
+| Row | Folder | Key | Round 2 verdict | Gates failed | Scores (dimensions 1 to 9) | Match |
+|---|---|---|---|---|---|---|
+| 1, trial sketch | sample-k | not at baseline; 1, 7 | not at baseline | 1, 2, 3, 4, 6, 7 | 2 2 2 2 1 3 1 2 2 | yes |
+| 2, canvas sample | sample-m | at baseline | not at baseline | 1, 4 | 2 3 2 3 3 3 3 3 3 | **no** |
+| 3, Power BI sample | sample-h | at baseline | at baseline | none | 3 3 3 3 3 3 3 3 3 | yes |
+| 4, Pages first version | sample-p | not at baseline; 8 | not at baseline | 4, 6, 8 | 3 2 2 3 3 3 3 2 1 | yes |
+| 5, Pages sample | sample-g | at baseline | not at baseline | 1 | 2 3 3 3 3 3 3 3 3 | **no** |
+
+Row 1's recorded expectation holds again (2, 2, 2, 1, 2).
+
+### The second miss
+
+- **Row 5, gate 1, only.** On Your repairs (phone), with the title covered, the next visit (22 px) ties the "All repairs" heading and the full-width docked amber "Report a repair" is the strongest item. The judge said that if a docked primary action doesn't count as competing, the sketch is at baseline. Gates 4 and 6, which round 1 failed, pass: the phone initials are now at the floor and the selection no longer uses the badge tint.
+- **Row 2, gates 1 and 4.** Gate 1 on Repairs (phone): the full-width docked "Log a repair" (docked by the round 1 fix, as the sample's caption says) is the strongest item, and the top emergency's time left is 14 px like rows 2 and 3. Gate 4: the "Scheduled" badge in the Log a repair home card uses the selection's tint pair, and the caution colour means Urgent, Awaiting parts and a worse trend. Round 1's judge passed gate 4 on the same, then unchanged, parts.
+
+Both remaining gate 1 failures are the same reading: a docked full-width primary action on a phone outweighs the lead. Gate 4 on row 2 shows that two fresh judges disagree on unchanged parts.
+
+By plan step 7, a second miss stops the milestone and is reported. The building session stopped here: nothing more was changed, and no third round ran.
