@@ -4,7 +4,7 @@ The judge, `powerops-review-sketch`, run on the five rows of `tests/sketch-eval/
 
 ## Setup
 
-- Judge text at commit `3e53433` (with the gate 6 avatar exemption of decision Q15), built in Release (`0.0.0+3e53433`).
+- Judge text at commit `af1f540` (with the gate 6 avatar exemption of decision Q15), built in Release (`0.0.0+af1f540`).
 - Five scratch git repos outside this one, each with a neutral plan folder (`sample-a` to `sample-e`) holding only the row's `plan.md`, the sketch as `mockups/prototype.html` and its map, and `powerops skills install . --agent claude` from that build. The skills were read from each repo's `.claude/skills/`, not from the user's plugin.
 - Each row in its own fresh Opus context (effort high), told to follow the installed `SKILL.md` exactly and to read nothing outside its repo; none saw `key.md`, the README or another row. Rendering: Chrome headless through `measure.py` on Linux, without Segoe UI (fallback fonts).
 
@@ -45,7 +45,7 @@ By the plan (Done line 3), a confirmed gate fault on a passed sample is reported
 
 ## Round 2
 
-The person's answer to round 1 (decision Q16, "Fix samples, rerun"): the four faults fixed in the canvas and Power Pages samples, gate 1 reworded to cover the title, the judge's measuring step told so, and row 2's plan given the phone frame's own first look (`449db1a`). Same setup, at `449db1a` (`0.0.0+449db1a`), in five new scratch repos with new neutral names (`sample-g`, `-h`, `-k`, `-m`, `-p`) and five new fresh Opus contexts.
+The person's answer to round 1 (decision Q16, "Fix samples, rerun"): the four faults fixed in the canvas and Power Pages samples, gate 1 reworded to cover the title, the judge's measuring step told so, and row 2's plan given the phone frame's own first look (`07e6606`). Same setup, at `07e6606` (`0.0.0+07e6606`), in five new scratch repos with new neutral names (`sample-g`, `-h`, `-k`, `-m`, `-p`) and five new fresh Opus contexts.
 
 | Row | Folder | Key | Round 2 verdict | Gates failed | Scores (dimensions 1 to 9) | Match |
 |---|---|---|---|---|---|---|
@@ -68,7 +68,7 @@ By plan step 7, a second miss stops the milestone and is reported. The building 
 
 ## Round 3
 
-The person's answer to round 2 (decision Q17, "Rule it, one more round"): gate 1 lets one docked full-width primary action at the bottom of a phone frame be the second look, and the canvas "Scheduled" badge is Neutral (`1f12d3f`). Same setup, at `1f12d3f` (`0.0.0+1f12d3f`), in five new scratch repos (`sample-r`, `-s`, `-t`, `-v`, `-w`) and five new fresh Opus contexts.
+The person's answer to round 2 (decision Q17, "Rule it, one more round"): gate 1 lets one docked full-width primary action at the bottom of a phone frame be the second look, and the canvas "Scheduled" badge is Neutral (`bb0670b`). Same setup, at `bb0670b` (`0.0.0+bb0670b`), in five new scratch repos (`sample-r`, `-s`, `-t`, `-v`, `-w`) and five new fresh Opus contexts.
 
 | Row | Folder | Key before | Round 3 verdict | Gates failed | Scores (dimensions 1 to 9) |
 |---|---|---|---|---|---|

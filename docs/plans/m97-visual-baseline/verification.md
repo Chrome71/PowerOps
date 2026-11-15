@@ -4,7 +4,7 @@ The fix plan's "Verified by": `powerops-prototype` run once on a sample plan fro
 
 ## Setup
 
-- Branch commit `f599fc2` (the S8 line of `45288ea` was copied in before round 2; see below), built in Release, with `powerops` on PATH running that build (`0.0.0+f599fc2`), not the installed tool.
+- Branch commit `bdad025` (the S8 line of `8110568` was copied in before round 2; see below), built in Release, with `powerops` on PATH running that build (`0.0.0+bdad025`), not the installed tool.
 - A scratch git repo outside this one, with `powerops skills install . --agent claude` from that build, so the skills were read from the scratch repo's `.claude/skills/`, not from the user's plugin.
 - Each skill ran in its own Opus context (effort high) told to follow the installed `SKILL.md` exactly: the prototype as a subagent, and each judge round in a new fresh context that read no author report and no earlier pictures.
 - The sample plan: "an app for tracking site visits by our field engineers" (the smoke script's idea), canvas, three screens (My visits and Log a visit on a phone, Team today on a desktop), with no Theme block for the options. A Theme block (seed `#2E6B4F`) was added after the options, then `pick a`: the M93 follow-up "a run that sets the Theme after the pick".
@@ -28,7 +28,7 @@ Three lead frames of Team today at 1366 by 768, 29,899, 30,027 and 36,587 bytes:
 
 - **The fork fallback works.** A subagent can't start a fresh context, so each prototype round ended with "judge needed: mockups/prototype.html" and the caller started the judge, as decisions Q9 and `powerops-plan` section 7 step 6 say. Whether a forked skill can start a forked skill in Claude Code is left to the smoke's Claude leg.
 - **The judge is not the author and is strict.** It failed rounds 1 and 2 on real faults: a contradiction between two drawings of one visit, a drawn style the author's own map called unconfirmed, and missing success and field-error states.
-- **A skill line contradicted the baseline.** Round 1 marked the names "Sample Person A to T" as placeholder copy (S8). They came from `powerops-prototype` section 5, which said "a name such as \"Sample Person A\"". That line now asks for a made-up first name and initial, as the samples do (`45288ea`).
+- **A skill line contradicted the baseline.** Round 1 marked the names "Sample Person A to T" as placeholder copy (S8). They came from `powerops-prototype` section 5, which said "a name such as \"Sample Person A\"". That line now asks for a made-up first name and initial, as the samples do (`8110568`).
 - **Cost.** Seven Opus contexts (three prototype rounds, three judge rounds, one options run), about 1.3 million subagent tokens, roughly 45 minutes of wall time.
 
 ## Not checked
