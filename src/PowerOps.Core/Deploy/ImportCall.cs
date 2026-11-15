@@ -86,7 +86,7 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
 
     private sealed record Given(string Value, bool Literal);
 
-    // settings apply and deploy apply mark PowerOps's own imports (decision 71): text the gate doesn't read as a powerops call blocks like a pac import.
+    // settings apply and deploy apply mark PowerOps's own imports (decision 74): text the gate doesn't read as a powerops call blocks like a pac import.
     [GeneratedRegex($"solution{Gap}import|solution{Gap}upgrade|pipeline{Gap}deploy|package{Gap}deploy|solution-settings\\.js|import-template-solution|encode-solution-file|ImportSolution|StageAndUpgrade|DeployPackageAsync|RetryFailedDeploymentAsync|(?<!\\w)(?:pcf{Gap}push|application{Gap}install|code{Gap}push|catalog{Gap}install|(?:apps?{Gap}push|(?:pages|powerpages|paportal){Gap}(?:upload|migrate-datamodel)|genpage{Gap}upload|copilot{Gap}(?:push|publish|init))(?!\\w))|install-application-package|Import-CrmSolution|manage-agent\\.bundle|(?<![\\w-])(?:settings|deploy){Gap}apply(?![\\w-])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex Markers();
 
@@ -460,7 +460,7 @@ public sealed partial record ImportCall(string Zip, string Environment, string? 
     // zsh's extendedglob makes ^, # and a ~ after the first character glob operators, which can expand to --apply.
     private static bool Plain(Word w) => w.Literal && w.Raw.IndexOfAny(['^', '#']) < 0 && w.Raw.IndexOf('~', 1) < 0;
 
-    // PowerOps's own imports (decision 71), read fail-closed: the line for the call, or null when it imports nothing.
+    // PowerOps's own imports (decision 74), read fail-closed: the line for the call, or null when it imports nothing.
     private static string? ReadPowerOps(Word[] words)
     {
         // A command substitution in the program word would run unseen.
