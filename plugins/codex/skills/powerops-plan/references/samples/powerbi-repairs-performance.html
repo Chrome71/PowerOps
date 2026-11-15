@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch: Repairs performance, Power BI report page</title>
+<style>
+/* Sample kit: tokens and shared parts for the three design-research samples.
+   Unit rule: 1rem = 10 design px. The root font-size scales the whole board to the window, so every frame is
+   drawn at its product's real design size and shown to fit. Paste this whole block at the top of the one
+   <style> element, set --design-w for the file, then add the file's own rules after it. */
+:root{
+  /* brand: one hue. Marrowby petrol. Never used on large surfaces except the ink header. */
+  --brand:#0B6A75; --brand-hover:#095861; --brand-press:#06434A; --brand-tint:#E4F1F2; --brand-tint-2:#CBE4E7;
+  --ink:#0E2A30; --ink-2:#17383F; --on-ink:#FFFFFF; --on-ink-muted:#B7D0D5;
+  /* neutrals (Fluent 2 light) */
+  --page:#F6F5F2; --surface:#FFFFFF; --subtle:#FAFAFA; --fill:#F0F0F0; --fill-2:#E6E6E6;
+  --stroke:#E0E0E0; --stroke-strong:#D1D1D1; --stroke-input:#8A8A8A;
+  --fg1:#242424; --fg2:#424242; --fg3:#616161; --fg4:#707070; --on-brand:#FFFFFF;
+  /* status: text, tint, border. Meaning only; always with a word or icon. */
+  --pos:#0E700E; --pos-bg:#F1FAF1; --pos-bd:#9FD89F;
+  --warn:#8A3707; --warn-bg:#FFF9F5; --warn-bd:#FDCFB4;
+  --crit:#B10E1C; --crit-bg:#FDF3F4; --crit-bd:#EEACB2;
+  --neu:#424242; --neu-bg:#F0F0F0; --neu-bd:#D1D1D1;
+  /* data marks: focus = brand, context = grey (3:1 on white), attention = amber, target line = dashed grey */
+  --mark:#0B6A75; --mark-ctx:#949494; --mark-attn:#C2570C; --mark-target:#707070; --grid:#EBEBEB;
+  /* type: Fluent ramp, px/10. Three or four sizes a screen plus one display size. */
+  --font:"Segoe UI Variable Text","Segoe UI","Adwaita Sans",Inter,"Noto Sans",system-ui,sans-serif;
+  --f12:1.2rem; --f14:1.4rem; --f16:1.6rem; --f20:2rem; --f24:2.4rem; --f28:2.8rem; --f32:3.2rem; --f40:4rem;
+  /* space: 4/8 scale */
+  --s4:.4rem; --s8:.8rem; --s12:1.2rem; --s16:1.6rem; --s20:2rem; --s24:2.4rem; --s32:3.2rem; --s40:4rem; --s48:4.8rem;
+  /* shape and depth: two radii plus the circle; two shadow levels */
+  --r4:.4rem; --r8:.8rem; --pill:99rem;
+  --sh2:0 0 .2rem rgba(0,0,0,.12),0 .1rem .2rem rgba(0,0,0,.14);
+  --sh8:0 0 .2rem rgba(0,0,0,.12),0 .4rem .8rem rgba(0,0,0,.14);
+  --sh-frame:0 .2rem .4rem rgba(14,42,48,.08),0 1.6rem 4rem rgba(14,42,48,.16);
+  --board:#E2E6E6; --design-w:1366;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:clamp(5px,calc((100vw - 48px) / (var(--design-w) / 10)),10px)}
+body{font-family:var(--font);font-size:var(--f14);line-height:2rem;color:var(--fg1);background:var(--board);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1,h2,h3,h4{font-weight:600;font-size:inherit}
+ul,ol{list-style:none}
+a{color:inherit;text-decoration:none}
+button,input,select,textarea{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+:focus-visible{outline:.2rem solid var(--brand);outline-offset:.2rem;border-radius:var(--r4)}
+
+/* board: the sketch document around the frames */
+.sk-banner{background:var(--ink);color:var(--on-ink);padding:1rem 2.4rem;display:flex;gap:1.6rem;align-items:baseline;
+  font-size:var(--f14)}
+.sk-banner b{font-weight:600}.sk-banner span{color:var(--on-ink-muted)}
+.board{width:calc(var(--design-w) * .1rem);margin:0 auto;padding:3.2rem 0 6.4rem}
+.board>h1{font-size:var(--f28);line-height:3.6rem;font-weight:600;letter-spacing:-.02em}
+.board>p.lede{color:var(--fg3);font-size:var(--f16);line-height:2.4rem;max-width:90rem;margin-top:.4rem}
+.sec{margin-top:4.8rem}
+.sec>h2{font-size:var(--f20);line-height:2.8rem;font-weight:600}
+.sec>p{color:var(--fg3);max-width:90rem}
+.cap{display:flex;gap:1.2rem;align-items:baseline;margin:2.4rem 0 1.2rem;color:var(--fg3);font-size:var(--f14)}
+.cap b{color:var(--fg1);font-weight:600;font-size:var(--f16)}
+.cap .tag{font-size:var(--f12);line-height:1.6rem;padding:.2rem .8rem;border-radius:var(--pill);background:var(--surface);
+  border:.1rem solid var(--stroke-strong);color:var(--fg2);white-space:nowrap}
+
+/* frames: each is one screen at the product's real design size */
+.frame{background:var(--page);border-radius:1.2rem;box-shadow:var(--sh-frame);overflow:hidden;position:relative}
+.frame.desktop{width:136.6rem;height:76.8rem}
+.frame.phone{width:39rem;height:84.4rem;border-radius:3.6rem;border:.8rem solid var(--ink)}
+.frame.report{width:192rem;height:108rem;border-radius:.8rem}
+.row{display:flex;gap:3.2rem;align-items:flex-start;flex-wrap:wrap}
+
+/* state gallery: the changed region only, at the same scale, in a labelled tile */
+.states{display:grid;grid-template-columns:repeat(2,1fr);gap:2.4rem;margin-top:1.6rem}
+.states.three{grid-template-columns:repeat(3,1fr)}
+.state{background:var(--page);border-radius:1.2rem;box-shadow:var(--sh-frame);overflow:hidden}
+.state>header{display:flex;gap:.8rem;align-items:baseline;padding:1.2rem 1.6rem;background:var(--surface);
+  border-bottom:.1rem solid var(--stroke)}
+.state>header b{font-weight:600}.state>header span{color:var(--fg3);font-size:var(--f12)}
+.state>.crop{padding:1.6rem}
+
+/* icons: Fluent System Icons sprite; 20 px default */
+.i{width:2rem;height:2rem;fill:currentColor;flex:none}
+.i.s16{width:1.6rem;height:1.6rem}.i.s24{width:2.4rem;height:2.4rem}.i.s32{width:3.2rem;height:3.2rem}
+
+/* buttons: 32 px high on work screens */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.6rem;height:3.2rem;padding:0 1.2rem;
+  border-radius:var(--r4);border:.1rem solid var(--stroke-strong);background:var(--surface);color:var(--fg1);
+  font-size:var(--f14);font-weight:600;white-space:nowrap;cursor:default}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+.btn.subtle{background:transparent;border-color:transparent;color:var(--fg2)}
+.btn.icon{width:3.2rem;padding:0}
+.btn.lg{height:4.4rem;padding:0 2rem;font-size:var(--f16)}
+.btn[disabled]{background:var(--fill);border-color:var(--fill);color:#BDBDBD}
+
+/* badge: status as a labelled pill, tint appearance */
+.badge{display:inline-flex;align-items:center;gap:.4rem;height:2rem;padding:0 .8rem;border-radius:var(--pill);
+  font-size:var(--f12);line-height:1.6rem;font-weight:600;white-space:nowrap;border:.1rem solid transparent}
+.badge.pos{color:var(--pos);background:var(--pos-bg);border-color:var(--pos-bd)}
+.badge.warn{color:var(--warn);background:var(--warn-bg);border-color:var(--warn-bd)}
+.badge.crit{color:var(--crit);background:var(--crit-bg);border-color:var(--crit-bd)}
+.badge.info{color:var(--brand-hover);background:var(--brand-tint);border-color:var(--brand-tint-2)}
+.badge.neu{color:var(--neu);background:var(--neu-bg);border-color:var(--neu-bd)}
+.badge .i{width:1.2rem;height:1.2rem}
+
+/* avatar: initials on a brand tint */
+.av{display:inline-flex;align-items:center;justify-content:center;width:3.2rem;height:3.2rem;border-radius:50%;
+  background:var(--brand-tint-2);color:var(--brand-press);font-size:var(--f12);font-weight:600;flex:none}
+.av.s24{width:2.4rem;height:2.4rem;font-size:1rem}.av.s40{width:4rem;height:4rem;font-size:var(--f14)}
+
+/* card: white on the page tone; stroke, no shadow */
+.card{background:var(--surface);border:.1rem solid var(--stroke);border-radius:var(--r8)}
+
+/* fields: label above, hint under the label, error at the field */
+.field{display:flex;flex-direction:column;gap:.4rem}
+.field>label{font-weight:600}
+.field>.hint{color:var(--fg3);font-size:var(--f12);line-height:1.6rem}
+.input{height:3.2rem;padding:0 1rem;border:.1rem solid var(--stroke-strong);border-bottom-color:var(--stroke-input);
+  border-radius:var(--r4);background:var(--surface);display:flex;align-items:center;gap:.8rem;color:var(--fg1)}
+.input.ph{color:var(--fg4)}
+.input.err{border-color:var(--crit);border-width:.1rem;box-shadow:inset 0 0 0 .1rem var(--crit)}
+.field>.msg{display:flex;gap:.4rem;align-items:center;color:var(--crit);font-size:var(--f12);line-height:1.6rem}
+
+/* message bar */
+.bar{display:flex;gap:.8rem;align-items:flex-start;padding:1rem 1.2rem;border-radius:var(--r4);border:.1rem solid}
+.bar.crit{background:var(--crit-bg);border-color:var(--crit-bd);color:var(--fg1)}
+.bar.crit>.i{color:var(--crit)}
+.bar.warn{background:var(--warn-bg);border-color:var(--warn-bd)}.bar.warn>.i{color:var(--warn)}
+.bar.pos{background:var(--pos-bg);border-color:var(--pos-bd)}.bar.pos>.i{color:var(--pos)}
+.bar b{font-weight:600}
+
+/* skeleton: still, no animation */
+.sk{background:var(--fill-2);border-radius:var(--r4);height:1.2rem}
+
+:root{--design-w:1920;
+  --bi-title:2.7rem; --bi-vtitle:1.9rem; --bi-kpi:4.8rem; --bi-lead:8rem; --bi-body:1.3rem; --bi-tick:1.3rem;
+  --mark-ctx-strong:#767676; --mark-attn:var(--crit)}
+.badge{font-size:var(--bi-body)}
+.crit{color:var(--crit)} .pos{color:var(--pos)}
+b,.d{font-weight:600}
+
+/* report page: every visual is absolutely placed, as PBIR stores x, y, width and height */
+.frame.report{font-size:var(--bi-body);line-height:2rem}
+.v{position:absolute;background:var(--surface);border:.1rem solid var(--stroke);border-radius:var(--r8);padding:1.6rem 2rem;
+  display:flex;flex-direction:column;overflow:hidden}
+.v.static{position:relative;font-size:var(--bi-body);line-height:2rem}
+.vh-t{margin-bottom:.8rem}
+.vt{font-size:var(--bi-vtitle);line-height:2.4rem;font-weight:600}
+.vs{color:var(--fg3);font-size:var(--bi-body);line-height:2rem}
+.chart{display:block;overflow:visible}
+.chart text{font-family:var(--font)}
+.tk{font-size:13px;fill:var(--fg3)}
+.lb{font-size:13px;fill:var(--fg1)}
+.dl{font-size:13px;font-weight:600;fill:var(--fg1)}
+text.crit,tspan.crit{fill:var(--crit)}
+.dl.in{fill:var(--on-brand)}
+.dl.out{fill:var(--fg3)}
+
+/* title row */
+.titlerow{position:absolute;left:3.2rem;top:2.4rem;height:7.2rem;display:flex;align-items:center}
+.titlerow.static{position:relative;left:auto;top:auto;padding:0 1.6rem}
+.tb{display:flex;align-items:center;gap:1.6rem}
+.logo{width:4rem;height:4rem;border-radius:var(--r8);background:var(--brand);color:var(--on-brand);display:inline-flex;
+  align-items:center;justify-content:center;flex:none}
+.logo.sm{width:3.2rem;height:3.2rem}
+.mk{width:2.8rem;height:2.8rem;color:var(--on-brand)}.logo.sm .mk{width:2.2rem;height:2.2rem}
+.pt-line{display:flex;align-items:baseline;gap:1.2rem}
+.pt{font-size:var(--bi-title);line-height:3.2rem;font-weight:600;letter-spacing:-.01em}
+.org{color:var(--fg3);font-size:var(--bi-body);font-weight:400}
+.asof{display:flex;align-items:center;gap:.6rem;color:var(--fg3);margin-top:.4rem;height:2rem}
+.tabs{position:absolute;left:58.4rem;top:4rem;height:4rem;display:flex;gap:.8rem;align-items:stretch}
+.tab{display:flex;align-items:center;padding:0 1.6rem;color:var(--fg2);border-bottom:.3rem solid transparent;padding-top:.3rem}
+.tab.on{color:var(--fg1);font-weight:600;border-bottom-color:var(--brand)}
+.slicer{position:absolute;top:3.2rem;width:21.6rem;height:5.6rem;background:var(--surface);border:.1rem solid var(--stroke);
+  border-radius:var(--r8);padding:.6rem 1.2rem;display:flex;flex-direction:column;justify-content:center}
+.sl-l{font-size:var(--bi-body);line-height:1.8rem;color:var(--fg3)}
+.sl-v{display:flex;justify-content:space-between;align-items:center;line-height:2rem;color:var(--fg1)}
+.sl-v .i{color:var(--fg3)}
+
+/* lead pane */
+.leadpane{padding:2.4rem}
+.lead{display:flex;align-items:baseline;gap:1.6rem;margin-top:.8rem}
+.lead-n{font-size:var(--bi-lead);line-height:8rem;font-weight:700;letter-spacing:-.035em}
+.badge.lg{height:2.8rem;padding:0 1.2rem;font-size:var(--bi-body);gap:.6rem;transform:translateY(-1rem)}
+.badge.lg .i{width:1.6rem;height:1.6rem}
+.cmp{margin-top:1.2rem;border-top:.1rem solid var(--stroke)}
+.cmp-r{display:grid;grid-template-columns:1fr 8rem 12rem;align-items:center;height:4rem;border-bottom:.1rem solid var(--stroke)}
+.cn{color:var(--fg3)}
+.cv{text-align:right}
+.cd{text-align:right;font-weight:600}
+.ct{font-size:var(--bi-body);line-height:2rem;font-weight:600;margin:3.2rem 0 1.2rem}
+.insight{display:flex;background:var(--subtle);border:.1rem solid var(--stroke);
+  border-radius:var(--r4);padding:1.2rem 1.6rem;margin-top:2.4rem}
+.foot{margin-top:auto;color:var(--fg3);line-height:2rem}
+
+/* KPI strip: one card visual with four cards */
+.kpistrip{padding:0}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);height:100%}
+.kpi{padding:1.6rem 2rem;border-left:.1rem solid var(--stroke)}
+.kpi:first-child{border-left:0}
+.kpi-l{color:var(--fg3)}
+.kpi-v{font-size:var(--bi-kpi);line-height:5.6rem;font-weight:700;letter-spacing:-.02em;margin:.2rem 0 .4rem}
+.kpi-r{color:var(--fg3);white-space:nowrap}
+.kpi-r b{margin-left:.6rem}.kpi-r b:first-child{margin-left:0}
+
+/* contractor table */
+.tablebox .tbl{display:flex;flex-direction:column}
+.tr{display:grid;grid-template-columns:28rem 18.4rem 13.6rem 20.8rem 13.2rem 11.6rem 13.4rem;align-items:center;
+  height:3.6rem;border-bottom:.1rem solid var(--stroke)}
+.tr>div{padding:0 .8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tr>div:first-child{padding-left:0}
+.tr>div:last-child{padding-right:0}
+.tablebox .vh-t{margin-bottom:.6rem}
+.tr.th{height:2.4rem;color:var(--fg3);font-weight:600;border-bottom-color:var(--stroke-strong)}
+.tr.tot{border-top:.2rem solid var(--stroke-strong);border-bottom:0;font-weight:600;height:3.6rem}
+.tr.focus{margin:0 -.8rem;padding:0 .8rem;outline:.2rem solid var(--brand);outline-offset:-.1rem;border-radius:var(--r4)}
+.r{text-align:right}
+.c-name b{font-weight:600}
+.c-bar{display:flex;align-items:center;gap:1.2rem}
+.track{position:relative;width:13.6rem;height:.6rem;background:var(--fill);border-radius:.2rem;flex:none}
+.fillbar{position:absolute;left:0;top:0;bottom:0;border-radius:.2rem}
+.c-bar .num{width:4.4rem;text-align:right}
+.c-spk{display:flex;align-items:center}
+.spk{display:block}
+
+/* phone: Power BI mobile layout */
+.ph{padding:1.6rem 1.2rem;display:flex;flex-direction:column;gap:1.2rem;font-size:var(--bi-body);line-height:2rem}
+.ph-title{display:flex;gap:1.2rem;align-items:center;padding:0 .4rem .4rem}
+.ph-pt{font-size:var(--bi-vtitle);line-height:2.4rem;font-weight:600}
+.ph-asof{display:flex;gap:.4rem;align-items:center;color:var(--fg3)}
+.pc{background:var(--surface);border:.1rem solid var(--stroke);border-radius:var(--r8);padding:1.6rem}
+.pc .ct{margin:0 0 .8rem}
+.ph-lead{margin-top:.4rem}
+.ph-lead .lead-n{font-size:6.4rem;line-height:6.8rem}
+.ph-lead{gap:.8rem}.ph-lead .badge{transform:translateY(-.8rem)}
+.ph .cmp{margin-top:.8rem}
+.ph .cmp-r{height:3.6rem;grid-template-columns:1fr 6.4rem 10.4rem}
+.pk{padding:1.2rem 1.6rem}
+.pk .kpi-v{margin:.2rem 0 .2rem}
+
+/* board layout for phone and states */
+.prow{display:flex;gap:3.2rem;align-items:flex-start}
+.phcol{width:39rem;flex:none}
+.phcol .cap{flex-wrap:wrap;row-gap:.4rem}
+.statecol{flex:1;min-width:0;display:flex;flex-direction:column}
+.selstate .v.static.kpistrip{padding:0}
+.selrow{display:flex;gap:2.4rem}
+.state .crop{display:flex;flex-direction:column;gap:2.4rem;align-items:flex-start;font-size:var(--bi-body);line-height:2rem}
+.cut{height:28rem;overflow:hidden}
+.states.s3{grid-template-columns:77.6rem 49.6rem 1fr;align-items:stretch}
+.errstate{margin-top:2.4rem}
+.errstate .crop{padding:0}
+.pagetop{position:relative;width:192rem;height:29.6rem;overflow:hidden;background:var(--page);font-size:var(--bi-body);line-height:2rem}
+.fs-note{margin-top:1.6rem;color:var(--fg3)}
+.fs-note b{color:var(--fg1)}
+.nodata{flex:1;display:flex;align-items:center;justify-content:center;color:var(--fg3)}
+.loading{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.8rem;color:var(--fg3)}
+.spin{width:4rem;height:4rem}
+.none{color:var(--fg2)}
+.tip-wrap{position:relative;width:49.6rem;height:28rem}
+.tip-row{overflow:hidden;background:var(--surface);border:.1rem solid var(--stroke);border-radius:var(--r8)}
+.tip-row .tr{border-bottom:0;background:var(--fill)}
+.tr.hover{grid-template-columns:28rem 18.4rem;padding:0 1.6rem}.tr.hover>div:nth-child(n+3){display:none}
+.tip{position:absolute;left:16.8rem;top:4rem;width:32rem;height:24rem;background:var(--surface);border-radius:var(--r8);
+  box-shadow:var(--sh8);padding:1.6rem;display:flex;flex-direction:column}
+.tip-n{font-weight:600}
+.tip-s{color:var(--fg2)}
+.tip-c{color:var(--fg3);margin:.4rem 0 .4rem}
+.tip-t{display:flex;justify-content:space-between;border-top:.1rem solid var(--stroke);height:2.8rem;align-items:center}
+.tip-t:first-of-type{margin-top:auto}
+
+/* system */
+.sys-row{display:flex;gap:4.8rem;align-items:flex-start;margin-top:1.2rem}
+.sws{display:grid;grid-template-columns:repeat(8,8rem);gap:1.2rem .8rem}
+.sw{display:flex;flex-direction:column;gap:.4rem}
+.sw span{height:3.2rem;border-radius:var(--r4);border:.1rem solid var(--stroke)}
+.sw small{font-size:var(--f12);line-height:1.6rem;color:var(--fg3)}
+.types{display:flex;gap:3.2rem;align-items:flex-end}
+.types p{line-height:1.6rem;font-size:var(--f12)}
+.g{color:var(--fg3)}
+.space{display:flex;flex-direction:column;gap:.8rem;font-size:var(--f12);line-height:1.6rem}
+.sp{display:flex;align-items:center;gap:.8rem;color:var(--fg3)}
+.sp i{display:block;height:1.6rem;background:var(--brand-tint-2)}
+
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="display:none" aria-hidden="true"><!-- Fluent System Icons, MIT licence, Microsoft -->
+<symbol id="i-clock" viewBox="0 0 20 20"><path d="M10 2C14.4183 2 18 5.58172 18 10C18 14.4183 14.4183 18 10 18C5.58172 18 2 14.4183 2 10C2 5.58172 5.58172 2 10 2ZM10 3C6.13401 3 3 6.13401 3 10C3 13.866 6.13401 17 10 17C13.866 17 17 13.866 17 10C17 6.13401 13.866 3 10 3ZM9.5 5C9.74546 5 9.94961 5.17688 9.99194 5.41012L10 5.5V10H12.5C12.7761 10 13 10.2239 13 10.5C13 10.7455 12.8231 10.9496 12.5899 10.9919L12.5 11H9.5C9.25454 11 9.05039 10.8231 9.00806 10.5899L9 10.5V5.5C9 5.22386 9.22386 5 9.5 5Z"/></symbol>
+<symbol id="i-chev-down" viewBox="0 0 20 20"><path d="M15.8537 7.64582C16.0493 7.84073 16.0499 8.15731 15.855 8.35292L10.39 13.8374C10.1751 14.0531 9.82574 14.0531 9.6108 13.8374L4.14582 8.35292C3.9509 8.15731 3.95147 7.84073 4.14708 7.64582C4.34269 7.4509 4.65927 7.45147 4.85418 7.64708L10.0004 12.8117L15.1466 7.64708C15.3415 7.45147 15.6581 7.4509 15.8537 7.64582Z"/></symbol>
+<symbol id="i-arrow-down" viewBox="0 0 20 20"><path d="M16.8666 10.8371C17.0528 10.6332 17.0384 10.3169 16.8345 10.1307C16.6305 9.94456 16.3143 9.95895 16.1281 10.1629L10.4974 16.3307V2.5C10.4974 2.22386 10.2735 2 9.99736 2C9.72122 2 9.49736 2.22386 9.49736 2.5V16.3279L3.86927 10.1629C3.68309 9.95895 3.36684 9.94456 3.16289 10.1307C2.95895 10.3169 2.94456 10.6332 3.13074 10.8371L9.44478 17.7535C9.57254 17.8934 9.74008 17.9732 9.91323 17.993C9.94058 17.9976 9.96869 18 9.99736 18C10.0242 18 10.0506 17.9979 10.0763 17.9938C10.2522 17.9756 10.4229 17.8955 10.5526 17.7535L16.8666 10.8371Z"/></symbol>
+<symbol id="i-arrow-up" viewBox="0 0 20 20"><path d="M3.13269 9.16094C2.94651 9.36488 2.96091 9.68113 3.16485 9.86731C3.36879 10.0535 3.68504 10.0391 3.87122 9.83515L9.50195 3.6673L9.50195 17.498C9.50195 17.7742 9.72581 17.998 10.002 17.998C10.2781 17.998 10.502 17.7742 10.502 17.498L10.502 3.67019L16.13 9.83515C16.3162 10.0391 16.6325 10.0535 16.8364 9.86731C17.0404 9.68113 17.0548 9.36488 16.8686 9.16094L10.5545 2.24458C10.4268 2.10464 10.2592 2.02481 10.0861 2.0051C10.0587 2.00046 10.0306 1.99805 10.002 1.99805C9.97508 1.99805 9.9487 2.00017 9.92298 2.00425C9.74708 2.02242 9.57641 2.10253 9.44673 2.24458L3.13269 9.16094Z"/></symbol>
+<symbol id="logo-m" viewBox="0 0 20 20"><path d="M3.5 15.5V8.2L7 5l3 2.8L13 5l3.5 3.2v7.3" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<div class="sk-banner"><b>Sketch</b><span>A static design sample for one Power BI report page, not a built report. Made-up organisation and data.</span></div>
+<main class="board">
+<h1>Repairs performance</h1>
+<p class="lede">Answer, cause, detail: one lead number with its comparisons on the left, the causes in the middle, the contractor detail last. It makes the on-time gap and where it comes from readable in ten seconds; it gives up a map, any decorative chart and every effect Power BI cannot confirm.</p>
+
+<div class="cap"><b>Overview</b><span>head of repairs and the board's operations lead &middot; see whether repairs finish on time and where the gap comes from &middot; first look: 86.4% on time against the 90% target</span>
+<span class="tag">Power BI</span><span class="tag">1920 by 1080</span><span class="tag">Answer, cause, detail</span></div>
+
+<div class="frame report" data-screen="Overview">
+  <div class="titlerow"><div class="tb"><span class="logo"><svg class="mk" aria-hidden="true"><use href="#logo-m"/></svg></span><div><h2 class="pt-line"><span class="pt">Repairs performance</span><span class="org">Marrowby Homes</span></h2><p class="asof"><svg class="i s16" aria-hidden="true"><use href="#i-clock"/></svg><span>October 2026 &middot; all areas &middot; all priorities &middot; data as of 12 Nov 2026, 06:00</span></p></div></div></div>
+  <nav class="tabs" aria-label="Pages"><span class="tab on" aria-current="page">Overview</span><span class="tab">Contractors</span><span class="tab">Homes</span></nav>
+  <div class="slicer" style="left:120.8rem"><span class="sl-l">Month</span><span class="sl-v">October 2026<svg class="i s16" aria-hidden="true"><use href="#i-chev-down"/></svg></span></div><div class="slicer" style="left:144.0rem"><span class="sl-l">Area</span><span class="sl-v">All areas<svg class="i s16" aria-hidden="true"><use href="#i-chev-down"/></svg></span></div><div class="slicer" style="left:167.2rem"><span class="sl-l">Priority</span><span class="sl-v">All priorities<svg class="i s16" aria-hidden="true"><use href="#i-chev-down"/></svg></span></div>
+  <section class="v leadpane" style="left:3.2rem;top:11.2rem;width:60.0rem;height:93.6rem"><header class="vh-t"><h3 class="vt">Completed on time</h3><p class="vs">October 2026: 3.6 points under the 90% target</p></header><div class="lead"><span class="lead-n num">86.4%</span><span class="badge crit lg"><svg class="i s16" aria-hidden="true"><use href="#i-arrow-down"/></svg>Below target</span></div><div class="cmp"><div class="cmp-r"><span class="cn">Target</span><span class="cv num">90.0%</span><span class="cd num crit">&#9660; &minus;3.6 pts</span></div><div class="cmp-r"><span class="cn">Last month</span><span class="cv num">84.9%</span><span class="cd num pos">&#9650; +1.5 pts</span></div><div class="cmp-r"><span class="cn">October 2025</span><span class="cv num">88.1%</span><span class="cd num crit">&#9660; &minus;1.7 pts</span></div></div><h4 class="ct">12 months against the 90% target</h4><svg class="chart" viewBox="0 0 552 416" style="width:55.2rem;height:41.6rem" role="img" aria-label="Monthly on-time percentage, November 2025 to October 2026, against the 90% target">
+<line x1="34" x2="536" y1="368.0" y2="368.0" stroke="var(--grid)" stroke-width="1"/>
+<text x="28" y="372.0" text-anchor="end" class="tk num">82%</text>
+<line x1="34" x2="536" y1="296.4" y2="296.4" stroke="var(--grid)" stroke-width="1"/>
+<text x="28" y="300.4" text-anchor="end" class="tk num">84%</text>
+<line x1="34" x2="536" y1="224.8" y2="224.8" stroke="var(--grid)" stroke-width="1"/>
+<text x="28" y="228.8" text-anchor="end" class="tk num">86%</text>
+<line x1="34" x2="536" y1="153.2" y2="153.2" stroke="var(--grid)" stroke-width="1"/>
+<text x="28" y="157.2" text-anchor="end" class="tk num">88%</text>
+<line x1="34" x2="536" y1="81.6" y2="81.6" stroke="var(--grid)" stroke-width="1"/>
+<text x="28" y="85.6" text-anchor="end" class="tk num">90%</text>
+<line x1="34" x2="536" y1="10.0" y2="10.0" stroke="var(--grid)" stroke-width="1"/>
+<text x="28" y="14.0" text-anchor="end" class="tk num">92%</text>
+<line x1="34" x2="536" y1="81.6" y2="81.6" stroke="var(--mark-target)" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="536" y="73.6" text-anchor="end" class="tk">Target 90%</text>
+<polyline points="34.0,174.7 79.6,253.4 125.3,300.0 170.9,224.8 216.5,128.1 262.2,60.1 307.8,38.6 353.5,78.0 399.1,142.5 444.7,217.6 490.4,264.2 536.0,210.5" fill="none" stroke="var(--mark)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="34.0" cy="174.7" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="79.6" cy="253.4" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="125.3" cy="300.0" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="170.9" cy="224.8" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="216.5" cy="128.1" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="262.2" cy="60.1" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="307.8" cy="38.6" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="353.5" cy="78.0" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="399.1" cy="142.5" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="444.7" cy="217.6" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="490.4" cy="264.2" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="536.0" cy="210.5" r="6.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="2"/>
+<text x="79.6" y="388" text-anchor="middle" class="tk">Dec</text>
+<text x="170.9" y="388" text-anchor="middle" class="tk">Feb</text>
+<text x="262.2" y="388" text-anchor="middle" class="tk">Apr</text>
+<text x="353.5" y="388" text-anchor="middle" class="tk">Jun</text>
+<text x="444.7" y="388" text-anchor="middle" class="tk">Aug</text>
+<text x="536.0" y="388" text-anchor="middle" class="tk">Oct</text>
+<text x="79.6" y="405" text-anchor="middle" class="tk">2025</text>
+<text x="170.9" y="405" text-anchor="middle" class="tk">2026</text>
+</svg><div class="insight"><p>Heating is the main cause: <b>74.2%</b> on time against 90%, and <b>45%</b> of all late repairs. Roofing is second at <b>79.5%</b>.</p></div><p class="foot">On time = completed within 6 hours (emergency), 7 days (urgent) or 28 days (routine).</p></section>
+  <section class="v kpistrip" style="left:65.6rem;top:11.2rem;width:123.2rem;height:16.8rem"><div class="kpis"><div class="kpi"><p class="kpi-l">Average days to complete</p><p class="kpi-v num">9.2</p><p class="kpi-r">Target 8.0 <b class="crit">&#9650; +1.2 days</b></p><p class="kpi-r">Last month 9.8</p></div><div class="kpi"><p class="kpi-l">Fixed at first visit</p><p class="kpi-v num">78.3%</p><p class="kpi-r">Target 75% <b class="pos">&#9650; +3.3 pts</b></p><p class="kpi-r">Last month 77.1%</p></div><div class="kpi"><p class="kpi-l">Open repairs</p><p class="kpi-v num">412</p><p class="kpi-r"><b class="crit">38 overdue</b></p><p class="kpi-r"><b class="pos">&#9660; 19 fewer</b> than last month (431)</p></div><div class="kpi"><p class="kpi-l">Tenant satisfaction, out of 5</p><p class="kpi-v num">4.3</p><p class="kpi-r">Target 4.5 <b class="crit">&#9660; &minus;0.2</b></p><p class="kpi-r">212 replies</p></div></div></section>
+  <section class="v" style="left:65.6rem;top:30.4rem;width:74.4rem;height:36.0rem"><header class="vh-t"><h3 class="vt">On time by trade against the 90% target</h3><p class="vs">Heating is 15.8 points under; three other trades are also under</p></header><svg class="chart" viewBox="0 0 702 272" style="width:70.2rem;height:27.2rem" role="img" aria-label="On time by trade against the 90% target">
+<line x1="622.0" x2="622.0" y1="20" y2="266" stroke="var(--mark-target)" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text x="622.0" y="13" text-anchor="middle" class="tk">Target 90%</text>
+<text x="160" y="49.5" text-anchor="end" class="lb">Heating</text>
+<rect x="172" y="36" width="371.0" height="18" rx="2" fill="var(--crit)"/>
+<text x="535.0" y="49.5" text-anchor="end" class="dl num in">74.2%</text>
+<text x="160" y="83.5" text-anchor="end" class="lb">Roofing</text>
+<rect x="172" y="70" width="397.5" height="18" rx="2" fill="var(--crit)"/>
+<text x="561.5" y="83.5" text-anchor="end" class="dl num in">79.5%</text>
+<text x="160" y="117.5" text-anchor="end" class="lb">Damp and mould</text>
+<rect x="172" y="104" width="420.0" height="18" rx="2" fill="var(--crit)"/>
+<text x="584.0" y="117.5" text-anchor="end" class="dl num in">84.0%</text>
+<text x="160" y="151.5" text-anchor="end" class="lb">Plumbing</text>
+<rect x="172" y="138" width="443.0" height="18" rx="2" fill="var(--crit)"/>
+<text x="607.0" y="151.5" text-anchor="end" class="dl num in">88.6%</text>
+<text x="160" y="185.5" text-anchor="end" class="lb">Electrical</text>
+<rect x="172" y="172" width="459.0" height="18" rx="2" fill="var(--mark-ctx-strong)"/>
+<text x="623.0" y="185.5" text-anchor="end" class="dl num in">91.8%</text>
+<text x="160" y="219.5" text-anchor="end" class="lb">Carpentry and joinery</text>
+<rect x="172" y="206" width="467.0" height="18" rx="2" fill="var(--mark-ctx-strong)"/>
+<text x="631.0" y="219.5" text-anchor="end" class="dl num in">93.4%</text>
+<text x="160" y="253.5" text-anchor="end" class="lb">Glazing</text>
+<rect x="172" y="240" width="475.5" height="18" rx="2" fill="var(--mark-ctx-strong)"/>
+<text x="639.5" y="253.5" text-anchor="end" class="dl num in">95.1%</text>
+</svg></section>
+  <section class="v" style="left:142.4rem;top:30.4rem;width:46.4rem;height:36.0rem"><header class="vh-t"><h3 class="vt">Open repairs by time left</h3><p class="vs">Most open repairs still have more than a week left</p></header><svg class="chart" viewBox="0 0 422 272" style="width:42.2rem;height:27.2rem" role="img" aria-label="Open repairs by time left to target">
+<rect x="16.2" y="160.4" width="52" height="61.6" rx="2" fill="var(--crit)"/>
+<text x="42.2" y="151.4" text-anchor="middle" class="dl num">38</text>
+<text x="42.2" y="243" text-anchor="middle" class="tk">Overdue</text>
+<rect x="100.6" y="129.7" width="52" height="92.3" rx="2" fill="var(--mark-ctx)"/>
+<text x="126.6" y="120.7" text-anchor="middle" class="dl num">57</text>
+<text x="126.6" y="243" text-anchor="middle" class="tk">0 to 2</text>
+<text x="126.6" y="261" text-anchor="middle" class="tk">days</text>
+<rect x="185.0" y="66.5" width="52" height="155.5" rx="2" fill="var(--mark-ctx)"/>
+<text x="211.0" y="57.5" text-anchor="middle" class="dl num">96</text>
+<text x="211.0" y="243" text-anchor="middle" class="tk">3 to 7</text>
+<text x="211.0" y="261" text-anchor="middle" class="tk">days</text>
+<rect x="269.4" y="30.8" width="52" height="191.2" rx="2" fill="var(--mark-ctx)"/>
+<text x="295.4" y="21.8" text-anchor="middle" class="dl num">118</text>
+<text x="295.4" y="243" text-anchor="middle" class="tk">8 to 14</text>
+<text x="295.4" y="261" text-anchor="middle" class="tk">days</text>
+<rect x="353.8" y="55.1" width="52" height="166.9" rx="2" fill="var(--mark-ctx)"/>
+<text x="379.8" y="46.1" text-anchor="middle" class="dl num">103</text>
+<text x="379.8" y="243" text-anchor="middle" class="tk">15 to 28</text>
+<text x="379.8" y="261" text-anchor="middle" class="tk">days</text>
+<line x1="4" x2="418" y1="222.5" y2="222.5" stroke="var(--fg4)" stroke-width="1"/>
+</svg></section>
+  <section class="v tablebox" style="left:65.6rem;top:68.8rem;width:123.2rem;height:36.0rem"><header class="vh-t"><h3 class="vt">Contractors against the 90% target</h3><p class="vs">Three contractors are under; Hartwell is furthest, 11.4 points under</p></header><div class="tbl" role="table"><div class="tr th"><div>Contractor</div><div>Trade</div><div class="r">Jobs completed</div><div>On time</div><div class="r">Against target</div><div class="r">Average days</div><div>Six-month trend</div></div><div class="tr focus" tabindex="0"><div class="c-name"><b>Hartwell Plumbing and Heating</b></div><div class="g">Heating, Plumbing</div><div class="r num">318</div><div class="c-bar"><span class="track"><span class="fillbar" style="width:78.6%;background:var(--crit)"></span></span><span class="num">78.6%</span></div><div class="r num d crit">&#9660; &minus;11.4 pts</div><div class="r num">11.4</div><div class="c-spk"><svg class="spk" viewBox="0 0 96 24" style="width:9.6rem;height:2.4rem" aria-hidden="true"><polyline points="3.0,3.0 21.0,5.4 39.0,10.3 57.0,15.2 75.0,20.0 93.0,21.0" fill="none" stroke="var(--crit)" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/><circle cx="93.0" cy="21.0" r="2.75" fill="var(--crit)"/></svg></div></div><div class="tr"><div class="c-name"><b>Skyline Roofing</b></div><div class="g">Roofing</div><div class="r num">64</div><div class="c-bar"><span class="track"><span class="fillbar" style="width:79.5%;background:var(--crit)"></span></span><span class="num">79.5%</span></div><div class="r num d crit">&#9660; &minus;10.5 pts</div><div class="r num">14.2</div><div class="c-spk"><svg class="spk" viewBox="0 0 96 24" style="width:9.6rem;height:2.4rem" aria-hidden="true"><polyline points="3.0,7.5 21.0,13.5 39.0,10.5 57.0,16.5 75.0,13.5 93.0,15.0" fill="none" stroke="var(--crit)" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/><circle cx="93.0" cy="15.0" r="2.75" fill="var(--crit)"/></svg></div></div><div class="tr"><div class="c-name"><b>Dryfix Damp Services</b></div><div class="g">Damp and mould</div><div class="r num">75</div><div class="c-bar"><span class="track"><span class="fillbar" style="width:84.0%;background:var(--crit)"></span></span><span class="num">84.0%</span></div><div class="r num d crit">&#9660; &minus;6.0 pts</div><div class="r num">12.5</div><div class="c-spk"><svg class="spk" viewBox="0 0 96 24" style="width:9.6rem;height:2.4rem" aria-hidden="true"><polyline points="3.0,21.0 21.0,18.0 39.0,12.0 57.0,9.0 75.0,6.0 93.0,3.0" fill="none" stroke="var(--crit)" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/><circle cx="93.0" cy="3.0" r="2.75" fill="var(--crit)"/></svg></div></div><div class="tr"><div class="c-name"><b>Brightline Electrical</b></div><div class="g">Electrical</div><div class="r num">207</div><div class="c-bar"><span class="track"><span class="fillbar" style="width:91.8%;background:var(--mark-ctx)"></span></span><span class="num">91.8%</span></div><div class="r num d pos">&#9650; +1.8 pts</div><div class="r num">6.1</div><div class="c-spk"><svg class="spk" viewBox="0 0 96 24" style="width:9.6rem;height:2.4rem" aria-hidden="true"><polyline points="3.0,16.5 21.0,13.5 39.0,13.5 57.0,10.5 75.0,7.5 93.0,8.1" fill="none" stroke="var(--mark-ctx)" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/><circle cx="93.0" cy="8.1" r="2.75" fill="var(--mark-ctx)"/></svg></div></div><div class="tr"><div class="c-name"><b>Oakframe Joinery</b></div><div class="g">Carpentry and joinery</div><div class="r num">181</div><div class="c-bar"><span class="track"><span class="fillbar" style="width:93.4%;background:var(--mark-ctx)"></span></span><span class="num">93.4%</span></div><div class="r num d pos">&#9650; +3.4 pts</div><div class="r num">7.3</div><div class="c-spk"><svg class="spk" viewBox="0 0 96 24" style="width:9.6rem;height:2.4rem" aria-hidden="true"><polyline points="3.0,13.5 21.0,10.5 39.0,13.5 57.0,13.5 75.0,10.5 93.0,12.3" fill="none" stroke="var(--mark-ctx)" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/><circle cx="93.0" cy="12.3" r="2.75" fill="var(--mark-ctx)"/></svg></div></div><div class="tr"><div class="c-name"><b>Clearview Glazing</b></div><div class="g">Glazing</div><div class="r num">82</div><div class="c-bar"><span class="track"><span class="fillbar" style="width:95.1%;background:var(--mark-ctx)"></span></span><span class="num">95.1%</span></div><div class="r num d pos">&#9650; +5.1 pts</div><div class="r num">5.9</div><div class="c-spk"><svg class="spk" viewBox="0 0 96 24" style="width:9.6rem;height:2.4rem" aria-hidden="true"><polyline points="3.0,16.6 21.0,13.6 39.0,10.6 57.0,10.6 75.0,7.6 93.0,7.4" fill="none" stroke="var(--mark-ctx)" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/><circle cx="93.0" cy="7.4" r="2.75" fill="var(--mark-ctx)"/></svg></div></div><div class="tr tot"><div class="c-name"><b>Total</b></div><div class="g"></div><div class="r num">927</div><div class="c-bar"><span class="track"><span class="fillbar" style="width:86.4%;background:var(--crit)"></span></span><span class="num">86.4%</span></div><div class="r num d crit">&#9660; &minus;3.6 pts</div><div class="r num">9.2</div><div class="c-spk"><svg class="spk" viewBox="0 0 96 24" style="width:9.6rem;height:2.4rem" aria-hidden="true"><polyline points="3.0,3.0 21.0,6.1 39.0,11.3 57.0,17.3 75.0,21.0 93.0,16.7" fill="none" stroke="var(--crit)" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/><circle cx="93.0" cy="16.7" r="2.75" fill="var(--crit)"/></svg></div></div></div></section>
+</div>
+
+<div class="prow">
+  <div class="phcol">
+    <div class="cap"><b>Overview (phone layout)</b><span>the same readers on a phone &middot; the answer first &middot; first look: 86.4%</span><span class="tag">Power BI mobile layout</span><span class="tag">portrait</span></div>
+    
+<div class="frame phone" data-screen="Overview (phone layout)">
+  <div class="ph">
+    <div class="ph-title"><span class="logo sm"><svg class="mk" aria-hidden="true"><use href="#logo-m"/></svg></span><div><h2 class="ph-pt">Repairs performance</h2>
+      <p class="ph-asof"><svg class="i s16" aria-hidden="true"><use href="#i-clock"/></svg><span>Oct 2026 &middot; data as of 12 Nov 2026, 06:00</span></p></div></div>
+    <section class="pc">
+      <header class="vh-t"><h3 class="vt">Completed on time</h3><p class="vs">October 2026: 3.6 points under the 90% target</p></header>
+      <div class="lead ph-lead"><span class="lead-n num">86.4%</span><span class="badge crit"><svg class="i s16" aria-hidden="true"><use href="#i-arrow-down"/></svg>Below target</span></div>
+      <div class="cmp"><div class="cmp-r"><span class="cn">Target</span><span class="cv num">90.0%</span><span class="cd num crit">&#9660; &minus;3.6 pts</span></div><div class="cmp-r"><span class="cn">Last month</span><span class="cv num">84.9%</span><span class="cd num pos">&#9650; +1.5 pts</span></div><div class="cmp-r"><span class="cn">October 2025</span><span class="cv num">88.1%</span><span class="cd num crit">&#9660; &minus;1.7 pts</span></div></div>
+    </section>
+    <section class="pc">
+      <h4 class="ct">12 months against the 90% target</h4>
+      <svg class="chart" viewBox="0 0 310 160" style="width:31.0rem;height:16.0rem" role="img" aria-label="Monthly on-time percentage against the 90% target">
+<line x1="36" x2="300" y1="116.0" y2="116.0" stroke="var(--grid)" stroke-width="1"/>
+<text x="30" y="120.0" text-anchor="end" class="tk num">82%</text>
+<line x1="36" x2="300" y1="94.8" y2="94.8" stroke="var(--grid)" stroke-width="1"/>
+<text x="30" y="98.8" text-anchor="end" class="tk num">84%</text>
+<line x1="36" x2="300" y1="73.6" y2="73.6" stroke="var(--grid)" stroke-width="1"/>
+<text x="30" y="77.6" text-anchor="end" class="tk num">86%</text>
+<line x1="36" x2="300" y1="52.4" y2="52.4" stroke="var(--grid)" stroke-width="1"/>
+<text x="30" y="56.4" text-anchor="end" class="tk num">88%</text>
+<line x1="36" x2="300" y1="31.2" y2="31.2" stroke="var(--grid)" stroke-width="1"/>
+<text x="30" y="35.2" text-anchor="end" class="tk num">90%</text>
+<line x1="36" x2="300" y1="10.0" y2="10.0" stroke="var(--grid)" stroke-width="1"/>
+<text x="30" y="14.0" text-anchor="end" class="tk num">92%</text>
+<line x1="36" x2="300" y1="31.2" y2="31.2" stroke="var(--mark-target)" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="300" y="23.2" text-anchor="end" class="tk">Target 90%</text>
+<polyline points="36.0,58.8 60.0,82.1 84.0,95.9 108.0,73.6 132.0,45.0 156.0,24.8 180.0,18.5 204.0,30.1 228.0,49.2 252.0,71.5 276.0,85.3 300.0,69.4" fill="none" stroke="var(--mark)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="36.0" cy="58.8" r="3" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="60.0" cy="82.1" r="3" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="84.0" cy="95.9" r="3" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="108.0" cy="73.6" r="3" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="132.0" cy="45.0" r="3" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="156.0" cy="24.8" r="3" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="180.0" cy="18.5" r="3" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="204.0" cy="30.1" r="3" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="228.0" cy="49.2" r="3" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="252.0" cy="71.5" r="3" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="276.0" cy="85.3" r="3" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="300.0" cy="69.4" r="5.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="2"/>
+<text x="60.0" y="136" text-anchor="middle" class="tk">Dec</text>
+<text x="108.0" y="136" text-anchor="middle" class="tk">Feb</text>
+<text x="156.0" y="136" text-anchor="middle" class="tk">Apr</text>
+<text x="204.0" y="136" text-anchor="middle" class="tk">Jun</text>
+<text x="252.0" y="136" text-anchor="middle" class="tk">Aug</text>
+<text x="300.0" y="136" text-anchor="middle" class="tk">Oct</text>
+<text x="60.0" y="153" text-anchor="middle" class="tk">2025</text>
+<text x="108.0" y="153" text-anchor="middle" class="tk">2026</text>
+</svg>
+    </section>
+    <section class="pc pk"><p class="kpi-l">Average days to complete</p><p class="kpi-v num">9.2</p><p class="kpi-r">Target 8.0 <b class="crit">&#9650; +1.2 days</b></p><p class="kpi-r">Last month 9.8</p></section>
+    <section class="pc pk"><p class="kpi-l">Fixed at first visit</p><p class="kpi-v num">78.3%</p><p class="kpi-r">Target 75% <b class="pos">&#9650; +3.3 pts</b></p><p class="kpi-r">Last month 77.1%</p></section>
+  </div>
+</div>
+  </div>
+  
+<div class="statecol">
+  <div class="cap"><b>States</b><span>each tile shows only the region that changes</span></div>
+  <article class="state selstate" data-state="selected"><header><b>Selected</b><span>after a click on the Heating bar &middot; the card and table filter to Heating; the charts highlight it</span></header><div class="crop"><section class="v static kpistrip" style="width:123.2rem;height:16.8rem"><div class="kpis"><div class="kpi"><p class="kpi-l">Average days to complete</p><p class="kpi-v num">12.6</p><p class="kpi-r">Target 8.0 <b class="crit">&#9650; +4.6 days</b></p><p class="kpi-r">Last month 13.4</p></div><div class="kpi"><p class="kpi-l">Fixed at first visit</p><p class="kpi-v num">68.0%</p><p class="kpi-r">Target 75% <b class="crit">&#9660; &minus;7.0 pts</b></p><p class="kpi-r">Last month 69.5%</p></div><div class="kpi"><p class="kpi-l">Open repairs</p><p class="kpi-v num">71</p><p class="kpi-r"><b class="crit">19 overdue</b></p><p class="kpi-r"><b class="pos">&#9660; 4 fewer</b> than last month (75)</p></div><div class="kpi"><p class="kpi-l">Tenant satisfaction, out of 5</p><p class="kpi-v num">3.9</p><p class="kpi-r">Target 4.5 <b class="crit">&#9660; &minus;0.6</b></p><p class="kpi-r">41 replies</p></div></div></section><div class="selrow"><section class="v static" style="width:74.4rem;height:36.0rem"><header class="vh-t"><h3 class="vt">On time by trade against the 90% target</h3><p class="vs">Heating is 15.8 points under; three other trades are also under</p></header><svg class="chart" viewBox="0 0 702 272" style="width:70.2rem;height:27.2rem" role="img" aria-label="On time by trade against the 90% target">
+<line x1="622.0" x2="622.0" y1="20" y2="266" stroke="var(--mark-target)" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text x="622.0" y="13" text-anchor="middle" class="tk">Target 90%</text>
+<text x="160" y="49.5" text-anchor="end" class="lb">Heating</text>
+<rect x="172" y="36" width="371.0" height="18" rx="2" fill="var(--crit)"/>
+<text x="535.0" y="49.5" text-anchor="end" class="dl num in">74.2%</text>
+<text x="160" y="83.5" text-anchor="end" class="lb">Roofing</text>
+<rect x="172" y="70" width="397.5" height="18" rx="2" fill="var(--crit)" opacity="0.4"/>
+<rect x="572.5" y="68" width="44" height="22" fill="var(--surface)"/>
+<text x="575.5" y="83.5" class="dl num out">79.5%</text>
+<text x="160" y="117.5" text-anchor="end" class="lb">Damp and mould</text>
+<rect x="172" y="104" width="420.0" height="18" rx="2" fill="var(--crit)" opacity="0.4"/>
+<rect x="595.0" y="102" width="44" height="22" fill="var(--surface)"/>
+<text x="598.0" y="117.5" class="dl num out">84.0%</text>
+<text x="160" y="151.5" text-anchor="end" class="lb">Plumbing</text>
+<rect x="172" y="138" width="443.0" height="18" rx="2" fill="var(--crit)" opacity="0.4"/>
+<rect x="618.0" y="136" width="44" height="22" fill="var(--surface)"/>
+<text x="621.0" y="151.5" class="dl num out">88.6%</text>
+<text x="160" y="185.5" text-anchor="end" class="lb">Electrical</text>
+<rect x="172" y="172" width="459.0" height="18" rx="2" fill="var(--mark-ctx-strong)" opacity="0.4"/>
+<rect x="634.0" y="170" width="44" height="22" fill="var(--surface)"/>
+<text x="637.0" y="185.5" class="dl num out">91.8%</text>
+<text x="160" y="219.5" text-anchor="end" class="lb">Carpentry and joinery</text>
+<rect x="172" y="206" width="467.0" height="18" rx="2" fill="var(--mark-ctx-strong)" opacity="0.4"/>
+<rect x="642.0" y="204" width="44" height="22" fill="var(--surface)"/>
+<text x="645.0" y="219.5" class="dl num out">93.4%</text>
+<text x="160" y="253.5" text-anchor="end" class="lb">Glazing</text>
+<rect x="172" y="240" width="475.5" height="18" rx="2" fill="var(--mark-ctx-strong)" opacity="0.4"/>
+<rect x="650.5" y="238" width="44" height="22" fill="var(--surface)"/>
+<text x="653.5" y="253.5" class="dl num out">95.1%</text>
+</svg></section><section class="v static" style="width:46.4rem;height:36.0rem"><header class="vh-t"><h3 class="vt">Open repairs by time left</h3><p class="vs">Most open repairs still have more than a week left</p></header><svg class="chart" viewBox="0 0 422 272" style="width:42.2rem;height:27.2rem" role="img" aria-label="Open repairs by time left to target">
+<rect x="16.2" y="160.4" width="52" height="61.6" rx="2" fill="var(--crit)" opacity="0.4"/>
+<rect x="16.2" y="191.2" width="52" height="30.8" rx="2" fill="var(--crit)"/>
+<text x="42.2" y="182.2" text-anchor="middle" class="dl num">19</text>
+<text x="42.2" y="243" text-anchor="middle" class="tk">Overdue</text>
+<rect x="100.6" y="129.7" width="52" height="92.3" rx="2" fill="var(--mark-ctx)" opacity="0.4"/>
+<rect x="100.6" y="200.9" width="52" height="21.1" rx="2" fill="var(--mark-ctx)"/>
+<text x="126.6" y="191.9" text-anchor="middle" class="dl num">13</text>
+<text x="126.6" y="243" text-anchor="middle" class="tk">0 to 2</text>
+<text x="126.6" y="261" text-anchor="middle" class="tk">days</text>
+<rect x="185.0" y="66.5" width="52" height="155.5" rx="2" fill="var(--mark-ctx)" opacity="0.4"/>
+<rect x="185.0" y="196.1" width="52" height="25.9" rx="2" fill="var(--mark-ctx)"/>
+<text x="211.0" y="187.1" text-anchor="middle" class="dl num">16</text>
+<text x="211.0" y="243" text-anchor="middle" class="tk">3 to 7</text>
+<text x="211.0" y="261" text-anchor="middle" class="tk">days</text>
+<rect x="269.4" y="30.8" width="52" height="191.2" rx="2" fill="var(--mark-ctx)" opacity="0.4"/>
+<rect x="269.4" y="199.3" width="52" height="22.7" rx="2" fill="var(--mark-ctx)"/>
+<text x="295.4" y="190.3" text-anchor="middle" class="dl num">14</text>
+<text x="295.4" y="243" text-anchor="middle" class="tk">8 to 14</text>
+<text x="295.4" y="261" text-anchor="middle" class="tk">days</text>
+<rect x="353.8" y="55.1" width="52" height="166.9" rx="2" fill="var(--mark-ctx)" opacity="0.4"/>
+<rect x="353.8" y="207.4" width="52" height="14.6" rx="2" fill="var(--mark-ctx)"/>
+<text x="379.8" y="198.4" text-anchor="middle" class="dl num">9</text>
+<text x="379.8" y="243" text-anchor="middle" class="tk">15 to 28</text>
+<text x="379.8" y="261" text-anchor="middle" class="tk">days</text>
+<line x1="4" x2="418" y1="222.5" y2="222.5" stroke="var(--fg4)" stroke-width="1"/>
+</svg></section></div><section class="v static tablebox" style="width:123.2rem;height:14.4rem"><header class="vh-t"><h3 class="vt">Contractors against the 90% target</h3><p class="vs">Filtered by the Heating bar: Hartwell is 15.8 points under</p></header><div class="tbl" role="table"><div class="tr th"><div>Contractor</div><div>Trade</div><div class="r">Jobs completed</div><div>On time</div><div class="r">Against target</div><div class="r">Average days</div><div>Six-month trend</div></div><div class="tr"><div class="c-name"><b>Hartwell Plumbing and Heating</b></div><div class="g">Heating</div><div class="r num">221</div><div class="c-bar"><span class="track"><span class="fillbar" style="width:74.2%;background:var(--crit)"></span></span><span class="num">74.2%</span></div><div class="r num d crit">&#9660; &minus;15.8 pts</div><div class="r num">12.6</div><div class="c-spk"><svg class="spk" viewBox="0 0 96 24" style="width:9.6rem;height:2.4rem" aria-hidden="true"><polyline points="3.0,3.0 21.0,7.6 39.0,12.2 57.0,14.5 75.0,19.2 93.0,21.0" fill="none" stroke="var(--crit)" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/><circle cx="93.0" cy="21.0" r="2.75" fill="var(--crit)"/></svg></div></div></div></section></div></article>
+</div>
+</div>
+
+<div class="states s3">
+  <article class="state" data-state="empty"><header><b>Empty</b><span>the slicers leave no rows &middot; clear the Priority slicer</span></header><div class="crop"><div class="cut"><section class="v static" style="width:74.4rem;height:36.0rem"><header class="vh-t"><h3 class="vt">No repairs match these filters</h3><p class="vs">Castle Quarter, Emergency, October 2026</p></header><div class="nodata"><p>Nothing to show. Clear the Priority slicer to see all Castle Quarter repairs.</p></div></section></div></div></article>
+  <article class="state" data-state="loading"><header><b>Loading</b><span>while a query runs &middot; the product's own indicator</span></header><div class="crop"><div class="cut"><section class="v static" style="width:46.4rem;height:36.0rem"><header class="vh-t"><h3 class="vt">Open repairs by time left</h3><p class="vs">Most open repairs still have more than a week left</p></header><div class="loading"><svg class="spin" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" fill="none" stroke="var(--fill-2)" stroke-width="4"/><path d="M20 4 A16 16 0 0 1 36 20" fill="none" stroke="var(--fg3)" stroke-width="4" stroke-linecap="round"/></svg><p>Loading</p></div></section></div></div></article>
+  <article class="state" data-state="tooltip"><header><b>Tooltip</b><span>hovering Hartwell's row &middot; a report page tooltip, 320 by 240</span></header><div class="crop"><div class="tip-wrap"><div class="tbl tip-row"><div class="tr hover"><div class="c-name"><b>Hartwell Plumbing and Heating</b></div><div class="g">Heating, Plumbing</div><div class="r num">318</div><div class="c-bar"><span class="track"><span class="fillbar" style="width:78.6%;background:var(--crit)"></span></span><span class="num">78.6%</span></div><div class="r num d crit">&#9660; &minus;11.4 pts</div><div class="r num">11.4</div><div class="c-spk"><svg class="spk" viewBox="0 0 96 24" style="width:9.6rem;height:2.4rem" aria-hidden="true"><polyline points="3.0,3.0 21.0,5.4 39.0,10.3 57.0,15.2 75.0,20.0 93.0,21.0" fill="none" stroke="var(--crit)" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/><circle cx="93.0" cy="21.0" r="2.75" fill="var(--crit)"/></svg></div></div></div><div class="tip" role="tooltip"><p class="tip-n">Hartwell Plumbing and Heating</p><p class="tip-s num">78.6% on time &middot; <b class="crit">&#9660; &minus;11.4 pts</b></p><p class="tip-c">On time, May to Oct 2026</p><svg class="chart" viewBox="0 0 288 92" style="width:28.8rem;height:9.2rem" aria-hidden="true">
+<line x1="6" x2="244" y1="15.8" y2="15.8" stroke="var(--mark-target)" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text x="250" y="19.8" class="tk">90%</text>
+<polyline points="6.0,31.2 53.6,35.1 101.2,42.9 148.8,50.6 196.4,58.4 244.0,59.9" fill="none" stroke="var(--crit)" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="244.0" cy="59.9" r="4" fill="var(--crit)"/>
+<text x="6.0" y="88" text-anchor="start" class="tk">May</text>
+<text x="244.0" y="88" text-anchor="end" class="tk">Oct</text>
+</svg><div class="tip-t"><span>Heating</span><b class="num">74.2%</b></div><div class="tip-t"><span>Plumbing</span><b class="num">88.6%</b></div></div></div></div></article>
+</div>
+<article class="state errstate" data-state="error"><header><b>Error</b><span>the last two refreshes failed &middot; the page keeps the last good data (as of 10 Nov)</span></header><div class="crop"><div class="pagetop"><div class="titlerow"><div class="tb"><span class="logo"><svg class="mk" aria-hidden="true"><use href="#logo-m"/></svg></span><div><h2 class="pt-line"><span class="pt">Repairs performance</span><span class="org">Marrowby Homes</span></h2><p class="asof"><span class="badge warn">Data from 10 Nov, 06:00: the last two refreshes failed.</span></p></div></div></div><nav class="tabs" aria-label="Pages"><span class="tab on" aria-current="page">Overview</span><span class="tab">Contractors</span><span class="tab">Homes</span></nav><div class="slicer" style="left:120.8rem"><span class="sl-l">Month</span><span class="sl-v">October 2026<svg class="i s16" aria-hidden="true"><use href="#i-chev-down"/></svg></span></div><div class="slicer" style="left:144.0rem"><span class="sl-l">Area</span><span class="sl-v">All areas<svg class="i s16" aria-hidden="true"><use href="#i-chev-down"/></svg></span></div><div class="slicer" style="left:167.2rem"><span class="sl-l">Priority</span><span class="sl-v">All priorities<svg class="i s16" aria-hidden="true"><use href="#i-chev-down"/></svg></span></div><section class="v leadpane" style="left:3.2rem;top:11.2rem;width:60.0rem;height:93.6rem"><header class="vh-t"><h3 class="vt">Completed on time</h3><p class="vs">October 2026: 3.6 points under the 90% target</p></header><div class="lead"><span class="lead-n num">86.4%</span><span class="badge crit lg"><svg class="i s16" aria-hidden="true"><use href="#i-arrow-down"/></svg>Below target</span></div><div class="cmp"><div class="cmp-r"><span class="cn">Target</span><span class="cv num">90.0%</span><span class="cd num crit">&#9660; &minus;3.6 pts</span></div><div class="cmp-r"><span class="cn">Last month</span><span class="cv num">84.9%</span><span class="cd num pos">&#9650; +1.5 pts</span></div><div class="cmp-r"><span class="cn">October 2025</span><span class="cv num">88.1%</span><span class="cd num crit">&#9660; &minus;1.7 pts</span></div></div><h4 class="ct">12 months against the 90% target</h4><svg class="chart" viewBox="0 0 552 416" style="width:55.2rem;height:41.6rem" role="img" aria-label="Monthly on-time percentage, November 2025 to October 2026, against the 90% target">
+<line x1="34" x2="536" y1="368.0" y2="368.0" stroke="var(--grid)" stroke-width="1"/>
+<text x="28" y="372.0" text-anchor="end" class="tk num">82%</text>
+<line x1="34" x2="536" y1="296.4" y2="296.4" stroke="var(--grid)" stroke-width="1"/>
+<text x="28" y="300.4" text-anchor="end" class="tk num">84%</text>
+<line x1="34" x2="536" y1="224.8" y2="224.8" stroke="var(--grid)" stroke-width="1"/>
+<text x="28" y="228.8" text-anchor="end" class="tk num">86%</text>
+<line x1="34" x2="536" y1="153.2" y2="153.2" stroke="var(--grid)" stroke-width="1"/>
+<text x="28" y="157.2" text-anchor="end" class="tk num">88%</text>
+<line x1="34" x2="536" y1="81.6" y2="81.6" stroke="var(--grid)" stroke-width="1"/>
+<text x="28" y="85.6" text-anchor="end" class="tk num">90%</text>
+<line x1="34" x2="536" y1="10.0" y2="10.0" stroke="var(--grid)" stroke-width="1"/>
+<text x="28" y="14.0" text-anchor="end" class="tk num">92%</text>
+<line x1="34" x2="536" y1="81.6" y2="81.6" stroke="var(--mark-target)" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="536" y="73.6" text-anchor="end" class="tk">Target 90%</text>
+<polyline points="34.0,174.7 79.6,253.4 125.3,300.0 170.9,224.8 216.5,128.1 262.2,60.1 307.8,38.6 353.5,78.0 399.1,142.5 444.7,217.6 490.4,264.2 536.0,210.5" fill="none" stroke="var(--mark)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="34.0" cy="174.7" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="79.6" cy="253.4" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="125.3" cy="300.0" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="170.9" cy="224.8" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="216.5" cy="128.1" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="262.2" cy="60.1" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="307.8" cy="38.6" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="353.5" cy="78.0" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="399.1" cy="142.5" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="444.7" cy="217.6" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="490.4" cy="264.2" r="3.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="1.5"/>
+<circle cx="536.0" cy="210.5" r="6.5" fill="var(--mark)" stroke="var(--surface)" stroke-width="2"/>
+<text x="79.6" y="388" text-anchor="middle" class="tk">Dec</text>
+<text x="170.9" y="388" text-anchor="middle" class="tk">Feb</text>
+<text x="262.2" y="388" text-anchor="middle" class="tk">Apr</text>
+<text x="353.5" y="388" text-anchor="middle" class="tk">Jun</text>
+<text x="444.7" y="388" text-anchor="middle" class="tk">Aug</text>
+<text x="536.0" y="388" text-anchor="middle" class="tk">Oct</text>
+<text x="79.6" y="405" text-anchor="middle" class="tk">2025</text>
+<text x="170.9" y="405" text-anchor="middle" class="tk">2026</text>
+</svg><div class="insight"><p>Heating is the main cause: <b>74.2%</b> on time against 90%, and <b>45%</b> of all late repairs. Roofing is second at <b>79.5%</b>.</p></div><p class="foot">On time = completed within 6 hours (emergency), 7 days (urgent) or 28 days (routine).</p></section><section class="v kpistrip" style="left:65.6rem;top:11.2rem;width:123.2rem;height:16.8rem"><div class="kpis"><div class="kpi"><p class="kpi-l">Average days to complete</p><p class="kpi-v num">9.2</p><p class="kpi-r">Target 8.0 <b class="crit">&#9650; +1.2 days</b></p><p class="kpi-r">Last month 9.8</p></div><div class="kpi"><p class="kpi-l">Fixed at first visit</p><p class="kpi-v num">78.3%</p><p class="kpi-r">Target 75% <b class="pos">&#9650; +3.3 pts</b></p><p class="kpi-r">Last month 77.1%</p></div><div class="kpi"><p class="kpi-l">Open repairs</p><p class="kpi-v num">418</p><p class="kpi-r"><b class="crit">41 overdue</b></p><p class="kpi-r"><b class="pos">&#9660; 13 fewer</b> than last month (431)</p></div><div class="kpi"><p class="kpi-l">Tenant satisfaction, out of 5</p><p class="kpi-v num">4.3</p><p class="kpi-r">Target 4.5 <b class="crit">&#9660; &minus;0.2</b></p><p class="kpi-r">208 replies</p></div></div></section></div></div></article>
+<p class="fs-note" data-state="failed-save"><b>Failed save:</b> none; a report page writes nothing.</p>
+
+<section class="sec sys" id="system">
+  <h2>System</h2>
+  <div class="sys-row">
+    <div class="sws"><div class="sw"><span style="background:var(--brand)"></span><small>brand</small></div><div class="sw"><span style="background:var(--ink)"></span><small>ink</small></div><div class="sw"><span style="background:var(--page)"></span><small>canvas</small></div><div class="sw"><span style="background:var(--surface)"></span><small>visual</small></div>
+      <div class="sw"><span style="background:var(--pos)"></span><small>good</small></div><div class="sw"><span style="background:var(--warn)"></span><small>caution</small></div><div class="sw"><span style="background:var(--crit)"></span><small>bad</small></div><div class="sw"><span style="background:var(--brand-tint)"></span><small>info</small></div><div class="sw"><span style="background:var(--neu)"></span><small>neutral</small></div>
+      <div class="sw"><span style="background:var(--mark)"></span><small>focus series</small></div><div class="sw"><span style="background:var(--mark-ctx)"></span><small>context</small></div><div class="sw"><span style="background:var(--mark-ctx-strong)"></span><small>labelled bar</small></div><div class="sw"><span style="background:var(--mark-target)"></span><small>target line</small></div></div>
+    <div class="types">
+      <p><span style="font-size:var(--bi-lead);font-weight:700;line-height:8rem;letter-spacing:-.035em" class="num">80</span> lead number<br><span class="g">60 pt, one per page</span></p>
+      <p><span style="font-size:var(--bi-kpi);font-weight:700;line-height:4.8rem" class="num">48</span> KPI value<br><span class="g">36 pt</span></p>
+      <p><span style="font-size:var(--bi-title);font-weight:600">27</span> page title<br><span class="g">20 pt</span></p>
+      <p><span style="font-size:var(--bi-vtitle);font-weight:600">19</span> visual title<br><span class="g">14 pt</span></p>
+      <p><span style="font-size:var(--bi-body)">13</span> text, labels, ticks<br><span class="g">10 pt, the floor</span></p>
+    </div>
+    <div class="space"><p class="g">Grid 8 &middot; margins 32 &middot; gutters 24 &middot; padding 16 to 24</p>
+      <div class="sp"><i style="width:.8rem"></i>8</div><div class="sp"><i style="width:1.6rem"></i>16</div>
+      <div class="sp"><i style="width:2.4rem"></i>24</div><div class="sp"><i style="width:3.2rem"></i>32</div></div>
+  </div>
+</section>
+</main>
+</body>
+</html>

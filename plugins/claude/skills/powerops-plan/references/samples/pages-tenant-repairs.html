@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch: Marrowby Homes repairs, Lit windows (Power Pages)</title>
+<style>
+/* Sample kit: tokens and shared parts for the three design-research samples.
+   Unit rule: 1rem = 10 design px. The root font-size scales the whole board to the window, so every frame is
+   drawn at its product's real design size and shown to fit. Paste this whole block at the top of the one
+   <style> element, set --design-w for the file, then add the file's own rules after it. */
+:root{
+  /* brand: one hue. Marrowby petrol. Never used on large surfaces except the ink header. */
+  --brand:#0B6A75; --brand-hover:#095861; --brand-press:#06434A; --brand-tint:#E4F1F2; --brand-tint-2:#CBE4E7;
+  --ink:#0E2A30; --ink-2:#17383F; --on-ink:#FFFFFF; --on-ink-muted:#B7D0D5;
+  /* neutrals (Fluent 2 light) */
+  --page:#F6F5F2; --surface:#FFFFFF; --subtle:#FAFAFA; --fill:#F0F0F0; --fill-2:#E6E6E6;
+  --stroke:#E0E0E0; --stroke-strong:#D1D1D1; --stroke-input:#8A8A8A;
+  --fg1:#242424; --fg2:#424242; --fg3:#616161; --fg4:#707070; --on-brand:#FFFFFF;
+  /* status: text, tint, border. Meaning only; always with a word or icon. */
+  --pos:#0E700E; --pos-bg:#F1FAF1; --pos-bd:#9FD89F;
+  --warn:#8A3707; --warn-bg:#FFF9F5; --warn-bd:#FDCFB4;
+  --crit:#B10E1C; --crit-bg:#FDF3F4; --crit-bd:#EEACB2;
+  --neu:#424242; --neu-bg:#F0F0F0; --neu-bd:#D1D1D1;
+  /* data marks: focus = brand, context = grey (3:1 on white), attention = amber, target line = dashed grey */
+  --mark:#0B6A75; --mark-ctx:#949494; --mark-attn:#C2570C; --mark-target:#707070; --grid:#EBEBEB;
+  /* type: Fluent ramp, px/10. Three or four sizes a screen plus one display size. */
+  --font:"Segoe UI Variable Text","Segoe UI","Adwaita Sans",Inter,"Noto Sans",system-ui,sans-serif;
+  --f12:1.2rem; --f14:1.4rem; --f16:1.6rem; --f20:2rem; --f24:2.4rem; --f28:2.8rem; --f32:3.2rem; --f40:4rem;
+  /* space: 4/8 scale */
+  --s4:.4rem; --s8:.8rem; --s12:1.2rem; --s16:1.6rem; --s20:2rem; --s24:2.4rem; --s32:3.2rem; --s40:4rem; --s48:4.8rem;
+  /* shape and depth: two radii plus the circle; two shadow levels */
+  --r4:.4rem; --r8:.8rem; --pill:99rem;
+  --sh2:0 0 .2rem rgba(0,0,0,.12),0 .1rem .2rem rgba(0,0,0,.14);
+  --sh8:0 0 .2rem rgba(0,0,0,.12),0 .4rem .8rem rgba(0,0,0,.14);
+  --sh-frame:0 .2rem .4rem rgba(14,42,48,.08),0 1.6rem 4rem rgba(14,42,48,.16);
+  --board:#E2E6E6; --design-w:1366;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:clamp(5px,calc((100vw - 48px) / (var(--design-w) / 10)),10px)}
+body{font-family:var(--font);font-size:var(--f14);line-height:2rem;color:var(--fg1);background:var(--board);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1,h2,h3,h4{font-weight:600;font-size:inherit}
+ul,ol{list-style:none}
+a{color:inherit;text-decoration:none}
+button,input,select,textarea{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+:focus-visible{outline:.2rem solid var(--brand);outline-offset:.2rem;border-radius:var(--r4)}
+
+/* board: the sketch document around the frames */
+.sk-banner{background:var(--ink);color:var(--on-ink);padding:1rem 2.4rem;display:flex;gap:1.6rem;align-items:baseline;
+  font-size:var(--f14)}
+.sk-banner b{font-weight:600}.sk-banner span{color:var(--on-ink-muted)}
+.board{width:calc(var(--design-w) * .1rem);margin:0 auto;padding:3.2rem 0 6.4rem}
+.board>h1{font-size:var(--f28);line-height:3.6rem;font-weight:600;letter-spacing:-.02em}
+.board>p.lede{color:var(--fg3);font-size:var(--f16);line-height:2.4rem;max-width:90rem;margin-top:.4rem}
+.sec{margin-top:4.8rem}
+.sec>h2{font-size:var(--f20);line-height:2.8rem;font-weight:600}
+.sec>p{color:var(--fg3);max-width:90rem}
+.cap{display:flex;gap:1.2rem;align-items:baseline;margin:2.4rem 0 1.2rem;color:var(--fg3);font-size:var(--f14)}
+.cap b{color:var(--fg1);font-weight:600;font-size:var(--f16)}
+.cap .tag{font-size:var(--f12);line-height:1.6rem;padding:.2rem .8rem;border-radius:var(--pill);background:var(--surface);
+  border:.1rem solid var(--stroke-strong);color:var(--fg2);white-space:nowrap}
+
+/* frames: each is one screen at the product's real design size */
+.frame{background:var(--page);border-radius:1.2rem;box-shadow:var(--sh-frame);overflow:hidden;position:relative}
+.frame.desktop{width:136.6rem;height:76.8rem}
+.frame.phone{width:39rem;height:84.4rem;border-radius:3.6rem;border:.8rem solid var(--ink)}
+.frame.report{width:192rem;height:108rem;border-radius:.8rem}
+.row{display:flex;gap:3.2rem;align-items:flex-start;flex-wrap:wrap}
+
+/* state gallery: the changed region only, at the same scale, in a labelled tile */
+.states{display:grid;grid-template-columns:repeat(2,1fr);gap:2.4rem;margin-top:1.6rem}
+.states.three{grid-template-columns:repeat(3,1fr)}
+.state{background:var(--page);border-radius:1.2rem;box-shadow:var(--sh-frame);overflow:hidden}
+.state>header{display:flex;gap:.8rem;align-items:baseline;padding:1.2rem 1.6rem;background:var(--surface);
+  border-bottom:.1rem solid var(--stroke)}
+.state>header b{font-weight:600}.state>header span{color:var(--fg3);font-size:var(--f12)}
+.state>.crop{padding:1.6rem}
+
+/* icons: Fluent System Icons sprite; 20 px default */
+.i{width:2rem;height:2rem;fill:currentColor;flex:none}
+.i.s16{width:1.6rem;height:1.6rem}.i.s24{width:2.4rem;height:2.4rem}.i.s32{width:3.2rem;height:3.2rem}
+
+/* buttons: 32 px high on work screens */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.6rem;height:3.2rem;padding:0 1.2rem;
+  border-radius:var(--r4);border:.1rem solid var(--stroke-strong);background:var(--surface);color:var(--fg1);
+  font-size:var(--f14);font-weight:600;white-space:nowrap;cursor:default}
+.btn.subtle{background:transparent;border-color:transparent;color:var(--fg2)}
+.btn.icon{width:3.2rem;padding:0}
+.btn.lg{height:4.4rem;padding:0 2rem;font-size:var(--f16)}
+.btn[disabled]{background:var(--fill);border-color:var(--fill);color:#BDBDBD}
+
+/* badge: status as a labelled pill, tint appearance */
+.badge{display:inline-flex;align-items:center;gap:.4rem;height:2rem;padding:0 .8rem;border-radius:var(--pill);
+  font-size:var(--f12);line-height:1.6rem;font-weight:600;white-space:nowrap;border:.1rem solid transparent}
+.badge.pos{color:var(--pos);background:var(--pos-bg);border-color:var(--pos-bd)}
+.badge.warn{color:var(--warn);background:var(--warn-bg);border-color:var(--warn-bd)}
+.badge.crit{color:var(--crit);background:var(--crit-bg);border-color:var(--crit-bd)}
+.badge.info{color:var(--brand-hover);background:var(--brand-tint);border-color:var(--brand-tint-2)}
+.badge.neu{color:var(--neu);background:var(--neu-bg);border-color:var(--neu-bd)}
+.badge .i{width:1.2rem;height:1.2rem}
+
+/* avatar: initials on a brand tint */
+.av{display:inline-flex;align-items:center;justify-content:center;width:3.2rem;height:3.2rem;border-radius:50%;
+  background:var(--brand-tint-2);color:var(--brand-press);font-size:var(--f12);font-weight:600;flex:none}
+.av.s24{width:2.4rem;height:2.4rem;font-size:1rem}.av.s40{width:4rem;height:4rem;font-size:var(--f14)}
+
+/* card: white on the page tone; stroke, no shadow */
+.card{background:var(--surface);border:.1rem solid var(--stroke);border-radius:var(--r8)}
+
+/* fields: label above, hint under the label, error at the field */
+.field{display:flex;flex-direction:column;gap:.4rem}
+.field>label{font-weight:600}
+.field>.hint{color:var(--fg3);font-size:var(--f12);line-height:1.6rem}
+.input{height:3.2rem;padding:0 1rem;border:.1rem solid var(--stroke-strong);border-bottom-color:var(--stroke-input);
+  border-radius:var(--r4);background:var(--surface);display:flex;align-items:center;gap:.8rem;color:var(--fg1)}
+.input.ph{color:var(--fg4)}
+.input.err{border-color:var(--crit);border-width:.1rem;box-shadow:inset 0 0 0 .1rem var(--crit)}
+.field>.msg{display:flex;gap:.4rem;align-items:center;color:var(--crit);font-size:var(--f12);line-height:1.6rem}
+
+/* message bar */
+.bar{display:flex;gap:.8rem;align-items:flex-start;padding:1rem 1.2rem;border-radius:var(--r4);border:.1rem solid}
+.bar.crit{background:var(--crit-bg);border-color:var(--crit-bd);color:var(--fg1)}
+.bar.crit>.i{color:var(--crit)}
+.bar.warn{background:var(--warn-bg);border-color:var(--warn-bd)}.bar.warn>.i{color:var(--warn)}
+.bar.pos{background:var(--pos-bg);border-color:var(--pos-bd)}.bar.pos>.i{color:var(--pos)}
+.bar b{font-weight:600}
+
+/* skeleton: still, no animation */
+.sk{background:var(--fill-2);border-radius:var(--r4);height:1.2rem}
+:root{--design-w:1366}
+
+/* ---------- "Lit windows": added tokens (the kit's stay as they are) ---------- */
+:root{
+  --deep:#0A4F58; --deep-2:#0D5E68; --deep-3:#083F47; --on-deep:#CBE4E7;
+  --accent:#F4B740; --accent-hover:#E5A52B; --accent-tint:#FDF3DC; --accent-ink:#8A5A00;
+  --sans:"Fira Sans","Segoe UI",system-ui,sans-serif; --serif:"Noto Serif",Georgia,serif;
+  --f18:1.8rem; --f22:2.2rem; --f36:3.6rem; --f44:4.4rem; --f56:5.6rem; --f64:6.4rem;
+  --s56:5.6rem; --s64:6.4rem; --s80:8rem; --s96:9.6rem;
+}
+/* the one filled button per view is amber with ink text */
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--ink)}
+
+/* ---------- site type and parts (one custom CSS file on the real site) ---------- */
+.frame.browser{width:136.6rem}
+.chrome{height:4rem;background:var(--fill);border-bottom:.1rem solid var(--stroke);display:flex;align-items:center;gap:.8rem;padding:0 1.6rem}
+.chrome>i{width:1.2rem;height:1.2rem;border-radius:50%;background:var(--stroke-strong)}
+.chrome .url{margin-left:2.4rem;width:52rem;height:2.8rem;border-radius:var(--pill);background:var(--surface);border:.1rem solid var(--stroke);
+  display:flex;align-items:center;padding:0 1.6rem;font-size:var(--f14);color:var(--fg2)}
+.site{font-family:var(--sans);font-size:var(--f18);line-height:2.8rem;color:var(--fg1);background:var(--page)}
+.ctn{width:114rem;margin:0 auto}
+.h1{font-family:var(--serif);font-size:var(--f44);line-height:5.2rem;font-weight:700;letter-spacing:-.015em}
+.h2{font-family:var(--serif);font-size:var(--f32);line-height:4rem;font-weight:700;letter-spacing:-.01em}
+.h3{font-size:var(--f22);line-height:3rem;font-weight:600}
+.sm{font-size:var(--f14);line-height:2rem}
+.mut{color:var(--fg3)}
+.b{font-weight:600}
+.lk{color:var(--brand);text-decoration:underline;text-decoration-thickness:.1rem;text-underline-offset:.4rem}
+.ilk{display:inline-flex;align-items:center;gap:.6rem}
+.fr{outline:.3rem solid var(--ink);outline-offset:.2rem}
+/* on the deep bands the ring is white (9.2:1 on deep); ink and brand would be 1.6:1 and 1.5:1 */
+.hero .fr,.pband .fr,.topbar .fr,.ftr .fr,.ph-hero .fr,.hero :focus-visible,.pband :focus-visible,.topbar :focus-visible,.ftr :focus-visible,.ph-hero :focus-visible{outline-color:var(--on-ink)}
+.site .btn{height:4.4rem;padding:0 2rem;font-size:var(--f18);border-color:var(--stroke-input);gap:.8rem}
+.site .btn.primary{border-color:var(--accent)}
+.acts{display:flex;gap:1.6rem;align-items:center}
+.ln{display:flex;align-items:center;gap:.8rem}
+.pic{width:6.4rem;height:6.4rem;flex:none;display:block}
+
+/* top bar, header, footer */
+.topbar{position:relative;background:var(--ink);color:var(--on-ink);height:4rem;font-size:var(--f18);line-height:2.8rem}
+.topbar b{font-weight:600}
+.skipbar{background:var(--surface);padding:.8rem 0}
+.skip{display:inline-flex;align-items:center;height:4.4rem;padding:0 1.2rem;color:var(--brand);font-weight:600;text-decoration:underline;text-underline-offset:.4rem;border-radius:var(--r4)}
+.tel{white-space:nowrap}
+.topbar .ctn{display:flex;align-items:center;gap:.8rem;height:100%}
+.topbar .r{margin-left:auto;display:flex;gap:2.4rem}
+.hdr{background:var(--surface);height:8rem;border-bottom:.1rem solid var(--stroke)}
+.hdr .ctn{display:flex;align-items:center;height:100%}
+.logo{display:flex;align-items:center;gap:1.2rem;font-family:var(--serif);font-size:var(--f22);line-height:3rem;font-weight:700;letter-spacing:-.01em;color:var(--ink);white-space:nowrap}
+.mark{width:4rem;height:4rem;border-radius:var(--r8);background:var(--brand);color:var(--on-brand);display:flex;align-items:center;justify-content:center;flex:none}
+.mark .i{width:2.8rem;height:2.8rem}
+.nav{display:flex;gap:3.6rem;margin-left:6.4rem;height:100%}
+.nav a{display:flex;align-items:center;color:var(--fg2);position:relative}
+.nav a.cur{color:var(--brand);font-weight:600}
+.nav a.cur::after{content:"";position:absolute;left:0;right:0;bottom:-.1rem;height:.4rem;background:var(--brand);border-radius:.2rem .2rem 0 0}
+.hdr .end{margin-left:auto;display:flex;align-items:center;gap:1.6rem}
+.prof{display:flex;align-items:center;gap:.8rem;height:4.4rem;padding:0 .8rem;border-radius:var(--r4);color:var(--fg1)}
+.crumb{display:flex;gap:.8rem;font-size:var(--f14);line-height:2rem;color:var(--on-deep)}
+.crumb a{color:var(--on-deep);text-decoration:underline;text-underline-offset:.4rem}
+.ftr{position:relative;background:var(--ink);color:var(--on-ink);padding:6.4rem 0 0}
+.ftr .cols{display:grid;grid-template-columns:40rem repeat(3,1fr);gap:4.8rem}
+.ftr .logo{color:var(--on-ink)}
+.ftr p{color:var(--on-ink-muted);font-size:var(--f18);line-height:2.8rem;margin-top:1.6rem;max-width:34rem}
+.ftr h4{font-size:var(--f18);line-height:2.8rem;font-weight:600}
+.ftr ul{margin-top:1.2rem;display:flex;flex-direction:column;gap:.8rem;font-size:var(--f18);line-height:2.8rem}
+.ftr li{color:var(--on-ink-muted)}
+.ftr .base{margin-top:4.8rem;padding-top:2.4rem;border-top:.1rem solid var(--ink-2);font-size:var(--f14);line-height:2rem;color:var(--on-ink-muted);position:relative;z-index:1}
+.ftr .sky{display:block;width:100%;height:7.2rem;color:var(--ink-2);margin-top:.8rem}
+
+/* inner-page title band */
+.pband{position:relative;background:var(--deep);height:16rem;color:var(--on-ink);overflow:hidden}
+.pband>.ctn{position:relative;height:100%;padding-top:2.4rem}
+.pband .h1{color:var(--on-ink);margin-top:.8rem}
+.pband .bpiece{position:absolute;right:0;bottom:0;width:20.6rem;height:12rem}
+.pband .bright{position:absolute;right:11.2rem;bottom:4.4rem;display:flex;align-items:center;gap:2.4rem;color:var(--on-deep)}
+
+/* home: hero */
+.hero{position:relative;background:var(--deep);height:60rem;color:var(--on-ink)}
+.hero>.scene{position:absolute;left:0;top:0;width:136.6rem;height:60rem;display:block}
+.hero>.ctn{position:relative;height:100%}
+.hero .txt{position:absolute;left:0;top:4.8rem;width:66rem}
+.eyebrow{color:var(--accent);font-weight:600;letter-spacing:.01em}
+.hero .h1{font-size:var(--f64);line-height:6.8rem;letter-spacing:-.02em;margin-top:1.2rem;color:var(--on-ink)}
+.hero .intro{font-size:var(--f22);line-height:3.2rem;color:var(--on-deep);margin-top:2rem;max-width:46rem}
+.hero .acts{margin-top:3.2rem}
+.hero .btn.primary{height:5.2rem;padding:0 2.4rem}
+.hero .note{margin-top:1.6rem;color:var(--on-deep)}
+.track{position:relative;z-index:2;margin-top:-4rem;display:grid;grid-template-columns:59rem 1fr;background:var(--surface);color:var(--fg1);border-radius:var(--r8);
+  box-shadow:0 .2rem .4rem rgba(14,42,48,.12),0 2.4rem 4.8rem rgba(14,42,48,.24);padding:2.8rem 3.2rem}
+.track .tk{padding-right:3.2rem}
+.trow3{display:flex;gap:1.2rem;align-items:flex-end;margin-top:1.2rem}
+.trow3 .f{margin-top:0}
+.trow3 .btn{margin-top:0}
+.track .hint{color:var(--fg3);margin-top:.8rem}
+.pv{padding-left:3.2rem;border-left:.1rem solid var(--stroke)}
+.pv .r1{display:flex;align-items:center;gap:.8rem}
+.pv .r1 .badge{margin-left:auto}
+.htl{display:grid;grid-template-columns:repeat(5,1fr);margin-top:1.6rem}
+.htl>li{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;font-size:var(--f14);line-height:2rem;color:var(--fg3);white-space:nowrap}
+.htl>li::before{content:"";position:absolute;top:1.1rem;left:-50%;width:100%;height:.2rem;background:var(--stroke-strong);z-index:0}
+.htl>li:first-child::before{display:none}
+.htl>li.done::before,.htl>li.now::before{background:var(--brand)}
+.htl .dot{position:relative;z-index:1;width:2.4rem;height:2.4rem;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:.8rem;background:var(--surface);border:.2rem solid var(--stroke-input)}
+.htl .done .dot{border-color:var(--brand);color:var(--brand)}
+.htl .now .dot{background:var(--brand);border-color:var(--brand)}
+.htl .now .dot::after{content:"";width:.8rem;height:.8rem;border-radius:50%;background:var(--surface)}
+.htl .done,.htl .now{color:var(--fg1)}
+.htl .now{font-weight:600}
+.pv .vb{margin-top:1.2rem;color:var(--fg2)}
+.pv .ex{color:var(--fg3);margin-bottom:.4rem}
+.f{display:flex;flex-direction:column;margin-top:1.6rem}
+.f>label{font-weight:600;font-size:var(--f14);line-height:2rem}
+.in{height:4.4rem;border:.1rem solid var(--stroke-input);border-radius:var(--r4);background:var(--surface);padding:0 1.2rem;display:flex;align-items:center;gap:.8rem;margin-top:.8rem}
+.in.ph{color:var(--fg3)}
+
+/* home: below the hero */
+.emerg{display:flex;gap:1.6rem;align-items:center;padding:2rem 2.4rem;background:var(--crit-bg);border:.1rem solid var(--crit-bd);border-left:.4rem solid var(--crit);border-radius:var(--r4);margin-top:3.2rem}
+.emerg>.i{color:var(--crit)}
+.emerg .lk{margin-left:auto;white-space:nowrap}
+.sect{margin-top:8.8rem}
+.sect>.sub{color:var(--fg3);margin-top:.8rem}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2.4rem;margin-top:3.2rem}
+.tile{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2rem;padding:2.8rem 2.8rem 3.2rem;background:var(--surface);border:.1rem solid var(--stroke);border-radius:var(--r8)}
+.tile .t{font-size:var(--f22);line-height:3rem;font-weight:600;display:block;letter-spacing:-.005em}
+.tile .d{font-size:var(--f18);line-height:2.8rem;color:var(--fg3);display:block;margin-top:.2rem}
+.tile>.i:last-child{position:absolute;right:2.8rem;top:4.8rem;color:var(--brand)}
+.phs .tile{flex-direction:row;align-items:center;padding:2rem 4.4rem 2rem 2rem}
+.phs .tile>.i:last-child{top:50%;margin-top:-1rem;right:1.6rem}
+.howb{background:var(--brand-tint);margin-top:9.6rem;padding:8.8rem 0 8rem}
+.howb .top{display:grid;grid-template-columns:52rem 1fr;gap:6.4rem;align-items:start}
+.howb .top p{color:var(--fg2);max-width:60rem}
+.howb .top .lk{display:inline-block;margin-top:.8rem}
+.tline{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3.2rem;margin-top:5.6rem;text-align:left}
+.tline::before{content:"";position:absolute;left:2rem;right:calc(25% - 4.4rem);top:11.45rem;border-top:.3rem dashed var(--brand)}
+.tline li{display:flex;flex-direction:column;align-items:flex-start;position:relative}
+.tline .pic{width:8rem;height:8rem}
+.tline .n{width:4rem;height:4rem;border-radius:50%;background:var(--accent);color:var(--ink);font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1.6rem;box-shadow:0 0 0 .6rem var(--brand-tint)}
+.tline b{display:block;font-size:var(--f22);line-height:3rem;font-weight:600;margin-top:2rem}
+.tline span{display:block;color:var(--fg3);font-size:var(--f18);line-height:2.8rem;margin-top:.4rem;}
+.perf{padding:8.8rem 0 10.4rem}
+.perf-hd{display:flex;align-items:baseline;gap:1.6rem}
+.perf-hd .lk{margin-left:auto}
+.figs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2.4rem;margin-top:3.2rem}
+.fig{background:var(--surface);border:.1rem solid var(--stroke);border-radius:var(--r8);padding:3.2rem}
+.big{font-size:var(--f44);line-height:5.2rem;font-weight:700;letter-spacing:-.02em;display:block}
+.fig .big{font-size:var(--f56);line-height:6.4rem}
+.unit{line-height:1;font-size:var(--f22);font-weight:600;letter-spacing:0;color:var(--fg2)}
+.fig .lab{color:var(--fg2);display:block;margin-top:.4rem}
+.bul{display:block;width:100%;height:1.6rem;margin-top:2rem}
+.bul .tr{fill:var(--fill-2)}.bul .v{fill:var(--brand)}.bul .tg{stroke:var(--ink);stroke-width:2}
+.cmp{display:flex;align-items:center;gap:.6rem;font-size:var(--f18);line-height:2.8rem;margin-top:1.2rem;color:var(--fg3)}
+.cmp .dc,.cmp .dp{display:inline-flex;align-items:center;gap:.4rem;font-weight:600}
+.cmp .dc{color:var(--crit)}.cmp .dp{color:var(--pos)}
+
+/* report a repair */
+.rp{display:grid;grid-template-columns:72rem 36rem;justify-content:space-between;align-items:start;padding:4rem 0 9.6rem}
+.fcard{background:var(--surface);border:.1rem solid var(--stroke);border-radius:var(--r8);padding:4rem 4.8rem 4.8rem}
+.prog .stp{font-size:var(--f14);line-height:2rem;font-weight:600;color:var(--fg2)}
+.segs{display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem;margin-top:.8rem}
+.segs>i{height:.8rem;border-radius:var(--pill);background:var(--fill-2)}
+.segs>i.on{background:var(--brand)}
+.snames{display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem;margin-top:.8rem;font-size:var(--f14);line-height:2rem;color:var(--fg3)}
+.snames .done{color:var(--fg2);display:flex;gap:.4rem;align-items:center}
+.snames .done .i{color:var(--brand)}
+.snames .now{color:var(--fg1);font-weight:600}
+.fcard>.h2{margin-top:3.2rem}
+.qs{display:flex;flex-direction:column;gap:4rem;margin-top:3.2rem}
+.ql{display:block;font-size:var(--f22);line-height:3rem;font-weight:600}
+.ql .opt{font-weight:400;color:var(--fg3)}
+.qh{color:var(--fg3);margin-top:.4rem;max-width:60rem}
+.ctl{margin-top:1.2rem}
+.radios{display:flex;flex-direction:column;width:48rem}
+.ro{display:flex;align-items:center;gap:1.2rem;height:5.6rem;padding:0 1.6rem;border:.1rem solid var(--stroke-strong);background:var(--surface)}
+.radios.g2{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;width:100%}
+.radios.g2 .ro{border-radius:var(--r4)}
+.radios.g2 .ro.on{border-color:var(--brand);box-shadow:inset 0 0 0 .1rem var(--brand)}
+.ro.on{background:var(--brand-tint);border-color:var(--brand);position:relative;font-weight:600}
+.rd{width:2.4rem;height:2.4rem;border-radius:50%;border:.2rem solid var(--fg2);background:var(--surface);flex:none;display:flex;align-items:center;justify-content:center}
+.on .rd{border-color:var(--brand)}
+.on .rd::after{content:"";width:1.2rem;height:1.2rem;border-radius:50%;background:var(--brand)}
+.ta{width:100%;height:13.6rem;border:.1rem solid var(--stroke-input);border-radius:var(--r4);padding:1.2rem 1.6rem;background:var(--surface);resize:none;line-height:2.8rem}
+.ta.bad{border:.2rem solid var(--crit)}
+.cnt{margin-top:.8rem;color:var(--fg3)}
+.sel{width:32rem;justify-content:space-between}
+.sel.bad{border:.2rem solid var(--crit)}
+.file{width:100%;margin-top:1.2rem;background:var(--subtle);border:.1rem solid var(--stroke);border-radius:var(--r4);padding:1.6rem}
+.file .top{display:flex;align-items:center;gap:1.2rem}
+.file .top>.i{color:var(--fg2)}
+.file .top .lk{margin-left:auto}
+.file .bot{display:flex;align-items:center;gap:1.2rem;margin-top:.8rem;padding-left:3.2rem}
+.pbar{flex:1;height:.4rem;border-radius:var(--pill);background:var(--pos)}
+.ok{display:inline-flex;gap:.4rem;align-items:center;color:var(--pos);font-size:var(--f14);line-height:2rem;font-weight:600}
+.fcard>.acts{margin-top:4.8rem;padding-top:3.2rem;border-top:.1rem solid var(--stroke)}
+.aside{display:flex;flex-direction:column;gap:2.4rem}
+.acard{background:var(--surface);border:.1rem solid var(--stroke);border-radius:var(--r8);padding:2.8rem}
+.acard.hl{border-top:.4rem solid var(--brand)}
+.acard .hd{display:flex;align-items:center;gap:.8rem}
+.acard .hd .lk{margin-left:auto}
+.acard .hd>.i{color:var(--brand)}
+.acard p{margin-top:.8rem}
+.acard p+p{margin-top:.4rem}
+.nl{display:flex;flex-direction:column;gap:1.2rem;margin-top:1.6rem}
+.nl li{display:flex;gap:1.2rem}
+.nl .n{width:2.8rem;height:2.8rem;border-radius:50%;background:var(--brand-tint);font-size:var(--f14);font-weight:600;display:flex;align-items:center;justify-content:center;flex:none;color:var(--brand-press)}
+.links{display:flex;flex-direction:column;gap:1.2rem;margin-top:1.6rem}
+
+/* your repairs */
+.sumt{display:grid;grid-template-columns:2fr 1fr 1fr;gap:2.4rem;margin-top:4rem}
+.st{background:var(--surface);border:.1rem solid var(--stroke);border-radius:var(--r8);padding:2.8rem;display:flex;flex-direction:column}
+.st.lead{border-top:.4rem solid var(--brand)}
+.st .lab{display:flex;align-items:center;gap:.8rem;font-size:var(--f14);line-height:2rem;font-weight:600;color:var(--fg2)}
+.st .lab>.i{color:var(--brand)}
+.st .more{margin-top:auto;padding-top:1.2rem;font-size:var(--f18);line-height:2.8rem}
+.visit{font-size:var(--f44);line-height:5.2rem;font-weight:700;letter-spacing:-.02em;margin-top:.8rem}
+.st .big{margin-top:.4rem}
+.st .meta{color:var(--fg3);font-size:var(--f18);line-height:2.8rem;margin-top:.4rem}
+.st.lead .meta{font-size:var(--f18);line-height:2.8rem}
+.two{display:grid;grid-template-columns:72rem 39.6rem;gap:2.4rem;margin-top:2.4rem;align-items:start;padding-bottom:9.6rem}
+.lcard{background:var(--surface);border:.1rem solid var(--stroke);border-radius:var(--r8);overflow:hidden}
+.lhead{display:flex;gap:1.2rem;padding:1.6rem}
+.lhead .in{margin-top:0}
+.srch{flex:1;color:var(--fg3)}
+.fsel{width:20rem;justify-content:space-between}
+.tbl{width:100%;border-collapse:collapse;text-align:left;font-size:var(--f18);line-height:2.8rem}
+.tbl th{height:4.4rem;padding:0 1.2rem;background:var(--subtle);font-size:var(--f14);line-height:2rem;font-weight:600;color:var(--fg3);
+  border-top:.1rem solid var(--stroke);border-bottom:.1rem solid var(--stroke)}
+.tbl td{height:6rem;padding:.8rem 1.2rem;border-bottom:.1rem solid var(--stroke);vertical-align:middle}
+.tbl tr.cur td{background:var(--brand-tint)}
+.tbl th:first-child,.tbl td:first-child{padding-left:1.6rem}
+.tbl tr.cur td:first-child{box-shadow:inset .4rem 0 0 var(--brand)}
+.tbl .ref{white-space:nowrap}
+.tbl .dt{white-space:nowrap;color:var(--fg2)}
+.tbl td:last-child{text-align:right}
+.lfoot{display:flex;align-items:center;justify-content:space-between;padding:1.2rem 1.6rem}
+.pg{display:flex;gap:.4rem;align-items:center}
+.pg>span{min-width:4.4rem;height:4.4rem;padding:0 .8rem;border-radius:var(--r4);display:inline-flex;align-items:center;justify-content:center;gap:.4rem;color:var(--fg1)}
+.pg .cur{border:.2rem solid var(--brand);color:var(--brand);font-weight:600}
+.pg .dis{color:var(--fg4)}
+.trk{background:var(--surface);border:.1rem solid var(--stroke);border-radius:var(--r8);padding:2.8rem}
+.trk .h3{margin-top:.4rem}
+.trk .badge{margin-top:.8rem}
+.tl{margin-top:2.4rem;padding-top:2.4rem;border-top:.1rem solid var(--stroke)}
+.tl li{position:relative;padding:0 0 2rem 4.4rem}
+.tl li::before{content:"";position:absolute;left:1.3rem;top:3rem;bottom:.2rem;width:.2rem;background:var(--stroke-strong)}
+.tl li.done::before{background:var(--brand)}
+.tl li:last-child{padding-bottom:0}
+.tl li:last-child::before{display:none}
+.tl .dot{position:absolute;left:0;top:0;width:2.8rem;height:2.8rem;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.tl .done .dot{background:var(--surface);border:.2rem solid var(--brand);color:var(--brand)}
+.tl .now .dot{background:var(--brand)}
+.tl .now .dot::after{content:"";width:1rem;height:1rem;border-radius:50%;background:var(--surface)}
+.tl .up .dot{border:.2rem solid var(--stroke-input);background:var(--surface)}
+.tl b{display:block;font-weight:400}
+.tl .now b{font-weight:600}
+.tl .up b{color:var(--fg3)}
+.trk .pri{margin-top:.8rem;color:var(--fg2)}
+.tl span{display:block;font-size:var(--f14);line-height:2rem;color:var(--fg3)}
+.trk .stack{display:flex;flex-direction:column;gap:1.2rem;margin-top:1.2rem}
+.trk .stack .btn{width:100%}
+.site .badge{height:2.6rem;padding:0 1rem;font-size:var(--f14);line-height:2rem}
+.nlist{display:flex;flex-direction:column;gap:1rem;margin-top:1.2rem}
+.nlist li{padding-left:1.6rem;position:relative}
+.nlist li::before{content:"";position:absolute;left:0;top:1.1rem;width:.6rem;height:.6rem;border-radius:50%;background:var(--fg3)}
+.cant{margin-top:1.6rem;color:var(--fg2)}
+.trk .cant{margin-top:2.4rem}
+
+/* phones */
+.phrow{display:flex;gap:3.2rem;align-items:flex-start}
+.phcol .cap{margin-top:2.4rem}
+.phs{height:100%}
+.phs .topbar{height:3.6rem;font-size:var(--f14)}
+.phs .topbar .ctn,.phs .hdr .ctn{width:auto;padding:0 1.6rem}
+.phs .hdr{height:6.4rem}
+.phs .logo{font-size:var(--f18);line-height:2.4rem;gap:.8rem}
+.phs .mark{width:3.2rem;height:3.2rem}
+.phs .mark .i{width:2.2rem;height:2.2rem}
+.ibtn{width:4.4rem;height:4.4rem;border-radius:var(--r4);border:.1rem solid var(--stroke-input);display:flex;align-items:center;justify-content:center;color:var(--fg1);background:var(--surface)}
+.ph-hero{background:var(--deep);color:var(--on-ink);padding:2rem 1.6rem 0}
+.ph-hero .h1{font-size:var(--f36);line-height:4rem;margin-top:.8rem;color:var(--on-ink)}
+.ph-hero .intro{margin-top:.8rem;color:var(--on-deep)}
+.blk{display:flex;width:100%}
+.ph-hero .blk{margin-top:.8rem}
+.ph-hero .btn.primary{height:5.2rem;margin-top:1.6rem}
+.ph-hero .btn.ghost{background:transparent;color:var(--on-ink);border-color:var(--on-deep)}
+.ph-hero .note{margin-top:.8rem;color:var(--on-deep)}
+.ph-street{display:block;width:37.4rem;height:9.6rem;margin:1.2rem -1.6rem 0}
+.ph-body{padding:2.4rem 1.6rem}
+.phs .emerg{margin-top:0;align-items:flex-start;padding:1.2rem 1.6rem;font-size:var(--f18);line-height:2.8rem}
+.phs .st{padding:2rem}
+.phs .visit{font-size:var(--f22);line-height:3rem;letter-spacing:0}
+.ph-list{display:flex;flex-direction:column;gap:1.2rem;margin-top:1.2rem}
+.rcard{background:var(--surface);border:.1rem solid var(--stroke);border-radius:var(--r8);padding:1.6rem}
+.rcard.cur{box-shadow:inset .4rem 0 0 var(--brand)}
+.rcard .r1{display:flex;align-items:center;justify-content:space-between;font-size:var(--f14);line-height:2rem;color:var(--fg3)}
+.rcard .p{font-weight:600;margin-top:.4rem}
+.rcard .r3{display:flex;align-items:center;justify-content:space-between;margin-top:.4rem;font-size:var(--f14);line-height:2rem;color:var(--fg3)}
+.dock{position:absolute;left:0;right:0;bottom:0;padding:1.2rem 1.6rem 2rem;background:var(--surface);border-top:.1rem solid var(--stroke);box-shadow:0 -.4rem .8rem rgba(14,42,48,.08)}
+.dock .btn{width:100%;height:5.2rem}
+.lh{display:flex;align-items:baseline;justify-content:space-between;margin-top:2.4rem}
+.pband.ph{height:13.6rem}
+.pband.ph>.ctn{width:auto;padding:2.4rem 1.6rem 0}
+.pband.ph .h1{font-size:var(--f32);line-height:4rem;margin-top:0}
+.pband.ph p{color:var(--on-deep)}
+.pband.ph .bpiece{width:13.7rem;height:8rem}
+
+/* states */
+.scol{width:52.2rem;display:flex;flex-direction:column;gap:2.4rem}
+.scol>h2{font-size:var(--f20);line-height:2.8rem;font-weight:600;margin-top:2.4rem;padding:.6rem 0 .2rem}
+.states.pp{grid-template-columns:76rem 1fr;margin-top:3.2rem}
+.state{display:flex;flex-direction:column}
+.state>.crop{flex:1}
+.crop.w{background:var(--surface);padding:2.4rem}
+.state .site{background:transparent}
+.spic{width:9.6rem;height:9.6rem;flex:none;display:block}
+.empty{background:var(--surface);border:.1rem solid var(--stroke);border-radius:var(--r8);padding:4rem 3.2rem;display:flex;flex-direction:column;align-items:center;text-align:center}
+.empty .h3{margin-top:2rem}
+.empty p{color:var(--fg3);margin-top:.4rem}
+.empty .btn{margin-top:2.4rem}
+.fail{background:var(--crit-bg);border:.1rem solid var(--crit-bd);border-left:.4rem solid var(--crit);border-radius:var(--r4);padding:2.4rem;display:grid;grid-template-columns:9.6rem 1fr;column-gap:2rem}
+.fail .hd{display:flex;align-items:center;gap:.8rem}
+.fail .hd .i{color:var(--crit)}
+.fail p{margin-top:.4rem;color:var(--fg2)}
+.fail .acts{margin-top:2.4rem;grid-column:1/-1}
+.esum{border:.4rem solid var(--crit);border-radius:var(--r4);padding:2rem 2.4rem;background:var(--surface)}
+.esum .hd{display:flex;align-items:center;gap:.8rem;color:var(--fg1)}
+.esum .hd .i{color:var(--crit)}
+.esum ul{margin-top:1.2rem;padding-left:3.2rem;display:flex;flex-direction:column;gap:.8rem}
+.esum a{color:var(--crit);font-weight:600;text-decoration:underline;text-underline-offset:.4rem}
+.q.err{border-left:.4rem solid var(--crit);padding-left:2rem}
+.emsg{display:flex;gap:.4rem;align-items:center;color:var(--crit);font-weight:600;margin-top:.8rem}
+.spin{width:2rem;height:2rem;border-radius:50%;border:.3rem solid var(--fill-2);border-top-color:var(--brand);flex:none}
+.loadl{display:flex;align-items:center;gap:1.2rem;padding:1.2rem 1.6rem;border-bottom:.1rem solid var(--stroke);color:var(--fg2);font-size:var(--f14);line-height:2rem}
+.sk.w1{width:8rem}.sk.w2{width:22rem}.sk.w3{width:16rem}.sk.w4{width:9rem}.sk.w5{width:10rem;height:2rem;border-radius:var(--pill)}.sk.w6{width:4rem;margin-left:auto}
+.summ{margin-top:2.4rem;border-top:.1rem solid var(--stroke)}
+.summ>div{display:grid;grid-template-columns:17rem 1fr auto;gap:1.6rem;padding:1.2rem 0;border-bottom:.1rem solid var(--stroke)}
+.summ dt{color:var(--fg3)}
+.conf{background:var(--pos-bg);border:.1rem solid var(--pos-bd);border-radius:var(--r8);padding:3.2rem;display:flex;gap:2.4rem;align-items:flex-start}
+.conf .hd{display:flex;align-items:center;gap:.8rem}
+.conf .hd .i{color:var(--pos)}
+.conf .rl{margin-top:1.2rem;color:var(--fg2)}
+.conf .ref{font-size:var(--f44);line-height:5.2rem;font-weight:700;letter-spacing:-.02em}
+.conf .why{margin-top:1.2rem;color:var(--fg1)}
+.next{margin-top:3.2rem}
+.next ul{margin-top:1.2rem;display:flex;flex-direction:column;gap:.8rem}
+.next li{display:flex;gap:1.2rem;align-items:flex-start}
+.next li::before{content:"";width:.6rem;height:.6rem;border-radius:50%;background:var(--fg3);margin-top:1.1rem;flex:none}
+.next .lk{display:inline-flex;margin-top:1.6rem}
+
+/* system */
+.sysg{display:grid;grid-template-columns:auto auto auto;justify-content:space-between;gap:2.4rem;margin-top:1.6rem;background:var(--surface);border-radius:1.2rem;padding:2.4rem;box-shadow:var(--sh2)}
+.sysg h3{font-size:var(--f14);line-height:2rem;font-weight:600;color:var(--fg2)}
+.sws{display:flex;gap:.8rem;margin-top:1.2rem}
+.sw{display:flex;flex-direction:column;align-items:center;gap:.4rem;font-size:var(--f12);line-height:1.6rem;color:var(--fg3)}
+.sw>i{width:4rem;height:4rem;border-radius:var(--r4);display:flex;align-items:center;justify-content:center;border:.1rem solid transparent}
+.sw>i>i{width:1.6rem;height:1.6rem;border-radius:50%}
+.tys{display:flex;gap:1.2rem;align-items:baseline;margin-top:1.2rem}
+.tys>span{display:flex;flex-direction:column;align-items:flex-start;line-height:1;font-family:var(--sans)}
+.tys>span.sf{font-family:var(--serif);font-weight:700}
+.tys small{font-family:var(--font);white-space:nowrap;font-size:var(--f12);line-height:1.6rem;color:var(--fg3);margin-top:.8rem;font-weight:400;letter-spacing:0}
+.sps{display:flex;gap:.6rem;align-items:flex-end;margin-top:1.2rem}
+.sps>span{display:flex;flex-direction:column;align-items:center;gap:.4rem;font-size:var(--f12);line-height:1.6rem;color:var(--fg3)}
+.sps>span>i{display:block;background:var(--brand-tint-2);height:var(--h);width:1.6rem;border-radius:.2rem}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="display:none" aria-hidden="true"><!-- Fluent System Icons, MIT licence, Microsoft -->
+<symbol id="i-call" viewBox="0 0 20 20"><path d="M6.98706 2.06589L6.27036 2.28192C4.96684 2.67484 4.00944 3.78801 3.81598 5.13565C3.519 7.20438 4.18323 9.62242 5.78368 12.3945C7.38077 15.1607 9.13867 16.9433 11.0739 17.7231C12.3435 18.2346 13.7948 17.9592 14.7886 17.018L15.3314 16.5039C16.0589 15.815 16.1643 14.694 15.5781 13.8815L14.2215 12.0014C13.8458 11.4807 13.1805 11.2569 12.5665 11.4446L10.5158 12.0716L10.4628 12.082C10.2366 12.115 9.7154 11.6259 9.06527 10.4999C8.38512 9.32181 8.24417 8.63298 8.43194 8.45541L9.47529 7.48248C10.2572 6.75332 10.4882 5.60728 10.0499 4.63213L9.38841 3.16075C8.97652 2.24451 7.94888 1.77597 6.98706 2.06589ZM8.47634 3.57077L9.13779 5.04215C9.40063 5.62682 9.26212 6.31395 8.7933 6.75113L7.74739 7.72645C7.0783 8.35918 7.29992 9.44218 8.19924 10.9999C9.04545 12.4655 9.81744 13.1898 10.6469 13.0642L10.7713 13.0376L12.8589 12.4009C13.0635 12.3383 13.2853 12.413 13.4105 12.5865L14.7671 14.4666C15.0603 14.8729 15.0076 15.4334 14.6438 15.7778L14.101 16.2919C13.3911 16.9642 12.3545 17.1609 11.4476 16.7955C9.74957 16.1113 8.14475 14.484 6.64971 11.8945C5.15161 9.29969 4.54531 7.09254 4.80583 5.27775C4.94402 4.31515 5.62787 3.52003 6.55896 3.23937L7.27566 3.02334C7.75657 2.87838 8.27039 3.11265 8.47634 3.57077Z"/></symbol>
+<symbol id="i-info" viewBox="0 0 20 20"><path d="M10.4921 8.91012C10.4497 8.67687 10.2456 8.49999 10.0001 8.49999C9.72397 8.49999 9.50011 8.72385 9.50011 8.99999V13.5021L9.50817 13.592C9.55051 13.8253 9.75465 14.0021 10.0001 14.0021C10.2763 14.0021 10.5001 13.7783 10.5001 13.5021V8.99999L10.4921 8.91012ZM10.7988 6.74999C10.7988 6.33578 10.463 5.99999 10.0488 5.99999C9.63461 5.99999 9.29883 6.33578 9.29883 6.74999C9.29883 7.16421 9.63461 7.49999 10.0488 7.49999C10.463 7.49999 10.7988 7.16421 10.7988 6.74999ZM18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10ZM3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10Z"/></symbol>
+<symbol id="i-warning" viewBox="0 0 20 20"><path d="M7.37013 3.55566C8.50949 1.48158 11.4895 1.48168 12.629 3.55566L18.1251 13.5605C19.2227 15.5597 17.7759 18.0046 15.4952 18.0049H4.5039C2.22288 18.0048 0.776902 15.5598 1.87498 13.5605L7.37013 3.55566ZM11.753 4.03711C10.9934 2.65441 9.00677 2.65456 8.24709 4.03711L2.75096 14.042C2.01908 15.3748 2.98329 17.0048 4.5039 17.0049H15.4952C17.0156 17.0046 17.9798 15.3747 17.2481 14.042L11.753 4.03711ZM10 12.75C10.4142 12.7501 10.75 13.0858 10.75 13.5C10.75 13.9141 10.4141 14.2499 10 14.25C9.58587 14.25 9.2501 13.9141 9.25003 13.5C9.25003 13.0858 9.58582 12.75 10 12.75ZM10 6.5C10.2761 6.50007 10.5 6.7239 10.5 7V11C10.5 11.276 10.2761 11.4999 10 11.5C9.72394 11.5 9.50011 11.2761 9.50003 11V7C9.50003 6.72386 9.72389 6.5 10 6.5Z"/></symbol>
+<symbol id="i-fire" viewBox="0 0 20 20"><path d="M4 11.75C4 11.2135 4.0625 10.6849 4.1875 10.1641C4.3125 9.64323 4.50781 9.14583 4.77344 8.67188C4.8151 8.59896 4.85677 8.52344 4.89844 8.44531C4.9401 8.36719 4.98958 8.29427 5.04688 8.22656C5.10417 8.15365 5.16406 8.09896 5.22656 8.0625C5.28906 8.02604 5.36979 8.00521 5.46875 8C5.55208 8 5.63281 8.02083 5.71094 8.0625C5.78906 8.10417 5.84896 8.16146 5.89062 8.23438L6.92969 9.92969C6.97656 10.0078 7.03906 10.0677 7.11719 10.1094C7.19531 10.151 7.28385 10.1745 7.38281 10.1797C7.5599 10.1797 7.69792 10.1146 7.79688 9.98438C7.89583 9.85417 7.94792 9.70573 7.95312 9.53906C7.95312 9.46615 7.94531 9.40104 7.92969 9.34375C7.91406 9.28646 7.89062 9.22396 7.85938 9.15625C7.64583 8.69792 7.47135 8.2474 7.33594 7.80469C7.20052 7.36198 7.13281 6.88021 7.13281 6.35938C7.13281 5.70312 7.24219 5.1276 7.46094 4.63281C7.67969 4.13802 7.98438 3.71354 8.375 3.35938C8.76562 3.00521 9.22135 2.71875 9.74219 2.5C10.263 2.28125 10.8203 2.11719 11.4141 2.00781C11.4349 2.0026 11.4635 2 11.5 2C11.6198 2 11.7266 2.03906 11.8203 2.11719C11.9401 2.22135 12 2.34896 12 2.5C12 3.28125 12.1328 4.02604 12.3984 4.73438C12.6641 5.44271 13.0312 6.10677 13.5 6.72656C13.7865 7.10156 14.0755 7.47917 14.3672 7.85938C14.6589 8.23958 14.9271 8.63542 15.1719 9.04688C15.4167 9.45833 15.6146 9.88542 15.7656 10.3281C15.9167 10.7708 15.9948 11.2448 16 11.75C16 12.3073 15.9323 12.849 15.7969 13.375C15.6615 13.901 15.4635 14.3958 15.2031 14.8594C14.9427 15.3229 14.6354 15.7448 14.2812 16.125C13.9271 16.5052 13.526 16.8359 13.0781 17.1172C12.6302 17.3984 12.1484 17.6146 11.6328 17.7656C11.1172 17.9167 10.5729 17.9948 10 18C9.42708 18 8.88281 17.9245 8.36719 17.7734C7.85156 17.6224 7.3724 17.4062 6.92969 17.125C6.48698 16.8438 6.08333 16.513 5.71875 16.1328C5.35417 15.7526 5.04688 15.3281 4.79688 14.8594C4.54688 14.3906 4.35156 13.8958 4.21094 13.375C4.07031 12.8542 4 12.3125 4 11.75ZM15 11.6953C15 11.2943 14.9245 10.8984 14.7734 10.5078C14.6224 10.1172 14.4297 9.73438 14.1953 9.35938C13.9609 8.98438 13.7109 8.63021 13.4453 8.29688C13.1797 7.96354 12.9297 7.63802 12.6953 7.32031C12.2266 6.70052 11.849 6.03906 11.5625 5.33594C11.276 4.63281 11.0964 3.89062 11.0234 3.10938C10.6016 3.21354 10.2161 3.35677 9.86719 3.53906C9.51823 3.72135 9.21354 3.94531 8.95312 4.21094C8.69271 4.47656 8.49219 4.78906 8.35156 5.14844C8.21094 5.50781 8.13802 5.91667 8.13281 6.375C8.13281 6.79167 8.1875 7.1901 8.29688 7.57031C8.40625 7.95052 8.55469 8.32552 8.74219 8.69531C8.8099 8.83073 8.85938 8.96875 8.89062 9.10938C8.92188 9.25 8.9401 9.39583 8.94531 9.54688C8.94531 9.76562 8.90885 9.97396 8.83594 10.1719C8.76302 10.3698 8.65625 10.5443 8.51562 10.6953C8.375 10.8464 8.21094 10.9661 8.02344 11.0547C7.83594 11.1432 7.625 11.1875 7.39062 11.1875C7.11458 11.1875 6.86458 11.125 6.64062 11C6.41667 10.875 6.22917 10.6927 6.07812 10.4531C5.97396 10.2917 5.875 10.1328 5.78125 9.97656C5.6875 9.82031 5.58854 9.65885 5.48438 9.49219C5.16146 10.2109 5 10.9635 5 11.75C5 12.2188 5.05729 12.6719 5.17188 13.1094C5.28646 13.5469 5.44792 13.9609 5.65625 14.3516C5.86458 14.7422 6.11979 15.099 6.42188 15.4219C6.72396 15.7448 7.0599 16.0234 7.42969 16.2578C7.79948 16.4922 8.20052 16.6745 8.63281 16.8047C9.0651 16.9349 9.52083 17 10 17C10.7292 17 11.3984 16.8568 12.0078 16.5703C12.6172 16.2839 13.1458 15.8958 13.5938 15.4062C14.0417 14.9167 14.3854 14.3516 14.625 13.7109C14.8646 13.0703 14.9896 12.3984 15 11.6953Z"/></symbol>
+<symbol id="i-drop" viewBox="0 0 20 20"><path d="M9.64645 2.14645C9.84171 1.95118 10.1583 1.95118 10.3536 2.14645C10.8853 2.67821 12.1584 4.20981 13.2998 6.04882C14.4297 7.86917 15.5 10.0985 15.5 12C15.5 13.8438 14.972 15.3521 13.9905 16.4037C13.0058 17.4587 11.6148 18 10 18C8.38524 18 6.99415 17.4587 6.00947 16.4037C5.02801 15.3521 4.5 13.8438 4.5 12C4.5 10.0985 5.5703 7.86917 6.70018 6.04882C7.84163 4.20981 9.11469 2.67821 9.64645 2.14645ZM7.54982 6.57618C6.4297 8.38083 5.5 10.4015 5.5 12C5.5 13.6562 5.97199 14.8979 6.74053 15.7213C7.50585 16.5413 8.61476 17 10 17C11.3852 17 12.4942 16.5413 13.2595 15.7213C14.028 14.8979 14.5 13.6562 14.5 12C14.5 10.4015 13.5703 8.38083 12.4502 6.57618C11.5576 5.13812 10.5882 3.90597 10 3.23604C9.41176 3.90597 8.44241 5.13812 7.54982 6.57618Z"/></symbol>
+<symbol id="i-flash" viewBox="0 0 20 20"><path d="M6.19079 2.77054C6.3211 2.31445 6.73797 2 7.21231 2H12.4614C13.1865 2 13.6986 2.71043 13.4693 3.39836L13.4668 3.40584L13.4667 3.40582L12.2053 7H14.7691C15.7155 7 16.1764 8.1436 15.5356 8.81137L15.532 8.81508L15.532 8.81506L6.85551 17.6726C6.10113 18.4551 4.79636 17.7329 5.06026 16.6773L6.22998 11.9984H4.96271C4.25687 11.9984 3.74727 11.3228 3.94118 10.6442L6.19079 2.77054ZM7.21231 3C7.18445 3 7.15996 3.01847 7.15231 3.04526L4.90271 10.9189C4.89132 10.9587 4.92125 10.9984 4.96271 10.9984H6.87037C7.02434 10.9984 7.16972 11.0694 7.26447 11.1907C7.35923 11.3121 7.39279 11.4703 7.35544 11.6197L6.03041 16.9198C6.02649 16.9355 6.02679 16.9448 6.02721 16.949C6.02765 16.9534 6.02868 16.9568 6.03027 16.9601C6.03383 16.9676 6.04314 16.9798 6.06076 16.9896C6.07838 16.9993 6.09368 17.0007 6.10191 16.9997C6.10557 16.9993 6.109 16.9984 6.11295 16.9964C6.11674 16.9945 6.12478 16.9898 6.13597 16.9782L6.13952 16.9745L6.13954 16.9745L14.8151 8.11787C14.8273 8.10484 14.8305 8.09481 14.8318 8.0864C14.8336 8.07504 14.8325 8.05898 14.8253 8.04178C14.8181 8.0246 14.8079 8.01365 14.8002 8.00817C14.7949 8.00438 14.7869 8 14.7691 8H11.5C11.3378 8 11.1858 7.9214 11.092 7.78915C10.9983 7.65689 10.9745 7.48739 11.0282 7.33443L12.5212 3.08022C12.5331 3.04042 12.5033 3 12.4614 3H7.21231Z"/></symbol>
+<symbol id="i-door" viewBox="0 0 20 20"><path d="M7 11C7.55228 11 8 10.5523 8 10C8 9.44771 7.55228 9 7 9C6.44772 9 6 9.44771 6 10C6 10.5523 6.44772 11 7 11ZM4 4C4 2.89543 4.89543 2 6 2H14C15.1046 2 16 2.89543 16 4V16C16 17.1046 15.1046 18 14 18H6C4.89543 18 4 17.1046 4 16V4ZM6 17H14C14.5523 17 15 16.5523 15 16V4C15 3.44772 14.5523 3 14 3H6C5.44772 3 5 3.44772 5 4V16C5 16.5523 5.44772 17 6 17Z"/></symbol>
+<symbol id="i-temperature" viewBox="0 0 20 20"><path d="M10 6.5C10.2761 6.5 10.5 6.72386 10.5 7V12.063C11.3626 12.285 12 13.0681 12 14C12 15.1046 11.1046 16 10 16C8.89543 16 8 15.1046 8 14C8 13.0681 8.63739 12.285 9.5 12.063V7C9.5 6.72386 9.72386 6.5 10 6.5ZM10 2C8.34315 2 7 3.34315 7 5L7.00008 11.3541C6.37808 12.0589 6 12.9857 6 14C6 16.2091 7.79086 18 10 18C12.2091 18 14 16.2091 14 14C14 12.9857 13.6219 12.0589 12.9999 11.3541L13 5C13 3.34315 11.6569 2 10 2ZM10 3C11.1046 3 12 3.89543 12 5L11.9999 11.7546L12.1428 11.9004C12.6736 12.442 13 13.1824 13 14C13 15.6568 11.6569 17 10 17C8.34315 17 7 15.6568 7 14C7 13.1824 7.32642 12.442 7.85719 11.9004L8.00008 11.7546L8 5C8 3.89543 8.89543 3 10 3Z"/></symbol>
+<symbol id="i-wrench" viewBox="0 0 20 20"><path d="M8.99952 6.5C8.99952 4.01472 11.0142 2 13.4995 2C14.1589 2 14.7864 2.14214 15.352 2.39792C15.5016 2.46556 15.6084 2.60232 15.6379 2.76381C15.6673 2.92531 15.6156 3.09097 15.4996 3.20705L13.2066 5.49998L14.4996 6.79287L16.7925 4.49998C16.9086 4.3839 17.0742 4.33219 17.2357 4.36164C17.3972 4.39108 17.534 4.49793 17.6016 4.6475C17.8574 5.2131 17.9995 5.84062 17.9995 6.5C17.9995 8.98528 15.9848 11 13.4995 11C13.1189 11 12.7488 10.9526 12.395 10.8633L6.03016 17.3113C5.18266 18.1698 3.82373 18.25 2.88117 17.497C1.79605 16.6302 1.69173 15.0178 2.65608 14.0184L9.08153 7.35911C9.02767 7.08069 8.99952 6.79343 8.99952 6.5ZM13.4995 3C11.5665 3 9.99952 4.567 9.99952 6.5C9.99952 6.80674 10.0389 7.10354 10.1125 7.38597C10.1565 7.55458 10.1095 7.73392 9.98849 7.85931L3.37571 14.7127C2.82045 15.2882 2.88051 16.2166 3.50531 16.7157C4.04803 17.1493 4.8305 17.1031 5.31848 16.6088L11.8923 9.94909C12.0256 9.81397 12.2241 9.76605 12.4044 9.8254C12.7483 9.93857 13.1162 10 13.4995 10C15.4325 10 16.9995 8.433 16.9995 6.5C16.9995 6.25328 16.9741 6.01282 16.9257 5.78097L14.8531 7.85352C14.6579 8.04878 14.3413 8.04879 14.146 7.85353L12.146 5.85355C12.0522 5.75979 11.9995 5.63261 11.9995 5.5C11.9995 5.36739 12.0522 5.24021 12.1459 5.14644L14.2186 3.07383C13.9867 3.02545 13.7462 3 13.4995 3Z"/></symbol>
+<symbol id="i-chev-right" viewBox="0 0 20 20"><path d="M7.64582 4.14708C7.84073 3.95147 8.15731 3.9509 8.35292 4.14582L13.8374 9.6108C14.0531 9.82574 14.0531 10.1751 13.8374 10.39L8.35292 15.855C8.15731 16.0499 7.84073 16.0493 7.64582 15.8537C7.4509 15.6581 7.45147 15.3415 7.64708 15.1466L12.8117 10.0004L7.64708 4.85418C7.45147 4.65927 7.4509 4.34269 7.64582 4.14708Z"/></symbol>
+<symbol id="i-chev-down" viewBox="0 0 20 20"><path d="M15.8537 7.64582C16.0493 7.84073 16.0499 8.15731 15.855 8.35292L10.39 13.8374C10.1751 14.0531 9.82574 14.0531 9.6108 13.8374L4.14582 8.35292C3.9509 8.15731 3.95147 7.84073 4.14708 7.64582C4.34269 7.4509 4.65927 7.45147 4.85418 7.64708L10.0004 12.8117L15.1466 7.64708C15.3415 7.45147 15.6581 7.4509 15.8537 7.64582Z"/></symbol>
+<symbol id="i-arrow-up" viewBox="0 0 20 20"><path d="M3.13269 9.16094C2.94651 9.36488 2.96091 9.68113 3.16485 9.86731C3.36879 10.0535 3.68504 10.0391 3.87122 9.83515L9.50195 3.6673L9.50195 17.498C9.50195 17.7742 9.72581 17.998 10.002 17.998C10.2781 17.998 10.502 17.7742 10.502 17.498L10.502 3.67019L16.13 9.83515C16.3162 10.0391 16.6325 10.0535 16.8364 9.86731C17.0404 9.68113 17.0548 9.36488 16.8686 9.16094L10.5545 2.24458C10.4268 2.10464 10.2592 2.02481 10.0861 2.0051C10.0587 2.00046 10.0306 1.99805 10.002 1.99805C9.97508 1.99805 9.9487 2.00017 9.92298 2.00425C9.74708 2.02242 9.57641 2.10253 9.44673 2.24458L3.13269 9.16094Z"/></symbol>
+<symbol id="i-arrow-down" viewBox="0 0 20 20"><path d="M16.8666 10.8371C17.0528 10.6332 17.0384 10.3169 16.8345 10.1307C16.6305 9.94456 16.3143 9.95895 16.1281 10.1629L10.4974 16.3307V2.5C10.4974 2.22386 10.2735 2 9.99736 2C9.72122 2 9.49736 2.22386 9.49736 2.5V16.3279L3.86927 10.1629C3.68309 9.95895 3.36684 9.94456 3.16289 10.1307C2.95895 10.3169 2.94456 10.6332 3.13074 10.8371L9.44478 17.7535C9.57254 17.8934 9.74008 17.9732 9.91323 17.993C9.94058 17.9976 9.96869 18 9.99736 18C10.0242 18 10.0506 17.9979 10.0763 17.9938C10.2522 17.9756 10.4229 17.8955 10.5526 17.7535L16.8666 10.8371Z"/></symbol>
+<symbol id="i-arrow-right" viewBox="0 0 20 20"><path d="M10.8371 3.13074C10.6332 2.94456 10.3169 2.95895 10.1307 3.16289C9.94456 3.36683 9.95895 3.68309 10.1629 3.86927L16.3307 9.5H2.5C2.22386 9.5 2 9.72386 2 10C2 10.2761 2.22386 10.5 2.5 10.5H16.3279L10.1629 16.1281C9.95895 16.3143 9.94456 16.6305 10.1307 16.8345C10.3169 17.0384 10.6332 17.0528 10.8371 16.8666L17.7535 10.5526C17.8934 10.4248 17.9732 10.2573 17.993 10.0841C17.9976 10.0568 18 10.0287 18 10C18 9.97313 17.9979 9.94675 17.9938 9.92103C17.9756 9.74512 17.8955 9.57446 17.7535 9.44478L10.8371 3.13074Z"/></symbol>
+<symbol id="i-arrow-left" viewBox="0 0 20 20"><path d="M9.15898 16.8666C9.36292 17.0528 9.67918 17.0384 9.86536 16.8345C10.0515 16.6305 10.0371 16.3143 9.8332 16.1281L3.66535 10.4974H17.4961C17.7722 10.4974 17.9961 10.2735 17.9961 9.99736C17.9961 9.72122 17.7722 9.49736 17.4961 9.49736H3.66824L9.8332 3.86927C10.0371 3.68309 10.0515 3.36684 9.86536 3.16289C9.67918 2.95895 9.36292 2.94456 9.15898 3.13074L2.24263 9.44478C2.10268 9.57254 2.02285 9.74008 2.00314 9.91323C1.99851 9.94058 1.99609 9.96869 1.99609 9.99736C1.99609 10.0242 1.99821 10.0506 2.00229 10.0763C2.02047 10.2522 2.10058 10.4229 2.24263 10.5526L9.15898 16.8666Z"/></symbol>
+<symbol id="i-check" viewBox="0 0 20 20"><path d="M3.37371 10.1678C3.19025 9.96143 2.87421 9.94284 2.66782 10.1263C2.46143 10.3098 2.44284 10.6258 2.6263 10.8322L6.6263 15.3322C6.81743 15.5472 7.15013 15.557 7.35356 15.3536L17.8536 4.85355C18.0488 4.65829 18.0488 4.34171 17.8536 4.14645C17.6583 3.95118 17.3417 3.95118 17.1465 4.14645L7.02141 14.2715L3.37371 10.1678Z"/></symbol>
+<symbol id="i-check-circle" viewBox="0 0 20 20"><path d="M10 2C14.4183 2 18 5.58172 18 10C18 14.4183 14.4183 18 10 18C5.58172 18 2 14.4183 2 10C2 5.58172 5.58172 2 10 2ZM10 3C6.13401 3 3 6.13401 3 10C3 13.866 6.13401 17 10 17C13.866 17 17 13.866 17 10C17 6.13401 13.866 3 10 3ZM13.3584 7.64645C13.532 7.82001 13.5513 8.08944 13.4163 8.28431L13.3584 8.35355L9.35355 12.3584C9.17999 12.532 8.91056 12.5513 8.71569 12.4163L8.64645 12.3584L6.64645 10.3584C6.45118 10.1632 6.45118 9.84658 6.64645 9.65131C6.82001 9.47775 7.08944 9.45846 7.28431 9.59346L7.35355 9.65131L9 11.298L12.6513 7.64645C12.8466 7.45118 13.1632 7.45118 13.3584 7.64645Z"/></symbol>
+<symbol id="i-error" viewBox="0 0 20 20"><path d="M10 2C14.4183 2 18 5.58172 18 10C18 14.4183 14.4183 18 10 18C5.58172 18 2 14.4183 2 10C2 5.58172 5.58172 2 10 2ZM10 3C6.13401 3 3 6.13401 3 10C3 13.866 6.13401 17 10 17C13.866 17 17 13.866 17 10C17 6.13401 13.866 3 10 3ZM10 12.5C10.4142 12.5 10.75 12.8358 10.75 13.25C10.75 13.6642 10.4142 14 10 14C9.58579 14 9.25 13.6642 9.25 13.25C9.25 12.8358 9.58579 12.5 10 12.5ZM10 6C10.2455 6 10.4496 6.17688 10.4919 6.41012L10.5 6.5V11C10.5 11.2761 10.2761 11.5 10 11.5C9.75454 11.5 9.55039 11.3231 9.50806 11.0899L9.5 11V6.5C9.5 6.22386 9.72386 6 10 6Z"/></symbol>
+<symbol id="i-upload" viewBox="0 0 20 20"><path d="M15 3.00195C15.2761 3.00195 15.5 2.7781 15.5 2.50195C15.5 2.25649 15.3231 2.05235 15.0899 2.01001L15 2.00195H4C3.72386 2.00195 3.5 2.22581 3.5 2.50195C3.5 2.74741 3.67688 2.95156 3.91012 2.9939L4 3.00195H15ZM9.50014 17.9997C9.7456 17.9997 9.9497 17.8227 9.99197 17.5895L10 17.4996L9.996 5.70574L13.6414 9.35408C13.8148 9.5278 14.0842 9.54734 14.2792 9.41252L14.3485 9.35473C14.5222 9.18132 14.5418 8.91192 14.407 8.71692L14.3492 8.64762L9.85745 4.14762C9.78495 4.07499 9.69568 4.02931 9.60207 4.01059L9.49608 4.00085C9.33511 4.00085 9.19192 4.07697 9.10051 4.19517L4.64386 8.64704C4.44846 8.84217 4.44823 9.15875 4.64336 9.35415C4.8168 9.52784 5.08621 9.54732 5.28117 9.41246L5.35046 9.35465L8.996 5.71374L9 17.4999C9.00008 17.776 9.224 17.9997 9.50014 17.9997Z"/></symbol>
+<symbol id="i-image" viewBox="0 0 20 20"><path d="M14 7.5C14 8.32843 13.3284 9 12.5 9C11.6716 9 11 8.32843 11 7.5C11 6.67157 11.6716 6 12.5 6C13.3284 6 14 6.67157 14 7.5ZM13 7.5C13 7.22386 12.7761 7 12.5 7C12.2239 7 12 7.22386 12 7.5C12 7.77614 12.2239 8 12.5 8C12.7761 8 13 7.77614 13 7.5ZM3 6C3 4.34315 4.34315 3 6 3H14C15.6569 3 17 4.34315 17 6V14C17 15.6569 15.6569 17 14 17H6C4.34315 17 3 15.6569 3 14V6ZM6 4C4.89543 4 4 4.89543 4 6V14C4 14.3726 4.10191 14.7215 4.27937 15.0201L8.94868 10.432C9.53227 9.85859 10.4677 9.85859 11.0513 10.432L15.7206 15.0201C15.8981 14.7215 16 14.3726 16 14V6C16 4.89543 15.1046 4 14 4H6ZM6 16H14C14.3692 16 14.7149 15.9 15.0118 15.7256L10.3504 11.1453C10.1559 10.9542 9.84409 10.9542 9.64956 11.1453L4.98824 15.7256C5.28505 15.9 5.63085 16 6 16Z"/></symbol>
+<symbol id="i-add" viewBox="0 0 20 20"><path d="M10 2.5C10.2761 2.5 10.5 2.72386 10.5 3V9.5H17C17.2761 9.5 17.5 9.72386 17.5 10C17.5 10.2761 17.2761 10.5 17 10.5H10.5V17C10.5 17.2761 10.2761 17.5 10 17.5C9.72386 17.5 9.5 17.2761 9.5 17V10.5H3C2.72386 10.5 2.5 10.2761 2.5 10C2.5 9.72386 2.72386 9.5 3 9.5H9.5V3C9.5 2.72386 9.72386 2.5 10 2.5Z"/></symbol>
+<symbol id="i-calendar-clock" viewBox="0 0 20 20"><path d="M17 5.5C17 4.11929 15.8807 3 14.5 3H5.5C4.11929 3 3 4.11929 3 5.5V14.5C3 15.8807 4.11929 17 5.5 17H9.59971C9.43777 16.6832 9.30564 16.3486 9.20703 16H5.5C4.67157 16 4 15.3284 4 14.5V7H16V9.20703C16.3486 9.30564 16.6832 9.43777 17 9.59971V5.5ZM5.5 4H14.5C15.3284 4 16 4.67157 16 5.5V6H4V5.5C4 4.67157 4.67157 4 5.5 4ZM14.5 19C16.9853 19 19 16.9853 19 14.5C19 12.0147 16.9853 10 14.5 10C12.0147 10 10 12.0147 10 14.5C10 16.9853 12.0147 19 14.5 19ZM14 12.5C14 12.2239 14.2239 12 14.5 12C14.7761 12 15 12.2239 15 12.5V14H16C16.2761 14 16.5 14.2239 16.5 14.5C16.5 14.7761 16.2761 15 16 15H14.5C14.2239 15 14 14.7761 14 14.5V12.5Z"/></symbol>
+<symbol id="i-search" viewBox="0 0 20 20"><path d="M13.7291 14.4362C12.5924 15.411 11.115 16 9.5 16C5.91015 16 3 13.0899 3 9.5C3 5.91015 5.91015 3 9.5 3C13.0899 3 16 5.91015 16 9.5C16 11.115 15.411 12.5924 14.4361 13.7292L17.8535 17.1465C18.0487 17.3417 18.0487 17.6583 17.8535 17.8536C17.6799 18.0271 17.4105 18.0464 17.2156 17.9114L17.1464 17.8536L13.7291 14.4362ZM13.0196 13.7266C13.276 13.5128 13.5127 13.2761 13.7265 13.0197C14.5216 12.0659 15 10.8388 15 9.5C15 6.46243 12.5376 4 9.5 4C6.46243 4 4 6.46243 4 9.5C4 12.5376 6.46243 15 9.5 15C10.8388 15 12.0658 14.5217 13.0196 13.7266Z"/></symbol>
+<symbol id="i-menu" viewBox="0 0 20 20"><path d="M2 4.5C2 4.22386 2.22386 4 2.5 4H17.5C17.7761 4 18 4.22386 18 4.5C18 4.77614 17.7761 5 17.5 5H2.5C2.22386 5 2 4.77614 2 4.5ZM2 9.5C2 9.22386 2.22386 9 2.5 9H17.5C17.7761 9 18 9.22386 18 9.5C18 9.77614 17.7761 10 17.5 10H2.5C2.22386 10 2 9.77614 2 9.5ZM2.5 14C2.22386 14 2 14.2239 2 14.5C2 14.7761 2.22386 15 2.5 15H17.5C17.7761 15 18 14.7761 18 14.5C18 14.2239 17.7761 14 17.5 14H2.5Z"/></symbol>
+<symbol id="i-person" viewBox="0 0 20 20"><path d="M10 2C7.79086 2 6 3.79086 6 6C6 8.20914 7.79086 10 10 10C12.2091 10 14 8.20914 14 6C14 3.79086 12.2091 2 10 2ZM7 6C7 4.34315 8.34315 3 10 3C11.6569 3 13 4.34315 13 6C13 7.65685 11.6569 9 10 9C8.34315 9 7 7.65685 7 6ZM5.00873 11C3.90315 11 3 11.8869 3 13C3 14.6912 3.83281 15.9663 5.13499 16.7966C6.41697 17.614 8.14526 18 10 18C11.8547 18 13.583 17.614 14.865 16.7966C16.1672 15.9663 17 14.6912 17 13C17 11.8956 16.1045 11 15 11L5.00873 11ZM4 13C4 12.4467 4.44786 12 5.00873 12L15 12C15.5522 12 16 12.4478 16 13C16 14.3088 15.3777 15.2837 14.3274 15.9534C13.2568 16.636 11.7351 17 10 17C8.26489 17 6.74318 16.636 5.67262 15.9534C4.62226 15.2837 4 14.3088 4 13Z"/></symbol>
+<symbol id="i-send" viewBox="0 0 20 20"><path d="M2.18412 2.11244C2.33657 1.98818 2.54771 1.96483 2.72363 2.05279L17.7236 9.55279C17.893 9.63749 18 9.81062 18 10C18 10.1894 17.893 10.3625 17.7236 10.4472L2.72363 17.9472C2.54771 18.0352 2.33657 18.0118 2.18412 17.8876C2.03167 17.7633 1.96623 17.5612 2.0169 17.3712L3.98255 10L2.0169 2.62884C1.96623 2.4388 2.03167 2.2367 2.18412 2.11244ZM4.88416 10.5L3.26911 16.5564L16.382 10L3.26911 3.44357L4.88416 9.5H11.5C11.7762 9.5 12 9.72386 12 10C12 10.2761 11.7762 10.5 11.5 10.5H4.88416Z"/></symbol>
+<symbol id="i-water" viewBox="0 0 20 20"><path d="M15 4C15.2084 4 15.395 4.12928 15.4682 4.32443C15.9082 5.49786 16.7438 5.99989 17.5 5.99989C17.7761 5.99989 18 6.22375 18 6.49989C18 6.77604 17.7761 6.99989 17.5 6.99989C16.5383 6.99989 15.6241 6.50297 15 5.58739C14.3759 6.50297 13.4617 6.9999 12.5 6.99995C11.5384 7 10.6241 6.50315 10 5.58768C9.37591 6.50315 8.46164 7 7.5 7C6.53854 7 5.62443 6.50334 5.00035 5.58819C4.37636 6.50483 3.46202 7.00254 2.50001 7.00255C2.22387 7.00256 2 6.7787 2 6.50256C2 6.22642 2.22385 6.00256 2.49999 6.00255C3.2559 6.00254 4.0916 5.50011 4.53177 4.32503C4.60489 4.12983 4.79144 4.00047 4.99989 4.00042C5.20834 4.00038 5.39495 4.12966 5.46815 4.32483C5.90819 5.49801 6.74371 6 7.5 6C8.25629 6 9.09181 5.49801 9.53185 4.32483C9.60504 4.12969 9.79159 4.00042 10 4.00042C10.2084 4.00042 10.395 4.12969 10.4682 4.32483C10.9082 5.49802 11.7437 5.99999 12.5 5.99995C13.2562 5.99991 14.0918 5.49785 14.5318 4.32443C14.605 4.12928 14.7916 4 15 4ZM15 9C15.2084 9 15.395 9.12928 15.4682 9.32443C15.9082 10.4979 16.7438 10.9999 17.5 10.9999C17.7761 10.9999 18 11.2238 18 11.4999C18 11.776 17.7761 11.9999 17.5 11.9999C16.5383 11.9999 15.6241 11.503 15 10.5874C14.3759 11.503 13.4617 11.9999 12.5 11.9999C11.5384 12 10.6241 11.5032 10 10.5877C9.37591 11.5032 8.46164 12 7.5 12C6.53854 12 5.62443 11.5033 5.00035 10.5882C4.37636 11.5048 3.46202 12.0025 2.50001 12.0026C2.22387 12.0026 2 11.7787 2 11.5026C2 11.2264 2.22385 11.0026 2.49999 11.0026C3.2559 11.0025 4.0916 10.5001 4.53177 9.32503C4.60489 9.12983 4.79144 9.00047 4.99989 9.00042C5.20834 9.00038 5.39495 9.12966 5.46815 9.32483C5.90819 10.498 6.74371 11 7.5 11C8.25629 11 9.09181 10.498 9.53185 9.32483C9.60504 9.12969 9.79159 9.00042 10 9.00042C10.2084 9.00042 10.395 9.12969 10.4682 9.32483C10.9082 10.498 11.7437 11 12.5 10.9999C13.2562 10.9999 14.0918 10.4979 14.5318 9.32443C14.605 9.12928 14.7916 9 15 9ZM15.4682 14.3244C15.395 14.1293 15.2084 14 15 14C14.7916 14 14.605 14.1293 14.5318 14.3244C14.0918 15.4979 13.2562 15.9999 12.5 15.9999C11.7437 16 10.9082 15.498 10.4682 14.3248C10.395 14.1297 10.2084 14.0004 10 14.0004C9.79159 14.0004 9.60504 14.1297 9.53185 14.3248C9.09181 15.498 8.25629 16 7.5 16C6.74371 16 5.90819 15.498 5.46815 14.3248C5.39495 14.1297 5.20834 14.0004 4.99989 14.0004C4.79144 14.0005 4.60489 14.1298 4.53177 14.325C4.0916 15.5001 3.2559 16.0025 2.49999 16.0026C2.22385 16.0026 2 16.2264 2 16.5026C2 16.7787 2.22387 17.0026 2.50001 17.0026C3.46202 17.0025 4.37636 16.5048 5.00035 15.5882C5.62443 16.5033 6.53854 17 7.5 17C8.46164 17 9.37591 16.5032 10 15.5877C10.6241 16.5032 11.5384 17 12.5 16.9999C13.4617 16.9999 14.3759 16.503 15 15.5874C15.6241 16.503 16.5383 16.9999 17.5 16.9999C17.7761 16.9999 18 16.776 18 16.4999C18 16.2238 17.7761 15.9999 17.5 15.9999C16.7438 15.9999 15.9082 15.4979 15.4682 14.3244Z"/></symbol>
+<symbol id="logo-m" viewBox="0 0 20 20"><path d="M3.5 15.5V8.2L7 5l3 2.8L13 5l3.5 3.2v7.3" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<!-- Lit windows: drawings for this sketch -->
+<symbol id="sky" viewBox="0 0 1366 72"><path d="M0 72L0 32L35 6.4L70 32L70 20L98 -0.5L126 20L126 38L168 7.3L210 38L210 26L241 3.3L272 26L272 14L297 -4.3L322 14L322 34L360 6.2L398 34L398 22L431 -2.1L464 22L464 42L509 9.1L554 42L554 28L583 6.8L612 28L612 18L648 -8.3L684 18L684 32L719 6.4L754 32L754 20L782 -0.5L810 20L810 38L852 7.3L894 38L894 26L925 3.3L956 26L956 14L981 -4.3L1006 14L1006 34L1044 6.2L1082 34L1082 22L1115 -2.1L1148 22L1148 42L1193 9.1L1238 42L1238 28L1267 6.8L1296 28L1296 18L1332 -8.3L1368 18L1368 32L1403 6.4L1438 32L1438 72Z" fill="currentColor"/></symbol>
+<symbol id="band-piece" viewBox="0 0 206 120"><path d="M8 120V54L36 28.4L64 54V120Z" fill="#083F47"/><rect x="18.7" y="66" width="12" height="16" fill="#0E2A30"/><rect x="41.3" y="66" width="12" height="16" fill="#0E2A30"/><rect x="18.7" y="96" width="12" height="16" fill="#0E2A30"/><rect x="40.3" y="96" width="14" height="24" fill="#0E2A30"/><rect x="80.5" y="-1.1" width="8" height="18" fill="#0D5E68"/><path d="M64 120V24L97 -6.2L130 24V120Z" fill="#0D5E68"/><rect x="78" y="36" width="12" height="16" fill="#083F47"/><rect x="104" y="36" width="12" height="16" fill="#F4B740"/><rect x="78" y="66" width="12" height="16" fill="#083F47"/><rect x="104" y="66" width="12" height="16" fill="#083F47"/><rect x="77" y="96" width="14" height="24" fill="#083F47"/><rect x="104" y="96" width="12" height="16" fill="#083F47"/><path d="M130 120V54L168 19.3L206 54V120Z" fill="#12707B"/><rect x="147.3" y="66" width="12" height="16" fill="#F4B740"/><rect x="176.7" y="66" width="12" height="16" fill="#083F47"/><rect x="147.3" y="96" width="12" height="16" fill="#083F47"/><rect x="175.7" y="96" width="14" height="24" fill="#083F47"/></symbol>
+<symbol id="ph-street" viewBox="0 0 468 120"><rect x="9" y="16.8" width="8" height="18" fill="#0D5E68"/><path d="M-12 112V46L30 7.6L72 46V112Z" fill="#0D5E68"/><rect x="8" y="58" width="12" height="16" fill="#083F47"/><rect x="40" y="58" width="12" height="16" fill="#083F47"/><rect x="7" y="88" width="14" height="24" fill="#083F47"/><rect x="40" y="88" width="12" height="16" fill="#F4B740"/><path d="M72 112V46L104 16.8L136 46V112Z" fill="#12707B"/><rect x="85.3" y="58" width="12" height="16" fill="#083F47"/><rect x="110.7" y="58" width="12" height="16" fill="#083F47"/><rect x="85.3" y="88" width="12" height="16" fill="#083F47"/><rect x="109.7" y="88" width="14" height="24" fill="#083F47"/><path d="M136 112V46L169 15.8L202 46V112Z" fill="#083F47"/><rect x="150" y="58" width="12" height="16" fill="#F4B740"/><rect x="176" y="58" width="12" height="16" fill="#0E2A30"/><rect x="150" y="88" width="12" height="16" fill="#0E2A30"/><rect x="175" y="88" width="14" height="24" fill="#0E2A30"/><path d="M202 112V46L248 4L294 46V112Z" fill="#0D5E68"/><rect x="223.3" y="57" width="14" height="18" fill="#F4B740"/><rect x="258.7" y="57" width="14" height="18" fill="#F4B740"/><rect x="222.3" y="88" width="16" height="24" fill="#083F47"/><rect x="258.7" y="87" width="14" height="18" fill="#F4B740"/><rect x="244" y="22.9" width="8" height="8" fill="#F4B740"/><rect x="343" y="16.8" width="8" height="18" fill="#12707B"/><path d="M294 112V46L329 14L364 46V112Z" fill="#12707B"/><rect x="309.3" y="58" width="12" height="16" fill="#083F47"/><rect x="336.7" y="58" width="12" height="16" fill="#083F47"/><rect x="309.3" y="88" width="12" height="16" fill="#083F47"/><rect x="335.7" y="88" width="14" height="24" fill="#083F47"/><path d="M364 112V46L394 18.6L424 46V112Z" fill="#083F47"/><rect x="376" y="58" width="12" height="16" fill="#0E2A30"/><rect x="400" y="58" width="12" height="16" fill="#F4B740"/><rect x="375" y="88" width="14" height="24" fill="#0E2A30"/><rect x="400" y="88" width="12" height="16" fill="#0E2A30"/><path d="M424 112V46L459 14L494 46V112Z" fill="#0D5E68"/><rect x="439.3" y="58" width="12" height="16" fill="#083F47"/><rect x="466.7" y="58" width="12" height="16" fill="#083F47"/><rect x="438.3" y="88" width="14" height="24" fill="#083F47"/><rect x="466.7" y="88" width="12" height="16" fill="#083F47"/><rect x="0" y="112" width="468" height="8" fill="#083F47"/></symbol>
+<symbol id="p-heat" viewBox="0 0 64 64"><circle cx="32" cy="32" r="32" fill="#E4F1F2"/><rect x="13" y="28" width="8" height="24" fill="#0B6A75"/><rect x="23" y="28" width="8" height="24" fill="#0B6A75"/><rect x="33" y="28" width="8" height="24" fill="#0B6A75"/><rect x="43" y="28" width="8" height="24" fill="#0B6A75"/><rect x="11" y="33" width="42" height="4" fill="#0A4F58"/><path d="M32 6c5 5 8 8.6 8 12.6a8 8 0 0 1-16 0c0-3 1.6-5.4 3.6-7.6.7 2.4 1.9 3.6 3.4 3.6-.6-3-.4-5.6 1-8.6z" fill="#F4B740"/></symbol>
+<symbol id="p-tap" viewBox="0 0 64 64"><circle cx="32" cy="32" r="32" fill="#E4F1F2"/><rect x="10" y="22" width="7" height="16" fill="#0A4F58"/><rect x="17" y="24" width="27" height="10" fill="#0B6A75"/><rect x="35" y="34" width="9" height="6" fill="#0B6A75"/><rect x="26" y="14" width="6" height="10" fill="#0A4F58"/><rect x="19" y="10" width="20" height="6" fill="#F4B740"/><path d="M39.5 43c3.4 4.4 5.5 7.3 5.5 10a5.5 5.5 0 0 1-11 0c0-2.7 2.1-5.6 5.5-10z" fill="#12707B"/></symbol>
+<symbol id="p-elec" viewBox="0 0 64 64"><circle cx="32" cy="32" r="32" fill="#E4F1F2"/><rect x="12" y="12" width="40" height="40" fill="#0B6A75"/><rect x="26" y="19" width="5" height="11" fill="#0E2A30"/><rect x="16" y="35" width="11" height="5" fill="#0E2A30"/><rect x="30" y="35" width="11" height="5" fill="#0E2A30"/><rect x="41" y="17" width="6" height="12" fill="#F4B740"/></symbol>
+<symbol id="p-door" viewBox="0 0 64 64"><circle cx="32" cy="32" r="32" fill="#E4F1F2"/><rect x="14" y="10" width="26" height="44" fill="#0B6A75"/><rect x="18" y="15" width="18" height="13" fill="#0A4F58"/><rect x="18" y="32" width="18" height="17" fill="#0A4F58"/><circle cx="42" cy="44" r="7" fill="#F4B740"/><circle cx="42" cy="44" r="2.6" fill="#E4F1F2"/><path d="M48 42.2H58V46H56V50H52.8V46H48Z" fill="#F4B740"/></symbol>
+<symbol id="p-damp" viewBox="0 0 64 64"><circle cx="32" cy="32" r="32" fill="#E4F1F2"/><rect x="12" y="12" width="40" height="40" fill="#0B6A75"/><rect x="23" y="17" width="18" height="14" fill="#F4B740"/><rect x="31" y="17" width="2" height="14" fill="#0A4F58"/><rect x="21" y="31" width="22" height="3" fill="#0A4F58"/><path d="M25 37c1.9 2.5 3.1 4.2 3.1 5.8a3.1 3.1 0 0 1-6.2 0c0-1.6 1.2-3.3 3.1-5.8z" fill="#CBE4E7"/><path d="M32 40c1.9 2.5 3.1 4.2 3.1 5.8a3.1 3.1 0 0 1-6.2 0c0-1.6 1.2-3.3 3.1-5.8z" fill="#CBE4E7"/><path d="M39 37c1.9 2.5 3.1 4.2 3.1 5.8a3.1 3.1 0 0 1-6.2 0c0-1.6 1.2-3.3 3.1-5.8z" fill="#CBE4E7"/><circle cx="16.5" cy="47.5" r="2" fill="#0E2A30"/><circle cx="20.5" cy="48.5" r="1.5" fill="#0E2A30"/><circle cx="16" cy="43" r="1.4" fill="#0E2A30"/><circle cx="47" cy="48" r="1.6" fill="#0E2A30"/><circle cx="44" cy="49" r="1.2" fill="#0E2A30"/></symbol>
+<symbol id="p-other" viewBox="0 0 64 64"><circle cx="32" cy="32" r="32" fill="#E4F1F2"/><g transform="rotate(-45 32 32)"><rect x="30.5" y="9" width="3" height="25" fill="#0A4F58"/><rect x="28" y="34" width="8" height="19" fill="#F4B740"/></g><g transform="rotate(45 32 32)"><rect x="29" y="20" width="6" height="28" fill="#0B6A75"/><circle cx="32" cy="16" r="9" fill="#0B6A75"/><rect x="28.5" y="5" width="7" height="11" fill="#E4F1F2"/><circle cx="32" cy="51" r="6.5" fill="#0B6A75"/><circle cx="32" cy="51" r="2.8" fill="#E4F1F2"/></g></symbol>
+<symbol id="s-phone" viewBox="0 0 64 64"><circle cx="32" cy="32" r="32" fill="#FFFFFF"/><rect x="20" y="10" width="22" height="42" fill="#0A4F58"/><rect x="23" y="15" width="16" height="28" fill="#E4F1F2"/><rect x="28" y="46" width="6" height="3" fill="#CBE4E7"/><circle cx="43" cy="38" r="9" fill="#F4B740"/><path d="M39 38.2l2.8 2.8 5-5.4" fill="none" stroke="#0E2A30" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="s-clip" viewBox="0 0 64 64"><circle cx="32" cy="32" r="32" fill="#FFFFFF"/><rect x="16" y="12" width="32" height="42" fill="#0B6A75"/><rect x="20" y="18" width="24" height="32" fill="#FFFFFF"/><rect x="25" y="9" width="14" height="7" fill="#F4B740"/><rect x="24" y="25" width="16" height="3" fill="#CBE4E7"/><rect x="24" y="32" width="16" height="3" fill="#CBE4E7"/><rect x="24" y="39" width="10" height="3" fill="#CBE4E7"/></symbol>
+<symbol id="s-cal" viewBox="0 0 64 64"><circle cx="32" cy="32" r="32" fill="#FFFFFF"/><rect x="12" y="16" width="40" height="36" fill="#E4F1F2"/><rect x="12" y="16" width="40" height="10" fill="#0B6A75"/><rect x="20" y="11" width="4" height="9" fill="#0A4F58"/><rect x="40" y="11" width="4" height="9" fill="#0A4F58"/><rect x="17" y="31" width="7" height="6" fill="#CBE4E7"/><rect x="17" y="41" width="7" height="6" fill="#CBE4E7"/><rect x="28.5" y="31" width="7" height="6" fill="#CBE4E7"/><rect x="28.5" y="41" width="7" height="6" fill="#CBE4E7"/><rect x="40" y="31" width="7" height="6" fill="#CBE4E7"/><rect x="40" y="41" width="7" height="6" fill="#CBE4E7"/><rect x="28.5" y="41" width="7" height="6" fill="#F4B740"/></symbol>
+<symbol id="s-toolbox" viewBox="0 0 64 64"><circle cx="32" cy="32" r="32" fill="#FFFFFF"/><rect x="23" y="15" width="18" height="4" fill="#0A4F58"/><rect x="23" y="15" width="4" height="11" fill="#0A4F58"/><rect x="37" y="15" width="4" height="11" fill="#0A4F58"/><rect x="11" y="24" width="42" height="26" fill="#0B6A75"/><rect x="11" y="24" width="42" height="7" fill="#0A4F58"/><rect x="28" y="28" width="8" height="8" fill="#F4B740"/></symbol>
+<symbol id="st-empty" viewBox="0 0 96 96"><circle cx="48" cy="48" r="48" fill="#E4F1F2"/><path d="M28 76V48L48.0 29.7L68 48V76Z" fill="#0B6A75"/><path d="M24 50L48.0 27.7L72 50L72 46L48.0 23.7L24 46Z" fill="#0A4F58"/><rect x="34" y="53" width="10" height="10" fill="#F4B740"/><rect x="52" y="53" width="10" height="10" fill="#0A4F58"/><rect x="43" y="64" width="10" height="12" fill="#0A4F58"/><rect x="20" y="76" width="56" height="3" fill="#0A4F58"/><circle cx="70" cy="28" r="12" fill="#0B6A75"/><path d="M64.5 28.3l3.8 3.8 6.6-7.2" fill="none" stroke="#FFFFFF" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="st-conf" viewBox="0 0 96 96"><circle cx="48" cy="48" r="48" fill="#FFFFFF"/><path d="M28 76V48L48.0 29.7L68 48V76Z" fill="#0B6A75"/><path d="M24 50L48.0 27.7L72 50L72 46L48.0 23.7L24 46Z" fill="#0A4F58"/><rect x="34" y="53" width="10" height="10" fill="#F4B740"/><rect x="52" y="53" width="10" height="10" fill="#F4B740"/><rect x="43" y="64" width="10" height="12" fill="#0A4F58"/><rect x="20" y="76" width="56" height="3" fill="#0A4F58"/><circle cx="70" cy="28" r="12" fill="#F4B740"/><path d="M64.5 28.3l3.8 3.8 6.6-7.2" fill="none" stroke="#0E2A30" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="st-fail" viewBox="0 0 96 96"><circle cx="48" cy="48" r="48" fill="#FFFFFF"/><path d="M28 76V48L48.0 29.7L68 48V76Z" fill="#0B6A75"/><path d="M24 50L48.0 27.7L72 50L72 46L48.0 23.7L24 46Z" fill="#0A4F58"/><rect x="34" y="53" width="10" height="10" fill="#0A4F58"/><rect x="52" y="53" width="10" height="10" fill="#0A4F58"/><rect x="43" y="64" width="10" height="12" fill="#0A4F58"/><rect x="20" y="76" width="56" height="3" fill="#0A4F58"/><circle cx="70" cy="28" r="12" fill="#B10E1C"/><path d="M65.5 23.5l9 9M74.5 23.5l-9 9" fill="none" stroke="#FFFFFF" stroke-width="2.8" stroke-linecap="round"/></symbol>
+</svg>
+<div class="sk-banner"><b>Sketch</b><span>Marrowby Homes repairs &middot; direction &ldquo;Task first&rdquo;, art direction &ldquo;Lit windows&rdquo; &middot; Power Pages, Bootstrap 5 site &middot; every name, number and address is made up</span></div>
+<main class="board">
+<h1>Marrowby Homes: repairs</h1>
+<p class="lede">Task first, in lit windows: the first screen is the task, report a repair or track one, set in a dusk street of Marrowby homes, so a tenant is done in about three minutes without phoning; it gives up the welcome and marketing content on the home page.</p>
+
+<!-- ======================= FRAME 1: HOME ======================= -->
+<div class="cap" id="home"><b>Home</b><span>tenant, often just after something broke &middot; report or track a repair &middot; first look: the headline with Report a repair, then the track card</span><span class="tag">Power Pages</span><span class="tag">1366 wide</span><span class="tag">Task first</span></div>
+<div class="frame browser" data-screen="Home">
+ <div class="chrome"><i></i><i></i><i></i><span class="url">repairs.marrowbyhomes.example</span></div>
+ <div class="site">
+  <div class="topbar"><div class="ctn"><svg class="i s16"><use href="#i-call"/></svg><span>Emergency repairs: call <b><span class="tel">0808 157 0142</span></b>, day or night</span><span class="r"><a>Accessibility</a></span></div></div>
+  <header class="hdr"><div class="ctn">
+   <a class="logo"><span class="mark"><svg class="i"><use href="#logo-m"/></svg></span>Marrowby Homes</a>
+   <nav class="nav"><a class="cur">Repairs</a><a>Your tenancy</a><a>Help and advice</a><a>Contact us</a></nav>
+   <span class="end"><a class="btn"><svg class="i"><use href="#i-person"/></svg>Sign in</a></span>
+  </div></header>
+
+  <section class="hero">
+   <svg class="scene" viewBox="0 0 1366 600" aria-hidden="true"><rect x="0" y="548" width="1366" height="52" fill="#083F47"/><path d="M1296 66A22 22 0 1 0 1296 110A12.1 22 0 1 1 1296 66Z" fill="#CBE4E7"/><path d="M812 59L814 64L819 66L814 68L812 73L810 68L805 66L810 64Z" fill="#CBE4E7"/><path d="M1092 123L1093.4 126.6L1097 128L1093.4 129.4L1092 133L1090.6 129.4L1087 128L1090.6 126.6Z" fill="#CBE4E7"/><path d="M1186 40L1187.7 44.3L1192 46L1187.7 47.7L1186 52L1184.3 47.7L1180 46L1184.3 44.3Z" fill="#CBE4E7"/><path d="M1350 191L1351.4 194.6L1355 196L1351.4 197.4L1350 201L1348.6 197.4L1345 196L1348.6 194.6Z" fill="#CBE4E7"/><path d="M556 548V398L604 354.1L652 398V548Z" fill="#083F47"/><path d="M718 548V334L766 290.1L814 334V548Z" fill="#083F47"/><path d="M1176 548V322L1230 272.6L1284 322V548Z" fill="#083F47"/><rect x="752" y="352" width="11" height="15" fill="#F4B740"/><rect x="772" y="352" width="11" height="15" fill="#0E2A30"/><rect x="1214" y="342" width="11" height="15" fill="#0E2A30"/><rect x="1236" y="342" width="11" height="15" fill="#F4B740"/><path d="M-10 548V512L25 480L60 512V548Z" fill="#0D5E68"/><rect x="4.3" y="524" width="14" height="24" fill="#083F47"/><rect x="32.7" y="524" width="12" height="16" fill="#F4B740"/><path d="M60 548V482L83 461L106 482V548Z" fill="#12707B"/><rect x="67.3" y="494" width="12" height="16" fill="#083F47"/><rect x="86.7" y="494" width="12" height="16" fill="#083F47"/><rect x="67.3" y="524" width="12" height="16" fill="#083F47"/><rect x="85.7" y="524" width="14" height="24" fill="#083F47"/><path d="M106 548V512L143 478.2L180 512V548Z" fill="#083F47"/><rect x="121.7" y="524" width="14" height="24" fill="#0E2A30"/><rect x="151.3" y="524" width="12" height="16" fill="#0E2A30"/><path d="M180 548V482L202 461.9L224 482V548Z" fill="#0D5E68"/><rect x="186.7" y="494" width="12" height="16" fill="#083F47"/><rect x="205.3" y="494" width="12" height="16" fill="#F4B740"/><rect x="185.7" y="524" width="14" height="24" fill="#083F47"/><rect x="205.3" y="524" width="12" height="16" fill="#083F47"/><path d="M224 548V512L260 479.1L296 512V548Z" fill="#12707B"/><rect x="240" y="524" width="12" height="16" fill="#F4B740"/><rect x="267" y="524" width="14" height="24" fill="#083F47"/><path d="M296 548V482L319 461L342 482V548Z" fill="#083F47"/><rect x="303.3" y="494" width="12" height="16" fill="#0E2A30"/><rect x="322.7" y="494" width="12" height="16" fill="#0E2A30"/><rect x="303.3" y="524" width="12" height="16" fill="#0E2A30"/><rect x="321.7" y="524" width="14" height="24" fill="#0E2A30"/><path d="M342 548V512L380 477.3L418 512V548Z" fill="#0D5E68"/><rect x="358.3" y="524" width="14" height="24" fill="#083F47"/><rect x="388.7" y="524" width="12" height="16" fill="#F4B740"/><path d="M418 548V482L441 461L464 482V548Z" fill="#12707B"/><rect x="425.3" y="494" width="12" height="16" fill="#F4B740"/><rect x="444.7" y="494" width="12" height="16" fill="#083F47"/><rect x="424.3" y="524" width="14" height="24" fill="#083F47"/><rect x="444.7" y="524" width="12" height="16" fill="#083F47"/><path d="M464 548V482L494 454.6L524 482V548Z" fill="#0D5E68"/><rect x="476" y="494" width="12" height="16" fill="#083F47"/><rect x="500" y="494" width="12" height="16" fill="#083F47"/><rect x="476" y="524" width="12" height="16" fill="#083F47"/><rect x="499" y="524" width="14" height="24" fill="#083F47"/><rect x="566" y="427.2" width="8" height="20" fill="#12707B"/><path d="M524 548V452L552 426.4L580 452V548Z" fill="#12707B"/><rect x="534.7" y="464" width="12" height="16" fill="#083F47"/><rect x="557.3" y="464" width="12" height="16" fill="#083F47"/><rect x="534.7" y="494" width="12" height="16" fill="#083F47"/><rect x="557.3" y="494" width="12" height="16" fill="#F4B740"/><rect x="533.7" y="524" width="14" height="24" fill="#083F47"/><rect x="557.3" y="524" width="12" height="16" fill="#083F47"/><path d="M580 548V452L612 422.8L644 452V548Z" fill="#0D5E68"/><rect x="593.3" y="464" width="12" height="16" fill="#083F47"/><rect x="618.7" y="464" width="12" height="16" fill="#083F47"/><rect x="593.3" y="494" width="12" height="16" fill="#083F47"/><rect x="618.7" y="494" width="12" height="16" fill="#083F47"/><rect x="593.3" y="524" width="12" height="16" fill="#083F47"/><rect x="617.7" y="524" width="14" height="24" fill="#083F47"/><path d="M644 548V422L672 396.4L700 422V548Z" fill="#12707B"/><rect x="661" y="434" width="22" height="16" fill="#083F47"/><rect x="661" y="464" width="22" height="16" fill="#F4B740"/><rect x="661" y="494" width="22" height="16" fill="#083F47"/><rect x="660" y="524" width="24" height="24" fill="#083F47"/><path d="M700 548V422L730 394.6L760 422V548Z" fill="#0D5E68"/><rect x="712" y="434" width="12" height="16" fill="#F4B740"/><rect x="736" y="434" width="12" height="16" fill="#083F47"/><rect x="712" y="464" width="12" height="16" fill="#083F47"/><rect x="736" y="464" width="12" height="16" fill="#083F47"/><rect x="712" y="494" width="12" height="16" fill="#083F47"/><rect x="736" y="494" width="12" height="16" fill="#083F47"/><rect x="711" y="524" width="14" height="24" fill="#083F47"/><rect x="736" y="524" width="12" height="16" fill="#083F47"/><rect x="773.2" y="307.9" width="7" height="20" fill="#12707B"/><path d="M760 548V332L782 311.9L804 332V548Z" fill="#12707B"/><rect x="775" y="343" width="14" height="18" fill="#083F47"/><rect x="775" y="373" width="14" height="18" fill="#083F47"/><rect x="775" y="403" width="14" height="18" fill="#F4B740"/><rect x="775" y="433" width="14" height="18" fill="#083F47"/><rect x="775" y="463" width="14" height="18" fill="#083F47"/><rect x="775" y="493" width="14" height="18" fill="#083F47"/><rect x="774" y="524" width="16" height="24" fill="#083F47"/><path d="M804 548V392L835 363.7L866 392V548Z" fill="#0D5E68"/><rect x="816.7" y="404" width="12" height="16" fill="#083F47"/><rect x="841.3" y="404" width="12" height="16" fill="#083F47"/><rect x="816.7" y="434" width="12" height="16" fill="#083F47"/><rect x="841.3" y="434" width="12" height="16" fill="#083F47"/><rect x="816.7" y="464" width="12" height="16" fill="#083F47"/><rect x="841.3" y="464" width="12" height="16" fill="#083F47"/><rect x="816.7" y="494" width="12" height="16" fill="#083F47"/><rect x="841.3" y="494" width="12" height="16" fill="#083F47"/><rect x="816.7" y="524" width="12" height="16" fill="#083F47"/><rect x="840.3" y="524" width="14" height="24" fill="#083F47"/><path d="M866 548V302L887 282.8L908 302V548Z" fill="#083F47"/><rect x="880" y="313" width="14" height="18" fill="#0E2A30"/><rect x="880" y="343" width="14" height="18" fill="#0E2A30"/><rect x="880" y="373" width="14" height="18" fill="#0E2A30"/><rect x="880" y="403" width="14" height="18" fill="#0E2A30"/><rect x="880" y="433" width="14" height="18" fill="#0E2A30"/><rect x="880" y="463" width="14" height="18" fill="#0E2A30"/><rect x="880" y="493" width="14" height="18" fill="#0E2A30"/><rect x="879" y="524" width="16" height="24" fill="#0E2A30"/><path d="M908 548V362L956 318.1L1004 362V548Z" fill="#12707B"/><rect x="930" y="373" width="15" height="18" fill="#F4B740"/><rect x="967" y="373" width="15" height="18" fill="#F4B740"/><rect x="930" y="403" width="15" height="18" fill="#F4B740"/><rect x="967" y="403" width="15" height="18" fill="#F4B740"/><rect x="930" y="433" width="15" height="18" fill="#F4B740"/><rect x="967" y="433" width="15" height="18" fill="#F4B740"/><rect x="930" y="463" width="15" height="18" fill="#F4B740"/><rect x="967" y="463" width="15" height="18" fill="#F4B740"/><rect x="930" y="493" width="15" height="18" fill="#F4B740"/><rect x="967" y="493" width="15" height="18" fill="#F4B740"/><rect x="929" y="524" width="17" height="24" fill="#083F47"/><rect x="967" y="523" width="15" height="18" fill="#F4B740"/><rect x="952" y="337.9" width="8" height="8" fill="#F4B740"/><rect x="1036.2" y="247.4" width="7" height="20" fill="#0D5E68"/><path d="M1004 548V272L1027 251L1050 272V548Z" fill="#0D5E68"/><rect x="1020" y="283" width="14" height="18" fill="#083F47"/><rect x="1020" y="313" width="14" height="18" fill="#F4B740"/><rect x="1020" y="343" width="14" height="18" fill="#083F47"/><rect x="1020" y="373" width="14" height="18" fill="#083F47"/><rect x="1020" y="403" width="14" height="18" fill="#083F47"/><rect x="1020" y="433" width="14" height="18" fill="#083F47"/><rect x="1020" y="463" width="14" height="18" fill="#083F47"/><rect x="1020" y="493" width="14" height="18" fill="#083F47"/><rect x="1019" y="524" width="16" height="24" fill="#083F47"/><path d="M1050 548V392L1085 360L1120 392V548Z" fill="#12707B"/><rect x="1070" y="403" width="30" height="18" fill="#083F47"/><rect x="1070" y="433" width="30" height="18" fill="#083F47"/><rect x="1070" y="463" width="30" height="18" fill="#F4B740"/><rect x="1070" y="493" width="30" height="18" fill="#083F47"/><rect x="1069" y="524" width="32" height="24" fill="#083F47"/><path d="M1120 548V362L1148 336.4L1176 362V548Z" fill="#083F47"/><rect x="1130.7" y="374" width="12" height="16" fill="#F4B740"/><rect x="1153.3" y="374" width="12" height="16" fill="#0E2A30"/><rect x="1130.7" y="404" width="12" height="16" fill="#0E2A30"/><rect x="1153.3" y="404" width="12" height="16" fill="#0E2A30"/><rect x="1130.7" y="434" width="12" height="16" fill="#0E2A30"/><rect x="1153.3" y="434" width="12" height="16" fill="#0E2A30"/><rect x="1130.7" y="464" width="12" height="16" fill="#0E2A30"/><rect x="1153.3" y="464" width="12" height="16" fill="#0E2A30"/><rect x="1130.7" y="494" width="12" height="16" fill="#0E2A30"/><rect x="1153.3" y="494" width="12" height="16" fill="#0E2A30"/><rect x="1130.7" y="524" width="12" height="16" fill="#0E2A30"/><rect x="1152.3" y="524" width="14" height="24" fill="#0E2A30"/><rect x="1196" y="391.7" width="8" height="20" fill="#0D5E68"/><path d="M1176 548V422L1216 385.4L1256 422V548Z" fill="#0D5E68"/><rect x="1194.7" y="434" width="12" height="16" fill="#083F47"/><rect x="1225.3" y="434" width="12" height="16" fill="#083F47"/><rect x="1194.7" y="464" width="12" height="16" fill="#083F47"/><rect x="1225.3" y="464" width="12" height="16" fill="#F4B740"/><rect x="1194.7" y="494" width="12" height="16" fill="#083F47"/><rect x="1225.3" y="494" width="12" height="16" fill="#083F47"/><rect x="1193.7" y="524" width="14" height="24" fill="#083F47"/><rect x="1225.3" y="524" width="12" height="16" fill="#083F47"/><path d="M1256 548V452L1286 424.6L1316 452V548Z" fill="#12707B"/><rect x="1268" y="464" width="12" height="16" fill="#083F47"/><rect x="1292" y="464" width="12" height="16" fill="#083F47"/><rect x="1268" y="494" width="12" height="16" fill="#083F47"/><rect x="1292" y="494" width="12" height="16" fill="#083F47"/><rect x="1268" y="524" width="12" height="16" fill="#083F47"/><rect x="1291" y="524" width="14" height="24" fill="#083F47"/><path d="M1316 548V452L1351 420L1386 452V548Z" fill="#0D5E68"/><rect x="1331.3" y="464" width="12" height="16" fill="#083F47"/><rect x="1358.7" y="464" width="12" height="16" fill="#F4B740"/><rect x="1331.3" y="494" width="12" height="16" fill="#083F47"/><rect x="1358.7" y="494" width="12" height="16" fill="#083F47"/><rect x="1330.3" y="524" width="14" height="24" fill="#083F47"/><rect x="1358.7" y="524" width="12" height="16" fill="#083F47"/><path d="M956 312.1V284.1" stroke="#F4B740" stroke-width="2.5" stroke-linecap="round" stroke-dasharray=".1 7" fill="none"/><path d="M956 278C950 269 939 258 939 248A17 17 0 1 1 973 248C973 258 962 269 956 278Z" fill="#F4B740"/><circle cx="956" cy="248" r="6.5" fill="#0A4F58"/><path d="M1150 540V512H1212L1230 526H1238V540Z" fill="#FFFFFF"/><path d="M1214 516L1226 527H1214Z" fill="#083F47"/><rect x="1234" y="530" width="4" height="5" fill="#F4B740"/><rect x="1150" y="536" width="88" height="4" fill="#CBE4E7"/><svg x="1168" y="516" width="24" height="24" viewBox="0 0 20 20"><path d="M3.5 15.5V8.2L7 5l3 2.8L13 5l3.5 3.2v7.3" fill="none" stroke="#0A4F58" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><circle cx="1168" cy="542" r="8" fill="#0E2A30"/><circle cx="1168" cy="542" r="3" fill="#CBE4E7"/><circle cx="1220" cy="542" r="8" fill="#0E2A30"/><circle cx="1220" cy="542" r="3" fill="#CBE4E7"/></svg>
+   <div class="ctn">
+    <div class="txt">
+     <div class="eyebrow">Repairs</div>
+     <h1 class="h1">Report a repair in about 3&nbsp;minutes</h1>
+     <p class="intro">Tell us what is wrong, choose a visit time, and follow the repair until it is done.</p>
+     <div class="acts"><a class="btn primary fr">Report a repair<svg class="i"><use href="#i-arrow-right"/></svg></a></div>
+     <p class="note sm ln"><svg class="i s16"><use href="#i-info"/></svg>You do not need an account to report a repair.</p>
+    </div>
+   </div>
+  </section>
+
+  <div class="ctn">
+   <div class="track">
+    <div class="tk">
+     <h2 class="h3">Track a repair</h2>
+     <div class="trow3">
+      <div class="f" style="flex:1"><label>Repair reference</label><div class="in"></div></div>
+      <div class="f" style="width:14rem"><label>Postcode</label><div class="in"></div></div>
+      <a class="btn">Track</a>
+     </div>
+     <p class="hint sm">For example RP-20417. It is in your confirmation text. Or <a class="lk">sign in</a> to see all your repairs.</p>
+    </div>
+    <div class="pv">
+     <p class="ex sm">Example</p>
+     <div class="r1"><span class="mut">RP-20417</span><span>&middot;</span><span class="b">No heating or hot water</span><span class="badge info">Scheduled</span></div>
+     <ol class="htl">
+      <li class="done"><span class="dot"><svg class="i s16"><use href="#i-check"/></svg></span>Reported</li>
+      <li class="done"><span class="dot"><svg class="i s16"><use href="#i-check"/></svg></span>Looked at</li>
+      <li class="now"><span class="dot"></span>Visit booked</li>
+      <li><span class="dot"></span>Under way</li>
+      <li><span class="dot"></span>Completed</li>
+     </ol>
+     <p class="vb sm">Visit booked: Today, 13:00 to 14:30</p>
+    </div>
+   </div>
+   <div class="emerg">
+    <svg class="i s24"><use href="#i-warning"/></svg>
+    <div><div class="b">If you smell gas, leave the home and call the gas emergency line on <span class="tel">0808 157 0199</span>.</div><div>For a flood or no power, call our 24-hour repairs line on <span class="tel">0808 157 0142</span>. For anything else, report it here: if someone at home is at risk we treat it as an emergency.</div></div>
+    <a class="lk">What counts as an emergency</a>
+   </div>
+
+   <section class="sect">
+    <h2 class="h2">What needs repairing?</h2>
+    <p class="sub">Choose the closest match. You can add detail on the next page.</p>
+    <div class="tiles">
+     <a class="tile"><svg class="pic" aria-hidden="true"><use href="#p-heat"/></svg><span><span class="t">Heating and hot water</span><span class="d">Boiler, radiators, no hot water</span></span><svg class="i"><use href="#i-chev-right"/></svg></a>
+     <a class="tile"><svg class="pic" aria-hidden="true"><use href="#p-tap"/></svg><span><span class="t">Leaks and plumbing</span><span class="d">Taps, toilets, pipes, drains</span></span><svg class="i"><use href="#i-chev-right"/></svg></a>
+     <a class="tile"><svg class="pic" aria-hidden="true"><use href="#p-elec"/></svg><span><span class="t">Electrics and power</span><span class="d">Sockets, lights, fuse box</span></span><svg class="i"><use href="#i-chev-right"/></svg></a>
+     <a class="tile"><svg class="pic" aria-hidden="true"><use href="#p-door"/></svg><span><span class="t">Doors, windows and locks</span><span class="d">Sticking, broken, cannot lock</span></span><svg class="i"><use href="#i-chev-right"/></svg></a>
+     <a class="tile"><svg class="pic" aria-hidden="true"><use href="#p-damp"/></svg><span><span class="t">Damp and mould</span><span class="d">Walls, ceilings, around windows</span></span><svg class="i"><use href="#i-chev-right"/></svg></a>
+     <a class="tile"><svg class="pic" aria-hidden="true"><use href="#p-other"/></svg><span><span class="t">Something else</span><span class="d">Floors, kitchens, roofs, outside</span></span><svg class="i"><use href="#i-chev-right"/></svg></a>
+    </div>
+   </section>
+  </div>
+
+  <section class="howb"><div class="ctn">
+   <div class="top">
+    <h2 class="h2">What happens after you report</h2>
+    <div><p>Most repairs are looked at on the day you report them. We text you at every step, so you can follow the repair here instead of phoning.</p><a class="lk">Our repair target times</a></div>
+   </div>
+   <ol class="tline">
+    <li><svg class="pic" aria-hidden="true"><use href="#s-phone"/></svg><span class="n">1</span><b>We confirm straight away</b><span>You get a reference by text and email.</span></li>
+    <li><svg class="pic" aria-hidden="true"><use href="#s-clip"/></svg><span class="n">2</span><b>We look at it within 1 working day</b><span>Emergencies are dealt with at once.</span></li>
+    <li><svg class="pic" aria-hidden="true"><use href="#s-cal"/></svg><span class="n">3</span><b>You choose a visit time</b><span>Morning, afternoon or school-run slots.</span></li>
+    <li><svg class="pic" aria-hidden="true"><use href="#s-toolbox"/></svg><span class="n">4</span><b>We do the repair</b><span>Emergency within 6 hours, urgent within 7 days, routine within 28 days.</span></li>
+   </ol>
+  </div></section>
+
+  <section class="perf"><div class="ctn">
+   <div class="perf-hd"><h2 class="h2">How we are doing</h2><span class="mut">October 2026</span><a class="lk">See the full performance report</a></div>
+   <div class="figs">
+    <div class="fig">
+     <span class="big num">86.4%</span><span class="lab">of repairs completed on time</span>
+     <svg class="bul" viewBox="0 0 296 16" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="5" width="296" height="6" class="tr"/><rect x="0" y="5" width="256" height="6" class="v"/><line x1="266" y1="0" x2="266" y2="16" class="tg"/></svg>
+     <p class="cmp"><span class="dc"><svg class="i s16"><use href="#i-arrow-down"/></svg>3.6 points under</span>our 90% target</p>
+    </div>
+    <div class="fig">
+     <span class="big num">9.2<span class="unit"> days</span></span><span class="lab">average time to complete a repair</span>
+     <svg class="bul" viewBox="0 0 296 16" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="5" width="296" height="6" class="tr"/><rect x="0" y="5" width="227" height="6" class="v"/><line x1="197" y1="0" x2="197" y2="16" class="tg"/></svg>
+     <p class="cmp"><span class="dc"><svg class="i s16"><use href="#i-arrow-up"/></svg>1.2 days over</span>our 8-day target</p>
+    </div>
+    <div class="fig">
+     <span class="big num">78.3%</span><span class="lab">fixed at the first visit</span>
+     <svg class="bul" viewBox="0 0 296 16" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="5" width="296" height="6" class="tr"/><rect x="0" y="5" width="232" height="6" class="v"/><line x1="222" y1="0" x2="222" y2="16" class="tg"/></svg>
+     <p class="cmp"><span class="dp"><svg class="i s16"><use href="#i-arrow-up"/></svg>3.3 points above</span>our 75% target</p>
+    </div>
+   </div>
+  </div></section>
+
+  <footer class="ftr"><div class="ctn">
+   <div class="cols">
+    <div><span class="logo"><span class="mark"><svg class="i"><use href="#logo-m"/></svg></span>Marrowby Homes</span><p>A housing association looking after about 6,400 homes in Northbank, Castle Quarter and Ferry Road.</p></div>
+    <div><h4>Repairs</h4><ul><li>Report a repair</li><li>Track a repair</li><li>Emergency repairs</li><li>Target times</li></ul></div>
+    <div><h4>Your tenancy</h4><ul><li>Pay rent</li><li>Your home</li><li>Moving home</li></ul></div>
+    <div><h4>Help</h4><ul><li>Contact us</li><li>Accessibility</li><li>Privacy</li><li>Complaints</li></ul></div>
+   </div>
+   <div class="base">Marrowby Homes is a made-up organisation for this sketch.</div>
+  </div><svg class="sky" viewBox="0 0 1366 72" preserveAspectRatio="xMinYMax slice" aria-hidden="true"><use href="#sky"/></svg></footer>
+ </div>
+</div>
+
+<!-- ======================= FRAME 2: REPORT A REPAIR ======================= -->
+<div class="cap" id="report"><b>Report a repair</b><span>tenant, signed out &middot; say what is wrong, one topic per step &middot; first look: the question, then Continue</span><span class="tag">Power Pages</span><span class="tag">multistep form</span><span class="tag">step 2 of 5</span></div>
+<div class="frame browser" data-screen="Report a repair">
+ <div class="chrome"><i></i><i></i><i></i><span class="url">repairs.marrowbyhomes.example</span></div>
+ <div class="site">
+  <div class="topbar"><div class="ctn"><svg class="i s16"><use href="#i-call"/></svg><span>Emergency repairs: call <b><span class="tel">0808 157 0142</span></b>, day or night</span><span class="r"><a>Accessibility</a></span></div></div>
+  <header class="hdr"><div class="ctn">
+   <a class="logo"><span class="mark"><svg class="i"><use href="#logo-m"/></svg></span>Marrowby Homes</a>
+   <nav class="nav"><a class="cur">Repairs</a><a>Your tenancy</a><a>Help and advice</a><a>Contact us</a></nav>
+   <span class="end"><a class="btn"><svg class="i"><use href="#i-person"/></svg>Sign in</a></span>
+  </div></header>
+  <section class="pband">
+   <div class="ctn">
+    <nav class="crumb"><a>Home</a>&rsaquo;<a>Repairs</a>&rsaquo;<span>Report a repair</span></nav>
+    <h1 class="h1">Report a repair</h1>
+   </div>
+   <svg class="bpiece" viewBox="0 0 206 120" aria-hidden="true"><use href="#band-piece"/></svg>
+  </section>
+  <div class="ctn">
+   <div class="rp">
+    <div class="fcard">
+     <div class="prog">
+      <div class="stp">Step 2 of 5</div>
+      <div class="segs"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div>
+      <div class="snames"><span class="done"><svg class="i s16"><use href="#i-check"/></svg>Your home</span><span class="now">The problem</span><span>Who is at home</span><span>Visit time</span><span>Check and send</span></div>
+     </div>
+     <h2 class="h2">What is the problem?</h2>
+     <div class="qs">
+      <div class="q">
+       <span class="ql">What needs repairing?</span>
+       <div class="ctl radios g2">
+        <div class="ro on"><span class="rd"></span>Heating and hot water</div>
+        <div class="ro"><span class="rd"></span>Leaks and plumbing</div>
+        <div class="ro"><span class="rd"></span>Electrics and power</div>
+        <div class="ro"><span class="rd"></span>Doors, windows and locks</div>
+        <div class="ro"><span class="rd"></span>Damp and mould</div>
+        <div class="ro"><span class="rd"></span>Something else</div>
+       </div>
+      </div>
+      <div class="q">
+       <label class="ql">Describe the problem</label>
+       <p class="qh">Say what you can see, hear or smell, and when it started.</p>
+       <div class="ctl"><textarea class="ta" rows="4" readonly>Boiler shows code F28 and there is no heating or hot water. It stopped at 7 this morning. My daughter is two and the flat is very cold.</textarea></div>
+       <p class="cnt sm">You have 369 characters left</p>
+      </div>
+      <div class="q">
+       <label class="ql">Which room is it in?</label>
+       <div class="ctl in sel">Kitchen<svg class="i"><use href="#i-chev-down"/></svg></div>
+      </div>
+      <div class="q">
+       <span class="ql">Add photos <span class="opt">(optional)</span></span>
+       <p class="qh">A photo helps us send the right person with the right parts. JPG or PNG, up to 10 MB each.</p>
+       <div class="ctl"><a class="btn"><svg class="i"><use href="#i-upload"/></svg>Upload a photo</a></div>
+       <div class="file">
+        <div class="top"><svg class="i"><use href="#i-image"/></svg><span class="b">boiler-display.jpg</span><span class="mut sm num">1.2 MB</span><a class="lk">Remove</a></div>
+        <div class="bot"><span class="pbar"></span><span class="ok"><svg class="i s16"><use href="#i-check-circle"/></svg>Uploaded</span></div>
+       </div>
+      </div>
+     </div>
+     <div class="acts"><a class="btn">Back</a><a class="btn primary fr">Continue<svg class="i"><use href="#i-arrow-right"/></svg></a></div>
+    </div>
+    <aside class="aside">
+     <div class="acard hl">
+      <div class="hd"><h2 class="h3">Your home</h2><a class="lk">Change</a></div>
+      <p>14 Larch Court, Northbank</p>
+      <p class="mut">We will text the mobile ending 123</p>
+     </div>
+     <div class="acard">
+      <div class="hd"><svg class="i"><use href="#i-call"/></svg><h2 class="h3">Need it sooner?</h2></div>
+      <ul class="nlist">
+       <li>Smell gas? Leave the home and call <b class="b"><span class="tel">0808 157 0199</span></b>.</li>
+       <li>A flood or no power? Call <b class="b"><span class="tel">0808 157 0142</span></b>, day or night.</li>
+       <li>No heating and someone at risk? Carry on with this form: we will call you within 30 minutes.</li>
+      </ul>
+     </div>
+     <div class="acard">
+      <h2 class="h3">Not sure what to choose?</h2>
+      <div class="links"><a class="lk">Is it our repair or yours?</a><a class="lk">Damp, mould or condensation</a><a class="lk">Boiler checks before you report</a></div>
+     </div>
+     <div class="acard">
+      <h2 class="h3">What happens next</h2>
+      <ol class="nl">
+       <li><span class="n">1</span>We confirm it: you get a reference by text and email.</li>
+       <li><span class="n">2</span>We look at it within 1 working day; emergencies at once.</li>
+       <li><span class="n">3</span>We book a visit: emergencies within 6 hours, a time you choose for the rest.</li>
+      </ol>
+     </div>
+    </aside>
+   </div>
+  </div>
+  <footer class="ftr"><div class="ctn">
+   <div class="cols">
+    <div><span class="logo"><span class="mark"><svg class="i"><use href="#logo-m"/></svg></span>Marrowby Homes</span><p>A housing association looking after about 6,400 homes in Northbank, Castle Quarter and Ferry Road.</p></div>
+    <div><h4>Repairs</h4><ul><li>Report a repair</li><li>Track a repair</li><li>Emergency repairs</li><li>Target times</li></ul></div>
+    <div><h4>Your tenancy</h4><ul><li>Pay rent</li><li>Your home</li><li>Moving home</li></ul></div>
+    <div><h4>Help</h4><ul><li>Contact us</li><li>Accessibility</li><li>Privacy</li><li>Complaints</li></ul></div>
+   </div>
+   <div class="base">Marrowby Homes is a made-up organisation for this sketch.</div>
+  </div><svg class="sky" viewBox="0 0 1366 72" preserveAspectRatio="xMinYMax slice" aria-hidden="true"><use href="#sky"/></svg></footer>
+ </div>
+</div>
+
+<!-- ======================= FRAME 3: YOUR REPAIRS ======================= -->
+<div class="cap" id="repairs"><b>Your repairs</b><span>tenant, signed in &middot; see where each repair stands &middot; first look: today&rsquo;s visit, then the tracker</span><span class="tag">Power Pages</span><span class="tag">signed in</span></div>
+<div class="frame browser" data-screen="Your repairs">
+ <div class="chrome"><i></i><i></i><i></i><span class="url">repairs.marrowbyhomes.example</span></div>
+ <div class="site">
+  <div class="skipbar"><div class="ctn"><a class="skip fr">Skip to main content</a></div></div>
+  <div class="topbar"><div class="ctn"><svg class="i s16"><use href="#i-call"/></svg><span>Emergency repairs: call <b><span class="tel">0808 157 0142</span></b>, day or night</span><span class="r"><a>Accessibility</a></span></div></div>
+  <header class="hdr"><div class="ctn">
+   <a class="logo"><span class="mark"><svg class="i"><use href="#logo-m"/></svg></span>Marrowby Homes</a>
+   <nav class="nav"><a class="cur">Repairs</a><a>Your tenancy</a><a>Help and advice</a><a>Contact us</a></nav>
+   <span class="end"><a class="prof"><span class="av">MS</span>Maria S.<svg class="i s16"><use href="#i-chev-down"/></svg></a></span>
+  </div></header>
+  <section class="pband">
+   <div class="ctn">
+    <nav class="crumb"><a>Home</a>&rsaquo;<span>Your repairs</span></nav>
+    <h1 class="h1">Your repairs</h1>
+    <div class="bright"><span>Good afternoon, Maria.</span><a class="btn primary"><svg class="i"><use href="#i-add"/></svg>Report a repair</a></div>
+   </div>
+   <svg class="bpiece" viewBox="0 0 206 120" aria-hidden="true"><use href="#band-piece"/></svg>
+  </section>
+  <div class="ctn">
+   <div class="sumt">
+    <div class="st lead">
+     <div class="lab"><svg class="i"><use href="#i-calendar-clock"/></svg>Next visit</div>
+     <div class="visit">Today, 13:00 to 14:30</div>
+     <div class="meta">Hartwell Plumbing and Heating &middot; No heating or hot water</div>
+     <p class="cant">Cannot be in? Call <b class="b"><span class="tel">0808 157 0142</span></b>.</p>
+    </div>
+    <div class="st">
+     <div class="lab"><svg class="i"><use href="#i-wrench"/></svg>Open repairs</div>
+     <span class="big num">3</span>
+     <div class="meta">2 visits booked, 1 awaiting parts</div>
+     <a class="lk more">See open repairs</a>
+    </div>
+    <div class="st">
+     <div class="lab"><svg class="i"><use href="#i-check-circle"/></svg>Completed this year</div>
+     <span class="big num">5</span>
+     <div class="meta">Last one on 2 Oct 2026</div>
+     <a class="lk more">See completed repairs</a>
+    </div>
+   </div>
+   <div class="two">
+    <div class="lcard">
+     <div class="lhead"><div class="in srch"><svg class="i"><use href="#i-search"/></svg>Search by reference or problem</div><div class="in fsel">All statuses<svg class="i"><use href="#i-chev-down"/></svg></div></div>
+     <table class="tbl">
+      <thead><tr><th style="width:10.8rem">Reference</th><th>Problem</th><th style="width:12rem">Reported</th><th style="width:14.4rem">Status</th><th style="width:6.4rem"><span class="vh">Action</span></th></tr></thead>
+      <tbody>
+       <tr class="cur"><td class="ref b">RP-20417</td><td>No heating or hot water</td><td class="dt num">12 Nov 2026</td><td><span class="badge info">Scheduled</span></td><td><a class="lk">View</a></td></tr>
+       <tr><td class="ref">RP-20411</td><td>Radiator leaking in the back bedroom</td><td class="dt num">9 Nov 2026</td><td><span class="badge info">Scheduled</span></td><td><a class="lk">View</a></td></tr>
+       <tr><td class="ref">RP-20388</td><td>Extractor fan not working</td><td class="dt num">28 Oct 2026</td><td><span class="badge warn">Awaiting parts</span></td><td><a class="lk">View</a></td></tr>
+       <tr><td class="ref">RP-20301</td><td>Kitchen tap dripping</td><td class="dt num">2 Oct 2026</td><td><span class="badge pos">Completed</span></td><td><a class="lk">View</a></td></tr>
+       <tr><td class="ref">RP-20177</td><td>Front door sticking in the frame after the wet weather</td><td class="dt num">14 Aug 2026</td><td><span class="badge pos">Completed</span></td><td><a class="lk">View</a></td></tr>
+       <tr><td class="ref">RP-20064</td><td>Smoke alarm beeping</td><td class="dt num">3 Jun 2026</td><td><span class="badge pos">Completed</span></td><td><a class="lk">View</a></td></tr>
+      </tbody>
+     </table>
+     <div class="lfoot"><span class="sm mut">Showing 1 to 6 of 9</span><span class="pg sm"><span class="dis"><svg class="i s16"><use href="#i-arrow-left"/></svg>Previous</span><span class="cur">1</span><span>2</span><span>Next<svg class="i s16"><use href="#i-arrow-right"/></svg></span></span></div>
+    </div>
+    <div class="trk">
+     <div class="sm mut">RP-20417</div>
+     <h2 class="h3">No heating or hot water</h2>
+     <span class="badge info">Scheduled</span>
+     <p class="pri">Emergency: we attend within 6 hours, by 14:30 today.</p>
+     <ol class="tl">
+      <li class="done"><span class="dot"><svg class="i s16"><use href="#i-check"/></svg></span><b>Reported</b><span>12 Nov, 08:30</span></li>
+      <li class="done"><span class="dot"><svg class="i s16"><use href="#i-check"/></svg></span><b>Looked at by our team</b><span>12 Nov, 08:41 &middot; marked as an emergency</span></li>
+      <li class="now"><span class="dot"></span><b>Visit booked</b><span>Today, 13:00 to 14:30 &middot; Hartwell Plumbing and Heating</span></li>
+      <li class="up"><span class="dot"></span><b>Repair under way</b></li>
+      <li class="up"><span class="dot"></span><b>Completed</b></li>
+     </ol>
+     <p class="cant">Cannot be in? Call <b class="b"><span class="tel">0808 157 0142</span></b>.</p>
+     <div class="stack"><a class="btn">View repair details</a></div>
+    </div>
+   </div>
+  </div>
+  <footer class="ftr"><div class="ctn">
+   <div class="cols">
+    <div><span class="logo"><span class="mark"><svg class="i"><use href="#logo-m"/></svg></span>Marrowby Homes</span><p>A housing association looking after about 6,400 homes in Northbank, Castle Quarter and Ferry Road.</p></div>
+    <div><h4>Repairs</h4><ul><li>Report a repair</li><li>Track a repair</li><li>Emergency repairs</li><li>Target times</li></ul></div>
+    <div><h4>Your tenancy</h4><ul><li>Pay rent</li><li>Your home</li><li>Moving home</li></ul></div>
+    <div><h4>Help</h4><ul><li>Contact us</li><li>Accessibility</li><li>Privacy</li><li>Complaints</li></ul></div>
+   </div>
+   <div class="base">Marrowby Homes is a made-up organisation for this sketch.</div>
+  </div><svg class="sky" viewBox="0 0 1366 72" preserveAspectRatio="xMinYMax slice" aria-hidden="true"><use href="#sky"/></svg></footer>
+ </div>
+</div>
+
+<!-- ======================= PHONES + FIRST STATES ======================= -->
+<div class="phrow">
+ <div class="phcol">
+  <div class="cap"><b>Home and Your repairs, phone</b><span>tenant on a phone &middot; the same tasks, one column</span><span class="tag">Power Pages</span><span class="tag">390 wide</span></div>
+  <div class="row">
+   <div class="frame phone" data-screen="Home (phone)">
+    <div class="site phs">
+     <div class="topbar"><div class="ctn"><svg class="i s16"><use href="#i-call"/></svg><span>Emergency? Call <b><span class="tel">0808 157 0142</span></b></span></div></div>
+     <header class="hdr"><div class="ctn"><span class="logo"><span class="mark"><svg class="i"><use href="#logo-m"/></svg></span>Marrowby Homes</span><span class="end"><a class="ibtn"><svg class="i"><use href="#i-menu"/></svg><span class="vh">Menu</span></a></span></div></header>
+     <section class="ph-hero">
+      <div class="eyebrow">Repairs</div>
+      <h1 class="h1">Report a repair in about 3&nbsp;minutes</h1>
+      <p class="intro">Tell us what is wrong, choose a visit time, and follow the repair until it is done.</p>
+      <a class="btn primary blk">Report a repair<svg class="i"><use href="#i-arrow-right"/></svg></a>
+      <a class="btn ghost blk">Track a repair</a>
+      <p class="note sm ln"><svg class="i s16"><use href="#i-info"/></svg>You do not need an account to report.</p>
+      <svg class="ph-street" viewBox="0 0 468 120" aria-hidden="true"><use href="#ph-street"/></svg>
+     </section>
+     <div class="ph-body">
+      <div class="emerg"><svg class="i s24"><use href="#i-warning"/></svg><div><div class="b">Smell gas? Leave the home and call the gas emergency line on <span class="tel">0808 157 0199</span>.</div><div>Flood or no power: call <span class="tel">0808 157 0142</span>.</div></div></div>
+      <h2 class="h3" style="margin-top:3.2rem">What needs repairing?</h2>
+      <div class="tiles" style="grid-template-columns:1fr;margin-top:1.2rem"><a class="tile"><svg class="pic" aria-hidden="true"><use href="#p-heat"/></svg><span><span class="t">Heating and hot water</span><span class="d">Boiler, radiators, no hot water</span></span><svg class="i"><use href="#i-chev-right"/></svg></a></div>
+     </div>
+    </div>
+   </div>
+   <div class="frame phone" data-screen="Your repairs (phone)">
+    <div class="site phs">
+     <div class="topbar"><div class="ctn"><svg class="i s16"><use href="#i-call"/></svg><span>Emergency? Call <b><span class="tel">0808 157 0142</span></b></span></div></div>
+     <header class="hdr"><div class="ctn"><span class="logo"><span class="mark"><svg class="i"><use href="#logo-m"/></svg></span>Marrowby Homes</span><span class="end"><span class="av">MS</span><a class="ibtn"><svg class="i"><use href="#i-menu"/></svg><span class="vh">Menu</span></a></span></div></header>
+     <section class="pband ph">
+      <div class="ctn"><h1 class="h1">Your repairs</h1><p>Good afternoon, Maria.</p></div>
+         <svg class="bpiece" viewBox="0 0 206 120" aria-hidden="true"><use href="#band-piece"/></svg>
+     </section>
+     <div class="ph-body">
+      <div class="st lead">
+       <div class="lab"><svg class="i"><use href="#i-calendar-clock"/></svg>Next visit</div>
+       <div class="visit">Today, 13:00 to 14:30</div>
+       <div class="meta">Hartwell Plumbing and Heating</div>
+       <p class="cant">Cannot be in? Call <b class="b"><span class="tel">0808 157 0142</span></b>.</p>
+      </div>
+      <div class="lh"><h2 class="h3">All repairs</h2><span class="sm mut">9 repairs</span></div>
+      <div class="ph-list">
+       <div class="rcard cur"><div class="r1"><span>RP-20417</span><span class="badge info">Scheduled</span></div><div class="p">No heating or hot water</div><div class="r3"><span>Reported 12 Nov 2026</span><a class="lk">View</a></div></div>
+       <div class="rcard"><div class="r1"><span>RP-20411</span><span class="badge info">Scheduled</span></div><div class="p">Radiator leaking in the back bedroom</div><div class="r3"><span>Reported 9 Nov 2026</span><a class="lk">View</a></div></div>
+      </div>
+     </div>
+     <div class="dock"><a class="btn primary"><svg class="i"><use href="#i-add"/></svg>Report a repair</a></div>
+    </div>
+   </div>
+  </div>
+ </div>
+
+ <div class="scol">
+  <h2>States</h2>
+  <div class="state" data-state="empty">
+   <header><b>Empty</b><span>A tenant with no repairs yet; they start a report.</span></header>
+   <div class="crop"><div class="site"><div class="empty">
+    <svg class="spic" aria-hidden="true"><use href="#st-empty"/></svg>
+    <h3 class="h3">You have no repairs yet</h3>
+    <p>When you report a repair you can follow it here.</p>
+    <a class="btn primary"><svg class="i"><use href="#i-add"/></svg>Report a repair</a>
+   </div></div></div>
+  </div>
+  <div class="state" data-state="failed-save">
+   <header><b>Failed save</b><span>The send failed at the last step; they try again or call.</span></header>
+   <div class="crop w"><div class="site" style="background:transparent">
+    <div class="fail"><svg class="spic" aria-hidden="true"><use href="#st-fail"/></svg><div>
+     <div class="hd"><svg class="i s24"><use href="#i-error"/></svg><h3 class="h3">Your repair was not sent</h3></div>
+     <p>Nothing has been sent and your answers are still on this page. Check your connection and try again, or call <span class="tel">0808 157 0142</span> if it is an emergency.</p>
+    </div><div class="acts"><a class="btn primary">Try again</a><a class="btn">Back to your answers</a></div></div>
+   </div></div>
+  </div>
+ </div>
+</div>
+
+<!-- ======================= STATES, CONTINUED ======================= -->
+<div class="states pp">
+ <div class="state" data-state="error">
+  <header><b>Error</b><span>After Continue with two answers missing; the links jump to each field.</span></header>
+  <div class="crop"><div class="site"><div class="fcard">
+   <div class="esum">
+    <div class="hd"><svg class="i s24"><use href="#i-error"/></svg><h2 class="h3">There is a problem</h2></div>
+    <ul><li><a>Tell us what is wrong</a></li><li><a>Choose the room</a></li></ul>
+   </div>
+   <h2 class="h2" style="margin-top:3.2rem">What is the problem?</h2>
+   <div class="qs">
+    <div class="q err">
+     <label class="ql">Describe the problem</label>
+     <p class="qh">Say what you can see, hear or smell, and when it started.</p>
+     <p class="emsg"><svg class="i"><use href="#i-error"/></svg>Tell us what is wrong</p>
+     <div class="ctl"><div class="ta bad"></div></div>
+    </div>
+    <div class="q err">
+     <label class="ql">Which room is it in?</label>
+     <p class="emsg"><svg class="i"><use href="#i-error"/></svg>Choose the room</p>
+     <div class="ctl in sel bad ph">Choose a room<svg class="i"><use href="#i-chev-down"/></svg></div>
+    </div>
+   </div>
+  </div></div></div>
+ </div>
+ <div class="state" data-state="check-answers">
+  <header><b>Check answers</b><span>Step 5, before sending; they change an answer or send.</span></header>
+  <div class="crop w"><div class="site" style="background:transparent">
+   <div class="prog">
+    <div class="stp">Step 5 of 5</div>
+    <div class="segs"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+   </div>
+   <h2 class="h2" style="margin-top:2.4rem">Check your answers</h2>
+   <dl class="summ">
+    <div><dt>Your home</dt><dd>14 Larch Court, Northbank</dd><a class="lk">Change</a></div>
+    <div><dt>What needs repairing</dt><dd>Heating and hot water</dd><a class="lk">Change</a></div>
+    <div><dt>The problem</dt><dd>Boiler shows code F28 and there is no heating or hot water. It stopped at 7 this morning. My daughter is two and the flat is very cold.<br><span class="mut">1 photo</span></dd><a class="lk">Change</a></div>
+    <div><dt>Room</dt><dd>Kitchen</dd><a class="lk">Change</a></div>
+    <div><dt>Anyone at risk</dt><dd>Yes, a child under 5</dd><a class="lk">Change</a></div>
+    <div><dt>Visit time</dt><dd>Today, as soon as we can. We will call you first.</dd><a class="lk">Change</a></div>
+   </dl>
+   <h2 class="h3" style="margin-top:3.2rem">Now send your repair report</h2>
+   <p class="mut" style="margin-top:.4rem">We will text you the reference straight away.</p>
+   <div class="acts" style="margin-top:2.4rem"><a class="btn primary"><svg class="i"><use href="#i-send"/></svg>Send repair report</a></div>
+  </div></div>
+ </div>
+ <div class="state" data-state="loading">
+  <header><b>Loading</b><span>While the list fetches; nothing to do, it fills in place.</span></header>
+  <div class="crop"><div class="site"><div class="lcard">
+   <div class="lhead"><div class="in srch"><svg class="i"><use href="#i-search"/></svg>Search by reference or problem</div><div class="in fsel">All statuses<svg class="i"><use href="#i-chev-down"/></svg></div></div>
+   <table class="tbl">
+    <thead><tr><th style="width:10.8rem">Reference</th><th>Problem</th><th style="width:12rem">Reported</th><th style="width:14.4rem">Status</th><th style="width:6.4rem"><span class="vh">Action</span></th></tr></thead>
+   </table>
+   <div class="loadl"><span class="spin"></span>Loading your repairs</div>
+   <table class="tbl"><tbody>
+    <tr><td style="width:10.8rem"><div class="sk w1"></div></td><td><div class="sk w2"></div></td><td style="width:12rem"><div class="sk w4"></div></td><td style="width:14.4rem"><div class="sk w5"></div></td><td style="width:6.4rem"><div class="sk w6"></div></td></tr>
+    <tr><td><div class="sk w1"></div></td><td><div class="sk w3"></div></td><td><div class="sk w4"></div></td><td><div class="sk w5"></div></td><td><div class="sk w6"></div></td></tr>
+    <tr><td><div class="sk w1"></div></td><td><div class="sk w2"></div></td><td><div class="sk w4"></div></td><td><div class="sk w5"></div></td><td><div class="sk w6"></div></td></tr>
+    <tr><td><div class="sk w1"></div></td><td><div class="sk w3"></div></td><td><div class="sk w4"></div></td><td><div class="sk w5"></div></td><td><div class="sk w6"></div></td></tr>
+    <tr><td><div class="sk w1"></div></td><td><div class="sk w2"></div></td><td><div class="sk w4"></div></td><td><div class="sk w5"></div></td><td><div class="sk w6"></div></td></tr>
+   </tbody></table>
+  </div></div></div>
+ </div>
+ <div class="state" data-state="confirmation">
+  <header><b>Confirmation</b><span>After sending; they keep the reference and track it.</span></header>
+  <div class="crop w"><div class="site" style="background:transparent">
+   <div class="conf">
+    <svg class="spic" aria-hidden="true"><use href="#st-conf"/></svg>
+    <div>
+     <div class="hd"><svg class="i s24"><use href="#i-check-circle"/></svg><h1 class="h2">Repair reported</h1></div>
+     <p class="rl">Your reference</p>
+     <p class="ref">RP-20417</p>
+     <p class="why">Because someone at home is at risk, we are treating this as an emergency.</p>
+    </div>
+   </div>
+   <div class="next">
+    <h2 class="h3">What happens next</h2>
+    <ul>
+     <li>We will call you within 30 minutes.</li>
+     <li>An engineer will attend within 6 hours.</li>
+     <li>You can follow the repair here.</li>
+    </ul>
+    <a class="lk ilk">Track this repair<svg class="i s16"><use href="#i-arrow-right"/></svg></a>
+   </div>
+  </div></div>
+ </div>
+</div>
+
+<!-- ======================= SYSTEM ======================= -->
+<section class="sec">
+ <h2>System</h2>
+ <div class="sysg">
+  <div><h3>Colour</h3>
+   <div class="sws">
+    <span class="sw"><i style="background:var(--deep)"></i>deep</span>
+    <span class="sw"><i style="background:var(--accent)"></i>amber</span>
+    <span class="sw"><i style="background:var(--brand)"></i>brand</span>
+    <span class="sw"><i style="background:var(--ink)"></i>ink</span>
+    <span class="sw"><i style="background:var(--page);border-color:var(--stroke)"></i>paper</span>
+    <span class="sw"><i style="background:var(--pos-bg);border-color:var(--pos-bd)"><i style="background:var(--pos)"></i></i>positive</span>
+    <span class="sw"><i style="background:var(--warn-bg);border-color:var(--warn-bd)"><i style="background:var(--warn)"></i></i>caution</span>
+    <span class="sw"><i style="background:var(--crit-bg);border-color:var(--crit-bd)"><i style="background:var(--crit)"></i></i>critical</span>
+    <span class="sw"><i style="background:var(--brand-tint);border-color:var(--brand-tint-2)"><i style="background:var(--brand-hover)"></i></i>info</span>
+    <span class="sw"><i style="background:var(--neu-bg);border-color:var(--neu-bd)"><i style="background:var(--neu)"></i></i>neutral</span>
+   </div>
+  </div>
+  <div><h3>Type: Noto Serif 700 headings, Fira Sans text</h3>
+   <div class="tys">
+    <span class="sf" style="font-size:6.4rem;letter-spacing:-.02em">Aa<small>64 Home display</small></span>
+    <span style="font-size:5.6rem;font-weight:700;letter-spacing:-.02em">86<small>56 figures (display)</small></span>
+    <span class="sf" style="font-size:4.4rem">Aa<small>44 page display</small></span>
+    <span class="sf" style="font-size:3.2rem">Aa<small>32 section</small></span>
+    <span style="font-size:2.2rem;font-weight:600">Aa<small>22 question</small></span>
+    <span style="font-size:1.8rem">Aa<small>18 body</small></span>
+    <span style="font-size:1.4rem">Aa<small>14 small, badge</small></span>
+   </div>
+  </div>
+  <div><h3>Space and shape</h3>
+   <div class="sps">
+    <span><i style="--h:.4rem"></i>4</span><span><i style="--h:.8rem"></i>8</span><span><i style="--h:1.6rem"></i>16</span><span><i style="--h:2.4rem"></i>24</span><span><i style="--h:3.2rem"></i>32</span><span><i style="--h:4.8rem"></i>48</span><span><i style="--h:6.4rem"></i>64</span><span><i style="--h:8.8rem"></i>88</span>
+   </div>
+   <p class="sm mut" style="margin-top:.8rem">Radius 4 controls, 8 cards</p>
+  </div>
+ </div>
+</section>
+</main>
+</body>
+</html>

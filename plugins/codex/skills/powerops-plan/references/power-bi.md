@@ -32,16 +32,47 @@ Plan at most 12 data visuals a page, or give the reason. Learn says to limit vis
 
 ## 3. The sketch
 
-One 1920 by 1080 page per report page, each visual drawn in CSS in its place with its title and the fields it shows, and no chart library. A report stores each visual's position, so the places map directly; how the charts look can't be promised. New pages under the Fluent 2 base theme are 1920 by 1080 by default, with a grey background and padded, rounded visuals. The page follows the look in `look.md`, as a report:
+One 1920 by 1080 page per report page, in a `report` frame, each visual drawn in its place with its title, its subtitle and the fields it shows, and each chart drawn in inline SVG from the fake values, as `look.md` says under Charts. A report stores each visual's position, so the places map directly; how a chart renders beyond the table below can't be promised. New pages under the Fluent 2 defaults are 1920 by 1080 (generally available since the August 2026 update), with a grey background and padded, rounded visuals. The page follows the look in `look.md` and B1 to B12 of `baseline.md`, as a report:
 
-- **Header band.** A band across the top, about 96 px high: the report title, a subtitle with the page's question and the data's as-of date, and room for the page navigator when there is more than one page.
-- **Grid.** 24 px outer margins and 16 or 24 px gutters on 12 columns. Every visual's edges sit on the grid, and visuals in a row share their top and height. Build with gridlines and snap to grid on.
-- **KPI cards with context.** A row of 3 to 5 cards under the header: the value, its label, and a reference label with the comparison (target, prior period or change) in words and with its sign, never colour alone.
-- **Slicers.** In the same place and order on every page: a row under the header band, a left rail, or the filter pane.
-- **Reading order.** The KPIs, then the trend, then the breakdown, then the detail. The visual that answers the page's question is the largest.
-- **Type.** The theme's text classes carry the type scale: `title` and `largeTitle` for titles, `callout` for card values, `label` for the rest.
-- **Boxes.** A stand-in shape in each box (a few bars or a line drawn with `div`s) so each visual's weight shows.
+- **Title row** (B1, B9). At most 72 px high, text on the canvas with no filled band: the report title, a subtitle with the page's question and the data's as-of date, the page navigator when there is more than one page, and the slicers at its right end. The canvas is light grey and the visuals white.
+- **Grid** (B1). 24 to 32 px outer margins and 16 to 24 px gutters on 12 columns, on an 8 px grid. Every visual's edges sit on the grid, and visuals in a row share their top and height. Build with gridlines and snap to grid on.
+- **KPIs** (B4). One Card visual with 3 to 6 measures under the title row: per measure the value, its label, and a reference label with the comparison (target, prior period or change) and its signed difference in words and sign, never colour alone; a sparkline when the trend matters.
+- **Slicers** (B2). One to three, at the right end of the title row; four or more in a rail. The same place and order on every page.
+- **Reading order** (B3). The lead number or visual top-left, the breakdowns in the middle, the table last and small. A bare single-value card is never the largest region.
+- **Type** (B8). The theme's text classes carry B8's sizes: `title` and `largeTitle` for titles, `callout` for card values, `label` for the rest.
+- **Charts** (B5 to B7, B10, S15). Each visual has a title and a subtitle that states the finding; one hue with greys, one series highlighted, the good and bad pair for variance with a sign; plain charts, sorted and from zero, a dashed target line with its label.
+- **Only what is confirmed** (gate 3). The main frame draws only what the table below marks GA, unless the plan records a preview choice. A part the table marks not confirmed or not native is listed in the map under "Left out because not confirmed", and where it has a GA fallback, the fallback is drawn.
+- **Numbers and access** (B11, B12). K, M and bn with one decimal, an as-of stamp in the title row; alt text planned for each data visual and a tab order equal to the reading order.
 - **Base theme.** Learn says Microsoft manages a report's base theme and names Fluent 2, Classic 2026 and Classic 2018, but gives neither the base theme file's name nor its content: those are seen only in what Power BI Desktop saves (observed in exports, not on Learn), and Desktop runs on Windows only. So on a machine without Desktop a plan doesn't build over a named base theme, and its custom theme sets the colour of every text class: observed in one run (2026-11-11), contrast couldn't be measured until the report rendered.
+
+Learn pages are under `learn.microsoft.com/power-bi/`. Status as Learn stated it on 2026-11-11, spot-checked 2026-11-14.
+
+| Pattern | Built with | Status | Learn page |
+|---|---|---|---|
+| Page size, canvas colour | Page settings or the theme: 1920 by 1080 under the Fluent 2 defaults; background and wallpaper colour | GA | `create-reports/power-bi-reports-visual-defaults`, `create-reports/power-bi-report-display-settings` |
+| Title row | Text box (with dynamic values for an as-of date) on the canvas | GA | `create-reports/power-bi-reports-add-text-and-shapes` |
+| Page navigation | Page navigator, style preset Tab | GA | `create-reports/button-navigators` |
+| KPI row | One Card visual with several measures: callout value, label, reference labels (title, value, detail), per-part colour by rule or measure; 12 px default padding | GA (since November 2025) | `visuals/power-bi-visualization-card` |
+| Sparkline in a KPI or table cell | A measure that returns an SVG data URI, data category Image URL; or the table's built-in sparklines (5 per visual, 52 points) | GA | `visuals/power-bi-visualization-card`, `create-reports/power-bi-sparklines-tables` |
+| Signed difference with colour | A format string with a positive and a negative section; font colour by a measure that returns the theme's `good` or `bad` | GA | `create-reports/desktop-custom-format-strings`, `visuals/power-bi-visualization-conditional-formatting` |
+| Title and subtitle on every visual, also from a measure | General, Title: title, subtitle, divider, spacing; `fx` for a text measure | GA | `visuals/power-bi-visualization-customize-title-background-and-legend` |
+| One bar highlighted, the rest grey | Colour by rule or by a measure | GA | `visuals/power-bi-visualization-conditional-formatting` |
+| Target line | Analytics pane: a constant line with a data label | GA | `transform-model/desktop-analytics-pane` |
+| Shaded band on a target line | Appears only in the theme schema, not in the format pane | Not confirmed | `transform-model/desktop-analytics-pane` |
+| Labels at the end of lines instead of a legend | Line chart, Series labels | GA | `visuals/power-bi-line-chart` |
+| Small multiples | Bar, column, line and area charts, up to 6 by 6 | GA | `visuals/power-bi-visualization-small-multiples` |
+| Table with data bars, icons and sparklines | Table or matrix: conditional formatting (background, font colour, data bars, icons), sparklines, style presets; a pill in a cell needs an SVG image measure | GA | `create-reports/desktop-conditional-table-formatting`, `create-reports/power-bi-images-tables` |
+| Slicers as buttons | Button slicer (horizontal, vertical or grid; states) | GA (since October 2025) | `visuals/power-bi-visualization-button-slicer` |
+| List slicer | List slicer | Preview | `visuals/power-bi-visualization-list-slicer` |
+| White rounded visuals on a grey canvas | Effects: background, border, radius, shadow; padding; or once in the theme's `visualStyles` | GA | `visuals/power-bi-visualization-format-pane-overview`, `create-reports/report-themes-create-custom` |
+| Exact positions | PBIR: each `visual.json` holds x, y, width, height, z and tab order | GA | `developer/projects/projects-report` |
+| Phone layout | Mobile layout view; nothing is inherited from the desktop layout | GA | `create-reports/power-bi-create-mobile-optimized-report-mobile-layout-view` |
+| Alt text, tab order | General, Alt text (also by measure); Selection pane, Tab order | GA | `create-reports/desktop-accessibility-creating-reports` |
+| Bullet chart | No native visual: a bar with a constant line, or an SVG measure | Not native | none |
+| Notes drawn on a chart | Not in reports: a text box over the chart, or a constant line's label | Not native | none |
+| A message when a filter leaves no data | No built-in message: a measure that returns text into the title or a card | Not confirmed as native | none |
+
+Not confirmed for Power BI: the exact padding, radius and colour values of the Fluent 2 base theme (Learn doesn't publish them), the size limit of an SVG measure, and whether custom fonts can be embedded (a font missing on the viewer's machine falls back). Don't design around the Q&A visual and R or Python visuals (being retired), Bing maps (to be deprecated), or the List slicer and the Gantt visual without a recorded preview choice.
 
 ## 4. Microsoft's gates
 
@@ -81,6 +112,14 @@ Checked on 2026-11-08:
 - [Use gridlines and snap-to-grid](https://learn.microsoft.com/power-bi/create-reports/desktop-gridlines-snap-to-grid).
 - [Create a card visual](https://learn.microsoft.com/power-bi/visuals/power-bi-visualization-card): callout and reference labels in each card.
 - [Create custom report themes](https://learn.microsoft.com/power-bi/create-reports/report-themes-create-custom): the `title`, `largeTitle`, `callout` and `label` text classes.
+
+Checked on 2026-11-11 by the design-research session, and spot-checked on 2026-11-14 for M97 (its plan's Assumptions A9 and A10):
+
+- [Visual defaults in Power BI reports](https://learn.microsoft.com/power-bi/create-reports/power-bi-reports-visual-defaults): new pages 1920 by 1080 under the Fluent 2 defaults, generally available in the August 2026 update.
+- [Create a card visual](https://learn.microsoft.com/power-bi/visuals/power-bi-visualization-card): several measures and reference labels in one visual, generally available since November 2025.
+- [Button slicer](https://learn.microsoft.com/power-bi/visuals/power-bi-visualization-button-slicer): generally available since October 2025. [List slicer](https://learn.microsoft.com/power-bi/visuals/power-bi-visualization-list-slicer): preview.
+- [The Analytics pane](https://learn.microsoft.com/power-bi/transform-model/desktop-analytics-pane): constant lines with a data label. [Small multiples](https://learn.microsoft.com/power-bi/visuals/power-bi-visualization-small-multiples): bar, column, line and area charts, up to 6 by 6.
+- [Customize titles, backgrounds and legends](https://learn.microsoft.com/power-bi/visuals/power-bi-visualization-customize-title-background-and-legend) and [conditional formatting](https://learn.microsoft.com/power-bi/visuals/power-bi-visualization-conditional-formatting): the subtitle, a title from a measure, colour by rule.
 
 Checked on 2026-11-12:
 

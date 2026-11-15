@@ -1,0 +1,131 @@
+/* Sample kit: tokens and shared parts for the three design-research samples.
+   Unit rule: 1rem = 10 design px. The root font-size scales the whole board to the window, so every frame is
+   drawn at its product's real design size and shown to fit. Paste this whole block at the top of the one
+   <style> element, set --design-w for the file, then add the file's own rules after it. */
+:root{
+  /* brand: one hue. Marrowby petrol. Never used on large surfaces except the ink header. */
+  --brand:#0B6A75; --brand-hover:#095861; --brand-press:#06434A; --brand-tint:#E4F1F2; --brand-tint-2:#CBE4E7;
+  --ink:#0E2A30; --ink-2:#17383F; --on-ink:#FFFFFF; --on-ink-muted:#B7D0D5;
+  /* neutrals (Fluent 2 light) */
+  --page:#F6F5F2; --surface:#FFFFFF; --subtle:#FAFAFA; --fill:#F0F0F0; --fill-2:#E6E6E6;
+  --stroke:#E0E0E0; --stroke-strong:#D1D1D1; --stroke-input:#8A8A8A;
+  --fg1:#242424; --fg2:#424242; --fg3:#616161; --fg4:#707070; --on-brand:#FFFFFF; --fg-disabled:#BDBDBD;
+  /* status: text, tint, border. Meaning only; always with a word or icon. */
+  --pos:#0E700E; --pos-bg:#F1FAF1; --pos-bd:#9FD89F;
+  --warn:#8A3707; --warn-bg:#FFF9F5; --warn-bd:#FDCFB4;
+  --crit:#B10E1C; --crit-bg:#FDF3F4; --crit-bd:#EEACB2;
+  --neu:#424242; --neu-bg:#F0F0F0; --neu-bd:#D1D1D1;
+  /* data marks: focus = brand, context = grey (3:1 on white), attention = amber, target line = dashed grey */
+  --mark:#0B6A75; --mark-ctx:#949494; --mark-attn:#C2570C; --mark-target:#707070; --grid:#EBEBEB;
+  /* type: Fluent ramp, px/10. Three or four sizes a screen plus one display size. */
+  --font:"Segoe UI Variable Text","Segoe UI","Adwaita Sans",Inter,"Noto Sans",system-ui,sans-serif;
+  --f12:1.2rem; --f14:1.4rem; --f16:1.6rem; --f20:2rem; --f24:2.4rem; --f28:2.8rem; --f32:3.2rem; --f40:4rem;
+  /* space: 4/8 scale */
+  --s4:.4rem; --s8:.8rem; --s12:1.2rem; --s16:1.6rem; --s20:2rem; --s24:2.4rem; --s32:3.2rem; --s40:4rem; --s48:4.8rem;
+  /* shape and depth: two radii plus the circle; two shadow levels */
+  --r4:.4rem; --r8:.8rem; --pill:99rem;
+  --sh2:0 0 .2rem rgba(0,0,0,.12),0 .1rem .2rem rgba(0,0,0,.14);
+  --sh8:0 0 .2rem rgba(0,0,0,.12),0 .4rem .8rem rgba(0,0,0,.14);
+  --sh-frame:0 .2rem .4rem rgba(14,42,48,.08),0 1.6rem 4rem rgba(14,42,48,.16);
+  --board:#E2E6E6; --design-w:1366;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:clamp(5px,calc((100vw - 48px) / (var(--design-w) / 10)),10px)}
+body{font-family:var(--font);font-size:var(--f14);line-height:2rem;color:var(--fg1);background:var(--board);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1,h2,h3,h4{font-weight:600;font-size:inherit}
+ul,ol{list-style:none}
+a{color:inherit;text-decoration:none}
+button,input,select,textarea{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+:focus-visible{outline:.2rem solid var(--brand);outline-offset:.2rem;border-radius:var(--r4)}
+
+/* board: the sketch document around the frames */
+.sk-banner{background:var(--ink);color:var(--on-ink);padding:1rem 2.4rem;display:flex;gap:1.6rem;align-items:baseline;
+  font-size:var(--f14)}
+.sk-banner b{font-weight:600}.sk-banner span{color:var(--on-ink-muted)}
+.board{width:calc(var(--design-w) * .1rem);margin:0 auto;padding:3.2rem 0 6.4rem}
+.board>h1{font-size:var(--f28);line-height:3.6rem;font-weight:600;letter-spacing:-.02em}
+.board>p.lede{color:var(--fg3);font-size:var(--f16);line-height:2.4rem;max-width:90rem;margin-top:.4rem}
+.sec{margin-top:4.8rem}
+.sec>h2{font-size:var(--f20);line-height:2.8rem;font-weight:600}
+.sec>p{color:var(--fg3);max-width:90rem}
+.cap{display:flex;gap:1.2rem;align-items:baseline;margin:2.4rem 0 1.2rem;color:var(--fg3);font-size:var(--f14)}
+.cap b{color:var(--fg1);font-weight:600;font-size:var(--f16)}
+.cap .tag{font-size:var(--f12);line-height:1.6rem;padding:.2rem .8rem;border-radius:var(--pill);background:var(--surface);
+  border:.1rem solid var(--stroke-strong);color:var(--fg2);white-space:nowrap}
+
+/* frames: each is one screen at the product's real design size */
+.frame{background:var(--page);border-radius:1.2rem;box-shadow:var(--sh-frame);overflow:hidden;position:relative}
+.frame.desktop{width:136.6rem;height:76.8rem}
+.frame.phone{width:39rem;height:84.4rem;border-radius:3.6rem;border:.8rem solid var(--ink)}
+.frame.report{width:192rem;height:108rem;border-radius:.8rem}
+.frame.browser{width:136.6rem}
+.chrome{height:4rem;background:var(--fill);border-bottom:.1rem solid var(--stroke);display:flex;align-items:center;gap:.8rem;padding:0 1.6rem}
+.chrome>i{width:1.2rem;height:1.2rem;border-radius:50%;background:var(--stroke-strong)}
+.chrome .url{margin-left:2.4rem;width:52rem;height:2.8rem;border-radius:var(--pill);background:var(--surface);border:.1rem solid var(--stroke);
+  display:flex;align-items:center;padding:0 1.6rem;font-size:var(--f14);color:var(--fg2)}
+.row{display:flex;gap:3.2rem;align-items:flex-start;flex-wrap:wrap}
+
+/* state gallery: the changed region only, at the same scale, in a labelled tile */
+.states{display:grid;grid-template-columns:repeat(2,1fr);gap:2.4rem;margin-top:1.6rem}
+.states.three{grid-template-columns:repeat(3,1fr)}
+.state{background:var(--page);border-radius:1.2rem;box-shadow:var(--sh-frame);overflow:hidden}
+.state>header{display:flex;gap:.8rem;align-items:baseline;padding:1.2rem 1.6rem;background:var(--surface);
+  border-bottom:.1rem solid var(--stroke)}
+.state>header b{font-weight:600}.state>header span{color:var(--fg3);font-size:var(--f12)}
+.state>.crop{padding:1.6rem}
+
+/* icons: Fluent System Icons sprite; 20 px default */
+.i{width:2rem;height:2rem;fill:currentColor;flex:none}
+.i.s16{width:1.6rem;height:1.6rem}.i.s24{width:2.4rem;height:2.4rem}.i.s32{width:3.2rem;height:3.2rem}
+
+/* buttons: 32 px high on work screens */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.6rem;height:3.2rem;padding:0 1.2rem;
+  border-radius:var(--r4);border:.1rem solid var(--stroke-strong);background:var(--surface);color:var(--fg1);
+  font-size:var(--f14);font-weight:600;white-space:nowrap;cursor:default}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+.btn.subtle{background:transparent;border-color:transparent;color:var(--fg2)}
+.btn.icon{width:3.2rem;padding:0}
+.btn.lg{height:4.4rem;padding:0 2rem;font-size:var(--f16)}
+.btn[disabled]{background:var(--fill);border-color:var(--fill);color:var(--fg-disabled)}
+
+/* badge: status as a labelled pill, tint appearance */
+.badge{display:inline-flex;align-items:center;gap:.4rem;height:2rem;padding:0 .8rem;border-radius:var(--pill);
+  font-size:var(--f12);line-height:1.6rem;font-weight:600;white-space:nowrap;border:.1rem solid transparent}
+.badge.pos{color:var(--pos);background:var(--pos-bg);border-color:var(--pos-bd)}
+.badge.warn{color:var(--warn);background:var(--warn-bg);border-color:var(--warn-bd)}
+.badge.crit{color:var(--crit);background:var(--crit-bg);border-color:var(--crit-bd)}
+.badge.info{color:var(--brand-hover);background:var(--brand-tint);border-color:var(--brand-tint-2)}
+.badge.neu{color:var(--neu);background:var(--neu-bg);border-color:var(--neu-bd)}
+.badge .i{width:1.2rem;height:1.2rem}
+
+/* avatar: initials on a brand tint */
+.av{display:inline-flex;align-items:center;justify-content:center;width:3.2rem;height:3.2rem;border-radius:50%;
+  background:var(--brand-tint-2);color:var(--brand-press);font-size:var(--f12);font-weight:600;flex:none}
+.av.s24{width:2.4rem;height:2.4rem;font-size:1rem}.av.s40{width:4rem;height:4rem;font-size:var(--f14)}
+
+/* card: white on the page tone; stroke, no shadow */
+.card{background:var(--surface);border:.1rem solid var(--stroke);border-radius:var(--r8)}
+
+/* fields: label above, hint under the label, error at the field */
+.field{display:flex;flex-direction:column;gap:.4rem}
+.field>label{font-weight:600}
+.field>.hint{color:var(--fg3);font-size:var(--f12);line-height:1.6rem}
+.input{height:3.2rem;padding:0 1rem;border:.1rem solid var(--stroke-strong);border-bottom-color:var(--stroke-input);
+  border-radius:var(--r4);background:var(--surface);display:flex;align-items:center;gap:.8rem;color:var(--fg1)}
+.input.ph{color:var(--fg4)}
+.input.err{border-color:var(--crit);border-width:.1rem;box-shadow:inset 0 0 0 .1rem var(--crit)}
+.field>.msg{display:flex;gap:.4rem;align-items:center;color:var(--crit);font-size:var(--f12);line-height:1.6rem}
+
+/* message bar */
+.bar{display:flex;gap:.8rem;align-items:flex-start;padding:1rem 1.2rem;border-radius:var(--r4);border:.1rem solid}
+.bar.crit{background:var(--crit-bg);border-color:var(--crit-bd);color:var(--fg1)}
+.bar.crit>.i{color:var(--crit)}
+.bar.warn{background:var(--warn-bg);border-color:var(--warn-bd)}.bar.warn>.i{color:var(--warn)}
+.bar.pos{background:var(--pos-bg);border-color:var(--pos-bd)}.bar.pos>.i{color:var(--pos)}
+.bar b{font-weight:600}
+
+/* skeleton: still, no animation */
+.sk{background:var(--fill-2);border-radius:var(--r4);height:1.2rem}

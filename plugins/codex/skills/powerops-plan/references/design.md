@@ -6,12 +6,12 @@ Read this when `Screens` names a screen, page, site or report (`route.md`). Writ
 
 `Screens` holds one `### Theme` block for the whole plan, and every app, page, site and report in the plan takes its values from it. Where a product can't take a value, the block says so.
 
-- **Brand values.** The seed colour as hex, the font, and the logo by a placeholder web resource name. No customer brand files go in the repo.
-- **Canvas apps.** The YAML that Paste theme takes: under `Themes:`, the theme's name with Font, BasePaletteColor, HueTorsion and Vibrancy, and ColorOverrides only where needed (`canvas.md`).
-- **Model-driven apps.** The attributes of the `CustomTheme` web resource that the app's Custom theme definition setting names: BasePaletteColor, Font, LockPrimary and the AppHeaderColors pairs (`model-driven.md`). Custom pages don't use it.
-- **Power Pages.** The theme from the Styling workspace (one of its 13 presets, or the brand colours) and the site's Bootstrap version (`power-pages.md`).
-- **Power BI.** The report theme JSON file by name. Only `name` is required in it (`power-bi.md`).
-- **Code apps and generative pages.** The UI library and how it takes the brand values (its tokens), so that no screen hard-codes them.
+- **Brand values.** The seed colour as hex, the font, and the logo by a placeholder web resource name. No customer brand files go in the repo. Then the type ramp in use (three or four sizes and the display size, `baseline.md` S4), the two radii, the density (control and row heights for work screens and for public pages, S11), the icon set (S7), the data colours (focus, context, bad and good), for a site an optional accent with its one meaning, and the imagery: its subject, its style, and where the final art comes from (`imagery: drawn in the sketch, final art by <name or not decided>`).
+- **Canvas apps.** The YAML that Paste theme takes: under `Themes:`, the theme's name with Font, BasePaletteColor, HueTorsion and Vibrancy, and ColorOverrides only where needed (`canvas.md`). It carries the font and the seed; the ramp, radii, density and data colours are set on each control and chart, and the icon set is the Icon control's Fluent icons.
+- **Model-driven apps.** The attributes of the `CustomTheme` web resource that the app's Custom theme definition setting names: BasePaletteColor, Font, LockPrimary and the AppHeaderColors pairs (`model-driven.md`). It carries the seed, the font and the header pair; the other brand values have no attribute in it. Custom pages don't use it.
+- **Power Pages.** The theme from the Styling workspace (one of its 13 presets, or the brand colours) and the site's Bootstrap version (`power-pages.md`), plus the deep shade of the brand, the accent and its one meaning, the two faces (heading and text) with their fallbacks, and `imagery: drawn in the sketch, final art by <name or not decided>`. Styling carries the palette, the fonts and the button styles; the ramp, radii, density and focus outline go in the custom CSS file.
+- **Power BI.** The report theme JSON file by name. Only `name` is required in it (`power-bi.md`). It carries the data colours (`dataColors`, `good`, `bad`, `neutral`), the ramp (`textClasses`) and the radius, border and padding of visuals (`visualStyles`); the font must exist on the viewer's machine.
+- **Code apps and generative pages.** The UI library and how it takes the brand values (its tokens), so that no screen hard-codes them. Its tokens carry all of them.
 
 ## 2. The accessibility target
 
@@ -34,7 +34,7 @@ One line per screen in `Screens`, beside its route:
 - **Form factor.** Phone, tablet or browser.
 - **States.** Empty, loading, error and failed save: what the user sees in each, and what they do next. A screen without one of them says "none" for it.
 
-The sketch shows the same states (`route.md`). How a screen must look is in `look.md`, which is read to sketch and to check the build, not to plan.
+The sketch shows the same states (`route.md`). How a screen must look is in `look.md`, and the level it must reach in `baseline.md`; both are read to sketch and to check the build, not to plan.
 
 ## Sources
 
