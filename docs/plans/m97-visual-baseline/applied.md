@@ -17,7 +17,7 @@ One line per Data row of `plan.md`, with its mark and the commit that holds it. 
 13. The file rules and checks: applied with a difference (decisions Q4, Q5, Q11, Q12, Q13, Q14) (7497732; the prose in 53dc663). Item (b) has no code change: the tenant-data scan is unchanged and the prose says to write no `xmlns`. The tag stack is decisions Q3 and the judge file's format Q7.
 14. Options are three lead frames: applied (53dc663; the option check in 7497732).
 15. The pick, the pass and the end states: applied (53dc663; the plan skill's word ceiling in 9f2a506).
-16. Calibration: applied with a difference (decision Q1): fixtures applied (0211957; the trial sketch's one company name made up in this commit); run: pending.
+16. Calibration: applied with a difference (decision Q1): fixtures applied (0211957; the trial sketch's one company name made up in this commit); run: three rounds (`cbf8921`, `67a6e08`, and round 3 in `calibration.md`); the samples fixed by decisions Q16 and Q17 (`449db1a`, `1f12d3f`), and rows 2, 3 and 5 recorded as not at baseline by Q17's condition.
 17. The owner's seven decisions, quoted in `decisions.md`: applied (2935365).
 18. Not in M97: the fresh end-to-end trial is trial 4, and the layer-2 check that two numbers with one label agree is left to the judge's eyes (decisions Q2).
 19. Beyond the amendment: applied (`powerops-implement` section 4, the docs, `powerops-plan` section 6, `AGENTS.md` Layout and the smoke script in 53dc663; `route.md` in ed29ee0; the pins in 9f2a506; the plugin copies and manifest descriptions in 670384a; the BUILD-PLAN decision in this commit). The smoke's local Claude leg and the workflow's timeout rule: pending.

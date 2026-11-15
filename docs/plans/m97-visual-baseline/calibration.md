@@ -65,3 +65,32 @@ Row 1's recorded expectation holds again (2, 2, 2, 1, 2).
 Both remaining gate 1 failures are the same reading: a docked full-width primary action on a phone outweighs the lead. Gate 4 on row 2 shows that two fresh judges disagree on unchanged parts.
 
 By plan step 7, a second miss stops the milestone and is reported. The building session stopped here: nothing more was changed, and no third round ran.
+
+## Round 3
+
+The person's answer to round 2 (decision Q17, "Rule it, one more round"): gate 1 lets one docked full-width primary action at the bottom of a phone frame be the second look, and the canvas "Scheduled" badge is Neutral (`1f12d3f`). Same setup, at `1f12d3f` (`0.0.0+1f12d3f`), in five new scratch repos (`sample-r`, `-s`, `-t`, `-v`, `-w`) and five new fresh Opus contexts.
+
+| Row | Folder | Key before | Round 3 verdict | Gates failed | Scores (dimensions 1 to 9) |
+|---|---|---|---|---|---|
+| 1, trial sketch | sample-r | not at baseline; 1, 7 | not at baseline | 1, 2, 3, 4, 6, 7 | 2 2 2 2 1 2 1 2 2 |
+| 2, canvas sample | sample-t | at baseline | not at baseline | 1, 4 | 2 3 2 3 2 3 3 3 3 |
+| 3, Power BI sample | sample-w | at baseline | not at baseline | 6 | 3 3 3 3 3 3 3 3 3 |
+| 4, Pages first version | sample-s | not at baseline; 8 | not at baseline | 4, 8 | 3 2 2 3 3 3 3 3 1 |
+| 5, Pages sample | sample-v | at baseline | not at baseline | 4 | 3 3 2 3 3 3 3 3 3 |
+
+Rows 1 and 4 match for the third time (row 1's recorded dimensions: 2, 2, 2, 1, 2). Every fixed fault now passes: the docked phone lists (gate 1), the phone initials (gate 6), the selection without the badge tint and the neutral badge (gate 4).
+
+Rows 2, 3 and 5 fail only on parts that an earlier round's judge passed and that no fix touched:
+
+- Row 2, gate 1: on Log a repair the focus ring is on "What is wrong?" while the row's plan names the first field; the sample's own caption says "the field in focus", so the row's plan line, written in step 5, is the likelier fault. Gate 4: RP-20421's time left is red in the Success tile but black in Repairs, and the summary strip's two bad differences are amber and red. Round 1's judge passed gate 4.
+- Row 3, gate 6: the faded bars of Power BI's cross-highlight in the Selected tile are about 1.5:1 to 2.2:1, and the column totals are unlabelled there. Round 1's judge saw the same bars and passed the gate; round 2's passed it.
+- Row 5, gate 4: the amber tick inside the confirmation drawing and the step 1 pictogram reads as a status colour beside a green check. Round 2's judge passed gate 4.
+
+By the condition in Q17, the judge was not chased further: `tests/sketch-eval/key.md` now records rows 2, 3 and 5 as `not at baseline` with these reasons and no keyed gate, and judge consistency is a follow-up in the hand-over. Against that key, round 3 gives every row its verdict and rows 1 and 4 their keyed gates.
+
+## What the three rounds show
+
+- The judge separates the trial sketch and the failed Pages version from the samples reliably on the keyed gates (1 and 7; 8), three rounds out of three.
+- Fresh judges disagree on unchanged parts: gate 4 on the canvas sample (pass, fail, fail on different parts), gate 6 on the Power BI sample (pass, pass, fail), gate 4 on the Pages sample (fail, pass, fail on different parts). A single judge context is not a stable verdict on a sample at the owner's level.
+- Skill-text gaps the judges named, for the follow-up: whether round 1 repeats the `judge:` and `sketch-hash:` lines under its heading (named in every round); gate 3 with no map, and a part only a state tile draws; an ellipsis counted under both gates 3 and 6; a sketch of several products (gate 7 has no model-driven size); a first look on a tab that isn't open; what earns Identity 3 for canvas and Power BI; gate 8 as "pass" where it doesn't apply; product-drawn faded marks under gate 6; a tick inside a drawing under gate 4; `measure.py` checking S4 on a site or report, skipping state tiles, and skipping every avatar whether or not a name is beside it.
+- The row plans have no `---` header, so `plan status` can't read the judge's verdict back in a calibration run.

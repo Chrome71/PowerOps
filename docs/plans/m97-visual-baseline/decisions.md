@@ -113,3 +113,4 @@ Answer: "Rule it, one more round" (2026-11-15). Gate 1 rules, narrowly, that one
 - 2026-11-15: the person's answer to the gate 6 question, quoted in Q15; the calibration runs after the exemption is in `baseline.md` and `measure.py`.
 - 2026-11-15: calibration round 1 (`calibration.md`, `cbf8921`) matched rows 1, 3 and 4 and missed rows 2 and 5 on confirmed faults in the passed samples; by Done line 3 it went to the person, whose answer is quoted in Q16.
 - 2026-11-15: calibration round 2 (`67a6e08`) missed rows 2 and 5 again; the milestone stopped by step 7 and the person answered, quoted in Q17.
+- 2026-11-15: calibration round 3 at `1f12d3f`: rows 1 and 4 matched; rows 2, 3 and 5 failed only on parts an earlier round passed and no fix touched, so by Q17's condition the key records them as `not at baseline` and judge consistency is a follow-up.
