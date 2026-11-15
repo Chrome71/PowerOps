@@ -1,0 +1,37 @@
+# Decisions: m117-judge-consistency
+
+## Authority
+
+- The owner chose on 2026-11-15 to make judge consistency its own milestone before trial 4, after #166's rerun judged row 5 "at baseline" against a key of "not at baseline" on pixel-identical input. The milestone runs under the chain rules in `reports/trial-3/chain/chain-rules.md` (sessions sign off their own plans after clean reviews: "Start the build", 2026-11-11; "Sessions sign off", 2026-11-09), and it stops before merge for the owner's yes in chat, as M97 did, because it touches the calibration evidence.
+- M97's decisions Q14 to Q17 stand. In particular the key's verdicts for rows 2, 3 and 5 are the owner's to change (Q17); this milestone only brings the evidence.
+
+## Round 1 (planning)
+
+### Q1. Where do the rules go?
+Decided by the planner: a rule that says what a gate or a dimension's words mean goes in `baseline.md`, which every role reads (the author, the judge, the design lead, `powerops-implement`); how the judge reads `measure.py`'s fields goes in the judge's `SKILL.md`. A measurement goes in `measure.py`. So each rule is in one place, and the author fixes against the same words the judge applies.
+
+### Q2. Which reading does each rule pick?
+Each G row of the plan's Data row 2 picks the reading that a measurement or a named element can settle, and, where two readings were equally checkable, the one the samples' own captions and the look rules support:
+- G9 and G10 follow what the product draws and what P9 allows (imagery with the accent), so the author is not failed for the product's own rendering or for a drawing.
+- G14 uses its own meaning set (from `look.md`'s status intents, S3 and B6), reads a use's meaning from the word, sign or control beside it, and keeps the reading both before-runs agreed on for row 2: a status in a status colour in one place and in ink in another is one meaning in two colours. The set is the rule's own, from `look.md`'s status intents, S3 and B6: a Critical status and an adverse difference are one meaning (bad), a Positive status and a good difference one (good), because the samples put each pair on one hue; two adverse differences are one meaning unless their words differ in severity.
+- G15 compares text by size and weight only, from `measure.py`, leaves the chrome (`header`, `nav`, `footer`) out of the rivals, lets a row or field first look pass on the state it alone carries, and breaks an exact tie by reading order, the reading S166's judge used ("first in reading order"). Colour and fills don't decide gate 1: a filled button is gate 5's and S9's. This narrows "strongest" to weight; it is named for the owner in Open questions.
+- G16 lets `measure.py`'s figures decide gate 7, because the figure is the same in every run and the eye was not.
+- G17 drops `partly`, which nothing defined, and ties a score under 3 to a `not met` statement with its element, because "The scale" says every score cites a frame and an element, and the runs disagreed most on scores with no statement behind them. A sketch whose only misses break no number now scores 3; that is named for the owner in Open questions.
+
+## Round 1 plan review (Fable, REJECTED, 11 findings)
+
+All 11 answered in the plan's second draft: markers the five sketches lack (no `data-lead`, no `data-for`) are no longer relied on (G12 floor fallback, `inLead: null`, G5 from `Screens`, nested tiles); gate 1's procedure is complete with the title flagged, not removed (G15); G14 has a colour model, a threshold set from the tokens, an evidence rule for meanings and the full brand set; an ellipsis is gate 3 in canvas by `canvas.md` C5 (G4); `partly` is gone (G17); imagery is told from icons and charts by size and text (G10); A1 is verified and A2 restated; a dry run comes before the judge runs (step 5); any text change after the runs reruns all 15; the chain's review and sign-off steps are in; G16 covers kind `none`.
+
+## Round 2 plan review (Fable, REJECTED, 4 findings)
+
+Answered in the third draft: chrome text is no rival and a row or field first look passes on its state (G15); step 5 fixes or lists every frame where a rule disagrees with both before-runs, and checks every svg's class against the picture (G10 classes a report's text-free svgs as charts); Critical and bad, Positive and good are one meaning each, and the set is called the rule's own (G14); Open questions name each narrowing and G17's detection residual, and "0 when the frame doesn't render" is gone.
+
+## Log
+
+- 2026-11-15: plan drafted by the building session (Opus 5.5, high).
+- 2026-11-15: A1 verified by powerops-researcher (opus) on Learn: built-in visuals dim the unselected data on cross-highlight; bar and column only; no normal-mode contrast figure. Recorded under Assumptions.
+- 2026-11-15: Fable plan review round 3: APPROVED, with assignments (all executor steps opus; haiku only for the table extraction; no codex-sol) and WATCH notes; its two text slips fixed.
+- 2026-11-15: `powerops-review-plan` (fresh opus context) wrote `review.md`: 1 High, 6 Medium, 5 Low. All 12 answered in the plan: R1 G9 and G10 name SKILL for the fields, baseline keeps the words; R2 which first looks pass on their state, a selected tab excluded; R3 a canvas ellipsis is gate 3 on C5's line even with the map silent, a tile's is a map-check line; R4 what shows a visual is cross-highlighted; R5 step 5 copies S166's per-frame gate lines into `calibration.md`; R6 step 3 owns the `measure.py` comment; R7 no merge while a row contradicts the key as kept; R8 Learn paths without the host; R9 a deterministic hue grouping; R10 the top-level faults count listed; R11 a gate still differing after step 9 stops the milestone; R12 where the row 2 answer lands.
+- 2026-11-15: `powerops-review-plan` rerun: 0 High, 1 Medium, 3 Low; R1–R12 of the first run closed or carried. Answered: the named-row rule (a text inside a row names the row; a named state not drawn fails gate 1; a position-only line passes on the only focus ring, else the size test), Done line 5 stops and reports instead of a second step 9, the hue scan starts after the largest gap, and step 5 is handed the #166 files by path and matches them by `sketch-hash:`.
+- 2026-11-15: `powerops-review-plan` third run: 0 High, 0 Medium, 1 Low (R1: a second focus ring or selected row beside the named first look). Answered without a plan change, which would only restate G15's "the frame's only": step 4 writes gate 1 so that a frame with two focus rings or two selected rows fails it, because two items compete for the first look (gate 1's words).
+- 2026-11-15: signed off by the building session (`powerops plan sign-off`) after Fable's APPROVED and `powerops-review-plan` with no High or Medium open, on the chain's standing instruction ("Start the build", 2026-11-11; "Sessions sign off", 2026-11-09) and the owner's choice of 2026-11-15 to run this milestone. Merge still waits for the owner's yes.
