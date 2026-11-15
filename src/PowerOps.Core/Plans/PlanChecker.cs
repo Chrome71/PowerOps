@@ -32,7 +32,7 @@ public sealed record PlanReviews(string Plan, PlanReportFile? Verify, PlanReport
 /// <summary>The write journal (writes.md) of a plan folder: its table rows and those whose cleanup is still open. Both are null when the file could not be read.</summary>
 public sealed record PlanWrites(int? Entries, int? OpenCleanup);
 
-/// <summary>What the prototype gate found: Line problems (no valid prototype: line, while Screens names something), File problems (mockups/prototype.html or an option fails a check, or an approval has fewer than three options), the person-mark Warnings, and whether the deciding line is a valid approved one.</summary>
+/// <summary>What the prototype gate found: Line problems (no valid prototype: line, while Screens names something), File problems (mockups/prototype.html, its map or judge file, or an option fails a check, or an approval has fewer than three options), the Warnings (an approval without the person mark, a self-judged sketch), and whether the deciding line is a valid approved one.</summary>
 internal sealed record PrototypeCheck(IReadOnlyList<string> Line, IReadOnlyList<string> File, IReadOnlyList<string> Warnings, bool Approved);
 
 public static partial class PlanChecker
@@ -711,17 +711,31 @@ public static partial class PlanChecker
     }
 
     private const string PrototypePath = "mockups/prototype.html";
-    // 80 KB: a measured sketch takes 7 to 8 KB a screen with its four states, and a file holds up to eight screens.
-    internal const int MaxPrototypeBytes = 81_920;
+    private const string MapPath = "mockups/prototype.map.md";
+    private const string JudgePath = "mockups/prototype.judge.md";
+
+    // 160 KB (owner decision 5): a sketch is a real screen with inline SVG icons and charts; the passed samples take 62 to 118 KB.
+    internal const int MaxPrototypeBytes = 163_840;
+
+    // 60 KB: an option is one lead frame (row 14), not the whole file.
+    internal const int MaxOptionBytes = 61_440;
 
     // Three, so the person compares design directions and doesn't approve the only one shown.
     internal const int MinOptions = 3;
 
-    private static readonly string[] BannedTags = ["script", "link", "meta", "base", "iframe", "frame", "object", "embed", "img", "picture", "svg", "form", "video", "audio", "source"];
+    /// <summary>The warning a self-judged sketch gives in plan status and at sign-off.</summary>
+    internal const string SelfJudgedWarning = $"{JudgePath}: self-judged (the author judged its own sketch): only a person may approve it";
+
+    private static readonly string[] BannedTags = ["script", "link", "meta", "base", "iframe", "frame", "object", "embed", "img", "picture", "form", "video", "audio", "source"];
+
+    // Decisions Q4: what could load, link or rewrite another element from inside an svg.
+    private static readonly string[] SvgBannedTags = ["script", "foreignObject", "image", "a", "style", "animate", "set", "animateMotion", "animateTransform"];
+    private static readonly string[] VoidTags = ["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"];
+    private static readonly string[] FrameSizes = ["desktop", "phone", "browser", "report"];
     private static readonly string[] BannedCss = ["url(", "@import", "@font-face", "image-set(", "expression("];
     private static readonly string[] PrototypeStates = ["empty", "loading", "error", "failed-save"];
 
-    /// <summary>The prototype gate (M70, Goal lines 1 and 2). Nothing is checked when the plan's Screens names nothing. <paramref name="decisions"/> is the text of decisions.md, or null. The file checks are text checks after comments are removed: they catch the honest mistake, and the file is never rendered. A problem names its rule and line, never the matched text.</summary>
+    /// <summary>The prototype gate (M70, Goal lines 1 and 2; M97 row 13). Nothing is checked when the plan's Screens names nothing. <paramref name="decisions"/> is the text of decisions.md, or null. The file checks are text checks after comments are removed: they catch the honest mistake, and the file is never rendered. A problem names its rule and line, never the matched text.</summary>
     internal static PrototypeCheck PrototypeProblems(string folder, PlanDocument plan, string? decisions)
     {
         if (ScreensText(plan) is not { } screens)
@@ -732,7 +746,7 @@ public static partial class PlanChecker
         // The last prototype: item under ## Log decides.
         var items = LogItems(decisions ?? "").Where(i => PrototypeItemRegex().IsMatch(i.Item)).ToList();
         var warnings = new List<string>();
-        var (valid, approved) = (false, false);
+        var (valid, approved, marked, below) = (false, false, false, false);
         string? at = null;
         var picked = "";
         if (items.Count > 0)
@@ -740,10 +754,11 @@ public static partial class PlanChecker
             var (line, item) = items[^1];
             at = $":{line}";
             var rest = PrototypeItemRegex().Match(item).Groups[1].Value.Trim();
-            var marked = PersonMarkRegex().IsMatch(rest);
+            marked = PersonMarkRegex().IsMatch(rest);
             if (ApprovedRegex().IsMatch(rest))
             {
                 valid = approved = true;
+                below = BelowBaselineRegex().IsMatch(rest);
                 picked = PickedRegex().Match(rest).Groups[1].Value;
                 if (!marked)
                 {
@@ -757,7 +772,8 @@ public static partial class PlanChecker
         }
 
         string[] lineProblems = valid ? [] : [$"decisions.md{at}: no valid prototype line under ## Log although Screens names something: log `prototype: approved {PrototypePath} (option <letter>: <why>)`, or `prototype: skipped (<reason>) (answered by: person)`"];
-        return new PrototypeCheck(lineProblems, PrototypeFileProblems(folder, screens, approved, $"decisions.md{at}", picked), warnings, approved);
+        var file = PrototypeFileProblems(folder, screens, approved, marked && below, marked, $"decisions.md{at}", picked, warnings);
+        return new PrototypeCheck(lineProblems, file, warnings, approved);
     }
 
     // The text of the Screens section, or null when it names nothing: no heading, an empty body, or a first non-blank line starting with "None".
@@ -782,7 +798,7 @@ public static partial class PlanChecker
         return first is null || first.StartsWith("None", StringComparison.OrdinalIgnoreCase) ? null : string.Join('\n', body);
     }
 
-    private static List<string> PrototypeFileProblems(string folder, string screens, bool approved, string logLine, string picked)
+    private static List<string> PrototypeFileProblems(string folder, string screens, bool approved, bool passedBelow, bool marked, string logLine, string picked, List<string> warnings)
     {
         var problems = new List<string>();
         var mockups = System.IO.Path.Combine(folder, "mockups");
@@ -804,7 +820,10 @@ public static partial class PlanChecker
 
         if (File.Exists(System.IO.Path.Combine(mockups, "prototype.html")))
         {
-            SketchProblems(folder, PrototypePath, screens, problems);
+            if (SketchProblems(folder, PrototypePath, screens, problems, option: false) is { } text)
+            {
+                JudgeProblems(folder, text, approved, passedBelow, marked, problems, warnings);
+            }
         }
         else if (approved)
         {
@@ -817,7 +836,7 @@ public static partial class PlanChecker
         foreach (var option in Directory.EnumerateFiles(mockups, "option-*.html").Select(System.IO.Path.GetFileName).Order(StringComparer.Ordinal))
         {
             var before = problems.Count;
-            if (SketchProblems(folder, $"mockups/{option}", screens, problems) is { } text && problems.Count == before)
+            if (SketchProblems(folder, $"mockups/{option}", screens, problems, option: true) is { } text && problems.Count == before)
             {
                 passing.Add(text);
                 pickedPasses |= picked.Length > 0 && string.Equals(option, $"option-{picked}.html", StringComparison.OrdinalIgnoreCase);
@@ -837,8 +856,43 @@ public static partial class PlanChecker
         return problems;
     }
 
-    // The checks of one sketch file, added to problems; the file's text, or null when it could not be read.
-    private static string? SketchProblems(string folder, string path, string screens, List<string> problems)
+    // Row 13 (i), decisions Q7 and Q11: the judge file's last judge:, sketch-hash: and verdict: lines. The hash binds the verdict to the file; it proves nothing about how the judge reached it.
+    private static void JudgeProblems(string folder, string sketch, bool approved, bool passedBelow, bool marked, List<string> problems, List<string> warnings)
+    {
+        var file = System.IO.Path.Combine(folder, "mockups", "prototype.judge.md");
+        var lines = File.Exists(file) && ReadScannable(file, folder, new List<string>()) is { } judge ? Lines(judge).Select(l => l.Trim()).ToList() : [];
+        string? Last(string key) => lines.LastOrDefault(l => l.StartsWith(key, StringComparison.Ordinal))?[key.Length..].Trim();
+        var (who, hash, verdict) = (Last("judge:"), Last("sketch-hash:"), Last("verdict:"));
+        if (who is not ("fresh context" or "self-judged") || verdict is not ("at baseline" or "not at baseline") || !string.Equals(hash, SketchHash(sketch), StringComparison.OrdinalIgnoreCase))
+        {
+            problems.Add($"{JudgePath}: no current judge verdict: have powerops-review-sketch judge {PrototypePath} again (its verdict counts for the sketch-hash it names)");
+            return;
+        }
+
+        if (verdict == "not at baseline" && !(approved && passedBelow))
+        {
+            problems.Add($"{JudgePath}: the verdict is not at baseline: only a person passes it, logged with (below baseline: <why>) and (answered by: person) on the prototype line");
+        }
+
+        if (who == "self-judged")
+        {
+            warnings.Add(SelfJudgedWarning);
+            if (approved && !marked)
+            {
+                problems.Add($"{JudgePath}: self-judged, so the approval must end (answered by: person)");
+            }
+        }
+    }
+
+    /// <summary>The SHA-256 (lowercase hex) of a sketch's text with CRLF made LF, as the plan body hash is, so a Windows checkout keeps it.</summary>
+    internal static string SketchHash(string text) =>
+        Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text.Replace("\r\n", "\n", StringComparison.Ordinal))));
+
+    // One element of a sketch: Parent is the index of the element it sits in, or -1.
+    private sealed record Element(string Name, int Line, int Parent, string[] Classes, bool Lead, string? Screen, string? State, string? For);
+
+    // The checks of one sketch file, added to problems; the file's text, or null when it could not be read. An option is one lead frame (row 14); the prototype has its states, map and judge.
+    private static string? SketchProblems(string folder, string path, string screens, List<string> problems, bool option)
     {
         var file = System.IO.Path.Combine(folder, path);
 
@@ -859,9 +913,10 @@ public static partial class PlanChecker
             }
         }
 
-        if (new FileInfo(file).Length > MaxPrototypeBytes)
+        var max = option ? MaxOptionBytes : MaxPrototypeBytes;
+        if (new FileInfo(file).Length > max)
         {
-            Add(1, $"larger than {MaxPrototypeBytes} bytes");
+            Add(1, $"larger than {max} bytes");
         }
 
         if (CommentRegex().Match(text) is not { Success: true } first || !RouteRegex().IsMatch(first.Value))
@@ -869,8 +924,15 @@ public static partial class PlanChecker
             Add(1, "no route: line in the first comment");
         }
 
-        // Comments become blanks of the same shape, so line numbers hold.
-        var html = CommentRegex().Replace(text, m => BlankRegex().Replace(m.Value, " "));
+        // Comments become blanks of the same shape, so line numbers hold; so does the text of each style element for the tag scan (decisions Q3).
+        static string Blank(string s) => BlankRegex().Replace(s, " ");
+        var html = CommentRegex().Replace(text, m => Blank(m.Value));
+        var markup = StyleRegex().Replace(html, m =>
+        {
+            var css = m.Groups[1];
+            var at = css.Index - m.Index;
+            return m.Value[..at] + Blank(css.Value) + m.Value[(at + css.Length)..];
+        });
         int LineAt(int index) => 1 + html.AsSpan(0, index).Count('\n');
 
         void CheckCss(string css, int line)
@@ -881,25 +943,53 @@ public static partial class PlanChecker
             }
         }
 
+        const string Token = "hex colour outside :root; use a token (var(--name))";
         foreach (Match m in StyleRegex().Matches(html))
         {
             CheckCss(m.Groups[1].Value, LineAt(m.Groups[1].Index));
+            foreach (var index in HexOutsideRoot(m.Groups[1].Value))
+            {
+                Add(LineAt(m.Groups[1].Index + index), Token);
+            }
         }
 
-        var screenNames = new List<(int Line, string Name)>();
-        var states = new List<HashSet<string>>();
-        foreach (Match tag in TagRegex().Matches(html))
+        // Decisions Q3: a light tag stack. Void elements and `/>` open nothing; an end tag closes back to its match, and one with no match is ignored.
+        var elements = new List<Element>();
+        var open = new List<int>();
+        foreach (Match tag in TagRegex().Matches(markup))
         {
             var name = tag.Groups["tag"].Value.ToLowerInvariant();
-            var attrs = tag.Groups["attrs"];
-            if (BannedTags.Contains(name) && !(name == "meta" && IsViewportMeta(attrs.Value)))
+            if (tag.Groups["end"].Success)
             {
-                Add(LineAt(tag.Index), $"tag <{name}> is not allowed");
+                var match = open.FindLastIndex(i => elements[i].Name == name);
+                if (match >= 0)
+                {
+                    open.RemoveRange(match, open.Count - match);
+                }
+
+                continue;
             }
 
+            var attrs = tag.Groups["attrs"];
+            var tagLine = LineAt(tag.Index);
+            if (BannedTags.Contains(name) && !(name == "meta" && IsViewportMeta(attrs.Value)))
+            {
+                Add(tagLine, $"tag <{name}> is not allowed");
+            }
+            else if (open.Exists(i => elements[i].Name == "svg") && Array.Find(SvgBannedTags, b => b.Equals(name, StringComparison.OrdinalIgnoreCase)) is { } svgBanned)
+            {
+                Add(tagLine, $"tag <{svgBanned}> is not allowed inside svg");
+            }
+
+            var (classes, lead, screen, state, forName) = (Array.Empty<string>(), false, (string?)null, (string?)null, (string?)null);
             foreach (Match a in AttributeRegex().Matches(attrs.Value))
             {
                 var (key, value, line) = (a.Groups["name"].Value.ToLowerInvariant(), System.Net.WebUtility.HtmlDecode(a.Groups["value"].Value).Trim(), LineAt(attrs.Index + a.Index));
+                if (key != "style" && value.Contains("url(", StringComparison.OrdinalIgnoreCase))
+                {
+                    Add(line, "attribute value url( is not allowed");
+                }
+
                 if (key is "src" or "srcset" or "action")
                 {
                     Add(line, $"attribute {key} is not allowed");
@@ -908,23 +998,44 @@ public static partial class PlanChecker
                 {
                     Add(line, "event-handler attribute (on...) is not allowed");
                 }
-                else if (key == "href" && !value.StartsWith('#'))
+                else if (key is "href" or "xlink:href" && !value.StartsWith('#'))
                 {
-                    Add(line, "href must start with #");
+                    Add(line, $"{key} must start with #");
                 }
                 else if (key == "style")
                 {
                     CheckCss(value, line);
+                    if (HexRegex().IsMatch(value))
+                    {
+                        Add(line, Token);
+                    }
+                }
+                else if (key == "class")
+                {
+                    classes = value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                }
+                else if (key == "data-lead")
+                {
+                    lead = true;
                 }
                 else if (key == "data-screen")
                 {
-                    screenNames.Add((line, value));
-                    states.Add([]);
+                    screen = value;
                 }
-                else if (key == "data-state" && states.Count > 0)
+                else if (key == "data-state")
                 {
-                    states[^1].Add(value.ToLowerInvariant());
+                    state = value.ToLowerInvariant();
                 }
+                else if (key == "data-for")
+                {
+                    forName = value;
+                }
+            }
+
+            elements.Add(new Element(name, tagLine, open.Count > 0 ? open[^1] : -1, classes, lead, screen, state, forName));
+            if (!VoidTags.Contains(name) && !attrs.Value.TrimEnd().EndsWith('/'))
+            {
+                open.Add(elements.Count - 1);
             }
         }
 
@@ -934,28 +1045,159 @@ public static partial class PlanChecker
             Add(1, "the word \"Sketch\" is missing from the body text");
         }
 
-        if (screenNames.Count is < 1 or > 8)
+        var screenElements = elements.Select((e, i) => (Element: e, Index: i)).Where(x => x.Element.Screen is not null).ToList();
+        var names = screenElements.Select(x => x.Element).DistinctBy(e => e.Screen, StringComparer.OrdinalIgnoreCase).ToList();
+        if (option && screenElements.Count != 1)
         {
-            Add(1, $"{screenNames.Count} data-screen attributes; need 1 to 8");
+            Add(1, $"{screenElements.Count} data-screen attributes; an option holds exactly 1");
+        }
+        else if (!option && names.Count is < 1 or > 8)
+        {
+            Add(1, $"{names.Count} distinct data-screen names; need 1 to 8");
         }
 
-        for (var i = 0; i < screenNames.Count; i++)
+        foreach (var (e, _) in screenElements.Where(x => !IsPhrase(x.Element.Screen!, screens)))
         {
-            var (line, name) = screenNames[i];
-            var words = name.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Select(Regex.Escape);
-            var phrase = $@"(?<![\p{{L}}\p{{N}}]){string.Join(@"\s+", words)}(?![\p{{L}}\p{{N}}])";
-            if (name.Length == 0 || !Regex.IsMatch(screens, phrase, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
+            Add(e.Line, "data-screen value is not a phrase of the Screens text");
+        }
+
+        // Row 13 (d), decisions Q12: the frame is the data-screen element when its class holds frame, else its parent.
+        bool Inside(int i, int frame)
+        {
+            for (var p = elements[i].Parent; p >= 0; p = elements[p].Parent)
             {
-                Add(line, "data-screen value is not a phrase of the Screens text");
+                if (p == frame)
+                {
+                    return true;
+                }
             }
 
-            if (PrototypeStates.Except(states[i]).ToList() is { Count: > 0 } missing)
+            return false;
+        }
+
+        var frames = new SortedSet<int>();
+        foreach (var (e, i) in screenElements)
+        {
+            var frame = e.Classes.Contains("frame") ? i : e.Parent;
+            if (frame >= 0 && elements[frame].Classes.Contains("frame") && elements[frame].Classes.Intersect(FrameSizes).Any())
             {
-                Add(line, $"data-screen is missing data-state {string.Join(", ", missing)} before the next data-screen");
+                frames.Add(frame);
             }
+            else
+            {
+                Add(e.Line, "data-screen has no frame: give it, or its parent element, the class frame and one of desktop, phone, browser or report");
+            }
+        }
+
+        foreach (var frame in frames)
+        {
+            var leads = Enumerable.Range(0, elements.Count).Count(i => elements[i].Lead && Inside(i, frame));
+            if (leads != 1)
+            {
+                Add(elements[frame].Line, $"the frame holds {leads} elements with data-lead; it needs exactly 1");
+            }
+
+            // Row 13 (k): the kit's filled button is class btn with primary.
+            foreach (var extra in Enumerable.Range(0, elements.Count).Where(i => elements[i].Classes.Contains("btn") && elements[i].Classes.Contains("primary") && Inside(i, frame)).Skip(1))
+            {
+                Add(elements[extra].Line, "more than one filled primary button (class btn primary) in the frame");
+            }
+        }
+
+        // Row 13 (f): each state names its screen by data-for; each screen name of the prototype has the four.
+        var stateElements = elements.Where(e => e.State is not null).ToList();
+        foreach (var e in stateElements)
+        {
+            if (option)
+            {
+                Add(e.Line, "data-state is not allowed in an option");
+            }
+            else if (!names.Exists(n => string.Equals(n.Screen, e.For, StringComparison.OrdinalIgnoreCase)))
+            {
+                Add(e.Line, "data-state has no data-for naming a data-screen of the file");
+            }
+        }
+
+        if (!option)
+        {
+            foreach (var n in names)
+            {
+                var have = stateElements.Where(e => string.Equals(e.For, n.Screen, StringComparison.OrdinalIgnoreCase)).Select(e => e.State!);
+                if (PrototypeStates.Except(have).ToList() is { Count: > 0 } missing)
+                {
+                    Add(n.Line, $"data-screen has no data-state {string.Join(", ", missing)} with data-for naming it");
+                }
+            }
+
+            MapProblems(folder, names, problems, Add);
         }
 
         return text;
+    }
+
+    // Row 13 (h): the map beside the prototype names every screen as a phrase; nothing else in it is read.
+    private static void MapProblems(string folder, List<Element> names, List<string> problems, Action<int, string> add)
+    {
+        var file = System.IO.Path.Combine(folder, "mockups", "prototype.map.md");
+        var skipped = new List<string>();
+        if (!File.Exists(file))
+        {
+            problems.Add($"{MapPath}: not found; it names each screen's parts beside the sketch");
+        }
+        else if (ReadScannable(file, folder, skipped) is not { } map)
+        {
+            problems.Add(skipped[0]);
+        }
+        else if (map.Trim().Length == 0)
+        {
+            problems.Add($"{MapPath}: is empty");
+        }
+        else
+        {
+            // An empty name already fails the Screens rule.
+            foreach (var n in names.Where(n => n.Screen!.Length > 0 && !IsPhrase(n.Screen, map)))
+            {
+                add(n.Line, $"data-screen value is not a phrase of {MapPath}");
+            }
+        }
+    }
+
+    // The name as whole words of the text, in any case, with any whitespace between them.
+    private static bool IsPhrase(string name, string text)
+    {
+        var words = name.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Select(Regex.Escape);
+        var phrase = $@"(?<![\p{{L}}\p{{N}}]){string.Join(@"\s+", words)}(?![\p{{L}}\p{{N}}])";
+        return name.Length > 0 && Regex.IsMatch(text, phrase, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+    }
+
+    // Row 13 (j), decisions Q5: the index of each hex colour in a declaration of a rule that is not :root (nor inside one); selectors, at-rule preludes and comments never count.
+    private static IEnumerable<int> HexOutsideRoot(string css)
+    {
+        var text = CssCommentRegex().Replace(css, m => BlankRegex().Replace(m.Value, " "));
+        var declaration = new bool[text.Length];
+        var preludes = new List<string>();
+        var start = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] == '{')
+            {
+                preludes.Add(text[start..i].Trim());
+                start = i + 1;
+            }
+            else if (text[i] is '}' or ';')
+            {
+                if (text[i] == '}' && preludes.Count > 0)
+                {
+                    preludes.RemoveAt(preludes.Count - 1);
+                }
+
+                start = i + 1;
+            }
+
+            declaration[i] = preludes.Count > 0 && !preludes[^1].StartsWith('@') && !preludes.Exists(p => p.Equals(":root", StringComparison.OrdinalIgnoreCase));
+        }
+
+        return HexRegex().Matches(text).Where(m => declaration[m.Index]).Select(m => m.Index);
     }
 
     // Decision 60: the one allowed meta is exactly name="viewport" (decoded, any case) and one content, with only HTML whitespace or / left over.
@@ -984,8 +1226,8 @@ public static partial class PlanChecker
     [GeneratedRegex(@"(?:^|<!--)[ \t]*route:", RegexOptions.Multiline)]
     private static partial Regex RouteRegex();
 
-    // A start tag, whitespace allowed after the <, quoted values may hold a >.
-    [GeneratedRegex(@"<\s*(?<tag>[A-Za-z][A-Za-z0-9-]*)(?<attrs>(?:[^>""']|""[^""]*""|'[^']*')*)>?")]
+    // A start or end tag, whitespace allowed after the < and the /, quoted values may hold a >.
+    [GeneratedRegex(@"<\s*(?<end>/\s*)?(?<tag>[A-Za-z][A-Za-z0-9-]*)(?<attrs>(?:[^>""']|""[^""]*""|'[^']*')*)>?")]
     private static partial Regex TagRegex();
 
     [GeneratedRegex(@"(?<name>[^\s""'<>/=]+)(?:\s*=\s*(?:""(?<value>[^""]*)""|'(?<value>[^']*)'|(?<value>[^\s""'>]+)))?")]
@@ -993,6 +1235,16 @@ public static partial class PlanChecker
 
     [GeneratedRegex(@"<\s*style\b[^>]*>(.*?)(?:<\s*/\s*style\s*>|\z)", RegexOptions.Singleline | RegexOptions.IgnoreCase)]
     private static partial Regex StyleRegex();
+
+    [GeneratedRegex(@"/\*.*?(?:\*/|\z)", RegexOptions.Singleline)]
+    private static partial Regex CssCommentRegex();
+
+    // A CSS hex colour: 3, 4, 6 or 8 hex digits after a #, not part of a longer name.
+    [GeneratedRegex(@"(?<![\w#-])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![\w-])")]
+    private static partial Regex HexRegex();
+
+    [GeneratedRegex(@"\(below baseline:\s*[^)\s][^)]*\)", RegexOptions.IgnoreCase)]
+    private static partial Regex BelowBaselineRegex();
 
     [GeneratedRegex(@"\bsketch\b", RegexOptions.IgnoreCase)]
     private static partial Regex SketchRegex();

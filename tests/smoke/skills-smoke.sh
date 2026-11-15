@@ -15,7 +15,8 @@ set -euo pipefail
 agent="${1:?usage: skills-smoke.sh claude|codex}"
 case "$agent" in claude | codex) ;; *) echo "unknown agent: $agent" >&2; exit 2 ;; esac
 max_turns="${SMOKE_MAX_TURNS:-12}"
-# What Claude may run without asking, and who the simulated user is; scenarios 7, 8 and 11 change both, and scenario 10 the first.
+# What Claude may run without asking, and who the simulated user is; scenarios 7, 8 and 11 change both, and scenario 10
+# and the sketch scenarios (allow_sketch: 1, 2, 5, 6 and 9) the first.
 allowed_tools="Bash(powerops *)"
 user_role="planning a Microsoft Power Platform project with you"
 
@@ -25,7 +26,8 @@ trap 'rm -rf "$work"' EXIT
 failures=0
 
 fail() { echo "FAIL [$scenario]: $*"; failures=$((failures + 1)); }
-# The sketch's size and screen count go in the log: the cap was 40 KB (M70) before any sketch was measured, and 80 KB since one was (decision 52).
+# The sketch's size and screen count go in the log: the cap was 40 KB (M70) before any sketch was measured, 80 KB since one was (decision 52),
+# and since M97 it is 160 KB for prototype.html and 60 KB for an option.
 sketch_size() { echo "sketch [$scenario]: $(wc -c <"$sketch") bytes, $(grep -o 'data-screen="' "$sketch" | wc -l) screens"; }
 
 # Build the CLI once and put a `powerops` wrapper on PATH for the agent.
@@ -97,6 +99,13 @@ new_repo() {
   git -C "$dir" -c user.name=smoke -c user.email=smoke@example.invalid commit -qm init
 }
 
+# For the scenarios that may run powerops-prototype: its render, side-by-side and judge steps run measure.py from the
+# installed judge skill, by its path in the repo (relative or absolute) and nothing wider. Call it after new_repo.
+allow_sketch() {
+  local measure=".claude/skills/powerops-review-sketch/measure.py"
+  allowed_tools="Bash(powerops *),Bash(python3 $measure *),Bash(python3 $dir/$measure *)"
+}
+
 # The plan the agent writes; `earlier` is the seeded plan of the quick scenario.
 plan_dir() { find "$dir/docs/plans" -mindepth 1 -maxdepth 1 -type d ! -name earlier 2>/dev/null | head -n 1; }
 header() { sed -n '2,/^---/p' "$(plan_dir)/plan.md" | sed -n "s/^$1:[[:space:]]*\([^#[:space:]]*\).*/\1/p"; }
@@ -146,13 +155,15 @@ idea="an app for tracking site visits by our field engineers"
 # 1. Question rounds to a signed-off plan.
 scenario=rounds
 new_repo
-goal="At a what-next menu: if you have answered none so far, choose A (another round); otherwise choose B (approve). Confirm if asked to approve anyway. When asked to pick a sketch option or skip the sketch, skip it with a reason. When the review or the sign-off is offered, choose the option that signs off now."
+allow_sketch
+goal="At a what-next menu: if you have answered none so far, choose A (another round); otherwise choose B (approve). Confirm if asked to approve anyway. When asked to pick a sketch option or direction (\"Which direction?\") or skip the sketch, skip it with a reason. When the review or the sign-off is offered, choose the option that signs off now."
 # A plan with screens asks to pick a sketch option or skip the sketch as a round 2 question, with the data questions (M70, decision 52, M93).
 # The defaults question at approval ("Keep these N defaults?", M91) takes a turn too.
 # The plan skill starts the build after the sign-off (M94), so the status may already be implementing.
 max_turns=$((max_turns + 2))
 converse "Use the powerops-plan skill. My idea: $idea." '[ -n "$(plan_dir)" ] && [[ "$(header status)" =~ ^(signed-off|implementing)$ ]]' || true
 max_turns=$((max_turns - 2))
+allowed_tools="Bash(powerops *)"
 if [ -n "$(plan_dir)" ]; then
   check_decisions
   [[ "$(header status)" =~ ^(signed-off|implementing)$ ]] || fail "status is '$(header status)', expected signed-off or implementing"
@@ -164,8 +175,10 @@ fi
 # 2. Stop after one round: the plan stays a draft.
 scenario=stop
 new_repo
+allow_sketch
 goal="Answer the first round of questions. At the first what-next menu (A/B/C) reply with just: C"
 converse "Use the powerops-plan skill. My idea: $idea." '[ "$turn" -gt 1 ] && [[ "$message" =~ ^[[:space:]]*C[[:space:][:punct:]]*$ ]]' || true
+allowed_tools="Bash(powerops *)"
 if [ -n "$(plan_dir)" ]; then
   check_decisions
   [ "$(header status)" = draft ] || fail "status is '$(header status)' after stopping, expected draft"
@@ -243,11 +256,13 @@ powerops plan sign-off "$dir/docs/plans/earlier" >/dev/null
 sed -i.bak 's/^status: signed-off$/status: done/' "$dir/docs/plans/earlier/plan.md" && rm "$dir/docs/plans/earlier/plan.md.bak"
 git -C "$dir" add -A
 git -C "$dir" -c user.name=smoke -c user.email=smoke@example.invalid commit -qm earlier
+allow_sketch
 sketch_offered=0
-goal="At a what-next menu choose B (approve the draft), never D (sketch now). Confirm if asked to approve anyway. When asked to pick a sketch option or skip the sketch, skip it with a reason. When a review or a sign-off is offered, say you will do it later."
+goal="At a what-next menu choose B (approve the draft), never D (sketch now). Confirm if asked to approve anyway. When asked to pick a sketch option or direction (\"Which direction?\") or skip the sketch, skip it with a reason. When a review or a sign-off is offered, say you will do it later."
 max_turns=$((max_turns + 1)) # the pick-or-skip question
 converse "Use the powerops-plan skill. My idea: $loans." 'note_sketch; [ -n "$(plan_dir)" ] && grep -q "^- .*prototype:" "$(plan_dir)/decisions.md" 2>/dev/null' || true
 max_turns=$((max_turns - 1))
+allowed_tools="Bash(powerops *)"
 if [ -n "$(plan_dir)" ]; then
   check_decisions
   grep -q '^### Licences' "$(plan_dir)/plan.md" || fail "no ### Licences table in plan.md"
@@ -272,9 +287,12 @@ fi
 # 6. Depth standard, run through approval: the data round within three questions a round, and the sketch in the
 # rounds (M93): the options come after the round that names users and screens, the pick is a question of the next
 # round, no later than the first data question, and its log line is written while the plan is a draft; approval
-# leaves the options as they are. Every sketch file passes the 81,920-byte check and `plan status` has no prototype warning.
+# leaves the options as they are. After the pick the prototype is rendered and judged, and the person answers "Does it pass?" (M97).
+# prototype.html passes the 163,840-byte check and each option the 61,440-byte one, the map and the judge's file exist, and
+# `plan status` has no prototype warning but the self-judged one.
 scenario=standard
 new_repo
+allow_sketch
 sketch_offered=0
 early=0
 logged=0
@@ -293,10 +311,11 @@ note_early() {
   return 0
 }
 # Answers in a sentence or two of the user's own words keep the depth at standard; scenario 9 checks bare option numbers.
-goal="Answer each question in a sentence or two of your own words that takes the recommended option. When asked to pick a sketch option, pick the recommended one with no changes. When asked to approve a picked or redrawn sketch, approve it. At a what-next menu, choose A (another round) while you have answered fewer than two menus, then B (approve the draft). Confirm if asked to approve anyway. When a review or a sign-off is offered, say you will do it later."
-max_turns=$((max_turns + 7)) # three rounds with the options and the pick inside them, the pick's approval, the approval and the defaults question
+goal="Answer each question in a sentence or two of your own words that takes the recommended option. When asked to pick a sketch option or direction (\"Which direction?\"), pick the recommended one with no changes. When asked \"Does it pass?\", answer Pass. When asked to approve a picked or redrawn sketch, approve it. At a what-next menu, choose A (another round) while you have answered fewer than two menus, then B (approve the draft). Confirm if asked to approve anyway. When a review or a sign-off is offered, say you will do it later."
+max_turns=$((max_turns + 9)) # three rounds with the options and the pick inside them, the pick's approval, the judge round's report, "Does it pass?", the approval and the defaults question
 converse "Use the powerops-plan skill. My idea: $loans." 'note_sketch; note_early; [ -n "$(plan_dir)" ] && [ "$(header status)" = approved ] && grep -q "^- .*prototype:" "$(plan_dir)/decisions.md" 2>/dev/null' || true
-max_turns=$((max_turns - 7))
+max_turns=$((max_turns - 9))
+allowed_tools="Bash(powerops *)"
 if [ -n "$(plan_dir)" ]; then
   check_decisions
   grep -q '^### Licences' "$(plan_dir)/plan.md" || fail "no ### Licences table in plan.md"
@@ -312,10 +331,14 @@ if [ -n "$(plan_dir)" ]; then
       grep -q 'Sketch' "$sketch" || fail "$name.html has no Sketch label"
       if grep -qi '<script' "$sketch"; then fail "$name.html has a script"; fi
       if grep -qiE 'https?://' "$sketch"; then fail "$name.html has an external link"; fi
-      [ "$(wc -c <"$sketch")" -le 81920 ] || fail "$name.html is over 81,920 bytes"
+      if [ "$name" = prototype ]; then cap=163840; else cap=61440; fi
+      [ "$(wc -c <"$sketch")" -le "$cap" ] || fail "$name.html is over $cap bytes"
     else
       fail "no mockups/$name.html"
     fi
+  done
+  for name in prototype.map.md prototype.judge.md; do
+    [ -s "$(plan_dir)/mockups/$name" ] || fail "no mockups/$name"
   done
   if cmp -s "$(plan_dir)/mockups/option-a.html" "$(plan_dir)/mockups/option-b.html"; then fail "options a and b are the same file"; fi
   [ "$early" = 1 ] || fail "the sketch options were not written while the plan was a draft"
@@ -337,8 +360,10 @@ if [ -n "$(plan_dir)" ]; then
   elif [ "$data_round" != 0 ] && [ "$data_round" -lt "$pick_round" ]; then
     fail "a data-round question came before the sketch pick"
   fi
-  # An option file's warning names mockups/, not the word prototype.
-  if powerops plan status "$(plan_dir)" 2>&1 | grep -iE 'warning: .*(prototype|mockups/)' >/dev/null; then fail "plan status warns about the prototype"; fi
+  # An option file's warning names mockups/, not the word prototype. The one warning allowed is the self-judged one: an agent with
+  # no fresh context judged the sketch and the person passed it. A person's pass below the baseline gives no warning.
+  warnings="$(powerops plan status "$(plan_dir)" 2>&1 | grep -iE 'warning: .*(prototype|mockups/)' | grep -viE 'self-judged' || true)"
+  [ -z "$warnings" ] || fail "plan status warns about the prototype: $warnings"
 else
   fail "no plan folder under docs/plans"
 fi
@@ -577,8 +602,10 @@ section() { sed -n "/^## $1[[:space:]]*\$/,/^## /p" "$(plan_dir)/plan.md" 2>/dev
 # must not move it down (M81).
 scenario=option-depth
 new_repo
+allow_sketch
 goal="Answer each round of questions with one option number per question, digits only, separated by spaces (like: 1 1 1), and nothing else. At the first what-next menu (A/B/C) reply with just: C"
 converse "Use the powerops-plan skill. My idea: $idea." '[ "$turn" -gt 1 ] && [[ "$message" =~ ^[[:space:]]*C[[:space:][:punct:]]*$ ]]' || true
+allowed_tools="Bash(powerops *)"
 if [ -n "$(plan_dir)" ]; then
   check_decisions
   [ "$(header depth)" = standard ] || fail "depth is '$(header depth)' after option-number answers, expected standard"

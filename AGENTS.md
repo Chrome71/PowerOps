@@ -10,6 +10,7 @@ PowerOps is an open-source .NET 10 CLI toolkit for Microsoft Power Platform: ana
 - `tests/PowerOps.Core.Tests/`: xUnit tests of the library
 - `tests/Shared/`: helpers both test projects use (`Golden`, `SolutionZip`)
 - `tests/eval/`: the set that measures agent roles: its cases, key, baseline and run script
+- `tests/sketch-eval/`: the calibration of the sketch judge, `powerops-review-sketch`: its key of five rows, their plans and sketches, and how to run it. A change to the judge, the scale or a gate in `baseline.md` reruns the calibration on all five rows, and every row must keep the verdict its key expects
 - `skills/`: the planning skills and the two report roles (`SKILL.md` files)
 - `action/`: the scripts the composite GitHub Action (`action.yml`) runs
 - `docs/`: plan and roadmap; install details are in `docs/INSTALL.md`

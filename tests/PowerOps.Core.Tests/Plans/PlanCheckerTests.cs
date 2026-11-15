@@ -1410,7 +1410,9 @@ public class PlanCheckerTests : IDisposable
     }
 
     private const string ScreensPlan = "# Plan\n\n## Screens\n\n- Home\n";
-    private const string GoodSketch = "<!-- route: canvas -->\n<p>Sketch</p>\n<section data-screen=\"Home\"><i data-state=\"empty\"></i><i data-state=\"loading\"></i><i data-state=\"error\"></i><i data-state=\"failed-save\"></i></section>\n";
+    // One lead frame; the sketch adds its four states (data-for), and beside it go its map and a judge file bound to it.
+    private const string GoodOption = "<!-- route: canvas -->\n<p>Sketch</p>\n<section class=\"frame desktop\" data-screen=\"Home\"><h1 data-lead>Home</h1></section>\n";
+    private const string GoodSketch = GoodOption + "<i data-state=\"empty\" data-for=\"Home\"></i><i data-state=\"loading\" data-for=\"Home\"></i><i data-state=\"error\" data-for=\"Home\"></i><i data-state=\"failed-save\" data-for=\"Home\"></i>\n";
 
     private SignOffResult SignOffWith(string? log, string? sketch, string body = ScreensPlan, int options = 3)
     {
@@ -1423,12 +1425,15 @@ public class PlanCheckerTests : IDisposable
         if (sketch is not null)
         {
             _t.Write("docs/plans/demo/mockups/prototype.html", sketch);
+            _t.Write("docs/plans/demo/mockups/prototype.map.md", "- Home: a container\n");
+            var hash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(sketch)));
+            _t.Write("docs/plans/demo/mockups/prototype.judge.md", $"judge: fresh context\nsketch-hash: {hash}\n\nverdict: at baseline\n");
         }
 
         // The options an approved sketch is picked from: each passes, and each differs.
         foreach (var letter in "abc"[..options])
         {
-            _t.Write($"docs/plans/demo/mockups/option-{letter}.html", GoodSketch + $"<p>Option {letter}</p>\n");
+            _t.Write($"docs/plans/demo/mockups/option-{letter}.html", GoodOption + $"<p>Option {letter}</p>\n");
         }
 
         return SignOff();

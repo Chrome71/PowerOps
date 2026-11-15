@@ -58,6 +58,11 @@ public static class PlanSignOff
             errors.AddRange(prototype.File);
         }
 
+        if (prototype.Warnings.Contains(PlanChecker.SelfJudgedWarning))
+        {
+            warnings.Add(PlanChecker.SelfJudgedWarning);
+        }
+
         if (errors.Count > 0)
         {
             return new SignOffResult(1, [], errors.Select(e => $"error: {TextReport.Clean(e)}").ToList());
