@@ -942,7 +942,18 @@ The name is never printed.
 `plan sign-off` refuses unless `status` is `approved`, the review is done or skipped, and the scan is clean; it edits only the header.
 On success it also prints, on stderr, the report warnings `plan status` gives for the folder (a stale or hashless `review.md`, a stale `verify.md` or `security-solution.md`, an unknown state), and `review.md lists <n> open High findings: only a person accepts one` (`1 open High finding` for one) when `review.md` lists an open High finding (the rule of [deploy plan](#deploy-plan)), and still exits `0`; `plan status` gives no such warning.
 When `Screens` names anything, it also refuses until the last `prototype:` line under `## Log` in `decisions.md` is `approved mockups/prototype.html`, with a file that passes the sketch checks beside at least three options (`mockups/option-*.html`) that pass them and differ, one of which the line names as `(option <letter>: <why>)`, or `skipped (<reason>)` ending `(answered by: person)`.
-`plan status` shows the same prototype problems as warnings on a `draft` or `approved` plan, and warns when an `approved` line is not marked `(answered by: person)`.
+The sketch checks are text checks: the file is never rendered, and a problem names its rule and line, never the matched text.
+`prototype.html` is at most 163,840 bytes and an option at most 61,440.
+Inline `svg` is allowed, but no `script`, `foreignObject`, `image`, `a`, `style`, `animate`, `set`, `animateMotion` or `animateTransform` inside it; `href` and `xlink:href` start with `#`, and no attribute value holds `url(`.
+Each `data-screen` sits in a frame: the element itself when its class holds `frame`, else its parent element, and the frame's class holds `frame` and one of `desktop`, `phone`, `browser` or `report`; each frame holds exactly one element with `data-lead` and at most one `btn primary` button.
+No hex colour appears in a CSS declaration outside a `:root` block, in the `style` element or a `style` attribute (selectors and SVG presentation attributes don't count).
+An option holds exactly one `data-screen` and no `data-state`.
+In `prototype.html` the limit of 1 to 8 screens counts distinct names, every `data-state` names a screen of the file with `data-for`, and each screen name has the four states; beside it, `mockups/prototype.map.md` names every screen, and `mockups/prototype.judge.md` holds a last `judge:` line (`fresh context` or `self-judged`), a last `sketch-hash:` equal to the SHA-256 of `prototype.html` with CRLF made LF, and a last `verdict:` line of exactly `at baseline` or `not at baseline`; anything else is "no current judge verdict".
+Sign-off refuses an approved prototype with no current judge verdict, one judged `not at baseline` unless the `prototype:` line holds `(below baseline: <why>)` and ends `(answered by: person)`, and a `self-judged` one unless the line ends `(answered by: person)`; on success it prints the self-judged warning.
+The hash binds the verdict to the file it judged; it proves nothing about how the judge reached it.
+These checks run only on a `draft` or `approved` plan, so a plan signed off before them is not rechecked.
+An approved plan whose sketches predate them gets their problems as warnings and is refused at sign-off: its route is a new options run, or the person's `prototype: skipped (sketched before the baseline) (answered by: person)`.
+`plan status` shows the same prototype problems as warnings on a `draft` or `approved` plan, warns when an `approved` line is not marked `(answered by: person)`, and warns on a `self-judged` verdict.
 
 ### Output
 
