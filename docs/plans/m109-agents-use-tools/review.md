@@ -1,8 +1,10 @@
-plan-hash: 31b58f3d1419f5e1ce0bb339a323722a3fc1fc12ae257b6bbec24fe04aa556d9
+plan-hash: 6ce2e1c77d2a4d68cce22d9036365d39ffafc40192534be43b902f89e4adda33
 model: claude-opus-5-5
 fresh-context: yes
 
 Second pass, 2026-11-15, on revision 2 (commit `cbdb0aa`, body hash above): R1 to R13 checked against the revised plan and resolved below; R14 to R16 are new. `powerops plan status` on revision 2 reports one violation, the subject of R14.
+
+Fourth pass, 2026-11-15, on the plan at `609545a`: only the R17 change to Data row 9 checked; R17 resolved below, nothing new. `powerops plan status` reports no violation.
 
 Third pass, 2026-11-15, on the plan at `e93aba0` (R14 to R16 fixed in `c12f1d6`, and the five corrections of Fable's round-2 approval: Done when 8(b), Data rows 1 and 9): R14 to R16 resolved below; R17 is new. `powerops plan status` reports no violation.
 
@@ -122,4 +124,4 @@ No findings.
 - Area: 9 (testability)
 - Finding: Data row 9 now fails the `draft` scenario only when a `### Q` heading matches `route`, because section 3 step 1's question on the target environment and its sign-ins may still come. A route question worded without that word (for example "How does it reach Prod?") passes the check, so the scenario can pass while the draft's route was asked again. The `- from the draft:` Log line check doesn't catch that, because the line can be written and the question still asked.
 - Suggested fix: Also fail on a `### Q` heading or option that names both Test and Prod (case-insensitive `test.*prod|prod.*test`), which section 3 step 1's question doesn't need.
-- Resolution: open
+- Resolution: fixed (`609545a`: Data row 9 also fails on a `### Q` heading or option matching `test.*prod|prod.*test`, case-insensitive)
