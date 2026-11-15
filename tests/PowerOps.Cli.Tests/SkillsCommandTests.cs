@@ -1158,4 +1158,93 @@ public partial class SkillsCommandTests : IDisposable
 
         Assert.All(new[] { "13. Buildability:", "Two plan lines that can't both hold are a High finding.", "which columns it can set when it creates a row" }, s => Assert.Contains(s, text));
     }
+
+    // M109: the tools M98 to M107 added, named where an agent follows them.
+    private static string RepoText(params string[] parts) => File.ReadAllText(Path.Combine([Golden.RepoRoot, .. parts])).Replace("\r\n", "\n");
+
+    [Fact]
+    public void Implement_skill_runs_inventory_stops_only_for_a_new_uncovered_driver_and_reads_each_after()
+    {
+        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        var step1 = Between(Between(text, "## 4. Finish", "## 5. Power BI"), "1. Run `powerops analyze`", "\n2. ");
+        var deployment = Between(text, "**The deployment yes.**", "**The stop list.**");
+
+        Assert.All(new[] { "`powerops inventory`", "`notRead` line as \"not verified\"", "in the pull request and in step 5", "it shows no host, and you add none", "Run `inventory` on the previous solution too", "new against it", "stop under rule 6 of section 3", "needs no question" }, s => Assert.Contains(s, step1));
+        Assert.All(new[] { "read each solution's `after`", "\"pac reported success, but the target shows\"", "don't count that import done", "Exit 3 after \"The imports succeeded.\"", "say the version is not verified" }, s => Assert.Contains(s, deployment));
+    }
+
+    [Fact]
+    public void Plan_skill_starts_from_a_draft_and_asks_only_what_it_leaves_open()
+    {
+        var text = PlanSkill();
+        var start = Between(text, "## 2. Start or resume", "## 3. Environment facts");
+        var fast = FastPathOf(text);
+
+        Assert.Contains("Otherwise create the folder, do step 5 if the person gave a draft, and go to section 3.", start);
+        Assert.All(new[] { "5. **A draft of their own.**", "map it onto the sections of section 5", "`- from the draft: <choice>: \"<their words>\" (answered by: person)`", "redacted per section 4", "ask only what it leaves open", "count as asked when the draft settles them", "never `yes (read)`" }, s => Assert.Contains(s, start));
+        Assert.Equal(2, Regex.Matches(fast, Regex.Escape("unless the draft settled it (section 2 step 5)")).Count);
+    }
+
+    [Fact]
+    public void Licensing_reference_maps_the_inventory_drivers_and_gives_the_developer_plan_what_learn_says()
+    {
+        var text = SkillsCommand.Shipped()["powerops-plan/references/licensing.md"];
+        var table = Between(text, "## 1. The table", "## 2. Needs");
+        var needs = Between(text, "## 2. Needs", "## 3. Part numbers");
+        var parts = Between(text, "## 3. Part numbers", "## Sources");
+        var desktop = InventoryReport.Drivers.Single(d => d.Id == "desktop-flow-call");
+        var desktopRow = needs.Split('\n').Single(l => l.StartsWith("| A cloud flow that runs a desktop flow |", StringComparison.Ordinal));
+        var dev = parts.Split('\n').Single(l => l.StartsWith("| `POWERAPPS_DEV` |", StringComparison.Ordinal));
+
+        Assert.Contains("`powerops inventory` fills the Need column", table);
+        Assert.All(InventoryReport.Drivers, d => Assert.Contains($"`{d.Id}`", table));
+        Assert.All(new[] { "`desktop-flow-call` the desktop-flow row", "`notClassified`", "a `notRead` part is not checked" }, s => Assert.Contains(s, table));
+        Assert.All(new[] { "The Developer Plan covers the maker in Dev only.", "When the person says Dev is an unmanaged developer environment", "`the maker, in Dev only`", "When Dev is managed, or its kind isn't said, the Developer Plan makes no row `yes (read)`." }, s => Assert.Contains(s, table));
+        Assert.Contains(desktop.Need.Split(" needs ", 2)[1].TrimEnd('.'), desktopRow);
+        Assert.All(new[] { "https://learn.microsoft.com/connectors/uiflow/", "https://learn.microsoft.com/power-platform/admin/power-automate-licensing/types" }, s => Assert.Contains(s, desktopRow));
+        Assert.All(new[] { "managed developer environments remain", "suspended from 2026-12-15", "deleted from 2027-01-15", "750 flow runs a month", "2 GB", "not raised by add-ons", "times 30" }, s => Assert.Contains(s, needs));
+        Assert.All(new[] { "unmanaged developer environment only", "not dataflows, business process flows, desktop flows, AI Builder or Dynamics 365 apps", "in a managed developer environment no row", "never production" }, s => Assert.Contains(s, dev));
+        Assert.Contains("attended desktop flows", parts.Split('\n').Single(l => l.StartsWith("| `POWERAUTOMATE_ATTENDED_RPA` |", StringComparison.Ordinal)));
+        Assert.DoesNotContain("A free, trial or developer plan", parts);
+        Assert.All(new[] { "managed developer environment", "covers no row", "Checked on 2026-11-11" }, s => Assert.Contains(s, text));
+        Assert.True(text.IndexOf("Checked on 2026-11-15", StringComparison.Ordinal) > text.IndexOf("Checked on 2026-11-12", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Review_plan_skill_checks_a_developer_environment_against_its_750_runs_a_month()
+    {
+        var item3 = SkillsCommand.Shipped()["powerops-review-plan/SKILL.md"].Split('\n').Single(l => l.StartsWith("3. Premium connector and licence impact:", StringComparison.Ordinal));
+
+        Assert.Contains("When `Constraints` says Dev is a developer environment, the plan's flows' expected runs a day, summed, times 30, passing 750 is a Medium finding: the environment allows 750 flow runs a month.", item3);
+    }
+
+    [Theory]
+    [InlineData(".claude/agents")]
+    [InlineData("plugins/claude/agents")]
+    public void Automate_specialist_names_inventory_and_the_flow_rules_by_what_they_find(string folder)
+    {
+        var step5 = RepoText([.. folder.Split('/'), "powerops-automate.md"]).Split('\n').Single(l => l.StartsWith("5. Offline checks on the export:", StringComparison.Ordinal));
+        string[] wording =
+        [
+            "`powerops analyze`, whose PO037 to PO042 find",
+            "a catch that tells no one",
+            "a static result left on",
+            "a schedule near the 90-day turn-off",
+            "an approval that can wait as long as a run can last",
+            "a Text environment variable that looks like a secret",
+            "a secret read or sent without secure inputs or outputs",
+            "`powerops inventory` for licence drivers and endpoints; `powerops test` on the plan's flow tests",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, step5));
+    }
+
+    [Fact]
+    public void Planning_skills_doc_names_inventory_and_the_draft()
+    {
+        var text = RepoText("docs", "PLANNING-SKILLS.md");
+
+        Assert.Contains("It runs `powerops analyze`, `powerops inventory` (licence drivers, stopping only for a new one the plan's Licences table lacks) and `powerops test` at the end", text);
+        Assert.Contains("- A draft the person hands over is mapped onto the plan first: each choice it settles is logged as their answer, and only what it leaves open is asked.", Between(text, "## Questioning protocol", "### Depth and versions"));
+    }
 }
