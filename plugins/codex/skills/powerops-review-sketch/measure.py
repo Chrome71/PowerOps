@@ -644,8 +644,8 @@ def layout(session, sketch, width):
     return text, page, width, height, data
 
 
-# A colour is neutral when its sRGB chroma (max minus min channel) is at most this: set so that every token of the five
-# calibration sketches falls on its side (docs/plans/m117-judge-consistency/calibration.md).
+# A colour is neutral when its sRGB chroma (max minus min channel) is at most this: greys and near-white page tones
+# fall at 4 or under, and the lightest status tint at 9.
 NEUTRAL_CHROMA = 6
 HUE_STEP = 15
 
@@ -991,7 +991,7 @@ def server_checks(chrome):
 
 
 def new_field_checks(result, frames):
-    """The fields of M117: ellipsis, sizes per statement, colours and hue groups, title and top-text, size, state tiles."""
+    """The measured fields: ellipsis, sizes per statement, colours and hue groups, title and top-text, size, state tiles."""
     problems = []
     ov, el = frames["overflow"]["overflow"], frames["ellipsis"]["overflow"]
     if [o["ellipsis"] for o in ov] != [False] or [o["ellipsis"] for o in el] != [True]:
