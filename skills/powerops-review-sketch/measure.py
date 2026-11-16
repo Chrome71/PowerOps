@@ -174,7 +174,7 @@ MEASURE_JS = r"""
   // Every colour drawn in root but root's own fill and border (the frame is a surface): text, fills, strokes (borders,
   // outlines, unblurred box shadows), the same of ::before and ::after, and the fills and strokes of each svg's shapes.
   // Python drops the neutrals and adds the hue group.
-  function colourUses(root, atoms, kind, skip) {
+  function colourUses(root, atoms, kind, skip, marks) {
     var uses = {}, order = [];
     function add(c, under, role, element, extra) {
       if (!c || c[3] <= 0) return;
@@ -227,23 +227,24 @@ MEASURE_JS = r"""
       if (svg.parentElement && svg.parentElement.closest("svg")) return;
       var s = cs(svg), r = svg.getBoundingClientRect();
       if (s.visibility !== "visible" || s.display === "none" || r.width < 1 || r.height < 1 || opacity(svg, null) === 0) return;
-      var under = background(svg), got = [];
+      var under = background(svg), got = [], units = [], sink = null;
       function shapes(scope, use, ref, depth) {
         Array.prototype.forEach.call(scope.querySelectorAll(SHAPES), function (sh) {
           if (!use && sh.closest("defs,symbol,clipPath,mask,pattern,marker")) return;
-          if (sh.tagName.toLowerCase() === "use") {
+          var tag = sh.tagName.toLowerCase(), top = !use && tag !== "text" && tag !== "tspan";
+          if (top) sink = [];  // a mark: a shape of the svg itself, or a <use> with all the shapes it clones
+          if (tag === "use") {
             var target = document.getElementById((sh.getAttribute("href") || sh.getAttribute("xlink:href") || "").replace(/^#/, ""));
             if (target && depth < 3) { shapes(target, use || sh, target, depth + 1); if (target.matches(SHAPES)) paint(target, use || sh, target); }
-            return;
-          }
-          if (!sh.querySelector("tspan")) paint(sh, use, ref);  // a text with tspans is painted by them
+          } else if (!sh.querySelector("tspan")) paint(sh, use, ref);  // a text with tspans is painted by them
+          if (top) { units.push({ el: sh, box: sh.getBoundingClientRect(), paints: sink, fill: tag !== "use" ? sink.solid || null : null, thin: !!sink.thin }); sink = null; }
         });
       }
       // A shape cloned by <use> takes the paint its own attributes or the symbol's give, else the use element's.
       // shortcut: paint set by a CSS class inside a symbol is read as the use element's; no sketch does that yet.
       function paint(sh, use, ref) {
         var ss = cs(sh); if (!use && (ss.visibility !== "visible" || ss.display === "none")) return;
-        var o = opacity(use || sh, null);
+        var o = opacity(use || sh, null), p = {}, tag = sh.tagName.toLowerCase();
         ["fill", "stroke"].forEach(function (prop) {
           var from = use || sh;
           if (use) for (var n = sh, v; n; n = n === ref ? null : n.parentElement) {
@@ -252,14 +253,51 @@ MEASURE_JS = r"""
           }
           var fs = from ? cs(from) : null, value = from ? fs[prop] : cs(use).color;
           if (value === "none" || (prop === "fill" && sh.tagName.toLowerCase() === "line") || (prop === "stroke" && !(parseFloat((fs || ss).strokeWidth) > 0))) return;
-          got.push(fade(rgba(value), o * parseFloat(prop === "fill" ? (fs || ss).fillOpacity : (fs || ss).strokeOpacity)));
+          got.push(p[prop] = fade(rgba(value), o * parseFloat(prop === "fill" ? (fs || ss).fillOpacity : (fs || ss).strokeOpacity)));
         });
+        // A mark's paint: a line's stroke; else its fill, or its stroke when it has no fill. Text is not a mark.
+        if (!sink || tag === "text" || tag === "tspan") return;
+        var fill = tag !== "line" && tag !== "polyline" && p.fill && p.fill[3] > 0 ? p.fill : null;
+        if (fill || p.stroke) sink.push(fill || p.stroke);
+        if (fill && !use) sink.solid = fill;  // not .fill: an array has a fill method
+        // A stroke-only line or polyline of 1 px or less on screen is a gridline, not a mark.
+        var ctm = svg.getScreenCTM(), scale = ctm ? Math.sqrt(Math.abs(ctm.a * ctm.d - ctm.b * ctm.c)) : 1;
+        if (!use && !fill && (tag === "line" || tag === "polyline") && parseFloat(ss.strokeWidth) * scale <= 1.01) sink.thin = true;
       }
       shapes(svg, null, null, 0);
       var seen = {};
       got.forEach(function (c) { if (c && c[3] > 0) seen[hex(c[3] < 1 && under ? over(c, under) : c)] = true; });
       var extra = { svg: svgClass(svg, r, root, kind, Object.keys(seen).length), box: pageBox(r), background: under ? hex(under) : "unknown" };
       got.forEach(function (c) { add(c, under, "svg", desc(svg), extra); });
+      // Each mark of an icon or chart against the solid paint under its centre: the last earlier filled shape of the svg whose
+      // box holds it, else the svg's background. shortcut: the shapes a <use> clones are measured against what is under the use.
+      if (extra.svg === "imagery") return;
+      var filled = [];
+      // A mark counts toward the fault when it is topmost (no later shape over its centre) and not a gridline; one that
+      // reaches past the shape under it is also measured against the svg's background, and passes on either.
+      function holds(f, x, y) { return x >= f.left && x <= f.right && y >= f.top && y <= f.bottom; }
+      units.forEach(function (u, k) {
+        var b = u.box, cx = (b.left + b.right) / 2, cy = (b.top + b.bottom) / 2, below = under, belowBox = null;
+        if (b.width <= 0 && b.height <= 0) return;
+        for (var i = filled.length - 1; i >= 0; i--) {
+          if (holds(filled[i].box, cx, cy)) { below = filled[i].shown; belowBox = filled[i].box; break; }
+        }
+        var topmost = !units.slice(k + 1).some(function (v) { return v.paints.length && holds(v.box, cx, cy); });
+        var outside = belowBox && under && (b.left < belowBox.left - 0.5 || b.right > belowBox.right + 0.5 || b.top < belowBox.top - 0.5 || b.bottom > belowBox.bottom + 0.5);
+        u.paints.forEach(function (c) {
+          if (!c || c[3] <= 0) return;
+          // A shape painted as what is under it draws nothing (a label's patch in the background colour).
+          var shown = below ? over(c, below) : c, counts = topmost && !u.thin && !(below && hex(shown) === hex(below));
+          var key = hex(shown) + "|" + (below ? hex(below) : "unknown") + "|" + counts + "|" + !!outside, m = marks[key];
+          if (!m) {
+            m = marks[key] = { element: desc(u.el), paint: hex(shown), against: below ? hex(below) : "unknown", ratio: below ? Math.round(ratio(shown, below) * 100) / 100 : null, svg: extra.svg, count: 0, counts: counts,
+              "ratio-background": under ? Math.round(ratio(over(c, under), under) * 100) / 100 : null };  // G9 reads a highlighted mark so
+            if (outside) { var seen = over(c, under); m["against-outside"] = hex(under); m["ratio-outside"] = Math.round(ratio(seen, under) * 100) / 100; }
+          }
+          m.count++;
+        });
+        if (u.fill) filled.push({ box: b, shown: below ? over(u.fill, below) : u.fill });
+      });
     });
     var byHex = {}, list = [];
     order.forEach(function (k) {
@@ -284,11 +322,18 @@ MEASURE_JS = r"""
     for (var n = hit; n && !n.contains(el); n = n.parentElement) { var c = rgba(cs(n).backgroundColor); if (c && c[3] >= 1) return true; }
     return false;
   }
-  function besideName(e) {
-    var av = e.closest(".av,.avatar"); if (!av || !av.parentElement) return false;
-    var w = document.createTreeWalker(av.parentElement, NodeFilter.SHOW_TEXT);
-    for (var n = w.nextNode(); n; n = w.nextNode()) if (!av.contains(n) && n.nodeValue.trim()) return true;
-    return false;
+  // A name beside an avatar is text drawn in the avatar's parent: an atom not hidden by a clipping box, and not inside a
+  // box of 1 px or less that clips (a visually hidden label).
+  function besideName(e, atoms) {
+    var av = e.closest(".av,.avatar"), p = av && av.parentElement; if (!p) return false;
+    return atoms.some(function (a) {
+      if (a.hidden || !p.contains(a.node) || av.contains(a.node)) return false;
+      for (var n = a.el; n && n !== p; n = n.parentElement) {
+        var s = cs(n), r = n.getBoundingClientRect();
+        if ((r.width <= 1 || r.height <= 1) && (s.overflowX !== "visible" || s.clip !== "auto" || s.clipPath !== "none")) return false;
+      }
+      return true;
+    });
   }
   // The frame's size against its kind's, each within 2 px (model-driven is desktop).
   function sizeOf(kind, r) {
@@ -364,7 +409,7 @@ MEASURE_JS = r"""
     atoms.forEach(function (a) {
       // Avatar initials repeat the name beside them, so the floor skips them (decision Q15) when the avatar's parent holds
       // text outside the avatar; a lone avatar's initials are text like any other. Their contrast still counts.
-      if (a.size < floor - 0.01 && !besideName(a.el)) out["under-floor"].push({ text: a.text, size: Math.round(a.size * 10) / 10, element: desc(a.el) });
+      if (a.size < floor - 0.01 && !besideName(a.el, atoms)) out["under-floor"].push({ text: a.text, size: Math.round(a.size * 10) / 10, element: desc(a.el) });
       sizes[Math.round(a.size * 2) / 2] = true;
       if (!largest || a.size > largest.size || (a.size === largest.size && a.weight > largest.weight)) largest = a;
       if (!stacks[a.family]) stacks[a.family] = rendered(a.family);
@@ -389,7 +434,9 @@ MEASURE_JS = r"""
     out.contrast = Object.keys(pairs).map(function (k) { return pairs[k]; });
     out.fonts = Object.keys(stacks).map(function (k) { return stacks[k]; });
     out["font-sizes"] = Object.keys(sizes).map(Number).sort(function (a, b) { return a - b; });
-    out.colours = colourUses(frame, atoms, kind, caption);
+    var marks = {};
+    out.colours = colourUses(frame, atoms, kind, caption, marks);
+    out.marks = Object.keys(marks).map(function (k) { return marks[k]; });
     // A state tile has no lead, title, size or empty share.
     if (!tile) {
       var leads = frame.hasAttribute("data-lead") ? [frame] : Array.prototype.slice.call(frame.querySelectorAll("[data-lead]"));
@@ -463,6 +510,8 @@ MEASURE_JS = r"""
     if (out["under-floor"].length) out.faults.push("floor: " + out["under-floor"].length + " text(s) under " + floor + " px");
     var low = out.contrast.filter(function (c) { return c.pass === false; });
     if (low.length) out.faults.push("contrast: " + low.length + " colour pair(s) under their ratio");
+    var faint = out.marks.filter(function (m) { return m.counts && m.ratio !== null && m.ratio < 3 && !(m["ratio-outside"] >= 3); });
+    if (faint.length) out.faults.push("marks: " + faint.length + " mark colour pair(s) under 3:1");
     var fb = out.fonts.filter(function (f) { return f.fallback; });
     if (fb.length) out.faults.push("font: " + fb.map(function (f) { return f.asked + " rendered as " + f.rendered; }).join("; "));
     if (out["empty-share"] > 0.15) out.faults.push("empty: about " + Math.round(out["empty-share"] * 100) + "% of the content area is empty");
@@ -483,7 +532,7 @@ MEASURE_JS = r"""
     if (tile["in-frame"]) return tile;
     var fi = all.map(function (f) { return f.getAttribute("data-screen"); }).indexOf(tile["for"]);
     var kind = fi >= 0 ? kinds[fi] : reportFile ? "report" : "none", m = measureBox(e, kind, fi >= 0 ? floorOf(kind) : siteOnly ? 14 : 12, true);
-    ["floor", "overflow", "overlaps", "under-floor", "contrast", "fonts", "colours", "faults"].forEach(function (k) { tile[k] = m[k]; });
+    ["floor", "overflow", "overlaps", "under-floor", "contrast", "fonts", "colours", "marks", "faults"].forEach(function (k) { tile[k] = m[k]; });
     return tile;
   });
   var result = { width: document.documentElement.clientWidth,
@@ -880,7 +929,8 @@ def frame_html(name, change="", kind=None):
         cards[1] = '<div class="card">' + "".join('<p style="font-size:%dpx;margin:0">Size %d</p>' % (n, n) for n in (16, 18, 20, 24, 28)[:4 if change == "sizes" else 5]) + "</div>"
     elif change == "avatar":
         cards[1] = ('<div class="card"><p><span class="av" style="font-size:12px;color:#06434A;background:#CBE4E7">MS</span> Maria S.</p>'
-                    '<p><span class="initials" style="font-size:12px">MS</span></p><p><span class="avatar" style="font-size:12px">KT</span></p></div>')
+                    '<p><span class="initials" style="font-size:12px">MS</span></p><p><span class="avatar" style="font-size:12px">KT</span></p>'
+                    '<p><span class="av" style="font-size:12px">ZZ</span><span style="position:absolute;width:1px;height:1px;clip-path:inset(50%)">Menu</span></p></div>')
     elif change == "colours":  # a hue in text; an icon, a chart and a drawing; the card's grey fill and the grey text are neutral
         cards[1] = ('<div class="card"><p style="color:#0B6A75">Brand link <span style="color:#616161">grey</span></p>'
                     '<svg width="20" height="20"><rect width="20" height="20" fill="#0E700E"/></svg>'
@@ -888,7 +938,10 @@ def frame_html(name, change="", kind=None):
                     '<svg width="60" height="40"><circle cx="20" cy="20" r="20" fill="#C2570C"/><circle cx="20" cy="20" r="5" fill="#FFFFFF"/></svg>'
                     '<svg width="40" height="40"><path d="M0 0H40L20 40Z" fill="#0E700E"/></svg>'
                     '<svg width="80" height="20"><path d="M0 20L40 0L80 20Z" fill="#8A3707"/></svg>'
-                    '<svg width="100" height="16"><rect width="100" height="6" fill="#EEACB2"/><line x1="80" x2="80" y2="16" stroke="#242424"/></svg></div>')
+                    '<svg width="100" height="16"><line x1="0" x2="100" y1="14" y2="14" stroke="#E8E8E8"/><rect width="100" height="6" fill="#E0E0E0"/>'
+                    '<rect width="60" height="6" fill="#C8C8C8"/><line x1="50" x2="50" y1="0" y2="12" stroke="#7A7A7A" stroke-width="2"/>'
+                    '<rect x="70" y="8" width="10" height="4" fill="#F0F0F0"/></svg>'
+                    '<svg width="100" height="16"><rect width="100" height="6" fill="#EEACB2"/><rect width="60" height="6" fill="#B10E1C"/><line x1="80" x2="80" y2="16" stroke="#242424"/></svg></div>')
     elif change == "line":  # two 20 px texts on one line, the right one's box 8 px higher: the left one reads first
         cards[1] = ('<div class="card" style="display:flex;align-items:flex-end;gap:8px"><p style="font-size:20px;line-height:24px">Left</p>'
                     '<p style="font-size:20px;line-height:40px">Right</p></div>')
@@ -1005,6 +1058,20 @@ def new_field_checks(result, frames):
     svg = [u for c in frames["colours"]["colours"] for u in c["uses"] if u["role"] == "svg"]
     if not all(u["background"] == "#F0F0F0" and u["box"]["w"] in (20, 120, 60, 100, 40, 80) for u in svg) or len(set(c["group"] for c in frames["colours"]["colours"])) != 4:
         problems.append("colours: svg uses %s, groups %s" % (svg, [c["group"] for c in frames["colours"]["colours"]]))
+    marks = {(m["paint"], m["against"], m["svg"]): m["ratio"] for m in frames["colours"]["marks"]}
+    want = [("#EEACB2", "#F0F0F0", "chart"), ("#B10E1C", "#EEACB2", "chart"), ("#0E700E", "#F0F0F0", "icon")]
+    if any(k not in marks for k in want) or not marks[want[0]] < 3 or any(k[0] in ("#C2570C", "#8A3707") for k in marks) \
+            or not any(f.startswith("marks:") for f in frames["colours"]["faults"]) or frames["clean"]["marks"]:
+        problems.append("marks: %s, faults %s" % (frames["colours"]["marks"], frames["colours"]["faults"]))
+    # (a) a track under a value bar doesn't count; (b) a 1 px gridline doesn't; (c) a tick past the bar is also read on the
+    # background and passes there; the bar itself, topmost and under 3:1 on the track, counts.
+    by = {m["paint"]: m for m in frames["colours"]["marks"] if m["paint"] in ("#E0E0E0", "#C8C8C8", "#7A7A7A", "#E8E8E8", "#F0F0F0")}
+    got = {h: (m["counts"], m["against"], m.get("against-outside")) for h, m in by.items()}
+    if [m.get("ratio-background") for m in frames["colours"]["marks"] if m["paint"] == "#C8C8C8"] != [1.47]:  # against the card, not the track (1.27)
+        problems.append("ratio-background: %s" % frames["colours"]["marks"])
+    if got != {"#E8E8E8": (False, "#F0F0F0", None), "#E0E0E0": (False, "#F0F0F0", None), "#C8C8C8": (True, "#E0E0E0", None),
+               "#7A7A7A": (True, "#C8C8C8", "#F0F0F0"), "#F0F0F0": (False, "#F0F0F0", None)} or not by["#7A7A7A"]["ratio-outside"] >= 3 or not by["#C8C8C8"]["ratio"] < 3:
+        problems.append("marks that count: %s" % by)
     nested = frames["nested"]
     top = [(t["text"], t["title"], t["chrome"], t["inLead"]) for t in nested["top-text"]]
     if (nested["title"] or {}).get("text") != "Queue" or top[:3] != [("App", False, True, False), ("Queue", True, False, False), ("Lead line", False, False, True)] \
@@ -1073,7 +1140,7 @@ def self_test(chrome):
                 problems.append("the %s frame reports %s, not exactly [%s]" % (kind, frames[kind]["faults"], kind))
         # A site frame: 12 px initials in an avatar are not under the floor, the same text outside one is; the avatar's contrast still counts.
         av = frames["avatar"]
-        if [(u["text"], u["element"]) for u in av["under-floor"]] != [("MS", "span.initials"), ("KT", "span.avatar")] or [f.split(":")[0] for f in av["faults"]] != ["floor"]:
+        if [(u["text"], u["element"]) for u in av["under-floor"]] != [("MS", "span.initials"), ("KT", "span.avatar"), ("ZZ", "span.av")] or [f.split(":")[0] for f in av["faults"]] != ["floor"]:
             problems.append("the avatar frame reports %s under the floor, faults %s" % (av["under-floor"], av["faults"]))
         if not any(c["background"] == "#CBE4E7" and c["text"] == "MS" for c in av["contrast"]):
             problems.append("the avatar's initials have no contrast entry")

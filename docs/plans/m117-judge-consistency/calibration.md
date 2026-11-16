@@ -2,7 +2,7 @@
 
 ## Step 5: compare and dry run
 
-Run by step 3's executor, and rerun after the orchestrator's decisions below, on the final `skills/powerops-review-sketch/measure.py` (sha256 `b398ea2577d999407f58fed4ece88b582e53b58e997e2fe5914bf6e18c96f705`), on top of `28b3c65`, against the script of `daa56f6` (#166). Linux, headless Chrome, Segoe UI not installed (the font fallbacks are the same before and after). The five sketches are the ones `tests/sketch-eval/key.md` names.
+Run by step 3's executor, and rerun after the orchestrator's decisions below, on the final `skills/powerops-review-sketch/measure.py` (sha256 `e1a8add045d5a28d33694572b4926d6e6060ee2593addaa5928f5561fed07b7a`), on top of `28b3c65`, against the script of `daa56f6` (#166). Linux, headless Chrome, Segoe UI not installed (the font fallbacks are the same before and after). The five sketches are the ones `tests/sketch-eval/key.md` names.
 
 ### The compare
 
@@ -258,3 +258,40 @@ For SKILL's description of the fields; each was needed to keep a frame where bot
 - G10's report rule covers a report's phone layout and its state tiles (tiles outside the frames of a file whose frames are a report and its phone layout).
 - A shape cloned by `<use>` takes its symbol's own paint, else the use element's; a `line`'s fill and a `text` painted by its `tspan`s are not counted.
 - `colours` leaves out the fill and border of the frame or tile itself (the surface; the phone's bezel), and blurred box shadows; it counts unblurred box shadows (rings and bars), outlines and `::before` and `::after`.
+
+## Step 9: visible names beside avatars, and mark contrast
+
+Two changes to `measure.py` after the judge runs found a gate 6 flip on row 4, on top of `f1dbebc` (sha256 before `e1a8add045d5a28d33694572b4926d6e6060ee2593addaa5928f5561fed07b7a`, after `52d0e222f64a16f155b488441cdde60e74edfe4ef5ed28887ab56ba99571fe76`):
+
+1. G13: a name beside an avatar must be drawn text. An avatar's initials skip the floor only when its parent holds a measured text atom outside the avatar that no clipping box hides and that is not inside a box of 1 px or less that clips (`overflow`, `clip` or `clip-path`: a visually hidden label). Row 4's phone header holds the avatar beside an icon button whose only text is a visually hidden "Menu", so its "MS" was exempt.
+2. Marks: per frame and measured tile, `marks: [{element, paint, against, ratio, svg, count}]`, for each svg classed icon or chart. A mark is a shape of the svg (or a `<use>` with the shapes it clones): its fill, or its stroke when it has no fill, and a line's or polyline's stroke; text is not a mark. `against` is the solid paint under the shape's centre: the last earlier filled shape of the svg whose box holds it, else the svg's `background`. Neutral colours are included; entries are de-duplicated by paint and against, with a count. A `marks` fault counts the pairs under 3:1.
+
+Which marks count (the orchestrator's decision after the first listing): every mark stays in `marks`, with `counts: true|false`; only a counting mark under 3:1 makes the `marks` fault. A mark counts when (a) no later shape of the svg is drawn over its centre, (b) it is not a stroke-only line or polyline of 1 px or less on screen (a gridline), and (c) it is under 3:1 against every paint it touches: the paint under its centre and, when its box reaches past the box of the shape under it, the svg's background too (`against-outside`, with `ratio-outside`). One more rule came from the figures, as a measurement fix: a shape painted exactly as what is under it draws nothing and doesn't count (row 3's white patches behind the value labels, 1:1).
+
+Self-test: the avatar frame's third avatar ("ZZ") sits beside only a visually hidden "Menu" and is under the floor. In the colours frame a red value bar is measured against the pink track under it, and a bullet bar gives: a track under a value bar that doesn't count (a), a 1 px gridline that doesn't count (b), a grey value bar under 3:1 on its track that counts and makes the fault, a tick under 3:1 on the bar that reaches the background and passes there (c), and a patch in the background colour that doesn't count; no drawing gives a mark. Each case was red with its code reverted (round 5 of the red-first log: 34 cases).
+
+Compare against `daa56f6`: the pictures of all five sketches are pixel-equal (109); the JSON differs by Data row 3's changes and, beyond them, only by `marks`, the `marks` faults and row 4's new avatar line. Top-level faults: row 1 9, row 2 11, row 3 9, row 4 13, row 5 3 (before step 9: 9, 11, 8, 11, 3).
+
+Marks under 3:1, per row (a tick that passes on the background is listed with it):
+
+| Row | Frame or tile | Mark | Against | Ratio | Counts |
+|---|---|---|---|---|---|
+| 1 | none | no svg | | | |
+| 2 | Loading tile | spinner track `circle.trk` `#CBE4E7` | `#FFFFFF` | 1.33 | no (the arc is drawn over it) |
+| 3 | Overview, its phone layout, Error tile | gridlines `line` `#EBEBEB` (6 each) | `#FFFFFF` | 1.19 | no (1 px lines) |
+| 3 | Selected tile | dimmed bars `#E09FA4` (3), `#C8C8C8` (3), `#D4D4D4` (4) | `#FFFFFF` | 2.18, 1.67, 1.48 | yes: G9's dimmed part, which the text exempts |
+| 3 | Selected tile | highlighted part `#949494` (4) over its dimmed bar | `#D4D4D4` | 2.05 | yes (see below) |
+| 3 | Selected tile | label patches `#FFFFFF` (6); one dimmed bar under a patch | `#FFFFFF` | 1.00; 2.18 | no |
+| 3 | Loading tile | spinner track `#E6E6E6` | `#FFFFFF` | 1.25 | no |
+| 4 | Home | grey value bar `rect.v` `#949494` (3) | track `#F0F0F0` | 2.66 | **yes: the `marks` fault** |
+| 4 | Home | track `rect.tr` `#F0F0F0` (3) | `#FFFFFF` | 1.14 | no (the value bar is over it) |
+| 5 | Home | target tick `line.tg` `#0E2A30` (2) | value bar `#0B6A75` | 2.39 | listed, passes: 15.08 on the background `#FFFFFF` |
+| 5 | Home | track `rect.tr` `#E6E6E6` (3) | `#FFFFFF` | 1.25 | no |
+
+Avatars: row 4 Your repairs (phone), "MS" (`span.av`, 12 px), is now under the site's 14 px floor. No other row changed.
+
+So the `marks` fault fires on row 4 Home (the 2.66:1 value bar) and on row 3's Selected tile only. In that tile, besides the dimmed bars G9 exempts, the second chart draws each highlighted part (`#949494`) over its own dimmed bar (`#D4D4D4`, the same grey at 40%), inside its box, so it is read at 2.05:1 against the dimmed bar; G9 measures a highlighted mark against the svg's background, where `#949494` is 3.03:1. A judge applying G9 to the tile reads the highlighted part on the background; the text should say so if the figure is to decide it.
+
+`ratio-background` (the orchestrator's decision: in a cross-highlighted visual the highlighted marks are read against the svg's background, G9): every `marks` entry also gives the mark's ratio against the svg's `background`. `counts` and the fault are unchanged; the judge applies G9's exemption and reading. On row 3's Selected tile the highlighted part `#949494` (2.05:1 against its dimmed bar) has `ratio-background` 3.03, so under G9 it meets 3:1. The field is on every entry, so row 4 Home's grey value bar shows 3.03 too; that visual is not cross-highlighted, so G9 doesn't apply and its counting 2.66:1 against the track stands. Self-test: the grey value bar on its track (1.27:1) gives `ratio-background` 1.47 against the card; red with its code reverted (round 6 of the red-first log: 35 cases). The compare was rerun: pictures pixel-equal (109), and the JSON differs from the run before only by the new field on each `marks` entry (top-level faults 9, 11, 9, 13, 3).
+
+A bug found on the way: a line drawn before a filled shape gave the next shape a wrong paint under it (an array's own `fill` method was read as a fill). Fixed; it affected only `marks`, and only in the first listing above this one.

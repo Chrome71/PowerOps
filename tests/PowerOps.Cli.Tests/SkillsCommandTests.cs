@@ -906,8 +906,10 @@ public partial class SkillsCommandTests : IDisposable
             "The meanings are brand (the primary action, selection, links, focus, brand surfaces such as the header or a site's band, and in a report B6's highlighted series), the site accent (P9's main action), good (a Positive status, a good difference), bad (a Critical status, an adverse difference), caution and informative; the neutral status and the context grey are neutrals.",
             "A use's meaning is read from the word, sign or icon beside it, else from the control it is on; two adverse differences are one meaning unless their words differ in severity, and one item's status shown in a status colour in one place and in ink in another is one meaning in two colours.",
             "Text cut with an ellipsis is not clipped text for this gate; in a canvas frame it is gate 3.",
+            "A bar's track, a plot background and a hairline gridline are surfaces, not marks.",
+            "A mark that crosses onto another colour passes when it reaches 3:1 against either.",
             "In a report, the whole dimmed part of a bar or column visual that the product draws for a cross-highlight, grey context included, is exempt from 3:1 for marks, as disabled text is; the highlighted marks keep 3:1 and text keeps 4.5:1.",
-            "A visual is cross-highlighted when its bars or columns are drawn in two tones of one hue (full and dimmed) while another element of the same frame or tile is drawn selected, or the tile is a selection state.",
+            "A visual is cross-highlighted when its bars or columns are drawn in two tones of one colour, or two greys (full and dimmed) while another element of the same frame or tile is drawn selected, or the tile is a selection state.",
             "Each frame is judged on the product its screen has in the plan's `Screens`; a model-driven frame is checked at C1's 1366 by 768 and on S14's chrome (a header, one navigation, a title row with the primary action).",
         ];
         string[] sources =
@@ -928,16 +930,20 @@ public partial class SkillsCommandTests : IDisposable
         var text = SkillsCommand.Shipped()["powerops-review-sketch/SKILL.md"];
         string[] render =
         [
-            "`measure.py measure <sketch>` prints JSON: the `sketch-hash` for your header, the page height, and per frame (each `data-screen` element) its box and class, text that overflows its box (`\"ellipsis\": true` when the clipping box has `text-overflow: ellipsis`), pairs of text boxes that overlap, text under the product's floor (the initials of an avatar, class `av` or `avatar`, are skipped only when the avatar's parent holds text outside it, the name beside it), the contrast of each text colour on its background (`unknown` over an image or gradient; a disabled control's text is skipped), each font asked for and the one that rendered, the share of the content area that is empty, the largest text and whether it is inside the `data-lead` element (`lead: not marked` when the frame has none), and the distinct font sizes.",
+            "`measure.py measure <sketch>` prints JSON: the `sketch-hash` for your header, the page height, and per frame (each `data-screen` element) its box and class, text that overflows its box (`\"ellipsis\": true` when the clipping box has `text-overflow: ellipsis`), pairs of text boxes that overlap, text under the product's floor (the initials of an avatar, class `av` or `avatar`, are skipped only when the avatar's parent holds drawn text outside it, the name beside it; a visually hidden label is not drawn text), the contrast of each text colour on its background (`unknown` over an image or gradient; a disabled control's text is skipped), each font asked for and the one that rendered, the share of the content area that is empty, the largest text and whether it is inside the `data-lead` element (`lead: not marked` when the frame has none), and the distinct font sizes.",
             "It also gives per frame its `title` (its first `h1`, else its first `h2`, else its first `[role=heading]`, or null), its `top-text` (the five largest texts outside nested tiles in the frame's first screen: the top 768 px of a desktop or browser frame, the whole of a phone or report frame; each with `size`, `weight`, `text`, `element` and the flags `title`, `chrome` and `inLead`), its `size` (`ok`, `no size class`, or the reason), and its `colours`: each non-neutral colour with its `hex`, its hue `group` and its `uses` (`role` text, fill, stroke or svg, `element`, `count`; an svg use adds `svg` icon, chart or imagery, its box and the `background` under it).",
             "Each frame's `faults` lists what crossed a line; the `sizes` fault names its statement (S4, P4 or B8), and an ellipsis is counted in the `ellipsis` fault, not in `overflow`.",
             "The top-level `states` list holds every `[data-state]` tile: its box, `data-state`, `data-for` (or null), whether it is inside a frame, and for a tile outside every frame the same overflow, overlap, floor, contrast, font and `colours` fields and its faults.",
             "The top-level `faults` counts the frames' and the tiles' faults.",
             "A tile's own first `header` is its caption, not the product, and is not measured; in a tile, text hidden under an opaque box drawn above it is no overlap.",
             "`colours` leaves out the fill and border of the frame or tile itself and blurred shadows.",
-            "The figures decide gate 1's sizes and weights and gate 7's size and empty share: where you think such a figure is a false alarm, write a fault line, and the gate still follows the figure.",
+            "Per frame and tile, `marks` lists each shape of an icon or chart svg, neutral colours included: its `element`, its `paint`, the paint it is measured against (`against`), the `ratio`, and `ratio-background`, its ratio against the svg's background.",
+            "An entry counts (`counts: true`) only when it is topmost, with nothing drawn over its centre, is not a stroke line of 1 px or less, and draws something other than what is under it.",
+            "A mark whose box runs past the shape under it is also measured against the svg's background (`against-outside`, `ratio-outside`), and passes on either.",
+            "The `marks` fault lists the counting entries under 3:1.",
+            "The figures decide gate 1's sizes and weights, gate 6's 3:1 for marks and gate 7's size and empty share: where you think such a figure is a false alarm, write a fault line, and the gate still follows the figure.",
             "Confirm each other measured fault in the picture, or say why it is a false alarm.",
-            "Where the JSON maps to a gate: overflow, overlaps, text under the floor and contrast are gate 6, in a frame or a tile; an ellipsis is never gate 6 (section 3 says where it goes); an empty share over 0.15 or a `size` other than `ok` (`no size class` included) is gate 7; `top-text` is gate 1, by section 3.",
+            "Where the JSON maps to a gate: overflow, overlaps, text under the floor, contrast and the `marks` fault are gate 6, in a frame or a tile; an ellipsis is never gate 6 (section 3 says where it goes); an empty share over 0.15 or a `size` other than `ok` (`no size class` included) is gate 7; `top-text` is gate 1, by section 3.",
             "The `sizes` fault is a `not met` of the statement it names.",
         ];
         string[] judge =
@@ -974,9 +980,10 @@ public partial class SkillsCommandTests : IDisposable
             "Give each use its meaning from the set in gate 4 of `baseline.md`, from the word, sign or icon beside it, else the control it is on (a filled button: action; a selected row: selection; link text: link; a focus ring: focus).",
             "Gate 4 fails when one `group` carries two meanings, or one meaning two groups: name each element and hex.",
             "**Gate 6.** In a `report` frame or tile, a dimmed bar or column that gate 6 of `baseline.md` exempts is not a fault.",
-            "The highlighted marks keep 3:1: compute it from their fill `hex` in `colours` against the `background` that svg use gives.",
+            "The 3:1 for marks follows the counting entries of `marks`, not a sample of the picture's pixels: a counting entry under 3:1 fails gate 6.",
+            "In a cross-highlighted visual, the dimmed entries are exempt, and the highlighted marks are read by their `ratio-background`, not their `ratio`, because a highlighted part drawn inside its own dimmed bar is otherwise measured against that bar.",
             "Text keeps 4.5:1.",
-            "A neutral mark's ratio is read from its colour in the picture, since `colours` lists only non-neutral colours.",
+            "`marks` lists neutral marks too, so a grey mark's ratio comes from its entry, not from the picture.",
             "**Gate 7.** It follows the figures: `size` and the empty share decide it, as section 2 says.",
             "A model-driven frame is checked at 1366 by 768 and on S14's chrome.",
         ];
