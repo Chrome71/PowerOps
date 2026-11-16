@@ -1,6 +1,6 @@
 # Sketch judge calibration
 
-These five rows measure the judge, `skills/powerops-review-sketch/SKILL.md`: a judge is right when it separates sketches that already have a verdict from the owner or the trial's grader. The expected verdicts are in `key.md`, and only there. Rows 2, 3 and 5 hold the judge's own verdict from M97's third round, not the owner's pass: by the person's answer to decision Q17 of M97, the key recorded it instead of chasing the judge, and judge consistency is a follow-up.
+These five rows measure the judge, `skills/powerops-review-sketch/SKILL.md`: a judge is right when it separates sketches that already have a verdict from the owner or the trial's grader. The expected verdicts are in `key.md`, and only there. Rows 2, 3 and 5 hold the judge's own verdict, not the owner's pass (decision Q17 of M97). Judge consistency is no longer a follow-up: since M117 and M118, fresh judges give each row one verdict and one result per gate in 3 runs, so `key.md` also names the gates each row must fail, on the owner's answer to M117's Q2, except row 3, which fails on its scores.
 
 A change to the judge's text or `measure.py`, or to the scale or a gate in `skills/powerops-plan/references/baseline.md`, reruns all five rows, and every row must keep its verdict and its failed gates. This folder is not part of `tests/eval/`, and nothing here ships.
 

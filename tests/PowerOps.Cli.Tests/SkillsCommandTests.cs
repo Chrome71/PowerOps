@@ -903,7 +903,8 @@ public partial class SkillsCommandTests : IDisposable
             "Gate 1 also fails when the frame doesn't show that element (behind a closed tab, in a collapsed region or only on another frame), and when the job line names a state (focused, selected) that isn't drawn on it.",
             "Only text in the frame's first screen is a rival: what a desktop or browser frame shows before scrolling, and all of a phone or report frame.",
             "Largest or strongest is decided by size, then weight at equal size, never by colour or fill: text in the header, navigation and footer is chrome and never a rival, and on equal size and weight the first in reading order (top, then left) leads.",
-            "A first look that is a row, a field or a control leads when it carries the frame's only focus ring or only selected row; a frame with two focus rings or two selected rows fails, because two items compete.",
+            "A first look that is a row, a field or a control and that the job line names by a state (selected, focused) leads when it carries that state as the frame's only focus ring or only selected-row style; one named only by its position (\"the first field\") leads only when it carries the frame's only focus ring, and otherwise the size test applies.",
+            "A frame with two focus rings or two selected rows fails, because two items compete.",
             "It counts the colours of the interface (text, the fills and strokes of controls, badges, rows and bands, icons and data marks), not the surfaces of the page and the frames, nor the colours inside imagery, such as a site's drawing of the place.",
             "The meanings are brand (the primary action, selection, links, focus, brand surfaces such as the header or a site's band, and in a report B6's highlighted series), the site accent (P9's main action), good (a Positive status, a good difference), bad (a Critical status, an adverse difference), caution and informative; the neutral status and the context grey are neutrals.",
             "A use's meaning is read from the word, sign or icon beside it, else from the control it is on; two adverse differences are one meaning unless their words differ in severity, and one item's status shown in a status colour in one place and in ink in another is one meaning in two colours.",
@@ -915,6 +916,7 @@ public partial class SkillsCommandTests : IDisposable
             "Each frame is judged on the product its screen has in the plan's `Screens`; a model-driven frame is checked at C1's 1366 by 768.",
             "The chrome gate 7 asks for is the product's frame element: for canvas the header with the app name (C2), for model-driven the header and the site map (S14), for a site the header and the footer (P3), for a report page the title row (B1), and for a report's phone layout its title, because that layout holds only the visuals the author places and the app gives its own page navigation.",
             "A missing navigation item, title-row action or page navigator is a line of S14, C2, P3 or B1, not gate 7.",
+            "A site's phone frame up to 932 px tall, one phone screen, needs only the header, whether or not the page ends inside the frame; the footer is checked on the site's browser frames, and a taller phone frame, or a site drawn with no browser frame, also needs the footer.",
         ];
         string[] sources =
         [
@@ -995,6 +997,7 @@ public partial class SkillsCommandTests : IDisposable
             "A model-driven frame is checked at 1366 by 768.",
             "On chrome, gate 7 fails only when the frame lacks its product's frame element: canvas, the header with the app name (C2); model-driven, the header and the site map (S14); a site, the header and the footer (P3); a report page, the title row (B1); a report's phone layout, its title.",
             "A missing navigation item, title-row action or page navigator is an S14, C2, P3 or B1 line under the scores, not gate 7.",
+            "On a site's phone frame (kind `phone`) whose `box` height is at most 932, gate 7 asks only for the header, whether or not the page ends inside the frame; the footer is checked on the site's browser frames, and a taller phone frame, or a site with no browser frame, also needs the footer.",
         ];
         string[] write =
         [

@@ -650,6 +650,18 @@ Fresh contexts running `powerops-review-sketch` on the same unchanged sketch gav
 
 92. `feat:` M117: the plan, then `measure.py`'s fields, the gate rules, three rounds of judge runs with two text rounds between them, and the records (built 2026-11-16, [plan](plans/m117-judge-consistency/plan.md))
 
+## M118: the judge's last two wording gaps, and the key
+
+M117 left the owner five questions, answered "Take all recommended" (2026-11-16). The [plan](plans/m118-judge-key/plan.md) makes `baseline.md` gate 1 match the judge's rule for a first look named by position, lets a site's phone frame of one phone screen pass gate 7 with only its header, reruns the five calibration rows, and keys the gates that failed in every run (decision 77).
+
+| Milestone | Release | Scope | Done when |
+|---|---|---|---|
+| **M118. The judge's last two wording gaps, and the key** | the next patch release, which release-please makes from the `fix:` commit | <ul><li>Planned 2026-11-16 ([plan](plans/m118-judge-key/plan.md))</li><li>`baseline.md` gate 1 carries the judge's rule for a row, field or control named by a state or by position; gate 7 in `baseline.md` and the judge's `SKILL.md` asks a site's phone frame up to 932 px tall only for the header</li><li>The result: 15 fresh judges on the five rows saw no flip in 3 runs per row, all `not at baseline`; `key.md` now names the failed gates of rows 2, 4 and 5, and row 3 fails on scores</li></ul> | each of the five rows, judged 3 times in fresh contexts, gives one verdict and one result per gate, matching the approved list; `dotnet test` passes; the owner says yes before merge |
+
+### Build order, M118 (continues the list below)
+
+93. `fix:` M118: the plan, then the gate 1 and gate 7 sentences with their pins and plugin copies, 15 judge runs, the key and the records (built 2026-11-16, [plan](plans/m118-judge-key/plan.md))
+
 ## Testing
 
 | Layer | What | Runs |
@@ -955,3 +967,9 @@ Made in the [M97 plan](plans/m97-visual-baseline/plan.md); its `decisions.md` we
 Made in the [M117 plan](plans/m117-judge-consistency/plan.md); its `decisions.md` weighs the options and its `calibration.md` holds the runs.
 
 76. **The sketch judge decides each gate by a stated rule and measured figures.** This amends decision 75. Each of the eight gates follows a rule in `baseline.md` or the judge's `SKILL.md`: a figure `measure.py` gives (size, empty share, the largest texts, text and mark contrast, the colours and their hue groups) where one can be taken, else a yes/no check on a named element; a reading is a fault line, not a gate fail. A score under 3 cites a statement `not met` by a named element. Gate 7's chrome is the product's frame element, and a fallback that draws the same picture passes gate 3. On the five calibration rows, 15 fresh judges gave one verdict and one result per gate in each row, rows 1 and 4 as their key: "no flip seen in 3 runs", not proof, and scores still differ by a point between runs. The key for rows 2, 3 and 5 stays the owner's (Q17 of M97). The owner chose the milestone on 2026-11-15 and, asked "Run one more text round to close gates 3 and 7, then 15 new judge runs?", answered "Yes, one more round" (2026-11-16).
+
+## Decisions, M118 judge key (2026-11-16)
+
+Made in the [M118 plan](plans/m118-judge-key/plan.md); its `decisions.md` records the owner's answers and its `calibration.md` holds the runs.
+
+77. **The judge's text closes its last two gaps, and the key names the gates every run failed.** This amends decision 76. `baseline.md` gate 1's sentence on a first look that is a row, a field or a control now matches the judge's rule: one named by a state leads on the frame's only focus ring or only selected-row style, one named only by its position leads only on the only focus ring, and otherwise the size test applies. A site's phone frame up to 932 px tall, one phone screen, needs only the header under gate 7; the footer is checked on the site's browser frames. On the owner's "Take all recommended" (2026-11-16) to M117's questions, `key.md` keeps all five verdicts and now names gates for rows 2 (1, 4, 7), 4 (4, 6, 8) and 5 (4); row 1 stays 1 and 7, and row 3 fails on scores. On that text, 15 fresh judges gave each row one verdict and the same failed gates: "no flip seen in 3 runs", not proof, and scores still differ by a point between runs.
