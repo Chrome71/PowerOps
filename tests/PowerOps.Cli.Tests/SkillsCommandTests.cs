@@ -898,6 +898,8 @@ public partial class SkillsCommandTests : IDisposable
         ];
         string[] gates =
         [
+            "It passes, as a map-check line, when the map names a fallback that draws the same picture, such as a PNG for an SVG logo.",
+            "A fallback that would look different still fails, unless the plan's `Assumptions` record the choice.",
             "Gate 1 also fails when the frame doesn't show that element (behind a closed tab, in a collapsed region or only on another frame), and when the job line names a state (focused, selected) that isn't drawn on it.",
             "Only text in the frame's first screen is a rival: what a desktop or browser frame shows before scrolling, and all of a phone or report frame.",
             "Largest or strongest is decided by size, then weight at equal size, never by colour or fill: text in the header, navigation and footer is chrome and never a rival, and on equal size and weight the first in reading order (top, then left) leads.",
@@ -910,10 +912,13 @@ public partial class SkillsCommandTests : IDisposable
             "A mark that crosses onto another colour passes when it reaches 3:1 against either.",
             "In a report, the whole dimmed part of a bar or column visual that the product draws for a cross-highlight, grey context included, is exempt from 3:1 for marks, as disabled text is; the highlighted marks keep 3:1 and text keeps 4.5:1.",
             "A visual is cross-highlighted when its bars or columns are drawn in two tones of one colour, or two greys (full and dimmed) while another element of the same frame or tile is drawn selected, or the tile is a selection state.",
-            "Each frame is judged on the product its screen has in the plan's `Screens`; a model-driven frame is checked at C1's 1366 by 768 and on S14's chrome (a header, one navigation, a title row with the primary action).",
+            "Each frame is judged on the product its screen has in the plan's `Screens`; a model-driven frame is checked at C1's 1366 by 768.",
+            "The chrome gate 7 asks for is the product's frame element: for canvas the header with the app name (C2), for model-driven the header and the site map (S14), for a site the header and the footer (P3), for a report page the title row (B1), and for a report's phone layout its title, because that layout holds only the visuals the author places and the app gives its own page navigation.",
+            "A missing navigation item, title-row action or page navigator is a line of S14, C2, P3 or B1, not gate 7.",
         ];
         string[] sources =
         [
+            "For gate 7, verified 2026-11-15: [Create a mobile-optimized layout](https://learn.microsoft.com/power-bi/create-reports/power-bi-create-mobile-optimized-report-initial-layout): the phone layout holds the visuals placed from the Page visuals pane; [Create page and bookmark navigators](https://learn.microsoft.com/power-bi/create-reports/button-navigators): a page navigator is a button visual the author inserts; [Explore reports in the Power BI mobile apps](https://learn.microsoft.com/power-bi/explore-reports/mobile/mobile-reports-in-the-mobile-apps): the app's footer lists the report's pages.",
             "For gate 6, from M117's Assumption A1, verified 2026-11-15: [How visuals cross-filter each other in a Power BI report](https://learn.microsoft.com/power-bi/explore-reports/end-user-interactions), [Filters and highlighting in Power BI reports](https://learn.microsoft.com/power-bi/create-reports/power-bi-reports-filters-and-highlighting), [Change how visuals interact in a Power BI report](https://learn.microsoft.com/power-bi/create-reports/service-reports-visual-interactions) and [High-contrast mode support in Power BI visuals](https://learn.microsoft.com/power-bi/developer/visuals/high-contrast-support): built-in visuals cross-highlight by default, and bar and column charts keep the unselected data visible but dimmed; Learn gives no contrast for the dimmed part outside high-contrast mode.",
         ];
 
@@ -971,6 +976,8 @@ public partial class SkillsCommandTests : IDisposable
             "Gate 3 covers main frames only; a part only a state tile draws is a map-check line.",
             "An ellipsis in a canvas main frame fails gate 3, because `canvas.md` C5 says an ellipsis on overflow is not confirmed: that line is the evidence, and a map that doesn't list the ellipsis doesn't pass it.",
             "In a state tile an ellipsis is a map-check line; outside canvas it is an S8 line.",
+            "With a map, a part the map marks not confirmed, not native or preview passes gate 3 when the map names a fallback that draws the same picture (for example a PNG for an SVG logo): write it as a map-check line.",
+            "A fallback that would look different still fails gate 3, unless the plan's `Assumptions` record the choice.",
             "**Gate 4.** Use each frame's and tile's `colours`; `measure.py` already left out the neutrals.",
             "An svg whose box is at most 24 by 24 px is an `icon`; else, in a `report` frame or tile, it is a `chart` unless it is inside the `header` (the mark); elsewhere it is a `chart` when it holds text or is drawn only of rectangles and lines (a bar, a bullet or a meter); else an svg drawn in one colour whose longer side is at most 48 px is an `icon` (S7 judges its size), and any other is `imagery`.",
             "A report's phone layout and its state tiles count as `report` here, and a report's mark outside a `header` is classed a chart.",
@@ -985,7 +992,9 @@ public partial class SkillsCommandTests : IDisposable
             "Text keeps 4.5:1.",
             "`marks` lists neutral marks too, so a grey mark's ratio comes from its entry, not from the picture.",
             "**Gate 7.** It follows the figures: `size` and the empty share decide it, as section 2 says.",
-            "A model-driven frame is checked at 1366 by 768 and on S14's chrome.",
+            "A model-driven frame is checked at 1366 by 768.",
+            "On chrome, gate 7 fails only when the frame lacks its product's frame element: canvas, the header with the app name (C2); model-driven, the header and the site map (S14); a site, the header and the footer (P3); a report page, the title row (B1); a report's phone layout, its title.",
+            "A missing navigation item, title-row action or page navigator is an S14, C2, P3 or B1 line under the scores, not gate 7.",
         ];
         string[] write =
         [
