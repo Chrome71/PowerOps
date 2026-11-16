@@ -14,6 +14,7 @@ Exit codes: 0 done, 1 self-test failed, 2 usage error, 3 unreadable input, 77 no
 import argparse
 import ast
 import base64
+import colorsys
 import hashlib
 import http.client
 import http.server
@@ -142,10 +143,209 @@ MEASURE_JS = r"""
   }
   var kinds = all.map(kindOf);
   var siteOnly = kinds.indexOf("browser") >= 0 && kinds.indexOf("desktop") < 0 && kinds.indexOf("report") < 0;
+  var SHAPES = "rect,circle,ellipse,path,polygon,polyline,line,text,tspan,use";
+  var reportFile = kinds.indexOf("report") >= 0 && kinds.indexOf("desktop") < 0 && kinds.indexOf("browser") < 0;
   var sx = window.scrollX, sy = window.scrollY;
-  var frames = all.map(function (frame, fi) {
-    var kind = kinds[fi];
-    var floor = kind === "browser" || (kind === "phone" && siteOnly) ? 14 : 12;
+  function pageBox(r) { return { x: Math.round(r.left + sx), y: Math.round(r.top + sy), w: Math.round(r.width), h: Math.round(r.height) }; }
+  function nestedTile(e, root) { var t = e.closest("[data-state]"); return !!t && t !== root && root.contains(t); }
+  // A report's svgs are charts, and so are those of its phone layout (G10).
+  function reportLike(kind) { return kind === "report" || (kind === "phone" && reportFile); }
+  function svgClass(svg, r, root, kind, colourCount) {
+    if (r.width <= 24.01 && r.height <= 24.01) return "icon";
+    var h = svg.closest("header"), inHeader = !!h && root.contains(h);
+    if (reportLike(kind) && !inHeader) return "chart";
+    var t = svg.querySelector("text");
+    // A bar, a bullet or a meter is drawn of rectangles and lines only; a drawing has paths, polygons or circles.
+    var names = drawn(svg, 0);
+    if ((t && t.textContent.trim()) || (names.length && names.every(function (n) { return n === "rect" || n === "line"; }))) return "chart";
+    return colourCount === 1 && Math.max(r.width, r.height) <= 48.01 ? "icon" : "imagery";  // a one-colour glyph up to 48 px is an icon
+  }
+  // The tag names of the shapes an svg draws, through its <use> references.
+  function drawn(scope, depth) {
+    var names = [];
+    Array.prototype.forEach.call(scope.querySelectorAll(SHAPES), function (sh) {
+      var n = sh.tagName.toLowerCase(), target;
+      if (n !== "use") { names.push(n); return; }
+      target = document.getElementById((sh.getAttribute("href") || sh.getAttribute("xlink:href") || "").replace(/^#/, ""));
+      if (target && depth < 3) names = names.concat(target.matches(SHAPES) ? [target.tagName.toLowerCase()] : [], drawn(target, depth + 1));
+    });
+    return names;
+  }
+  // Every colour drawn in root but root's own fill and border (the frame is a surface): text, fills, strokes (borders,
+  // outlines, unblurred box shadows), the same of ::before and ::after, and the fills and strokes of each svg's shapes.
+  // Python drops the neutrals and adds the hue group.
+  function colourUses(root, atoms, kind, skip, marks) {
+    var uses = {}, order = [];
+    function add(c, under, role, element, extra) {
+      if (!c || c[3] <= 0) return;
+      var shown = c[3] < 1 && under ? over(c, under) : c, h = hex(shown), key = h + "|" + role + "|" + element + (extra ? "|" + extra.box.x + "," + extra.box.y : "");
+      var u = uses[key];
+      if (!u) {
+        u = uses[key] = { hex: h, use: { role: role, element: element, count: 0 } };
+        if (extra) { u.use.svg = extra.svg; u.use.box = extra.box; u.use.background = extra.background; }
+        order.push(key);
+      }
+      u.use.count++;
+    }
+    function fade(c, o) { return c ? [c[0], c[1], c[2], c[3] * o] : null; }
+    function strokes(s, o, under, element) {
+      var seen = {};
+      ["Top", "Right", "Bottom", "Left"].forEach(function (k) {
+        var c = rgba(s["border" + k + "Color"]);
+        if (parseFloat(s["border" + k + "Width"]) > 0 && s["border" + k + "Style"] !== "none" && s["border" + k + "Style"] !== "hidden" && c && !seen[hex(c) + c[3]]) {
+          seen[hex(c) + c[3]] = true; add(fade(c, o), under, "stroke", element);
+        }
+      });
+      if (s.outlineStyle && s.outlineStyle !== "none" && parseFloat(s.outlineWidth) > 0) add(fade(rgba(s.outlineColor), o), under, "stroke", element);
+      // A box shadow with no blur draws a ring or a bar; a blurred one is a shadow, not a colour of the interface.
+      (s.boxShadow === "none" ? "" : s.boxShadow).split(/,(?![^(]*\))/).forEach(function (layer) {
+        var c = rgba(layer), len = layer.replace(/rgba?\([^)]*\)/, "").match(/-?[\d.]+px/g) || [];
+        if (c && len.length >= 3 && parseFloat(len[2]) === 0) add(fade(c, o), under, "stroke", element);
+      });
+    }
+    atoms.forEach(function (a) {
+      if (a.svg || a.hidden) return;
+      var bg = background(a.el);
+      add(fade(rgba(cs(a.el).color), opacity(a.el, null)), bg, "text", desc(a.el));
+    });
+    Array.prototype.forEach.call(root.querySelectorAll("*"), function (e) {
+      if (e instanceof SVGElement || (skip && skip.contains(e))) return;
+      var s = cs(e); if (s.visibility !== "visible" || s.display === "none") return;
+      var r = e.getBoundingClientRect(), o = opacity(e, null); if (r.width < 1 || r.height < 1 || o === 0) return;
+      var under = e.parentElement ? background(e.parentElement) : null, own = background(e), d = desc(e);
+      add(fade(rgba(s.backgroundColor), o), under, "fill", d);
+      strokes(s, o, own, d);
+      ["::before", "::after"].forEach(function (p) {
+        var ps = getComputedStyle(e, p);
+        if (ps.content === "none" || ps.content === "normal" || ps.display === "none" || ps.visibility !== "visible") return;
+        var po = o * parseFloat(ps.opacity);
+        add(fade(rgba(ps.backgroundColor), po), own, "fill", d + p);
+        strokes(ps, po, own, d + p);
+      });
+    });
+    Array.prototype.forEach.call(root.querySelectorAll("svg"), function (svg) {
+      if (svg.parentElement && svg.parentElement.closest("svg")) return;
+      var s = cs(svg), r = svg.getBoundingClientRect();
+      if (s.visibility !== "visible" || s.display === "none" || r.width < 1 || r.height < 1 || opacity(svg, null) === 0) return;
+      var under = background(svg), got = [], units = [], sink = null;
+      function shapes(scope, use, ref, depth) {
+        Array.prototype.forEach.call(scope.querySelectorAll(SHAPES), function (sh) {
+          if (!use && sh.closest("defs,symbol,clipPath,mask,pattern,marker")) return;
+          var tag = sh.tagName.toLowerCase(), top = !use && tag !== "text" && tag !== "tspan";
+          if (top) sink = [];  // a mark: a shape of the svg itself, or a <use> with all the shapes it clones
+          if (tag === "use") {
+            var target = document.getElementById((sh.getAttribute("href") || sh.getAttribute("xlink:href") || "").replace(/^#/, ""));
+            if (target && depth < 3) { shapes(target, use || sh, target, depth + 1); if (target.matches(SHAPES)) paint(target, use || sh, target); }
+          } else if (!sh.querySelector("tspan")) paint(sh, use, ref);  // a text with tspans is painted by them
+          if (top) { units.push({ el: sh, box: sh.getBoundingClientRect(), paints: sink, fill: tag !== "use" ? sink.solid || null : null, thin: !!sink.thin }); sink = null; }
+        });
+      }
+      // A shape cloned by <use> takes the paint its own attributes or the symbol's give, else the use element's.
+      // shortcut: paint set by a CSS class inside a symbol is read as the use element's; no sketch does that yet.
+      function paint(sh, use, ref) {
+        var ss = cs(sh); if (!use && (ss.visibility !== "visible" || ss.display === "none")) return;
+        var o = opacity(use || sh, null), p = {}, tag = sh.tagName.toLowerCase();
+        ["fill", "stroke"].forEach(function (prop) {
+          var from = use || sh;
+          if (use) for (var n = sh, v; n; n = n === ref ? null : n.parentElement) {
+            v = n.getAttribute(prop) || n.style[prop];
+            if (v && !/^inherit$/i.test(v)) { from = /currentcolor/i.test(v) ? null : sh; break; }
+          }
+          var fs = from ? cs(from) : null, value = from ? fs[prop] : cs(use).color;
+          if (value === "none" || (prop === "fill" && sh.tagName.toLowerCase() === "line") || (prop === "stroke" && !(parseFloat((fs || ss).strokeWidth) > 0))) return;
+          got.push(p[prop] = fade(rgba(value), o * parseFloat(prop === "fill" ? (fs || ss).fillOpacity : (fs || ss).strokeOpacity)));
+        });
+        // A mark's paint: a line's stroke; else its fill, or its stroke when it has no fill. Text is not a mark.
+        if (!sink || tag === "text" || tag === "tspan") return;
+        var fill = tag !== "line" && tag !== "polyline" && p.fill && p.fill[3] > 0 ? p.fill : null;
+        if (fill || p.stroke) sink.push(fill || p.stroke);
+        if (fill && !use) sink.solid = fill;  // not .fill: an array has a fill method
+        // A stroke-only line or polyline of 1 px or less on screen is a gridline, not a mark.
+        var ctm = svg.getScreenCTM(), scale = ctm ? Math.sqrt(Math.abs(ctm.a * ctm.d - ctm.b * ctm.c)) : 1;
+        if (!use && !fill && (tag === "line" || tag === "polyline") && parseFloat(ss.strokeWidth) * scale <= 1.01) sink.thin = true;
+      }
+      shapes(svg, null, null, 0);
+      var seen = {};
+      got.forEach(function (c) { if (c && c[3] > 0) seen[hex(c[3] < 1 && under ? over(c, under) : c)] = true; });
+      var extra = { svg: svgClass(svg, r, root, kind, Object.keys(seen).length), box: pageBox(r), background: under ? hex(under) : "unknown" };
+      got.forEach(function (c) { add(c, under, "svg", desc(svg), extra); });
+      // Each mark of an icon or chart against the solid paint under its centre: the last earlier filled shape of the svg whose
+      // box holds it, else the svg's background. shortcut: the shapes a <use> clones are measured against what is under the use.
+      if (extra.svg === "imagery") return;
+      var filled = [];
+      // A mark counts toward the fault when it is topmost (no later shape over its centre) and not a gridline; one that
+      // reaches past the shape under it is also measured against the svg's background, and passes on either.
+      function holds(f, x, y) { return x >= f.left && x <= f.right && y >= f.top && y <= f.bottom; }
+      units.forEach(function (u, k) {
+        var b = u.box, cx = (b.left + b.right) / 2, cy = (b.top + b.bottom) / 2, below = under, belowBox = null;
+        if (b.width <= 0 && b.height <= 0) return;
+        for (var i = filled.length - 1; i >= 0; i--) {
+          if (holds(filled[i].box, cx, cy)) { below = filled[i].shown; belowBox = filled[i].box; break; }
+        }
+        var topmost = !units.slice(k + 1).some(function (v) { return v.paints.length && holds(v.box, cx, cy); });
+        var outside = belowBox && under && (b.left < belowBox.left - 0.5 || b.right > belowBox.right + 0.5 || b.top < belowBox.top - 0.5 || b.bottom > belowBox.bottom + 0.5);
+        u.paints.forEach(function (c) {
+          if (!c || c[3] <= 0) return;
+          // A shape painted as what is under it draws nothing (a label's patch in the background colour).
+          var shown = below ? over(c, below) : c, counts = topmost && !u.thin && !(below && hex(shown) === hex(below));
+          var key = hex(shown) + "|" + (below ? hex(below) : "unknown") + "|" + counts + "|" + !!outside, m = marks[key];
+          if (!m) {
+            m = marks[key] = { element: desc(u.el), paint: hex(shown), against: below ? hex(below) : "unknown", ratio: below ? Math.round(ratio(shown, below) * 100) / 100 : null, svg: extra.svg, count: 0, counts: counts,
+              "ratio-background": under ? Math.round(ratio(over(c, under), under) * 100) / 100 : null };  // G9 reads a highlighted mark so
+            if (outside) { var seen = over(c, under); m["against-outside"] = hex(under); m["ratio-outside"] = Math.round(ratio(seen, under) * 100) / 100; }
+          }
+          m.count++;
+        });
+        if (u.fill) filled.push({ box: b, shown: below ? over(u.fill, below) : u.fill });
+      });
+    });
+    var byHex = {}, list = [];
+    order.forEach(function (k) {
+      var u = uses[k];
+      if (!byHex[u.hex]) { byHex[u.hex] = { hex: u.hex, uses: [] }; list.push(byHex[u.hex]); }
+      byHex[u.hex].uses.push(u.use);
+    });
+    return list;
+  }
+  // Reading order: top, then left, where two boxes that share at least half the lower one's height are on one line.
+  function reading(p, q) {
+    var shared = Math.min(p.bottom, q.bottom) - Math.max(p.top, q.top);
+    return shared >= Math.min(p.bottom - p.top, q.bottom - q.top) / 2 ? p.left - q.left : p.top - q.top;
+  }
+  function covered(el, x, y) {
+    // Hit-testing sees only the viewport, which can be shorter than the page: scroll the point into view, then back.
+    var x0 = window.scrollX, y0 = window.scrollY;
+    window.scrollTo(x0, y0 + y - window.innerHeight / 2);
+    var hit = document.elementFromPoint(x, y - (window.scrollY - y0));
+    window.scrollTo(x0, y0);
+    if (!hit || hit === el || el.contains(hit)) return false;
+    for (var n = hit; n && !n.contains(el); n = n.parentElement) { var c = rgba(cs(n).backgroundColor); if (c && c[3] >= 1) return true; }
+    return false;
+  }
+  // A name beside an avatar is text drawn in the avatar's parent: an atom not hidden by a clipping box, and not inside a
+  // box of 1 px or less that clips (a visually hidden label).
+  function besideName(e, atoms) {
+    var av = e.closest(".av,.avatar"), p = av && av.parentElement; if (!p) return false;
+    return atoms.some(function (a) {
+      if (a.hidden || !p.contains(a.node) || av.contains(a.node)) return false;
+      for (var n = a.el; n && n !== p; n = n.parentElement) {
+        var s = cs(n), r = n.getBoundingClientRect();
+        if ((r.width <= 1 || r.height <= 1) && (s.overflowX !== "visible" || s.clip !== "auto" || s.clipPath !== "none")) return false;
+      }
+      return true;
+    });
+  }
+  // The frame's size against its kind's, each within 2 px (model-driven is desktop).
+  function sizeOf(kind, r) {
+    var w = Math.round(r.width), h = Math.round(r.height);
+    function near(v, x) { return Math.abs(v - x) <= 2; }
+    if (kind === "none") return "no size class";
+    if (kind === "desktop") return near(r.width, 1366) && near(r.height, 768) ? "ok" : w + " by " + h + ", not 1366 by 768";
+    if (kind === "report") return near(r.width, 1920) && near(r.height, 1080) ? "ok" : w + " by " + h + ", not 1920 by 1080";
+    if (kind === "phone") return r.width >= 358 && r.width <= 432 ? "ok" : w + " wide, not 360 to 430";
+    return r.width >= 1364 && r.width <= 1442 ? "ok" : w + " wide, not 1366 to 1440";
+  }
+  function measureBox(frame, kind, floor, tile) {
     var fr = frame.getBoundingClientRect(), fs = cs(frame);
     var content = {
       left: fr.left + parseFloat(fs.borderLeftWidth) + parseFloat(fs.paddingLeft),
@@ -153,11 +353,13 @@ MEASURE_JS = r"""
       top: fr.top + parseFloat(fs.borderTopWidth) + parseFloat(fs.paddingTop),
       bottom: fr.bottom - parseFloat(fs.borderBottomWidth) - parseFloat(fs.paddingBottom)
     };
+    // A tile's own header is the sketch's caption of the state, not the product, so a tile is measured without it.
+    var caption = tile ? Array.prototype.filter.call(frame.children, function (c) { return c.tagName.toLowerCase() === "header"; })[0] : null;
     // Text atoms: each visible text node with its element, size and line boxes.
     var atoms = [], walker = document.createTreeWalker(frame, NodeFilter.SHOW_TEXT);
     for (var tn = walker.nextNode(); tn; tn = walker.nextNode()) {
       if (!tn.nodeValue.trim()) continue;
-      var el = tn.parentElement; if (!el || el.closest("style,script,title,defs,symbol")) continue;
+      var el = tn.parentElement; if (!el || el.closest("style,script,title,defs,symbol") || (caption && caption.contains(el))) continue;
       var s = cs(el);
       if (s.visibility !== "visible" || opacity(el, null) === 0) continue;
       var range = document.createRange(); range.selectNodeContents(tn);
@@ -169,12 +371,12 @@ MEASURE_JS = r"""
       atoms.push({ el: el, node: tn, text: clip(tn.nodeValue), size: size, weight: parseInt(s.fontWeight, 10) || 400, family: s.fontFamily, rects: rects, bands: bands, svg: el instanceof SVGElement });
     }
     var out = { name: frame.getAttribute("data-screen"), "class": frame.getAttribute("class") || "", kind: kind,
-      box: { x: Math.round(fr.left + sx), y: Math.round(fr.top + sy), w: Math.round(fr.width), h: Math.round(fr.height) }, floor: floor,
+      box: pageBox(fr), floor: floor,
       overflow: [], overlaps: [], "under-floor": [], contrast: [], fonts: [], "empty-share": 0, "font-sizes": [], faults: [] };
 
     // Overflow: text outside a clipping ancestor, outside the nearest painted box, or outside the frame.
     atoms.forEach(function (a) {
-      var nearest = true, why = null;
+      var nearest = true, why = null, ellipsis = false;
       for (var n = a.el; n && n !== frame.parentElement; n = n.parentElement) {
         if (n instanceof SVGElement && n.tagName.toLowerCase() !== "svg") continue;
         var s = cs(n), b = n.getBoundingClientRect(), p = painted(s);
@@ -183,22 +385,31 @@ MEASURE_JS = r"""
         if ((clips || (box && nearest) || n === frame) && !a.bands.every(function (r) { return inside(r, b, 1); })) {
           // Text a clipping box hides entirely (below a scrolling list's fold, or screen-reader-only text) is not drawn, so not a fault.
           if (clips && !a.bands.some(function (r) { return hits(r, b); })) { why = "hidden"; break; }
-          why = (clips ? "clipped by " : "spills out of ") + desc(n); break;
+          why = (clips ? "clipped by " : "spills out of ") + desc(n); ellipsis = clips && s.textOverflow === "ellipsis"; break;
         }
         if (box) nearest = false;
       }
-      if (why && why !== "hidden") out.overflow.push({ text: a.text, element: desc(a.el), by: why });
+      if (why === "hidden") a.hidden = true;
+      else if (why) out.overflow.push({ text: a.text, element: desc(a.el), by: why, ellipsis: ellipsis });
     });
-    // Overlaps: two text atoms whose glyph bands cross.
+    // Overlaps: two text atoms whose glyph bands cross. In a tile (a crop that can show a dialog over the dimmed screen),
+    // not where an opaque box drawn above one of them hides it.
     for (var i = 0; i < atoms.length; i++) for (var j = i + 1; j < atoms.length; j++) {
-      var hit = atoms[i].bands.some(function (r) { return atoms[j].bands.some(function (q) { return hits(r, q); }); });
-      if (hit) out.overlaps.push({ a: atoms[i].text, b: atoms[j].text });
+      var crossing = null;
+      atoms[i].bands.forEach(function (r) { atoms[j].bands.forEach(function (q) { if (!crossing && hits(r, q)) crossing = [r, q]; }); });
+      if (crossing && tile) {
+        var px = (Math.max(crossing[0].left, crossing[1].left) + Math.min(crossing[0].right, crossing[1].right)) / 2;
+        var py = (Math.max(crossing[0].top, crossing[1].top) + Math.min(crossing[0].bottom, crossing[1].bottom)) / 2;
+        if (covered(atoms[i].el, px, py) || covered(atoms[j].el, px, py)) crossing = null;
+      }
+      if (crossing) out.overlaps.push({ a: atoms[i].text, b: atoms[j].text });
     }
     // Floor, contrast, fonts, sizes, lead.
     var pairs = {}, stacks = {}, sizes = {}, largest = null;
     atoms.forEach(function (a) {
-      // Avatar initials repeat the name beside them, so the floor skips them (decision Q15); their contrast still counts.
-      if (a.size < floor - 0.01 && !a.el.closest(".av,.avatar")) out["under-floor"].push({ text: a.text, size: Math.round(a.size * 10) / 10, element: desc(a.el) });
+      // Avatar initials repeat the name beside them, so the floor skips them (decision Q15) when the avatar's parent holds
+      // text outside the avatar; a lone avatar's initials are text like any other. Their contrast still counts.
+      if (a.size < floor - 0.01 && !besideName(a.el, atoms)) out["under-floor"].push({ text: a.text, size: Math.round(a.size * 10) / 10, element: desc(a.el) });
       sizes[Math.round(a.size * 2) / 2] = true;
       if (!largest || a.size > largest.size || (a.size === largest.size && a.weight > largest.weight)) largest = a;
       if (!stacks[a.family]) stacks[a.family] = rendered(a.family);
@@ -223,64 +434,106 @@ MEASURE_JS = r"""
     out.contrast = Object.keys(pairs).map(function (k) { return pairs[k]; });
     out.fonts = Object.keys(stacks).map(function (k) { return stacks[k]; });
     out["font-sizes"] = Object.keys(sizes).map(Number).sort(function (a, b) { return a - b; });
-    var leads = frame.hasAttribute("data-lead") ? [frame] : Array.prototype.slice.call(frame.querySelectorAll("[data-lead]"));
-    out["largest-text"] = largest ? { size: largest.size, text: largest.text, element: desc(largest.el) } : null;
-    if (!leads.length) out.lead = "not marked";
-    else {
-      var inLead = atoms.filter(function (a) { return leads.some(function (l) { return l.contains(a.el); }); });
-      if (!inLead.length) out.lead = "holds no text";
-      else out.lead = inLead.some(function (a) { return a.size >= largest.size; }) ? "largest" : "not largest";
+    var marks = {};
+    out.colours = colourUses(frame, atoms, kind, caption, marks);
+    out.marks = Object.keys(marks).map(function (k) { return marks[k]; });
+    // A state tile has no lead, title, size or empty share.
+    if (!tile) {
+      var leads = frame.hasAttribute("data-lead") ? [frame] : Array.prototype.slice.call(frame.querySelectorAll("[data-lead]"));
+      out["largest-text"] = largest ? { size: largest.size, text: largest.text, element: desc(largest.el) } : null;
+      if (!leads.length) out.lead = "not marked";
+      else {
+        var inLead = atoms.filter(function (a) { return leads.some(function (l) { return l.contains(a.el); }); });
+        if (!inLead.length) out.lead = "holds no text";
+        else out.lead = inLead.some(function (a) { return a.size >= largest.size; }) ? "largest" : "not largest";
+      }
+      // The title: the first h1 in reading order (top, then left), else the first h2, else the first heading, outside nested tiles.
+      var title = null;
+      ["h1", "h2", "[role=heading]"].forEach(function (sel) {
+        if (title) return;
+        title = Array.prototype.filter.call(frame.querySelectorAll(sel), function (h) {
+          var r = h.getBoundingClientRect(); return r.width >= 1 && r.height >= 1 && cs(h).visibility === "visible" && !nestedTile(h, frame);
+        }).sort(function (a, b) { return reading(a.getBoundingClientRect(), b.getBoundingClientRect()); })[0] || null;
+      });
+      out.title = title ? { text: clip(title.innerText || title.textContent), element: desc(title), size: parseFloat(cs(title).fontSize), weight: parseInt(cs(title).fontWeight, 10) || 400 } : null;
+      // The five largest texts of the first screen (the top 768 px of a desktop or browser frame, all of a phone or report
+      // frame) outside nested tiles, by size, then weight, then reading order. Chrome is header, nav and footer.
+      var fold = kind === "desktop" || kind === "browser" ? fr.top + 768 : Infinity;
+      out["top-text"] = atoms.filter(function (a) { return !a.hidden && !nestedTile(a.el, frame) && a.rects[0].top < fold; })
+        .sort(function (a, b) { return b.size - a.size || b.weight - a.weight || reading(a.rects[0], b.rects[0]); }).slice(0, 5)
+        .map(function (a) {
+          var c = a.el.closest("header,nav,footer");
+          return { size: a.size, weight: a.weight, text: a.text, element: desc(a.el), title: !!title && title.contains(a.el),
+            chrome: !!c && c !== frame && frame.contains(c), inLead: leads.length ? leads.some(function (l) { return l.contains(a.el); }) : null };
+        });
+      out.size = sizeOf(kind, fr);
+      // Empty share: sampled points of the content area farther than 16 px (a gap inside a group, S5) from any element
+      // that shows something: the block that holds a text, a graphic, a control or a painted box. The content area is
+      // the frame's content box less the equal margins left and right of every text block, so a centred site's gutters
+      // don't count and an empty side does.
+      // Gate 7 follows this figure: a judge who reads it as a false alarm writes a fault line, and the gate still fails.
+      var area = Math.max(1, (content.right - content.left) * (content.bottom - content.top)), filled = [], left = Infinity, right = -Infinity;
+      var blocks = new Set();
+      atoms.forEach(function (a) {
+        var b = a.el;
+        if (!a.svg) while (b !== frame && /^(inline|contents)$/.test(cs(b).display)) b = b.parentElement;
+        var r = a.svg || b === frame ? null : b.getBoundingClientRect();
+        if (!r || r.width * r.height >= 0.5 * area) { filled.push.apply(filled, a.rects); r = a.rects[0]; }
+        else if (!blocks.has(b)) { blocks.add(b); filled.push(r); }
+        left = Math.min(left, r.left); right = Math.max(right, r.right);
+      });
+      var frameBg = background(frame);
+      Array.prototype.forEach.call(frame.querySelectorAll("*"), function (e) {
+        if (e instanceof SVGElement && e.tagName.toLowerCase() !== "svg") return;
+        var s = cs(e); if (s.visibility !== "visible" || s.display === "none") return;
+        var r = e.getBoundingClientRect(); if (r.width < 1 || r.height < 1 || r.width * r.height >= 0.5 * area) return;
+        var tag = e.tagName.toLowerCase(), p = painted(s);
+        var visibleBg = p.bg && (!frameBg || hex(over(p.bg, frameBg)) !== hex(frameBg));
+        if (["svg", "img", "canvas", "video", "input", "select", "textarea", "button", "hr"].indexOf(tag) >= 0 || visibleBg || p.image || p.border || p.shadow) filled.push(r);
+      });
+      var gutter = Math.max(0, Math.min(left - 16 - content.left, content.right - right - 16));
+      var x0 = content.left + gutter, x1 = content.right - gutter;
+      filled = filled.map(function (r) { return { left: r.left - 16, right: r.right + 16, top: r.top - 16, bottom: r.bottom + 16 }; })
+        .filter(function (r) { return r.right > x0 && r.left < x1 && r.bottom > content.top && r.top < content.bottom; });
+      var step = Math.max(4, Math.sqrt((x1 - x0) * (content.bottom - content.top) / 4000)), total = 0, empty = 0;
+      for (var y = content.top + step / 2; y < content.bottom; y += step) for (var x = x0 + step / 2; x < x1; x += step) {
+        total++;
+        if (!filled.some(function (r) { return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; })) empty++;
+      }
+      out["empty-share"] = total ? Math.round(empty / total * 1000) / 1000 : 0;
     }
-    // Empty share: sampled points of the content area farther than 16 px (a gap inside a group, S5) from any element
-    // that shows something: the block that holds a text, a graphic, a control or a painted box. The content area is
-    // the frame's content box less the equal margins left and right of every text block, so a centred site's gutters
-    // don't count and an empty side does.
-    // An estimate: the judge confirms it in the picture.
-    var area = Math.max(1, (content.right - content.left) * (content.bottom - content.top)), filled = [], left = Infinity, right = -Infinity;
-    var blocks = new Set();
-    atoms.forEach(function (a) {
-      var b = a.el;
-      if (!a.svg) while (b !== frame && /^(inline|contents)$/.test(cs(b).display)) b = b.parentElement;
-      var r = a.svg || b === frame ? null : b.getBoundingClientRect();
-      if (!r || r.width * r.height >= 0.5 * area) { filled.push.apply(filled, a.rects); r = a.rects[0]; }
-      else if (!blocks.has(b)) { blocks.add(b); filled.push(r); }
-      left = Math.min(left, r.left); right = Math.max(right, r.right);
-    });
-    var frameBg = background(frame);
-    Array.prototype.forEach.call(frame.querySelectorAll("*"), function (e) {
-      if (e instanceof SVGElement && e.tagName.toLowerCase() !== "svg") return;
-      var s = cs(e); if (s.visibility !== "visible" || s.display === "none") return;
-      var r = e.getBoundingClientRect(); if (r.width < 1 || r.height < 1 || r.width * r.height >= 0.5 * area) return;
-      var tag = e.tagName.toLowerCase(), p = painted(s);
-      var visibleBg = p.bg && (!frameBg || hex(over(p.bg, frameBg)) !== hex(frameBg));
-      if (["svg", "img", "canvas", "video", "input", "select", "textarea", "button", "hr"].indexOf(tag) >= 0 || visibleBg || p.image || p.border || p.shadow) filled.push(r);
-    });
-    var gutter = Math.max(0, Math.min(left - 16 - content.left, content.right - right - 16));
-    var x0 = content.left + gutter, x1 = content.right - gutter;
-    filled = filled.map(function (r) { return { left: r.left - 16, right: r.right + 16, top: r.top - 16, bottom: r.bottom + 16 }; })
-      .filter(function (r) { return r.right > x0 && r.left < x1 && r.bottom > content.top && r.top < content.bottom; });
-    var step = Math.max(4, Math.sqrt((x1 - x0) * (content.bottom - content.top) / 4000)), total = 0, empty = 0;
-    for (var y = content.top + step / 2; y < content.bottom; y += step) for (var x = x0 + step / 2; x < x1; x += step) {
-      total++;
-      if (!filled.some(function (r) { return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; })) empty++;
-    }
-    out["empty-share"] = total ? Math.round(empty / total * 1000) / 1000 : 0;
 
-    if (out.overflow.length) out.faults.push("overflow: " + out.overflow.length + " text box(es) clipped or spilling");
+    var cut = out.overflow.filter(function (o) { return o.ellipsis; }).length;
+    if (out.overflow.length > cut) out.faults.push("overflow: " + (out.overflow.length - cut) + " text box(es) clipped or spilling");
+    if (cut) out.faults.push("ellipsis: " + cut + " text box(es) cut with an ellipsis");
     if (out.overlaps.length) out.faults.push("overlap: " + out.overlaps.length + " pair(s) of text boxes overlap");
     if (out["under-floor"].length) out.faults.push("floor: " + out["under-floor"].length + " text(s) under " + floor + " px");
     var low = out.contrast.filter(function (c) { return c.pass === false; });
     if (low.length) out.faults.push("contrast: " + low.length + " colour pair(s) under their ratio");
+    var faint = out.marks.filter(function (m) { return m.counts && m.ratio !== null && m.ratio < 3 && !(m["ratio-outside"] >= 3); });
+    if (faint.length) out.faults.push("marks: " + faint.length + " mark colour pair(s) under 3:1");
     var fb = out.fonts.filter(function (f) { return f.fallback; });
     if (fb.length) out.faults.push("font: " + fb.map(function (f) { return f.asked + " rendered as " + f.rendered; }).join("; "));
     if (out["empty-share"] > 0.15) out.faults.push("empty: about " + Math.round(out["empty-share"] * 100) + "% of the content area is empty");
     if (out.lead === "not largest") out.faults.push("lead: the largest text is outside the data-lead element");
-    if (out["font-sizes"].length > 5) out.faults.push("sizes: " + out["font-sizes"].length + " distinct font sizes (S4 allows three or four plus a display size)");
+    // S4 for an app, P4 on a site (five plus the headline), B8 on a report (four plus the callout).
+    var site = kind === "browser" || (kind === "phone" && siteOnly), rule = kind === "report" ? ["B8", 5, "four plus the callout"]
+      : site ? ["P4", 6, "five plus the headline"] : ["S4", 5, "three or four plus a display size"];
+    if (!tile && out["font-sizes"].length > rule[1]) out.faults.push("sizes: " + out["font-sizes"].length + " distinct font sizes (" + rule[0] + " allows " + rule[2] + ")");
     return out;
-  });
+  }
+  function floorOf(kind) { return kind === "browser" || (kind === "phone" && siteOnly) ? 14 : 12; }
+  var frames = all.map(function (frame, fi) { return measureBox(frame, kinds[fi], floorOf(kinds[fi]), false); });
+  // State tiles: one inside a frame is measured with it; one outside every frame is measured like a frame, but for the
+  // empty share, the lead and the size, on the floor of the frame its data-for names, else the file's.
   var states = Array.prototype.map.call(document.querySelectorAll("[data-state]"), function (e) {
-    var r = e.getBoundingClientRect();
-    return { state: e.getAttribute("data-state"), "for": e.getAttribute("data-for"), box: { x: Math.round(r.left + sx), y: Math.round(r.top + sy), w: Math.round(r.width), h: Math.round(r.height) } };
+    var tile = { state: e.getAttribute("data-state"), "for": e.getAttribute("data-for"), box: pageBox(e.getBoundingClientRect()),
+      "in-frame": all.some(function (f) { return f.contains(e); }) };
+    if (tile["in-frame"]) return tile;
+    var fi = all.map(function (f) { return f.getAttribute("data-screen"); }).indexOf(tile["for"]);
+    var kind = fi >= 0 ? kinds[fi] : reportFile ? "report" : "none", m = measureBox(e, kind, fi >= 0 ? floorOf(kind) : siteOnly ? 14 : 12, true);
+    ["floor", "overflow", "overlaps", "under-floor", "contrast", "fonts", "colours", "marks", "faults"].forEach(function (k) { tile[k] = m[k]; });
+    return tile;
   });
   var result = { width: document.documentElement.clientWidth,
     "page-height": Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0),
@@ -440,9 +693,47 @@ def layout(session, sketch, width):
     return text, page, width, height, data
 
 
+# A colour is neutral when its sRGB chroma (max minus min channel) is at most this: greys and near-white page tones
+# fall at 4 or under, and the lightest status tint at 9.
+NEUTRAL_CHROMA = 6
+HUE_STEP = 15
+
+
+def chroma(h):
+    rgb = [int(h[i:i + 2], 16) for i in (1, 3, 5)]
+    return max(rgb) - min(rgb)
+
+
+def hue(h):
+    return colorsys.rgb_to_hsv(*[int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)])[0] * 360
+
+
+def hue_groups(hexes):
+    """Hue groups numbered from 1: sorted around the circle from after the largest gap, each group anchored at its first colour."""
+    hs = sorted(set(hexes), key=lambda h: (hue(h), h))
+    if not hs:
+        return {}
+    hv = [hue(h) for h in hs]
+    gaps = [hv[i + 1] - hv[i] for i in range(len(hs) - 1)] + [hv[0] + 360 - hv[-1]]
+    start = (gaps.index(max(gaps)) + 1) % len(hs)  # the first largest gap, so a tie gives the same start every run
+    groups, n, anchor = {}, 0, None
+    for h in hs[start:] + hs[:start]:
+        if anchor is None or (hue(h) - anchor) % 360 > HUE_STEP:
+            n, anchor = n + 1, hue(h)
+        groups[h] = n
+    return groups
+
+
 def report(sketch, text, width, data):
-    out = {"sketch": str(sketch), "sketch-hash": sketch_hash(text), "width": width, "page-height": data["page-height"], "frames": data["frames"]}
-    out["faults"] = sum(len(f["faults"]) for f in out["frames"])
+    out = {"sketch": str(sketch), "sketch-hash": sketch_hash(text), "width": width, "page-height": data["page-height"],
+           "frames": data["frames"], "states": data["states"]}
+    boxes = out["frames"] + [t for t in out["states"] if not t["in-frame"]]
+    for b in boxes:
+        b["colours"] = [c for c in b["colours"] if chroma(c["hex"]) > NEUTRAL_CHROMA]
+    groups = hue_groups([c["hex"] for b in boxes for c in b["colours"]])  # one numbering for the whole file
+    for b in boxes:
+        b["colours"] = sorted(({"hex": c["hex"], "group": groups[c["hex"]], "uses": c["uses"]} for c in b["colours"]), key=lambda c: (c["group"], c["hex"]))
+    out["faults"] = sum(len(b["faults"]) for b in boxes)
     return out
 
 
@@ -610,7 +901,7 @@ def side_by_side(files, out_png, chrome):
 
 # --- Self-test: one planted fault of each kind, a clean frame and an unmarked one that must report nothing.
 
-def frame_html(name, change=""):
+def frame_html(name, change="", kind=None):
     lead = "" if change == "unmarked" else " data-lead"
     big = '<h1%s style="font-size:32px;margin:0">Lead 42</h1>' % ("" if change == "lead" else lead)
     cards = [
@@ -620,6 +911,8 @@ def frame_html(name, change=""):
         '<div class="card"><p>Closed this month</p></div>']
     if change == "overflow":
         cards[1] = '<div class="card"><p style="width:60px;overflow:hidden;white-space:nowrap">A long label that is cut</p></div>'
+    elif change == "ellipsis":
+        cards[1] = '<div class="card"><p style="width:60px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">A long label that is cut</p></div>'
     elif change == "overlap":
         cards[1] = '<div class="card" style="position:relative"><p style="position:absolute;top:10px">First line</p><p style="position:absolute;top:14px;left:20px">Second line</p></div>'
     elif change == "floor":
@@ -632,12 +925,34 @@ def frame_html(name, change=""):
         cards = [cards[0]]
     elif change == "lead":
         cards[1] = '<div class="card"><p data-lead>Marked but small</p></div>'
-    elif change == "sizes":
-        cards[1] = '<div class="card">' + "".join('<p style="font-size:%dpx;margin:0">Size %d</p>' % (n, n) for n in (16, 18, 20, 24)) + "</div>"
+    elif change in ("sizes", "sizes7"):
+        cards[1] = '<div class="card">' + "".join('<p style="font-size:%dpx;margin:0">Size %d</p>' % (n, n) for n in (16, 18, 20, 24, 28)[:4 if change == "sizes" else 5]) + "</div>"
     elif change == "avatar":
         cards[1] = ('<div class="card"><p><span class="av" style="font-size:12px;color:#06434A;background:#CBE4E7">MS</span> Maria S.</p>'
-                    '<p><span class="initials" style="font-size:12px">MS</span></p></div>')
-    kind = "browser" if change == "avatar" else "desktop"
+                    '<p><span class="initials" style="font-size:12px">MS</span></p><p><span class="avatar" style="font-size:12px">KT</span></p>'
+                    '<p><span class="av" style="font-size:12px">ZZ</span><span style="position:absolute;width:1px;height:1px;clip-path:inset(50%)">Menu</span></p></div>')
+    elif change == "colours":  # a hue in text; an icon, a chart and a drawing; the card's grey fill and the grey text are neutral
+        cards[1] = ('<div class="card"><p style="color:#0B6A75">Brand link <span style="color:#616161">grey</span></p>'
+                    '<svg width="20" height="20"><rect width="20" height="20" fill="#0E700E"/></svg>'
+                    '<svg width="120" height="40"><rect width="60" height="30" fill="#B10E1C"/><text x="70" y="20" fill="#242424">12</text></svg>'
+                    '<svg width="60" height="40"><circle cx="20" cy="20" r="20" fill="#C2570C"/><circle cx="20" cy="20" r="5" fill="#FFFFFF"/></svg>'
+                    '<svg width="40" height="40"><path d="M0 0H40L20 40Z" fill="#0E700E"/></svg>'
+                    '<svg width="80" height="20"><path d="M0 20L40 0L80 20Z" fill="#8A3707"/></svg>'
+                    '<svg width="100" height="16"><line x1="0" x2="100" y1="14" y2="14" stroke="#E8E8E8"/><rect width="100" height="6" fill="#E0E0E0"/>'
+                    '<rect width="60" height="6" fill="#C8C8C8"/><line x1="50" x2="50" y1="0" y2="12" stroke="#7A7A7A" stroke-width="2"/>'
+                    '<rect x="70" y="8" width="10" height="4" fill="#F0F0F0"/></svg>'
+                    '<svg width="100" height="16"><rect width="100" height="6" fill="#EEACB2"/><rect width="60" height="6" fill="#B10E1C"/><line x1="80" x2="80" y2="16" stroke="#242424"/></svg></div>')
+    elif change == "line":  # two 20 px texts on one line, the right one's box 8 px higher: the left one reads first
+        cards[1] = ('<div class="card" style="display:flex;align-items:flex-end;gap:8px"><p style="font-size:20px;line-height:24px">Left</p>'
+                    '<p style="font-size:20px;line-height:40px">Right</p></div>')
+    elif change == "fold":  # an h2 left of the h1 on one line, and a larger text below the first 768 px
+        cards = ['<div class="card"><h2 style="font-size:14px;margin:0">Side</h2></div>', cards[0],
+                 '<div class="card" style="padding-top:780px;background:none"><p style="font-size:40px;margin:0">Below</p></div>']
+    elif change == "nested":  # chrome, the title and a lead, and a nested tile whose large text top-text leaves out
+        cards = ['<div class="card"><header><span style="font-size:24px">App</span></header><h2 style="font-size:20px;margin:0">Queue</h2>'
+                 '<p style="font-size:16px" data-lead>Lead line</p></div>',
+                 '<div class="card" data-state="loading"><p style="font-size:40px;margin:0">Huge</p></div>']
+    kind = kind or ("browser" if change == "avatar" else "desktop")
     return '<section class="frame %s" data-screen="%s">%s</section>' % (kind, name, "".join(cards))
 
 
@@ -645,7 +960,7 @@ SELF_TEST_CSS = ("body{margin:0;background:#fff;font:14px/1.4 sans-serif;color:#
                  ".frame{width:600px;height:300px;margin:16px;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px;"
                  "box-sizing:border-box;border:1px solid #ccc;background:#fff}"
                  ".card{background:#F0F0F0;padding:8px;margin:0;overflow:hidden}.card p{margin:0 0 4px}")
-KINDS = ["overflow", "overlap", "floor", "contrast", "font", "empty", "lead", "sizes"]
+KINDS = ["overflow", "ellipsis", "overlap", "floor", "contrast", "font", "empty", "lead", "sizes"]
 
 
 def escape_sketch(work):
@@ -728,6 +1043,64 @@ def server_checks(chrome):
     return problems
 
 
+def new_field_checks(result, frames):
+    """The measured fields: ellipsis, sizes per statement, colours and hue groups, title and top-text, size, state tiles."""
+    problems = []
+    ov, el = frames["overflow"]["overflow"], frames["ellipsis"]["overflow"]
+    if [o["ellipsis"] for o in ov] != [False] or [o["ellipsis"] for o in el] != [True]:
+        problems.append("ellipsis: overflow says %s, ellipsis says %s" % (ov, el))
+    six, seven = frames["p4-six"]["faults"], frames["p4-seven"]["faults"]
+    if six or [f.split(":")[0] for f in seven] != ["sizes"] or "P4" not in seven[0] or "S4" not in frames["sizes"]["faults"][0]:
+        problems.append("sizes per statement: six on a site %s, seven %s, six in an app %s" % (six, seven, frames["sizes"]["faults"]))
+    got = {c["hex"]: sorted(set(u.get("svg", u["role"]) for u in c["uses"])) for c in frames["colours"]["colours"]}
+    if got != {"#0B6A75": ["text"], "#0E700E": ["icon"], "#B10E1C": ["chart"], "#C2570C": ["imagery"], "#EEACB2": ["chart"], "#8A3707": ["imagery"]} or frames["clean"]["colours"]:
+        problems.append("colours: %s, the clean frame %s" % (got, frames["clean"]["colours"]))
+    svg = [u for c in frames["colours"]["colours"] for u in c["uses"] if u["role"] == "svg"]
+    if not all(u["background"] == "#F0F0F0" and u["box"]["w"] in (20, 120, 60, 100, 40, 80) for u in svg) or len(set(c["group"] for c in frames["colours"]["colours"])) != 4:
+        problems.append("colours: svg uses %s, groups %s" % (svg, [c["group"] for c in frames["colours"]["colours"]]))
+    marks = {(m["paint"], m["against"], m["svg"]): m["ratio"] for m in frames["colours"]["marks"]}
+    want = [("#EEACB2", "#F0F0F0", "chart"), ("#B10E1C", "#EEACB2", "chart"), ("#0E700E", "#F0F0F0", "icon")]
+    if any(k not in marks for k in want) or not marks[want[0]] < 3 or any(k[0] in ("#C2570C", "#8A3707") for k in marks) \
+            or not any(f.startswith("marks:") for f in frames["colours"]["faults"]) or frames["clean"]["marks"]:
+        problems.append("marks: %s, faults %s" % (frames["colours"]["marks"], frames["colours"]["faults"]))
+    # (a) a track under a value bar doesn't count; (b) a 1 px gridline doesn't; (c) a tick past the bar is also read on the
+    # background and passes there; the bar itself, topmost and under 3:1 on the track, counts.
+    by = {m["paint"]: m for m in frames["colours"]["marks"] if m["paint"] in ("#E0E0E0", "#C8C8C8", "#7A7A7A", "#E8E8E8", "#F0F0F0")}
+    got = {h: (m["counts"], m["against"], m.get("against-outside")) for h, m in by.items()}
+    if [m.get("ratio-background") for m in frames["colours"]["marks"] if m["paint"] == "#C8C8C8"] != [1.47]:  # against the card, not the track (1.27)
+        problems.append("ratio-background: %s" % frames["colours"]["marks"])
+    if got != {"#E8E8E8": (False, "#F0F0F0", None), "#E0E0E0": (False, "#F0F0F0", None), "#C8C8C8": (True, "#E0E0E0", None),
+               "#7A7A7A": (True, "#C8C8C8", "#F0F0F0"), "#F0F0F0": (False, "#F0F0F0", None)} or not by["#7A7A7A"]["ratio-outside"] >= 3 or not by["#C8C8C8"]["ratio"] < 3:
+        problems.append("marks that count: %s" % by)
+    nested = frames["nested"]
+    top = [(t["text"], t["title"], t["chrome"], t["inLead"]) for t in nested["top-text"]]
+    if (nested["title"] or {}).get("text") != "Queue" or top[:3] != [("App", False, True, False), ("Queue", True, False, False), ("Lead line", False, False, True)] \
+            or any(t["text"] == "Huge" for t in nested["top-text"]) or any(t["inLead"] is not None for t in frames["unmarked"]["top-text"]):
+        problems.append("top-text: title %s, top %s" % (nested["title"], top))
+    if [t["text"] for t in frames["line"]["top-text"][1:3]] != ["Left", "Right"]:
+        problems.append("reading order: %s" % [t["text"] for t in frames["line"]["top-text"]])
+    fold = frames["fold"]
+    if (fold["title"] or {}).get("text") != "Lead 42" or any(t["text"] == "Below" for t in fold["top-text"]) or fold["top-text"][0]["text"] != "Lead 42":
+        problems.append("first screen and title: title %s, top %s" % (fold["title"], [t["text"] for t in fold["top-text"]]))
+    sizes = (frames["clean"]["size"], frames["no-size"]["size"], frames["phone"]["size"])
+    if sizes != ("600 by 300, not 1366 by 768", "no size class", "ok"):
+        problems.append("size: %s" % (sizes,))
+    tiles = {t["state"]: t for t in result["states"]}
+    err, inner = tiles.get("error", {}), tiles.get("loading", {})
+    if [(u["text"], u["size"]) for u in err.get("under-floor", [])] != [("Tiny", 10)] or err.get("floor") != 12 or err.get("in-frame") is not False \
+            or inner.get("in-frame") is not True or "faults" in inner or tiles["empty"].get("faults") != [] or tiles["confirm"].get("faults") != []:
+        problems.append("state tiles: %s" % result["states"])
+    if result["faults"] != sum(len(f["faults"]) for f in result["frames"]) + 1:
+        problems.append("the top-level faults count %d leaves out the tile's fault" % result["faults"])
+    for hexes in (["#FF0A00", "#F4B740", "#0B6A75", "#FF0016", "#8A3707", "#0E2A30"], ["#0E2A30", "#8A3707", "#FF0016", "#0B6A75", "#F4B740", "#FF0A00"]):
+        g = hue_groups(hexes)  # reds at 2 and 355 degrees together, from either order
+        if g != {"#FF0016": 1, "#FF0A00": 1, "#8A3707": 2, "#F4B740": 3, "#0B6A75": 4, "#0E2A30": 4}:
+            problems.append("hue groups of %s: %s" % (hexes, g))
+    if [chroma(h) > NEUTRAL_CHROMA for h in ("#F6F5F2", "#E2E6E6", "#F1FAF1", "#FDF3F4")] != [False, False, True, True]:
+        problems.append("neutral: the page and board tokens are neutral, the status tints are not")
+    return problems
+
+
 def self_test(chrome):
     problems = []
     try:
@@ -736,7 +1109,13 @@ def self_test(chrome):
         problems.append("the script does not parse as Python 3.8: %s" % e)
     sketch = ('<!DOCTYPE html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1">'
               "\n<style>" + SELF_TEST_CSS + "</style></head>\n<body>\n" + frame_html("clean") + "\n" + frame_html("unmarked", "unmarked") + "\n"
-              + "\n".join(frame_html(k, k) for k in KINDS) + "\n" + frame_html("avatar", "avatar") + '\n<div class="state" data-state="empty" data-for="clean">None</div>\n</body></html>\n')
+              + "\n".join(frame_html(k, k) for k in KINDS) + "\n" + frame_html("avatar", "avatar") + "\n"
+              + frame_html("p4-six", "sizes", "browser") + frame_html("p4-seven", "sizes7", "browser") + frame_html("colours", "colours")
+              + frame_html("nested", "nested") + frame_html("line", "line") + frame_html("fold", "fold", 'browser" style="height:1000px') + frame_html("no-size", "", "x") + frame_html("phone", "", 'phone" style="width:390px')
+              + '\n<div class="state" data-state="empty" data-for="clean">None</div>'
+              + '\n<div class="state" data-state="error"><header style="font-size:10px">Caption</header><p style="font-size:10px">Tiny</p></div>'
+              + '\n<div class="state" data-state="confirm"><div style="position:relative"><p style="margin:0">Under the dialog</p>'
+              + '<div style="position:absolute;top:0;left:0;right:0;background:#fff"><p style="margin:0">Dialog text</p></div></div></div>\n</body></html>\n')
     work = tempfile.mkdtemp(prefix="powerops-selftest-")
     try:
         path = os.path.join(work, "self-test.html")
@@ -761,10 +1140,11 @@ def self_test(chrome):
                 problems.append("the %s frame reports %s, not exactly [%s]" % (kind, frames[kind]["faults"], kind))
         # A site frame: 12 px initials in an avatar are not under the floor, the same text outside one is; the avatar's contrast still counts.
         av = frames["avatar"]
-        if [(u["text"], u["element"]) for u in av["under-floor"]] != [("MS", "span.initials")] or [f.split(":")[0] for f in av["faults"]] != ["floor"]:
+        if [(u["text"], u["element"]) for u in av["under-floor"]] != [("MS", "span.initials"), ("KT", "span.avatar"), ("ZZ", "span.av")] or [f.split(":")[0] for f in av["faults"]] != ["floor"]:
             problems.append("the avatar frame reports %s under the floor, faults %s" % (av["under-floor"], av["faults"]))
         if not any(c["background"] == "#CBE4E7" and c["text"] == "MS" for c in av["contrast"]):
             problems.append("the avatar's initials have no contrast entry")
+        problems += new_field_checks(result, frames)
         pics = shoot(path, os.path.join(work, "pictures"), 640, chrome)["pictures"]
         clean = next(p for p in pics if p["file"].endswith(".1-clean.png"))
         w, h, px = png_read(clean["file"])
@@ -774,8 +1154,8 @@ def self_test(chrome):
         at = ((h // 2) * w + 2) * 3  # inside the frame's 8 px padding, left of the cards: its white background
         if tuple(px[at:at + 3]) != (255, 255, 255):
             problems.append("the clean frame's picture has %s where the frame is white" % (tuple(px[at:at + 3]),))
-        if len(pics) != 1 + len(KINDS) + 3 + 1:
-            problems.append("shoot wrote %d pictures, not %d" % (len(pics), len(KINDS) + 5))
+        if len(pics) != 1 + len(frames) + len(result["states"]):
+            problems.append("shoot wrote %d pictures, not %d" % (len(pics), 1 + len(frames) + len(result["states"])))
         joined = side_by_side([path, path, path], os.path.join(work, "pictures", "side.png"), chrome)
         if (joined["w"], joined["h"]) != (3 * (box["w"] // 2) + 4 * 24, box["h"] // 2 + 48):
             problems.append("side-by-side is %dx%d" % (joined["w"], joined["h"]))
@@ -784,7 +1164,9 @@ def self_test(chrome):
         shutil.rmtree(work, ignore_errors=True)
     for p in problems:
         print("FAIL " + p)
-    print("self-test: %s (%d planted kinds, a clean and an unmarked frame, avatar initials on a site, shoot and side-by-side, a sketch reaching for files outside it, and the loopback server)" % ("failed" if problems else "passed", len(KINDS)))
+    print("self-test: %s (%d planted kinds, a clean and an unmarked frame, avatar initials on a site, sizes per statement, colours and hue groups, "
+          "title and top-text, size, state tiles, shoot and side-by-side, a sketch reaching for files outside it, and the loopback server)"
+          % ("failed" if problems else "passed", len(KINDS)))
     return 1 if problems else 0
 
 
