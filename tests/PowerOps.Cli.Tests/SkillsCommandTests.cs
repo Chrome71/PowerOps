@@ -882,6 +882,122 @@ public partial class SkillsCommandTests : IDisposable
     }
 
     [Fact]
+    public void Baseline_states_how_each_gate_and_score_is_decided()
+    {
+        // M117: each sentence is a rule the judge and the author apply; one pin per sentence.
+        var baseline = SkillsCommand.Shipped()["powerops-plan/references/baseline.md"];
+        string[] scale =
+        [
+            "Each statement is `met`, `not met` or `not applicable`.",
+            "A statement is `not met` when a named element in a main frame or state tile breaks its number, or a required part of its words is missing; one element is enough, and a near miss that breaks no number is a fault, not `not met`.",
+            "Each dimension covers these statements: 1 First look and lead: S1, C3, P2, B3. 2 Hierarchy and type: S4 (P4 on a site, B8 on a report). 3 Colour and meaning: S3, B6. 4 Layout, spacing and fill: S5, S6, S12, C4, P5, B1, B2, B9, B10. 5 Content and numbers: S2, S8, S15, B4, B5, B11. 6 States: S10, P6. 7 Product fit and frame: S11, S14, S16, C1, C2, C5 to C10, P1, P3, P7, P8, P10, B7, B12. 8 Detail and finish: S7, S9, S13. 9 Identity: the Identity checks below, and P9 on a site.",
+            "A dimension scores under 3 only when one of its statements is `not met`: 2 for one or two, 1 for three or more.",
+            "With none `not met` it scores 3, or 4 when no improvement can be named.",
+            "Identity, for canvas, model-driven and Power BI, has three checks: a brand hue that isn't one of S3's tells; a mark of its own in the header; the organisation's own words (its name, places or services) in the content.",
+            "It is 3 when all three hold, 2 when one is missing, 1 when two or three are, and 4 only with imagery of its own as well and no improvement to name; a site is scored on P9 and has gate 8.",
+        ];
+        string[] gates =
+        [
+            "Gate 1 also fails when the frame doesn't show that element (behind a closed tab, in a collapsed region or only on another frame), and when the job line names a state (focused, selected) that isn't drawn on it.",
+            "Only text in the frame's first screen is a rival: what a desktop or browser frame shows before scrolling, and all of a phone or report frame.",
+            "Largest or strongest is decided by size, then weight at equal size, never by colour or fill: text in the header, navigation and footer is chrome and never a rival, and on equal size and weight the first in reading order (top, then left) leads.",
+            "A first look that is a row, a field or a control leads when it carries the frame's only focus ring or only selected row; a frame with two focus rings or two selected rows fails, because two items compete.",
+            "It counts the colours of the interface (text, the fills and strokes of controls, badges, rows and bands, icons and data marks), not the surfaces of the page and the frames, nor the colours inside imagery, such as a site's drawing of the place.",
+            "The meanings are brand (the primary action, selection, links, focus, brand surfaces such as the header or a site's band, and in a report B6's highlighted series), the site accent (P9's main action), good (a Positive status, a good difference), bad (a Critical status, an adverse difference), caution and informative; the neutral status and the context grey are neutrals.",
+            "A use's meaning is read from the word, sign or icon beside it, else from the control it is on; two adverse differences are one meaning unless their words differ in severity, and one item's status shown in a status colour in one place and in ink in another is one meaning in two colours.",
+            "Text cut with an ellipsis is not clipped text for this gate; in a canvas frame it is gate 3.",
+            "In a report, the whole dimmed part of a bar or column visual that the product draws for a cross-highlight, grey context included, is exempt from 3:1 for marks, as disabled text is; the highlighted marks keep 3:1 and text keeps 4.5:1.",
+            "A visual is cross-highlighted when its bars or columns are drawn in two tones of one hue (full and dimmed) while another element of the same frame or tile is drawn selected, or the tile is a selection state.",
+            "Each frame is judged on the product its screen has in the plan's `Screens`; a model-driven frame is checked at C1's 1366 by 768 and on S14's chrome (a header, one navigation, a title row with the primary action).",
+        ];
+        string[] sources =
+        [
+            "For gate 6, from M117's Assumption A1, verified 2026-11-15: [How visuals cross-filter each other in a Power BI report](https://learn.microsoft.com/power-bi/explore-reports/end-user-interactions), [Filters and highlighting in Power BI reports](https://learn.microsoft.com/power-bi/create-reports/power-bi-reports-filters-and-highlighting), [Change how visuals interact in a Power BI report](https://learn.microsoft.com/power-bi/create-reports/service-reports-visual-interactions) and [High-contrast mode support in Power BI visuals](https://learn.microsoft.com/power-bi/developer/visuals/high-contrast-support): built-in visuals cross-highlight by default, and bar and column charts keep the unselected data visible but dimmed; Learn gives no contrast for the dimmed part outside high-contrast mode.",
+        ];
+
+        Assert.All(scale, s => Assert.Contains(s, Between(baseline, "## 5. The scale", "## 6. The gates")));
+        Assert.All(gates, s => Assert.Contains(s, Between(baseline, "## 6. The gates", "## 7. The ladder")));
+        Assert.All(sources, s => Assert.Contains(s, baseline[baseline.IndexOf("## Sources", StringComparison.Ordinal)..]));
+        Assert.DoesNotContain("partly", baseline);
+    }
+
+    [Fact]
+    public void Sketch_judge_reads_the_figures_and_decides_each_gate_by_a_stated_rule()
+    {
+        // M117: the procedures that make two fresh judges give the same verdict; one pin per sentence.
+        var text = SkillsCommand.Shipped()["powerops-review-sketch/SKILL.md"];
+        string[] render =
+        [
+            "`measure.py measure <sketch>` prints JSON: the `sketch-hash` for your header, the page height, and per frame (each `data-screen` element) its box and class, text that overflows its box (`\"ellipsis\": true` when the clipping box has `text-overflow: ellipsis`), pairs of text boxes that overlap, text under the product's floor (the initials of an avatar, class `av` or `avatar`, are skipped only when the avatar's parent holds text outside it, the name beside it), the contrast of each text colour on its background (`unknown` over an image or gradient; a disabled control's text is skipped), each font asked for and the one that rendered, the share of the content area that is empty, the largest text and whether it is inside the `data-lead` element (`lead: not marked` when the frame has none), and the distinct font sizes.",
+            "It also gives per frame its `title` (its first `h1`, else its first `h2`, else its first `[role=heading]`, or null), its `top-text` (the five largest texts outside nested tiles in the frame's first screen: the top 768 px of a desktop or browser frame, the whole of a phone or report frame; each with `size`, `weight`, `text`, `element` and the flags `title`, `chrome` and `inLead`), its `size` (`ok`, `no size class`, or the reason), and its `colours`: each non-neutral colour with its `hex`, its hue `group` and its `uses` (`role` text, fill, stroke or svg, `element`, `count`; an svg use adds `svg` icon, chart or imagery, its box and the `background` under it).",
+            "Each frame's `faults` lists what crossed a line; the `sizes` fault names its statement (S4, P4 or B8), and an ellipsis is counted in the `ellipsis` fault, not in `overflow`.",
+            "The top-level `states` list holds every `[data-state]` tile: its box, `data-state`, `data-for` (or null), whether it is inside a frame, and for a tile outside every frame the same overflow, overlap, floor, contrast, font and `colours` fields and its faults.",
+            "The top-level `faults` counts the frames' and the tiles' faults.",
+            "A tile's own first `header` is its caption, not the product, and is not measured; in a tile, text hidden under an opaque box drawn above it is no overlap.",
+            "`colours` leaves out the fill and border of the frame or tile itself and blurred shadows.",
+            "The figures decide gate 1's sizes and weights and gate 7's size and empty share: where you think such a figure is a false alarm, write a fault line, and the gate still follows the figure.",
+            "Confirm each other measured fault in the picture, or say why it is a false alarm.",
+            "Where the JSON maps to a gate: overflow, overlaps, text under the floor and contrast are gate 6, in a frame or a tile; an ellipsis is never gate 6 (section 3 says where it goes); an empty share over 0.15 or a `size` other than `ok` (`no size class` included) is gate 7; `top-text` is gate 1, by section 3.",
+            "The `sizes` fault is a `not met` of the statement it names.",
+        ];
+        string[] judge =
+        [
+            "Each frame is judged on the product its screen has in the plan's `Screens` line, or, where the plan doesn't say, on the first comment's `route:` line.",
+            "**Evidence.** A gate fails only on a named element and a value it has, or a rule of this section or of `baseline.md` that it breaks.",
+            "\"Narrow\", \"close\" or \"reads as\" is a fault line, not a gate fail.",
+            "**Statements and scores.** A statement is `met`, `not met` or `not applicable`, by \"The scale\": `not met` names the element, in a main frame or a state tile, and the value or the missing part.",
+            "Score each dimension from its statements in the map of \"The scale\" alone: under 3 only for a `not met`, 2 for one or two, 1 for three or more, else 3, or 4 when you can name no improvement.",
+            "Identity follows its three checks there.",
+            "**Gate 1.** Find the element the job line names as the first look.",
+            "If the frame doesn't show it, or the line names a state (selected, focused) that isn't drawn on it, gate 1 fails.",
+            "A text inside a row, a field or a control names that row, field or control.",
+            "When the first look is a row, a field or a control: with a named state, it passes when the element carries the frame's only focus ring or its only selected-row style; with only a position (\"the first field\"), it passes when the element carries the frame's only focus ring, and else the size test applies to its text.",
+            "A frame with two focus rings or two selected rows fails gate 1.",
+            "A selected-row style is the fill, bar or check that marks one row of a list, table or gallery as the selected one; it is the frame's only one when no other row of the frame is drawn selected.",
+            "A selected tab, pivot, segment or navigation item is navigation, not a row: it neither counts as the selected row nor competes with it.",
+            "Otherwise use the size test on `top-text`, which lists only the frame's first screen, so a text below it is no rival: leave out the title (unless the first look is the title), every entry with `chrome: true` and one docked phone action; gate 1 fails when a text left is larger than the first look's largest text, or has its size and a greater weight.",
+            "On equal size and weight the first in reading order (top, then left) leads, and the gate fails only when the rival comes first.",
+            "Two texts whose boxes share at least half the lower one's height are on one line and read left to right.",
+            "Colour and fills don't decide gate 1; a filled button outside the first look is gate 5's and S9's.",
+            "**Gate 3.** With no map, read each part a main frame draws against the product's table: a part the table marks preview, not native or not confirmed fails gate 3 unless the plan's `Assumptions` records it.",
+            "A part the table doesn't name is a map-check line, not a gate 3 fail.",
+            "A model-driven frame has no table: gate 3 fails it only on a part the plan marks not confirmed.",
+            "Gate 3 covers main frames only; a part only a state tile draws is a map-check line.",
+            "An ellipsis in a canvas main frame fails gate 3, because `canvas.md` C5 says an ellipsis on overflow is not confirmed: that line is the evidence, and a map that doesn't list the ellipsis doesn't pass it.",
+            "In a state tile an ellipsis is a map-check line; outside canvas it is an S8 line.",
+            "**Gate 4.** Use each frame's and tile's `colours`; `measure.py` already left out the neutrals.",
+            "An svg whose box is at most 24 by 24 px is an `icon`; else, in a `report` frame or tile, it is a `chart` unless it is inside the `header` (the mark); elsewhere it is a `chart` when it holds text or is drawn only of rectangles and lines (a bar, a bullet or a meter); else an svg drawn in one colour whose longer side is at most 48 px is an `icon` (S7 judges its size), and any other is `imagery`.",
+            "A report's phone layout and its state tiles count as `report` here, and a report's mark outside a `header` is classed a chart.",
+            "Icon and chart uses count; imagery uses don't.",
+            "Check each svg's class against the picture, and name a wrong one in a fault line.",
+            "Leave out the fills of the page and of each frame, which are surfaces.",
+            "Give each use its meaning from the set in gate 4 of `baseline.md`, from the word, sign or icon beside it, else the control it is on (a filled button: action; a selected row: selection; link text: link; a focus ring: focus).",
+            "Gate 4 fails when one `group` carries two meanings, or one meaning two groups: name each element and hex.",
+            "**Gate 6.** In a `report` frame or tile, a dimmed bar or column that gate 6 of `baseline.md` exempts is not a fault.",
+            "The highlighted marks keep 3:1: compute it from their fill `hex` in `colours` against the `background` that svg use gives.",
+            "Text keeps 4.5:1.",
+            "A neutral mark's ratio is read from its colour in the picture, since `colours` lists only non-neutral colours.",
+            "**Gate 7.** It follows the figures: `size` and the empty share decide it, as section 2 says.",
+            "A model-driven frame is checked at 1366 by 768 and on S14's chrome.",
+        ];
+        string[] write =
+        [
+            "The file's two opening lines are round 1's, so round 1 doesn't repeat them under its heading.",
+            "A later round starts with its own `judge:` and `sketch-hash:` lines under its heading, because `powerops plan status` reads the last of each and the sketch changed between rounds.",
+            "**Baseline table.** One row per statement that applies: `| ID | met, not met or not applicable | evidence: the frame and the element | fix |`.",
+            "**Scores.** The nine dimensions, 0 to 4, one line each, naming a frame and an element, and for a score under 3 each statement `not met`.",
+            "Outside a Power Pages site, write gate 8 as `not applicable (<product>)`; it fails nothing.",
+            "Only gate 8 may be not applicable.",
+        ];
+
+        Assert.All(render, s => Assert.Contains(s, Between(text, "## 2. Render and look", "## 3. Judge")));
+        Assert.All(judge, s => Assert.Contains(s, Between(text, "## 3. Judge", "## 4. Write the judge file")));
+        Assert.All(write, s => Assert.Contains(s, Between(text, "## 4. Write the judge file", "## 5. Finish")));
+        string[] gone = ["partly", "Treat each measured fault as a lead, not a verdict", "(avatar initials, class `av` or `avatar`, are skipped)", "empty (an estimate)", "you decide gate 1 by looking"];
+        Assert.All(gone, s => Assert.DoesNotContain(s, text));
+    }
+
+    [Fact]
     public void The_visual_rules_the_baseline_replaced_are_gone()
     {
         var shipped = SkillsCommand.Shipped();
