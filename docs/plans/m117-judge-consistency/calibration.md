@@ -1,5 +1,13 @@
 # M117 calibration
 
+## Summary
+
+- Round A (15 fresh judges at `f1dbebc`): every row kept one verdict, `not at baseline`; row 4's gate 6 split, closed by measuring marks and drawn avatar names (`82b1878`, step 9 below).
+- Round B (15 at `82b1878`): row 2's gate 3 (a logo with a same-looking fallback) and row 3's gate 7 (a report phone layout without a page navigator) split; the second miss stopped the work, and the owner asked for one more round.
+- Round C (15 at `59b2a6f`, the gate 3 fallback rule and gate 7's chrome per product): no gate differed within any row in 3 runs; all 15 verdicts `not at baseline`; rows 1 and 4 match their keys.
+- Scores still differ by one point on single dimensions between runs; no verdict turns on them.
+- The tables are at the end ("Judge runs" for rounds A and B, "Judge runs, round C"); the step 5 dry run and step 9's measurements come first.
+
 ## Step 5: compare and dry run
 
 Run by step 3's executor, and rerun after the orchestrator's decisions below, on the final `skills/powerops-review-sketch/measure.py` (sha256 `e1a8add045d5a28d33694572b4926d6e6060ee2593addaa5928f5561fed07b7a`), on top of `28b3c65`, against the script of `daa56f6` (#166). Linux, headless Chrome, Segoe UI not installed (the font fallbacks are the same before and after). The five sketches are the ones `tests/sketch-eval/key.md` names.
@@ -337,3 +345,23 @@ A bug found on the way: a line drawn before a filled shape gave the next shape a
 | 5 | 1 | fresh context | yes | 52d0e222f64a | not at baseline | 4 | 2 2 2 3 2 2 2 2 3 |
 | 5 | 2 | fresh context | yes | 52d0e222f64a | not at baseline | 4 | 3 2 2 2 2 2 2 2 3 |
 | 5 | 3 | fresh context | yes | 52d0e222f64a | not at baseline | 4 | 3 2 3 2 2 2 2 2 3 |
+
+## Judge runs, round C (the owner's extra round, at 59b2a6f)
+
+| Row | Run | judge | hash ok | measure.py sha256 (first 12) | Verdict | Failed gates | Not applicable gates | Scores 1-9 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 1 | fresh context | yes | 52d0e222f64a | not at baseline | 1, 2, 3, 4, 7 | 8 | 2 2 2 1 2 2 1 2 2 |
+| 1 | 2 | fresh context | yes | 52d0e222f64a | not at baseline | 1, 2, 3, 4, 7 | 8 | 2 2 3 1 1 2 1 1 2 |
+| 1 | 3 | fresh context | yes | 52d0e222f64a | not at baseline | 1, 2, 3, 4, 7 | 8 | 2 2 2 1 1 2 1 1 1 |
+| 2 | 1 | fresh context | yes | 52d0e222f64a | not at baseline | 1, 4, 7 | 8 | 2 2 3 3 2 2 1 2 3 |
+| 2 | 2 | fresh context | yes | 52d0e222f64a | not at baseline | 1, 4, 7 | 8 | 2 2 3 1 2 2 1 3 3 |
+| 2 | 3 | fresh context | yes | 52d0e222f64a | not at baseline | 1, 4, 7 | 8 | 2 2 3 2 2 2 1 2 3 |
+| 3 | 1 | fresh context | yes | 52d0e222f64a | not at baseline | none | 8 | 3 2 2 2 1 3 2 3 3 |
+| 3 | 2 | fresh context | yes | 52d0e222f64a | not at baseline | none | 8 | 3 2 3 1 1 2 2 3 3 |
+| 3 | 3 | fresh context | yes | 52d0e222f64a | not at baseline | none | 8 | 3 2 2 2 2 2 3 3 3 |
+| 4 | 1 | fresh context | yes | 52d0e222f64a | not at baseline | 4, 6, 7, 8 | none | 3 2 3 3 2 2 2 2 2 |
+| 4 | 2 | fresh context | yes | 52d0e222f64a | not at baseline | 4, 6, 7, 8 | none | 3 2 2 2 2 2 1 2 2 |
+| 4 | 3 | fresh context | yes | 52d0e222f64a | not at baseline | 4, 6, 7, 8 | none | 3 2 3 2 2 2 1 2 2 |
+| 5 | 1 | fresh context | yes | 52d0e222f64a | not at baseline | 4 | none | 3 2 3 2 2 2 2 2 3 |
+| 5 | 2 | fresh context | yes | 52d0e222f64a | not at baseline | 4 | none | 3 2 2 2 2 2 2 3 3 |
+| 5 | 3 | fresh context | yes | 52d0e222f64a | not at baseline | 4 | none | 3 2 2 3 2 2 2 2 3 |
