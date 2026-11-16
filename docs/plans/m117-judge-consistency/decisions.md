@@ -36,3 +36,23 @@ Answered in the third draft: chrome text is no rival and a row or field first lo
 - 2026-11-15: `powerops-review-plan` third run: 0 High, 0 Medium, 1 Low (R1: a second focus ring or selected row beside the named first look). Answered without a plan change, which would only restate G15's "the frame's only": step 4 writes gate 1 so that a frame with two focus rings or two selected rows fails it, because two items compete for the first look (gate 1's words).
 - 2026-11-15: signed off by the building session (`powerops plan sign-off`) after Fable's APPROVED and `powerops-review-plan` with no High or Medium open, on the chain's standing instruction ("Start the build", 2026-11-11; "Sessions sign off", 2026-11-09) and the owner's choice of 2026-11-15 to run this milestone. Merge still waits for the owner's yes.
 - 2026-11-16: step 5's open items decided by the building session (recorded in `calibration.md`): bullet bars and rect-and-line svgs are charts; a one-colour svg is an icon at any size; gate 1 rivals count only in the frame's first screen (top 768 px of a desktop or browser frame, all of a phone or report frame), because S1's first look is the first screen; the title is the first `h1`, else `h2`, else heading; G9 exempts the whole dimmed part, grey context included; the report mark in a `div` stays a known case (no colour, no effect); row 2 Repairs (phone) keeps the rule and goes to the owner's questions; the selected-row wording as step 5 proposed; Identity "1 when two or three are missing" (step 4's pick).
+
+## Step 8 and 9 results, and the stop (2026-11-16)
+
+Round A (15 fresh Opus judges at `f1dbebc`): every row kept one verdict (`not at baseline`) and rows 1 and 4 their keyed gates; one gate differed, row 4's gate 6 (pass, fail, fail), from an avatar beside a visually hidden label (a `measure.py` bug) and a grey bar read at 2.66:1 by eye. Step 9 measured both (`marks`, drawn names only) at `82b1878`.
+
+Round B (15 new fresh judges at `82b1878`, the final text): every row kept one verdict, rows 1 and 4 their keyed gates, and row 4's gate 6 now fails in all three runs. Two other gates differed:
+- Row 2, gate 3 (fail, pass, pass): the header logo's SVG route, which the map marks not confirmed with a PNG fallback that draws the same mark. One judge failed it by the letter of gate 3; five of the six round A and B judges made it a map-check line.
+- Row 3, gate 7 (fail, pass, pass): one judge failed the report's phone layout for having no page navigator (S14); gate 7's size and empty share are measured, its chrome check is not.
+
+By plan step 9 this second miss stops the work: Done line 4 is not met, nothing is pushed or merged, and the runs go to the owner.
+
+### Questions for the owner
+
+1. **The two gates that still differ.** Recommended: one more text round with two rules, then 15 runs on the final text:
+   - Gate 3: a part the map marks not confirmed passes gate 3 when the map names a fallback that draws the same picture (a PNG for an SVG logo); it is a map-check line. Five of six judges already read it so.
+   - Gate 7's chrome: name per product what the chrome is (canvas: C2's header and one navigation; site: P3's header and footer; report: B1's title row; a report's phone layout: its title only, since Power BI's mobile layout shows no page navigator, a claim to verify on Learn first).
+   Alternatives: accept both as recorded residuals and ship, or stop here.
+2. **The key for rows 2, 3 and 5.** In all 30 runs (and both before-runs) they were `not at baseline`, as `key.md` says. Recommended: keep the verdicts and key the gates that held in every run of both rounds: row 2 gates 1 and 4; row 5 gate 4; row 3 none (it fails on scores only). Row 4 gains gates 4 and 6 beside 8. The owner decides (Q17 of M97).
+3. **Row 2's plan line** ("the first field" against the sample's "the field in focus"): every run fails gate 1 on it. Recommended: leave the row plan as it is; the sample, not the line, would need the change, and that is a design call.
+4. **The narrowings named in Open questions** (G4, G9, G10, G15, G16, G17), each observed in the runs: row 1's ellipsis moved from gate 6 to gate 3 in all runs; row 3's dimmed cross-highlight passed gate 6 in all runs; row 5's tick drawings left gate 4 in all runs; ties broken by reading order in all row 5 runs; gate 7 followed the figures in all runs; scores now cite a `not met` statement, and scores still differ between runs by one point on single dimensions (a detection residual), with no verdict changed by it.

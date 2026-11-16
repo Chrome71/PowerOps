@@ -295,3 +295,45 @@ So the `marks` fault fires on row 4 Home (the 2.66:1 value bar) and on row 3's S
 `ratio-background` (the orchestrator's decision: in a cross-highlighted visual the highlighted marks are read against the svg's background, G9): every `marks` entry also gives the mark's ratio against the svg's `background`. `counts` and the fault are unchanged; the judge applies G9's exemption and reading. On row 3's Selected tile the highlighted part `#949494` (2.05:1 against its dimmed bar) has `ratio-background` 3.03, so under G9 it meets 3:1. The field is on every entry, so row 4 Home's grey value bar shows 3.03 too; that visual is not cross-highlighted, so G9 doesn't apply and its counting 2.66:1 against the track stands. Self-test: the grey value bar on its track (1.27:1) gives `ratio-background` 1.47 against the card; red with its code reverted (round 6 of the red-first log: 35 cases). The compare was rerun: pictures pixel-equal (109), and the JSON differs from the run before only by the new field on each `marks` entry (top-level faults 9, 11, 9, 13, 3).
 
 A bug found on the way: a line drawn before a filled shape gave the next shape a wrong paint under it (an array's own `fill` method was read as a fill). Fixed; it affected only `marks`, and only in the first listing above this one.
+
+## Judge runs (step 8, round A at f1dbebc; step 9, round B at 82b1878)
+
+### Round A
+
+| Row | Run | judge | hash ok | measure.py sha256 (first 12) | Verdict | Failed gates | Scores 1-9 |
+|---|---|---|---|---|---|---|---|
+| 1 | 1 | fresh context | yes | e1a8add045d5 | not at baseline | 1, 2, 3, 4, 7 | 2 2 2 1 1 2 1 1 2 |
+| 1 | 2 | fresh context | yes | e1a8add045d5 | not at baseline | 1, 2, 3, 4, 7 | 2 2 2 1 1 2 1 1 2 |
+| 1 | 3 | fresh context | yes | e1a8add045d5 | not at baseline | 1, 2, 3, 4, 7 | 2 2 3 1 1 2 1 1 2 |
+| 2 | 1 | fresh context | yes | e1a8add045d5 | not at baseline | 1, 4 | 2 2 3 2 2 2 1 3 3 |
+| 2 | 2 | fresh context | yes | e1a8add045d5 | not at baseline | 1, 4 | 2 2 3 2 2 2 1 2 3 |
+| 2 | 3 | fresh context | yes | e1a8add045d5 | not at baseline | 1, 4 | 2 2 3 2 2 2 2 2 3 |
+| 3 | 1 | fresh context | yes | e1a8add045d5 | not at baseline | none | 3 2 3 2 2 3 2 3 3 |
+| 3 | 2 | fresh context | yes | e1a8add045d5 | not at baseline | none | 3 2 2 2 2 3 3 3 3 |
+| 3 | 3 | fresh context | yes | e1a8add045d5 | not at baseline | none | 3 2 2 2 1 3 2 3 3 |
+| 4 | 1 | fresh context | yes | e1a8add045d5 | not at baseline | 4, 8 | 3 2 2 2 2 2 1 2 2 |
+| 4 | 2 | fresh context | yes | e1a8add045d5 | not at baseline | 4, 6, 8 | 3 2 3 2 2 2 1 2 2 |
+| 4 | 3 | fresh context | yes | e1a8add045d5 | not at baseline | 4, 6, 8 | 3 2 2 3 2 2 2 2 2 |
+| 5 | 1 | fresh context | yes | e1a8add045d5 | not at baseline | 4 | 2 2 2 2 3 2 2 2 3 |
+| 5 | 2 | fresh context | yes | e1a8add045d5 | not at baseline | 4 | 2 2 2 3 2 2 2 2 3 |
+| 5 | 3 | fresh context | yes | e1a8add045d5 | not at baseline | 4 | 3 2 2 3 3 2 2 2 3 |
+
+### Round B
+
+| Row | Run | judge | hash ok | measure.py sha256 (first 12) | Verdict | Failed gates | Scores 1-9 |
+|---|---|---|---|---|---|---|---|
+| 1 | 1 | fresh context | yes | 52d0e222f64a | not at baseline | 1, 2, 3, 4, 7 | 2 2 3 1 1 2 1 1 1 |
+| 1 | 2 | fresh context | yes | 52d0e222f64a | not at baseline | 1, 2, 3, 4, 7 | 2 2 2 1 1 2 1 1 2 |
+| 1 | 3 | fresh context | yes | 52d0e222f64a | not at baseline | 1, 2, 3, 4, 7 | 2 2 2 1 1 2 1 1 1 |
+| 2 | 1 | fresh context | yes | 52d0e222f64a | not at baseline | 1, 3, 4 | 2 2 3 3 2 2 2 2 3 |
+| 2 | 2 | fresh context | yes | 52d0e222f64a | not at baseline | 1, 4 | 2 2 3 2 2 2 2 2 3 |
+| 2 | 3 | fresh context | yes | 52d0e222f64a | not at baseline | 1, 4 | 2 2 3 2 2 2 1 2 3 |
+| 3 | 1 | fresh context | yes | 52d0e222f64a | not at baseline | 7 | 3 2 2 1 2 2 2 3 3 |
+| 3 | 2 | fresh context | yes | 52d0e222f64a | not at baseline | none | 3 2 3 2 1 3 2 3 3 |
+| 3 | 3 | fresh context | yes | 52d0e222f64a | not at baseline | none | 3 2 2 2 2 3 2 3 3 |
+| 4 | 1 | fresh context | yes | 52d0e222f64a | not at baseline | 4, 6, 8 | 3 2 2 2 2 2 2 2 2 |
+| 4 | 2 | fresh context | yes | 52d0e222f64a | not at baseline | 4, 6, 8 | 3 2 3 3 2 2 2 2 2 |
+| 4 | 3 | fresh context | yes | 52d0e222f64a | not at baseline | 4, 6, 8 | 3 2 2 3 2 2 1 2 2 |
+| 5 | 1 | fresh context | yes | 52d0e222f64a | not at baseline | 4 | 2 2 2 3 2 2 2 2 3 |
+| 5 | 2 | fresh context | yes | 52d0e222f64a | not at baseline | 4 | 3 2 2 2 2 2 2 2 3 |
+| 5 | 3 | fresh context | yes | 52d0e222f64a | not at baseline | 4 | 3 2 3 2 2 2 2 2 3 |
