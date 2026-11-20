@@ -7,7 +7,7 @@ using PowerOps.Tests.Shared;
 
 namespace PowerOps.Cli.Tests;
 
-// The plugin folders hold copies of skills/, and the Claude plugin generated copies of the six specialists: POWEROPS_UPDATE_GOLDEN=1 writes them, a normal run compares.
+// The plugin folders hold copies of skills/, and the Claude plugin generated copies of the six specialists: POWEROPS_UPDATE_GOLDEN=1 writes them, a normal run compares. Also checks the Claude, Codex and Antigravity plugin manifests.
 public class PluginManifestTests
 {
     private static string Repo(params string[] parts) => Path.Combine([Golden.RepoRoot, .. parts]);
@@ -96,9 +96,24 @@ public class PluginManifestTests
         Assert.Equal(["DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR"], server["env_vars"]!.AsArray().Select(v => (string?)v));
     }
 
+    [Fact]
+    public void Antigravity_plugin_has_valid_manifest_and_mcp_config()
+    {
+        var dir = Repo("plugins", "antigravity");
+        var manifest = Json(Path.Combine(dir, "plugin.json"));
+        AssertManifest(manifest);
+        Assert.Equal("PowerOps", (string?)manifest["displayName"]);
+        Assert.Equal(Props("Authors"), (string?)manifest["author"]?["name"]);
+        string[] allowedKeys = ["author", "description", "disabled", "displayName", "homepage", "logo", "name", "repository", "suggestedPrompts", "version"];
+        Assert.All(manifest.Select(p => p.Key), k => Assert.Contains(k, allowedKeys));
+
+        AssertServer(Path.Combine(dir, "mcp_config.json"));
+    }
+
     [Theory]
     [InlineData("claude")]
     [InlineData("codex")]
+    [InlineData("antigravity")]
     public void Plugin_skills_are_the_shipped_skills(string agent)
     {
         var root = Repo("plugins", agent, "skills");
@@ -334,6 +349,7 @@ public class PluginManifestTests
     [Theory]
     [InlineData("plugins/claude/.claude-plugin/plugin.json")]
     [InlineData("plugins/codex/.codex-plugin/plugin.json")]
+    [InlineData("plugins/antigravity/plugin.json")]
     public void Plugin_version_is_the_release_version(string path)
     {
         Assert.Equal(Props("Version"), (string?)Json(Repo(path.Split('/')))["version"]);

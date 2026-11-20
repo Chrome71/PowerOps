@@ -1,10 +1,10 @@
 # Use PowerOps from an agent
 
-PowerOps works with Claude Code, Codex and other agents in two ways: planning skills that keep a build behind a signed-off plan, and an MCP server whose tools run the `powerops` commands.
+PowerOps works with Claude Code, Codex, Antigravity and other agents in two ways: planning skills that keep a build behind a signed-off plan, and an MCP server whose tools run the `powerops` commands.
 
 ## Planning skills
 
-PowerOps ships seven agent skills. Five turn an idea into a reviewed, signed-off plan before any code or solution change is made, and two check the build against that plan and read it for security before it is promoted:
+PowerOps ships seven core agent skills. Five turn an idea into a reviewed, signed-off plan before any code or solution change is made, and two check the build against that plan and read it for security before it is promoted:
 
 - `powerops-plan` asks short question rounds (at most three questions, recommended answer first), logs every answer in `decisions.md` with who gave it, drafts `plan.md`, and signs it off with you. Asked to build without a plan, it drafts one and asks only the route.
 - `powerops-prototype` writes three options in three design directions (`mockups/option-a.html` to `option-c.html`), each one frame of the screen that carries the most Goal lines, in a fresh context, renders them side by side in one picture and recommends one. `powerops-plan` starts it in the question rounds when `Screens` names something (at approval under `quick` and in the fast path), shows you the picture and asks "Which direction?" (or three new ones, or a skip with a reason). The pick becomes `mockups/prototype.html` with every screen, its states and a map, `mockups/prototype.map.md`; the prototype renders it, has it judged and fixes it, at most three rounds, and then you are asked "Does it pass?". It needs Python 3 and Chrome or Chromium to render, and never asks you questions itself.
@@ -18,16 +18,17 @@ Neither report changes a plan's status, but the agent and CI import routes (`dep
 
 **Who answered.** An agent that runs the skills for you, under your brief, may answer only the product choices the brief delegates. Only you sign off a plan, accept a High finding or accept a security gap. `decisions.md` ends each answer, and each logged approval, acceptance and sign-off, with `(answered by: person)` or `(answered by: agent <session>)`, and `powerops plan status` warns on a sign-off or an acceptance marked as an agent's. The agent writes the marker itself, so the warning catches honest marking, not a false one.
 
-Run `powerops skills install` in your repo to add them. In a workspace whose own tooling rewrites `.claude/skills/`, run it in each child project, not at the workspace root, and start the agent there: the next rewrite removes skills installed at the root. Supported: Claude Code and Codex. Copilot CLI, Antigravity CLI and Pi with local Qwen are provisional, and Gemini CLI is provisional and untested. The skills are also in [skills/](../skills/) for `npx skills add` (that CLI has telemetry on by default). Design: [docs/PLANNING-SKILLS.md](PLANNING-SKILLS.md).
+Run `powerops skills install` in your repo to add them (`--agent antigravity` writes `.agents/skills/` for Antigravity; see the [Antigravity guide](ANTIGRAVITY.md)). In a workspace whose own tooling rewrites `.claude/skills/`, run it in each child project, not at the workspace root, and start the agent there: the next rewrite removes skills installed at the root. Supported: Claude Code and Codex. Copilot CLI, Antigravity CLI and Pi with local Qwen are provisional, and Gemini CLI is provisional and untested. The skills are also in [skills/](../skills/) for `npx skills add` (that CLI has telemetry on by default). Design: [docs/PLANNING-SKILLS.md](PLANNING-SKILLS.md).
 
-For your own Claude Code or Codex setup, the skills also install as a plugin from this repo, beside Microsoft's plugins. Install the `powerops` CLI first ([Install](../README.md#install)): the plugin's skills call it and need it on PATH.
+For your own Claude Code, Codex or Antigravity setup, the skills also install as a plugin from this repo, beside Microsoft's plugins. Install the `powerops` CLI first ([Install](../README.md#install)): the plugin's skills call it and need it on PATH.
 
 ```sh
 claude plugin marketplace add Chrome71/PowerOps && claude plugin install powerops@powerops   # Claude Code (in a session: /plugin marketplace add Chrome71/PowerOps)
 codex plugin marketplace add Chrome71/PowerOps && codex plugin add powerops@powerops         # Codex
+agy plugin install <clone>/plugins/antigravity                                              # Antigravity (from a clone of PowerOps)
 ```
 
-To update the plugin in Claude Code, uninstall and install it again, then restart Claude Code. Then check that `gitCommitSha` of `powerops@powerops` in `~/.claude/plugins/installed_plugins.json` (a field Claude Code writes but doesn't document) is the commit you meant, and, for a CLI built from a clone, that `powerops --version` names the same commit. `claude plugin update` changes nothing: `plugin.json` carries the release version (`0.0.0` until the first release), the same in every build between two releases, and [Claude Code keeps the installed copy until that string changes](https://code.claude.com/docs/en/plugins/loading#versions-and-updates). Update the CLI as well ([Update](INSTALL.md#update)), because the plugin's server is the `powerops` on PATH. Codex's `plugin.json` has the same version, and updating the plugin there has not been tested.
+To update the plugin in Claude Code, uninstall and install it again, then restart Claude Code. Then check that `gitCommitSha` of `powerops@powerops` in `~/.claude/plugins/installed_plugins.json` (a field Claude Code writes but doesn't document) is the commit you meant, and, for a CLI built from a clone, that `powerops --version` names the same commit. `claude plugin update` changes nothing: `plugin.json` carries the release version (`0.0.0` until the first release), the same in every build between two releases, and [Claude Code keeps the installed copy until that string changes](https://code.claude.com/docs/en/plugins/loading#versions-and-updates). Update the CLI as well ([Update](INSTALL.md#update)), because the plugin's server is the `powerops` on PATH. Codex's `plugin.json` has the same version, and updating the plugin there has not been tested. In Antigravity, update by running `agy plugin uninstall powerops && agy plugin install <clone>/plugins/antigravity` after pulling the clone.
 
 ```sh
 claude plugin uninstall powerops@powerops --scope user
@@ -41,6 +42,12 @@ The plugin also starts the PowerOps MCP server: see [MCP server](#mcp-server). I
 For a team, `powerops skills install` stays the default: the skills then live in the repo, so every contributor and CI sees the same gate. Use one or the other in a repo; with both, each skill is listed twice.
 
 With Microsoft's power-platform-skills or Dataverse-skills installed too, their skills build in Dev and PowerOps checks, plans and imports: the steps are in [docs/HANDOFF.md](HANDOFF.md).
+
+### Portable specialists (Claude Code, Codex and Antigravity)
+
+The eighth skill, `powerops-specialists`, exposes the six specialist procedures below across Claude Code, Codex and Antigravity. Invoke it with the domain, phase and plan folder; for example, `$powerops-specialists` in Codex or calling `powerops-specialists` in Antigravity with `workflow-logic, plan-advice, docs/plans/orders, tenant: offline`. It loads only the relevant reference, uses the session's selected model and discovers the available tools. It works without delegation by default. The CLI installer and all three plugins (`plugins/claude/`, `plugins/codex/`, `plugins/antigravity/`) include it and its references.
+
+The procedures are generated from the Claude specialist sources. This is packaging parity, not measured performance parity: their findings remain advisory, and missing Microsoft connections remain unavailable. The [Codex guide](CODEX.md) and [Antigravity guide](ANTIGRAVITY.md) describe fresh-context reviews, tool mapping, repository maintenance workflows and the verification limits.
 
 ### Specialist agents (Claude Code plugin)
 
@@ -59,7 +66,7 @@ Claude Code names each one `powerops:<name>`: start it as the Agent tool's `suba
 - **Cost.** They run on Opus at high effort (`model: opus` and `effort: high` in their files), so a session on a smaller model pays Opus rates for them.
 - **Tenant.** They read and propose, and three write the local files their brief names (flow tests, a PBIP folder, a sketch). Their text tells them never to write to a tenant and to leave each tenant step to your session, which runs it under the signed-off plan, or after your yes for a stop-list item or a deployment: that is an instruction, as with the skills, not a block.
 - **Tools.** Their `tools` lists name Microsoft Learn's MCP server and the product servers: Canvas Authoring, the pac CLI's server, FlowAgent, Power BI Authoring (local), Copilot Studio, and the model-apps and Power Pages Playwright servers. Without a server, its tools are absent. `powerops-bi` may call every tool of the local Power BI Authoring server, so register that server with `--readonly`, which refuses changes to the model, refreshes and role or permission changes, but not its file exports (`ExportToTmdlFolder`, `ExportToBimFile`) or `CancelRefreshWithAPI`.
-- **Not checked.** That an installed plugin loads the six and fills in their `${CLAUDE_PLUGIN_ROOT}` paths (Claude Code's docs say it does; no run from an install has tried it), what Claude Code does with a `tools` list that names a server you don't have, and Codex: its plugin ships no agents.
+- **Not checked.** That an installed plugin loads the six and fills in their `${CLAUDE_PLUGIN_ROOT}` paths (Claude Code's docs say it does; no run from an install has tried it), what Claude Code does with a `tools` list that names a server you don't have, and native specialist agents in Codex. Codex uses the portable specialist skill instead; that does not register native agents.
 
 ### The two build roles
 
@@ -73,7 +80,7 @@ Know these before you run `powerops-verify` and `powerops-review-security` on re
 
 ## MCP server
 
-`powerops mcp` is a Model Context Protocol server over stdio for Claude Code, Codex and other agents. Its tools run the [commands](COMMANDS.md) in-process and return what the command prints: its JSON, which follows its schema in [docs/schemas/](schemas/), or for `baseline` and `settings_generate` the file's text. A second text block, when there is one, holds PowerOps's own `error:` lines, then its `note:` and `warning:` lines (for example a link inside a solution that was not read); the text `pac`, `az` and the Web API print never reaches the agent.
+`powerops mcp` is a Model Context Protocol server over stdio for Claude Code, Codex, Antigravity and other agents. Its tools run the [commands](COMMANDS.md) in-process and return what the command prints: its JSON, which follows its schema in [docs/schemas/](schemas/), or for `baseline` and `settings_generate` the file's text. A second text block, when there is one, holds PowerOps's own `error:` lines, then its `note:` and `warning:` lines (for example a link inside a solution that was not read); the text `pac`, `az` and the Web API print never reaches the agent.
 
 - `analyze`, `rules`, `baseline`, `diff`, `inventory`, `test`, `settings_generate`, `settings_validate` and `plan_status` read only files. `baseline` and `settings_generate` return the file's text instead of writing it.
 - `plan_facts`, `drift` (for an environment, not a snapshot file), `deploy_plan` and `deploy_apply` read a tenant through `pac` and `az`, as the commands do, so both must be signed in.
@@ -91,6 +98,7 @@ A string with a control character (a NUL, a line break, a tab), a string of more
 ```sh
 claude mcp add powerops -- powerops mcp   # Claude Code, local scope; --scope project writes a .mcp.json the team shares, --scope user covers all your projects
 codex mcp add powerops -- powerops mcp    # Codex; then set env_vars and tool_timeout_sec (below)
+agy mcp add powerops powerops mcp          # Antigravity (plugin mcp_config.json inherits OS env automatically)
 ```
 
 Use the plugin or your own entry. With both, and when your entry runs the same command, `powerops mcp`, Claude Code connects it once and prefers your own entry ([its docs](https://code.claude.com/docs/en/mcp#scope-hierarchy-and-precedence)), so the server runs as `powerops`, not as the plugin's `plugin:powerops:powerops`, and its tools are named `mcp__powerops__<tool>`. In Codex your own `[mcp_servers.powerops]` takes the place of the plugin's (seen with `codex mcp get` in Codex 0.163.0). What is not verified on Windows and macOS, including whether Claude Code and Codex start the plugin's `powerops` on macOS, is listed in [FOUNDATION §8](FOUNDATION.md#8-research-topics-still-open).

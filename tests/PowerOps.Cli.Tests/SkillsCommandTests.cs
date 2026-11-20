@@ -7,7 +7,7 @@ namespace PowerOps.Cli.Tests;
 
 public partial class SkillsCommandTests : IDisposable
 {
-    private static readonly string[] Skills = ["powerops-plan", "powerops-prototype", "powerops-review-plan", "powerops-implement", "powerops-review-security", "powerops-review-sketch", "powerops-verify"];
+    private static readonly string[] Skills = ["powerops-plan", "powerops-prototype", "powerops-review-plan", "powerops-implement", "powerops-review-security", "powerops-review-sketch", "powerops-verify", "powerops-specialists"];
     private readonly string _temp = Directory.CreateTempSubdirectory("powerops-skills-").FullName;
 
     public void Dispose() => Directory.Delete(_temp, recursive: true);
@@ -27,7 +27,7 @@ public partial class SkillsCommandTests : IDisposable
     private static partial Regex NamePattern();
 
     [Fact]
-    public void Empty_dir_gets_both_targets_with_all_seven_skills()
+    public void Empty_dir_gets_both_targets_with_all_shipped_skills()
     {
         var (code, output, _) = Run("skills", "install", _temp);
 
@@ -158,6 +158,37 @@ public partial class SkillsCommandTests : IDisposable
         File.WriteAllText(P("CLAUDE.md"), "x");
 
         Assert.Equal(0, Run("skills", "install", _temp, "--agent", "codex").Code);
+
+        Assert.True(Directory.Exists(P(".agents", "skills")));
+        Assert.False(Directory.Exists(P(".claude")));
+    }
+
+    [Fact]
+    public void Agent_antigravity_installs_only_agents_even_with_claude_md()
+    {
+        File.WriteAllText(P("CLAUDE.md"), "x");
+
+        Assert.Equal(0, Run("skills", "install", _temp, "--agent", "antigravity").Code);
+
+        Assert.True(Directory.Exists(P(".agents", "skills")));
+        Assert.False(Directory.Exists(P(".claude")));
+    }
+
+    [Theory]
+    [InlineData(".agent", true)]
+    [InlineData("GEMINI.md", false)]
+    public void Antigravity_and_gemini_markers_detect_only_agents(string marker, bool directory)
+    {
+        if (directory)
+        {
+            Directory.CreateDirectory(P(marker));
+        }
+        else
+        {
+            File.WriteAllText(P(marker), "x");
+        }
+
+        Assert.Equal(0, Run("skills", "install", _temp).Code);
 
         Assert.True(Directory.Exists(P(".agents", "skills")));
         Assert.False(Directory.Exists(P(".claude")));
@@ -510,6 +541,16 @@ public partial class SkillsCommandTests : IDisposable
         var text = SkillsCommand.Shipped()["powerops-review-plan/SKILL.md"];
 
         Assert.Contains("a way out (cancel, back, a failed save)", text);
+    }
+
+    [Fact]
+    public void Plan_and_review_skills_document_antigravity_question_and_subagent_rules()
+    {
+        var shipped = SkillsCommand.Shipped();
+
+        Assert.Contains("**Antigravity:** `ask_question` (unnumbered options, no \"In your own words\"); in print mode, numbered plain text.", shipped["powerops-plan/SKILL.md"]);
+        Assert.Contains("invoke_subagent", shipped["powerops-review-plan/SKILL.md"]);
+        Assert.Contains("invoke_subagent", shipped["powerops-prototype/SKILL.md"]);
     }
 
     [Fact]

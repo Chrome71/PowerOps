@@ -102,5 +102,5 @@ A plan with both a solution and Power BI finishes each part by its own rule. The
 
 ## Per agent
 
-- **Claude Code and others:** the steps are the same. After the sign-off, build without asking; ask in chat only for rule 7's stop list and the deployment yes, and wait for the answer.
+- **Claude Code, Codex, Antigravity and others:** the steps are the same. After the sign-off, build without asking; ask in chat only for rule 7's stop list and the deployment yes, and wait for the answer. In Antigravity, run build steps in execution mode rather than a read-only planning turn, and use `invoke_subagent` (`self`, `Model: "inherit"`) to run `powerops-verify` and `powerops-review-security` in a fresh context with no chat history.
 - **Copilot autopilot:** the sign-off covers what rule 7 says; for a stop-list item or a deployment with no person to answer, skip that step and report it.

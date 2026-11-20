@@ -926,7 +926,7 @@ Plans live in `docs/plans/<name>/plan.md`, with a header between `---` lines (`s
 powerops plan status                  # check every docs/plans/*/plan.md under . (offline, read-only; add --format json for machine output; --json is the older spelling, and wins over --format text)
 powerops plan sign-off docs/plans/site-visits   # write status, date and body hash into the header
 powerops plan facts                   # environment and solution names as JSON; read-only, needs pac signed in, prints names only
-powerops skills install               # copy the agent skills into .claude/skills/ and/or .agents/skills/ (--agent claude|codex|gemini|copilot, --force to overwrite)
+powerops skills install               # copy the agent skills into .claude/skills/ and/or .agents/skills/ (--agent claude|codex|antigravity|gemini|copilot, --force to overwrite)
 ```
 
 What the planning skills do, and how to install them as a plugin: [Planning skills](USE-WITH-AGENTS.md#planning-skills).
@@ -1017,4 +1017,4 @@ Agents: run `plan facts` only when the environment `pac` is signed in to is one 
 
 A tool input is refused, with an `error:` line and nothing run, when a string holds a control character or an unpaired surrogate or is longer than 4,096 characters, or when `paths` has more than 50 entries or `envs` more than 10.
 The tool `deploy_apply` always passes `--require-reviews`, for its dry run, the dry run before its form and the import, so a report that turns `blocked` while the form is open stops the import; it has no way to turn the check off.
-Its tools, what they write, and how Claude Code and Codex start it: [Use from an agent (MCP)](USE-WITH-AGENTS.md#mcp-server).
+Its tools, what they write, and how Claude Code, Codex and Antigravity start it: [Use from an agent (MCP)](USE-WITH-AGENTS.md#mcp-server).

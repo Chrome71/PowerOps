@@ -2,6 +2,10 @@
 
 PowerOps is an open-source .NET 10 CLI toolkit for Microsoft Power Platform: analysis, diffing, testing and repeatable deployment. It works alongside `pac`. Plan and principles: [docs/FOUNDATION.md](docs/FOUNDATION.md).
 
+## Codex, Antigravity and portable agent guidance
+
+For Codex or Antigravity (Gemini) skill discovery, specialist advice, fresh-context reviews and the equivalents of the Claude maintenance workflows, read [docs/CODEX.md](docs/CODEX.md) or [docs/ANTIGRAVITY.md](docs/ANTIGRAVITY.md). The six domain procedures are available through `skills/powerops-specialists/SKILL.md` across harnesses. Use one agent by default; delegate only when the user explicitly requests it. Reading these guides does not request delegation.
+
 ## Layout
 
 - `src/PowerOps.Cli/`: the `powerops` command-line tool
@@ -11,10 +15,10 @@ PowerOps is an open-source .NET 10 CLI toolkit for Microsoft Power Platform: ana
 - `tests/Shared/`: helpers both test projects use (`Golden`, `SolutionZip`)
 - `tests/eval/`: the set that measures agent roles: its cases, key, baseline and run script
 - `tests/sketch-eval/`: the calibration of the sketch judge, `powerops-review-sketch`: its key of five rows, their plans and sketches, and how to run it. A change to the judge, the scale or a gate in `baseline.md` reruns the calibration on all five rows, and every row must keep the verdict its key expects
-- `skills/`: the planning skills and the two report roles (`SKILL.md` files)
+- `skills/`: the planning skills, the two report roles and the portable advisory specialist skill (`SKILL.md` files)
 - `action/`: the scripts the composite GitHub Action (`action.yml`) runs
 - `docs/`: plan and roadmap; install details are in `docs/INSTALL.md`
-- `plugins/`: the Claude Code and Codex plugins that `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json` list. Their `skills/` folders are generated copies of `skills/`, and `plugins/claude/agents/` holds copies of the six Power Platform specialists generated from `.claude/agents/` and the specialist section of `CLAUDE.md` (see "Update goldens")
+- `plugins/`: the Claude Code, Codex and Antigravity plugins (`plugins/claude/`, `plugins/codex/`, listed by `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json`, and `plugins/antigravity/`). Their `skills/` folders are generated copies of `skills/`, and `plugins/claude/agents/` holds copies of the six Power Platform specialists generated from `.claude/agents/` and the specialist section of `CLAUDE.md` (see "Update goldens")
 
 ## Commands
 
@@ -44,7 +48,7 @@ dotnet pack src/PowerOps.Cli -c Release -o artifacts
 - Keep `dotnet format --verify-no-changes` clean.
 - Use Conventional Commits (`feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`).
 - Never commit secrets, tokens, tenant URLs or credentials. Use fake values in fixtures and examples.
-- Do not edit the version in `Directory.Build.props`, `.release-please-manifest.json`, `plugins/claude/.claude-plugin/plugin.json`, `plugins/codex/.codex-plugin/plugin.json` or the changelog. Releases manage them.
+- Do not edit the version in `Directory.Build.props`, `.release-please-manifest.json`, `plugins/claude/.claude-plugin/plugin.json`, `plugins/codex/.codex-plugin/plugin.json`, `plugins/antigravity/plugin.json` or the changelog. Releases manage them.
 - Never push, publish or open a pull request unless asked. Pull request titles are Conventional Commits too. For anything large, suggest opening an issue first.
 
 ## Ecosystem changes
@@ -96,7 +100,7 @@ Every recipe ends with the same checks, so run them last: `dotnet build`, `dotne
 
 ### Update goldens
 
-1. `POWEROPS_UPDATE_GOLDEN=1 dotnet test` rewrites `tests/golden/*`, the skill copies in `plugins/*/skills/` (run it after any change to `skills/`) and the specialist copies in `plugins/claude/agents/` (run it after any change to the six specialists in `.claude/agents/` or to the "Power Platform specialist team" section of `CLAUDE.md`). The golden self-test fails in this mode; that is expected.
+1. After changing a specialist in `.claude/agents/`, first run `POWEROPS_UPDATE_GOLDEN=1 dotnet test --project tests/PowerOps.Cli.Tests --filter-method '*Portable_specialists_preserve_the_source_procedures'` to regenerate `skills/powerops-specialists/references/`. Then run `POWEROPS_UPDATE_GOLDEN=1 dotnet test`: this rebuilds the embedded skills and rewrites `tests/golden/*`, the skill copies in `plugins/*/skills/` (run it after any change to `skills/`) and the specialist copies in `plugins/claude/agents/` (run it after any change to the six specialists in `.claude/agents/` or to the "Power Platform specialist team" section of `CLAUDE.md`). The golden self-test fails in this mode; that is expected.
 2. `git checkout tests/golden/selftest.txt`: update mode wrongly rewrites it, and its test needs the original.
 3. Run a normal `dotnet test`. This is needed because the schema test lists the golden files before the update run writes new ones.
 4. Read `git diff tests/golden plugins` and check that only the intended lines changed.

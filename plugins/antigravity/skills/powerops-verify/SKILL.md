@@ -1,0 +1,113 @@
+---
+name: powerops-verify
+description: Use to verify a built Power Platform solution against its signed-off PowerOps plan in docs/plans/<name>/ with the offline powerops checks. Writes verify.md. Works alone and never asks the user questions.
+license: Apache-2.0
+compatibility: Needs the powerops CLI on PATH. pac is optional.
+---
+
+# powerops-verify
+
+Verify a built solution against its plan and write `verify.md`. You work alone: do not ask the user anything. Record anything unclear as a finding or as not verified.
+
+## The request
+
+The request gives:
+
+- the plan (`docs/plans/<name>/`)
+- the current solution and the previous solution
+- the managed zip that will be deployed, if any. The current solution is then that zip unpacked into a folder
+- the settings file
+- the test folder
+- the Lead's evidence for live checks, which is optional
+
+Use those as given. Never invent an input. A required input the request leaves out is a failed check. An input that does not apply is recorded as not applicable.
+
+The report is `docs/plans/<name>/verify.md`. If the request names no plan, there is no report path: reply with `state: failed` and the missing input, and write nothing.
+
+## Commands you may run
+
+This list is instruction, not enforcement. Run nothing else. Never fire a flow or write to a tenant.
+
+- `powerops plan status docs/plans/<name> --json`: gives `status` and `bodyHash`.
+- `powerops analyze <current solution>`
+- `powerops test <current solution> --tests <test folder>`
+- `powerops diff <previous solution> <current solution>`
+- `powerops settings validate <current solution> --settings <settings file>`: its last line gives the hash for the report's `settings-hash:` line. With no settings file, skip it and write `settings-hash: none`.
+- `powerops manifest <current solution>`: gives the digest for the report's `solution-hash:` line.
+- `powerops manifest <previous solution> <current solution>`: compares two unpacked solution folders file by file. Skip it when either solution is a zip, and say so in `## Checks`.
+- `powerops manifest <deployed zip>`: only when the request names the zip that will be deployed. Gives the digest for the report's `deploy-hash:` line. Run nothing else on the zip, and don't check the folder against it: the deploy routes do that. With a managed zip, the managed flag and form files named `{id}_managed.xml` differ from an unmanaged previous solution by design.
+
+## Check the status
+
+1. Run the `plan status` command above. Note `status` and `bodyHash`. If there is no `bodyHash`, write `plan-hash: unknown`.
+2. The plan needs status `signed-off`, `implementing` or `done`. A wrong status gives `state: failed`: write the report with the header below, name the status under the header lines, and stop.
+
+## Verify
+
+1. Run `analyze`, `test`, `diff`, `settings validate` and the `manifest` commands with the paths from the request.
+2. Compare the result with the plan's `Steps`, `Data`, `Automation` and `Screens`. Anything built outside the plan is a finding.
+3. `diff` compares only what the PowerOps command reference lists for it (`docs/COMMANDS.md#diff`): the solution's unique name, version, managed flag and publisher, root components, missing dependencies, connection references, environment variables, cloud flows, canvas apps, and the instructions and tools of Copilot Studio agents. It compares classic workflows and business rules by name, category and state only. It does not compare security roles, tables, columns, forms, views or app modules and their role maps, so its `no changes` says nothing about them, and a part that one of its `note:` lines names was not compared.
+4. Write that a security role, table, column, form, view or app role map is unchanged only when the file-by-file `manifest` comparison lists none of its files as added, removed or changed. In an unpacked solution a security role is `Roles/<name>.xml`, an app module and its role map are `AppModules/<name>/AppModule.xml`, and a table with its columns, forms and views is the folder `Entities/<table>/`. A changed `Other/Customizations.xml` counts as a change to all of them. Otherwise read that component's files in the current solution, check them against the plan, and say that you read them and did not compare them. When either solution is a zip, the comparison can't run and its files can't be read: say that the component was not verified.
+5. Live checks use the Lead's evidence. With none, record them as not verified. That does not make the state `failed`.
+6. If `<zip>.findings.json` lies beside the exported zip, cite it as evidence. It is the output of `powercat-overflow` or `powercat-overpage` from microsoft/power-cat-skills.
+7. Run nothing from power-cat-skills: its skills ask questions and upload to a hosted viewer.
+
+## Write the report
+
+The first eight lines of `verify.md` are exactly:
+
+```
+plan-hash: <bodyHash>
+model: <the model you run on, as your agent reports it, else unknown>
+fresh-context: yes|no
+state: ready|blocked|failed|dropped
+input: <the current solution's path as the request gives it, relative to the repository root, with / between folders>
+solution-hash: <the digest that the manifest command prints for the current solution, else unknown>
+deploy-hash: <the digest that the manifest command prints for the deployed zip, else unknown>
+settings-hash: <the hash that settings validate prints for the settings file, none when the request names no settings file, else unknown>
+```
+
+These are the first eight lines of the report. Write `fresh-context: yes` only if this runs in a context that does not contain the planning conversation. Be honest. If unsure, write `no`.
+
+| State | Meaning |
+|---|---|
+| `ready` | The role finished and no High finding is open |
+| `blocked` | A High finding is open, or a question only a person can answer |
+| `failed` | A required check could not run, and the report says which |
+| `dropped` | Nothing for this role to do, and the report says why |
+
+Choose `blocked` before `failed` before `ready`. An optional check that can't run isn't a failure.
+
+Under the header lines:
+
+- A `## Checks` section with one line per check, in this order: `analyze`, `test`, `diff`, `manifest`, `settings validate`, the comparison with the plan, the live checks. Each line is `- <check>: <outcome>`, where the outcome is `done`, `failed` (say which check could not run and why), `not applicable` (say why) or `not verified` (say why).
+- The findings:
+
+```
+## Findings
+
+### High
+
+#### V1. <short title>
+- Area: <the check or the plan section>
+- Finding: <what is wrong or missing>
+- Suggested fix: <what to change>
+- Resolution: open
+
+### Medium
+...
+
+### Low
+...
+```
+
+- Number findings V1, V2, ... across the whole file, not per severity.
+- Every finding has all four lines. Start each with `Resolution: open`.
+- If a severity has no findings, write "No findings." under it.
+- High means the solution should not go on as it stands. Medium means a gap that will cause trouble later. Low means polish.
+- Before writing, replace URLs, GUIDs, emails and people's names with placeholders such as `<url>`, `<guid>`, `<email>`, `<person>`. Reports are committed.
+- Write only this report. Never open `plan.md` for writing.
+
+## Finish
+
+Reply with a short summary for the parent session: the count of High, Medium and Low findings, the state and the report's path.

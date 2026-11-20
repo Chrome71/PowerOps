@@ -41,7 +41,7 @@ The specialists load this file too, so the rules below are written once, here; e
   ```
 - No specialist moves anything between environments: that includes FlowAgent's `copy_flow` and any publish or update outside Dev, which the deploy gate doesn't see. Promotion is `deploy apply`, after the person's yes for that deployment.
 - Microsoft's `copilot-studio` plugin (skills-for-copilot-studio) adds a session prompt that sends Copilot Studio requests to its own agents and forbids using its skills directly. In this repo the routing table and the plan gate come first: `powerops-copilot-studio` leads, and the plugin's advisor, author, `validate` and `lookup-schema` work under a signed-off plan. Its manage and test agents push, publish, run evaluations and chat with the agent in the tenant, so they run in the main session under the signed-off plan in Dev, or after the person's yes for a stop-list item or a deployment.
-- Record-only until measured: specialist findings never block. Ship a specialist as a skill only after an eval in the style of M38 shows it finds flaws the baseline review misses.
+- Record-only until measured: specialist findings never block. The portable `powerops-specialists` skill exposes these same procedures for Claude, Codex and Antigravity at the owner's request (2026-11-12); this is packaging parity, not an evaluation. Promoting specialist findings to a required gate still needs an eval in the style of M38 showing flaws the baseline review misses.
 
 Saved workflows in `.claude/workflows/` chain those agents together. On the Pro plan, turn on "Dynamic workflows" in `/config` first. Each workflow asks for approval before it runs.
 

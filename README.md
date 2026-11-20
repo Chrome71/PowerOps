@@ -14,7 +14,7 @@ PowerOps is a free, open-source toolkit for Windows and Linux. It works alongsid
 - Compares two versions of a solution, component by component (`diff`).
 - Runs flow tests offline, with mocked connector actions (`test`).
 - Says what importing solution zips would do to an environment (`deploy plan`), then imports only the plan you reviewed (`deploy apply`).
-- Works from an AI agent in Claude Code or Codex, through planning skills and an MCP server.
+- Works from an AI agent in Claude Code, Codex or Antigravity (Gemini), through planning skills and an MCP server.
 
 ## What you need
 
@@ -24,7 +24,7 @@ The .NET 10 SDK. `pac`, and `az` for `drift` and `deploy`, are needed only for t
 
 ### With your AI agent
 
-Paste this into Claude Code, Codex or another coding agent. It installs the CLI and the skills, checks that they run, and tells you what is left for you.
+Paste this into Claude Code, Codex, Antigravity or another coding agent. It installs the CLI and the skills, checks that they run, and tells you what is left for you.
 
 ```text
 Install PowerOps (https://github.com/Chrome71/PowerOps), a CLI and agent skills for Microsoft
@@ -37,6 +37,7 @@ Power Platform. If a step fails, read https://github.com/Chrome71/PowerOps/blob/
 3. Add the skills for the agent you are running in. Claude Code:
    `claude plugin marketplace add Chrome71/PowerOps`, then `claude plugin install powerops@powerops`.
    Codex: `codex plugin marketplace add Chrome71/PowerOps`, then `codex plugin add powerops@powerops`.
+   Antigravity: `agy plugin install <clone>/plugins/antigravity`.
    Any other agent: `powerops skills install` in my repo. Use the plugin or the repo copy, not both.
 4. Run `powerops --version` and `powerops rules`; both must exit 0.
 5. Tell me whether `pac` and `az` are on PATH: only the commands that read an environment need them.
@@ -113,7 +114,7 @@ Every option, output format and exit code is in the [command reference](docs/COM
 
 ## Use it with an AI agent
 
-PowerOps ships seven agent skills: five turn an idea into a reviewed, signed-off plan, and two check the build against that plan and read it for security. It also ships an MCP server whose tools run the commands. Add the skills with `powerops skills install`, or install them as a plugin for Claude Code or Codex: see [Use from an agent](docs/USE-WITH-AGENTS.md). With Microsoft's power-platform-skills or Dataverse-skills, follow the [hand-off](docs/HANDOFF.md).
+PowerOps ships seven core agent skills: five turn an idea into a reviewed, signed-off plan, and two check the build against that plan and read it for security. An eighth, `powerops-specialists`, provides the same six advisory domain procedures to Claude Code, Codex and Antigravity. It also ships an MCP server whose tools run the commands. Add the skills with `powerops skills install`, or install them as a plugin for Claude Code, Codex or Antigravity: see [Use from an agent](docs/USE-WITH-AGENTS.md), [Use with Codex](docs/CODEX.md) and [Use with Antigravity (Gemini)](docs/ANTIGRAVITY.md). With Microsoft's power-platform-skills or Dataverse-skills, follow the [hand-off](docs/HANDOFF.md).
 
 ## Documentation
 
@@ -123,6 +124,8 @@ PowerOps ships seven agent skills: five turn an idea into a reviewed, signed-off
 - [Rules](docs/rules/README.md)
 - [JSON schemas](docs/schemas/README.md)
 - [Use from an agent: planning skills, plugin and MCP server](docs/USE-WITH-AGENTS.md)
+- [Use with Codex](docs/CODEX.md)
+- [Use with Antigravity (Gemini)](docs/ANTIGRAVITY.md)
 - [Install: releases, checksums, updating, Windows notes](docs/INSTALL.md)
 - [Hand-off to Microsoft's skills](docs/HANDOFF.md)
 - [Recovery after an import that stops](docs/RECOVERY.md)

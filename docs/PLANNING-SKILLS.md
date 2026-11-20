@@ -205,7 +205,8 @@ A route choice approves nothing, and a bare "approve" approves the draft only (A
   | Agent | How the review runs |
   |---|---|
   | Claude Code | a Claude-specific copy of the skill generated at install, with `context: fork`, `background: false` and the tier alias `opus` |
-  | Codex | the skill starts a subagent with no chat history (`spawn_agent` without forked turns), so the session model runs; verified in M3's manual run |
+  | Codex | the skill starts a subagent with no chat history (`fork_turns: "none"` when the harness exposes it), so the session model runs; verified in M3's manual run |
+  | Antigravity | `invoke_subagent` (`self`, `Model: "inherit"`) with no chat history, so the session's Gemini model runs |
   | Gemini CLI | a subagent in `.gemini/agents/` with the model left unset, so the session model runs |
   | Others, or an agent that cannot fork | the skill tells the user to open a new session and run `powerops-review-plan <name>` there |
 
@@ -288,20 +289,20 @@ It also lists `writes.md` (its rows and open cleanups), warns about a row of a t
 | Claude Code | `.claude/skills/` | `AskUserQuestion` | Reads `AGENTS.md` only through `CLAUDE.md` |
 | Codex | `.agents/skills/` | `request_user_input`: 1–3 questions, 2–3 options, **Plan mode only** by default | The numbered-text fallback worked in the prototype test; a resumed `codex exec` keeps the first call's sandbox and rejects `-s` |
 | Gemini CLI | `.agents/skills/` or `.gemini/skills/` | `ask_user`: 1–4 questions, 2–4 options | Needs a confirmation to activate a skill |
-| Antigravity CLI | `.agents/skills/` | `ask_question`, unused in print mode | Starts a role as its own subagent. Print mode denies commands unless `--settings` allows them. Failed one M39 client check: its first question was a plain sentence |
+| Antigravity | `.agents/skills/`, `.agents/skills.json`, or `plugins/antigravity/` | `ask_question` (adds numbering and Other itself); unused in `agy -p` print mode | Starts a role with `invoke_subagent`. Print mode denies commands unless `--settings` allows them. Failed one M39 client check before `ask_question` guidance: its first question was a plain sentence |
 | GitHub Copilot | `.github/skills/`, `.claude/skills/` or `.agents/skills/` | `ask_user` | **Autopilot answers `ask_user` itself**, so the planning skill stops under autopilot (principle 5). Passed the M39 client checks in print mode, starting a role with its `task` tool |
 | Pi with local Qwen | `--skill <path>` | numbered text | No sandbox and no subagent, so a role runs as a new session from the request Pi writes. Failed one M39 client check: a change of scope drafted a new plan and asked three questions |
 | Chat-only (web) | none | numbered text | User pastes the instructions and switches models by hand. Manual, with no gate |
 
 **Supported:** Claude Code and Codex. Copilot CLI passed the M39 client checks, and Antigravity CLI and Pi with local Qwen each failed one of them, once each, so all three are **provisional**. Gemini CLI is **provisional, untested**: the skills should work there, but no verification run has been done. The results are in the [verification record](BUILD-PLAN.md#verification-record).
 
-**Install.** `powerops skills install` writes `.agents/skills/powerops-*/` (Codex, Gemini, Copilot and most other agents) and `.claude/skills/powerops-*/` (Claude Code). Agents that read both folders may list a skill twice, so it writes only the folders for the agents it detects. It writes real copies, never links. Running it again is safe; it refuses to overwrite skill files that differ from the shipped ones unless `--force` is given. It never edits `AGENTS.md`.
+**Install.** `powerops skills install` writes `.agents/skills/powerops-*/` (Codex, Antigravity, Gemini, Copilot and most other agents) and `.claude/skills/powerops-*/` (Claude Code). Agents that read both folders may list a skill twice, so it writes only the folders for the agents it detects. It writes real copies, never links. Running it again is safe; it refuses to overwrite skill files that differ from the shipped ones unless `--force` is given. It never edits `AGENTS.md`.
 
 **Portability.**
 
 - The shared `SKILL.md` uses only the spec's portable front matter (`name`, `description`, `license`, `compatibility`, `metadata`). Agent-specific tuning lives in copies generated at install time.
 - Descriptions stay short, with the trigger first. Codex reserves about 2% of the context window for the skill list, and Claude Code truncates descriptions at 1,536 characters.
-- The Claude Code and Codex plugins (`plugins/claude/` and `plugins/codex/`, listed by `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json`) hold generated copies: the Claude Code copies as `skills install` writes them to `.claude/skills/`, the Codex copies unchanged. A test keeps them equal to the shipped files. For a team, `skills install` stays the default.
+- The portable `powerops-specialists` skill also carries the six advisory specialist procedures, generated from `.claude/agents/`; see [Codex guidance](CODEX.md) and [Antigravity guidance](ANTIGRAVITY.md). The Claude Code, Codex and Antigravity plugins (`plugins/claude/`, `plugins/codex/` and `plugins/antigravity/`, the first two listed by `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json`) hold generated copies: the Claude Code copies as `skills install` writes them to `.claude/skills/`, and the Codex and Antigravity copies unchanged. A test keeps them equal to the shipped files. For a team, `skills install` stays the default.
 - The repo layout `skills/<name>/SKILL.md` also lets people install with `npx skills add`. That CLI has telemetry on by default, which the docs will say.
 - No workflow runs `skills-ref` from [agentskills](https://github.com/agentskills/agentskills). `SkillsCommandTests` checks the front matter of every shipped skill against the portable fields, and `PluginManifestTests` checks that the plugin copies equal the shipped skills.
 

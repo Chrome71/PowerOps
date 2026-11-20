@@ -128,6 +128,20 @@ public static class PluginAgents
         return Lead + "\n\n" + s;
     }
 
+    // The portable skill loads the same domain procedure, with its own shared harness rules.
+    public static string ForSkill(string name, string source, string claudeMd)
+    {
+        var plugin = ForPlugin(name, source, claudeMd);
+        var end = plugin.IndexOf("\n---\n", 3, StringComparison.Ordinal) + 5;
+        var body = plugin[end..plugin.IndexOf("\n## Shared rules\n", StringComparison.Ordinal)];
+        body = Replace(body, "Follow the shared rules at the end of this file, which every specialist shares.", "Follow the shared rules in `../SKILL.md`.", name);
+        body = Replace(body, "The brief's fields and the reply format are in the shared rules below.", "The brief's fields and the reply format are in `../SKILL.md`.", name);
+        return $"# {name}\n\n<!-- Generated from .claude/agents/{name}.md; update with POWEROPS_UPDATE_GOLDEN=1 dotnet test. -->\n"
+            + body.Replace("${CLAUDE_PLUGIN_ROOT}/skills/", "../../", StringComparison.Ordinal)
+                .Replace("Bash stays", "The shell stays", StringComparison.Ordinal)
+                .Replace("Bash", "the shell", StringComparison.Ordinal);
+    }
+
     private static string Replace(string text, string old, string replacement, string file) =>
         text.Contains(old, StringComparison.Ordinal) ? text.Replace(old, replacement, StringComparison.Ordinal) : throw Missing(file, old);
 
