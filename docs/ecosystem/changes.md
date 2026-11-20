@@ -152,7 +152,7 @@ The review log below has one line per review: `- <date>, mode <A|B|C>: <n> autom
 ## ECO-0012: pac 2.13.1 to 2.14.1 documents no change to the commands PowerOps calls
 - Priority: P3
 - Disposition: monitor
-- Status: open
+- Status: closed
 - Release status: GA
 - Found: 2026-11-10, mode A
 - Verified: 2026-11-10
@@ -292,6 +292,20 @@ The review log below has one line per review: `- <date>, mode <A|B|C>: <n> autom
 - Why: Briefed as: the Developer Plan covers Dataverse and premium connectors in a developer environment, not for others, without dataflows, business process flows or desktop flows, with 750 flow runs a month and 2 GB of database. Learn holds the coverage, the gaps and the numbers, and changes three things. The plan is for development and test only, and lets the maker share apps and add coworkers as makers for them, so "not for others" becomes "not production". From 2026-11-15 no new unmanaged developer environment can be created, existing ones are suspended from 2026-12-15 and deleted from 2027-01-15, and running apps and flows in the managed developer environments that remain needs a premium licence on top of the plan, so the plan covers rows only in an unmanaged one. The plan page doesn't say whether the limits hold in a managed developer environment. Learn says nothing on Copilot Studio or Power Pages under the plan. Done (M109): `licensing.md` gives `POWERAPPS_DEV` what Learn says it covers and says how `Held` reads it, its notes carry the dates and the limits, and `powerops-review-plan` item 3 makes a developer environment's flows passing 750 runs a month a Medium finding.
 - Link: docs/plans/m109-agents-use-tools/plan.md
 
+## ECO-0023: pac 2.14.1 to 2.16.1 documents no change to the commands PowerOps calls
+- Priority: P3
+- Disposition: monitor
+- Status: open
+- Release status: GA
+- Found: 2026-11-20, mode A
+- Verified: 2026-11-20
+- Affects: docs/examples/ephemeral-pr.yml, docs/examples/ephemeral-sweep.yml, docs/examples/promote-dev-to-test.yml, docs/HANDOFF.md, docs/ecosystem/compatibility.md
+- Sources: [Microsoft.PowerApps.CLI.Tool 2.15.1](https://www.nuget.org/packages/Microsoft.PowerApps.CLI.Tool/2.15.1) (published 2026-11-12), [Microsoft.PowerApps.CLI.Tool 2.16.1](https://www.nuget.org/packages/Microsoft.PowerApps.CLI.Tool/2.16.1) (published 2026-11-20)
+- Evidence: documented
+- Why: The 2.15.1 release notes list only a fix to `pac admin reset` language and currency lookups for macro-region environments, and 2.16.1 lists only an update to `Microsoft.Identity.Client` 4.92.0; nothing touches `pac org who`, `pac solution list`, `pac power-automate list-cloud-flows --json`, `pac admin list --json`, `pac solution import` or the gate's MCP routes. PowerOps is still tested with 2.13.1 and the examples stay pinned to 2.14.1 until those commands are observed on a newer version. Look again when NuGet shows a version after 2.16.1, or before moving the pin.
+- Link: none
+- Supersedes: ECO-0012
+
 ## Review log
 
 - 2026-11-10, mode A: 19 automated read, 0 not checked, 10 by hand; ECO-0001, ECO-0002, ECO-0003, ECO-0004, ECO-0005, ECO-0006, ECO-0007, ECO-0008, ECO-0009, ECO-0010, ECO-0011, ECO-0012, ECO-0013, ECO-0014, ECO-0015, ECO-0016, ECO-0017, ECO-0018, ECO-0019. Cheap path: dataverse-skills@v1.18.0, power-platform-skills@7558c8e974b199747ce8e3c0c922ec415ed48585, skills-for-copilot-studio@9c42d3a612c6e06389b6e5b4eed579aaed1a8b63, copilot-studio-plugin@4014ae689d1228d86cb3aaab938b1e66f8e2e10d, skills-for-fabric@c13604ae6f4fb727ac7bc74784eeff4332433c63, power-cat-overflow@1f81439b98d7aa5fa389a6d4fcc2b261de073afc, power-cat-overpage@f01f9ca893596fe5fb9f127c49736a2fa03b48fc, pa-persistence@0.8.2735.117-preview, docs-important-changes@2cc849531308d84aaf81cb03f5756f19a579f6db, docs-alm-yaml@62494850aa43e90630db7eb82672faeb0bfcae76, docs-alm-settings@8ad877ec951e492c0a1a3aed01765f21c3113df8, docs-git-integration-faqs@da4eb304bd15d1e8ee2330104f35b9d2eb065bdf, docs-pac-mcp@76e446549b0c94831c50ef2e48df14e885faa519, docs-pa-cli@8e42d75ad9f2151be916b75dafede418f7ef3e76, docs-canvas-yaml@6d1e70ba261f80bddd70a03fdfaf830187f1f59a. In entries: pac-cli@2.14.1 (ECO-0012), pa-cli@1.4.1 (ECO-0001), mcp-spec@2026-07-28 (ECO-0015), docs-dataverse-mcp@69cf4c7a9213db15b66ae961757de7120093163f (ECO-0004); the 5a observations pa-cli@1.6.0 and docs-flow-limits@82f95a85c3d523e03c52a06b50d5daac1a20a4a0 went with their sources' changes (ECO-0001, ECO-0002). No baseline (first observation, value recorded): pa-cli as the CLI package, m365-roadmap, power-bi-latest, fabric-roadmap. By hand: copilot-studio-whats-new, copilot-studio-mcp, power-bi-authoring-mcp, power-bi-latest, programmability, claude-code, codex, docs-flow-limits, release-plans (archived, removed, ECO-0003) and m365-roadmap (all 66 Power Platform items modified 2026-10-13 or later read by title and status, 10 opened). Not read: fabric-roadmap, whose page renders only through script (a fetch gets "Loading features"); it keeps its date and stays due. Folder-level watching of the power-platform-skills plugins: worth it, narrowed to the cited files of code-apps and model-apps (ECO-0018), after step 7 measures the weekly rate.
@@ -299,3 +313,4 @@ The review log below has one line per review: `- <date>, mode <A|B|C>: <n> autom
 - 2026-11-12, mode B: 0 automated read, 0 not checked, 4 by hand; ECO-0020. By hand, for the M95 plan: the power-platform-skills, skills-for-copilot-studio, copilot-studio-plugin and skills-for-fabric rows of `compatibility.md`, read against each repository's `main` (`cb07d81`, `4014ae6` and `e31422e` for the three that changed evidence), and the open entries (ECO-0009 to ECO-0013, ECO-0015 to ECO-0018), none of which covers the new experience, the canvas references or the Power BI validator; the Learn pages are those of the plan's Assumptions A1 to A14.
 - 2026-11-14, mode C: 0 automated read, 0 not checked, 3 by hand; ECO-0021. By hand: the Ubuntu 24.04 release notes, dotnet/runtime#110488 and the runner images' Ubuntu 24.04 and 26.04 toolsets and software lists.
 - 2026-11-15, mode B: 0 automated read, 0 not checked, 6 by hand; ECO-0022. By hand, for the M109 plan: the Power Apps Developer Plan page, Deep dive on specific licenses, Important changes coming, Licensing requirements for managed environments, the environments overview and the licensing service plan reference, read on Learn by `powerops-researcher`; the Fable plan review re-read the first three and its work review the fourth the same day.
+- 2026-11-20, mode A: 20 automated read, 0 not checked, 0 by hand; ECO-0023. Cheap path: pa-cli@1.4.2, dataverse-skills@v1.19.0, skills-for-fabric@64563263c7a5eaf7e93fe0a48b5f4dd636746766, docs-important-changes@c77ff362f7340f1c15b0ba924dd76743378528be, docs-pa-cli@9caf0f190087b49417a05067ba9833707037fdb5, docs-dataverse-mcp@8a635ff8c2b4cb76570a22629e44f518ed6d80b4. In entries: pac-cli@2.16.1 (ECO-0023).
