@@ -103,4 +103,4 @@ Reply to the caller in a few lines per file: the path, the size in bytes, the di
 ## Per agent
 
 - **Claude Code:** the installed copy of this skill runs in a forked context on the top model. Start `powerops-review-sketch`, which runs forked too; where that doesn't start, end with "judge needed" (section 6, step 2).
-- **Codex and other agents:** `powerops-plan` starts a subagent that runs this skill with the plan name and the mode, and the judge runs in another subagent with no chat history. Without subagents, it follows these steps in its own session, and the judge's file says `judge: self-judged`: say "self-judged" in the report, because only the person may approve that sketch.
+- **Codex, Antigravity and other agents:** `powerops-plan` starts a subagent (`invoke_subagent` with `self`, `Model: "inherit"` in Antigravity) that runs this skill with the plan name and the mode, and the judge runs in another subagent with no chat history. Without subagents, it follows these steps in its own session, and the judge's file says `judge: self-judged`: say "self-judged" in the report, because only the person may approve that sketch.

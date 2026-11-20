@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 
 using PowerOps.Core.Output;
@@ -7,7 +8,7 @@ namespace PowerOps.Cli.Tests;
 
 public partial class SkillsCommandTests : IDisposable
 {
-    private static readonly string[] Skills = ["powerops-plan", "powerops-prototype", "powerops-review-plan", "powerops-implement", "powerops-review-security", "powerops-review-sketch", "powerops-verify"];
+    private static readonly string[] Skills = ["powerops-plan", "powerops-prototype", "powerops-review-plan", "powerops-implement", "powerops-review-security", "powerops-review-sketch", "powerops-verify", "powerops-specialists"];
     private readonly string _temp = Directory.CreateTempSubdirectory("powerops-skills-").FullName;
 
     public void Dispose() => Directory.Delete(_temp, recursive: true);
@@ -27,7 +28,7 @@ public partial class SkillsCommandTests : IDisposable
     private static partial Regex NamePattern();
 
     [Fact]
-    public void Empty_dir_gets_both_targets_with_all_seven_skills()
+    public void Empty_dir_gets_both_targets_with_all_shipped_skills()
     {
         var (code, output, _) = Run("skills", "install", _temp);
 
@@ -164,6 +165,37 @@ public partial class SkillsCommandTests : IDisposable
     }
 
     [Fact]
+    public void Agent_antigravity_installs_only_agents_even_with_claude_md()
+    {
+        File.WriteAllText(P("CLAUDE.md"), "x");
+
+        Assert.Equal(0, Run("skills", "install", _temp, "--agent", "antigravity").Code);
+
+        Assert.True(Directory.Exists(P(".agents", "skills")));
+        Assert.False(Directory.Exists(P(".claude")));
+    }
+
+    [Theory]
+    [InlineData(".agent", true)]
+    [InlineData("GEMINI.md", false)]
+    public void Antigravity_and_gemini_markers_detect_only_agents(string marker, bool directory)
+    {
+        if (directory)
+        {
+            Directory.CreateDirectory(P(marker));
+        }
+        else
+        {
+            File.WriteAllText(P(marker), "x");
+        }
+
+        Assert.Equal(0, Run("skills", "install", _temp).Code);
+
+        Assert.True(Directory.Exists(P(".agents", "skills")));
+        Assert.False(Directory.Exists(P(".claude")));
+    }
+
+    [Fact]
     public void Two_agents_install_both_targets()
     {
         Assert.Equal(0, Run("skills", "install", _temp, "--agent", "claude", "--agent", "gemini").Code);
@@ -251,11 +283,14 @@ public partial class SkillsCommandTests : IDisposable
     [Fact]
     public void Implement_skill_names_the_microsoft_build_skills_and_the_import_paths_that_need_a_yes()
     {
-        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        var shipped = SkillsCommand.Shipped();
+        var text = shipped["powerops-implement/SKILL.md"];
+        var routes = shipped["powerops-implement/references/routes-and-probes.md"];
         string[] build = ["canvas-apps", "model-apps", "power-automate", "power-pages", "code-apps", "create-site", "create-code-app", "checkout of microsoft/power-platform-skills"];
         string[] imports = ["solution_import", "solution-settings.js import", "import-solution", "deploy-pipeline", "dv-solution", "`powerops deploy plan` and then `powerops deploy apply`"];
 
-        Assert.All(build, s => Assert.Contains(s, text));
+        Assert.Contains("references/routes-and-probes.md", text);
+        Assert.All(build, s => Assert.Contains(s, routes));
         Assert.All(imports, s => Assert.Contains(s, text));
     }
 
@@ -280,19 +315,25 @@ public partial class SkillsCommandTests : IDisposable
     [Fact]
     public void Implement_skill_writes_the_flow_tests_with_fake_values_and_runs_them_before_the_pull_request()
     {
-        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        var shipped = SkillsCommand.Shipped();
+        var text = shipped["powerops-implement/SKILL.md"];
+        var finish = shipped["powerops-implement/references/finish-checks.md"];
         string[] wording = ["Before you open a pull request, for each cloud flow the plan adds or changes, write or update its tests once the solution is exported and unpacked into the repo", "use what the latest sign-in probe (section 3, step 3) found about `pac`; do not run `pac` again to find out, and export from the environment the person named there, never the active profile's", "keep the zip, which `powerops analyze` and `powerops test` both read", "Use fake values in triggers and mocks", "Run `powerops test", "never delete or weaken a test"];
 
-        Assert.All(wording, s => Assert.Contains(s, text));
+        Assert.Contains("references/finish-checks.md", text);
+        Assert.All(wording, s => Assert.Contains(s, finish));
         Assert.DoesNotContain("use what the user told you about `pac`", text);
+        Assert.DoesNotContain("use what the user told you about `pac`", finish);
         Assert.Contains("Tell the Security reviewer that `pac` is signed in only if the user said so in this session.", text);
     }
 
     [Fact]
     public void Implement_skill_checks_the_final_saved_version_live_and_sets_done_only_when_the_checks_passed()
     {
-        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
-        string[] wording =
+        var shipped = SkillsCommand.Shipped();
+        var text = shipped["powerops-implement/SKILL.md"];
+        var finish = shipped["powerops-implement/references/finish-checks.md"];
+        string[] liveChecks =
         [
             "check its final saved version in Dev",
             "never run `pac` or `az` for these checks",
@@ -303,20 +344,27 @@ public partial class SkillsCommandTests : IDisposable
             "report any other unmanaged solution it is in",
             "say \"not verified\" and why",
             "A later save or publish voids the checks it affects",
+        ];
+        string[] skillWording =
+        [
+            "references/finish-checks.md",
             "when steps 1 to 3 passed or the user accepted each remaining gap by name",
             "leave `status: implementing` and list the failed checks and the checks that did not run, separately",
             "anything that differs from the plan body",
         ];
 
-        Assert.All(wording, s => Assert.Contains(s, text));
+        Assert.All(liveChecks, s => Assert.Contains(s, finish));
+        Assert.All(skillWording, s => Assert.Contains(s, text));
         Assert.DoesNotContain("3. Set `status: done` in the plan header, one line only.", text);
     }
 
     [Fact]
     public void Implement_skill_names_the_dataverse_skills_and_probes_sign_ins_with_read_only_status_calls()
     {
-        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
-        string[] wording =
+        var shipped = SkillsCommand.Shipped();
+        var text = shipped["powerops-implement/SKILL.md"];
+        var routes = shipped["powerops-implement/references/routes-and-probes.md"];
+        string[] routeWording =
         [
             "code-apps-preview",
             "dv-metadata",
@@ -329,36 +377,46 @@ public partial class SkillsCommandTests : IDisposable
             "Report each as available or missing, and never repeat, log or write what a probe prints: accounts, tenants and environments stay out of chat and files.",
             "For a missing one, ask the person to sign in or to go on without it, and wait. Probe it once more when they say it is done; if it is still missing, say so and let the person decide. A probe never picks the target.",
             "If the plan's `environment` is null or a role (Dev, Test or Prod, in any case), ask the person to name that environment before any tenant read or live check, and give the skill that name, never the role; any other value is an older plan's name: give it as written. Give the skill the plan's `Solution and publisher` too.",
+            "Stop and report when a tool can't create or save inside that solution",
+            "Do not change the preferred solution",
+        ];
+        string[] skillWording =
+        [
+            "references/routes-and-probes.md",
             "Use only the environment the person named (step 3), or the plan's `environment` when it holds a name, as the target.",
             "Set `status: implementing` in the plan header, unless it already says so.",
             "If it already said `implementing`, or a step of this plan is already committed (after an amendment, step 6), read the commit messages and `writes.md` (step 10)",
-            "Stop and report when a tool can't create or save inside that solution",
-            "Do not change the preferred solution",
             "don't redo a step",
         ];
 
-        Assert.All(wording, s => Assert.Contains(s, text));
+        Assert.All(routeWording, s => Assert.Contains(s, routes));
+        Assert.All(skillWording, s => Assert.Contains(s, text));
         Assert.DoesNotContain("you do not run `pac` or `az` to find out", text);
+        Assert.DoesNotContain("you do not run `pac` or `az` to find out", routes);
         Assert.DoesNotContain("Ask the user whether they are signed in to each of", text);
+        Assert.DoesNotContain("Ask the user whether they are signed in to each of", routes);
     }
 
     [Fact]
     public void Implement_skill_warns_about_studio_saves_the_gallery_crash_table_membership_and_the_old_version_banner()
     {
-        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
-        string[] wording =
+        var shipped = SkillsCommand.Shipped();
+        var text = shipped["powerops-implement/SKILL.md"];
+        var routes = shipped["powerops-implement/references/routes-and-probes.md"];
+        var finish = shipped["powerops-implement/references/finish-checks.md"];
+        string[] routeWording =
         [
             "A Canvas Authoring compile isn't a save",
             "look at the saved time. If it didn't move, change a property and undo it to turn Save on, save, or ask the user to, and confirm that the time moved. Reload only after that, never to check a compile that isn't saved yet",
             "In one run, two compiles of a whole screen with its gallery crashed Studio while the tool reported success; the screen first with the gallery alone after it didn't. The cause isn't known",
             "modern controls also showed as empty blocks after a compile until a reload",
             "In one run, the Python client's table create put the table in the preferred solution although `solution=` was passed. Check each table's membership, and ask before moving one",
-            "Run the check and the commit as separate commands, so a failed check can't be committed",
-            "If the published app shows an old-version banner, select Refresh on it",
         ];
 
-        Assert.All(wording, s => Assert.Contains(s, text));
-        Assert.DoesNotContain("because", text[text.IndexOf("two compiles of a whole screen", StringComparison.Ordinal)..][..300]);
+        Assert.All(routeWording, s => Assert.Contains(s, routes));
+        Assert.DoesNotContain("because", routes[routes.IndexOf("two compiles of a whole screen", StringComparison.Ordinal)..][..300]);
+        Assert.Contains("Run the check and the commit as separate commands, so a failed check can't be committed", text);
+        Assert.Contains("If the published app shows an old-version banner, select Refresh on it", finish);
     }
 
     [Fact]
@@ -510,6 +568,16 @@ public partial class SkillsCommandTests : IDisposable
         var text = SkillsCommand.Shipped()["powerops-review-plan/SKILL.md"];
 
         Assert.Contains("a way out (cancel, back, a failed save)", text);
+    }
+
+    [Fact]
+    public void Plan_and_review_skills_document_antigravity_question_and_subagent_rules()
+    {
+        var shipped = SkillsCommand.Shipped();
+
+        Assert.Contains("**Antigravity:** `ask_question` (unnumbered options, no \"In your own words\"); in print mode, numbered plain text.", shipped["powerops-plan/SKILL.md"]);
+        Assert.Contains("invoke_subagent", shipped["powerops-review-plan/SKILL.md"]);
+        Assert.Contains("invoke_subagent", shipped["powerops-prototype/SKILL.md"]);
     }
 
     [Fact]
@@ -1135,7 +1203,8 @@ public partial class SkillsCommandTests : IDisposable
         string[] data = ["## 6. The data round", "1. Where does the data live today?", "6. What is out of this version?", "`logic.md`"];
         string[] routeText = ["## 1. The route", "## 2. The sketch", "three options in different design directions", "`look.md`. Planning doesn't read it.", "`prototype: skipped (mock-data slice)`", "control map", "`design.md`", .. ProductReferences.Select(f => $"`{f}`")];
         string[] review = ["Per product, when the plan names it", "more than 12 data visuals", "accordion"];
-        string[] implement = ["## 5. Power BI", "\"not covered by PowerOps\"", "`powerbi-report-author validate`", "`semantic-model-authoring`", "`powerbi-report-cli`", "`pcf`", "`pac pcf push`", "the sketch's path, not a screenshot", "pass the plan's `### Theme` block word for word as constraints"];
+        string[] implement = ["## 5. Power BI", "\"not covered by PowerOps\"", "`powerbi-report-author validate`", "`semantic-model-authoring`", "`powerbi-report-cli`", "`pac pcf push`"];
+        string[] implementRoutes = ["`pcf`", "the sketch's path, not a screenshot", "pass the plan's `### Theme` block word for word as constraints"];
 
         Assert.All(log, s => Assert.Contains(s, plan));
         Assert.All(data, s => Assert.Contains(s, shipped["powerops-plan/references/data.md"]));
@@ -1157,6 +1226,7 @@ public partial class SkillsCommandTests : IDisposable
         Assert.Contains("`logic.md`", route);
         Assert.All(review, s => Assert.Contains(s, shipped["powerops-review-plan/SKILL.md"]));
         Assert.All(implement, s => Assert.Contains(s, shipped["powerops-implement/SKILL.md"]));
+        Assert.All(implementRoutes, s => Assert.Contains(s, shipped["powerops-implement/references/routes-and-probes.md"]));
         Assert.DoesNotContain("is not a gap for section 4 step 4", shipped["powerops-implement/SKILL.md"]);
     }
 
@@ -1278,11 +1348,15 @@ public partial class SkillsCommandTests : IDisposable
     [Fact]
     public void Implement_skill_keeps_canvas_packages_out_of_git_and_says_when_the_power_bi_validator_did_not_run()
     {
-        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        var shipped = SkillsCommand.Shipped();
+        var text = shipped["powerops-implement/SKILL.md"];
         var finish = Between(text, "## 4. Finish", "## 5. Power BI");
+        var finishStep2 = Between(finish, "\n2. ", "\n3. ");
+        var finishRef = shipped["powerops-implement/references/finish-checks.md"];
 
         Assert.Contains("a canvas app's formulas are checked on the exported zip", Between(finish, "1. Run `powerops analyze`", "\n2. "));
-        Assert.All(new[] { "the repo's `.gitignore` holds `*.msapp`", "stage no `.msapp`", "keeps that choice", "`git rm --cached <file>`" }, s => Assert.Contains(s, Between(finish, "\n2. Before you open a pull request", "\n3. ")));
+        Assert.All(new[] { "references/finish-checks.md", "`*.msapp`" }, s => Assert.Contains(s, finishStep2));
+        Assert.All(new[] { "the repo's `.gitignore` holds `*.msapp`", "stage no `.msapp`", "keeps that choice", "`git rm --cached <file>`" }, s => Assert.Contains(s, finishRef));
         Assert.Contains("validator: not run", Between(text, "## 5. Power BI", "## Per agent"));
     }
 
@@ -1381,5 +1455,37 @@ public partial class SkillsCommandTests : IDisposable
 
         Assert.Contains("It runs `powerops analyze`, `powerops inventory` (licence drivers, stopping only for a new one the plan's Licences table lacks) and `powerops test` at the end", text);
         Assert.Contains("- A draft the person hands over is mapped onto the plan first: each choice it settles is logged as their answer, and only what it leaves open is asked.", Between(text, "## Questioning protocol", "### Depth and versions"));
+    }
+
+    [Fact]
+    public void Install_writes_the_implement_references_beside_their_skill()
+    {
+        var (code, output, _) = Run("skills", "install", _temp);
+
+        Assert.Equal(0, code);
+        foreach (var root in new[] { ".claude", ".agents" })
+        {
+            foreach (var name in new[] { "build-standard.md", "routes-and-probes.md", "finish-checks.md" })
+            {
+                var file = P(root, "skills", "powerops-implement", "references", name);
+                Assert.Equal(SkillsCommand.Shipped()[$"powerops-implement/references/{name}"], File.ReadAllText(file));
+                Assert.Contains($"created {file.Replace('\\', '/')}", output);
+            }
+
+            Assert.True(File.Exists(P(root, "skills", "powerops-implement", "SKILL.md")));
+        }
+    }
+
+    [Fact]
+    public void Shipped_skill_bodies_stay_within_antigravity_24kb_limit()
+    {
+        foreach (var (rel, text) in SkillsCommand.Shipped().Where(f => f.Key.EndsWith("/SKILL.md", StringComparison.Ordinal)))
+        {
+            var close = text.IndexOf("\n---\n", 4, StringComparison.Ordinal);
+            Assert.True(close > 0, $"{rel} has no closing front matter delimiter");
+            var body = text[(close + "\n---\n".Length)..].TrimStart('\n');
+            var bytes = Encoding.UTF8.GetByteCount(body);
+            Assert.True(bytes <= 24_000, $"{rel} body is {bytes} UTF-8 bytes; Antigravity loads only the first 24,000");
+        }
     }
 }

@@ -10,13 +10,13 @@ public static class SkillsCommand
 {
     private const int UsageError = 2;
     private static readonly string[] ForkedSkills = ["powerops-prototype/SKILL.md", "powerops-review-plan/SKILL.md", "powerops-review-security/SKILL.md", "powerops-review-sketch/SKILL.md", "powerops-verify/SKILL.md"];
-    private static readonly string[] Agents = ["claude", "codex", "gemini", "copilot"];
+    private static readonly string[] Agents = ["claude", "codex", "antigravity", "gemini", "copilot"];
 
     public static Command Create(TextWriter output, TextWriter error)
     {
         var command = new Command("skills", "Install the PowerOps planning skills into a repo.");
         var path = new Argument<string>("path") { Description = "The repo folder to install into.", DefaultValueFactory = _ => "." };
-        var agent = new Option<string[]>("--agent") { Description = "Agent to install for (claude, codex, gemini, copilot); repeatable. Default: detect from the repo.", AllowMultipleArgumentsPerToken = true };
+        var agent = new Option<string[]>("--agent") { Description = "Agent to install for (claude, codex, antigravity, gemini, copilot); repeatable. Default: detect from the repo.", AllowMultipleArgumentsPerToken = true };
         agent.AcceptOnlyFromAmong(Agents);
         var force = new Option<bool>("--force") { Description = "Overwrite skill files that differ from the shipped ones." };
         var install = new Command("install", "Copy the skills to .claude/skills/ and/or .agents/skills/. Never deletes files.") { path, agent, force };
@@ -77,7 +77,7 @@ public static class SkillsCommand
     private static int Install(string root, string[] agents, bool force, TextWriter output, TextWriter error)
     {
         var claude = agents.Length > 0 ? agents.Contains("claude") : Detect(root, [".claude"], ["CLAUDE.md"]);
-        var shared = agents.Length > 0 ? agents.Any(a => a != "claude") : Detect(root, [".agents", ".codex", ".gemini"], ["AGENTS.md"]);
+        var shared = agents.Length > 0 ? agents.Any(a => a != "claude") : Detect(root, [".agents", ".agent", ".codex", ".gemini"], ["AGENTS.md", "GEMINI.md"]);
         if (agents.Length == 0 && !claude && !shared)
         {
             claude = shared = true;

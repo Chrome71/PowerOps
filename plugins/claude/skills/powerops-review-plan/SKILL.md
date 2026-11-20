@@ -115,4 +115,4 @@ Then:
 ## Per agent
 
 - **Claude Code:** the installed copy of this skill runs in a forked context on the top model, so `fresh-context` is `yes`.
-- **Codex and other agents:** a subagent with no chat history gives `fresh-context: yes`. A review run in the planning session gives `no`.
+- **Codex, Antigravity and other agents:** a subagent with no chat history (`invoke_subagent` in Antigravity) gives `fresh-context: yes`. A review run in the planning session gives `no`.
