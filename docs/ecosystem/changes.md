@@ -292,6 +292,364 @@ The review log below has one line per review: `- <date>, mode <A|B|C>: <n> autom
 - Why: Briefed as: the Developer Plan covers Dataverse and premium connectors in a developer environment, not for others, without dataflows, business process flows or desktop flows, with 750 flow runs a month and 2 GB of database. Learn holds the coverage, the gaps and the numbers, and changes three things. The plan is for development and test only, and lets the maker share apps and add coworkers as makers for them, so "not for others" becomes "not production". From 2026-11-15 no new unmanaged developer environment can be created, existing ones are suspended from 2026-12-15 and deleted from 2027-01-15, and running apps and flows in the managed developer environments that remain needs a premium licence on top of the plan, so the plan covers rows only in an unmanaged one. The plan page doesn't say whether the limits hold in a managed developer environment. Learn says nothing on Copilot Studio or Power Pages under the plan. Done (M109): `licensing.md` gives `POWERAPPS_DEV` what Learn says it covers and says how `Held` reads it, its notes carry the dates and the limits, and `powerops-review-plan` item 3 makes a developer environment's flows passing 750 runs a month a Medium finding.
 - Link: docs/plans/m109-agents-use-tools/plan.md
 
+## ECO-0023: msagent, the Copilot Studio CLI, deploys, publishes, promotes and deletes agents with no gate route
+- Priority: P1
+- Disposition: plan for later
+- Status: open
+- Release status: preview
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: docs/HANDOFF.md:154, docs/HANDOFF.md:155, src/PowerOps.Core/Deploy/ImportCall.cs:90, CLAUDE.md:42, skills/powerops-plan/references/copilot-studio.md:22, docs/COMMANDS.md:913
+- Sources: [Deploy and promote a Copilot Studio agent (preview)](https://learn.microsoft.com/microsoft-365/copilot-managed-runtime/developer/agents/cli/deploy) (updated 2026-11-19), [msagent CLI command reference](https://learn.microsoft.com/microsoft-365/copilot-managed-runtime/developer/agents/cli/command-reference) (observed 2026-11-21), [Microsoft.Agents.Hosting.Cli](https://www.nuget.org/packages/Microsoft.Agents.Hosting.Cli) (observed 2026-11-21)
+- Evidence: documented and tested
+- Why: `msagent` (NuGet Microsoft.Agents.Hosting.Cli 0.2.154-beta, .NET 10, Windows and macOS) uploads a `.mcs.yml` workspace with `agent deploy`, publishes with `--publish`, promotes with `--deployment-name staging|production` outside solutions and `deploy apply`, and deletes with `agent delete`; `agent eval run`, `connection update` and `deployment update` also act on the environment; it runs on the user's sign-in (service principals are on the roadmap). Tested offline on 2026-11-21: the gate exits 0 on `msagent agent deploy --publish`, `msagent agent deploy --deployment-name production` and `msagent agent push`. HANDOFF:154-155 and CLAUDE.md:42 name only pac, pa and MCP routes; CLAUDE.md:42's general rule and the specialists' Bash limit still hold, so nothing is unsafe today, but Microsoft now documents a Prod promotion route the harness doesn't name. A milestone: name the writes in HANDOFF and CLAUDE.md, and an owner decision between a gate marker and a person-runs-it rule.
+- Link: none
+
+## ECO-0024: pac 2.16.1's MCP server adds two preview groups, and the group list goes stale with each pac release
+- Priority: P2
+- Disposition: plan for later
+- Status: open
+- Release status: preview
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: docs/HANDOFF.md:115, docs/HANDOFF.md:154, docs/ecosystem/compatibility.md:22, tests/PowerOps.Cli.Tests/HandoffDocTests.cs, docs/ecosystem/sources.json
+- Sources: [Microsoft.PowerApps.CLI.Tool 2.16.1](https://www.nuget.org/packages/Microsoft.PowerApps.CLI.Tool/2.16.1) (published 2026-11-20), [Power Platform CLI and the Power Platform API](https://devblogs.microsoft.com/powerplatform/power-platform-cli-%e2%9d%a4%ef%b8%8f-power-platform-api/) (published 2026-09-17)
+- Evidence: documented and tested
+- Why: Asked only `initialize` and `tools/list` over stdio with no sign-in on 2026-11-21, `pac` 2.16.1 (serverInfo 2.16.0.0) lists 288 tools, 226 preview in 18 groups (2.14.1: 284, 222, 16); the new groups are `monitoring-hub` (`export-metrics`, described as a read but annotated not read-only, and the trigger `on-alert-triggered`) and `notification-service` (`get-active-notifications`, and `update-notification-status`, a user-level write that dismisses the caller's notifications). HANDOFF's "16 preview groups", its read-only list and HandoffDocTests' 16 names are stale and no deny glob covers the new write; the six gated names, the 11 globs (209 tools) and Codex's allow-list still hold. The groups come from the monthly Power Platform API spec and the release notes don't name them, so the pac-cli triage should run this probe on each version and keep its name list as the next baseline. Annotations sit in `inputSchema.annotations.readOnlyHint` on 277 of 288 tools, not in the standard field.
+- Link: none
+- Supersedes: ECO-0019
+
+## ECO-0025: MCP write tools that HANDOFF's deny advice misses: FlowAgent, Fabric Core and the hosted Power BI Authoring server
+- Priority: P2
+- Disposition: plan for later
+- Status: open
+- Release status: GA
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: docs/HANDOFF.md:113, docs/HANDOFF.md:155, docs/USE-WITH-AGENTS.md:61, docs/ecosystem/compatibility.md:25, CLAUDE.md:42
+- Sources: [power-platform-skills power-automate plugin at 5185663](https://github.com/microsoft/power-platform-skills/tree/51856637/plugins/power-automate) (published 2026-10-27), [Fabric Core MCP Server tools](https://learn.microsoft.com/rest/api/fabric/articles/mcp-servers/core-remote/tools-core-mcp-server) (observed 2026-11-21), [Power BI Authoring MCP server](https://learn.microsoft.com/power-bi/developer/mcp/power-bi-authoring-mcp) (updated 2026-11-17)
+- Evidence: documented
+- Why: FlowAgent v3.2.10 registers 62 tools, 39 read-only; HANDOFF names only `copy_flow`, `publish_flow` and `update_flow`, and misses `create_flow`, `edit_flow`, `disable_flow`, `delete_flow`, `restore_backup`, `run_flow`, `resubmit_run`, `cancel_run`, `cancel_all_runs`, `run_desktop_flow`, `smoke_test`, `pick_or_create_connection`, `fix_connection`, `delete_connection` and `invoke_operation`. The Fabric Core MCP Server (GA, `api.fabric.microsoft.com/v1/mcp/core`) has 25 write tools by Learn's Read-only column (workspaces, roles, items including `update_item_definition`, folders, OneLake shortcuts, data access roles and settings), separate from its 16 reads, so an exact-name deny list keeps the reads; the local `@microsoft/fabric-mcp` has `--read-only`. The hosted Power BI Authoring server (preview, Learn's recommended option) has no `--readonly`, so HANDOFF:113's flag control misses it, while Build-only permission still applies. Name all three in HANDOFF:155 and give deny lists in HANDOFF:113.
+- Link: none
+
+## ECO-0026: Advanced connector policies replace data-group checks with a default-deny allow-list and can block MCP servers
+- Priority: P2
+- Disposition: plan for later
+- Status: open
+- Release status: GA
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: skills/powerops-review-plan/SKILL.md:38, docs/examples/README.md:120, docs/examples/README.md:239, docs/examples/README.md:281, skills/powerops-review-security/SKILL.md:71
+- Sources: [Advanced connector policies](https://learn.microsoft.com/power-platform/admin/advanced-connector-policies) (updated 2026-11-20), [Manage advanced connector policies programmatically](https://learn.microsoft.com/power-platform/admin/programmability-tutorial-manage-advanced-connector-policies) (updated 2026-11-21)
+- Evidence: documented
+- Why: ACP blocks every certified and MCP connector unless allowed (new ones too), can allow or block single actions, can block a whole MCP server but not single tools, and in ACP-only mode ignores classic data policies; custom and HTTP connectors stay under classic policies. It is GA per workload as design-time enforcement ships (Power Automate, then Copilot Studio, then Power Apps), runtime-only before. PowerOps' DLP checks assume the classic "allowed together" model and never mention ACP, so a plan can pass review and then fail in Test on one action not on the allow-list. `powerops-review-security` is a kept role: any change there follows the M96 procedure.
+- Link: none
+
+## ECO-0027: PO037 counts the deprecated mobile notification as telling someone
+- Priority: P2
+- Disposition: plan for later
+- Status: open
+- Release status: deprecated
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: src/PowerOps.Core/Rules/PO037CatchTellsNoOne.cs, docs/rules/PO037.md
+- Sources: [Important changes coming](https://learn.microsoft.com/power-platform/important-changes-coming) (updated 2026-11-18), [Notifications connector](https://learn.microsoft.com/connectors/flowpush/) (updated 2026-09-22)
+- Evidence: documented
+- Why: Since 2026-08-31 the Power Automate mobile app no longer receives "Send me a mobile notification" (`flowpush` `SendNotification`), and the whole Notifications connector is now marked deprecated. PO037 counts any connector action as outward by type, so a catch path whose only notice is a flowpush action passes. Fix by excluding `shared_flowpush` from the outward count or by a rule for its deprecated actions; a fixture should confirm the exported action type first.
+- Link: none
+
+## ECO-0028: Agent flows and AI Builder actions bill in Copilot Credits, and inventory reads them as Power Automate licence needs
+- Priority: P2
+- Disposition: plan for later
+- Status: open
+- Release status: GA
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: src/PowerOps.Core/Readers/SolutionParser.cs, src/PowerOps.Core/Model/Solution.cs, src/PowerOps.Core/Output/InventoryReport.cs, src/PowerOps.Core/Rules/PO039RareTrigger.cs, skills/powerops-plan/references/licensing.md, .claude/agents/powerops-automate.md
+- Sources: [Agent flows overview](https://learn.microsoft.com/microsoft-copilot-studio/flows-overview) (updated 2026-11-03), [Workflow table reference](https://learn.microsoft.com/power-apps/developer/data-platform/reference/entities/workflow) (observed 2026-11-21), [End of AI Builder credits](https://learn.microsoft.com/ai-builder/endofaibcredits) (updated 2026-10-02)
+- Evidence: documented
+- Why: Agent flows bill each action in Copilot Credits, skip request limits and stop running with no credits (`InsufficientMcsCredits`); `ModernFlowType` (0 cloud, 1 Copilot Studio, 2 M365 Copilot) tells them apart, but PowerOps reads only Category, so inventory gives agent flows Power Automate drivers. Since 2026-11-01 no new AI Builder add-ons or seeded credits; existing credits last to contract end, then AI Builder uses Copilot Credits and is blocked when neither is left (the licence types page still lists 5,000 a month: sources disagree); inventory has no AI Builder driver. Both need a fixture: an exported agent flow and an AI Builder action.
+- Link: none
+
+## ECO-0029: The request-limit transition ends from April 2027, and one owner's flows then share one daily limit
+- Priority: P2
+- Disposition: plan for later
+- Status: open
+- Release status: announced
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: skills/powerops-plan/references/data.md:73
+- Sources: [Requests limits and allocations](https://learn.microsoft.com/power-platform/admin/api-request-limits-allocations) (updated 2026-11-10)
+- Evidence: documented
+- Why: After a phased rollout from April 2027, flows running under one user share that user's limit across environments (40k a day Premium, 6k seeded) instead of a per-flow limit; data.md:73 checks the cost line per flow. Cloud flows that agents trigger share a 250,000-a-day tenant pool, and agent flows are metered in credits. Look again when the rollout starts.
+- Link: none
+
+## ECO-0030: model-apps 2.26.0 to 2.28.0 add a shared-page stop, stable configuration rows and off-disk secrets
+- Priority: P2
+- Disposition: plan for later
+- Status: open
+- Release status: GA
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: skills/powerops-plan/references/model-driven.md:18, skills/powerops-implement/SKILL.md:41, docs/ecosystem/compatibility.md
+- Sources: [model-apps CHANGELOG](https://github.com/microsoft/power-platform-skills/blob/main/plugins/model-apps/CHANGELOG.md) (observed 2026-11-21), [power-platform-skills 238f8ad](https://github.com/microsoft/power-platform-skills/commit/238f8ad9b5133d3fb3e70b243f01c44f74a8524a) (published 2026-11-16)
+- Evidence: documented
+- Why: 2.28.0's `/genpage` asks before editing a page other apps share (an unattended run stops), and creates configuration rows once at stable ids; 2.27.0 keeps variable values, secret references and connection ids off disk, and a pending protected variable needs a retire-and-delete (stop list); 2.26.0 downloads declared variables and connection references. This widens ECO-0009: the Dev trial should use 2.28.0, and a plan touching a shared page must name the confirmation.
+- Link: none
+- Supersedes: ECO-0009
+
+## ECO-0031: code-apps plugin: an env attribution form, a coming rename and a second push
+- Priority: P2
+- Disposition: plan for later
+- Status: open
+- Release status: preview
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: docs/HANDOFF.md:23, docs/HANDOFF.md:35, docs/HANDOFF.md:111, docs/HANDOFF.md:159, docs/COMMANDS.md:876, docs/plans/m85-gate-routes/decisions.md:36, skills/powerops-implement/SKILL.md:40, skills/powerops-plan/references/code-apps.md:15, tests/PowerOps.Cli.Tests/SkillsCommandTests.cs:321
+- Sources: [power-platform-skills 01d846c](https://github.com/microsoft/power-platform-skills/commit/01d846cbe2f16abcd22b3ccb1fc7b50e28811fdc) (published 2026-11-13), [power-platform-skills 28c209c](https://github.com/microsoft/power-platform-skills/commit/28c209c9eec2b7dedd598b3e211104a0b04e94c7) (published 2026-11-20), [shared-instructions.md](https://github.com/microsoft/power-platform-skills/blob/main/plugins/code-apps/shared/shared-instructions.md) (observed 2026-11-21)
+- Evidence: documented and tested
+- Why: 01d846c deleted the `set-cli-origin.js` hook that HANDOFF:159 cites; `cli-binary.md` now prefixes CLI calls with `env -u PA_PLUGIN_REPORT_AGENT PA_CLI_ORIGIN=...`, and applied to the deploy skill's `$PA app push` the gate blocks it with "the command holds an import that the gate can't read" instead of the route line (tested 2026-11-21; fails closed); M85 decision Q4 rested on Microsoft not using `env`. 28c209c prepares a rename to `code-apps` with no date, which HANDOFF, the implement skill and a test pin. `create-code-app` now has a pre-approved Step 7 push and a confirmed Step 10 push, while code-apps.md:15 names one. Trigger for the rename: `plugins/code-apps/plugin.json` `name` becomes `code-apps`.
+- Link: none
+
+## ECO-0032: Smoke pins are 27 Claude Code builds and 4 Codex minors behind, and codex exec now needs project trust
+- Priority: P2
+- Disposition: plan for later
+- Status: open
+- Release status: GA
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: .github/workflows/skills-smoke.yml:22, .github/workflows/skills-smoke.yml:24, tests/smoke/skills-smoke.sh, tests/eval/roles/run.sh:227, docs/USE-WITH-AGENTS.md:100, docs/HARNESS.md:23, docs/HANDOFF.md:109, docs/ecosystem/compatibility.md
+- Sources: [Claude Code changelog](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md) (observed 2026-11-21), [Codex rust-v0.169.0](https://github.com/openai/codex/releases/tag/rust-v0.169.0) (published 2026-11-13), [Codex rust-v0.171.0](https://github.com/openai/codex/releases/tag/rust-v0.171.0) (published 2026-11-20), [openai/codex#60041](https://github.com/openai/codex/pull/60041) (published 2026-11-07)
+- Evidence: documented
+- Why: Pins are Claude Code 2.1.303 and Codex 0.163.0; npm shows 2.1.330 (stable 2.1.323) and GitHub 0.171.0. Codex 0.169.0 keeps project configuration and MCP servers off in `codex exec` in untrusted folders even with `workspace-write`, so the smoke and role eval may need `--trust` or run without skills and hooks (untested). The move's test list adds: exec trust, the Guardian review of recorded MCP calls (0.168.0) against the `deploy_apply` form, shared MCP launch directories (0.171.0) and a real Code Mode session; none of the read changelog lines breaks a claim.
+- Link: none
+- Supersedes: ECO-0011
+
+## ECO-0033: Power BI reference: Report is GA in Fabric Git integration and the List slicer is GA
+- Priority: P2
+- Disposition: plan for later
+- Status: open
+- Release status: GA
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: skills/powerops-plan/references/power-bi.md:17, skills/powerops-plan/references/power-bi.md:66, skills/powerops-plan/references/power-bi.md:75, skills/powerops-plan/references/power-bi.md:104, skills/powerops-plan/references/power-bi.md:120, docs/HANDOFF.md:26
+- Sources: [Overview of Fabric Git integration](https://learn.microsoft.com/fabric/cicd/git-integration/intro-to-git-integration) (updated 2026-11-19), [fabric-docs 1a013ed](https://github.com/MicrosoftDocs/fabric-docs/commit/1a013ede0cd1964ecd0102a48709e7c23356e563) (published 2026-11-19), [November 2026 Power BI update](https://learn.microsoft.com/power-bi/fundamentals/desktop-latest-update) (updated 2026-11-17)
+- Evidence: documented
+- Why: fabric-docs removed "(preview)" from Report on the Git integration and deployment pipelines lists; Semantic model stays preview, so "reports and semantic models as preview" is half stale (deployment pipelines still don't support PBIR reports, so the route rule holds; Microsoft's deployment-pipelines skill lags Learn). The November update lists the List slicer with dropdown as GA, and the reference's preview mark keeps it out of sketches under gate 3. The edit touches a sketch-gate reference, so check AGENTS.md's sketch-eval rerun rule.
+- Link: none
+
+## ECO-0034: Copilot Studio plans should name Work IQ, the primary model and its retirement, and re-test prompts after auto-migration
+- Priority: P2
+- Disposition: plan for later
+- Status: open
+- Release status: GA
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: skills/powerops-plan/references/copilot-studio.md:18, skills/powerops-plan/references/copilot-studio.md:19, skills/powerops-plan/references/copilot-studio.md:20, .claude/agents/powerops-copilot-studio.md:14, .claude/agents/powerops-copilot-studio.md:42, .claude/agents/powerops-copilot-studio.md:43, .claude/agents/powerops-copilot-studio.md:51
+- Sources: [Work IQ in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-work-iq) (updated 2026-11-12), [Select a primary AI model](https://learn.microsoft.com/microsoft-copilot-studio/authoring-select-agent-model) (updated 2026-11-20), [Prompt model availability](https://learn.microsoft.com/microsoft-copilot-studio/prompt-model-availability) (updated 2026-11-13)
+- Evidence: documented
+- Why: Work IQ joins every new Microsoft Copilot harness agent with all workloads and writes on by default, billed in credits, so a plan's tool list misses it. The standard harness defaults to the "GPT Chat Latest" alias, models retire on dated schedules, and a managed agent whose model can't be edited moves to the default without an import (`drift` doesn't see it); external providers need two admin settings and Anthropic is off in the EU/EFTA and UK. Prompts move to new models by 2026-12-02 and responses may differ, so flows parsing them need a re-test. A plan line each; specialist and plugin copies regenerate by the goldens recipe.
+- Link: none
+
+## ECO-0035: Copilot Studio harness pages: the toggle route, the upgrade URL, trigger credentials and Copilot Studio MCP 1.0.4
+- Priority: P3
+- Disposition: plan for later
+- Status: open
+- Release status: preview
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: skills/powerops-plan/references/copilot-studio.md:7, skills/powerops-plan/references/copilot-studio.md:11, skills/powerops-plan/references/copilot-studio.md:17, skills/powerops-plan/references/copilot-studio.md:53, skills/powerops-plan/references/copilot-studio.md:59, .claude/agents/powerops-copilot-studio.md:31, .claude/agents/powerops-copilot-studio.md:49, docs/ecosystem/compatibility.md:24, src/PowerOps.Core/Rules/Agents.cs:8
+- Sources: [Access standard harness agents and agent flows](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/switch-experiences) (updated 2026-11-12), [Copilot Studio quickstart](https://learn.microsoft.com/microsoft-copilot-studio/fundamentals-get-started) (observed 2026-11-21), [Upgrade agents to the Microsoft Copilot harness](https://learn.microsoft.com/microsoft-copilot-studio/upgrade-to-microsoft-copilot-from-standard-harness) (updated 2026-11-12), [Add triggers (Microsoft Copilot)](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-add-event-trigger) (updated 2026-11-18), [@microsoft/copilot-studio-mcp](https://registry.npmjs.org/@microsoft/copilot-studio-mcp) (published 2026-11-10)
+- Evidence: documented
+- Why: switch-experiences names no New experience toggle while the standard-harness quickstart still says to turn it off, so line 11 should cite both and lead with Other ways to build, not drop the toggle. The upgrade page's slug is now `upgrade-to-microsoft-copilot-from-standard-harness`, weakening ECO-0020's slug reason for the old name. Copilot-harness triggers can run on each user's credentials, so line 17 is standard-harness only. Copilot Studio MCP is 1.0.4 (no changelog), called public preview on the blog with no label on Learn, and adds `get_copilot_studio_skills`. GA of the harness rests on blogs only (announcement only); Learn has no banner and pages disagree on the harness count.
+- Link: none
+- Supersedes: ECO-0020
+
+## ECO-0036: Canvas Copilot answer can't be added to new apps, and canvas.md lists it without a caveat
+- Priority: P3
+- Disposition: plan for later
+- Status: open
+- Release status: deprecated
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: skills/powerops-plan/references/canvas.md:17, .claude/agents/powerops-apps.md:23
+- Sources: [Copilot answer control](https://learn.microsoft.com/power-apps/maker/canvas-apps/copilot-answer-control-overview) (updated 2026-11-18), [Add a Copilot control](https://learn.microsoft.com/power-apps/maker/canvas-apps/add-ai-copilot) (observed 2026-11-21), [Microsoft Copilot in canvas apps](https://learn.microsoft.com/power-apps/maker/canvas-apps/microsoft-365-copilot-canvas-app) (updated 2026-10-13)
+- Evidence: documented
+- Why: From 2026-02-02 neither Copilot answer nor the Copilot control can be added to new canvas apps, and existing apps keep working for a limited time; Learn's modern controls list still shows Copilot answer, so canvas.md:17's dated record is accurate but needs a caveat. The replacement is preview and needs a Microsoft 365 Copilot licence per user, Dataverse search and the tenant's Dataverse-in-Copilot setting.
+- Link: none
+
+## ECO-0037: The power-pages migrate-datamodel skill, and its restart call that the gate doesn't see
+- Priority: P3
+- Disposition: plan for later
+- Status: open
+- Release status: preview
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: docs/HANDOFF.md:21, docs/HANDOFF.md:155, .claude/agents/powerops-apps.md:15, skills/powerops-plan/references/power-pages.md:8
+- Sources: [power-platform-skills 42a9422](https://github.com/microsoft/power-platform-skills/commit/42a94220bad33ffc815c3b8fb9e7229e65ad3542) (published 2026-11-18)
+- Evidence: documented
+- Why: The skill migrates a site from the standard to the enhanced data model with approval gates; its `pac pages migrate-datamodel`, `pac pages upload` and `pac application install` are already always blocked (HANDOFF:111), but the HANDOFF:21 row doesn't name the skill, and `scripts/restart-site.js --approved` sends a Power Platform API restart POST with no shell `pac`, a write for HANDOFF:155's list. PowerOps refuses standard-model sites and names no migration route.
+- Link: none
+
+## ECO-0038: PO030's why and fix miss two new facts: a sharing block for maker credentials, and computer use
+- Priority: P3
+- Disposition: plan for later
+- Status: open
+- Release status: preview
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: docs/rules/PO030.md, skills/powerops-plan/references/copilot-studio.md:17, src/PowerOps.Core/Rules/Agents.cs
+- Sources: [Control sharing agents with embedded maker credentials](https://learn.microsoft.com/power-platform/admin/security/control-sharing-agents-with-embedded-maker-credentials) (published 2026-11-04), [Computer use](https://learn.microsoft.com/microsoft-copilot-studio/computer-use) (updated 2026-10-21)
+- Evidence: documented
+- Why: A PPAC setting (Security > Threat detection, recommended "Don't let makers share") can refuse to share or publish an agent whose connection embeds maker credentials, so an agent PO030 flags may import and then fail to publish. Computer use defaults to maker-provided credentials, and whether it exports as a `TaskDialog` that PO030 reads needs an export.
+- Link: none
+
+## ECO-0039: Power CAT's real skills router against smoke scenario 4's fake one
+- Priority: P3
+- Disposition: plan for later
+- Status: open
+- Release status: GA
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: tests/smoke/skills-smoke.sh
+- Sources: [power-cat-skills 7814307](https://github.com/microsoft/power-cat-skills/commit/7814307) (published 2026-10-28)
+- Evidence: documented
+- Why: `powercat-skills-router` routes Power Platform requests across the Power CAT and Power Platform marketplaces and installs plugins after approval; scenario 4 checks that the plan-first skills win only against a router written in the script. A run with the real router, or a recorded reason not to, settles it.
+- Link: none
+
+## ECO-0040: skills-for-fabric's 12-visual warning file is unchanged since before the cited commit
+- Priority: P3
+- Disposition: implement now
+- Status: open
+- Release status: GA
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: docs/ecosystem/compatibility.md
+- Sources: [anti-patterns.md history](https://api.github.com/repos/microsoft/skills-for-fabric/commits?path=plugins/powerbi-authoring/skills/powerbi-report-cli/references/design/anti-patterns.md) (observed 2026-11-21), [anti-patterns.md at 6456326](https://github.com/microsoft/skills-for-fabric/blob/64563263c7a5eaf7e93fe0a48b5f4dd636746766/plugins/powerbi-authoring/skills/powerbi-report-cli/references/design/anti-patterns.md) (published 2026-11-19)
+- Evidence: documented
+- Why: The file last changed at ec8d7ec (2026-09-24), before the cited 4c3986d, and at 6456326 still warns at more than 12 visuals; the plugin's `skills/` folder last changed at 2e4e559 (2026-10-01). The open sentence in the skills-for-fabric row of compatibility.md can close in the review commit.
+- Link: none
+
+## ECO-0041: HANDOFF says the gate passes guarded commands only as one plain command, but it reads a cd prefix
+- Priority: P3
+- Disposition: implement now
+- Status: open
+- Release status: preview
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: docs/HANDOFF.md:101, docs/HANDOFF.md:111
+- Sources: [Claude Code Code Mode](https://code.claude.com/docs/en/code-mode.md) (observed 2026-11-21)
+- Evidence: tested
+- Why: Claude Code's Code Mode (experimental, 2.1.323 or later) can hand a hook `cd '<dir>' && <command>`. Tested offline on 2026-11-21 with `deploy gate`: `cd '/tmp/x' && powerops deploy apply plan.json --apply --require-reviews` exits 0 like the plain form, `cd … && pac solution import` gets the same checks as the plain form, and `--apply` without `--require-reviews` still exits 2; ImportCallTests already expects the `cd /work && …` import to be readable. So routes keep working in Code Mode and the docs are stricter than the code: reword "one plain" to allow a leading `cd` segment, or tighten the code (owner's call).
+- Link: none
+
+## ECO-0042: BUILD-PLAN still says PowerOps.Cli references ModelContextProtocol.Core 2.3.0
+- Priority: P3
+- Disposition: implement now
+- Status: open
+- Release status: GA
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: docs/BUILD-PLAN.md:115, docs/BUILD-PLAN.md:124, docs/BUILD-PLAN.md:355
+- Sources: [csharp-sdk v2.4.0](https://github.com/modelcontextprotocol/csharp-sdk/releases/tag/v2.4.0) (published 2026-11-07)
+- Evidence: documented
+- Why: Dependabot's #124 (`f420117`, merged 2026-11-10) moved `ModelContextProtocol.Core` from 2.3.0 to 2.4.0 in the csproj and lock file; BUILD-PLAN.md:124's "the version `PowerOps.Cli` references" has been false since, and lines 115 and 355 are dated history that want a pointer. A dated note on each line.
+- Link: none
+
+## ECO-0043: pac 2.15.1 and 2.16.1 document no change to the commands PowerOps calls
+- Priority: P3
+- Disposition: monitor
+- Status: open
+- Release status: GA
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: docs/HANDOFF.md:10, docs/examples/ephemeral-sweep.yml, docs/examples/promote-dev-to-test.yml, docs/ecosystem/compatibility.md
+- Sources: [Microsoft.PowerApps.CLI.Tool 2.16.1](https://www.nuget.org/packages/Microsoft.PowerApps.CLI.Tool/2.16.1) (published 2026-11-20), [pac CLI reference](https://learn.microsoft.com/power-platform/developer/cli/reference/) (observed 2026-11-21)
+- Evidence: documented
+- Why: 2.15.1 (2026-11-12) fixes only `pac admin reset` language and currency lookups and 2.16.1 only updates Microsoft.Identity.Client; the reference pages for `org who`, `solution list/export/import/unpack/pack/check`, `power-automate list-cloud-flows` and `copilot mcp` were not edited in the window. Release notes alone don't show the text formats unchanged: look again before the "tested with 2.13.1" line or the examples' 2.14.1 pin moves, which needs those commands observed on the new version against a tenant (the person's yes).
+- Link: none
+- Supersedes: ECO-0012
+
+## ECO-0044: Power Pages enhanced authorization is documented as preview, opt-in per site
+- Priority: P3
+- Disposition: monitor
+- Status: open
+- Release status: preview
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: docs/rules/PO021.md, docs/rules/PO022.md, docs/rules/PO023.md, skills/powerops-plan/references/power-pages.md
+- Sources: [Enable enhanced authorization (preview)](https://learn.microsoft.com/power-pages/security/unify-pages-security-with-dataverse) (updated 2026-07-09), [Roadmap item 576750](https://www.microsoft.com/microsoft-365/roadmap?id=576750) (updated 2026-10-16)
+- Evidence: documented
+- Why: Learn now documents ECO-0016's merged model: a per-site checkbox (Power Pages Core 1.1.2605.258 or later) maps contacts to system users and web roles to security roles, Dataverse checks permissions as the site user, and Web API column permissions give way to column security profiles. Web roles and table permissions still define access, so PO021 to PO023 hold; a plan should say whether a site turns it on. Look again when roadmap 576750 launches (GA November CY2026 on the item).
+- Link: none
+- Supersedes: ECO-0016
+
+## ECO-0045: MCP: no revision after 2026-07-28 and SDK 2.4.0 changes no elicitation; ECO-0015's re-check trigger fired
+- Priority: P3
+- Disposition: monitor
+- Status: open
+- Release status: GA
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: src/PowerOps.Cli/McpCommand.cs, src/PowerOps.Cli/PowerOps.Cli.csproj, docs/FOUNDATION.md:189, docs/ecosystem/compatibility.md
+- Sources: [MCP draft changelog](https://modelcontextprotocol.io/specification/draft/changelog) (observed 2026-11-21), [csharp-sdk v2.4.0](https://github.com/modelcontextprotocol/csharp-sdk/releases/tag/v2.4.0) (published 2026-11-07), [MCP extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix.md) (observed 2026-11-21)
+- Evidence: documented
+- Why: Dependabot moved `ModelContextProtocol.Core` to 2.4.0 on 2026-11-10, ECO-0015's trigger. Re-checked: `schema/` still ends at 2026-07-28; the draft only restores optional `_meta` on the elicitation types and reports invalid tool arguments as an `isError` result; SDK 2.4.0 adds an experimental Skills extension package and nothing on elicitation; the form's round trip stays unit-tested. The Skills extension (SEP-2640, Final) would let `powerops mcp` serve its skills, but no client PowerOps supports implements it. Look again at the next MCP revision, the next SDK move, a client pin move (ECO-0032) or Skills support in Claude Code or Codex.
+- Link: none
+- Supersedes: ECO-0015
+
+## ECO-0046: Microsoft build routes outside the gate, in preview or announced
+- Priority: P3
+- Disposition: monitor
+- Status: open
+- Release status: preview
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: docs/HANDOFF.md:154, docs/HANDOFF.md:155, .claude/agents/powerops-apps.md
+- Sources: [Copilot Managed Runtime](https://learn.microsoft.com/microsoft-365/copilot-managed-runtime/overview) (observed 2026-11-21), [mobile-apps README](https://github.com/microsoft/power-platform-skills/blob/main/plugins/mobile-apps/README.md) (observed 2026-11-21), [Canvas authoring agent](https://learn.microsoft.com/power-apps/maker/canvas-apps/canvas-authoring-agent) (updated 2026-10-27), [MCP and A2A channels](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-channels-mcp-agent-to-agent) (updated 2026-11-12), [Roadmap item 576752](https://www.microsoft.com/microsoft-365/roadmap?id=576752) (updated 2026-10-16)
+- Evidence: documented
+- Why: Each is a write or build route no PowerOps route names: Copilot Managed Runtime's `ms app deploy` and its Claude Code plugin; the mobile-apps plugin (private preview: `pa app push`, Web API table writes, `PublishAllXml`); the canvas authoring agent (US only, a tenant setting, prompts to GitHub); the MCP and A2A channels (early-release environments); app building in Copilot Cowork; and, announcement only, the Dataverse management MCP server (GA December CY2026 on the roadmap). Look again when any reaches GA or a plan names it.
+- Link: none
+
+## ECO-0047: Organisations can now govern the local agent and its plugins that run PowerOps
+- Priority: P3
+- Disposition: monitor
+- Status: open
+- Release status: preview
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: docs/HARNESS.md, docs/PLANNING-SKILLS.md, .claude-plugin/marketplace.json
+- Sources: [Control where GitHub Copilot customizations come from](https://github.blog/changelog/2026-11-16-control-where-github-copilot-customizations-come-from) (published 2026-11-16), [What's new in Microsoft Agent 365, Ignite 2026](https://techcommunity.microsoft.com/blog/agent-365-blog/whats-new-in-microsoft-agent-365-ignite-2026/4571753) (published 2026-11-17)
+- Evidence: documented
+- Why: GitHub Copilot's `strictPluginOnlyCustomization` can block standalone skills, agents, hooks and MCP servers (what `powerops skills install` writes), enterprise plugin controls went GA on 2026-10-28, and Copilot CLI reads `.claude-plugin/marketplace.json`, where hooks and forms are unchecked (HARNESS.md: provisional). Agent 365 and Entra Agent ID reach local coding agents including Claude Code and Copilot CLI (announcement only: identities, DLP, Defender and Intune blocking). Look again when Learn documents the Agent 365 local-agent controls or Copilot CLI leaves "provisional".
+- Link: none
+
+## ECO-0048: Copilot Studio agent identity, agent accounts and evaluations: new controls a plan may need to name
+- Priority: P3
+- Disposition: monitor
+- Status: open
+- Release status: preview
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: docs/HANDOFF.md:67, skills/powerops-plan/references/copilot-studio.md:16, skills/powerops-plan/references/copilot-studio.md:17, .claude/agents/powerops-copilot-studio.md:40, .claude/agents/powerops-copilot-studio.md:42, .claude/agents/powerops-copilot-studio.md:46, .claude/agents/powerops-copilot-studio.md:50
+- Sources: [Give your agent an account (Frontier)](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-agent-account) (updated 2026-10-16), [Manage Entra Agent IDs](https://learn.microsoft.com/microsoft-copilot-studio/admin-use-entra-agent-identities) (updated 2026-11-17), [Create a single response test set](https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-create) (updated 2026-10-06), [Evaluate agent behavior with msagent](https://learn.microsoft.com/microsoft-365/copilot-managed-runtime/developer/agents/cli/evaluate) (observed 2026-11-21)
+- Evidence: documented
+- Why: Agent accounts (Frontier preview, early-release environments, E5 plus Agent 365 or E7, a licence per published agent) give an agent its own Entra account and mailbox, tools default to authenticating as it, and shared memory has no privacy boundary between users; a public preview is announced for December 2026 (announcement only). Every new agent gets an Entra Agent ID (GA, no opt-out) whose connector permissions Conditional Access can target, so a target tenant's policies can block an imported agent's connectors; what a solution import does to that identity is undocumented, and the blueprint app must stay enabled for copy and restore. Evaluations keep checklist 14's limits (100 cases, CSV of 100 questions), add a content safety method, and `msagent agent eval run --from-csv` (preview) spends credits and can run tools that change data. Look again at the agent-account public preview, when Learn documents Agent ID on import, or when the Microsoft Copilot harness evaluation page is read.
+- Link: none
+
+## ECO-0049: Microsoft's skills turn telemetry on by default: generative pages and the Power Automate plugin
+- Priority: P3
+- Disposition: monitor
+- Status: open
+- Release status: preview
+- Found: 2026-11-21, mode A
+- Verified: 2026-11-21
+- Affects: skills/powerops-plan/references/model-driven.md:12, docs/HANDOFF.md:22, .claude/agents/powerops-automate.md:9, .claude/agents/powerops-automate.md:31
+- Sources: [Generate a page using natural language](https://learn.microsoft.com/power-apps/maker/model-driven-apps/generative-pages) (updated 2026-09-28), [power-platform-skills 3a01772](https://github.com/microsoft/power-platform-skills/commit/3a017729c414d7d0295ad201e2bf29be3304217c) (published 2026-11-16), [Power Automate plugin telemetry](https://github.com/microsoft/power-platform-skills/blob/main/plugins/power-automate/references/telemetry.md) (observed 2026-11-21)
+- Evidence: documented
+- Why: Published generative pages can report page views, exceptions, `dataApi` calls and navigation to Application Insights once an admin sets up the export (preview), and the genpage skill's `custom-telemetry` flag now defaults to on (`GENPAGE_ENABLE_CUSTOM_TELEMETRY=0` turns it off for a run). The Power Automate plugin v3.2.x adds `PreToolUse` (Skill) and `UserPromptSubmit` hooks that send telemetry by default, which can include tenant, org and environment GUIDs and the user's Entra object ID but no prompt text (opt-out `POWER_PLATFORM_SKILLS_TELEMETRY_POWER_AUTOMATE_OPTOUT=1`). A plan should say whether pages send telemetry and where, for the security review, and HANDOFF could name the plugin's opt-out. Not run. Look again at genpage telemetry GA or the next Power Automate plugin release.
+- Link: none
+
 ## Review log
 
 - 2026-11-10, mode A: 19 automated read, 0 not checked, 10 by hand; ECO-0001, ECO-0002, ECO-0003, ECO-0004, ECO-0005, ECO-0006, ECO-0007, ECO-0008, ECO-0009, ECO-0010, ECO-0011, ECO-0012, ECO-0013, ECO-0014, ECO-0015, ECO-0016, ECO-0017, ECO-0018, ECO-0019. Cheap path: dataverse-skills@v1.18.0, power-platform-skills@7558c8e974b199747ce8e3c0c922ec415ed48585, skills-for-copilot-studio@9c42d3a612c6e06389b6e5b4eed579aaed1a8b63, copilot-studio-plugin@4014ae689d1228d86cb3aaab938b1e66f8e2e10d, skills-for-fabric@c13604ae6f4fb727ac7bc74784eeff4332433c63, power-cat-overflow@1f81439b98d7aa5fa389a6d4fcc2b261de073afc, power-cat-overpage@f01f9ca893596fe5fb9f127c49736a2fa03b48fc, pa-persistence@0.8.2735.117-preview, docs-important-changes@2cc849531308d84aaf81cb03f5756f19a579f6db, docs-alm-yaml@62494850aa43e90630db7eb82672faeb0bfcae76, docs-alm-settings@8ad877ec951e492c0a1a3aed01765f21c3113df8, docs-git-integration-faqs@da4eb304bd15d1e8ee2330104f35b9d2eb065bdf, docs-pac-mcp@76e446549b0c94831c50ef2e48df14e885faa519, docs-pa-cli@8e42d75ad9f2151be916b75dafede418f7ef3e76, docs-canvas-yaml@6d1e70ba261f80bddd70a03fdfaf830187f1f59a. In entries: pac-cli@2.14.1 (ECO-0012), pa-cli@1.4.1 (ECO-0001), mcp-spec@2026-07-28 (ECO-0015), docs-dataverse-mcp@69cf4c7a9213db15b66ae961757de7120093163f (ECO-0004); the 5a observations pa-cli@1.6.0 and docs-flow-limits@82f95a85c3d523e03c52a06b50d5daac1a20a4a0 went with their sources' changes (ECO-0001, ECO-0002). No baseline (first observation, value recorded): pa-cli as the CLI package, m365-roadmap, power-bi-latest, fabric-roadmap. By hand: copilot-studio-whats-new, copilot-studio-mcp, power-bi-authoring-mcp, power-bi-latest, programmability, claude-code, codex, docs-flow-limits, release-plans (archived, removed, ECO-0003) and m365-roadmap (all 66 Power Platform items modified 2026-10-13 or later read by title and status, 10 opened). Not read: fabric-roadmap, whose page renders only through script (a fetch gets "Loading features"); it keeps its date and stays due. Folder-level watching of the power-platform-skills plugins: worth it, narrowed to the cited files of code-apps and model-apps (ECO-0018), after step 7 measures the weekly rate.
@@ -299,3 +657,4 @@ The review log below has one line per review: `- <date>, mode <A|B|C>: <n> autom
 - 2026-11-12, mode B: 0 automated read, 0 not checked, 4 by hand; ECO-0020. By hand, for the M95 plan: the power-platform-skills, skills-for-copilot-studio, copilot-studio-plugin and skills-for-fabric rows of `compatibility.md`, read against each repository's `main` (`cb07d81`, `4014ae6` and `e31422e` for the three that changed evidence), and the open entries (ECO-0009 to ECO-0013, ECO-0015 to ECO-0018), none of which covers the new experience, the canvas references or the Power BI validator; the Learn pages are those of the plan's Assumptions A1 to A14.
 - 2026-11-14, mode C: 0 automated read, 0 not checked, 3 by hand; ECO-0021. By hand: the Ubuntu 24.04 release notes, dotnet/runtime#110488 and the runner images' Ubuntu 24.04 and 26.04 toolsets and software lists.
 - 2026-11-15, mode B: 0 automated read, 0 not checked, 6 by hand; ECO-0022. By hand, for the M109 plan: the Power Apps Developer Plan page, Deep dive on specific licenses, Important changes coming, Licensing requirements for managed environments, the environments overview and the licensing service plan reference, read on Learn by `powerops-researcher`; the Fable plan review re-read the first three and its work review the fourth the same day.
+- 2026-11-21, mode A: 20 automated read, 0 not checked, 11 by hand; ECO-0023, ECO-0024, ECO-0025, ECO-0026, ECO-0027, ECO-0028, ECO-0029, ECO-0030, ECO-0031, ECO-0032, ECO-0033, ECO-0034, ECO-0035, ECO-0036, ECO-0037, ECO-0038, ECO-0039, ECO-0040, ECO-0041, ECO-0042, ECO-0043, ECO-0044, ECO-0045, ECO-0046, ECO-0047, ECO-0048, ECO-0049. Cheap path: pa-cli@1.4.2, dataverse-skills@v1.19.0, skills-for-fabric@64563263c7a5eaf7e93fe0a48b5f4dd636746766, docs-important-changes@c77ff362f7340f1c15b0ba924dd76743378528be, docs-pa-cli@9caf0f190087b49417a05067ba9833707037fdb5, docs-dataverse-mcp@8a635ff8c2b4cb76570a22629e44f518ed6d80b4, power-platform-skills@7558c8e974b199747ce8e3c0c922ec415ed48585, skills-for-copilot-studio@9c42d3a612c6e06389b6e5b4eed579aaed1a8b63, copilot-studio-plugin@4014ae689d1228d86cb3aaab938b1e66f8e2e10d, power-cat-overflow@1f81439b98d7aa5fa389a6d4fcc2b261de073afc, power-cat-overpage@f01f9ca893596fe5fb9f127c49736a2fa03b48fc, pa-persistence@0.8.2735.117-preview, docs-alm-yaml@62494850aa43e90630db7eb82672faeb0bfcae76, docs-alm-settings@8ad877ec951e492c0a1a3aed01765f21c3113df8, docs-git-integration-faqs@da4eb304bd15d1e8ee2330104f35b9d2eb065bdf, docs-pac-mcp@76e446549b0c94831c50ef2e48df14e885faa519, docs-canvas-yaml@6d1e70ba261f80bddd70a03fdfaf830187f1f59a, docs-license-designation@cc40846ddae025054d572df3a1d075e246bb8467. In entries: pac-cli@2.16.1 (ECO-0024, ECO-0043), mcp-spec@2026-07-28 (ECO-0045). By hand, none due: copilot-studio-whats-new, copilot-studio-mcp, power-bi-latest, power-bi-authoring-mcp, programmability, claude-code, codex, docs-flow-limits, docs-power-automate-license-types, docs-developer-plan (its commits caf484d and 3e569d8) and m365-roadmap (148 Power Platform and Copilot items modified 2026-09-21 or later read by title and status, 13 opened); beyond the watch, the 20 power-platform-skills commits cb07d81..main by plugin, power-cat-skills outside its watched paths, the Power Automate plugin's commits since 2026-09-21 and the MCP spec repo's commits since 2026-09-21. Not read: fabric-roadmap (not due), docs-powerapps-licensing-faq, docs-desktop-flows-connector, docs-desktop-flow-license-check and docs-http-webhook-training (not due); they keep their dates.
