@@ -8,12 +8,17 @@ public static class Golden
     public static string RepoRoot { get; } = FindRepoRoot();
 
     /// <summary>Compares <paramref name="actual"/> to tests/golden/<paramref name="relativeName"/> (CRLF-insensitive).</summary>
-    public static void Verify(string actual, string relativeName)
+    public static void Verify(string actual, string relativeName, bool allowUpdate = true)
     {
         var path = Path.Combine(RepoRoot, "tests", "golden", relativeName);
+        VerifyFile(actual, path, allowUpdate && Environment.GetEnvironmentVariable("POWEROPS_UPDATE_GOLDEN") == "1");
+    }
+
+    internal static void VerifyFile(string actual, string path, bool update)
+    {
         var normalized = Normalize(actual);
 
-        if (Environment.GetEnvironmentVariable("POWEROPS_UPDATE_GOLDEN") == "1")
+        if (update)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, normalized, new UTF8Encoding(false));
