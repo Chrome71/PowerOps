@@ -589,12 +589,12 @@ public partial class SkillsCommandTests : IDisposable
     [Fact]
     public void Plan_skill_stays_under_its_word_ceiling()
     {
-        // M41: the 2,483 words the skill had before the ledger, plus 300. M81: plus 50 for the engagement rule and the callable-tool rule. Decision 52: plus 40 for the three options and the pick. M91: plus 494 for the option format, the defaults batch, the budget and the licence read. M93: plus 144 for the early sketch, the redone pick and the unproven line. M94: plus 108 for the sign-off lines, their log line and the start of the build. M97: plus 119 for the side-by-side pick, the pass question and the four end states. M109: plus 131 for the draft of the person's own and its two fast-path exceptions. On ASCII text a split on whitespace counts as wc -w does. M122: from here this ceiling may only fall: lower it when the skill shrinks, never raise it. M124: 3,863 after the main-mode sketch, the approval question and the generated draft, with its details in references/drafts.md.
+        // M41: the 2,483 words the skill had before the ledger, plus 300. M81: plus 50 for the engagement rule and the callable-tool rule. Decision 52: plus 40 for the three options and the pick. M91: plus 494 for the option format, the defaults batch, the budget and the licence read. M93: plus 144 for the early sketch, the redone pick and the unproven line. M94: plus 108 for the sign-off lines, their log line and the start of the build. M97: plus 119 for the side-by-side pick, the pass question and the four end states. M109: plus 131 for the draft of the person's own and its two fast-path exceptions. On ASCII text a split on whitespace counts as wc -w does. M122: from here this ceiling may only fall: lower it when the skill shrinks, never raise it. M124: 3,862 after the main-mode sketch, the approval question and the generated draft, with its details in references/drafts.md.
         var text = SkillsCommand.Shipped()["powerops-plan/SKILL.md"];
         var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
 
         Assert.All(text, c => Assert.True(c < 128, $"non-ASCII character U+{(int)c:X4}"));
-        Assert.InRange(words, 1, 3863);
+        Assert.InRange(words, 1, 3862);
     }
 
     [Fact]
@@ -1381,7 +1381,7 @@ public partial class SkillsCommandTests : IDisposable
         Assert.DoesNotContain("Ask what next", text);
         Assert.DoesNotMatch(@"[Rr]ecommend B\b", text);
         Assert.Contains("- `draft`: go on with the rounds (section 6).", start);
-        Assert.All(new[] { "Under `quick` it runs in `main` mode: one sketch of the main screen, three options and the judge only on request", "`prototype: approved mockups/prototype.html (main screen: <why>) (answered by: person)`" }, s => Assert.Contains(s, step6));
+        Assert.All(new[] { "Under `quick` start it with `main`: one sketch of the main screen, three options and the judge only on request", "`prototype: approved mockups/prototype.html (main screen: <why>) (answered by: person)`" }, s => Assert.Contains(s, step6));
         Assert.Contains("On **D** in the fast path, or a request for a screen, wireframe or mockup, do section 7 step 6, then go on where you were.", Between(text, "## 11. Mockups", "## Per agent"));
         Assert.All(new[] { "a Plans document from Power Apps (its PDF export or pasted text)", "what they gave Cowork's App skill", "a description given to Apps in Copilot Studio (preview)", "Generated choices settle nothing until the person endorses them", "read `references/drafts.md`" }, s => Assert.Contains(s, start));
         Assert.All(new[] { "the plan assumes standard licences only unless the read shows `yes (read)`", "a row with no standard alternative and no `yes (read)` is also an Open question" }, s => Assert.Contains(s, licences));
