@@ -165,6 +165,9 @@ public class PluginManifestTests
         var claude = Lf(Repo("CLAUDE.md"));
         Assert.Contains($"]({guide})", claude);
         Assert.DoesNotContain("### Power Platform specialist team", claude);
+        Assert.DoesNotContain("only when spawning", claude);
+        Assert.DoesNotContain("specialists below", claude);
+        Assert.Contains("Before routing Power Platform work", claude);
 
         foreach (var name in new[] { "apps", "automate", "bi", "copilot-studio", "design-lead", "workflow-logic" })
         {

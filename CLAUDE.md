@@ -2,9 +2,9 @@
 
 ## Claude Code extras (optional)
 
-Subagents for this repo are in `.claude/agents/`: researcher, designer, implementer, reviewer and chores for work on PowerOps itself, and the six Power Platform specialists below. Claude picks one from its description. The six are for work in this repo and ship in no plugin, since the M119 eval of 2026-11-22 (the owner's answer: "Keep none"); spawn the project agents by their bare names, not as `powerops:<name>`, which an older plugin install may still list.
+Subagents for this repo are in `.claude/agents/`: researcher, designer, implementer, reviewer and chores for work on PowerOps itself, and the six Power Platform specialists. Claude picks one from its description. The six are for work in this repo and ship in no plugin, since the M119 eval of 2026-11-22 (the owner's answer: "Keep none"); spawn the project agents by their bare names, not as `powerops:<name>`, which an older plugin install may still list.
 
-Read the [specialist guide](.claude/agents/README.md) only when spawning a specialist. It contains the routing table, brief fields, shared rules, and reply format.
+Before routing Power Platform work or spawning a specialist, read the [specialist guide](.claude/agents/README.md). It holds the routing table, brief fields, shared rules, reply format, and the rule that puts this repo's routing ahead of Microsoft's `copilot-studio` plugin prompt.
 
 Saved workflows in `.claude/workflows/` chain those agents together. On the Pro plan, turn on "Dynamic workflows" in `/config` first. Each workflow asks for approval before it runs.
 
