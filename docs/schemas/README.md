@@ -8,6 +8,7 @@ JSON Schemas (draft 2020-12) for the JSON that `powerops` prints. Every output h
 | [deploy-apply.schema.json](deploy-apply.schema.json) | `powerops deploy apply --format json` |
 | [deploy-plan.schema.json](deploy-plan.schema.json) | `powerops deploy plan --format json` and `--save` (the plan file) |
 | [diff.schema.json](diff.schema.json) | `powerops diff --format json` |
+| [doctor.schema.json](doctor.schema.json) | `powerops doctor --format json` |
 | [drift.schema.json](drift.schema.json) | `powerops drift --format json` |
 | [inventory.schema.json](inventory.schema.json) | `powerops inventory --format json` |
 | [manifest.schema.json](manifest.schema.json) | `powerops manifest --format json` |

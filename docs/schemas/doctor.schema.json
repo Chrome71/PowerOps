@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/doctor.schema.json",
+  "title": "powerops doctor --format json",
+  "description": "The JSON written by 'powerops doctor --format json': one entry per check, in a fixed order.",
+  "type": "object",
+  "required": ["schemaVersion", "live", "checks"],
+  "properties": {
+    "schemaVersion": { "const": 1, "description": "Version of this output format." },
+    "live": { "type": "boolean", "description": "True when --live ran the sign-in probes and the licence read." },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string", "description": "The check: powerops, pac, az, powerops-plugin, microsoft-plugins, and with --live pac-sign-in, az-sign-in, licences, environment-type. Open, so a later check adds no schemaVersion bump." },
+          "status": { "enum": ["ok", "missing", "not-installed", "failed", "not-read"], "description": "missing and failed set exit code 1." },
+          "detail": { "type": "string", "description": "The version, the environment's friendly name, product names, or what to do. Never an account, a tenant, a URL, an account, tenant or environment id, or a part number." }
+        }
+      }
+    }
+  }
+}

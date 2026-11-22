@@ -1,0 +1,6 @@
+powerops: ok - 0.0.0-test
+pac: missing - needed by settings apply, drift, deploy and plan facts. Install pac (dotnet tool install --global Microsoft.PowerApps.CLI.Tool) and add the dotnet tools folder to PATH.
+az: missing - needed by drift, deploy and the licence read. Install the Azure CLI and sign in with az login.
+powerops plugin: ok - 0.1.0 (user) installed in Claude Code
+Microsoft plugins: not installed - none of Microsoft's plugins in Claude Code; the build steps use them (docs/HANDOFF.md)
+Not checked: the sign-ins, licences and environment type. `powerops doctor --live` reads them through pac, az and Microsoft Graph.

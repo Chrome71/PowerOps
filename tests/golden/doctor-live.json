@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "live": true,
+  "checks": [
+    {
+      "id": "powerops",
+      "status": "ok",
+      "detail": "0.0.0-test"
+    },
+    {
+      "id": "pac",
+      "status": "ok",
+      "detail": "found on PATH"
+    },
+    {
+      "id": "az",
+      "status": "ok",
+      "detail": "found on PATH"
+    },
+    {
+      "id": "powerops-plugin",
+      "status": "ok",
+      "detail": "0.1.0 (user) installed in Claude Code"
+    },
+    {
+      "id": "microsoft-plugins",
+      "status": "ok",
+      "detail": "dataverse@dataverse-skills 1.16.1, model-apps@power-platform-skills 2.19.0"
+    },
+    {
+      "id": "pac-sign-in",
+      "status": "ok",
+      "detail": "Contoso Dev"
+    },
+    {
+      "id": "az-sign-in",
+      "status": "ok",
+      "detail": "an account is selected (no token requested)"
+    },
+    {
+      "id": "licences",
+      "status": "ok",
+      "detail": "Power Apps Premium, Power BI Pro; 1 not in PowerOps' table"
+    },
+    {
+      "id": "environment-type",
+      "status": "not-read",
+      "detail": "no documented read; you name the plan's environments, and the admin center shows each one's type"
+    }
+  ]
+}
