@@ -83,7 +83,9 @@ jobs:
           ENV_CURRENCY: ${{ vars.EPHEMERAL_CURRENCY || 'USD' }}
           ENV_LANGUAGE: ${{ vars.EPHEMERAL_LANGUAGE || '1033' }}
         run: |
-          # The recipe never creates a production environment.
+          # The recipe creates only Sandbox or Trial environments—never Production, Default, or Developer.
+          # Unmanaged developer environments stopped creation on 2026-11-15 (suspended 2026-12-15, deleted 2027-01-15);
+          # target pre-provisioned Managed Developer Environments non-destructively instead (see docs/examples/README.md).
           case "$ENV_TYPE" in
             Sandbox | Trial) ;;
             *) echo "::error::EPHEMERAL_TYPE must be Sandbox or Trial"; exit 1 ;;

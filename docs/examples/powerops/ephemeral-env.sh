@@ -13,8 +13,9 @@
 #         and only then writes `id` and `url` to GITHUB_OUTPUT.
 # delete: takes ENV_ID, or looks the name up (none found: nothing to do; a failed lookup or two: an error and nothing is deleted;
 #         the URL is not needed, because an environment still provisioning has none), reads the list again, and deletes only when it
-#         holds exactly one environment with that id and exactly that name, and its Type is Sandbox or Trial (a hand-made Production
-#         environment with this name is kept and the job fails).
+#         holds exactly one environment with that id and exactly that name, and its Type is Sandbox or Trial (a Production, Default,
+#         or Developer environment—including a pre-provisioned Managed Developer Environment—is kept and the job fails; widening the
+#         deletable types is a human-only decision).
 # Every pac call's output stays in a file that is printed only with debug logging on, because it can name other environments.
 set -euo pipefail
 
@@ -155,13 +156,17 @@ else
   if [ -n "$match_url" ]; then mask_url "$match_url"; fi
 fi
 
-# The delete goes by id, so the list is read again just before it: exactly one environment with this id and exactly this name.
+# The delete goes by id, so the list is read again just before it: exactly one environment with this id (anywhere in the list) and
+# exactly one with this name, and both match the same row. Strict string checks avoid jq `//` false coercion.
 list_environments
-same="$(jq --arg name "$name" --arg id "$(lower "$id")" '[.[] | select(.DisplayName == $name and ((.EnvironmentId // "" | tostring | ascii_downcase) == $id))] | length' "$list")"
-if [ "$same" -ne 1 ] || [ "$(count_with_name)" -ne 1 ]; then
+id_lower="$(lower "$id")"
+same="$(jq --arg name "$name" --arg id "$id_lower" '[.[] | select(.DisplayName == $name and (.EnvironmentId | type == "string") and ((.EnvironmentId | ascii_downcase) == $id))] | length' "$list")"
+same_id="$(jq --arg id "$id_lower" '[.[] | select((.EnvironmentId | type == "string") and ((.EnvironmentId | ascii_downcase) == $id))] | length' "$list")"
+if [ "$same" -ne 1 ] || [ "$same_id" -ne 1 ] || [ "$(count_with_name)" -ne 1 ]; then
   fail "the environment list no longer holds exactly one environment with the expected id and the name $name; nothing was deleted"
 fi
-type="$(jq -r --arg id "$(lower "$id")" '[.[] | select((.EnvironmentId // "" | tostring | ascii_downcase) == $id)][0].Type | if type == "string" then . else "" end' "$list")"
+type="$(jq -r --arg name "$name" --arg id "$id_lower" '[.[] | select(.DisplayName == $name and (.EnvironmentId | type == "string") and ((.EnvironmentId | ascii_downcase) == $id))][0].Type | if type == "string" then . else "" end' "$list")"
+# Never widen deletable types without explicit human authorization; Developer (including Managed Developer) is never deleted here.
 if [ "$type" != Sandbox ] && [ "$type" != Trial ]; then
   fail "the environment to delete is not a Sandbox or a Trial; nothing was deleted"
 fi

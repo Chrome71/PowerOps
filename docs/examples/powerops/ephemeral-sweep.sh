@@ -9,8 +9,9 @@
 # For each, `gh run view <run id>` says whether the creating run has finished: a finished run should have deleted its environment, so
 # this one is a leftover (whatever the state of its pull request). A run still going keeps its environment. A gh failure keeps it too and
 # turns the run red; so does a leftover whose run no longer exists (GitHub deletes runs after a retention period, 90 days by default).
-# An environment whose Type is not Sandbox or Trial (a hand-made Production environment with a matching name) is never deleted: it is
-# kept, counted as failed, and its name is not printed.
+# An environment whose Type is not Sandbox or Trial (such as Production, Default, or Developer including pre-provisioned Managed
+# Developer Environments) is never deleted: it is kept, counted as failed, and its name is not printed. Widening deletable types
+# is a human-only decision.
 # It deletes only when POWEROPS_SWEEP_DELETE is exactly `true`; otherwise it prints what it would delete (a dry run).
 # With POWEROPS_SWEEP_PR set it handles only that pull request's environments.
 # It prints the names of the matching environments and counts, never the list. It exits 1 when a matching environment could not be
@@ -55,10 +56,10 @@ if ! jq -e 'type == "array" and all(.[]; type == "object")' "$list" > /dev/null 
 fi
 
 name_re="^$EPHEMERAL_PREFIX-$REPO_ID-pr([0-9]+)-([0-9]+)-([0-9]+)$"
-# jq selects with \A and \z, which, unlike $, do not allow a trailing newline.
+# jq selects with \A and \z, which, unlike $, do not allow a trailing newline. Strict string checks avoid jq `//` false coercion.
 rows=()
 while IFS= read -r row; do rows+=("$row"); done < <(jq -r --arg re "\\A$EPHEMERAL_PREFIX-$REPO_ID-pr([0-9]+)-([0-9]+)-([0-9]+)\\z" \
-  '.[] | select((.DisplayName | type) == "string" and (.DisplayName | test($re))) | [.DisplayName, (.EnvironmentId // "" | tostring), (.Type // "" | tostring)] | @tsv' "$list")
+  '.[] | select((.DisplayName | type) == "string" and (.DisplayName | test($re))) | [.DisplayName, (if (.EnvironmentId | type) == "string" then .EnvironmentId else "" end), (if (.Type | type) == "string" then .Type else "" end)] | @tsv' "$list")
 
 if [ "$delete" = true ]; then echo "sweep: deleting the leftovers"; else echo "sweep: dry run, nothing is removed (POWEROPS_SWEEP_DELETE is not true)"; fi
 
@@ -80,8 +81,17 @@ for row in ${rows[@]+"${rows[@]}"}; do
     continue
   fi
 
+  # Never widen deletable types without explicit human authorization; Developer (including Managed Developer) is never deleted here.
   if [ "$environment_type" != Sandbox ] && [ "$environment_type" != Trial ]; then
     echo "failed: a matching environment is not a Sandbox or a Trial, so it is kept"
+    failed=$((failed + 1))
+    continue
+  fi
+
+  id_lower="$(printf '%s' "$environment_id" | tr '[:upper:]' '[:lower:]')"
+  id_count="$(jq --arg id "$id_lower" '[.[] | select((.EnvironmentId | type) == "string" and ((.EnvironmentId | ascii_downcase) == $id))] | length' "$list")"
+  if [ "$id_count" -ne 1 ]; then
+    echo "failed: a matching environment id appears more than once in the list, so it is kept"
     failed=$((failed + 1))
     continue
   fi
