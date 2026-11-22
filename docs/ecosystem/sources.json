@@ -540,7 +540,7 @@
         "automate",
         "governance"
       ],
-      "affects": "`inventory`'s driver `ai-builder-action` (its `need` line on Power Automate Premium, and source) and `licensing.md`'s AI Builder row (a flow with any AI Builder action is premium)",
+      "affects": "`inventory`'s driver `ai-builder-action` (its `need` line on Power Automate Premium, and source) and `licensing.md`'s AI Builder row (a flow with any AI Builder action is premium; in an agent flow, Copilot Credits only)",
       "everyDays": 30,
       "lastChecked": "2026-11-22"
     }
