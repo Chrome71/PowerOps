@@ -23,6 +23,8 @@ The cost tier, asked in round 1, picks the product of each row:
 - **Standard licences only** takes every standard alternative. A row with none becomes a question: drop the need, or change the tier.
 - **Premium where needed** keeps the premium rows, with `Held` still read or asked.
 
+Under `quick`, where `Held` is never asked, the plan assumes the person holds standard licences only, the tier stays as answered, and a row with no standard alternative whose `Held` is not `yes (read)` also becomes an Open question: drop the need, or the person names the premium licence.
+
 ## 2. Needs
 
 | Need | Licence | Standard alternative | Source |

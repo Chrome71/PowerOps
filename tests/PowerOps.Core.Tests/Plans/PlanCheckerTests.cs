@@ -1467,13 +1467,18 @@ public class PlanCheckerTests : IDisposable
     [Fact]
     public void Sign_off_is_refused_for_an_approved_sketch_with_fewer_than_three_options_and_a_skip_needs_none()
     {
-        const string Line = "- prototype: approved mockups/prototype.html (option b: fewest steps for Goal line 1) (answered by: person)";
+        // M124 row 3: the three-option minimum binds an approval the person did not mark.
+        const string Line = "- prototype: approved mockups/prototype.html (option b: fewest steps for Goal line 1)";
 
         var r = SignOffWith(Line, GoodSketch, options: 2);
         Assert.Equal(1, r.ExitCode);
         Assert.Equal("error: mockups/: 2 option files (option-*.html) pass the checks and differ; an approved sketch is picked from at least 3", Assert.Single(r.Err));
 
         Assert.Equal(0, SignOffWith(Line, GoodSketch).ExitCode);
+
+        // A person's pass that names a passing option signs off with fewer.
+        File.Delete(Path.Combine(Path.GetDirectoryName(PlanFile)!, "mockups", "option-c.html"));
+        Assert.Equal(0, SignOffWith(Line + " (answered by: person)", GoodSketch, options: 2).ExitCode);
     }
 
     [Fact]
