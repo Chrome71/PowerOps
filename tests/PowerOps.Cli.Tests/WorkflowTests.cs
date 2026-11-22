@@ -1122,8 +1122,9 @@ public sealed class WorkflowTests
         Assert.Equal("10", Text(job, "timeout-minutes"));
         Assert.Equal(2, steps.Count);
         Assert.Equal(Text(AllSteps("ci.yml").First(s => Text(s, "uses")?.StartsWith("actions/checkout@", StringComparison.Ordinal) == true), "uses"), Text(steps[0], "uses"));
-        // No ref, repository or path: the checkout is main's own commit, never the pull request's head.
-        Assert.Equal(new Dictionary<object, object> { ["persist-credentials"] = "false" }, With(steps[0]));
+        // No ref, repository or path: the checkout is main's own commit, never the pull request's head. The whole history lets the
+        // script find the merge base; it fetches the head commit as objects and checks nothing else out.
+        Assert.Equal(new Dictionary<object, object> { ["persist-credentials"] = "false", ["fetch-depth"] = "0" }, With(steps[0]));
         Assert.Equal("bash .github/scripts/protected-paths.sh", Text(steps[1], "run"));
         Assert.Equal(
             new Dictionary<object, object>
@@ -1138,7 +1139,7 @@ public sealed class WorkflowTests
             },
             Map(steps[1]["env"]));
         Assert.False(steps[1].ContainsKey("continue-on-error") || steps[1].ContainsKey("if"));
-        foreach (var forbidden in new[] { "secrets.", "head.ref", "head.repo", "ref:", "write" })
+        foreach (var forbidden in new[] { "secrets.", "head.ref", "head.repo", "ref:", "repository:", "path:", "write" })
         {
             Assert.DoesNotContain(forbidden, text);
         }
@@ -1154,35 +1155,10 @@ public sealed class WorkflowTests
         Assert.DoesNotContain("grep", text);
     }
 
-    private const string PrHead = "0123456789abcdef0123456789abcdef01234567";
-    private const string OtherHead = "fedcba9876543210fedcba9876543210fedcba98";
-
-    private static Dictionary<string, object> PrFile(string name, string status = "modified", string? previous = null, string? patch = "@@ -1 +1 @@\n-old\n+new", int? additions = null)
-    {
-        var file = new Dictionary<string, object> { ["filename"] = name, ["status"] = status };
-        if (previous is not null)
-        {
-            file["previous_filename"] = previous;
-        }
-
-        if (patch is not null)
-        {
-            file["patch"] = patch;
-        }
-
-        if (additions is not null)
-        {
-            file["additions"] = additions;
-        }
-
-        return file;
-    }
-
-    private const string PrBase = "1111111111111111111111111111111111111111";
-    private const string OtherBase = "2222222222222222222222222222222222222222";
+    private const string OtherSha = "fedcba9876543210fedcba9876543210fedcba98";
     private const string Owner = "repo-owner";
 
-    private static string PrJson(bool tierL, int changed, string head = PrHead, string baseRef = "main", string baseSha = PrBase)
+    private static string PrJson(bool tierL, string head, string baseSha, string baseRef = "main")
     {
         List<object> labels = [new { name = "documentation" }];
         if (tierL)
@@ -1196,7 +1172,6 @@ public sealed class WorkflowTests
             ["head"] = new { sha = head },
             ["base"] = new { @ref = baseRef, sha = baseSha },
             ["labels"] = labels,
-            ["changed_files"] = changed,
         });
     }
 
@@ -1218,38 +1193,110 @@ public sealed class WorkflowTests
 
     private sealed record GuardRun(int Exit, string Stdout, string[] GhCalls);
 
-    // Runs protected-paths.sh in a temp root with a gh stub first on PATH that logs its calls; `files` maps a file name to its text.
-    private static GuardRun ProtectedPaths(IEnumerable<string> args, IReadOnlyDictionary<string, string> files, IReadOnlyDictionary<string, string> env, string gh)
-    {
-        Tools.Require("bash", "jq");
-        var root = Directory.CreateTempSubdirectory("powerops-protected-paths-").FullName;
-        try
-        {
-            WriteScript(Path.Combine(Directory.CreateDirectory(Path.Combine(root, "bin")).FullName, "gh"), gh);
-            foreach (var (name, text) in files)
-            {
-                File.WriteAllText(Path.Combine(root, name), text);
-            }
+    // Logs its calls and fails: the offline mode may make none.
+    private const string FailingGh = "#!/usr/bin/env bash\n{ printf '[%s]' \"$@\"; echo; } >> \"$STUB_DIR/gh.log\"\nexit 1";
 
-            var run = RunScript(root, "protected-paths.sh", args, env);
-            var log = Path.Combine(root, "gh.log");
-            return new GuardRun(run.Exit, run.Stdout, File.Exists(log) ? File.ReadAllLines(log) : []);
-        }
-        finally
+    // Runs protected-paths.sh in cwd with root/bin, which holds the gh stub, first on PATH.
+    private static GuardRun Guard(string root, string cwd, IEnumerable<string> args, IReadOnlyDictionary<string, string> env, string gh)
+    {
+        Tools.Require("bash", "jq", "git");
+        WriteScript(Path.Combine(Directory.CreateDirectory(Path.Combine(root, "bin")).FullName, "gh"), gh);
+        var log = Path.Combine(root, "gh.log");
+        File.Delete(log);
+        File.Delete(Path.Combine(root, "reads"));
+        var start = new ProcessStartInfo(Tools.Bash) { WorkingDirectory = cwd, RedirectStandardOutput = true };
+        start.ArgumentList.Add(Path.Combine(Golden.RepoRoot, ".github", "scripts", "protected-paths.sh"));
+        foreach (var arg in args)
         {
-            Directory.Delete(root, recursive: true);
+            start.ArgumentList.Add(arg);
         }
+
+        start.Environment["PATH"] = Path.Combine(root, "bin") + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH");
+        start.Environment["STUB_DIR"] = root;
+        foreach (var (key, value) in env)
+        {
+            start.Environment[key] = value;
+        }
+
+        using var process = Process.Start(start)!;
+        var stdout = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+        return new GuardRun(process.ExitCode, stdout, File.Exists(log) ? File.ReadAllLines(log) : []);
     }
 
-    // The offline mode on saved answers. Its gh stub fails, and no call may reach it. A null events or owner leaves its argument out.
-    private static GuardRun Offline(string pr, string files, string expected = PrHead, string baseRef = "main", string baseSha = PrBase, string? events = OwnerTierL, string? owner = Owner)
+    // A temp git repository for the check, in Root/repo: main starts with seed.txt.
+    private sealed class GuardRepo : IDisposable
     {
-        List<string> args = ["--pr-json", "pr.json", "--files-json", "files.json", "--expected-head-sha", expected, "--expected-base-ref", baseRef, "--expected-base-sha", baseSha];
-        var inputs = new Dictionary<string, string> { ["pr.json"] = pr, ["files.json"] = files };
+        public GuardRepo()
+        {
+            Tools.Require("bash", "jq", "git");
+            Root = Directory.CreateTempSubdirectory("powerops-protected-paths-").FullName;
+            Dir = Directory.CreateDirectory(Path.Combine(Root, "repo")).FullName;
+            Run("init", "-q", "-b", "main");
+            Seed = Commit("seed", r => r.Write("seed.txt", "seed\n"));
+        }
+
+        public string Root { get; }
+
+        public string Dir { get; }
+
+        public string Seed { get; }
+
+        public string Run(params string[] args) => Git(Dir, args);
+
+        public void Write(string path, string text) => WriteBytes(path, System.Text.Encoding.UTF8.GetBytes(text));
+
+        public void WriteBytes(string path, byte[] bytes)
+        {
+            var full = Path.Combine(Dir, path);
+            Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+            File.WriteAllBytes(full, bytes);
+        }
+
+        public void Move(string from, string to)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(Dir, to))!);
+            Run("mv", from, to);
+        }
+
+        public void Remove(string path) => Run("rm", "-q", path);
+
+        // Makes the edit, stages the whole tree (unless the edit staged by hand) and commits; returns the commit.
+        public string Commit(string message, Action<GuardRepo>? edit = null, bool stage = true)
+        {
+            edit?.Invoke(this);
+            if (stage)
+            {
+                Run("add", "-A");
+            }
+
+            Run("commit", "-q", "--allow-empty", "-m", message);
+            return Run("rev-parse", "HEAD");
+        }
+
+        public void Dispose() => Directory.Delete(Root, recursive: true);
+    }
+
+    // main holds `before` on top of seed.txt; the pull request's branch starts there and commits `change`.
+    private static (GuardRepo Repo, string Base, string Head) Change(Action<GuardRepo> change, Action<GuardRepo>? before = null)
+    {
+        var repo = new GuardRepo();
+        var @base = before is null ? repo.Seed : repo.Commit("before", before);
+        repo.Run("checkout", "-q", "-b", "pr");
+        return (repo, @base, repo.Commit("change", change));
+    }
+
+    // The offline mode on a saved pull request and the repository. Its gh stub fails, and no call may reach it. A null events or
+    // owner leaves its argument out.
+    private static GuardRun Offline(GuardRepo repo, string pr, string head, string baseSha, string baseRef = "main", string? events = OwnerTierL,
+        string? owner = Owner, string? repoDir = null)
+    {
+        File.WriteAllText(Path.Combine(repo.Root, "pr.json"), pr);
+        List<string> args = ["--repo", repoDir ?? repo.Dir, "--pr-json", "pr.json", "--expected-head-sha", head, "--expected-base-ref", baseRef, "--expected-base-sha", baseSha];
         if (events is not null)
         {
+            File.WriteAllText(Path.Combine(repo.Root, "events.json"), events);
             args.AddRange(["--events-json", "events.json"]);
-            inputs["events.json"] = events;
         }
 
         if (owner is not null)
@@ -1257,13 +1304,20 @@ public sealed class WorkflowTests
             args.AddRange(["--owner", owner]);
         }
 
-        var run = ProtectedPaths(args, inputs, new Dictionary<string, string>(), "#!/usr/bin/env bash\necho \"$*\" >> \"$STUB_DIR/gh.log\"\nexit 1");
+        var run = Guard(repo.Root, repo.Root, args, new Dictionary<string, string>(), FailingGh);
         Assert.Empty(run.GhCalls);
         return run;
     }
 
-    private static GuardRun Offline(bool tierL, params Dictionary<string, object>[] files) =>
-        Offline(PrJson(tierL, files.Length), JsonSerializer.Serialize(files));
+    // The offline check of a pull request whose saved JSON names its own head and base.
+    private static GuardRun Check(bool tierL, Action<GuardRepo> change, Action<GuardRepo>? before = null, string? events = OwnerTierL, string? owner = Owner)
+    {
+        var (repo, @base, head) = Change(change, before);
+        using (repo)
+        {
+            return Offline(repo, PrJson(tierL, head, @base), head, @base, events: events, owner: owner);
+        }
+    }
 
     private static void Passes(GuardRun run)
     {
@@ -1282,73 +1336,79 @@ public sealed class WorkflowTests
         }
     }
 
-    public static TheoryData<string> GuardedChanges => ["edit", "rename-out", "rename-in", "delete", "self-workflow", "self-script", "both-names", "plugin-copy"];
-
-    private static (Dictionary<string, object>[] Files, string Named) Guarded(string change) => change switch
+    private static void FailsInEveryTier(GuardRun run, params string[] named)
     {
-        "edit" => ([PrFile("src/PowerOps.Cli/Program.cs"), PrFile("src/PowerOps.Core/Deploy/DeployPlan.cs")], "src/PowerOps.Core/Deploy/DeployPlan.cs"),
-        "rename-out" => ([PrFile("src/PowerOps.Core/Plan/Gate.cs", "renamed", previous: "src/PowerOps.Core/Deploy/Gate.cs", patch: null, additions: 0)], "src/PowerOps.Core/Deploy/Gate.cs"),
-        "rename-in" => ([PrFile("bench/notes.md", "renamed", previous: "notes.md", patch: null, additions: 0)], "bench/notes.md"),
-        "delete" => ([PrFile("docs/examples/powerops/ephemeral-sweep.sh", "removed", patch: "@@ -1,2 +0,0 @@\n-#!/usr/bin/env bash\n-echo sweep")], "docs/examples/powerops/ephemeral-sweep.sh"),
-        "self-workflow" => ([PrFile(".github/workflows/protected-paths.yml")], ".github/workflows/protected-paths.yml"),
-        "self-script" => ([PrFile(".github/scripts/protected-paths.sh")], ".github/scripts/protected-paths.sh"),
-        "both-names" => ([PrFile("docs/schemas/b.schema.json", "renamed", previous: "docs/schemas/a.schema.json", patch: null, additions: 0)], "docs/schemas/a.schema.json"),
-        _ => ([PrFile("plugins/codex/skills/powerops-verify/SKILL.md")], "plugins/codex/skills/powerops-verify/SKILL.md"),
+        Fails(run, named);
+        Assert.Contains("tier-L label: yes, result: fail", run.Stdout);
+        Assert.DoesNotContain("someone", run.Stdout);
+    }
+
+    // Five lines, so that git sees a moved file as a rename.
+    private const string Lines = "one\ntwo\nthree\nfour\nfive\n";
+
+    public static TheoryData<string> GuardedChanges => ["add", "edit", "delete", "rename-out", "rename-in", "both-names", "self-workflow", "self-script",
+        "plugin-copy", "plugin-manifest-tests"];
+
+    // (main before the pull request, its change, a name the failure lists)
+    private static (Action<GuardRepo> Before, Action<GuardRepo> Change, string Named) Guarded(string change) => change switch
+    {
+        "add" => (_ => { }, r => r.Write("bench/run.sh", "echo\n"), "bench/run.sh"),
+        "edit" => (r => { r.Write("src/PowerOps.Cli/Program.cs", "a\n"); r.Write("src/PowerOps.Core/Deploy/DeployPlan.cs", "a\n"); },
+            r => { r.Write("src/PowerOps.Cli/Program.cs", "b\n"); r.Write("src/PowerOps.Core/Deploy/DeployPlan.cs", "b\n"); }, "src/PowerOps.Core/Deploy/DeployPlan.cs"),
+        "delete" => (r => r.Write("docs/examples/powerops/ephemeral-sweep.sh", "#!/usr/bin/env bash\necho sweep\n"),
+            r => r.Remove("docs/examples/powerops/ephemeral-sweep.sh"), "docs/examples/powerops/ephemeral-sweep.sh"),
+        "rename-out" => (r => r.Write("src/PowerOps.Core/Deploy/Gate.cs", Lines), r => r.Move("src/PowerOps.Core/Deploy/Gate.cs", "src/PowerOps.Core/Plan/Gate.cs"),
+            "src/PowerOps.Core/Deploy/Gate.cs"),
+        "rename-in" => (r => r.Write("notes.md", Lines), r => r.Move("notes.md", "bench/notes.md"), "bench/notes.md"),
+        "both-names" => (r => r.Write("docs/schemas/a.schema.json", Lines), r => r.Move("docs/schemas/a.schema.json", "docs/schemas/b.schema.json"),
+            "docs/schemas/a.schema.json"),
+        "self-workflow" => (r => r.Write(".github/workflows/protected-paths.yml", "a\n"), r => r.Write(".github/workflows/protected-paths.yml", "b\n"),
+            ".github/workflows/protected-paths.yml"),
+        "self-script" => (r => r.Write(".github/scripts/protected-paths.sh", "a\n"), r => r.Write(".github/scripts/protected-paths.sh", "b\n"),
+            ".github/scripts/protected-paths.sh"),
+        "plugin-copy" => (r => r.Write("plugins/codex/skills/powerops-verify/SKILL.md", "a\n"), r => r.Write("plugins/codex/skills/powerops-verify/SKILL.md", "b\n"),
+            "plugins/codex/skills/powerops-verify/SKILL.md"),
+        _ => (r => r.Write("tests/PowerOps.Cli.Tests/PluginManifestTests.cs", "a\n"), r => r.Write("tests/PowerOps.Cli.Tests/PluginManifestTests.cs", "b\n"),
+            "tests/PowerOps.Cli.Tests/PluginManifestTests.cs"),
     };
 
     [Theory]
     [MemberData(nameof(GuardedChanges))]
     public void The_protected_paths_script_fails_a_guarded_change_without_tier_L_and_passes_it_with_tier_L(string change)
     {
-        var (files, named) = Guarded(change);
+        var (before, edit, named) = Guarded(change);
+        var without = Check(false, edit, before);
 
-        Fails(Offline(false, files), named);
-        Passes(Offline(true, files));
+        Fails(without, named);
+        if (change is "rename-out" or "rename-in" or "both-names")
+        {
+            // git found the rename: one changed file, checked by both of its names.
+            Assert.Contains("protected-paths: 1 changed file(s)", without.Stdout);
+        }
+
+        Passes(Check(true, edit, before));
     }
 
     [Fact]
     public void The_protected_paths_script_passes_an_unprotected_change_without_tier_L()
     {
-        Passes(Offline(false, PrFile("src/PowerOps.Cli/Program.cs"), PrFile("docs/COMMANDS.md"), PrFile("README.md"), PrFile("skills/powerops-plan/SKILL.md"),
-            PrFile("docs/a.md", "renamed", previous: "docs/b.md", patch: null, additions: 0), PrFile("docs/old.md", "removed", patch: null)));
-        Passes(Offline(false));
-    }
+        var run = Check(false,
+            r =>
+            {
+                r.Write("src/PowerOps.Cli/Program.cs", "b\n");
+                r.Write("docs/COMMANDS.md", "b\n");
+                r.Write("README.md", "b\n");
+                r.Write("skills/powerops-plan/SKILL.md", "b\n");
+                r.Move("docs/b.md", "docs/a.md");
+                r.Remove("docs/old.md");
+            },
+            r => { r.Write("docs/b.md", Lines); r.Write("docs/old.md", "old\n"); });
+        var empty = Check(false, _ => { });
 
-    // A file to scan with added lines and no patch (too large for the API, or binary with counted lines) cannot be read for leaks.
-    [Theory]
-    [InlineData("docs/BIG.md", "added", 5000)]
-    [InlineData("docs/BIG.md", "modified", 1)]
-    [InlineData("skills/powerops-plan/SKILL.md", "modified", null)] // no additions field: counted as added lines
-    [InlineData("README.md", "renamed", 3)]
-    [InlineData("docs/images/flow.png", "added", 1)]
-    public void The_protected_paths_script_fails_a_scanned_file_with_added_lines_and_no_patch_in_every_tier(string path, string status, int? additions)
-    {
-        var file = PrFile(path, status, previous: status == "renamed" ? "docs/README.md" : null, patch: null, additions: additions);
-        var withTierL = Offline(true, file);
-
-        Fails(Offline(false, file), path);
-        Fails(withTierL, path);
-        Assert.Contains("tier-L label: yes, result: fail", withTierL.Stdout);
-    }
-
-    [Fact]
-    public void The_protected_paths_script_passes_a_binary_doc_with_no_added_lines_and_no_patch_without_tier_L()
-    {
-        Passes(Offline(false, PrFile("docs/images/flow.png", "added", patch: null, additions: 0), PrFile("skills/powerops-plan/icon.png", "modified", patch: null, additions: 0)));
-    }
-
-    // The files API stops at 3000 files: a cut list fails in every tier, with the owner's tier-L too, protected path or not.
-    [Theory]
-    [InlineData(false, "AGENTS.md")]
-    [InlineData(true, "AGENTS.md")]
-    [InlineData(false, "src/PowerOps.Cli/Program.cs")]
-    [InlineData(true, "src/PowerOps.Cli/Program.cs")]
-    public void The_protected_paths_script_fails_a_cut_file_list_in_every_tier(bool tierL, string path)
-    {
-        var run = Offline(PrJson(tierL, 3001), JsonSerializer.Serialize(new[] { PrFile(path) }));
-
-        Fails(run);
-        Assert.Contains("the API listed 1 changed file(s), not the pull request's count", run.Stdout);
+        Passes(run);
+        Assert.Contains("6 changed file(s), 0 protected path(s)", run.Stdout);
+        Passes(empty);
+        Assert.Contains("0 changed file(s)", empty.Stdout);
     }
 
     [Theory]
@@ -1358,10 +1418,11 @@ public sealed class WorkflowTests
     [InlineData(".github/workflows/ci.yml", true)]
     [InlineData("CODEOWNERS", true)]
     [InlineData("AGENTS.md", true)]
-    [InlineData("./AGENTS.md", true)]
+    [InlineData("docs/schemas", true)]
     [InlineData("docs/schemas/analyze.schema.json", true)]
     [InlineData("src/PowerOps.Core/Deploy/DeployGate.cs", true)]
     [InlineData("src/PowerOps.Core/Output/SafeWrite.cs", true)]
+    [InlineData("skills/powerops-verify", true)]
     [InlineData("skills/powerops-verify/SKILL.md", true)]
     [InlineData("skills/powerops-review-security/SKILL.md", true)]
     [InlineData("tests/PowerOps.Cli.Tests/RoleEvalTests.cs", true)]
@@ -1389,11 +1450,11 @@ public sealed class WorkflowTests
     [InlineData("docs/examples/playwright/ephemeral-x.yml", false)]
     public void The_protected_paths_script_matches_exactly_the_protected_paths(string path, bool guarded)
     {
-        var run = Offline(false, PrFile(path));
+        var run = Check(false, r => r.Write(path, "x\n"));
 
         if (guarded)
         {
-            Fails(run);
+            Fails(run, path);
         }
         else
         {
@@ -1404,29 +1465,193 @@ public sealed class WorkflowTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void The_protected_paths_script_fails_when_the_head_is_not_the_expected_commit_even_with_tier_L(bool guarded)
+    public void The_protected_paths_script_fails_a_head_or_base_that_is_not_the_expected_one_even_with_tier_L(bool guarded)
     {
-        var file = JsonSerializer.Serialize(new[] { PrFile(guarded ? "AGENTS.md" : "src/PowerOps.Cli/Program.cs") });
+        var (repo, @base, head) = Change(r => r.Write(guarded ? "AGENTS.md" : "src/PowerOps.Cli/Program.cs", "x\n"));
+        using (repo)
+        {
+            Passes(Offline(repo, PrJson(true, head, @base), head, @base));
+            Fails(Offline(repo, PrJson(true, OtherSha, @base), head, @base)); // pushed after the event
+            Fails(Offline(repo, PrJson(true, head, @base), OtherSha, @base));
+            Fails(Offline(repo, PrJson(true, head, @base, baseRef: "release"), head, @base)); // retargeted after the event
+            Fails(Offline(repo, PrJson(true, head, @base, baseRef: "release"), head, @base, baseRef: "release")); // the event's base is not main
+            Fails(Offline(repo, PrJson(true, head, @base), head, @base, baseRef: "release"));
+            Fails(Offline(repo, PrJson(true, head, OtherSha), head, @base)); // the base moved after the event
+            Fails(Offline(repo, PrJson(true, head, @base), head, OtherSha));
+            Fails(Offline(repo, PrJson(true, head, @base), head, "main"));
+        }
+    }
 
-        Fails(Offline(PrJson(true, 1, head: OtherHead), file));
-        Fails(Offline(PrJson(true, 1), file, expected: OtherHead));
+    // GitHub shows a pull request as the diff from the merge base: an edit main made after the branch is not the pull request's.
+    [Fact]
+    public void The_protected_paths_script_diffs_from_the_merge_base_so_a_later_main_edit_is_not_the_pull_requests()
+    {
+        using var repo = new GuardRepo();
+        repo.Commit("main", r => r.Write("AGENTS.md", "a\n"));
+        var fork = repo.Run("rev-parse", "HEAD");
+        var later = repo.Commit("main moves on", r => { r.Write("AGENTS.md", "b\n"); r.Write("docs/USE.md", "see /home/someone\n"); });
+        repo.Run("checkout", "-q", "-b", "pr", fork);
+        var head = repo.Commit("pull request", r => r.Write("src/a.cs", "a\n"));
+        var guarded = repo.Commit("pull request edits a protected path", r => r.Write(".github/x.yml", "a\n"));
+
+        var plain = Offline(repo, PrJson(false, head, later), head, later);
+        var own = Offline(repo, PrJson(false, guarded, later), guarded, later);
+
+        Passes(plain);
+        Assert.Contains("1 changed file(s), 0 protected path(s)", plain.Stdout);
+        Fails(own, ".github/x.yml");
+        Assert.DoesNotContain("AGENTS.md", own.Stdout);
+        Assert.DoesNotContain("docs/USE.md", own.Stdout);
+    }
+
+    [Fact]
+    public void The_protected_paths_script_fails_unrelated_histories_or_two_merge_bases_even_with_tier_L()
+    {
+        using var repo = new GuardRepo();
+        repo.Run("checkout", "-q", "--orphan", "unrelated");
+        var unrelated = repo.Commit("unrelated", r => r.Write("src/a.cs", "a\n"));
+        // A criss-cross merge: x and y each merge the other's first commit, so they have two merge bases.
+        repo.Run("checkout", "-q", "-b", "x", repo.Seed);
+        var a = repo.Commit("a", r => r.Write("src/a.cs", "a\n"));
+        repo.Run("checkout", "-q", "-b", "y", repo.Seed);
+        var b = repo.Commit("b", r => r.Write("src/b.cs", "b\n"));
+        repo.Run("merge", "-q", "--no-ff", "--no-edit", a);
+        var y = repo.Run("rev-parse", "HEAD");
+        repo.Run("checkout", "-q", "x");
+        repo.Run("merge", "-q", "--no-ff", "--no-edit", b);
+        var x = repo.Run("rev-parse", "HEAD");
+
+        var none = Offline(repo, PrJson(true, unrelated, repo.Seed), unrelated, repo.Seed);
+        var two = Offline(repo, PrJson(true, y, x), y, x);
+
+        Fails(none);
+        Assert.Contains("have no merge base", none.Stdout);
+        Fails(two);
+        Assert.Contains("have 2 merge bases", two.Stdout);
+    }
+
+    [Fact]
+    public void The_protected_paths_script_passes_a_rename_inside_docs_and_reads_a_file_renamed_into_docs_whole()
+    {
+        const string old = "notes\nsee /home/someone/x\nopen file:///tmp/a\nmore\n";
+        var inside = Check(false, r => r.Move("docs/a.md", "docs/moved/a.md"), r => r.Write("docs/a.md", old));
+
+        Passes(inside);
+        Assert.Contains("1 changed file(s)", inside.Stdout);
+        Passes(Check(false, r => r.Move("skills/a.md", "docs/a.md"), r => r.Write("skills/a.md", old)));
+        // main's own lines are not the pull request's: an added clean line, or removed lines, pass.
+        Passes(Check(false, r => r.Write("docs/a.md", old + "a new line\n"), r => r.Write("docs/a.md", old)));
+        Passes(Check(false, r => r.Write("docs/a.md", "notes\nmore\n"), r => r.Write("docs/a.md", old)));
+        foreach (var leak in new[] { "see /home/someone/x\n", "open file://host/share/x\n", "open file:///tmp/a\n" })
+        {
+            var run = Check(true, r => r.Move("src/notes.txt", "docs/notes.md"), r => r.Write("src/notes.txt", "notes\n" + leak + "more\nlines\n"));
+
+            FailsInEveryTier(run, "docs/notes.md");
+            Assert.Contains("1 changed file(s)", run.Stdout); // a pure rename, with no added line in its diff
+        }
+    }
+
+    private static readonly byte[] Png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0x0D, 0x49, 0x48, 0x44, 0x52, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0];
+
+    [Fact]
+    public void The_protected_paths_script_passes_a_clean_binary_doc_and_reads_a_nul_disguised_one_whole_even_with_tier_L()
+    {
+        Passes(Check(false, r => r.WriteBytes("docs/images/flow.png", Png)));
+        Passes(Check(false, r => r.WriteBytes("docs/images/flow.png", [.. Png, 0, 1]), r => r.WriteBytes("docs/images/flow.png", Png)));
+        foreach (var leak in new[] { "/home/someone/x", "file:///tmp/a", "file://host/share/x" })
+        {
+            FailsInEveryTier(Check(true, r => r.Write("docs/notes.md", "# notes\0\nsee " + leak + "\n")), "docs/notes.md");
+            FailsInEveryTier(Check(true, r => r.Write("skills/a/SKILL.md", "# a\0\nclean\nsee " + leak + "\n"), r => r.Write("skills/a/SKILL.md", "# a\0\nclean\n")),
+                "skills/a/SKILL.md");
+        }
+    }
+
+    // A submodule entry, staged by hand; its commit need not exist.
+    private static GuardRun Submodule(string path, bool tierL)
+    {
+        var (repo, @base, _) = Change(_ => { });
+        using (repo)
+        {
+            repo.Run("update-index", "--add", "--cacheinfo", $"160000,{OtherSha},{path}");
+            var head = repo.Commit("submodule", stage: false);
+            return Offline(repo, PrJson(tierL, head, @base), head, @base);
+        }
+    }
+
+    [Fact]
+    public void The_protected_paths_script_fails_a_submodule_in_docs_or_skills_as_unscannable_even_with_tier_L()
+    {
+        foreach (var path in new[] { "docs/vendor", "skills/vendor", "docs" })
+        {
+            var run = Submodule(path, tierL: true);
+
+            FailsInEveryTier(run, path);
+            Assert.Contains("  cannot scan: " + path + "\n", run.Stdout);
+        }
+
+        Passes(Submodule("src/vendor", tierL: false));
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void The_protected_paths_script_fails_a_base_that_is_not_main_or_moved_even_with_tier_L(bool guarded)
+    [InlineData("docs/USE.md", "see /home/someone/powerops", 1)]
+    [InlineData("skills/powerops-plan/SKILL.md", "open file:///C:/plans/x.md", 1)]
+    [InlineData("README.md", "[plan](file:///tmp/plan.md)", 1)]
+    [InlineData("docs/USE.md", "open file://host/share/x", 1)] // a file URL with an authority
+    [InlineData("skills/powerops-plan/SKILL.md", "file:///tmp/a", 1)]
+    [InlineData("docs/USE.md", "see file:relative", 0)]
+    [InlineData("docs/USE.md", "++ /home/someone", 1)] // the diff's line is +++ /home/someone, an added line inside a hunk
+    [InlineData("skills/powerops-plan/SKILL.md", "++ file://host/share/x", 1)]
+    [InlineData("README.md", "++ /home/someone", 1)]
+    [InlineData("docs", "see /home/someone", 1)] // a file named docs
+    [InlineData("skills", "file:///tmp/a", 1)]
+    [InlineData("src/PowerOps.Core/Output/Sarif.cs", "var uri = \"file:///\";", 0)]
+    [InlineData("tests/PowerOps.Core.Tests/SarifTests.cs", "Assert.StartsWith(\"file:///home/\", uri);", 0)]
+    [InlineData("docs.md", "see /home/someone", 0)]
+    public void The_protected_paths_script_fails_an_added_path_leak_in_docs_skills_or_the_readme_even_with_tier_L(string path, string line, int exit)
     {
-        var file = JsonSerializer.Serialize(new[] { PrFile(guarded ? "AGENTS.md" : "src/PowerOps.Cli/Program.cs") });
+        // The file is on main; the pull request adds the line to it.
+        var run = Check(true, r => r.Write(path, "context\n" + line + "\nend\n"), r => r.Write(path, "context\nend\n"));
 
-        Passes(Offline(PrJson(true, 1), file));
-        Fails(Offline(PrJson(true, 1, baseRef: "release"), file)); // retargeted after the event
-        Fails(Offline(PrJson(true, 1, baseRef: "release"), file, baseRef: "release")); // the event's base is not main
-        Fails(Offline(PrJson(true, 1), file, baseRef: "release"));
-        Fails(Offline(PrJson(true, 1, baseSha: OtherBase), file)); // the base moved after the event
-        Fails(Offline(PrJson(true, 1), file, baseSha: OtherBase));
-        Fails(Offline(PrJson(true, 1), file, baseSha: "main"));
+        if (exit == 1)
+        {
+            FailsInEveryTier(run, path);
+        }
+        else
+        {
+            Passes(run);
+        }
     }
+
+    [Fact]
+    public void The_protected_paths_script_reads_a_new_file_or_link_in_docs_whole()
+    {
+        FailsInEveryTier(Check(true, r => r.Write("docs/new.md", "a\nsee /home/someone/x\n")), "docs/new.md");
+        FailsInEveryTier(Check(true, r => r.Write("README.md", "[a](file://host/share/x)\n")), "README.md");
+        FailsInEveryTier(Check(true, r =>
+        {
+            Directory.CreateDirectory(Path.Combine(r.Dir, "docs"));
+            File.CreateSymbolicLink(Path.Combine(r.Dir, "docs", "link"), "/home/someone/x");
+        }), "docs/link");
+        Passes(Check(false, r => r.Write("docs/new.md", "clean\n")));
+    }
+
+    [Fact]
+    public void The_protected_paths_script_lets_no_file_name_or_line_start_a_workflow_command()
+    {
+        var run = Check(false, r =>
+        {
+            r.Write(".github/x\n::error::INJECTED", "x\n");
+            r.Write("docs/a%0A::warning::FORGED name.md", "::error::PATCH /home/x\n");
+        });
+
+        Fails(run, ".github/x???error??INJECTED", "docs/a?0A??warning??FORGED?name.md");
+        Assert.DoesNotContain("PATCH", run.Stdout);
+        Assert.DoesNotContain("%0A", run.Stdout);
+        Assert.All(run.Stdout.Split('\n').Where(l => l.Contains("::", StringComparison.Ordinal)), l => Assert.StartsWith("::error::protected-paths: ", l, StringComparison.Ordinal));
+        Assert.Equal(2, run.Stdout.Split('\n').Count(l => l.StartsWith("::", StringComparison.Ordinal)));
+    }
+
+    private static GuardRun Labelled(string path, string? events, string? owner = Owner) => Check(true, r => r.Write(path, "x\n"), events: events, owner: owner);
 
     // The label counts only when the latest labeled or unlabeled event of tier-L is the owner's labeled event.
     public static TheoryData<string, string, bool> LabelHistories => new()
@@ -1450,8 +1675,8 @@ public sealed class WorkflowTests
     public void The_protected_paths_script_takes_tier_L_only_when_the_owner_applied_it_last(string history, string events, bool owned)
     {
         Assert.NotEmpty(history);
-        var guardedRun = Offline(PrJson(true, 1), JsonSerializer.Serialize(new[] { PrFile("AGENTS.md") }), events: events);
-        var plainRun = Offline(PrJson(true, 1), JsonSerializer.Serialize(new[] { PrFile("src/PowerOps.Cli/Program.cs") }), events: events);
+        var guardedRun = Labelled("AGENTS.md", events);
+        var plainRun = Labelled("src/PowerOps.Cli/Program.cs", events);
 
         if (owned)
         {
@@ -1471,36 +1696,43 @@ public sealed class WorkflowTests
     [Fact]
     public void The_protected_paths_script_reads_tier_L_events_over_pages()
     {
-        var file = JsonSerializer.Serialize(new[] { PrFile("AGENTS.md") });
-
-        Passes(Offline(PrJson(true, 1), file, events: Events(("labeled", "tier-L", "triager")) + Events(("unlabeled", "tier-L", Owner), ("labeled", "tier-L", Owner))));
-        Fails(Offline(PrJson(true, 1), file, events: Events(("labeled", "tier-L", Owner)) + Events(("labeled", "tier-L", "triager"))));
+        Passes(Labelled("AGENTS.md", Events(("labeled", "tier-L", "triager")) + Events(("unlabeled", "tier-L", Owner), ("labeled", "tier-L", Owner))));
+        Fails(Labelled("AGENTS.md", Events(("labeled", "tier-L", Owner)) + Events(("labeled", "tier-L", "triager"))));
     }
 
+    private const string OwnerEvent = """{"event":"labeled","label":{"name":"tier-L"},"actor":{"login":"repo-owner"}}""";
+
+    // Each bad event comes before the owner's valid one, so only a strict read of every event fails it.
     public static TheoryData<string> MissingLabelChecks => ["no-events", "no-owner", "owner-not-login", "events-not-json", "events-empty", "events-object",
-        "event-no-name", "labeled-no-label", "label-string", "label-name-number", "actor-string", "login-number", "event-number"];
+        "event-no-name", "event-false", "labeled-no-label", "label-string", "label-false", "label-name-number", "label-name-false", "actor-string",
+        "actor-false", "login-number", "login-false", "event-number", "page-object"];
 
     [Theory]
     [MemberData(nameof(MissingLabelChecks))]
     public void The_protected_paths_script_fails_closed_when_it_cannot_check_who_applied_tier_L(string input)
     {
-        var file = JsonSerializer.Serialize(new[] { PrFile("AGENTS.md") });
-        var pr = PrJson(true, 1);
+        static string Before(string bad) => "[" + bad + "," + OwnerEvent + "]";
         var run = input switch
         {
-            "no-events" => Offline(pr, file, events: null),
-            "no-owner" => Offline(pr, file, owner: null),
-            "owner-not-login" => Offline(pr, file, owner: "repo owner"),
-            "events-not-json" => Offline(pr, file, events: "not json"),
-            "events-empty" => Offline(pr, file, events: ""),
-            "events-object" => Offline(pr, file, events: """{"event":"labeled","label":{"name":"tier-L"},"actor":{"login":"repo-owner"}}"""),
-            "event-no-name" => Offline(pr, file, events: """[{"label":{"name":"tier-L"},"actor":{"login":"repo-owner"}}]"""),
-            "labeled-no-label" => Offline(pr, file, events: """[{"event":"labeled","actor":{"login":"repo-owner"}}]"""),
-            "label-string" => Offline(pr, file, events: """[{"event":"labeled","label":"tier-L","actor":{"login":"repo-owner"}}]"""),
-            "label-name-number" => Offline(pr, file, events: """[{"event":"labeled","label":{"name":1},"actor":{"login":"repo-owner"}}]"""),
-            "actor-string" => Offline(pr, file, events: """[{"event":"labeled","label":{"name":"tier-L"},"actor":"repo-owner"}]"""),
-            "login-number" => Offline(pr, file, events: """[{"event":"labeled","label":{"name":"tier-L"},"actor":{"login":1}}]"""),
-            _ => Offline(pr, file, events: """[{"event":"labeled","label":{"name":"tier-L"},"actor":{"login":"repo-owner"}},1]"""),
+            "no-events" => Labelled("AGENTS.md", events: null),
+            "no-owner" => Labelled("AGENTS.md", OwnerTierL, owner: null),
+            "owner-not-login" => Labelled("AGENTS.md", OwnerTierL, owner: "repo owner"),
+            "events-not-json" => Labelled("AGENTS.md", "not json"),
+            "events-empty" => Labelled("AGENTS.md", ""),
+            "events-object" => Labelled("AGENTS.md", OwnerEvent),
+            "event-no-name" => Labelled("AGENTS.md", Before("""{"label":{"name":"tier-L"},"actor":{"login":"repo-owner"}}""")),
+            "event-false" => Labelled("AGENTS.md", Before("""{"event":false}""")),
+            "labeled-no-label" => Labelled("AGENTS.md", Before("""{"event":"labeled","actor":{"login":"repo-owner"}}""")),
+            "label-string" => Labelled("AGENTS.md", Before("""{"event":"labeled","label":"tier-L","actor":{"login":"repo-owner"}}""")),
+            "label-false" => Labelled("AGENTS.md", Before("""{"event":"labeled","label":false,"actor":{"login":"repo-owner"}}""")),
+            "label-name-number" => Labelled("AGENTS.md", Before("""{"event":"labeled","label":{"name":1},"actor":{"login":"repo-owner"}}""")),
+            "label-name-false" => Labelled("AGENTS.md", Before("""{"event":"unlabeled","label":{"name":false},"actor":{"login":"repo-owner"}}""")),
+            "actor-string" => Labelled("AGENTS.md", Before("""{"event":"labeled","label":{"name":"tier-L"},"actor":"repo-owner"}""")),
+            "actor-false" => Labelled("AGENTS.md", Before("""{"event":"unlabeled","label":{"name":"documentation"},"actor":false}""")),
+            "login-number" => Labelled("AGENTS.md", Before("""{"event":"labeled","label":{"name":"tier-L"},"actor":{"login":1}}""")),
+            "login-false" => Labelled("AGENTS.md", Before("""{"event":"labeled","label":{"name":"documentation"},"actor":{"login":false}}""")),
+            "event-number" => Labelled("AGENTS.md", Before("1")),
+            _ => Labelled("AGENTS.md", "[" + OwnerEvent + "]" + OwnerEvent),
         };
 
         Fails(run);
@@ -1509,177 +1741,198 @@ public sealed class WorkflowTests
     [Fact]
     public void The_protected_paths_script_needs_no_events_or_owner_without_tier_L()
     {
-        Passes(Offline(PrJson(false, 1), JsonSerializer.Serialize(new[] { PrFile("src/PowerOps.Cli/Program.cs") }), events: null, owner: null));
-        Fails(Offline(PrJson(false, 1), JsonSerializer.Serialize(new[] { PrFile("AGENTS.md") }), events: null, owner: null), "AGENTS.md");
+        Passes(Check(false, r => r.Write("src/PowerOps.Cli/Program.cs", "x\n"), events: null, owner: null));
+        Fails(Check(false, r => r.Write("AGENTS.md", "x\n"), events: null, owner: null), "AGENTS.md");
     }
 
-    [Theory]
-    [InlineData("docs/USE.md", "+see /home/someone/powerops", 1)]
-    [InlineData("./docs/USE.md", "+see /home/someone/powerops", 1)]
-    [InlineData("skills/powerops-plan/SKILL.md", "+open file:///C:/plans/x.md", 1)]
-    [InlineData("README.md", "+[plan](file:///tmp/plan.md)", 1)]
-    [InlineData("docs/USE.md", "+open file://host/share/file", 1)] // a file URL with an authority
-    [InlineData("docs/USE.md", "+see file:relative", 0)]
-    [InlineData("docs/USE.md", "+++/home/someone", 1)] // an added line that begins with ++, inside a hunk
-    [InlineData("src/PowerOps.Core/Output/Sarif.cs", "+    var uri = \"file:///\";", 0)]
-    [InlineData("tests/PowerOps.Core.Tests/SarifTests.cs", "+Assert.StartsWith(\"file:///home/\", uri);", 0)]
-    [InlineData("docs.md", "+see /home/someone", 0)]
-    [InlineData("docs/USE.md", "-see /home/someone", 0)] // a removed line
-    [InlineData("docs/USE.md", " see /home/someone", 0)] // a context line
-    public void The_protected_paths_script_fails_an_added_path_leak_in_docs_skills_or_the_readme_even_with_tier_L(string path, string line, int exit)
-    {
-        var run = Offline(true, PrFile(path, patch: "@@ -1,2 +1,2 @@\n context\n" + line));
-
-        Assert.DoesNotContain("someone", run.Stdout);
-        if (exit == 1)
-        {
-            Fails(run, path.TrimStart('.', '/'));
-        }
-        else
-        {
-            Passes(run);
-        }
-    }
-
-    public static TheoryData<string> MalformedInputs => ["files-not-json", "files-empty", "files-object", "file-no-name", "file-no-status", "file-patch-number",
-        "pr-not-json", "pr-no-head", "pr-head-number", "pr-no-base", "pr-base-ref-number", "pr-labels-object", "count-short", "expected-not-sha", "missing-file"];
+    public static TheoryData<string> MalformedInputs => ["pr-not-json", "pr-array", "pr-no-head", "pr-head-false", "pr-head-sha-number", "pr-no-base",
+        "pr-base-false", "pr-base-ref-number", "pr-labels-object", "pr-labels-false", "pr-labels-null", "pr-no-labels", "pr-label-false",
+        "pr-label-name-false", "expected-not-sha", "base-not-sha", "missing-pr-file", "no-repo", "not-a-repo", "head-not-in-repo",
+        "base-not-in-repo", "head-is-a-blob"];
 
     [Theory]
     [MemberData(nameof(MalformedInputs))]
     public void The_protected_paths_script_fails_closed_on_input_it_cannot_read(string input)
     {
-        var ok = JsonSerializer.Serialize(new[] { PrFile("src/a.cs") });
-        var pr = PrJson(true, 1);
-        var run = input switch
+        var (repo, @base, head) = Change(r => r.Write("src/a.cs", "a\n"));
+        using (repo)
         {
-            "files-not-json" => Offline(pr, "not json"),
-            "files-empty" => Offline(pr, ""),
-            "files-object" => Offline(pr, """{"filename":"src/a.cs","status":"modified"}"""),
-            "file-no-name" => Offline(pr, """[{"status":"modified"}]"""),
-            "file-no-status" => Offline(pr, """[{"filename":"src/a.cs"}]"""),
-            "file-patch-number" => Offline(pr, """[{"filename":"docs/a.md","status":"modified","patch":1}]"""),
-            "pr-not-json" => Offline("{", ok),
-            "pr-no-head" => Offline("""{"labels":[{"name":"tier-L"}]}""", ok),
-            "pr-head-number" => Offline("""{"head":{"sha":1},"labels":[]}""", ok),
-            "pr-no-base" => Offline(JsonSerializer.Serialize(new { head = new { sha = PrHead }, labels = Array.Empty<object>() }), ok),
-            "pr-base-ref-number" => Offline(JsonSerializer.Serialize(new { head = new { sha = PrHead }, @base = new { @ref = 1, sha = PrBase }, labels = Array.Empty<object>() }), ok),
-            "pr-labels-object" => Offline(JsonSerializer.Serialize(new { head = new { sha = PrHead }, @base = new { @ref = "main", sha = PrBase }, labels = new { name = "tier-L" } }), ok),
-            "count-short" => Offline(PrJson(true, 3), ok),
-            "expected-not-sha" => Offline(pr, ok, expected: "main"),
-            _ => ProtectedPaths(
-                ["--pr-json", "pr.json", "--files-json", "missing.json", "--expected-head-sha", PrHead, "--expected-base-ref", "main", "--expected-base-sha", PrBase],
-                new Dictionary<string, string> { ["pr.json"] = pr },
-                new Dictionary<string, string>(),
-                "#!/usr/bin/env bash\nexit 1"),
-        };
+            var h = $$"""{"sha":"{{head}}"}""";
+            var b = $$"""{"ref":"main","sha":"{{@base}}"}""";
+            string Pr(string headJson, string baseJson, string labels = ",\"labels\":[]") => "{\"head\":" + headJson + ",\"base\":" + baseJson + labels + "}";
+            GuardRun Read(string pr) => Offline(repo, pr, head, @base);
+            var blob = repo.Run("rev-parse", "HEAD:seed.txt");
 
-        Fails(run);
-    }
+            // A pull request JSON with no tier-L passes no false, null or missing field as an empty one.
+            var run = input switch
+            {
+                "pr-not-json" => Read("{"),
+                "pr-array" => Read("[" + Pr(h, b) + "]"),
+                "pr-no-head" => Read("{\"base\":" + b + ",\"labels\":[]}"),
+                "pr-head-false" => Read(Pr("false", b)),
+                "pr-head-sha-number" => Read(Pr("""{"sha":1}""", b)),
+                "pr-no-base" => Read("{\"head\":" + h + ",\"labels\":[]}"),
+                "pr-base-false" => Read(Pr(h, "false")),
+                "pr-base-ref-number" => Read(Pr(h, $$"""{"ref":1,"sha":"{{@base}}"}""")),
+                "pr-labels-object" => Read(Pr(h, b, ",\"labels\":{\"name\":\"tier-L\"}")),
+                "pr-labels-false" => Read(Pr(h, b, ",\"labels\":false")),
+                "pr-labels-null" => Read(Pr(h, b, ",\"labels\":null")),
+                "pr-no-labels" => Read(Pr(h, b, "")),
+                "pr-label-false" => Read(Pr(h, b, ",\"labels\":[false]")),
+                "pr-label-name-false" => Read(Pr(h, b, ",\"labels\":[{\"name\":false}]")),
+                "expected-not-sha" => Offline(repo, Pr(h, b), "main", @base),
+                "base-not-sha" => Offline(repo, Pr(h, b), head, "main"),
+                "missing-pr-file" => Guard(repo.Root, repo.Root, ["--repo", repo.Dir, "--pr-json", "missing.json", "--expected-head-sha", head, "--expected-base-ref", "main",
+                    "--expected-base-sha", @base], new Dictionary<string, string>(), FailingGh),
+                "no-repo" => Offline(repo, Pr(h, b), head, @base, repoDir: Path.Combine(repo.Root, "missing")),
+                "not-a-repo" => Offline(repo, Pr(h, b), head, @base, repoDir: Directory.CreateDirectory(Path.Combine(repo.Root, "empty")).FullName),
+                "head-not-in-repo" => Offline(repo, PrJson(false, OtherSha, @base), OtherSha, @base),
+                "base-not-in-repo" => Offline(repo, PrJson(false, head, OtherSha), head, OtherSha),
+                _ => Offline(repo, PrJson(false, blob, @base), blob, @base), // a blob, not a commit
+            };
 
-    [Fact]
-    public void The_protected_paths_script_lets_no_file_name_or_patch_start_a_workflow_command()
-    {
-        var run = Offline(false, PrFile(".github/x\n::error::INJECTED"), PrFile("docs/a%0A::warning::FORGED.md", patch: "@@ -0,0 +1 @@\n+::error::PATCH /home/x"));
-
-        Fails(run);
-        Assert.DoesNotContain("PATCH", run.Stdout);
-        Assert.DoesNotContain("%0A", run.Stdout);
-        Assert.All(run.Stdout.Split('\n').Where(l => l.Contains("::", StringComparison.Ordinal)), l => Assert.StartsWith("::error::protected-paths: ", l, StringComparison.Ordinal));
-        Assert.Equal(2, run.Stdout.Split('\n').Count(l => l.StartsWith("::", StringComparison.Ordinal)));
+            Fails(run);
+            Assert.Equal(0, Read(Pr(h, b)).Exit);
+        }
     }
 
     [Fact]
     public void The_protected_paths_script_needs_all_five_offline_arguments_or_a_pull_request_number()
     {
-        var gh = "#!/usr/bin/env bash\necho \"$*\" >> \"$STUB_DIR/gh.log\"\nexit 1";
-        var noPr = new Dictionary<string, string> { ["PR_NUMBER"] = "" };
-        var live = new Dictionary<string, string> { ["GH_TOKEN"] = "fake-token", ["GITHUB_REPOSITORY"] = "example/repo", ["PR_NUMBER"] = "7" };
-        var inputs = new Dictionary<string, string> { ["pr.json"] = PrJson(false, 1), ["files.json"] = JsonSerializer.Serialize(new[] { PrFile("src/a.cs") }) };
-        string[] all = ["--pr-json", "pr.json", "--files-json", "files.json", "--expected-head-sha", PrHead, "--expected-base-ref", "main", "--expected-base-sha", PrBase];
-
-        Assert.Equal(0, ProtectedPaths(all, inputs, noPr, gh).Exit);
-        for (var i = 0; i < all.Length; i += 2)
+        var (repo, @base, head) = Change(r => r.Write("src/a.cs", "a\n"));
+        using (repo)
         {
-            Assert.Equal(2, ProtectedPaths(all.Take(i).Concat(all.Skip(i + 2)), inputs, noPr, gh).Exit);
-        }
+            File.WriteAllText(Path.Combine(repo.Root, "pr.json"), PrJson(false, head, @base));
+            var noPr = new Dictionary<string, string> { ["PR_NUMBER"] = "" };
+            var live = new Dictionary<string, string> { ["GH_TOKEN"] = "fake-token", ["GITHUB_REPOSITORY"] = "example/repo", ["PR_NUMBER"] = "7" };
+            string[] all = ["--repo", repo.Dir, "--pr-json", "pr.json", "--expected-head-sha", head, "--expected-base-ref", "main", "--expected-base-sha", @base];
+            GuardRun Usage(IEnumerable<string> args, Dictionary<string, string> env) => Guard(repo.Root, repo.Root, args, env, FailingGh);
 
-        Assert.Equal(2, ProtectedPaths([], new Dictionary<string, string>(), noPr, gh).Exit);
-        Assert.Equal(2, ProtectedPaths(["--expected-head-sha", PrHead], new Dictionary<string, string>(), noPr, gh).Exit);
-        // The live mode takes its head, base and owner from the event alone.
-        Assert.Equal(2, ProtectedPaths(["--owner", Owner], new Dictionary<string, string>(), live, gh).Exit);
-        Assert.Equal(2, ProtectedPaths(["--expected-base-ref", "main"], new Dictionary<string, string>(), live, gh).Exit);
-        Assert.Empty(ProtectedPaths(["--owner", Owner], new Dictionary<string, string>(), live, gh).GhCalls);
+            Assert.Equal(0, Usage(all, noPr).Exit);
+            for (var i = 0; i < all.Length; i += 2)
+            {
+                Assert.Equal(2, Usage(all.Take(i).Concat(all.Skip(i + 2)), noPr).Exit);
+            }
+
+            Assert.Equal(2, Usage([], noPr).Exit);
+            Assert.Equal(2, Usage(["--expected-head-sha", head], noPr).Exit);
+            // The live mode takes its head, base and owner from the event alone, and its repository is the checkout.
+            Assert.Equal(2, Usage(["--owner", Owner], live).Exit);
+            Assert.Equal(2, Usage(["--expected-base-ref", "main"], live).Exit);
+            Assert.Equal(2, Usage(["--repo", repo.Dir], live).Exit);
+            Assert.Empty(Usage(["--owner", Owner], live).GhCalls);
+        }
     }
 
-    // Answers the files call with every page-*.json in order, the events call with every events-*.json in order, and the n-th pull
-    // request read with pr-n.json.
+    // Answers the events call with every events-*.json in order, and the n-th pull request read with pr-n.json.
     private const string LiveGh = """
         #!/usr/bin/env bash
         { printf '[%s]' "$@"; echo; } >> "$STUB_DIR/gh.log"
         case "$*" in
-          *"/files?per_page=100") cat "$STUB_DIR"/page-*.json ;;
           *"/events?per_page=100") cat "$STUB_DIR"/events-*.json ;;
           *) n=$(( $(cat "$STUB_DIR/reads" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$STUB_DIR/reads"; cat "$STUB_DIR/pr-$n.json" ;;
         esac
         """;
 
     private const string PrCall = "[api][repos/example/repo/pulls/7]";
-    private const string FilesCall = "[api][--paginate][repos/example/repo/pulls/7/files?per_page=100]";
     private const string EventsCall = "[api][--paginate][repos/example/repo/issues/7/events?per_page=100]";
 
-    // 150 changed files over two pages; the last one, on the second page, is AGENTS.md. The issue events are two pages: someone
-    // else's documentation label, then `lastLabeler`'s tier-L.
-    private static GuardRun Live(bool tierL, int changed = 150, string secondHead = PrHead, string eventHead = PrHead,
-        string secondBase = PrBase, string eventBase = PrBase, string eventBaseRef = "main", string lastLabeler = Owner, string owner = Owner)
+    private sealed record LiveRun(GuardRun Run, bool StaysOnMain, bool Fetched);
+
+    private static bool HasCommit(string dir, string sha)
     {
-        var files = Enumerable.Range(0, 149).Select(i => PrFile($"src/PowerOps.Cli/F{i}.cs")).Append(PrFile("AGENTS.md")).ToList();
-        return ProtectedPaths(
-            [],
-            new Dictionary<string, string>
-            {
-                ["page-1.json"] = JsonSerializer.Serialize(files.Take(100)),
-                ["page-2.json"] = JsonSerializer.Serialize(files.Skip(100)),
-                ["events-1.json"] = Events(("labeled", "documentation", "someone-else")),
-                ["events-2.json"] = Events(("labeled", "tier-L", lastLabeler)),
-                ["pr-1.json"] = PrJson(tierL, changed),
-                ["pr-2.json"] = PrJson(tierL, changed, head: secondHead, baseSha: secondBase),
-            },
-            new Dictionary<string, string>
-            {
-                ["GH_TOKEN"] = "fake-token",
-                ["GITHUB_REPOSITORY"] = "example/repo",
-                ["PR_NUMBER"] = "7",
-                ["PR_HEAD_SHA"] = eventHead,
-                ["PR_BASE_REF"] = eventBaseRef,
-                ["PR_BASE_SHA"] = eventBase,
-                ["PR_OWNER"] = owner,
-            },
-            LiveGh);
+        var start = new ProcessStartInfo("git") { WorkingDirectory = dir, RedirectStandardError = true };
+        foreach (var a in new[] { "cat-file", "-e", sha + "^{commit}" })
+        {
+            start.ArgumentList.Add(a);
+        }
+
+        using var process = Process.Start(start)!;
+        process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        return process.ExitCode == 0;
+    }
+
+    // A bare origin whose refs/pull/7/head is the pull request's commit (or, force pushed, another one) and whose main moved on after
+    // the checkout. The check runs live in a clone of main that has neither the head nor the new base. The issue events are two pages:
+    // someone else's documentation label, then `lastLabeler`'s tier-L.
+    private static LiveRun Live(bool tierL, bool guarded = true, string? firstHead = null, string? secondHead = null, string? eventHead = null,
+        string firstBaseRef = "main", string eventBaseRef = "main", string? secondBase = null, string? eventBase = null, bool? secondTierL = null,
+        string lastLabeler = Owner, string owner = Owner, bool forcePushed = false)
+    {
+        using var repo = new GuardRepo();
+        repo.Run("checkout", "-q", "-b", "pr");
+        var head = repo.Commit("pull request", r => r.Write(guarded ? "AGENTS.md" : "src/a.cs", "x\n"));
+        repo.Run("checkout", "-q", "-b", "other", repo.Seed);
+        var other = repo.Commit("another push", r => r.Write("src/b.cs", "x\n"));
+        repo.Run("checkout", "-q", "main");
+        var origin = Path.Combine(repo.Root, "origin.git");
+        var work = Path.Combine(repo.Root, "work");
+        Git(repo.Root, "clone", "-q", "--bare", repo.Dir, origin);
+        Git(origin, "update-ref", "refs/pull/7/head", forcePushed ? other : head);
+        Git(origin, "update-ref", "-d", "refs/heads/pr");
+        Git(origin, "update-ref", "-d", "refs/heads/other");
+        Git(repo.Root, "clone", "-q", "--no-local", origin, work);
+        var checkedOut = Git(work, "rev-parse", "HEAD");
+        var @base = repo.Commit("main moves on", r => r.Write("src/later.cs", "x\n"));
+        repo.Run("push", "-q", origin, "main");
+        Assert.False(HasCommit(work, head) || HasCommit(work, @base));
+        File.WriteAllText(Path.Combine(repo.Root, "pr-1.json"), PrJson(tierL, firstHead ?? head, @base, firstBaseRef));
+        File.WriteAllText(Path.Combine(repo.Root, "pr-2.json"), PrJson(secondTierL ?? tierL, secondHead ?? head, secondBase ?? @base));
+        File.WriteAllText(Path.Combine(repo.Root, "events-1.json"), Events(("labeled", "documentation", "someone-else")));
+        File.WriteAllText(Path.Combine(repo.Root, "events-2.json"), Events(("labeled", "tier-L", lastLabeler)));
+
+        var run = Guard(repo.Root, work, [], new Dictionary<string, string>
+        {
+            ["GH_TOKEN"] = "fake-token",
+            ["GITHUB_REPOSITORY"] = "example/repo",
+            ["PR_NUMBER"] = "7",
+            ["PR_HEAD_SHA"] = eventHead ?? head,
+            ["PR_BASE_REF"] = eventBaseRef,
+            ["PR_BASE_SHA"] = eventBase ?? @base,
+            ["PR_OWNER"] = owner,
+        }, LiveGh);
+        var stays = Git(work, "rev-parse", "HEAD") == checkedOut && Git(work, "status", "--porcelain") == "";
+        return new LiveRun(run, stays, HasCommit(work, head));
     }
 
     [Fact]
-    public void The_protected_paths_script_reads_every_page_of_files_live_and_the_pull_request_before_and_after_them()
+    public void The_protected_paths_script_fetches_the_head_and_base_commits_live_and_checks_neither_out()
     {
         var without = Live(tierL: false);
         var with = Live(tierL: true);
 
-        Fails(without, "AGENTS.md");
-        Assert.Equal([PrCall, FilesCall, PrCall], without.GhCalls);
-        Passes(with);
-        Assert.Contains("150 changed file(s), 1 protected path(s), tier-L label: yes", with.Stdout);
-        // The events are read only for a pull request with the label, after the second read of it.
-        Assert.Equal([PrCall, FilesCall, PrCall, EventsCall], with.GhCalls);
+        Fails(without.Run, "AGENTS.md");
+        Assert.Equal([PrCall, PrCall], without.Run.GhCalls);
+        Passes(with.Run);
+        // main's later commit is not the pull request's.
+        Assert.Contains("1 changed file(s), 1 protected path(s), tier-L label: yes", with.Run.Stdout);
+        // The events are read only for a pull request with the label, between the two reads of it.
+        Assert.Equal([PrCall, EventsCall, PrCall], with.Run.GhCalls);
+        Assert.All(new[] { without, with }, r => Assert.True(r.StaysOnMain && r.Fetched));
+        Passes(Live(tierL: false, guarded: false).Run);
     }
 
     [Fact]
-    public void The_protected_paths_script_fails_live_on_a_cut_file_list_or_a_head_or_base_that_moved()
+    public void The_protected_paths_script_fails_live_on_a_head_base_or_label_that_moved()
     {
-        Fails(Live(tierL: true, changed: 151));
-        Fails(Live(tierL: true, secondHead: OtherHead));
-        Fails(Live(tierL: true, eventHead: OtherHead));
-        Fails(Live(tierL: true, secondBase: OtherBase));
-        Fails(Live(tierL: true, eventBase: OtherBase));
-        Fails(Live(tierL: true, eventBaseRef: "release"));
+        var stale = Live(tierL: true, eventHead: OtherSha);
+        var pushed = Live(tierL: true, forcePushed: true);
+
+        // A stale head fails on the first read, before any fetch.
+        Fails(stale.Run);
+        Assert.Equal([PrCall], stale.Run.GhCalls);
+        Assert.False(stale.Fetched);
+        Fails(pushed.Run);
+        Assert.Contains("is not in the repository", pushed.Run.Stdout);
+        Fails(Live(tierL: true, firstHead: OtherSha).Run);
+        Fails(Live(tierL: true, secondHead: OtherSha).Run);
+        Fails(Live(tierL: true, firstBaseRef: "release").Run);
+        Fails(Live(tierL: true, eventBaseRef: "release").Run);
+        Fails(Live(tierL: true, secondBase: OtherSha).Run);
+        Fails(Live(tierL: true, eventBase: OtherSha).Run);
+        Fails(Live(tierL: true, secondTierL: false).Run);
+        Fails(Live(tierL: false, guarded: false, secondTierL: true).Run);
     }
 
     [Fact]
@@ -1687,9 +1940,9 @@ public sealed class WorkflowTests
     {
         var triager = Live(tierL: true, lastLabeler: "triager");
 
-        Fails(triager);
-        Assert.Equal([PrCall, FilesCall, PrCall, EventsCall], triager.GhCalls);
-        Fails(Live(tierL: true, owner: ""));
-        Passes(Live(tierL: true, owner: "Repo-Owner"));
+        Fails(triager.Run);
+        Assert.Equal([PrCall, EventsCall], triager.Run.GhCalls);
+        Fails(Live(tierL: true, owner: "").Run);
+        Passes(Live(tierL: true, owner: "Repo-Owner").Run);
     }
 }
