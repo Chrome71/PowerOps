@@ -2,7 +2,7 @@
 status: done
 review: done
 signed-off: 2026-11-22
-signed-off-hash: dcd1bfa2d130a59465e11f0d175ba1dd34cdcb4b67a60af0b80d8cba506a270d
+signed-off-hash: b920752583331e104df736b145cbd8727fb61009e4b731d0e9d1944c3110d748
 environment: null
 depth: standard
 supersedes: null
@@ -24,7 +24,7 @@ Done when:
 6. `docs/PLANNING-SKILLS.md`, `docs/BUILD-PLAN.md` (decision 52 amended in place, an M124 section, a build-order item) and `docs/COMMANDS.md` (the `plan sign-off` prototype text) describe the new gate; `.github/workflows/skills-smoke.yml`'s timeout is set by Data row 5.
 7. `powerops plan status` on every folder under `docs/plans/` gives the same output after the change as before it, except this plan's own folder (compared against a capture taken at `6a3f3b6` before any edit).
 8. Unchanged, by `git diff origin/main`: the skip path's log form, the round-1 cost-tier question and its options, `PlanSignOff`'s hash, `SelfJudgedWarning`, `skills/powerops-review-sketch/`, `skills/powerops-plan/references/baseline.md`, `skills/powerops-verify`, `skills/powerops-review-security`, their plugin copies and `tests/eval/`. `RoleEvalTests` passes.
-9. `dotnet build` (0 warnings), `dotnet test`, `dotnet format --verify-no-changes`, `powerops plan status docs/plans/m124-planning-fixes` with no violation, and the leak scan from the main checkout (`cd "/home/ky/Documents/Github Projects/PowerOps" && bash reports/leakscan.sh origin/main claude/m124-planning-fixes-db61f4`: 0 hits, control found) are clean; CI is green.
+9. `dotnet build` (0 warnings), `dotnet test`, `dotnet format --verify-no-changes`, `powerops plan status docs/plans/m124-planning-fixes` with no violation, and the leak scan from the main checkout (`bash reports/leakscan.sh origin/main claude/m124-planning-fixes-db61f4`, run in the main checkout: 0 hits, control found) are clean; CI is green.
 
 ### Won't build
 
