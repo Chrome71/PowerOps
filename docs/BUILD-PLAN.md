@@ -732,7 +732,7 @@ Item 4 of Phase 1 of the three-way debate plan of 2026-11-22, step 5 of its buil
 
 ### Build order, M124 (continues the list below)
 
-98. `feat:` M124: the plan, then the checker and its tests, the smoke script, the skill text with its pins, `drafts.md` and the plugin copies, the docs, and the smoke run, in which five of the six scenarios run passed and scenario 6 was stopped by its cost cap (built 2026-11-22, [plan](plans/m124-planning-fixes/plan.md))
+99. `feat:` M124: the plan, then the checker and its tests, the smoke script, the skill text with its pins, `drafts.md` and the plugin copies, the docs, and the smoke run, in which five of the six scenarios run passed and scenario 6 was stopped by its cost cap (built 2026-11-22, [plan](plans/m124-planning-fixes/plan.md))
 
 ## Testing
 
