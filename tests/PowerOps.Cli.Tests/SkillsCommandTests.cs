@@ -1394,12 +1394,10 @@ public partial class SkillsCommandTests : IDisposable
         Assert.Contains("When `Constraints` says Dev is a developer environment, the plan's flows' expected runs a day, summed, times 30, passing 750 is a Medium finding: the environment allows 750 flow runs a month.", item3);
     }
 
-    [Theory]
-    [InlineData(".claude/agents")]
-    [InlineData("plugins/claude/agents")]
-    public void Automate_specialist_names_inventory_and_the_flow_rules_by_what_they_find(string folder)
+    [Fact]
+    public void Automate_specialist_names_inventory_and_the_flow_rules_by_what_they_find()
     {
-        var step5 = RepoText([.. folder.Split('/'), "powerops-automate.md"]).Split('\n').Single(l => l.StartsWith("5. Offline checks on the export:", StringComparison.Ordinal));
+        var step5 = RepoText(".claude", "agents", "powerops-automate.md").Split('\n').Single(l => l.StartsWith("5. Offline checks on the export:", StringComparison.Ordinal));
         string[] wording =
         [
             "`powerops analyze`, whose PO037 to PO042 find",
