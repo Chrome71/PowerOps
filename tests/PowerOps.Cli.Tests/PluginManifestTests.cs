@@ -156,18 +156,27 @@ public class PluginManifestTests
 
     private static string Lf(string path) => File.ReadAllText(path).Replace("\r\n", "\n");
 
-    // The "Power Platform specialist team" section of CLAUDE.md, from its heading to "Saved workflows in".
-    private static string SpecialistSection()
+    private static string SpecialistSection() => Lf(Repo(".claude", "agents", "README.md"));
+
+    [Fact]
+    public void Claude_and_all_six_specialists_point_to_the_shared_specialist_guide()
     {
-        var lines = Lf(Repo("CLAUDE.md")).Split('\n');
-        var start = Array.IndexOf(lines, "### Power Platform specialist team");
-        Assert.True(start >= 0, "CLAUDE.md: \"### Power Platform specialist team\" not found");
-        var stop = Array.FindIndex(lines, start, l => l.StartsWith("Saved workflows in", StringComparison.Ordinal));
-        Assert.True(stop > start, "CLAUDE.md: \"Saved workflows in\" not found after the specialist section");
-        return string.Join('\n', lines[(start + 1)..stop]);
+        const string guide = ".claude/agents/README.md";
+        var claude = Lf(Repo("CLAUDE.md"));
+        Assert.Contains($"]({guide})", claude);
+        Assert.DoesNotContain("### Power Platform specialist team", claude);
+        Assert.DoesNotContain("only when spawning", claude);
+        Assert.DoesNotContain("specialists below", claude);
+        Assert.Contains("Before routing Power Platform work", claude);
+
+        foreach (var name in new[] { "apps", "automate", "bi", "copilot-studio", "design-lead", "workflow-logic" })
+        {
+            var specialist = Lf(Repo(".claude", "agents", $"powerops-{name}.md"));
+            Assert.Contains(guide, specialist);
+            Assert.DoesNotContain("\"Power Platform specialist team\" section of CLAUDE.md", specialist.Replace("`", ""));
+        }
     }
 
-    // M93: these read the sources in .claude/agents/ and CLAUDE.md.
     [Fact]
     public void Specialist_rules_mark_a_proposed_line_with_no_source_as_unproven()
     {
