@@ -10,8 +10,8 @@
         "alm"
       ],
       "affects": "every `pac` call and gate route; `PAC_VERSION` in the examples; decision 16(d); its triage reads the `pac` reference",
-      "lastSeen": "2.14.1",
-      "lastChecked": "2026-11-10"
+      "lastSeen": "2.16.1",
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "pa-cli",
@@ -22,8 +22,8 @@
         "apps"
       ],
       "affects": "the code app route and the gate's `pa app push` route; the CLI package, since the SDK package `@microsoft/power-apps` ships no `pa`",
-      "lastSeen": "1.4.1",
-      "lastChecked": "2026-11-10"
+      "lastSeen": "1.4.2",
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "mcp-spec",
@@ -35,7 +35,7 @@
       ],
       "affects": "the protocol revision `powerops mcp` serves",
       "lastSeen": "2026-07-28",
-      "lastChecked": "2026-11-10"
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "dataverse-skills",
@@ -47,8 +47,8 @@
         "dataverse"
       ],
       "affects": "HANDOFF's table and solution routes (the repository is the plugin, cited as a whole)",
-      "lastSeen": "v1.18.0",
-      "lastChecked": "2026-11-10"
+      "lastSeen": "v1.19.0",
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "power-platform-skills",
@@ -63,7 +63,7 @@
       ],
       "affects": "the plugin names HANDOFF and `powerops-implement` route to; a change inside a cited plugin is mode B's",
       "lastSeen": "7558c8e974b199747ce8e3c0c922ec415ed48585",
-      "lastChecked": "2026-11-10"
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "skills-for-copilot-studio",
@@ -76,7 +76,7 @@
       ],
       "affects": "HANDOFF's agent row and the plugin note in `CLAUDE.md`, which cite the repository as a whole",
       "lastSeen": "9c42d3a612c6e06389b6e5b4eed579aaed1a8b63",
-      "lastChecked": "2026-11-10"
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "copilot-studio-plugin",
@@ -89,7 +89,7 @@
       ],
       "affects": "`references/copilot-studio.md`, which cites the repository as a whole",
       "lastSeen": "4014ae689d1228d86cb3aaab938b1e66f8e2e10d",
-      "lastChecked": "2026-11-10"
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "skills-for-fabric",
@@ -102,8 +102,8 @@
         "power-bi"
       ],
       "affects": "`references/power-bi.md`, HANDOFF's Power BI row",
-      "lastSeen": "c13604ae6f4fb727ac7bc74784eeff4332433c63",
-      "lastChecked": "2026-11-10"
+      "lastSeen": "64563263c7a5eaf7e93fe0a48b5f4dd636746766",
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "power-cat-overflow",
@@ -116,7 +116,7 @@
       ],
       "affects": "PO016's provenance; the findings file the Verifier cites (kept role: record only)",
       "lastSeen": "1f81439b98d7aa5fa389a6d4fcc2b261de073afc",
-      "lastChecked": "2026-11-10"
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "power-cat-overpage",
@@ -129,7 +129,7 @@
       ],
       "affects": "the findings file the Verifier cites (kept role: record only)",
       "lastSeen": "f01f9ca893596fe5fb9f127c49736a2fa03b48fc",
-      "lastChecked": "2026-11-10"
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "pa-persistence",
@@ -141,7 +141,7 @@
       ],
       "affects": "FOUNDATION section 8's revisit trigger (a stable or net10.0 build)",
       "lastSeen": "0.8.2735.117-preview",
-      "lastChecked": "2026-11-10"
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "docs-important-changes",
@@ -153,8 +153,8 @@
         "governance"
       ],
       "affects": "deprecations across Power Platform",
-      "lastSeen": "2cc849531308d84aaf81cb03f5756f19a579f6db",
-      "lastChecked": "2026-11-10"
+      "lastSeen": "c77ff362f7340f1c15b0ba924dd76743378528be",
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "docs-alm-yaml",
@@ -167,7 +167,7 @@
       ],
       "affects": "the YAML layout, M5, PO013, FOUNDATION section 8",
       "lastSeen": "62494850aa43e90630db7eb82672faeb0bfcae76",
-      "lastChecked": "2026-11-10"
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "docs-alm-settings",
@@ -180,7 +180,7 @@
       ],
       "affects": "`settings generate`, `settings validate`, HANDOFF",
       "lastSeen": "8ad877ec951e492c0a1a3aed01765f21c3113df8",
-      "lastChecked": "2026-11-10"
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "docs-git-integration-faqs",
@@ -193,7 +193,7 @@
       ],
       "affects": "FOUNDATION section 8's YAML and Git integration item",
       "lastSeen": "da4eb304bd15d1e8ee2330104f35b9d2eb065bdf",
-      "lastChecked": "2026-11-10"
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "docs-pac-mcp",
@@ -207,7 +207,7 @@
       ],
       "affects": "the gate's MCP routes and matchers",
       "lastSeen": "76e446549b0c94831c50ef2e48df14e885faa519",
-      "lastChecked": "2026-11-10"
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "docs-pa-cli",
@@ -219,8 +219,8 @@
         "apps"
       ],
       "affects": "the gate's `pa app push` route, PO026's code app route",
-      "lastSeen": "8e42d75ad9f2151be916b75dafede418f7ef3e76",
-      "lastChecked": "2026-11-10"
+      "lastSeen": "9caf0f190087b49417a05067ba9833707037fdb5",
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "docs-dataverse-mcp",
@@ -233,8 +233,8 @@
         "dataverse"
       ],
       "affects": "FOUNDATION's coexistence row",
-      "lastSeen": "69cf4c7a9213db15b66ae961757de7120093163f",
-      "lastChecked": "2026-11-10"
+      "lastSeen": "8a635ff8c2b4cb76570a22629e44f518ed6d80b4",
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "docs-canvas-yaml",
@@ -247,7 +247,7 @@
       ],
       "affects": "the canvas reader, PO014, PO018, PO036",
       "lastSeen": "6d1e70ba261f80bddd70a03fdfaf830187f1f59a",
-      "lastChecked": "2026-11-10"
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "docs-flow-limits",
@@ -395,7 +395,7 @@
       ],
       "affects": "`inventory`'s drivers `http-action` and `custom-connector` (their sources)",
       "lastSeen": "cc40846ddae025054d572df3a1d075e246bb8467",
-      "lastChecked": "2026-11-12"
+      "lastChecked": "2026-11-21"
     },
     {
       "id": "docs-power-automate-license-types",
