@@ -698,6 +698,18 @@ ECO-0028 found `inventory` giving agent flows Power Automate drivers and AI Buil
 
 96. `feat!:` M123: the plan, then the reader, the two drivers and the schema version, then the fixture, `licensing.md`, the records and the goldens (built 2026-11-22, [plan](plans/m123-cost-credibility/plan.md))
 
+## M125: `powerops doctor` and the README front door
+
+Step 6 of the three-way debate's build plan (2026-11-22), Phase 1 item 3 of the agreed plan, for a newcomer the owner set to standard licences by default. The [plan](plans/m125-doctor-front-door/plan.md) adds a read-only `doctor` command and opens the README with two first runs (decision 80).
+
+| Milestone | Release | Scope | Done when |
+|---|---|---|---|
+| **M125. `powerops doctor` and the README front door** | the next minor release, which release-please makes from the `feat:` commit | <ul><li>Planned 2026-11-22 ([plan](plans/m125-doctor-front-door/plan.md))</li><li>`doctor` prints the `powerops` version, whether `pac` and `az` are on PATH and which PowerOps and Microsoft plugins Claude Code has installed, offline; `doctor --live` adds `pac org who`, `az account show -o none` and the planning skill's licence read, printing product names only</li><li>The environment type is `not read`: no documented read maps to it</li><li>`--format json` with `schemaVersion` 1 and `docs/schemas/doctor.schema.json`; no MCP tool</li><li>README: "First runs" (`doctor`, "Check this solution" on an export or the sample, "Plan an app") and the command table in Check, Ship, Agent plumbing and Advanced</li></ul> | plain `doctor` passes with runners that throw; the live tests assert the three argument lists and that no probe output is printed; every command has one README row; the README quotes the sample's result lines; `dotnet test` passes |
+
+### Build order, M125 (continues the list below)
+
+98. `feat:` M125: the plan, then the command, its report, schema and tests, then COMMANDS, AGENTS, the compatibility rows, the README and its two tests (built 2026-11-22, [plan](plans/m125-doctor-front-door/plan.md))
+
 ## M120: release assets
 
 The agreed plan of 2026-11-22 (three models, approved by the owner with "Approve and start") puts a 0.x preview release before trial 4, and its first step makes the release carry what a newcomer can run without the .NET SDK. The [plan](plans/m120-release-assets/plan.md) builds the files and runs them in CI; it cuts no release (decision 79).
@@ -1027,6 +1039,12 @@ Made in the [M118 plan](plans/m118-judge-key/plan.md); its `decisions.md` record
 Made in the [M123 plan](plans/m123-cost-credibility/plan.md); its `decisions.md` has the research and the reviews.
 
 78. **`inventory` tells agent flows from cloud flows, and names AI Builder actions.** This amends decision 69. The closed set has seven drivers: the five of decision 69, then `agent-flow` (a cloud flow whose `ModernFlowType` is 1, billed in Copilot Credits: *Agent flows overview*, *Billing rates and management*, *Agent flows FAQ*) and `ai-builder-action` (an action whose `operationId` starts with `aibuilderpredict_`, whatever its `apiId`: *End of AI Builder credits*, *Licensing and AI Builder credits*, *Overview of licensing*), both checked on 2026-11-22. An agent flow's actions fire neither `http-action` nor `desktop-flow-call`, because an agent flow needs no Power Automate licence and can't call a desktop flow; they are still listed in their sections. A flow whose `ModernFlowType` is neither 0, 1 nor absent (2 is labelled a Microsoft 365 Copilot agent flow, and no source says how it is billed) fires no driver and gets a `notRead` line. The AI Builder need says Learn's pages disagree on whether the flow also needs Power Automate Premium, and `licensing.md` tells the planner to plan for premium and for credits. `inventory`'s JSON moves to `schemaVersion` 2, because its closed `licenceDrivers[].id` list gained two values. `docs/ecosystem/sources.json` watches the twelve pages. PO039, the automate specialist and `custom-connector`'s sentence for a custom connector only an agent flow uses stay open in ECO-0028.
+
+## Decisions, M125 doctor (2026-11-22)
+
+Made in the [M125 plan](plans/m125-doctor-front-door/plan.md); its `decisions.md` has the research and the reviews.
+
+80. **`doctor` reads the machine offline and the tenant only with `--live`.** Plain `doctor` starts no process: a PATH lookup for `pac` and `az`, and Claude Code's plugin record (`installed_plugins.json`, a shape seen with 2.1.326; another shape is `not read`). `--live` runs three fixed calls through the existing runners and moves the planning skill's licence read without widening it: one `me/licenseDetails` GET, mapped by `licensing.md` section 3 to product names, with a count of unlisted part numbers and no part number printed. A failed licence read is `not read` and keeps exit 0, because Graph may refuse a standard account; only a missing `pac` or `az` or a failed sign-in sets exit 1. `az account show` proves no token, so its line says so. The environment type is not read until a live capture shows `RetrieveCurrentOrganization`'s `OrganizationType` and a mapping exists. The skill text is unchanged.
 
 ## Decisions, M120 release assets (2026-11-22)
 

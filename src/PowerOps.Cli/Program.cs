@@ -38,7 +38,7 @@ public static class Program
     // The command tree; tests read it too (HandoffDocTests checks the commands a page names).
     internal static RootCommand Root(TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot>? driftLive = null,
         Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? deployTarget = null, Func<Stream?>? input = null, string? approvedHash = null, bool mcp = false,
-        Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? deployAgents = null)
+        Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? deployAgents = null, DoctorHost? doctor = null)
     {
         // The live reader (az runner, HttpClient) is built only when a run has a live --env.
         var reader = new Lazy<DriftLiveReader>(() => new DriftLiveReader(
@@ -52,6 +52,7 @@ public static class Program
             "A free, open-source, cross-platform toolkit that brings software-engineering discipline " +
             "(analysis, diffing, testing, repeatable deployment) to Microsoft Power Platform.");
 
+        root.Subcommands.Add(DoctorCommand.Create(output, error, pac, doctor));
         root.Subcommands.Add(AnalyzeCommand.Create(output, error));
         root.Subcommands.Add(BaselineCommand.Create(error));
         root.Subcommands.Add(DiffCommand.Create(output, error));
@@ -70,16 +71,16 @@ public static class Program
         return root;
     }
 
-    // The pac runner is injectable so tests of `settings apply` never call a real pac; so are the live reads of `drift` and `deploy plan`.
+    // The pac runner is injectable so tests of `settings apply` never call a real pac; so are the live reads of `drift` and `deploy plan`, and what `doctor` reads from the machine.
     public static int Run(string[] args, TextWriter output, TextWriter error, Func<IReadOnlyList<string>, TimeSpan, PacResult> pac, Func<string, string, Snapshot>? driftLive = null,
         Func<string, IReadOnlyList<string>, IReadOnlyList<string>, DeployTarget>? deployTarget = null, Func<Stream?>? input = null, string? approvedHash = null, bool mcp = false,
-        Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? deployAgents = null)
+        Func<string, Guid, IReadOnlyList<string>, IReadOnlyList<(string SchemaName, bool PublishedOn)>>? deployAgents = null, DoctorHost? doctor = null)
     {
         UseInvariantCulture();
         try
         {
             // No response files: `@file` is an ordinary argument, so a file cannot supply options.
-            var parse = Root(output, error, pac, driftLive, deployTarget, input, approvedHash, mcp, deployAgents).Parse(args, new ParserConfiguration { ResponseFileTokenReplacer = null });
+            var parse = Root(output, error, pac, driftLive, deployTarget, input, approvedHash, mcp, deployAgents, doctor).Parse(args, new ParserConfiguration { ResponseFileTokenReplacer = null });
             if (parse.Errors.Count > 0)
             {
                 // A hook must not see exit 0 from help, and without a plan file the missing argument is a parse error before the gate runs.

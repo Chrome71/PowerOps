@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "live": false,
+  "checks": [
+    {
+      "id": "powerops",
+      "status": "ok",
+      "detail": "0.0.0-test"
+    },
+    {
+      "id": "pac",
+      "status": "missing",
+      "detail": "needed by settings apply, drift, deploy and plan facts. Install pac (dotnet tool install --global Microsoft.PowerApps.CLI.Tool) and add the dotnet tools folder to PATH."
+    },
+    {
+      "id": "az",
+      "status": "missing",
+      "detail": "needed by drift, deploy and the licence read. Install the Azure CLI and sign in with az login."
+    },
+    {
+      "id": "powerops-plugin",
+      "status": "ok",
+      "detail": "0.1.0 (user) installed in Claude Code"
+    },
+    {
+      "id": "microsoft-plugins",
+      "status": "not-installed",
+      "detail": "none of Microsoft's plugins in Claude Code; the build steps use them (docs/HANDOFF.md)"
+    }
+  ]
+}

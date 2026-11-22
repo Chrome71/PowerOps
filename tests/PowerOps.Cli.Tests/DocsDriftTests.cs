@@ -50,10 +50,10 @@ public partial class DocsDriftTests
 
     private static readonly RootCommand Tree = Program.Root(TextWriter.Null, TextWriter.Null, (_, _) => throw new InvalidOperationException("no pac call"));
 
-    // Every option of every command, and the flags of pac that docs/COMMANDS.md describes (`--source` is the lowercase start of `--sourceLoc`).
+    // Every option of every command, the flags of pac that docs/COMMANDS.md describes (`--source` is the lowercase start of `--sourceLoc`), and those of doctor's az licence read.
     private static readonly HashSet<string> KnownFlags = [.. Every(Tree).SelectMany(c => c.Options).SelectMany(o => o.Aliases.Append(o.Name)),
         "--help", "--version", "--path", "--settings-file", "--stage-and-upgrade", "--skip-lower-version", "--environment", "--async", "--max-async-wait-time",
-        "--zipfile", "--folder", "--packagetype", "--localize", "--map", "--source"];
+        "--zipfile", "--folder", "--packagetype", "--localize", "--map", "--source", "--method", "--url", "--query"];
 
     private static IEnumerable<Command> Every(Command command) => command.Subcommands.SelectMany(Every).Prepend(command);
 
@@ -421,5 +421,47 @@ public partial class DocsDriftTests
         Assert.Equal(6, parts.Count);
         Assert.Contains(phrase, step, StringComparison.Ordinal);
         Assert.Contains(phrase, diff, StringComparison.Ordinal);
+    }
+
+    private static IEnumerable<string> Leaves(Command command, string prefix) =>
+        command.Subcommands.Count == 0 ? [prefix] : command.Subcommands.SelectMany(c => Leaves(c, prefix.Length == 0 ? c.Name : $"{prefix} {c.Name}"));
+
+    // The README's command tables: one row per leaf command of the tree, so a new command can't miss the front door.
+    internal static List<string> CommandRowProblems(string readme, IEnumerable<string> leaves)
+    {
+        var start = readme.IndexOf("\n## Commands\n", StringComparison.Ordinal);
+        if (start < 0)
+        {
+            return ["no Commands section"];
+        }
+
+        var end = readme.IndexOf("\n## ", start + 1, StringComparison.Ordinal);
+        var rows = Regex.Matches(readme[start..(end < 0 ? readme.Length : end)], @"^\| \[`([a-z -]+)`\]", RegexOptions.Multiline).Select(m => m.Groups[1].Value).ToList();
+        var problems = leaves.Where(l => !rows.Contains(l)).Select(l => $"no row for {l}").ToList();
+        problems.AddRange(rows.GroupBy(r => r).Where(g => g.Count() > 1).Select(g => $"two rows for {g.Key}"));
+        return problems;
+    }
+
+    [Fact]
+    public void Every_command_has_one_row_in_the_readme_tables()
+    {
+        var leaves = Leaves(Tree, "").ToList();
+        var readme = Page("README.md");
+
+        Assert.Equal(20, leaves.Count);
+        Assert.Empty(CommandRowProblems(readme, leaves));
+        Assert.Equal(["no row for doctor"], CommandRowProblems(readme.Replace("| [`doctor`]", "| [`dr`]"), leaves));
+        Assert.Equal(["two rows for rules"], CommandRowProblems(readme.Replace("| [`diff`]", "| [`rules`]"), leaves.Where(l => l != "diff")));
+    }
+
+    // The sample's result lines, as the release's sample README states them (WorkflowTests binds those to a real run).
+    [Fact]
+    public void The_readme_quotes_the_sample_result_lines_of_the_sample_readme()
+    {
+        var sample = File.ReadAllText(Repo(".github", "scripts", "sample-README.md")).Replace("\r\n", "\n");
+        var lines = Regex.Matches(sample, @"last line is `([^`]+)`").Select(m => m.Groups[1].Value).ToList();
+
+        Assert.Equal(2, lines.Count);
+        Assert.All(lines, l => Assert.Contains($"`{l}`", Page("README.md"), StringComparison.Ordinal));
     }
 }
