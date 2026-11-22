@@ -1006,7 +1006,11 @@ The name is never printed.
 
 `plan sign-off` refuses unless `status` is `approved`, the review is done or skipped, and the scan is clean; it edits only the header.
 On success it also prints, on stderr, the report warnings `plan status` gives for the folder (a stale or hashless `review.md`, a stale `verify.md` or `security-solution.md`, an unknown state), and `review.md lists <n> open High findings: only a person accepts one` (`1 open High finding` for one) when `review.md` lists an open High finding (the rule of [deploy plan](#deploy-plan)), and still exits `0`; `plan status` gives no such warning.
-When `Screens` names anything, it also refuses until the last `prototype:` line under `## Log` in `decisions.md` is `approved mockups/prototype.html`, with a file that passes the sketch checks beside at least three options (`mockups/option-*.html`) that pass them and differ, one of which the line names as `(option <letter>: <why>)`, or `skipped (<reason>)` ending `(answered by: person)`.
+When `Screens` names anything, it also refuses until the last `prototype:` line under `## Log` in `decisions.md` is one of three:
+a person's pass, `approved mockups/prototype.html (<why>) (answered by: person)`, with a file and a map that pass the sketch checks, and no judge verdict or option files needed (an option the line names as `(option <letter>: <why>)` must exist and pass);
+an approval without that mark, `approved mockups/prototype.html`, with a file that passes the sketch checks beside at least three options (`mockups/option-*.html`) that pass them and differ, one of which the line names as `(option <letter>: <why>)`;
+or `skipped (<reason>)` ending `(answered by: person)`.
+This gate is the same at every depth: the three options and the judge loop are what `powerops-plan` does by default under `standard` and `deep`, not a sign-off rule, and its `main` mode under `quick` writes one `prototype.html` for the person to pass.
 The sketch checks are text checks: the file is never rendered, and a problem names its rule and line, never the matched text.
 `prototype.html` is at most 163,840 bytes and an option at most 61,440.
 Inline `svg` is allowed, but no `script`, `foreignObject`, `image`, `a`, `style`, `animate`, `set`, `animateMotion` or `animateTransform` inside it; `href` and `xlink:href` start with `#`, and no attribute value holds `url(`.
@@ -1014,7 +1018,8 @@ Each `data-screen` sits in a frame: the element itself when its class holds `fra
 No hex colour appears in a CSS declaration outside a `:root` block, in the `style` element or a `style` attribute (selectors and SVG presentation attributes don't count).
 An option holds exactly one `data-screen` and no `data-state`.
 In `prototype.html` the limit of 1 to 8 screens counts distinct names, every `data-state` names a screen of the file with `data-for`, and each screen name has the four states; beside it, `mockups/prototype.map.md` names every screen, and `mockups/prototype.judge.md` holds a last `judge:` line (`fresh context` or `self-judged`), a last `sketch-hash:` equal to the SHA-256 of `prototype.html` with CRLF made LF, and a last `verdict:` line of exactly `at baseline` or `not at baseline`; anything else is "no current judge verdict".
-Sign-off refuses an approved prototype with no current judge verdict, one judged `not at baseline` unless the `prototype:` line holds `(below baseline: <why>)` and ends `(answered by: person)`, and a `self-judged` one unless the line ends `(answered by: person)`; on success it prints the self-judged warning.
+Sign-off refuses an approval without the person's mark that has no current judge verdict, one judged `not at baseline` (under a person's pass, a stale `not at baseline` verdict too) unless the `prototype:` line holds `(below baseline: <why>)` and ends `(answered by: person)`, and a `self-judged` one unless the line ends `(answered by: person)`; on success it prints the self-judged warning.
+With no judge file, a skip or a plan with no `prototype:` line yet has no "no current judge verdict" problem.
 The hash binds the verdict to the file it judged; it proves nothing about how the judge reached it.
 These checks run only on a `draft` or `approved` plan, so a plan signed off before them is not rechecked.
 An approved plan whose sketches predate them gets their problems as warnings and is refused at sign-off: its route is a new options run, or the person's `prototype: skipped (sketched before the baseline) (answered by: person)`.
