@@ -127,7 +127,7 @@ public sealed class WorkflowTests
         Assert.True(checkout < pack && pack < build && build < check && check < linux && linux < keep && keep == steps.Count - 1, "checkout, pack, build, check, run, keep, in that order");
         Assert.Equal("bash .github/scripts/release-assets.sh artifacts -p:IncludeSourceRevisionInInformationalVersion=false", Text(steps[build], "run"));
         Assert.Equal("bash .github/scripts/release-check.sh \"$VERSION\" artifacts", Text(steps[check], "run"));
-        Assert.Equal(LinuxRun, Text(steps[linux], "run"));
+        Assert.Equal(LinuxRun.ReplaceLineEndings("\n"), Text(steps[linux], "run"));
         Assert.Equal("release-assets", (string)With(steps[keep])["name"]);
         Assert.Equal("artifacts", (string)With(steps[keep])["path"]);
         Assert.Equal("error", (string)With(steps[keep])["if-no-files-found"]);
@@ -155,7 +155,7 @@ public sealed class WorkflowTests
             unzip -q powerops-sample.zip -d sample
             ./powerops-win-x64.exe analyze sample/powerops-sample/solution --fail-on none
 
-            """, Text(steps[1], "run"));
+            """.ReplaceLineEndings("\n"), Text(steps[1], "run"));
     }
 
     // The files a release carries, as the publish job attaches them.
@@ -203,7 +203,7 @@ public sealed class WorkflowTests
 
         Assert.True(pack >= 0 && pack < build && build < linux && linux < keep && keep == steps.Count - 1, "pack, build, run, keep, in that order");
         Assert.Equal("bash .github/scripts/release-assets.sh artifacts", Text(steps[build], "run"));
-        Assert.Equal(LinuxRun, Text(steps[linux], "run"));
+        Assert.Equal(LinuxRun.ReplaceLineEndings("\n"), Text(steps[linux], "run"));
         Assert.Equal("release-assets", (string)With(steps[keep])["name"]);
         Assert.Equal("artifacts", (string)With(steps[keep])["path"]);
         Assert.Equal("1", (string)With(steps[keep])["retention-days"]);
@@ -223,7 +223,7 @@ public sealed class WorkflowTests
             unzip -q powerops-sample.zip -d sample
             ./powerops-win-x64.exe analyze sample/powerops-sample/solution --fail-on none
 
-            """, Text(run[1], "run"));
+            """.ReplaceLineEndings("\n"), Text(run[1], "run"));
     }
 
     [Fact]
