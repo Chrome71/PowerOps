@@ -47,6 +47,15 @@ dotnet pack src/PowerOps.Cli -c Release -o artifacts
 - Do not edit the version in `Directory.Build.props`, `.release-please-manifest.json`, `plugins/claude/.claude-plugin/plugin.json`, `plugins/codex/.codex-plugin/plugin.json` or the changelog. Releases manage them.
 - Never push, publish or open a pull request unless asked. Pull request titles are Conventional Commits too. For anything large, suggest opening an issue first.
 
+## Change tiers
+
+A change takes the highest tier any of its files reaches; the pull request template asks for it.
+
+- **Tier S**: docs, tests, removals and typo fixes. A pull request and CI.
+- **Tier M**: a bounded rule, reader, command or skill edit that touches no protected path. A short plan (at most 40 lines), a review and CI.
+- **Tier L**: an add, edit, delete or rename of a protected path: `.github/`, `CODEOWNERS`, `AGENTS.md`, `bench/`, `docs/schemas/`, `src/PowerOps.Core/Deploy/`, `src/PowerOps.Core/Output/SafeWrite.cs`, the kept roles (`skills/powerops-verify/`, `skills/powerops-review-security/`) and `tests/PowerOps.Cli.Tests/RoleEvalTests.cs`, and `docs/examples/ephemeral-*` and `docs/examples/powerops/ephemeral-*`. A full signed plan, a fresh review and the `tier-L` pull request label, which only the owner applies. The `protected-paths` check (`.github/scripts/protected-paths.sh`, run from `main`) fails without it.
+- In every tier, the same check fails when an added line under `docs/` or `skills/`, or in `README.md`, holds a local home path or a `file:` URL.
+
 ## Ecosystem changes
 
 Microsoft's tools, docs and agent skills change often. [docs/ecosystem/README.md](docs/ecosystem/README.md) is the procedure.
