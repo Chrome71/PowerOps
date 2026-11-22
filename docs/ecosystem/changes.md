@@ -156,7 +156,7 @@ The review log below has one line per review: `- <date>, mode <A|B|C>: <n> autom
 - Release status: GA
 - Found: 2026-11-10, mode A
 - Verified: 2026-11-10
-- Affects: docs/examples/ephemeral-pr.yml, docs/HANDOFF.md:10, docs/BUILD-PLAN.md:708, docs/ecosystem/compatibility.md
+- Affects: docs/examples/ephemeral-pr.yml, docs/HANDOFF.md:10, docs/BUILD-PLAN.md:720, docs/ecosystem/compatibility.md
 - Sources: [Microsoft.PowerApps.CLI.Tool 2.14.1](https://www.nuget.org/packages/Microsoft.PowerApps.CLI.Tool/2.14.1) (published 2026-10-21)
 - Evidence: documented
 - Why: The 2.14 release notes list only dependency updates and 2.13 adds US government cloud sign-in; nothing touches `pac org who`, `pac solution list`, `pac power-automate list-cloud-flows --json`, `pac admin list --json` or `pac solution import`. PowerOps is still tested with 2.13.1 and the examples pin 2.14.1. Look again when NuGet shows a version after 2.14.1, or before the "tested with 2.13.1" line moves, which needs those five commands observed on the new version.
