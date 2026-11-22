@@ -686,6 +686,18 @@ M82 shipped the six Power Platform specialists in the Claude Code plugin as gene
 
 95. `fix:` M121: the plan, then the copy tests out and the new test, the copies and the generator removed, and the docs (built 2026-11-22, [plan](plans/m121-specialists-out/plan.md))
 
+## M123: cost credibility
+
+ECO-0028 found `inventory` giving agent flows Power Automate drivers and AI Builder actions none. Step 4 of the three-way debate's build plan, on the owner's answer that the trial-4 newcomer holds standard licences only (2026-11-22). The [plan](plans/m123-cost-credibility/plan.md) reads `ModernFlowType`, adds the drivers `agent-flow` and `ai-builder-action`, a fixture made for the project, and the agent-flow and AI Builder rows of `licensing.md` (decision 78).
+
+| Milestone | Release | Scope | Done when |
+|---|---|---|---|
+| **M123. Cost credibility: agent flows and AI Builder** | the next release, which release-please makes from the `feat(inventory)!:` commit | <ul><li>Planned 2026-11-22 ([plan](plans/m123-cost-credibility/plan.md))</li><li>`Workflow` reads `ModernFlowType` in both layouts; `inventory`'s closed set gains `agent-flow` and `ai-builder-action`; an agent flow's actions fire neither `http-action` nor `desktop-flow-call`; a flow of another modern flow type fires no driver and gets a `notRead` line</li><li>`inventory`'s JSON moves to `schemaVersion` 2</li><li>The fixture `tests/fixtures/flow-credits/`, hand-written; `licensing.md` gains the agent-flow and AI Builder rows, with Learn's two sentences on premium; ECO-0028 partly closed, PO039 and the automate specialist deferred</li></ul> | the golden diff holds only the fixture's lines and the version line; `analyze` output on every existing fixture is unchanged; `dotnet test` passes |
+
+### Build order, M123 (continues the list below)
+
+96. `feat!:` M123: the plan, then the reader, the two drivers and the schema version, then the fixture, `licensing.md`, the records and the goldens (built 2026-11-22, [plan](plans/m123-cost-credibility/plan.md))
+
 ## Testing
 
 | Layer | What | Runs |
@@ -997,3 +1009,9 @@ Made in the [M117 plan](plans/m117-judge-consistency/plan.md); its `decisions.md
 Made in the [M118 plan](plans/m118-judge-key/plan.md); its `decisions.md` records the owner's answers and its `calibration.md` holds the runs.
 
 77. **The judge's text closes its last two gaps, and the key names the gates every run failed.** This amends decision 76. `baseline.md` gate 1's sentence on a first look that is a row, a field or a control now matches the judge's rule: one named by a state leads on the frame's only focus ring or only selected-row style, one named only by its position leads only on the only focus ring, and otherwise the size test applies. A site's phone frame up to 932 px tall, one phone screen, needs only the header under gate 7; the footer is checked on the site's browser frames. On the owner's "Take all recommended" (2026-11-16) to M117's questions, `key.md` keeps all five verdicts and now names gates for rows 2 (1, 4, 7), 4 (4, 6, 8) and 5 (4); row 1 stays 1 and 7, and row 3 fails on scores. On that text, 15 fresh judges gave each row one verdict and the same failed gates: "no flip seen in 3 runs", not proof, and scores still differ by a point between runs.
+
+## Decisions, M123 cost credibility (2026-11-22)
+
+Made in the [M123 plan](plans/m123-cost-credibility/plan.md); its `decisions.md` has the research and the reviews.
+
+78. **`inventory` tells agent flows from cloud flows, and names AI Builder actions.** This amends decision 69. The closed set has seven drivers: the five of decision 69, then `agent-flow` (a cloud flow whose `ModernFlowType` is 1, billed in Copilot Credits: *Agent flows overview*, *Billing rates and management*, *Agent flows FAQ*) and `ai-builder-action` (an action whose `operationId` starts with `aibuilderpredict_`, whatever its `apiId`: *End of AI Builder credits*, *Licensing and AI Builder credits*, *Overview of licensing*), both checked on 2026-11-22. An agent flow's actions fire neither `http-action` nor `desktop-flow-call`, because an agent flow needs no Power Automate licence and can't call a desktop flow; they are still listed in their sections. A flow whose `ModernFlowType` is neither 0, 1 nor absent (2 is labelled a Microsoft 365 Copilot agent flow, and no source says how it is billed) fires no driver and gets a `notRead` line. The AI Builder need says Learn's pages disagree on whether the flow also needs Power Automate Premium, and `licensing.md` tells the planner to plan for premium and for credits. `inventory`'s JSON moves to `schemaVersion` 2, because its closed `licenceDrivers[].id` list gained two values. `docs/ecosystem/sources.json` watches the twelve pages. PO039, the automate specialist and `custom-connector`'s sentence for a custom connector only an agent flow uses stay open in ECO-0028.

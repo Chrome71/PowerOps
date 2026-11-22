@@ -178,7 +178,7 @@ Some changes carry a risk label:
 
 Markdown is cut at a whole row below 60,000 characters, with a note on how many changes were left out, so it fits in a pull request comment.
 JSON follows [docs/schemas/diff.schema.json](schemas/diff.schema.json).
-Its `schemaVersion` is 3 (`deploy plan` is at 3, `drift` at 2, and every other output is at 1): version 2 added the `agent` and `agentTool` components and the two agent risk labels, version 3 added the `same-version` risk label, and neither removed or renamed anything, so a consumer that checks the version accepts 3, and one that validates the output takes the new schema ([Versioning](schemas/README.md#versioning)).
+Its `schemaVersion` is 3 (`deploy plan` is at 3, `drift` and `inventory` at 2, and every other output is at 1): version 2 added the `agent` and `agentTool` components and the two agent risk labels, version 3 added the `same-version` risk label, and neither removed or renamed anything, so a consumer that checks the version accepts 3, and one that validates the output takes the new schema ([Versioning](schemas/README.md#versioning)).
 
 ### Exit codes
 
@@ -248,7 +248,7 @@ The read has the caps of `analyze` (100,000 files, 50 MB for a file, 256 MB in a
 
 ### Options
 
-- `--format text|json|markdown` (default `text`). JSON has `schemaVersion` 1 and follows [inventory.schema.json](schemas/inventory.schema.json); Markdown is one table per section, for a pull request.
+- `--format text|json|markdown` (default `text`). JSON has `schemaVersion` 2 and follows [inventory.schema.json](schemas/inventory.schema.json); Markdown is one table per section, for a pull request.
 - `--out <file>` writes the report to the file instead of stdout, under the rule in [Writing files](#writing-files).
 - `--show-values` prints the host of each literal HTTP endpoint, and names as written.
 
@@ -262,10 +262,14 @@ Per solution, in this order:
   - `dataverse-in-canvas-app`: a canvas app (not a custom page or a code app) with a Dataverse table or connection. Source: [Power Apps licensing FAQs](https://learn.microsoft.com/power-platform/admin/powerapps-licensing-faq).
   - `model-driven-app`: an app module. Source: Power Apps licensing FAQs.
   - `desktop-flow-call`: a cloud flow action that runs a desktop flow (`RunUIFlow_V2`, or the deprecated `ExecuteDesktopUIFlow`). Sources: [Desktop flows connector](https://learn.microsoft.com/connectors/uiflow/), [Failed license check on a desktop flow run](https://learn.microsoft.com/troubleshoot/power-platform/power-automate/desktop-flows/desktop-flow-run-time-license-check), Types of Power Automate licenses.
+  - `agent-flow`: a cloud flow whose `ModernFlowType` is 1, a Copilot Studio agent flow, billed in Copilot Credits. Sources: [Agent flows overview](https://learn.microsoft.com/microsoft-copilot-studio/flows-overview), [Billing rates and management](https://learn.microsoft.com/microsoft-copilot-studio/requirements-messages-management), [Agent flows FAQ](https://learn.microsoft.com/microsoft-copilot-studio/flows-faqs).
+  - `ai-builder-action`: an action whose `operationId` starts with `aibuilderpredict_`, in a cloud flow or an agent flow. Sources: [End of AI Builder credits](https://learn.microsoft.com/ai-builder/endofaibcredits), [Licensing and AI Builder credits](https://learn.microsoft.com/ai-builder/credit-management), [Overview of licensing](https://learn.microsoft.com/ai-builder/administer-licensing).
+
+  An agent flow's actions fire neither `http-action` nor `desktop-flow-call`: an agent flow needs no Power Automate licence and can't call a desktop flow. They are still listed in the sections below.
 - `notClassified`: every other connector, with `tier not classified: check the connector's reference page`. PowerOps ships no connector tier list.
 - `connectors`: each connector id (the last segment of the id, in lower case) with the connection references that name it and its users (flows, canvas apps, custom pages, code apps, agent tools). A custom connector's ids are gathered under its name.
 - `customConnectors`, `httpActions` (flow, action, type and endpoint: `literal`, `variable` for flow parameters such as environment variables, or `expression`), `requestTriggers` (with their `kind`), `childFlows` (the called flow's name, or a flow not in this solution).
-- `notRead`: what was not read, also printed as `note:` lines on stderr: canvas apps, model-driven apps and agents of a YAML-layout solution, and a canvas app whose connections or tables can't be read.
+- `notRead`: what was not read, also printed as `note:` lines on stderr: canvas apps, model-driven apps and agents of a YAML-layout solution, a canvas app whose connections or tables can't be read, and a cloud flow whose `ModernFlowType` is neither 0 nor 1 (`flow '<name>' has modern flow type <n>, which is neither a cloud flow nor a Copilot Studio agent flow and whose licensing no source states, so its drivers are not reported`), which fires no driver.
 
 A missing driver doesn't mean no premium licence is needed: the text and Markdown end with a line that says so. The "When an HTTP request is received" trigger is listed under `requestTriggers` but is not a driver, because Learn doesn't call it premium.
 

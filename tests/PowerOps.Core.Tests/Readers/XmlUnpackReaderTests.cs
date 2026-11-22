@@ -206,6 +206,24 @@ public class XmlUnpackReaderTests
     }
 
     [Fact]
+    public void Reads_the_modern_flow_type_of_a_workflow_and_a_missing_or_bad_one_is_null()
+    {
+        using var t = new TempFolder()
+            .Write("Other/Solution.xml", SolutionXml.Manifest())
+            .Write("Workflows/Zero-AA.json.data.xml", "<Workflow WorkflowId=\"{AA-11}\" Name=\"Zero\"><Category>5</Category><ModernFlowType>0</ModernFlowType></Workflow>")
+            .Write("Workflows/One-BB.json.data.xml", "<Workflow WorkflowId=\"{BB-22}\" Name=\"One\"><Category>5</Category><ModernFlowType>1</ModernFlowType></Workflow>")
+            .Write("Workflows/Absent-CC.json.data.xml", "<Workflow WorkflowId=\"{CC-33}\" Name=\"Absent\"><Category>5</Category></Workflow>")
+            .Write("Workflows/Bad-DD.json.data.xml", "<Workflow WorkflowId=\"{DD-44}\" Name=\"Bad\"><Category>5</Category><ModernFlowType>x</ModernFlowType></Workflow>");
+
+        var wfs = Read(t).Workflows;
+
+        Assert.Equal(0, Assert.Single(wfs, w => w.Id == "aa-11").ModernFlowType);
+        Assert.Equal(1, Assert.Single(wfs, w => w.Id == "bb-22").ModernFlowType);
+        Assert.Null(Assert.Single(wfs, w => w.Id == "cc-33").ModernFlowType);
+        Assert.Null(Assert.Single(wfs, w => w.Id == "dd-44").ModernFlowType);
+    }
+
+    [Fact]
     public void Reads_canvas_app_metadata_text()
     {
         using var t = new TempFolder()

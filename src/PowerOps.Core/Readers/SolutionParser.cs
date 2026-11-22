@@ -805,7 +805,8 @@ internal static partial class SolutionParser
             int.TryParse(Text(e, "StateCode"), out var state) ? state : null,
             jsonPath ?? jsonName ?? definedIn,
             jsonPath is null ? null : files.ReadText(jsonPath),
-            Text(e, "PrimaryEntity") is { } entity && !entity.Equals("none", StringComparison.OrdinalIgnoreCase) ? entity : null);
+            Text(e, "PrimaryEntity") is { } entity && !entity.Equals("none", StringComparison.OrdinalIgnoreCase) ? entity : null,
+            int.TryParse(Text(e, "ModernFlowType"), out var modern) ? modern : null);
     }
 
     private static EnvironmentVariable ReadEnvironmentVariable(SolutionFiles files, Dictionary<string, string> paths, string path)

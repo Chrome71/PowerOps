@@ -1,6 +1,6 @@
 ## PowerOps analyze
 
-**22 solutions, 0 errors, 76 warnings**
+**23 solutions, 0 errors, 76 warnings**
 
 ### tests/fixtures/agents/dataverse-tools: PowerOpsAgentTools 1.0.0.0
 
@@ -117,6 +117,10 @@ No findings.
 | warning | [PO033](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO033.md) | Roles/IT staff.xml | Role 'IT staff' has table privileges but none of prvReadAppModule, prvReadUser and prvReadUserQuery, so a user who holds only this role may not be able to open a model-driven app. | Copy the role from App Opener, or give its users App Opener as well, and test the app as a user who holds only those roles. |
 | warning | [PO034](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO034.md) | Roles/Front desk.xml | Role 'Front desk' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs. | Check whether the role's users need to create or write that table, and remove those privileges from the role if they don't. |
 | warning | [PO034](https://github.com/Chrome71/PowerOps/blob/main/docs/rules/PO034.md) | Roles/IT staff.xml | Role 'IT staff' has Create and Write on 'SharePointData', which no component in the solution uses, so it may grant more than the solution needs. | Check whether the role's users need to create or write that table, and remove those privileges from the role if they don't. |
+
+### tests/fixtures/flow-credits: PowerOpsFlowCredits 1.0.0.0
+
+No findings.
 
 ### tests/fixtures/flow-limits: PowerOpsFlowLimits 1.0.0.0
 

@@ -1362,6 +1362,17 @@ public partial class SkillsCommandTests : IDisposable
     }
 
     [Fact]
+    public void Licensing_reference_has_the_agent_flow_and_ai_builder_rows_with_both_premium_pages()
+    {
+        var needs = Between(SkillsCommand.Shipped()["powerops-plan/references/licensing.md"], "## 2. Needs", "## 3. Part numbers").Split('\n');
+        var agent = needs.Single(l => l.StartsWith("| An agent flow (a Copilot Studio flow) |", StringComparison.Ordinal));
+        var ai = needs.Single(l => l.StartsWith("| An AI Builder action in an app or flow |", StringComparison.Ordinal));
+
+        Assert.All(new[] { "`InsufficientMcsCredits`", "13 per 100 actions", "not when the agent runs on its own" }, s => Assert.Contains(s, agent));
+        Assert.All(new[] { "2026-11-01", "2025-11-01", "[Overview of licensing](https://learn.microsoft.com/ai-builder/administer-licensing) (2026-09-09) says a flow with any AI Builder action is premium", "[Licensing and AI Builder credits](https://learn.microsoft.com/ai-builder/credit-management) (2026-10-09) says the action doesn't make it premium", "plan for premium and for credits" }, s => Assert.Contains(s, ai));
+    }
+
+    [Fact]
     public void Licensing_reference_maps_the_inventory_drivers_and_gives_the_developer_plan_what_learn_says()
     {
         var text = SkillsCommand.Shipped()["powerops-plan/references/licensing.md"];

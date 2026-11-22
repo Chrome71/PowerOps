@@ -637,6 +637,19 @@
       "notChecked": []
     },
     {
+      "path": "tests/fixtures/flow-credits",
+      "uniqueName": "PowerOpsFlowCredits",
+      "version": "1.0.0.0",
+      "managed": false,
+      "publisher": {
+        "uniqueName": "demopub",
+        "prefix": "demo"
+      },
+      "requires": [],
+      "findings": [],
+      "notChecked": []
+    },
+    {
       "path": "tests/fixtures/flow-limits",
       "uniqueName": "PowerOpsFlowLimits",
       "version": "1.0.0.0",
@@ -1016,7 +1029,7 @@
     }
   ],
   "summary": {
-    "solutions": 22,
+    "solutions": 23,
     "errors": 0,
     "warnings": 76,
     "baselined": 0

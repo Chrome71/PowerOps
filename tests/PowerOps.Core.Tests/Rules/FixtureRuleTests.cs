@@ -222,6 +222,15 @@ public class FixtureRuleTests
     }
 
     [Fact]
+    public void Flow_credits_gives_no_finding_and_no_note()
+    {
+        var s = SolutionLoader.Load(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "flow-credits"));
+
+        Assert.Empty(Analyzer.Run(s));
+        Assert.Empty(Analyzer.NotChecked(s));
+    }
+
+    [Fact]
     public void Flow_secrets_gives_PO041_once_and_PO042_twice_and_nothing_else()
     {
         var s = SolutionLoader.Load(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "flow-secrets"));

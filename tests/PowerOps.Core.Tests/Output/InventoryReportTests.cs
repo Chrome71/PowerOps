@@ -36,6 +36,13 @@ public class InventoryReportTests
 
     private static object Http(string uri, object? headers = null) => new { type = "Http", inputs = new { method = "GET", uri, headers } };
 
+    private static object Op(string operationId, string apiId = Apis + "shared_commondataserviceforapps") =>
+        new { type = "OpenApiConnection", inputs = new { host = new { apiId, operationId, connectionName = "x" } } };
+
+    private const string AgentFlowNeed = "An agent flow is billed in Copilot Credits for each action and its trigger, needs no Power Automate licence, and starts no new run when the environment has no credits available.";
+
+    private const string AiBuilderNeed = "An AI Builder action uses the environment's AI Builder credits, then Copilot Credits, and is blocked when neither is available (in an agent flow, Copilot Credits only); no new seeded or add-on AI Builder credits come from 2026-11-01, existing ones last to the end of their contract, and Learn's pages disagree on whether the flow also needs Power Automate Premium.";
+
     private static CanvasAppMeta Canvas(string name, int? type = null, Dictionary<string, string>? connections = null, string[]? tables = null, string[]? connectors = null) =>
         new(name, type, connections ?? [], $"CanvasApps/{name}.meta.xml", tables ?? [], connectors ?? [], []);
 
@@ -382,9 +389,111 @@ public class InventoryReportTests
     }
 
     [Fact]
+    public void An_agent_flow_fires_agent_flow_with_the_flow_as_where()
+    {
+        var r = One(B.Empty() with { Workflows = [Flow("Answer", triggers: new() { ["manual"] = new { type = "Request", kind = "Skills" } }) with { ModernFlowType = 1 }] });
+
+        var driver = Assert.Single(r.LicenceDrivers);
+        Assert.Equal("agent-flow", driver.Id);
+        Assert.Equal(AgentFlowNeed, driver.Need);
+        Assert.Equal(["flow 'Answer'"], driver.Where);
+        Assert.Equal([new InventoryRequestTrigger("Answer", "manual", "Skills")], r.RequestTriggers);
+        Assert.Empty(r.NotRead);
+    }
+
+    [Fact]
+    public void A_modern_flow_type_of_0_2_or_null_gives_no_agent_flow()
+    {
+        var r = One(B.Empty() with { Workflows = [Flow("Zero") with { ModernFlowType = 0 }, Flow("Two") with { ModernFlowType = 2 }, Flow("Null")] });
+
+        Assert.DoesNotContain("agent-flow", Ids(r));
+    }
+
+    [Fact]
+    public void An_ai_builder_action_fires_ai_builder_action_whatever_its_api_id_and_in_an_agent_flow_too()
+    {
+        var s = B.Empty() with
+        {
+            Workflows =
+            [
+                Flow("Prompts", new()
+                {
+                    ["Run"] = Op("aibuilderpredict_customprompt"),
+                    ["Keys"] = Op("AIBuilderPredict_keyphraseextraction"),
+                    ["Group"] = Op("aibuilderpredict_customprompt", "providers/Microsoft.ProcessSimple/operationGroups/aibuilder"),
+                }) with { ModernFlowType = 0 },
+                Flow("Plain", new() { ["Run"] = Op("aibuilderpredict_customprompt") }),
+                Flow("Agent", new() { ["Prompt"] = Op("aibuilderpredict_customprompt", "providers/Microsoft.ProcessSimple/operationGroups/aibuilder") }) with { ModernFlowType = 1 },
+            ],
+        };
+
+        var r = One(s);
+
+        Assert.Equal(["agent-flow", "ai-builder-action"], Ids(r));
+        Assert.Equal(["flow 'Agent'"], r.LicenceDrivers[0].Where);
+        Assert.Equal(AiBuilderNeed, r.LicenceDrivers[1].Need);
+        Assert.Equal(
+            ["flow 'Prompts' action 'Run'", "flow 'Prompts' action 'Keys'", "flow 'Prompts' action 'Group'", "flow 'Plain' action 'Run'", "flow 'Agent' action 'Prompt'"],
+            r.LicenceDrivers[1].Where);
+    }
+
+    [Fact]
+    public void Other_dataverse_operations_and_a_bare_aibuilder_give_no_ai_builder_action()
+    {
+        var r = One(B.Empty() with
+        {
+            Workflows = [Flow("Rows", new() { ["Update"] = Op("UpdateOnlyRecord"), ["Bound"] = Op("PerformBoundAction"), ["Bare"] = Op("aibuilder") })],
+        });
+
+        Assert.Empty(r.LicenceDrivers);
+    }
+
+    [Fact]
+    public void An_agent_flow_fires_no_http_action_or_desktop_flow_call_but_its_http_action_is_listed()
+    {
+        static Dictionary<string, object> Actions() => new()
+        {
+            ["Get"] = Http("https://api.contoso.com/v1/x"),
+            ["Run"] = Op("RunUIFlow_V2", Apis + "shared_uiflow"),
+        };
+
+        var agent = One(B.Empty() with { Workflows = [Flow("Agent", Actions()) with { ModernFlowType = 1 }] });
+        var cloud = One(B.Empty() with { Workflows = [Flow("Cloud", Actions()) with { ModernFlowType = 0 }] });
+
+        Assert.Equal(["agent-flow"], Ids(agent));
+        Assert.Equal([new InventoryHttpAction("Agent", "Get", "Http", "literal", null)], agent.HttpActions);
+        Assert.Equal(["http-action", "desktop-flow-call"], Ids(cloud));
+        Assert.Equal(["flow 'Cloud' action 'Get'"], cloud.LicenceDrivers[0].Where);
+        Assert.Equal(["flow 'Cloud' action 'Run'"], cloud.LicenceDrivers[1].Where);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(7)]
+    public void Another_modern_flow_type_fires_no_driver_and_gives_its_sentence_in_every_format_and_on_stderr(int type)
+    {
+        var i = Build(B.Empty() with
+        {
+            Workflows =
+            [
+                Flow("Copilot", new() { ["Get"] = Http("https://api.contoso.com/v1/x"), ["Prompt"] = Op("aibuilderpredict_customprompt") }, new() { ["manual"] = new { type = "Request", kind = "Skills" } }) with { ModernFlowType = type },
+            ],
+        });
+        var r = Assert.Single(i.Solutions);
+        var sentence = $"flow 'Copilot' has modern flow type {type}, which is neither a cloud flow nor a Copilot Studio agent flow and whose licensing no source states, so its drivers are not reported";
+
+        Assert.Empty(r.LicenceDrivers);
+        Assert.Equal([sentence], r.NotRead);
+        Assert.Equal([new InventoryHttpAction("Copilot", "Get", "Http", "literal", null)], r.HttpActions);
+        Assert.Equal([new InventoryRequestTrigger("Copilot", "manual", "Skills")], r.RequestTriggers);
+        Assert.All(Formats(i), o => Assert.Contains(sentence, o, StringComparison.Ordinal));
+        Assert.Equal($"note: demo: {sentence}\n", Notes(i).ReplaceLineEndings("\n"));
+    }
+
+    [Fact]
     public void The_driver_set_is_closed_and_its_text_never_says_standard()
     {
-        Assert.Equal(["http-action", "custom-connector", "dataverse-in-canvas-app", "model-driven-app", "desktop-flow-call"], InventoryReport.Drivers.Select(d => d.Id));
+        Assert.Equal(["http-action", "custom-connector", "dataverse-in-canvas-app", "model-driven-app", "desktop-flow-call", "agent-flow", "ai-builder-action"], InventoryReport.Drivers.Select(d => d.Id));
         Assert.Equal(
             [
                 "A flow with a premium connector, such as HTTP, needs Power Automate Premium for its users or a Process licence for the flow.",
@@ -392,6 +501,8 @@ public class InventoryReportTests
                 "A canvas app that uses Dataverse needs Power Apps Premium or per app for its users.",
                 "A model-driven app is premium: its users need Power Apps Premium or per app.",
                 "Running a desktop flow from a cloud flow needs Power Automate Premium for the connection's user; an unattended run also needs a Process licence or the unattended RPA add-on.",
+                AgentFlowNeed,
+                AiBuilderNeed,
             ],
             InventoryReport.Drivers.Select(d => d.Need));
         const string designation = "https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation";
@@ -404,9 +515,15 @@ public class InventoryReportTests
                 [appsFaq],
                 [appsFaq],
                 ["https://learn.microsoft.com/connectors/uiflow/", "https://learn.microsoft.com/troubleshoot/power-platform/power-automate/desktop-flows/desktop-flow-run-time-license-check", types],
+                [
+                    "https://learn.microsoft.com/microsoft-copilot-studio/flows-overview",
+                    "https://learn.microsoft.com/microsoft-copilot-studio/requirements-messages-management",
+                    "https://learn.microsoft.com/microsoft-copilot-studio/flows-faqs",
+                ],
+                ["https://learn.microsoft.com/ai-builder/endofaibcredits", "https://learn.microsoft.com/ai-builder/credit-management", "https://learn.microsoft.com/ai-builder/administer-licensing"],
             ],
             InventoryReport.Drivers.Select(d => d.Sources));
-        Assert.All(InventoryReport.Drivers, d => Assert.Equal("2026-11-12", d.Verified));
+        Assert.Equal(["2026-11-12", "2026-11-12", "2026-11-12", "2026-11-12", "2026-11-12", "2026-11-22", "2026-11-22"], InventoryReport.Drivers.Select(d => d.Verified));
 
         // Every section, the footer and both notRead sentences in all three formats.
         var i = InventoryReport.Build(
@@ -435,22 +552,24 @@ public class InventoryReportTests
                     ["Get"] = Http("https://api.contoso.com/v1/x"),
                     ["Run"] = new { type = "OpenApiConnection", inputs = new { host = new { apiId = Apis + "shared_uiflow", operationId = "RunUIFlow_V2" } } },
                     ["Call"] = new { type = "Workflow", inputs = new { host = new { workflowReferenceName = "d4d4d4d4-5555-4666-8777-988899900011" } } },
+                    ["Prompt"] = Op("aibuilderpredict_customprompt"),
                 },
                 new() { ["manual"] = new { type = "Request", kind = "Http" } },
                 [("k", "demo_ref", "shared_demo")]),
+            Flow("Agent", triggers: new() { ["manual"] = new { type = "Request", kind = "Skills" } }) with { ModernFlowType = 1 },
         ],
         CanvasApps = [Canvas("Orders", tables: ["demo_item"]), new CanvasAppMeta("Broken", null, null, "CanvasApps/Broken.meta.xml", null, null, null)],
         AppModules = [B.App("demo_orders")],
     };
 
     [Fact]
-    public void Json_has_schema_version_1_every_array_and_the_nullable_fields()
+    public void Json_has_schema_version_2_every_array_and_the_nullable_fields()
     {
         using var doc = JsonDocument.Parse(Json(Build(Everything())));
         var root = doc.RootElement;
 
         Assert.Equal(["schemaVersion", "solutions"], root.EnumerateObject().Select(p => p.Name));
-        Assert.Equal(1, root.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(2, root.GetProperty("schemaVersion").GetInt32());
         var s = Assert.Single(root.GetProperty("solutions").EnumerateArray().ToList());
         Assert.Equal(
             ["path", "uniqueName", "licenceDrivers", "notClassified", "connectors", "customConnectors", "httpActions", "requestTriggers", "childFlows", "notRead"],
@@ -628,6 +747,17 @@ public class InventoryReportTests
         Golden.Verify(Text(i), "inventory.txt");
         Golden.Verify(Json(i), "inventory.json");
         Golden.Verify(Markdown(i), "inventory.md");
+    }
+
+    [Fact]
+    public void The_flow_credits_fixture_fires_agent_flow_and_ai_builder_action_only()
+    {
+        var r = Assert.Single(FixturesInventory().Solutions, s => s.Path == "tests/fixtures/flow-credits");
+
+        Assert.Equal(["agent-flow", "ai-builder-action"], Ids(r));
+        Assert.Equal(["flow 'Answer order question'"], r.LicenceDrivers[0].Where);
+        Assert.Equal(["flow 'Read invoice' action 'Run_a_prompt'"], r.LicenceDrivers[1].Where);
+        Assert.Empty(r.NotRead);
     }
 
     [Fact]

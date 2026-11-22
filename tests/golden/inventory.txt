@@ -254,6 +254,25 @@ tests/fixtures/equipment-checkout (EquipmentCheckout)
     none
   notRead (0):
     none
+tests/fixtures/flow-credits (PowerOpsFlowCredits)
+  licenceDrivers (2):
+    agent-flow: An agent flow is billed in Copilot Credits for each action and its trigger, needs no Power Automate licence, and starts no new run when the environment has no credits available. where: flow 'Answer order question' sources: https://learn.microsoft.com/microsoft-copilot-studio/flows-overview https://learn.microsoft.com/microsoft-copilot-studio/requirements-messages-management https://learn.microsoft.com/microsoft-copilot-studio/flows-faqs
+    ai-builder-action: An AI Builder action uses the environment's AI Builder credits, then Copilot Credits, and is blocked when neither is available (in an agent flow, Copilot Credits only); no new seeded or add-on AI Builder credits come from 2026-11-01, existing ones last to the end of their contract, and Learn's pages disagree on whether the flow also needs Power Automate Premium. where: flow 'Read invoice' action 'Run_a_prompt' sources: https://learn.microsoft.com/ai-builder/endofaibcredits https://learn.microsoft.com/ai-builder/credit-management https://learn.microsoft.com/ai-builder/administer-licensing
+  notClassified (1):
+    shared_commondataserviceforapps: tier not classified: check the connector's reference page
+  connectors (1):
+    shared_commondataserviceforapps: references demo_Dataverse; users flow 'Read invoice'
+  customConnectors (0):
+    none
+  httpActions (1):
+    flow 'Answer order question' action 'Get_order' Http literal host not shown (--show-values)
+  requestTriggers (2):
+    flow 'Answer order question' trigger 'manual' kind Skills
+    flow 'Read invoice' trigger 'manual' kind Button
+  childFlows (0):
+    none
+  notRead (0):
+    none
 tests/fixtures/flow-limits (PowerOpsFlowLimits)
   licenceDrivers (1):
     http-action: A flow with a premium connector, such as HTTP, needs Power Automate Premium for its users or a Process licence for the flow. where: flow 'Quarterly cleanup' action 'Get_status' sources: https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation https://learn.microsoft.com/training/modules/http-connectors/2-webhook https://learn.microsoft.com/power-platform/admin/power-automate-licensing/types
