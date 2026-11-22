@@ -674,6 +674,18 @@ Step 3 of the three-way debate build plan (2026-11-22). The [plan](plans/m122-sk
 
 94. `fix:` M122: the plan, then the pins and the two ceilings, the moved accounts in `known-issues.md`, the `SKILL.md` text, the plugin copies and the records (built 2026-11-22, [plan](plans/m122-skill-ceilings/plan.md))
 
+## M121: specialists out of the shipped plugin
+
+M82 shipped the six Power Platform specialists in the Claude Code plugin as generated agents. The M119 specialist eval (2026-11-22) found no gain over the baseline review to keep any of them for, and the owner answered "Keep none". The [plan](plans/m121-specialists-out/plan.md) takes them out of the plugin, Phase 1 item 2 of the debate plan of 2026-11-22.
+
+| Milestone | Release | Scope | Done when |
+|---|---|---|---|
+| **M121. Specialists out of the shipped plugin** | the next patch release, which release-please makes from the `fix:` commit | <ul><li>Planned 2026-11-22 ([plan](plans/m121-specialists-out/plan.md))</li><li>The plugin's agents folder and the test-side generator that wrote it are gone; the plugin description no longer names the specialists</li><li>The six stay in `.claude/agents/`, with the routing in `CLAUDE.md`, for work on this repo</li><li>A plugin installed earlier keeps them until it is installed again</li></ul> | a test fails if the plugin's agents folder or an `agents` manifest key comes back; the M93 and M95 tests that read `.claude/agents/` and `CLAUDE.md` still pass; nothing under `.claude/agents/` changes |
+
+### Build order, M121 (continues the list below)
+
+95. `fix:` M121: the plan, then the copy tests out and the new test, the copies and the generator removed, and the docs (built 2026-11-22, [plan](plans/m121-specialists-out/plan.md))
+
 ## Testing
 
 | Layer | What | Runs |
