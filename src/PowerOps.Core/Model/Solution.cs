@@ -88,8 +88,11 @@ public sealed record EnvironmentVariable(
 /// <summary>One Power Fx formula (a property value starting with `=`) of a canvas app; `Control` is the app, screen, component or control that holds it.</summary>
 public sealed record CanvasFormula(string App, string Control, string Property, string Formula, string File);
 
-/// <summary>`PrimaryEntity` is the `PrimaryEntity` text, null when missing, empty or `none` (cloud flows export `none`); a business rule (category 2) acts on that table (M74).</summary>
-public sealed record Workflow(string Id, string Name, int Category, int? StateCode, string File, string? ClientData, string? PrimaryEntity = null);
+/// <summary>
+/// `PrimaryEntity` is the `PrimaryEntity` text, null when missing, empty or `none` (cloud flows export `none`); a business rule (category 2) acts on that table (M74).
+/// `ModernFlowType` is the `ModernFlowType` integer (0 a Power Automate flow, 1 a Copilot Studio agent flow, 2 a Microsoft 365 Copilot agent flow), null when absent or not an integer (M123).
+/// </summary>
+public sealed record Workflow(string Id, string Name, int Category, int? StateCode, string File, string? ClientData, string? PrimaryEntity = null, int? ModernFlowType = null);
 
 /// <summary>One Power Pages component: `Id` is normalized, `Active` is true unless `statecode` is other than 0, and `Content` is the component's `content` JSON object (empty when it has none).</summary>
 public sealed record PowerPageComponent(string Id, int Type, string Name, string? SiteId, bool Active, JsonElement Content, string File);

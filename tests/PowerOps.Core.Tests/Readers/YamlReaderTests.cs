@@ -279,6 +279,14 @@ public class YamlReaderTests
     }
 
     [Fact]
+    public void Reads_the_modern_flow_type_of_the_committed_fixture()
+    {
+        var path = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "powerops-seed-yaml", "v1", "solutions", "PowerOpsSeed", "solution.yml");
+
+        Assert.Equal(0, Assert.Single(SolutionLoader.Load(path).Workflows, w => w.Category == 5).ModernFlowType);
+    }
+
+    [Fact]
     public void Reads_the_committed_fixture()
     {
         var path = Path.Combine(Golden.RepoRoot, "tests", "fixtures", "powerops-seed-yaml", "v2", "solutions", "PowerOpsSeed", "solution.yml");

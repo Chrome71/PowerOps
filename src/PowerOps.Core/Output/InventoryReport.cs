@@ -52,6 +52,7 @@ public static partial class InventoryReport
     public const string YamlNotRead = "canvas apps, model-driven apps and agents are not read in the YAML layout, so dataverse-in-canvas-app, model-driven-app and their users are not reported";
 
     private const string Verified = "2026-11-12";
+    private const string VerifiedM123 = "2026-11-22";
     private const string Designation = "https://learn.microsoft.com/power-apps/maker/canvas-apps/license-designation";
     private const string Types = "https://learn.microsoft.com/power-platform/admin/power-automate-licensing/types";
     private const string AppsFaq = "https://learn.microsoft.com/power-platform/admin/powerapps-licensing-faq";
@@ -69,6 +70,12 @@ public static partial class InventoryReport
         new("model-driven-app", "A model-driven app is premium: its users need Power Apps Premium or per app.", [AppsFaq], Verified, []),
         new("desktop-flow-call", "Running a desktop flow from a cloud flow needs Power Automate Premium for the connection's user; an unattended run also needs a Process licence or the unattended RPA add-on.",
             ["https://learn.microsoft.com/connectors/uiflow/", "https://learn.microsoft.com/troubleshoot/power-platform/power-automate/desktop-flows/desktop-flow-run-time-license-check", Types], Verified, []),
+        new("agent-flow", "An agent flow is billed in Copilot Credits for each action and its trigger, needs no Power Automate licence, and starts no new run when the environment has no credits available.",
+            ["https://learn.microsoft.com/microsoft-copilot-studio/flows-overview", "https://learn.microsoft.com/microsoft-copilot-studio/requirements-messages-management", "https://learn.microsoft.com/microsoft-copilot-studio/flows-faqs"],
+            VerifiedM123, []),
+        new("ai-builder-action", "An AI Builder action uses the environment's AI Builder credits, then Copilot Credits, and is blocked when neither is available (in an agent flow, Copilot Credits only); no new seeded or add-on AI Builder credits come from 2026-11-01, existing ones last to the end of their contract, and Learn's pages disagree on whether the flow also needs Power Automate Premium.",
+            ["https://learn.microsoft.com/ai-builder/endofaibcredits", "https://learn.microsoft.com/ai-builder/credit-management", "https://learn.microsoft.com/ai-builder/administer-licensing"],
+            VerifiedM123, []),
     ];
 
     // NonBacktracking, as Redaction's URL pattern: linear time on a long name.
@@ -196,19 +203,43 @@ public static partial class InventoryReport
             .Select(g => new InventoryNotClassified(N(g.Key), NotClassifiedNote)).ToList();
 
         var http = new List<InventoryHttpAction>();
+        var httpDriver = new List<string>();
         var desktop = new List<string>();
+        var agentFlows = new List<string>();
+        var aiBuilder = new List<string>();
         var triggers = new List<InventoryRequestTrigger>();
         var children = new List<InventoryChildFlow>();
         foreach (var (w, f) in flows)
         {
+            // Data row 3: 0 or null is a Power Automate flow, 1 an agent flow (no Power Automate licence, no desktop flow); any other value fires nothing.
+            var powerAutomate = w.ModernFlowType is null or 0;
+            var known = powerAutomate || w.ModernFlowType == 1;
+            if (w.ModernFlowType == 1)
+            {
+                agentFlows.Add($"flow '{N(w.Name)}'");
+            }
+            else if (!known)
+            {
+                notRead.Add($"flow '{N(w.Name)}' has modern flow type {w.ModernFlowType}, which is neither a cloud flow nor a Copilot Studio agent flow and whose licensing no source states, so its drivers are not reported");
+            }
+
             foreach (var a in f.Actions)
             {
                 if (a.Endpoint is { } endpoint)
                 {
                     http.Add(new InventoryHttpAction(N(w.Name), N(a.Name), TextReport.Clean(a.Type), endpoint, show ? a.Host : null));
+                    if (powerAutomate)
+                    {
+                        httpDriver.Add($"flow '{N(w.Name)}' action '{N(a.Name)}'");
+                    }
                 }
 
-                if (a.ApiId?.EndsWith("/" + DesktopFlow, StringComparison.OrdinalIgnoreCase) == true
+                if (known && a.OperationId?.StartsWith("aibuilderpredict_", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    aiBuilder.Add($"flow '{N(w.Name)}' action '{N(a.Name)}'");
+                }
+
+                if (powerAutomate && a.ApiId?.EndsWith("/" + DesktopFlow, StringComparison.OrdinalIgnoreCase) == true
                     && (string.Equals(a.OperationId, "RunUIFlow_V2", StringComparison.OrdinalIgnoreCase) || string.Equals(a.OperationId, "ExecuteDesktopUIFlow", StringComparison.OrdinalIgnoreCase)))
                 {
                     desktop.Add($"flow '{N(w.Name)}' action '{N(a.Name)}'");
@@ -230,11 +261,13 @@ public static partial class InventoryReport
 
         IReadOnlyList<string>[] where =
         [
-            [.. http.Select(h => $"flow '{h.Flow}' action '{h.Action}'")],
+            httpDriver,
             [.. custom.Select(c => N(c.Name))],
             Names(apps.Where(a => a.Type is not (2 or 4) && (a.Tables!.Count > 0 || a.Connections!.Values.Any(v => Segment(v) == Dataverse))).Select(a => a.Name)),
             Names(s.AppModules.Select(m => m.UniqueName)),
             desktop,
+            agentFlows,
+            aiBuilder,
         ];
 
         return new InventorySolution(
@@ -259,7 +292,7 @@ public static partial class InventoryReport
     private sealed record Doc(int SchemaVersion, IReadOnlyList<InventorySolution> Solutions);
 
     public static void WriteJson(TextWriter writer, Inventory inventory) =>
-        writer.Write(JsonSerializer.Serialize(new Doc(JsonOutput.SchemaVersion, inventory.Solutions), ManifestReport.Options) + "\n");
+        writer.Write(JsonSerializer.Serialize(new Doc(JsonOutput.InventorySchemaVersion, inventory.Solutions), ManifestReport.Options) + "\n");
 
     public static void WriteText(TextWriter writer, Inventory inventory)
     {
