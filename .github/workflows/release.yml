@@ -1,6 +1,7 @@
 # One-time setup before the first release: Settings > Actions > General: allow GitHub Actions to create pull requests
 # (release-please opens the release PR with GITHUB_TOKEN).
-# A release is a GitHub Release only (no NuGet): the publish job attaches the tool package and SHA256SUMS to it.
+# A release is a GitHub Release only (no NuGet). `assets` builds and checks the files, `windows` runs the Windows binary, and only then
+# does `publish`, the one job with a write token, attest them and attach them to the release.
 name: Release
 
 on:
@@ -28,17 +29,14 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  publish:
+  assets:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
-      contents: write # attach the files to the release
-      id-token: write
-      attestations: write
+      contents: read
     env:
-      TAG: ${{ needs.release-please.outputs.tag_name }}
       VERSION: ${{ needs.release-please.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -50,13 +48,68 @@ jobs:
           global-json-file: global.json
       # A release prints its plain version; every other build adds +<commit>.
       - run: dotnet pack src/PowerOps.Cli -c Release -o artifacts -p:RestoreLockedMode=true -p:IncludeSourceRevisionInInformationalVersion=false
-      - name: Check the package
+      - name: Build the binaries and the sample
+        run: bash .github/scripts/release-assets.sh artifacts -p:IncludeSourceRevisionInInformationalVersion=false
+      - name: Check the files
         run: bash .github/scripts/release-check.sh "$VERSION" artifacts
+      - name: Run the Linux binary
+        run: |
+          ./artifacts/powerops-linux-x64 --version
+          unzip -q artifacts/powerops-sample.zip -d sample
+          ./artifacts/powerops-linux-x64 analyze sample/powerops-sample/solution --fail-on none
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-assets
+          path: artifacts
+          if-no-files-found: error
+          retention-days: 30 # GitHub's re-run window: a re-run of publish needs these files
+
+  windows:
+    needs: [release-please, assets]
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 10
+    permissions: {}
+    env:
+      VERSION: ${{ needs.release-please.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets
+      # Git Bash; the exe ends its lines with \r\n.
+      - name: Run the Windows binary
+        shell: bash
+        run: |
+          printed="$(./powerops-win-x64.exe --version | tr -d '\r')"
+          [ "$printed" = "$VERSION" ] || { echo "::error::powerops-win-x64.exe prints $printed, not $VERSION"; exit 1; }
+          unzip -q powerops-sample.zip -d sample
+          ./powerops-win-x64.exe analyze sample/powerops-sample/solution --fail-on none
+
+  publish:
+    needs: [release-please, assets, windows]
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # attach the files to the release
+      id-token: write
+      attestations: write
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+      VERSION: ${{ needs.release-please.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets
+          path: artifacts
+      - name: Check the sums
+        working-directory: artifacts
+        run: sha256sum -c SHA256SUMS
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: artifacts/*.nupkg
+          subject-checksums: artifacts/SHA256SUMS
       # No --clobber: a rerun must not replace a published file.
       - name: Attach to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$TAG" "artifacts/PowerOps.$VERSION.nupkg" artifacts/SHA256SUMS --repo "$GITHUB_REPOSITORY"
+        run: gh release upload "$TAG" "artifacts/PowerOps.$VERSION.nupkg" artifacts/powerops-linux-x64 artifacts/powerops-win-x64.exe artifacts/powerops-sample.zip artifacts/SHA256SUMS --repo "$GITHUB_REPOSITORY"
