@@ -406,7 +406,7 @@
         "automate",
         "governance"
       ],
-      "affects": "`inventory`'s drivers `http-action`, `custom-connector` and `desktop-flow-call` (their sources and `need` lines); manual because the mirror sync of MicrosoftDocs/power-platform is not known",
+      "affects": "`inventory`'s drivers `http-action`, `custom-connector` and `desktop-flow-call` (their sources and `need` lines), and `licensing.md`'s AI Builder row (its 5,000 AI Builder credits a month); manual because the mirror sync of MicrosoftDocs/power-platform is not known",
       "everyDays": 30,
       "lastChecked": "2026-11-12"
     },
@@ -461,6 +461,88 @@
       "affects": "`inventory`'s driver `http-action` (its source for `HttpWebhook`)",
       "everyDays": 30,
       "lastChecked": "2026-11-12"
+    },
+    {
+      "id": "docs-agent-flows-overview",
+      "title": "Learn: Agent flows overview",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/microsoft-copilot-studio/flows-overview",
+      "areas": [
+        "copilot-studio",
+        "governance"
+      ],
+      "affects": "`inventory`'s driver `agent-flow` (its `need` line on runs blocked with no credits, and source) and `licensing.md`'s agent-flow row",
+      "everyDays": 30,
+      "lastChecked": "2026-11-22"
+    },
+    {
+      "id": "docs-copilot-studio-billing-rates",
+      "title": "Learn: Billing rates and management",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/microsoft-copilot-studio/requirements-messages-management",
+      "areas": [
+        "copilot-studio",
+        "governance"
+      ],
+      "affects": "`inventory`'s driver `agent-flow` (its `need` line on Copilot Credits per action and trigger, and source) and `licensing.md`'s agent-flow row (13 credits per 100 actions, the Microsoft 365 Copilot exemption)",
+      "everyDays": 30,
+      "lastChecked": "2026-11-22"
+    },
+    {
+      "id": "docs-agent-flows-faq",
+      "title": "Learn: Agent flows FAQ",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/microsoft-copilot-studio/flows-faqs",
+      "areas": [
+        "copilot-studio",
+        "automate",
+        "governance"
+      ],
+      "affects": "`inventory`'s driver `agent-flow` (its `need` line on no Power Automate licence, and source) and `licensing.md`'s agent-flow row (premium connectors, no desktop flows)",
+      "everyDays": 30,
+      "lastChecked": "2026-11-22"
+    },
+    {
+      "id": "docs-ai-builder-end-of-credits",
+      "title": "Learn: End of AI Builder credits",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/ai-builder/endofaibcredits",
+      "areas": [
+        "apps",
+        "automate",
+        "governance"
+      ],
+      "affects": "`inventory`'s driver `ai-builder-action` (its `need` line on the credit order and the 2026-11-01 end, and source) and `licensing.md`'s AI Builder row",
+      "everyDays": 30,
+      "lastChecked": "2026-11-22"
+    },
+    {
+      "id": "docs-ai-builder-credit-management",
+      "title": "Learn: Licensing and AI Builder credits",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/ai-builder/credit-management",
+      "areas": [
+        "apps",
+        "automate",
+        "governance"
+      ],
+      "affects": "`inventory`'s driver `ai-builder-action` (its `need` line on Power Automate Premium, and source) and `licensing.md`'s AI Builder row (the action doesn't make a flow premium)",
+      "everyDays": 30,
+      "lastChecked": "2026-11-22"
+    },
+    {
+      "id": "docs-ai-builder-licensing-overview",
+      "title": "Learn: Overview of licensing (AI Builder)",
+      "kind": "manual",
+      "target": "https://learn.microsoft.com/ai-builder/administer-licensing",
+      "areas": [
+        "apps",
+        "automate",
+        "governance"
+      ],
+      "affects": "`inventory`'s driver `ai-builder-action` (its `need` line on Power Automate Premium, and source) and `licensing.md`'s AI Builder row (a flow with any AI Builder action is premium)",
+      "everyDays": 30,
+      "lastChecked": "2026-11-22"
     }
   ]
 }
