@@ -676,7 +676,7 @@ Step 3 of the three-way debate build plan (2026-11-22). The [plan](plans/m122-sk
 
 ## M121: specialists out of the shipped plugin
 
-M82 shipped the six Power Platform specialists in the Claude Code plugin as generated agents. The M119 specialist eval (2026-11-22) found no gain over the baseline review to keep any of them for, and the owner answered "Keep none". The [plan](plans/m121-specialists-out/plan.md) takes them out of the plugin, Phase 1 item 2 of the debate plan of 2026-11-22.
+M82 shipped the six Power Platform specialists in the Claude Code plugin as generated agents. In the M119 specialist eval (2026-11-22) none showed a gain over the baseline review on Claude Code and the rest of the results were inconclusive, and the owner answered "Keep none". The [plan](plans/m121-specialists-out/plan.md) takes them out of the plugin, Phase 1 item 2 of the debate plan of 2026-11-22.
 
 | Milestone | Release | Scope | Done when |
 |---|---|---|---|

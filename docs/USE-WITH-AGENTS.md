@@ -44,7 +44,7 @@ With Microsoft's power-platform-skills or Dataverse-skills installed too, their 
 
 ### No specialist agents
 
-The plugins ship no agents. Earlier builds of the Claude Code plugin shipped six Power Platform specialist agents (`powerops:powerops-apps` and five more), advisory and on Opus. The M119 specialist eval (2026-11-22) measured them against the baseline review and found no gain to keep them for, so the owner kept none, and M121 took them out. They stay in the PowerOps repo for its maintainers.
+The plugins ship no agents. Earlier builds of the Claude Code plugin shipped six Power Platform specialist agents (`powerops:powerops-apps` and five more), advisory and on Opus. The M119 specialist eval (2026-11-22) measured them against the baseline review: none showed a gain on Claude Code, and the rest of the results were inconclusive, so the owner kept none, and M121 took them out. They stay in the PowerOps repo for its maintainers.
 
 A plugin installed before that change keeps the six until you uninstall and install it again as above, because `claude plugin update` changes nothing until a release changes the version string.
 
