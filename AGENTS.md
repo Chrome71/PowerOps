@@ -47,6 +47,15 @@ dotnet pack src/PowerOps.Cli -c Release -o artifacts
 - Do not edit the version in `Directory.Build.props`, `.release-please-manifest.json`, `plugins/claude/.claude-plugin/plugin.json`, `plugins/codex/.codex-plugin/plugin.json` or the changelog. Releases manage them.
 - Never push, publish or open a pull request unless asked. Pull request titles are Conventional Commits too. For anything large, suggest opening an issue first.
 
+## Change tiers
+
+A change takes the highest tier any of its files reaches; the pull request template asks for it.
+
+- **Tier S**: docs, tests, removals and typo fixes. A pull request and CI.
+- **Tier M**: a bounded rule, reader, command or skill edit that touches no protected path. A short plan (at most 40 lines), a review and CI.
+- **Tier L**: an add, edit, delete or rename of a protected path: `.github/`, `CODEOWNERS`, `AGENTS.md`, `bench/`, `docs/schemas/`, `src/PowerOps.Core/Deploy/`, `src/PowerOps.Core/Output/SafeWrite.cs`, the kept roles (`skills/powerops-verify/`, `skills/powerops-review-security/`), their plugin copies (`plugins/claude/skills/powerops-verify/`, `plugins/claude/skills/powerops-review-security/`, `plugins/codex/skills/powerops-verify/`, `plugins/codex/skills/powerops-review-security/`), `tests/PowerOps.Cli.Tests/RoleEvalTests.cs` and `tests/PowerOps.Cli.Tests/PluginManifestTests.cs`, and `docs/examples/ephemeral-*` and `docs/examples/powerops/ephemeral-*`. A full signed plan, a fresh review and the `tier-L` pull request label, which only the owner applies. The `protected-paths` check (`.github/scripts/protected-paths.sh`, run from `main`) fails without it, and fails when the latest `labeled` or `unlabeled` event of `tier-L` is not the owner's `labeled` event.
+- The check diffs immutable git commits, not the API's file list: the pull request's head commit against its one merge base with the base commit, with renames, so a change takes no edit that `main` made after the branch. In every tier, it fails when an added line under `docs/` or `skills/`, or in `README.md`, holds a local `/home/` path or `file://` URL (a new file, a file renamed in from elsewhere and a binary file are read whole), when such a file is a submodule or its added lines cannot be counted exactly, when the base and head have no merge base or more than one, and when the base branch is not `main` or the head or base moved after the event.
+
 ## Ecosystem changes
 
 Microsoft's tools, docs and agent skills change often. [docs/ecosystem/README.md](docs/ecosystem/README.md) is the procedure.

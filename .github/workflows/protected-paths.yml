@@ -1,0 +1,38 @@
+name: Protected paths
+
+# A pull request that changes a protected path needs the tier-L label, which the owner applies (AGENTS.md, "Change tiers").
+# pull_request_target runs this file and its script as they are on main, never a pull request's own copy, so a pull request
+# cannot weaken its own check. The checkout takes no ref, so it is main, and no step runs the pull request's code. It takes the
+# whole history, and the script fetches the pull request's head commit as git objects, never checking it out, and diffs it from
+# its merge base with the base commit.
+# The labeled and unlabeled events run it again when the label changes, and edited when the base branch changes; the script reads
+# the labels and the base live, and the label's issue events to check that the owner applied it.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  protected-paths:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Check protected paths and added path leaks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_OWNER: ${{ github.repository_owner }}
+        run: bash .github/scripts/protected-paths.sh
