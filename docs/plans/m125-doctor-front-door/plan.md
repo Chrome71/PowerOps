@@ -1,9 +1,11 @@
 ---
-status: approved
+status: signed-off
 review: done
 environment: null
 depth: standard
 supersedes: null
+signed-off: 2026-11-22
+signed-off-hash: d054518110cc438f30a02cd7ef169ec38312bbb658d345dc1a1380e3fb00a602
 ---
 
 # M125: `powerops doctor` and the README front door
