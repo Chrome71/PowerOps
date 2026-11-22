@@ -38,22 +38,37 @@ Use [Conventional Commits](https://www.conventionalcommits.org/): `feat`, `fix`,
 
 Releases are GitHub Releases only; PowerOps is not published to NuGet. release-please keeps a release pull request open on `main` and stamps the version into `Directory.Build.props`, `.release-please-manifest.json`, both `plugin.json` files and the changelog. Never edit those versions by hand.
 
-Merging the release pull request cuts the release: release-please tags it `PowerOps-v<version>` and creates the GitHub Release. The `publish` job of `.github/workflows/release.yml` then packs the tool at the tag in locked mode, without the commit in its version, and `.github/scripts/release-check.sh` stops the job unless the packed tool's `powerops --version` prints that version; it writes `SHA256SUMS`. The job records a build provenance attestation for the package and attaches `PowerOps.<version>.nupkg` and `SHA256SUMS` to the release, never replacing a file already there. If the job fails before it attaches anything, fix the cause and use "Re-run failed jobs" on that run, within 30 days: in practice GitHub gives the re-run the outputs of the jobs that passed, so `publish` runs again for the same release, though GitHub's page on re-runs doesn't say so. If the re-run skips `publish`, attach both files by hand from a clone, as below; a package attached this way has no attestation. Nothing here replaces a file, and a new pack has another hash, so a half attach is finished differently: with the package attached and `SHA256SUMS` missing, download the package, run `sha256sum PowerOps.<version>.nupkg > SHA256SUMS` and upload that file alone, which keeps the package's attestation; with only `SHA256SUMS` attached, remove it on the release page, then re-run or attach both by hand.
+Merging the release pull request cuts the release: release-please tags it `PowerOps-v<version>` and creates the GitHub Release. Three jobs of `.github/workflows/release.yml` then run, each only when a release was created:
+
+- `assets` (read-only token) checks out the tag, packs the tool in locked mode without the commit in its version, and runs `.github/scripts/release-assets.sh`, which publishes the self-contained single-file binaries `powerops-linux-x64` and `powerops-win-x64.exe` (not trimmed), zips `powerops-sample.zip`, and writes `SHA256SUMS` over those and the package. Each runtime is restored first and its restore held to the committed lock files before anything builds; the .NET runtime and apphost packs are in no lock file, so the script prints the runtime version each binary bundles. `.github/scripts/release-check.sh` then stops the job unless the folder holds exactly those five files, `SHA256SUMS` checks, and the packed tool and the Linux binary both print that version. The job runs the Linux binary on the sample and keeps the five files as the run's `release-assets` artifact for 30 days.
+- `windows` (no token) downloads them and runs the Windows binary: its `--version` must print the release version, and it analyzes the sample.
+- `publish`, the only job that can write, builds nothing: it downloads the files, checks `SHA256SUMS`, records one build provenance attestation for the four files it lists, and attaches all five to the release, never replacing a file already there.
+
+If a job fails before anything is attached, fix the cause and use "Re-run failed jobs" on that run, within 30 days: in practice GitHub gives the re-run the outputs of the jobs that passed, so the failed jobs run again for the same release, though GitHub's page on re-runs doesn't say so. If the upload stopped part-way, a re-run fails on the first file already attached; finish it from the run's own files, which are the attested ones:
+
+```sh
+gh run download <run-id> -n release-assets -D artifacts
+(cd artifacts && sha256sum -c SHA256SUMS)
+gh release upload PowerOps-v<version> <each missing file, from artifacts/>
+```
+
+If the re-run skips the jobs, or the artifact is gone, and nothing is attached yet, build and attach the five files by hand from a clone, on Linux with `jq` and `zip`, as below. Files attached this way have no attestation, and their Windows binary was not run, so run it on Windows before you announce the release. If some files are already attached and the artifact is gone, stop: a new build has other hashes, so it can't finish a half attach.
 
 ```sh
 git checkout PowerOps-v<version>
 dotnet pack src/PowerOps.Cli -c Release -o artifacts -p:RestoreLockedMode=true -p:IncludeSourceRevisionInInformationalVersion=false
+bash .github/scripts/release-assets.sh artifacts -p:IncludeSourceRevisionInInformationalVersion=false
 bash .github/scripts/release-check.sh <version> artifacts
-gh release upload PowerOps-v<version> artifacts/PowerOps.<version>.nupkg artifacts/SHA256SUMS
+gh release upload PowerOps-v<version> artifacts/PowerOps.<version>.nupkg artifacts/powerops-linux-x64 artifacts/powerops-win-x64.exe artifacts/powerops-sample.zip artifacts/SHA256SUMS
 ```
 
 A cause in the files at the tag can't be fixed this way; it needs a fix on `main` and a new release.
 
-To check a release, download both files from its page, then:
+To check a release, download its files from its page, then, for each file you downloaded:
 
 ```sh
-sha256sum -c SHA256SUMS
-gh attestation verify PowerOps.<version>.nupkg --repo Chrome71/PowerOps
+sha256sum -c --ignore-missing SHA256SUMS
+gh attestation verify <file> --repo Chrome71/PowerOps
 ```
 
 The GitHub Action runs the release that `action.yml` pins: `PO_RELEASE` (the version) and `PO_RELEASE_SHA256` (the hash on the package's line of `SHA256SUMS`: its first 64 characters, not the whole line), both quoted, in its `Install PowerOps` step. With both empty, as before the first release, it builds from source. After a release, check it as above, then open one pull request that sets both values; CI's `action` job then runs the downloaded release. The `Pin drift` workflow warns while the pin is not the latest release.

@@ -698,6 +698,18 @@ ECO-0028 found `inventory` giving agent flows Power Automate drivers and AI Buil
 
 96. `feat!:` M123: the plan, then the reader, the two drivers and the schema version, then the fixture, `licensing.md`, the records and the goldens (built 2026-11-22, [plan](plans/m123-cost-credibility/plan.md))
 
+## M120: release assets
+
+The agreed plan of 2026-11-22 (three models, approved by the owner with "Approve and start") puts a 0.x preview release before trial 4, and its first step makes the release carry what a newcomer can run without the .NET SDK. The [plan](plans/m120-release-assets/plan.md) builds the files and runs them in CI; it cuts no release (decision 79).
+
+| Milestone | Release | Scope | Done when |
+|---|---|---|---|
+| **M120. Release assets** | the next minor release, which release-please makes from the `feat:` commit | <ul><li>Planned 2026-11-22 ([plan](plans/m120-release-assets/plan.md))</li><li>`.github/scripts/release-assets.sh` publishes self-contained single-file `powerops-linux-x64` and `powerops-win-x64.exe` (not trimmed), zips `powerops-sample.zip` (`powerops-seed/v2` and its two flow tests, with a README naming the result) and writes `SHA256SUMS` over the four files and the package; CI's `package` job and `release.yml` both run it</li><li>Each binary runs on its own system before anything is attached: Linux in the job that built it, Windows in a new job (`windows-binary` in CI, not a required check)</li><li>`release.yml`: `assets` builds and checks with a read-only token, `windows` runs the exe, and `publish`, the only job that can write, builds nothing, attests the four files and attaches the five</li></ul> | CI green with both binaries run; `WorkflowTests` assert the file list, the jobs' permissions and order; README and INSTALL give the download first and stay true while no release exists |
+
+### Build order, M120 (continues the list below)
+
+97. `feat:` M120: the plan, then the scripts and their stub tests, the two workflows, and the install and release docs (built 2026-11-22, [plan](plans/m120-release-assets/plan.md))
+
 ## Testing
 
 | Layer | What | Runs |
@@ -1015,3 +1027,9 @@ Made in the [M118 plan](plans/m118-judge-key/plan.md); its `decisions.md` record
 Made in the [M123 plan](plans/m123-cost-credibility/plan.md); its `decisions.md` has the research and the reviews.
 
 78. **`inventory` tells agent flows from cloud flows, and names AI Builder actions.** This amends decision 69. The closed set has seven drivers: the five of decision 69, then `agent-flow` (a cloud flow whose `ModernFlowType` is 1, billed in Copilot Credits: *Agent flows overview*, *Billing rates and management*, *Agent flows FAQ*) and `ai-builder-action` (an action whose `operationId` starts with `aibuilderpredict_`, whatever its `apiId`: *End of AI Builder credits*, *Licensing and AI Builder credits*, *Overview of licensing*), both checked on 2026-11-22. An agent flow's actions fire neither `http-action` nor `desktop-flow-call`, because an agent flow needs no Power Automate licence and can't call a desktop flow; they are still listed in their sections. A flow whose `ModernFlowType` is neither 0, 1 nor absent (2 is labelled a Microsoft 365 Copilot agent flow, and no source says how it is billed) fires no driver and gets a `notRead` line. The AI Builder need says Learn's pages disagree on whether the flow also needs Power Automate Premium, and `licensing.md` tells the planner to plan for premium and for credits. `inventory`'s JSON moves to `schemaVersion` 2, because its closed `licenceDrivers[].id` list gained two values. `docs/ecosystem/sources.json` watches the twelve pages. PO039, the automate specialist and `custom-connector`'s sentence for a custom connector only an agent flow uses stay open in ECO-0028.
+
+## Decisions, M120 release assets (2026-11-22)
+
+Made in the [M120 plan](plans/m120-release-assets/plan.md); its `decisions.md` weighs the options.
+
+79. **A release carries two binaries, a sample and checksums, built by one script and run on each system before upload.** Each release attaches `powerops-linux-x64` and `powerops-win-x64.exe` (self-contained single files, not trimmed, no ReadyToRun), `powerops-sample.zip`, the tool package and `SHA256SUMS` over the other four; CI builds the same files with the same script on every pull request. The committed lock files keep no runtime section, since one would make every restore, the Action's source build included, fetch the runtime packs: each runtime restores into its own lock under `obj/`, held to the committed one before the publish. The .NET runtime and apphost packs are in no lock file under any option, so the build prints the runtime version it bundled. In `release.yml` only `publish` holds a write token, and it builds nothing: it checks the sums, attests the four files from `SHA256SUMS` and attaches the five. Asked "May the milestone sessions sign off their own plans after clean reviews, and merge their own pull requests once every check passes? ...", the owner answered "Yes to all three" (2026-11-22); the release itself waits for the owner's yes at the cut.

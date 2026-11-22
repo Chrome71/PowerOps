@@ -48,7 +48,7 @@ such as starting a new agent session so the plugin loads.
 
 ### Install it yourself
 
-From a clone of this repo (needs the .NET 10 SDK):
+From a release: download `powerops-linux-x64` or `powerops-win-x64.exe` from the [latest release](https://github.com/Chrome71/PowerOps/releases/latest), check it against `SHA256SUMS`, and put it on your PATH as `powerops`. It is the whole CLI in one file and needs no .NET SDK; the steps are in [Install PowerOps](docs/INSTALL.md#from-a-release). No release is published yet: until the first release, install from a clone of this repo (needs the .NET 10 SDK):
 
 ```sh
 dotnet pack src/PowerOps.Cli -c Release -o artifacts &&

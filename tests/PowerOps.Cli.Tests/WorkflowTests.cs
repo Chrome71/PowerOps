@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 using PowerOps.Tests.Shared;
 
@@ -44,7 +45,7 @@ public sealed class WorkflowTests
         var vulnerable = Text(Steps("ci.yml", "package").Single(s => Text(s, "name") == "Fail on a vulnerable package"), "run")!;
         Assert.Contains("--vulnerable --include-transitive", vulnerable);
         Assert.Contains("bash .github/scripts/vulnerable.sh vulnerable.json", vulnerable);
-        var pack = Steps("release.yml", "publish").Select(s => Text(s, "run")).Single(r => r?.StartsWith("dotnet pack", StringComparison.Ordinal) == true);
+        var pack = Steps("release.yml", "assets").Select(s => Text(s, "run")).Single(r => r?.StartsWith("dotnet pack", StringComparison.Ordinal) == true);
         Assert.Contains("-p:RestoreLockedMode=true", pack);
         Assert.Contains("-p:IncludeSourceRevisionInInformationalVersion=false", pack);
     }
@@ -85,36 +86,164 @@ public sealed class WorkflowTests
         var jobs = Map(Load(".github", "workflows", "release.yml")["jobs"]);
 
         Assert.Equal(new Dictionary<string, string> { ["contents"] = "write", ["issues"] = "write", ["pull-requests"] = "write" }, Permissions(jobs["release-please"]));
+        Assert.Equal(new Dictionary<string, string> { ["contents"] = "read" }, Permissions(jobs["assets"]));
+        Assert.Empty(Permissions(jobs["windows"]));
         Assert.Equal(new Dictionary<string, string> { ["contents"] = "write", ["id-token"] = "write", ["attestations"] = "write" }, Permissions(jobs["publish"]));
     }
 
+    private const string ReleaseCreated = "needs.release-please.outputs.release_created == 'true'";
+
+    private const string LinuxRun = """
+        ./artifacts/powerops-linux-x64 --version
+        unzip -q artifacts/powerops-sample.zip -d sample
+        ./artifacts/powerops-linux-x64 analyze sample/powerops-sample/solution --fail-on none
+
+        """;
+
+    private static List<string> Needs(Dictionary<object, object> job) =>
+        job["needs"] is List<object> list ? [.. list.Cast<string>()] : [(string)job["needs"]];
+
+    private static Dictionary<object, object> With(Dictionary<object, object> step) => Map(step["with"]);
+
     [Fact]
-    public void The_release_job_checks_the_package_attests_it_and_attaches_both_files_without_a_clobber_and_never_touches_nuget()
+    public void The_release_builds_the_files_only_for_a_new_release_checks_them_and_runs_the_linux_binary_before_keeping_them()
     {
         var jobs = Map(Load(".github", "workflows", "release.yml")["jobs"]);
-        var publish = Map(jobs["publish"]);
-        var steps = Steps("release.yml", "publish");
+        var assets = Map(jobs["assets"]);
+        var steps = Steps("release.yml", "assets");
         int Index(Func<Dictionary<object, object>, bool> match) => steps.FindIndex(s => match(s));
+        var checkout = Index(s => Text(s, "uses")?.StartsWith("actions/checkout@", StringComparison.Ordinal) == true);
         var pack = Index(s => Text(s, "run")?.StartsWith("dotnet pack", StringComparison.Ordinal) == true);
-        var check = Index(s => Text(s, "name") == "Check the package");
-        var attest = Index(s => Text(s, "uses")?.StartsWith("actions/attest-build-provenance@", StringComparison.Ordinal) == true);
-        var attach = Index(s => Text(s, "name") == "Attach to the release");
+        var build = Index(s => Text(s, "name") == "Build the binaries and the sample");
+        var check = Index(s => Text(s, "name") == "Check the files");
+        var linux = Index(s => Text(s, "name") == "Run the Linux binary");
+        var keep = Index(s => Text(s, "uses")?.StartsWith("actions/upload-artifact@", StringComparison.Ordinal) == true);
 
         Assert.Equal("${{ steps.release.outputs.version }}", (string)Map(Map(jobs["release-please"])["outputs"])["version"]);
+        Assert.Equal(["release-please"], Needs(assets));
+        Assert.Equal(ReleaseCreated, Text(assets, "if"));
+        Assert.Equal("${{ needs.release-please.outputs.version }}", (string)Map(assets["env"])["VERSION"]);
+        Assert.Equal("${{ needs.release-please.outputs.tag_name }}", (string)With(steps[checkout])["ref"]);
+        Assert.True(checkout < pack && pack < build && build < check && check < linux && linux < keep && keep == steps.Count - 1, "checkout, pack, build, check, run, keep, in that order");
+        Assert.Equal("bash .github/scripts/release-assets.sh artifacts -p:IncludeSourceRevisionInInformationalVersion=false", Text(steps[build], "run"));
+        Assert.Equal("bash .github/scripts/release-check.sh \"$VERSION\" artifacts", Text(steps[check], "run"));
+        Assert.Equal(LinuxRun.ReplaceLineEndings("\n"), Text(steps[linux], "run"));
+        Assert.Equal("release-assets", (string)With(steps[keep])["name"]);
+        Assert.Equal("artifacts", (string)With(steps[keep])["path"]);
+        Assert.Equal("error", (string)With(steps[keep])["if-no-files-found"]);
+        // GitHub lets a failed run be re-run for 30 days; the re-run's publish needs these files.
+        Assert.Equal("30", (string)With(steps[keep])["retention-days"]);
+    }
+
+    [Fact]
+    public void The_release_runs_the_windows_binary_from_the_kept_files_and_refuses_another_version()
+    {
+        var windows = Map(Map(Load(".github", "workflows", "release.yml")["jobs"])["windows"]);
+        var steps = Steps("release.yml", "windows");
+
+        Assert.Equal("windows-latest", Text(windows, "runs-on"));
+        Assert.Equal(["release-please", "assets"], Needs(windows));
+        Assert.Equal(ReleaseCreated, Text(windows, "if"));
+        Assert.Equal("${{ needs.release-please.outputs.version }}", (string)Map(windows["env"])["VERSION"]);
+        Assert.Equal(2, steps.Count);
+        Assert.StartsWith("actions/download-artifact@", Text(steps[0], "uses"));
+        Assert.Equal("release-assets", (string)With(steps[0])["name"]);
+        Assert.Equal("bash", Text(steps[1], "shell"));
+        Assert.Equal("""
+            printed="$(./powerops-win-x64.exe --version | tr -d '\r')"
+            [ "$printed" = "$VERSION" ] || { echo "::error::powerops-win-x64.exe prints $printed, not $VERSION"; exit 1; }
+            unzip -q powerops-sample.zip -d sample
+            ./powerops-win-x64.exe analyze sample/powerops-sample/solution --fail-on none
+
+            """.ReplaceLineEndings("\n"), Text(steps[1], "run"));
+    }
+
+    // The files a release carries, as the publish job attaches them.
+    private static readonly string[] ReleaseFiles = ["\"artifacts/PowerOps.$VERSION.nupkg\"", "artifacts/powerops-linux-x64", "artifacts/powerops-win-x64.exe", "artifacts/powerops-sample.zip", "artifacts/SHA256SUMS"];
+
+    [Fact]
+    public void The_publish_job_builds_nothing_checks_the_sums_attests_them_and_attaches_the_five_files_without_a_clobber_and_never_touches_nuget()
+    {
+        var publish = Map(Map(Load(".github", "workflows", "release.yml")["jobs"])["publish"]);
+        var steps = Steps("release.yml", "publish");
+
+        Assert.Equal(["release-please", "assets", "windows"], Needs(publish));
+        Assert.Equal(ReleaseCreated, Text(publish, "if"));
         Assert.Equal("${{ needs.release-please.outputs.tag_name }}", (string)Map(publish["env"])["TAG"]);
         Assert.Equal("${{ needs.release-please.outputs.version }}", (string)Map(publish["env"])["VERSION"]);
-        Assert.True(pack >= 0 && pack < check && check < attest && attest < attach && attach == steps.Count - 1, "pack, check, attest, attach, in that order");
-        Assert.Equal("bash .github/scripts/release-check.sh \"$VERSION\" artifacts", Text(steps[check], "run"));
-        var upload = Text(steps[attach], "run")!;
-        Assert.Contains("gh release upload \"$TAG\"", upload);
-        Assert.Contains("\"artifacts/PowerOps.$VERSION.nupkg\"", upload);
-        Assert.Contains("artifacts/SHA256SUMS", upload);
+        Assert.Equal(4, steps.Count);
+        Assert.StartsWith("actions/download-artifact@", Text(steps[0], "uses"));
+        Assert.Equal("release-assets", (string)With(steps[0])["name"]);
+        Assert.Equal("artifacts", (string)With(steps[0])["path"]);
+        Assert.Equal("sha256sum -c SHA256SUMS", Text(steps[1], "run"));
+        Assert.Equal("artifacts", Text(steps[1], "working-directory"));
+        Assert.StartsWith("actions/attest-build-provenance@", Text(steps[2], "uses"));
+        Assert.Equal(new Dictionary<object, object> { ["subject-checksums"] = "artifacts/SHA256SUMS" }, With(steps[2]));
+        Assert.Equal("Attach to the release", Text(steps[3], "name"));
+        var upload = Text(steps[3], "run")!;
+        Assert.Equal($"gh release upload \"$TAG\" {string.Join(' ', ReleaseFiles)} --repo \"$GITHUB_REPOSITORY\"", upload.TrimEnd());
         Assert.DoesNotContain("--clobber", upload);
-        Assert.Equal(["GH_TOKEN"], Map(steps[attach]["env"]).Keys.Cast<string>());
-        Assert.Equal("${{ github.token }}", (string)Map(steps[attach]["env"])["GH_TOKEN"]);
-        Assert.DoesNotContain(steps.Where(s => s != steps[attach]), s => s.ContainsKey("env") && Map(s["env"]).ContainsKey("GH_TOKEN"));
-        Assert.False(publish.TryGetValue("env", out var jobEnv) && Map(jobEnv).ContainsKey("GH_TOKEN"));
+        Assert.Equal(["GH_TOKEN"], Map(steps[3]["env"]).Keys.Cast<string>());
+        Assert.Equal("${{ github.token }}", (string)Map(steps[3]["env"])["GH_TOKEN"]);
+        Assert.DoesNotContain(steps.Take(3), s => s.ContainsKey("env"));
+        Assert.DoesNotContain(steps, s => Text(s, "uses")?.StartsWith("actions/checkout@", StringComparison.Ordinal) == true);
+        Assert.DoesNotContain(steps, s => (Text(s, "run") ?? "").Contains("dotnet", StringComparison.Ordinal) || (Text(s, "run") ?? "").Contains("./", StringComparison.Ordinal));
         Assert.DoesNotContain("nuget", string.Concat(AllSteps("release.yml").Select(s => (Text(s, "uses") ?? "") + (Text(s, "run") ?? ""))), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void The_package_job_builds_the_release_files_runs_the_linux_binary_and_keeps_them_for_the_windows_run()
+    {
+        var steps = Steps("ci.yml", "package");
+        int Index(Func<Dictionary<object, object>, bool> match) => steps.FindIndex(s => match(s));
+        var pack = Index(s => Text(s, "run")?.StartsWith("dotnet pack", StringComparison.Ordinal) == true);
+        var build = Index(s => Text(s, "name") == "Build the binaries and the sample");
+        var linux = Index(s => Text(s, "name") == "Run the Linux binary");
+        var keep = Index(s => Text(s, "uses")?.StartsWith("actions/upload-artifact@", StringComparison.Ordinal) == true);
+
+        Assert.True(pack >= 0 && pack < build && build < linux && linux < keep && keep == steps.Count - 1, "pack, build, run, keep, in that order");
+        Assert.Equal("bash .github/scripts/release-assets.sh artifacts", Text(steps[build], "run"));
+        Assert.Equal(LinuxRun.ReplaceLineEndings("\n"), Text(steps[linux], "run"));
+        Assert.Equal("release-assets", (string)With(steps[keep])["name"]);
+        Assert.Equal("artifacts", (string)With(steps[keep])["path"]);
+        Assert.Equal("1", (string)With(steps[keep])["retention-days"]);
+
+        var windows = Map(Map(Load(".github", "workflows", "ci.yml")["jobs"])["windows-binary"]);
+        var run = Steps("ci.yml", "windows-binary");
+        Assert.Equal("windows-latest", Text(windows, "runs-on"));
+        Assert.Equal(["package"], Needs(windows));
+        Assert.Equal(2, run.Count);
+        Assert.StartsWith("actions/download-artifact@", Text(run[0], "uses"));
+        Assert.Equal("release-assets", (string)With(run[0])["name"]);
+        Assert.Equal("bash", Text(run[1], "shell"));
+        // A build that is not a release prints its version and commit; the release job compares the same output with its version.
+        Assert.Equal("""
+            printed="$(./powerops-win-x64.exe --version | tr -d '\r')"
+            [[ "$printed" =~ ^[0-9]+\.[0-9]+\.[0-9]+\+[0-9a-f]{40}$ ]] || { echo "::error::powerops-win-x64.exe prints $printed"; exit 1; }
+            unzip -q powerops-sample.zip -d sample
+            ./powerops-win-x64.exe analyze sample/powerops-sample/solution --fail-on none
+
+            """.ReplaceLineEndings("\n"), Text(run[1], "run"));
+    }
+
+    [Fact]
+    public void The_required_checks_keep_their_names_and_the_windows_binary_run_is_a_job_of_its_own()
+    {
+        var jobs = Map(Load(".github", "workflows", "ci.yml")["jobs"]);
+
+        // The main ruleset requires build (ubuntu-latest), build (windows-latest), package, action and playwright-example by these names.
+        Assert.Equal(["action", "build", "package", "playwright-example", "windows-binary"], jobs.Keys.Cast<string>().Order(StringComparer.Ordinal));
+        Assert.All(jobs.Values, job => Assert.False(Map(job).ContainsKey("name")));
+        Assert.Equal(["ubuntu-latest", "windows-latest"], ((List<object>)Map(Map(Map(jobs["build"])["strategy"])["matrix"])["os"]).Cast<string>());
+        Assert.False(Map(jobs["package"]).ContainsKey("strategy"));
+    }
+
+    [Fact]
+    public void Nothing_trims_the_binaries()
+    {
+        string[] files = [".github/scripts/release-assets.sh", "src/PowerOps.Cli/PowerOps.Cli.csproj", "src/PowerOps.Core/PowerOps.Core.csproj", "Directory.Build.props", ".github/workflows/ci.yml", ".github/workflows/release.yml"];
+
+        Assert.All(files, f => Assert.DoesNotMatch("(?i)PublishTrimmed|TrimMode|PublishAot", File.ReadAllText(Path.Combine([Golden.RepoRoot, .. f.Split('/')]))));
     }
 
     private static Dictionary<string, string> Permissions(object job) =>
@@ -633,7 +762,52 @@ public sealed class WorkflowTests
         Warns("This clone has no tag PowerOps-v0.1.0", run);
     }
 
-    // ---- release-check.sh ----
+    // ---- the release assets: release-assets.sh, release-check.sh and the sample ----
+
+    // The files SHA256SUMS covers, in the order release.yml attaches them; SHA256SUMS is the fifth file.
+    private static readonly string[] ChecksummedAssets = ["PowerOps.1.2.3.nupkg", "powerops-linux-x64", "powerops-win-x64.exe", "powerops-sample.zip"];
+
+    private static string Sha256Line(string folder, string name) =>
+        Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(Path.Combine(folder, name)))) + "  " + name + "\n";
+
+    private static void WriteScript(string file, string text)
+    {
+        File.WriteAllText(file, text.Replace("\r\n", "\n") + "\n");
+        var posix = !OperatingSystem.IsWindows(); // lets the platform analyzer see the guard
+        if (posix)
+        {
+            File.SetUnixFileMode(file, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
+    private sealed record ScriptRun(int Exit, string Stdout, string[] Calls);
+
+    // Runs a script of .github/scripts in root, with root/bin (the stub dotnet) first on PATH.
+    private static ScriptRun RunScript(string root, string script, IEnumerable<string> args, IReadOnlyDictionary<string, string> env)
+    {
+        var start = new ProcessStartInfo(Tools.Bash) { WorkingDirectory = root, RedirectStandardOutput = true };
+        start.ArgumentList.Add(Path.Combine(Golden.RepoRoot, ".github", "scripts", script));
+        foreach (var arg in args)
+        {
+            start.ArgumentList.Add(arg);
+        }
+
+        start.Environment["PATH"] = Path.Combine(root, "bin") + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH");
+        start.Environment["STUB_DIR"] = root;
+        foreach (var (key, value) in env)
+        {
+            start.Environment[key] = value;
+        }
+
+        using var process = Process.Start(start)!;
+        var stdout = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+        var log = Path.Combine(root, "dotnet.log");
+        return new ScriptRun(process.ExitCode, stdout, File.Exists(log) ? File.ReadAllLines(log) : []);
+    }
+
+    private static void AssertOneErrorLine(string stdout) =>
+        Assert.Single(stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries), l => l.StartsWith("::error::", StringComparison.Ordinal));
 
     // The stub dotnet logs its arguments; a `tool install` makes <tool-path>/powerops, which prints STUB_PRINTED, unless STUB_INSTALL_EXIT is set.
     private const string InstallStub = """
@@ -649,54 +823,33 @@ public sealed class WorkflowTests
         chmod +x "$path/powerops"
         """;
 
-    private sealed record CheckRun(int Exit, string Stdout, string[] Calls, string? Sums, int SumsCheckExit);
+    private sealed record CheckRun(int Exit, string Stdout, string[] Calls, bool FolderUnchanged);
 
-    private static CheckRun ReleaseCheck(string version, string printed, bool package = true, string installExit = "0")
+    // A folder of the five release files for version 1.2.3; powerops-linux-x64 prints binaryPrinted. `arrange` changes it after SHA256SUMS is written.
+    private static CheckRun ReleaseCheck(string version, string printed, bool package = true, string installExit = "0", string? binaryPrinted = null, Action<string>? arrange = null)
     {
         Tools.Require("bash", "sha256sum");
         var root = Directory.CreateTempSubdirectory("powerops-release-check-").FullName;
         try
         {
-            var bin = Directory.CreateDirectory(Path.Combine(root, "bin")).FullName;
-            var stub = Path.Combine(bin, "dotnet");
-            File.WriteAllText(stub, InstallStub.Replace("\r\n", "\n") + "\n");
-            var posix = !OperatingSystem.IsWindows(); // lets the platform analyzer see the guard
-            if (posix)
-            {
-                File.SetUnixFileMode(stub, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            }
-
+            WriteScript(Path.Combine(Directory.CreateDirectory(Path.Combine(root, "bin")).FullName, "dotnet"), InstallStub);
             var folder = Directory.CreateDirectory(Path.Combine(root, "artifacts")).FullName;
-            if (package)
+            File.WriteAllText(Path.Combine(folder, "PowerOps.1.2.3.nupkg"), "the package");
+            WriteScript(Path.Combine(folder, "powerops-linux-x64"), $"#!/usr/bin/env bash\necho \"{binaryPrinted ?? printed}\"");
+            File.WriteAllText(Path.Combine(folder, "powerops-win-x64.exe"), "the exe");
+            File.WriteAllText(Path.Combine(folder, "powerops-sample.zip"), "the sample");
+            File.WriteAllText(Path.Combine(folder, "SHA256SUMS"), string.Concat(ChecksummedAssets.Select(a => Sha256Line(folder, a))));
+            if (!package)
             {
-                File.WriteAllText(Path.Combine(folder, "PowerOps.1.2.3.nupkg"), "the package");
+                File.Delete(Path.Combine(folder, "PowerOps.1.2.3.nupkg"));
             }
 
-            var start = new ProcessStartInfo(Tools.Bash) { WorkingDirectory = root, RedirectStandardOutput = true };
-            start.ArgumentList.Add(Path.Combine(Golden.RepoRoot, ".github", "scripts", "release-check.sh"));
-            start.ArgumentList.Add(version);
-            start.ArgumentList.Add("artifacts");
-            start.Environment["PATH"] = bin + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH");
-            start.Environment["STUB_DIR"] = root;
-            start.Environment["STUB_PRINTED"] = printed;
-            start.Environment["STUB_INSTALL_EXIT"] = installExit;
-            using var process = Process.Start(start)!;
-            var stdout = process.StandardOutput.ReadToEnd();
-            process.WaitForExit();
+            arrange?.Invoke(folder);
+            string Snapshot() => string.Join("\n", Directory.GetFiles(folder).Order(StringComparer.Ordinal).Select(f => Path.GetFileName(f) + " " + Sha256Line(folder, Path.GetFileName(f))));
+            var before = Snapshot();
 
-            var sums = Path.Combine(folder, "SHA256SUMS");
-            var check = new ProcessStartInfo("sha256sum") { WorkingDirectory = folder, RedirectStandardOutput = true, ArgumentList = { "-c", "SHA256SUMS" } };
-            var sumsCheck = -1;
-            if (File.Exists(sums))
-            {
-                using var verify = Process.Start(check)!;
-                verify.StandardOutput.ReadToEnd();
-                verify.WaitForExit();
-                sumsCheck = verify.ExitCode;
-            }
-
-            var log = Path.Combine(root, "dotnet.log");
-            return new CheckRun(process.ExitCode, stdout, File.Exists(log) ? File.ReadAllLines(log) : [], File.Exists(sums) ? File.ReadAllText(sums) : null, sumsCheck);
+            var run = RunScript(root, "release-check.sh", [version, "artifacts"], new Dictionary<string, string> { ["STUB_PRINTED"] = printed, ["STUB_INSTALL_EXIT"] = installExit });
+            return new CheckRun(run.Exit, run.Stdout, run.Calls, Snapshot() == before);
         }
         finally
         {
@@ -705,7 +858,7 @@ public sealed class WorkflowTests
     }
 
     [Fact]
-    public void The_release_check_installs_the_package_alone_and_writes_a_SHA256SUMS_that_checks()
+    public void The_release_check_passes_the_five_files_installs_the_package_alone_and_writes_nothing()
     {
         var run = ReleaseCheck("1.2.3", "1.2.3");
 
@@ -713,8 +866,7 @@ public sealed class WorkflowTests
         Assert.Equal("", run.Stdout);
         var call = Assert.Single(run.Calls);
         Assert.Matches(@"^tool install --tool-path \S+ --source artifacts PowerOps --version 1\.2\.3$", call);
-        Assert.EndsWith("  PowerOps.1.2.3.nupkg\n", run.Sums);
-        Assert.Equal(0, run.SumsCheckExit);
+        Assert.True(run.FolderUnchanged);
     }
 
     [Theory]
@@ -725,13 +877,221 @@ public sealed class WorkflowTests
     [InlineData("1.2.3", "1.2.3", true, "1")] // the install fails
     [InlineData("1.2.3", "1.2.4", true, "0")] // the tool prints another version
     [InlineData("1.2.3", "1.2.3+4a5b6c7d", true, "0")] // or the version with a commit
-    public void The_release_check_refuses_with_one_error_line_and_writes_no_SHA256SUMS(string version, string printed, bool package, string installExit)
+    public void The_release_check_refuses_a_bad_version_or_package_with_one_error_line(string version, string printed, bool package, string installExit)
     {
         var run = ReleaseCheck(version, printed, package, installExit);
 
         Assert.Equal(1, run.Exit);
-        Assert.StartsWith("::error::", run.Stdout);
-        Assert.Single(run.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries));
+        AssertOneErrorLine(run.Stdout);
+        Assert.True(run.FolderUnchanged);
+    }
+
+    public static TheoryData<string> AssetProblems => ["missing", "extra", "tampered", "unlisted", "binary-version", "binary-commit"];
+
+    [Theory]
+    [MemberData(nameof(AssetProblems))]
+    public void The_release_check_refuses_a_missing_extra_or_changed_file_and_a_binary_of_another_version(string problem)
+    {
+        Action<string>? arrange = problem switch
+        {
+            "missing" => f => File.Delete(Path.Combine(f, "powerops-win-x64.exe")),
+            "extra" => f => File.WriteAllText(Path.Combine(f, "notes.txt"), "x"),
+            "tampered" => f => File.WriteAllText(Path.Combine(f, "powerops-sample.zip"), "another sample"),
+            "unlisted" => f => File.WriteAllText(Path.Combine(f, "SHA256SUMS"), string.Concat(ChecksummedAssets.SkipLast(1).Select(a => Sha256Line(f, a)))),
+            _ => null,
+        };
+        var binary = problem switch { "binary-version" => "1.2.4", "binary-commit" => "1.2.3+4a5b6c7d", _ => null };
+
+        var run = ReleaseCheck("1.2.3", "1.2.3", binaryPrinted: binary, arrange: arrange);
+
+        Assert.Equal(1, run.Exit);
+        AssertOneErrorLine(run.Stdout);
+        Assert.True(run.FolderUnchanged);
+    }
+
+    // The stub dotnet for release-assets.sh logs its arguments. `restore` writes each project's lock at -p:NuGetLockFilePath: the committed lock
+    // plus an empty section for the runtime, unless STUB_LOCK (differ, runtime) is set for the runtime STUB_LOCK_RID. `publish` writes the
+    // executable and a .pdb into -o, and the build's runtimeconfig.json naming runtime STUB_RUNTIME.
+    private const string AssetsStub = """
+        #!/usr/bin/env bash
+        echo "$*" >> "$STUB_DIR/dotnet.log"
+        cmd="$1"; shift
+        while [ $# -gt 0 ]; do
+          case "$1" in
+            -r) rid="$2"; shift ;;
+            -o) out="$2"; shift ;;
+            -p:NuGetLockFilePath=*) lock="${1#-p:NuGetLockFilePath=}" ;;
+          esac
+          shift
+        done
+        if [ "$cmd" = restore ]; then
+          mode=same
+          if [ "$rid" = "${STUB_LOCK_RID:-}" ]; then mode="$STUB_LOCK"; fi
+          for p in src/PowerOps.Cli src/PowerOps.Core; do
+            mkdir -p "$(dirname "$p/$lock")"
+            case "$mode" in
+              same) jq --arg r "net10.0/$rid" '.dependencies[$r] = {}' "$p/packages.lock.json" ;;
+              differ) jq --arg r "net10.0/$rid" '.dependencies[$r] = {} | .dependencies["net10.0"].Extra = {"type": "Transitive", "resolved": "1.0.0"}' "$p/packages.lock.json" ;;
+              runtime) jq --arg r "net10.0/$rid" '.dependencies[$r] = {"runtime.extra": {"type": "Transitive", "resolved": "1.0.0"}}' "$p/packages.lock.json" ;;
+            esac > "$p/$lock"
+          done
+          exit 0
+        fi
+        bin="src/PowerOps.Cli/bin/Release/net10.0/$rid"
+        mkdir -p "$out" "$bin"
+        if [ "$rid" = win-x64 ]; then exe=powerops.exe; else exe=powerops; fi
+        echo "binary $rid" > "$out/$exe"
+        echo "symbols" > "$out/powerops.pdb"
+        printf '{"runtimeOptions":{"includedFrameworks":[{"name":"Microsoft.NETCore.App","version":"%s"}]}}' "${STUB_RUNTIME-10.0.14}" > "$bin/powerops.runtimeconfig.json"
+        """;
+
+    private sealed record AssetsRun(int Exit, string Stdout, string[] Calls, string[] Files, string? Sums, int SumsCheckExit, string[] ZipEntries, string? ZipReadme);
+
+    private static void CopyTree(string from, string to)
+    {
+        foreach (var file in Directory.GetFiles(from, "*", SearchOption.AllDirectories))
+        {
+            var target = Path.Combine(to, Path.GetRelativePath(from, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target);
+        }
+    }
+
+    // A temp root with the lock files, the two fixtures and the sample README; artifacts/ holds PowerOps.1.2.3.nupkg unless arrange changes it.
+    private static AssetsRun ReleaseAssets(IReadOnlyDictionary<string, string>? env = null, Action<string>? arrange = null)
+    {
+        Tools.Require("bash", "sha256sum", "jq", "zip");
+        var root = Directory.CreateTempSubdirectory("powerops-release-assets-").FullName;
+        try
+        {
+            WriteScript(Path.Combine(Directory.CreateDirectory(Path.Combine(root, "bin")).FullName, "dotnet"), AssetsStub);
+            foreach (var project in new[] { "PowerOps.Cli", "PowerOps.Core" })
+            {
+                Directory.CreateDirectory(Path.Combine(root, "src", project));
+                File.Copy(Path.Combine(Golden.RepoRoot, "src", project, "packages.lock.json"), Path.Combine(root, "src", project, "packages.lock.json"));
+            }
+
+            CopyTree(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "powerops-seed", "v2"), Path.Combine(root, "tests", "fixtures", "powerops-seed", "v2"));
+            CopyTree(Path.Combine(Golden.RepoRoot, "tests", "fixtures", "flowtests", "seed"), Path.Combine(root, "tests", "fixtures", "flowtests", "seed"));
+            Directory.CreateDirectory(Path.Combine(root, ".github", "scripts"));
+            File.Copy(Path.Combine(Golden.RepoRoot, ".github", "scripts", "sample-README.md"), Path.Combine(root, ".github", "scripts", "sample-README.md"));
+            var folder = Directory.CreateDirectory(Path.Combine(root, "artifacts")).FullName;
+            File.WriteAllText(Path.Combine(folder, "PowerOps.1.2.3.nupkg"), "the package");
+            arrange?.Invoke(folder);
+
+            var run = RunScript(root, "release-assets.sh", ["artifacts", "-p:Extra=1"], env ?? new Dictionary<string, string>());
+
+            var sums = Path.Combine(folder, "SHA256SUMS");
+            var sumsCheck = -1;
+            if (File.Exists(sums))
+            {
+                using var verify = Process.Start(new ProcessStartInfo("sha256sum") { WorkingDirectory = folder, RedirectStandardOutput = true, ArgumentList = { "-c", "SHA256SUMS" } })!;
+                verify.StandardOutput.ReadToEnd();
+                verify.WaitForExit();
+                sumsCheck = verify.ExitCode;
+            }
+
+            var zip = Path.Combine(folder, "powerops-sample.zip");
+            string[] entries = [];
+            string? readme = null;
+            if (File.Exists(zip))
+            {
+                using var archive = System.IO.Compression.ZipFile.OpenRead(zip);
+                entries = [.. archive.Entries.Select(e => e.FullName)];
+                using var reader = new StreamReader(archive.GetEntry("powerops-sample/README.md")!.Open());
+                readme = reader.ReadToEnd();
+            }
+
+            return new AssetsRun(run.Exit, run.Stdout, run.Calls, [.. Directory.GetFiles(folder).Select(f => Path.GetFileName(f)!).Order(StringComparer.Ordinal)],
+                File.Exists(sums) ? File.ReadAllText(sums) : null, sumsCheck, entries, readme);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static string ProjectArgs(string rid) => $"-p:PublishSingleFile=true -p:EnableSingleFileAnalyzer=false -p:NuGetLockFilePath=obj/{rid}.lock.json";
+
+    [Fact]
+    public void Release_assets_restores_checks_the_lock_then_publishes_both_binaries_untrimmed_and_sums_exactly_the_four_files()
+    {
+        var run = ReleaseAssets();
+
+        Assert.Equal(0, run.Exit);
+        Assert.Collection(
+            run.Calls,
+            c => Assert.Equal($"restore src/PowerOps.Cli -r linux-x64 -p:SelfContained=true {ProjectArgs("linux-x64")}", c),
+            c => Assert.Matches($@"^publish src/PowerOps\.Cli -c Release -r linux-x64 --self-contained --no-restore {Regex.Escape(ProjectArgs("linux-x64"))} -o \S+/linux-x64 -p:Extra=1$", c),
+            c => Assert.Equal($"restore src/PowerOps.Cli -r win-x64 -p:SelfContained=true {ProjectArgs("win-x64")}", c),
+            c => Assert.Matches($@"^publish src/PowerOps\.Cli -c Release -r win-x64 --self-contained --no-restore {Regex.Escape(ProjectArgs("win-x64"))} -o \S+/win-x64 -p:Extra=1$", c));
+        Assert.DoesNotContain(run.Calls, c => c.Contains("Trim", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(["linux-x64 bundles Microsoft.NETCore.App 10.0.14", "win-x64 bundles Microsoft.NETCore.App 10.0.14"], run.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries));
+
+        Assert.Equal([.. ChecksummedAssets.Append("SHA256SUMS").Order(StringComparer.Ordinal)], run.Files);
+        Assert.Equal(ChecksummedAssets, run.Sums!.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l[66..]));
+        Assert.Equal(0, run.SumsCheckExit);
+
+        var fixtures = Path.Combine(Golden.RepoRoot, "tests", "fixtures");
+        var expected = Directory.GetFiles(Path.Combine(fixtures, "powerops-seed", "v2"), "*", SearchOption.AllDirectories)
+            .Select(f => "powerops-sample/solution/" + Path.GetRelativePath(Path.Combine(fixtures, "powerops-seed", "v2"), f).Replace('\\', '/'))
+            .Concat(Directory.GetFiles(Path.Combine(fixtures, "flowtests", "seed")).Select(f => "powerops-sample/tests/" + Path.GetFileName(f)))
+            .Append("powerops-sample/README.md")
+            .Order(StringComparer.Ordinal);
+        Assert.Equal(expected, run.ZipEntries.Where(e => !e.EndsWith('/')).Order(StringComparer.Ordinal));
+        Assert.All(run.ZipEntries, e => Assert.StartsWith("powerops-sample/", e, StringComparison.Ordinal));
+        Assert.Equal(File.ReadAllText(Path.Combine(Golden.RepoRoot, ".github", "scripts", "sample-README.md")), run.ZipReadme);
+    }
+
+    public static TheoryData<string> AssetsRefusals => ["no-package", "two-packages", "lock-differs", "runtime-section", "no-runtime-version"];
+
+    [Theory]
+    [MemberData(nameof(AssetsRefusals))]
+    public void Release_assets_refuses_with_one_error_line_and_writes_no_SHA256SUMS(string problem)
+    {
+        var env = problem switch
+        {
+            "lock-differs" => new Dictionary<string, string> { ["STUB_LOCK"] = "differ", ["STUB_LOCK_RID"] = "win-x64" },
+            "runtime-section" => new Dictionary<string, string> { ["STUB_LOCK"] = "runtime", ["STUB_LOCK_RID"] = "linux-x64" },
+            "no-runtime-version" => new Dictionary<string, string> { ["STUB_RUNTIME"] = "" },
+            _ => new Dictionary<string, string>(),
+        };
+        Action<string>? arrange = problem switch
+        {
+            "no-package" => f => File.Delete(Path.Combine(f, "PowerOps.1.2.3.nupkg")),
+            "two-packages" => f => File.WriteAllText(Path.Combine(f, "PowerOps.1.2.4.nupkg"), "another package"),
+            _ => null,
+        };
+
+        var run = ReleaseAssets(env, arrange);
+
+        Assert.Equal(1, run.Exit);
+        AssertOneErrorLine(run.Stdout);
         Assert.Null(run.Sums);
+        // The lock is checked before that runtime is published.
+        if (env.TryGetValue("STUB_LOCK_RID", out var rid))
+        {
+            Assert.DoesNotContain(run.Calls, c => c.StartsWith("publish", StringComparison.Ordinal) && c.Contains($"-r {rid} ", StringComparison.Ordinal));
+        }
+    }
+
+    [Fact]
+    public void The_sample_readme_names_the_result_that_analyze_and_test_give_on_its_files()
+    {
+        var readme = File.ReadAllText(Path.Combine(Golden.RepoRoot, ".github", "scripts", "sample-README.md"));
+        var fixtures = Path.Combine(Golden.RepoRoot, "tests", "fixtures");
+        var solution = Path.Combine(fixtures, "powerops-seed", "v2");
+        static string LastLine(params string[] args)
+        {
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            Assert.Equal(0, Program.Run(args, output, error));
+            return output.ToString().ReplaceLineEndings("\n").TrimEnd().Split('\n')[^1];
+        }
+
+        Assert.Contains($"`{LastLine("analyze", solution)}`", readme);
+        Assert.Contains($"`{LastLine("test", solution, "--tests", Path.Combine(fixtures, "flowtests", "seed"))}`", readme);
+        Assert.Contains("PO005", readme);
+        Assert.Contains("PO006", readme);
     }
 }

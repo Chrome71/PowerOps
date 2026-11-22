@@ -59,6 +59,37 @@ jobs:
           dotnet tool install --tool-path ./tool --source ./artifacts PowerOps --prerelease
           ./tool/powerops --version
           ./tool/powerops analyze tests/fixtures --fail-on none
+      - name: Build the binaries and the sample
+        run: bash .github/scripts/release-assets.sh artifacts
+      - name: Run the Linux binary
+        run: |
+          ./artifacts/powerops-linux-x64 --version
+          unzip -q artifacts/powerops-sample.zip -d sample
+          ./artifacts/powerops-linux-x64 analyze sample/powerops-sample/solution --fail-on none
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-assets
+          path: artifacts
+          if-no-files-found: error
+          retention-days: 1
+
+  # Runs the Windows binary the package job built, as release.yml does before a release. Not a required check.
+  windows-binary:
+    needs: package
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets
+      # Git Bash; the exe ends its lines with \r\n. A build that is not a release prints its version and commit.
+      - name: Run the Windows binary
+        shell: bash
+        run: |
+          printed="$(./powerops-win-x64.exe --version | tr -d '\r')"
+          [[ "$printed" =~ ^[0-9]+\.[0-9]+\.[0-9]+\+[0-9a-f]{40}$ ]] || { echo "::error::powerops-win-x64.exe prints $printed"; exit 1; }
+          unzip -q powerops-sample.zip -d sample
+          ./powerops-win-x64.exe analyze sample/powerops-sample/solution --fail-on none
 
   action:
     runs-on: ubuntu-latest
