@@ -5,6 +5,7 @@ Every `powerops` command with its options, output and exit codes. Install PowerO
 ## Usage
 
 ```sh
+powerops doctor                       # check this machine, offline: the powerops version, pac and az on PATH, the Claude Code plugins (--live adds the sign-ins and licence names)
 powerops analyze                      # find solutions under . (unpacked XML folders and exported .zip files)
 powerops analyze path/to/solution.zip path/to/unpacked --format json --out report.json
 powerops analyze path/to/solution.zip --show-values   # the same findings, with the URLs in them and on stderr printed, not replaced by [redacted URL]
@@ -78,6 +79,66 @@ With `--show-values`, `diff` prints an environment variable's `defaultValue` bef
 No other command has either option. The MCP `analyze` and `diff` tools always replace them.
 A baseline file and the MCP `baseline` tool keep the URLs, because a baseline must match the unredacted findings, so treat a committed baseline file as holding the URLs its findings name.
 In a public repository, treat what the Action writes as public ([Public outputs](GITHUB-ACTION.md#public-outputs)).
+
+## doctor
+
+### Synopsis
+
+```sh
+powerops doctor                       # offline: the powerops version, pac and az on PATH, the PowerOps and Microsoft plugins installed in Claude Code
+powerops doctor --live                # the same, then the pac and az sign-ins and the names of the signed-in account's licences (reads only)
+powerops doctor --format json         # the same checks as JSON
+```
+
+### Options
+
+- `--live`: after the offline checks, run the three calls below. Without it nothing reads a tenant.
+- `--format text|json` (default `text`).
+
+### What it does
+
+Plain `doctor` starts no process and opens no connection.
+It prints the `powerops` version (as `--version` does), whether `pac` and `az` (`az.cmd` on Windows) are on PATH, found by the lookup the `pac` and `az` calls use (absolute PATH entries only), and which plugins Claude Code has installed.
+It reads Claude Code's plugin record, `installed_plugins.json` in its plugins folder: `CLAUDE_CODE_PLUGIN_CACHE_DIR` when that is set, else `plugins` in `CLAUDE_CONFIG_DIR`, else `~/.claude/plugins`; a variable set only in a Claude Code settings `env` block is not seen.
+The PowerOps plugin is `powerops@powerops`; Microsoft's plugins are those from the marketplaces `power-platform-skills`, `dataverse-skills`, `skills-for-copilot-studio` and `fabric-collection`, printed with their marketplace, because two of them have a plugin called `dataverse`.
+The record says what is installed, not what is turned on or for which project: a plugin turned off, or installed for another folder only, still shows as installed.
+Claude Code documents where the file is and what each install records, not the file's whole shape (the one read was seen with Claude Code 2.1.326), so a record of another shape, over 1 MB, or unreadable shows `not read`, never `not installed`.
+Codex's plugins are not read.
+
+`doctor --live` then runs, 30 seconds each, with fixed arguments:
+
+1. `pac org who`, for the environment `pac` is signed in to; only its `Friendly Name:` line is kept, as `plan facts` does.
+2. `az account show -o none`, which prints nothing. It passes when an account is selected, which doesn't prove a token can be issued: in one Windows run it passed while `drift` and `deploy plan` got no token. So the line says `an account is selected (no token requested)`, and the licence read is the first token request.
+3. Only when step 2 passed, the planning skill's licence read of the signed-in account's own licences: `az rest --method get --url https://graph.microsoft.com/v1.0/me/licenseDetails --query value[].skuPartNumber -o tsv`.
+   Each line it prints is a part number, mapped to a product by section 3 of the planning skill's [`licensing.md`](../skills/powerops-plan/references/licensing.md), read from the copy inside PowerOps. Only product names are printed, with a count of part numbers the table doesn't list (a bundle such as Microsoft 365 E3 is not in it).
+   An error, a timeout, an empty list or a line with a control character prints only `the licence read failed`, as `not read`: Microsoft Graph may refuse the read for an account with no directory role, which is the planning skill's case for asking instead.
+
+The `pac` line and the `az` lines can be different accounts: each tool has its own sign-in.
+`doctor` never prints an account, a tenant, a URL, an account, tenant or environment id, a part number, or anything a failed call printed.
+It doesn't read the environment's type (`environment type: not read`): Dataverse's `RetrieveCurrentOrganization` returns an `OrganizationType`, but Learn's sample leaves it out and no page maps its values to environment types.
+It lists no other environment, reads no other person's licences, and writes nothing.
+The live path has been tested only against fake `pac` and `az`; it has not been run against a tenant.
+
+### Output
+
+One line per check: the check, its status and, after ` - `, a detail: the version, the environment's name, product names, or for any other status, what it blocks and what to do.
+The checks, in order: powerops, pac, az, powerops plugin, Microsoft plugins, and with `--live` pac sign-in, az sign-in, licences and environment type.
+A status is `ok`, `missing`, `not installed`, `failed` or `not read`.
+Without `--live` the last line says what was not checked.
+
+The JSON ([schema](schemas/doctor.schema.json)) has `schemaVersion`, `live` and `checks`, each with `id` (`powerops`, `pac`, `az`, `powerops-plugin`, `microsoft-plugins`, `pac-sign-in`, `az-sign-in`, `licences`, `environment-type`), `status` (`ok`, `missing`, `not-installed`, `failed`, `not-read`) and `detail`.
+
+### Exit codes
+
+`0` when no check is `missing` or `failed`; `1` when one is (`pac` or `az` not on PATH, a failed sign-in); `2` usage error; `3` internal error.
+`not installed` and `not read` never change the exit code, a failed licence read included.
+`1` doesn't mean PowerOps can't run: the commands that work on files need neither `pac` nor `az`, so read the lines, not only the exit code.
+
+### Agents
+
+An agent runs plain `doctor` freely.
+It runs `doctor --live` only under the planning skill's condition for the licence read: the person named the environment and said `az` is signed in, and, as for `plan facts`, the environment `pac` is signed in to is the one they named.
+Without that, the skill's fallback question stands.
 
 ## analyze and baseline
 
