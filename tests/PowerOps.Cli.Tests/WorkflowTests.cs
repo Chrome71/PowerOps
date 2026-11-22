@@ -1566,14 +1566,19 @@ public sealed class WorkflowTests
         }
     }
 
-    // A submodule entry, staged by hand; its commit need not exist.
-    private static GuardRun Submodule(string path, bool tierL)
+    // A submodule entry, staged by hand; its commit need not exist. ignoreAll sets the repository's diff.ignoreSubmodules to all.
+    private static GuardRun Submodule(string path, bool tierL, bool ignoreAll = false)
     {
         var (repo, @base, _) = Change(_ => { });
         using (repo)
         {
             repo.Run("update-index", "--add", "--cacheinfo", $"160000,{OtherSha},{path}");
             var head = repo.Commit("submodule", stage: false);
+            if (ignoreAll)
+            {
+                repo.Run("config", "diff.ignoreSubmodules", "all");
+            }
+
             return Offline(repo, PrJson(tierL, head, @base), head, @base);
         }
     }
@@ -1590,6 +1595,57 @@ public sealed class WorkflowTests
         }
 
         Passes(Submodule("src/vendor", tierL: false));
+    }
+
+    [Fact]
+    public void The_protected_paths_script_sees_a_submodule_in_docs_when_the_repository_ignores_submodules_in_diffs()
+    {
+        var run = Submodule("docs/vendor", tierL: true, ignoreAll: true);
+
+        FailsInEveryTier(run, "docs/vendor");
+        Assert.Contains("  cannot scan: docs/vendor\n", run.Stdout);
+    }
+
+    [Fact]
+    public void The_protected_paths_script_reads_a_committed_blob_and_not_a_local_replacement_of_it()
+    {
+        var (repo, @base, head) = Change(r => r.Write("docs/notes.md", "see /home/someone/x\n"));
+        using (repo)
+        {
+            var leaky = repo.Run("rev-parse", head + ":docs/notes.md");
+            File.WriteAllText(Path.Combine(repo.Root, "clean.md"), "clean\n");
+            var clean = repo.Run("hash-object", "-w", Path.Combine(repo.Root, "clean.md"));
+            repo.Run("replace", leaky, clean);
+            Assert.Equal("clean", repo.Run("cat-file", "blob", leaky)); // git reads the replacement by default
+
+            FailsInEveryTier(Offline(repo, PrJson(true, head, @base), head, @base), "docs/notes.md");
+        }
+    }
+
+    [Fact]
+    public void The_protected_paths_script_fetches_no_missing_blob_of_a_partial_clone_offline()
+    {
+        // A clean new doc, so only a fetch of its blob could pass the check.
+        var (repo, @base, head) = Change(r => r.Write("docs/new.md", "clean\n"));
+        using (repo)
+        {
+            var blob = repo.Run("rev-parse", head + ":docs/new.md");
+            var origin = Path.Combine(repo.Root, "origin.git");
+            var partial = Path.Combine(repo.Root, "partial");
+            Git(repo.Root, "clone", "-q", "--bare", repo.Dir, origin);
+            Git(origin, "config", "uploadpack.allowFilter", "true");
+            // A working origin, so the check would pass if it fetched the blob.
+            Git(repo.Root, "clone", "-q", "--no-local", "--no-checkout", "--filter=blob:none", new Uri(origin).AbsoluteUri, partial);
+            Assert.Equal("true", Git(partial, "config", "remote.origin.promisor"));
+            bool Missing() => Git(partial, "rev-list", "--objects", "--missing=print", head).Split('\n').Contains("?" + blob);
+            Assert.True(Missing());
+
+            var run = Offline(repo, PrJson(false, head, @base), head, @base, repoDir: partial);
+
+            Fails(run);
+            Assert.Contains("cannot read a changed file's content", run.Stdout);
+            Assert.True(Missing());
+        }
     }
 
     [Theory]
@@ -1824,12 +1880,15 @@ public sealed class WorkflowTests
         }
     }
 
-    // Answers the events call with every events-*.json in order, and the n-th pull request read with pr-n.json.
+    // Answers the events call with every events-*.json in order (or with late-n.json when it exists and the pull request has been
+    // read n times), and the n-th pull request read with pr-n.json.
     private const string LiveGh = """
         #!/usr/bin/env bash
         { printf '[%s]' "$@"; echo; } >> "$STUB_DIR/gh.log"
         case "$*" in
-          *"/events?per_page=100") cat "$STUB_DIR"/events-*.json ;;
+          *"/events?per_page=100")
+            r=$(cat "$STUB_DIR/reads" 2>/dev/null || echo 0)
+            if [ -f "$STUB_DIR/late-$r.json" ]; then cat "$STUB_DIR/late-$r.json"; else cat "$STUB_DIR"/events-*.json; fi ;;
           *) n=$(( $(cat "$STUB_DIR/reads" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$STUB_DIR/reads"; cat "$STUB_DIR/pr-$n.json" ;;
         esac
         """;
@@ -1855,10 +1914,11 @@ public sealed class WorkflowTests
 
     // A bare origin whose refs/pull/7/head is the pull request's commit (or, force pushed, another one) and whose main moved on after
     // the checkout. The check runs live in a clone of main that has neither the head nor the new base. The issue events are two pages:
-    // someone else's documentation label, then `lastLabeler`'s tier-L.
+    // someone else's documentation label, then `lastLabeler`'s tier-L; `lateEvents`, when given, is what the events read returns once
+    // the pull request has been read twice.
     private static LiveRun Live(bool tierL, bool guarded = true, string? firstHead = null, string? secondHead = null, string? eventHead = null,
         string firstBaseRef = "main", string eventBaseRef = "main", string? secondBase = null, string? eventBase = null, bool? secondTierL = null,
-        string lastLabeler = Owner, string owner = Owner, bool forcePushed = false)
+        string lastLabeler = Owner, string owner = Owner, bool forcePushed = false, string? lateEvents = null)
     {
         using var repo = new GuardRepo();
         repo.Run("checkout", "-q", "-b", "pr");
@@ -1881,6 +1941,10 @@ public sealed class WorkflowTests
         File.WriteAllText(Path.Combine(repo.Root, "pr-2.json"), PrJson(secondTierL ?? tierL, secondHead ?? head, secondBase ?? @base));
         File.WriteAllText(Path.Combine(repo.Root, "events-1.json"), Events(("labeled", "documentation", "someone-else")));
         File.WriteAllText(Path.Combine(repo.Root, "events-2.json"), Events(("labeled", "tier-L", lastLabeler)));
+        if (lateEvents is not null)
+        {
+            File.WriteAllText(Path.Combine(repo.Root, "late-2.json"), lateEvents);
+        }
 
         var run = Guard(repo.Root, work, [], new Dictionary<string, string>
         {
@@ -1907,8 +1971,8 @@ public sealed class WorkflowTests
         Passes(with.Run);
         // main's later commit is not the pull request's.
         Assert.Contains("1 changed file(s), 1 protected path(s), tier-L label: yes", with.Run.Stdout);
-        // The events are read only for a pull request with the label, between the two reads of it.
-        Assert.Equal([PrCall, EventsCall, PrCall], with.Run.GhCalls);
+        // The events are read only for a pull request with the label, after both reads of it: the last word on who applied it.
+        Assert.Equal([PrCall, PrCall, EventsCall], with.Run.GhCalls);
         Assert.All(new[] { without, with }, r => Assert.True(r.StaysOnMain && r.Fetched));
         Passes(Live(tierL: false, guarded: false).Run);
     }
@@ -1941,8 +2005,21 @@ public sealed class WorkflowTests
         var triager = Live(tierL: true, lastLabeler: "triager");
 
         Fails(triager.Run);
-        Assert.Equal([PrCall, EventsCall], triager.Run.GhCalls);
+        Assert.Equal([PrCall, PrCall, EventsCall], triager.Run.GhCalls);
         Fails(Live(tierL: true, owner: "").Run);
         Passes(Live(tierL: true, owner: "Repo-Owner").Run);
+    }
+
+    [Fact]
+    public void The_protected_paths_script_fails_live_on_a_tier_L_someone_else_removed_and_applied_again_during_the_run()
+    {
+        // The label is there on both reads, but after the second one the events end with a triager's removal and labeled event.
+        var reapplied = Live(tierL: true, secondTierL: true, lateEvents: Events(("labeled", "documentation", "someone-else"), ("labeled", "tier-L", Owner),
+            ("unlabeled", "tier-L", "triager"), ("labeled", "tier-L", "triager")));
+
+        Fails(reapplied.Run);
+        Assert.Contains("the tier-L label was not applied by the owner", reapplied.Run.Stdout);
+        Assert.DoesNotContain("triager", reapplied.Run.Stdout);
+        Assert.Equal([PrCall, PrCall, EventsCall], reapplied.Run.GhCalls);
     }
 }

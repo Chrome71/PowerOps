@@ -15,8 +15,8 @@
 #   pull request. Commits are immutable, so no cut list, missing patch or later push changes what was read. No merge base fails, and
 #   so do two or more (a criss-cross merge), whose diff is ambiguous.
 # Rule 1: a change to a protected path, by its name or by the old name of a rename, needs the label tier-L (AGENTS.md, "Change tiers").
-#   The label counts only when the pull request has it on both reads and the latest labeled or unlabeled event of tier-L is the
-#   owner's labeled event; a label someone else applied, or applied again after the owner, fails the check, whatever the files.
+#   The label counts only when the pull request has it on both reads and the latest labeled or unlabeled event of tier-L, read after
+#   both, is the owner's labeled event; a label someone else applied, or applied again after the owner, fails the check, whatever the files.
 # Rule 2: a line the change adds to a file under docs/ or skills/, to README.md, or to a file named docs or skills, may not hold
 #   /home/ or file://. A new file, a file renamed in from an unscanned path and a binary file are scanned whole; a submodule there, or
 #   a diff whose added lines differ from git's count, cannot be scanned and fails. tier-L lifts neither.
@@ -24,6 +24,8 @@
 # Pull request text is untrusted: the output holds only this script's own words, counts, and file names cut to [A-Za-z0-9._/@+-].
 set -euo pipefail
 export LC_ALL=C
+# Git reads each object as committed: no local refs/replace substitutes other bytes for a sha.
+export GIT_NO_REPLACE_OBJECTS=1
 
 usage() {
   echo "usage: protected-paths.sh [--repo <dir> --pr-json <file> --expected-head-sha <sha> --expected-base-ref <ref>" \
@@ -98,10 +100,11 @@ check_pr() {
 }
 check_pr pr.json
 
-# Git runs with no hooks, no fsmonitor and no submodules, and never checks a commit out.
+# Git runs with no hooks, no fsmonitor and no submodules, and never checks a commit out. A diff never hides a submodule.
 git_safe=(git -C "$repo" -c core.hooksPath=/dev/null -c core.fsmonitor=false -c submodule.recurse=false -c core.quotepath=false
-  -c diff.renames=true -c diff.mnemonicPrefix=false -c color.ui=false)
-g() { "${git_safe[@]}" "$@"; }
+  -c diff.renames=true -c diff.mnemonicPrefix=false -c color.ui=false -c diff.ignoreSubmodules=none)
+# g never fetches: a partial clone's missing object fails the read. Only fetch, in the live mode, reaches origin.
+g() { GIT_NO_LAZY_FETCH=1 "${git_safe[@]}" "$@"; }
 has_commit() { g cat-file -e "$1^{commit}" 2> /dev/null; }
 
 g rev-parse --git-dir > /dev/null 2>&1 || fail "the repository is not a git repository"
@@ -195,7 +198,7 @@ scan_diff() {
   esac
 }
 
-g diff --no-ext-diff --no-textconv --no-color --no-abbrev --raw -z -M "$merge_base" "$expected" > "$tmp/raw" 2> /dev/null \
+g diff --no-ext-diff --no-textconv --no-color --ignore-submodules=none --no-abbrev --raw -z -M "$merge_base" "$expected" > "$tmp/raw" 2> /dev/null \
   || fail "cannot diff the base and head commits"
 
 # Each record is ":oldmode newmode oldoid newoid status", NUL, its path, NUL, and for a rename or copy its new path, NUL.
@@ -234,9 +237,22 @@ leaks="$(list leak)"
 
 has_tier_l() { jq -e 'any(.labels[]; .name == "tier-L")' "$tmp/$1" > /dev/null 2>&1; }
 
-# The label counts only when the owner applied it last: anyone with triage access can apply a label.
+# The second read: the head, the base and the label must not have moved while the commits were read.
+if [ "$offline" = 1 ]; then
+  cp "$tmp/pr.json" "$tmp/pr-after.json"
+else
+  gh api "$api" > "$tmp/pr-after.json" || fail "cannot read the pull request"
+fi
+check_pr pr-after.json
+before=no after=no
+! has_tier_l pr.json || before=yes
+! has_tier_l pr-after.json || after=yes
+[ "$after" = "$before" ] || fail "the tier-L label changed during the run; the label event runs the check again"
+
+# The label counts only when the owner applied it last: anyone with triage access can apply a label. The events are read last, after
+# both reads of the pull request, so a removal and a new labeled event by someone else during the run is the latest event here.
 labelled=no
-if has_tier_l pr.json; then
+if [ "$after" = yes ]; then
   [[ "$owner" =~ ^[A-Za-z0-9-]+$ ]] || fail "the pull request has the tier-L label and no owner login to check who applied it"
   if [ "$offline" = 1 ]; then
     [ -n "$events_arg" ] && [ -f "$events_arg" ] && [ -r "$events_arg" ] \
@@ -261,17 +277,6 @@ if has_tier_l pr.json; then
     fail "the tier-L label was not applied by the owner, or someone applied it again after the owner; only the owner applies it"
   fi
 fi
-
-# The second read: the head, the base and the label must not have moved while the commits were read.
-if [ "$offline" = 1 ]; then
-  cp "$tmp/pr.json" "$tmp/pr-after.json"
-else
-  gh api "$api" > "$tmp/pr-after.json" || fail "cannot read the pull request"
-fi
-check_pr pr-after.json
-after=no
-! has_tier_l pr-after.json || after=yes
-[ "$after" = "$labelled" ] || fail "the tier-L label changed during the run; the label event runs the check again"
 
 status=0
 if [ -n "$leaks" ]; then
