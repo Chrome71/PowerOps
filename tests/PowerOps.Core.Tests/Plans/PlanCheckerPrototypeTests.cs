@@ -10,6 +10,14 @@ namespace PowerOps.Core.Tests.Plans;
 public class PlanCheckerPrototypeTests : IDisposable
 {
     private const string Approved = "- prototype: approved mockups/prototype.html (option a: fewest steps for Goal line 1) (answered by: person)";
+
+    // M124 row 3: an approval the person did not mark keeps the old gate (three options, a named passing option, a current verdict).
+    private const string Unmarked = "- prototype: approved mockups/prototype.html (option a: fewest steps for Goal line 1)";
+
+    // A person's pass of one sketch with no option named (the `main` mode).
+    private const string Pass = "- prototype: approved mockups/prototype.html (main screen: fewest steps for Goal line 1) (answered by: person)";
+    private const string NotAtBaseline = "the verdict is not at baseline";
+    private const string Zeros = "0000000000000000000000000000000000000000000000000000000000000000";
     private const string File = "mockups/prototype.html";
     private const string NoVerdict = "no current judge verdict";
 
@@ -242,14 +250,14 @@ public class PlanCheckerPrototypeTests : IDisposable
     [InlineData(2)]
     public void An_approved_sketch_needs_three_options(int count)
     {
-        var r = Problems(Html(), options: [.. "abc"[..count].Select(Option)]);
+        var r = Problems(Html(), Unmarked, options: [.. "abc"[..count].Select(Option)]);
 
         Assert.Empty(r.Line);
         Assert.Equal($"mockups/: {count} option files (option-*.html) pass the checks and differ; an approved sketch is picked from at least 3", Assert.Single(r.File));
     }
 
     [Theory]
-    [InlineData("- prototype: approved mockups/prototype.html (answered by: person)")]
+    [InlineData("- prototype: approved mockups/prototype.html")]
     [InlineData("- prototype: approved mockups/prototype.html (option z: the best one) (answered by: person)")]
     [InlineData("- prototype: approved mockups/prototype.html (option c: the best one) (answered by: person)")]
     public void An_approved_line_names_an_option_that_passes(string log)
@@ -265,16 +273,16 @@ public class PlanCheckerPrototypeTests : IDisposable
     [Fact]
     public void Options_that_are_the_same_text_count_once_and_a_fourth_option_is_fine()
     {
-        var same = Problems(Html(), options: [Option('a'), Option('a'), Option('b')]);
+        var same = Problems(Html(), Unmarked, options: [Option('a'), Option('a'), Option('b')]);
         Assert.Contains("2 option files", Assert.Single(same.File), StringComparison.Ordinal);
 
-        Assert.Empty(Problems(Html(), options: [Option('a'), Option('b'), Option('c'), Option('d')]).File);
+        Assert.Empty(Problems(Html(), Unmarked, options: [Option('a'), Option('b'), Option('c'), Option('d')]).File);
     }
 
     [Fact]
     public void An_option_is_checked_like_the_sketch_under_its_own_path_and_a_failing_one_does_not_count()
     {
-        var r = Problems(Html(), options: [Option('a'), Option('b'), "<p>nothing</p>"]);
+        var r = Problems(Html(), Unmarked, options: [Option('a'), Option('b'), "<p>nothing</p>"]);
 
         Assert.Contains(r.File, p => p.StartsWith("mockups/option-c.html:1:", StringComparison.Ordinal) && p.Contains("route:", StringComparison.Ordinal));
         Assert.DoesNotContain(r.File, p => p.StartsWith(File, StringComparison.Ordinal));
@@ -757,7 +765,7 @@ public class PlanCheckerPrototypeTests : IDisposable
     [InlineData("judge: fresh context\nsketch-hash: {hash}\n\nverdict: at baseline (mostly)\n")]
     public void A_missing_judge_file_a_wrong_hash_no_judge_line_or_odd_verdict_is_no_current_judge_verdict(string? judge)
     {
-        var r = Problems(Html(), judge: judge);
+        var r = Problems(Html(), Unmarked, judge: judge);
 
         Assert.Equal($"mockups/prototype.judge.md: {NoVerdict}: have powerops-review-sketch judge mockups/prototype.html again (its verdict counts for the sketch-hash it names)", Assert.Single(r.File));
     }
@@ -765,7 +773,7 @@ public class PlanCheckerPrototypeTests : IDisposable
     [Fact]
     public void An_edit_after_the_verdict_unbinds_it_and_a_crlf_copy_of_the_judged_file_still_matches()
     {
-        Setup(Html());
+        Setup(Html(), Unmarked);
         var file = Path.Combine(Folder, "mockups", "prototype.html");
 
         System.IO.File.WriteAllText(file, Html().Replace("\n", "\r\n", StringComparison.Ordinal));
@@ -823,7 +831,7 @@ public class PlanCheckerPrototypeTests : IDisposable
     [Fact]
     public void Sign_off_refuses_an_approved_prototype_with_no_current_judge_verdict()
     {
-        Setup(Html(), judge: null);
+        Setup(Html(), Unmarked, judge: null);
         var r = SignOff();
 
         Assert.Equal(1, r.ExitCode);
@@ -925,7 +933,7 @@ public class PlanCheckerPrototypeTests : IDisposable
     public void An_approved_plan_with_an_old_format_sketch_warns_is_refused_and_signs_off_after_a_persons_skip()
     {
         // Decisions Q13: the new problems are warnings in status and refusals at sign-off; the route is a new options run or a person's skip.
-        Setup(OldSketch(), options: [OldSketch('a'), OldSketch('b'), OldSketch('c')], map: null, judge: null);
+        Setup(OldSketch(), Unmarked, options: [OldSketch('a'), OldSketch('b'), OldSketch('c')], map: null, judge: null);
         var status = PlanChecker.Check(Path.Combine(Folder, "plan.md"), _t.Path);
         Assert.Empty(status.Violations);
         Assert.Contains(status.Warnings, w => w.Contains("data-state has no data-for", StringComparison.Ordinal));
@@ -947,7 +955,8 @@ public class PlanCheckerPrototypeTests : IDisposable
         // Normalised, so a CRLF checkout reads the same; no byte or hash pin.
         var text = System.IO.File.ReadAllText(Path.Combine(Golden.RepoRoot, "skills", "powerops-plan", "references", "samples", sample + ".html")).Replace("\r\n", "\n", StringComparison.Ordinal);
 
-        var r = Problems(text, log: null, plan: Plan($"## Screens\n\n{screens}\n"), options: [], map: null, judge: null);
+        // An unmarked approval, so the judge file is asked for (M124 row 3) and the three options with it.
+        var r = Problems(text, Unmarked, plan: Plan($"## Screens\n\n{screens}\n"), options: [], map: null, judge: null);
 
         // Each sample puts data-screen on the frame itself, so a frame's line is its screen's line.
         string[] expected =
@@ -959,8 +968,194 @@ public class PlanCheckerPrototypeTests : IDisposable
             .. frames.Select(l => $"{File}:{l}: data-screen has no data-state empty, loading, error, failed-save with data-for naming it"),
             "mockups/prototype.map.md: not found; it names each screen's parts beside the sketch",
             $"mockups/prototype.judge.md: {NoVerdict}: have powerops-review-sketch judge mockups/prototype.html again (its verdict counts for the sketch-hash it names)",
+            "mockups/: 0 option files (option-*.html) pass the checks and differ; an approved sketch is picked from at least 3",
         ];
         Assert.Equal(expected, r.File);
         Assert.Equal(".btn[disabled]{background:var(--fill);border-color:var(--fill);color:#BDBDBD}", text.Split('\n')[token - 1]);
+    }
+
+    // M124 Data row 3: a person's pass (an approval ending (answered by: person)) is the gate; the judge and the options are the skill's, not the checker's.
+    [Fact]
+    public void A_persons_pass_needs_no_judge_file_and_no_options_and_signs_off()
+    {
+        var r = Problems(Html(), Pass, options: [], judge: null);
+
+        Assert.Empty(r.Line);
+        Assert.Empty(r.File);
+        Assert.Empty(r.Warnings);
+        Assert.True(r.Approved);
+        Assert.DoesNotContain(Setup(Html(), Pass, options: [], judge: null).Warnings, w => w.Contains("prototype", StringComparison.Ordinal));
+
+        var signed = SignOff();
+        Assert.Equal(0, signed.ExitCode);
+        Assert.Empty(signed.Err);
+    }
+
+    [Theory]
+    [InlineData("judge: fresh context\nsketch-hash: " + Zeros + "\n\nverdict: at baseline\n")]
+    [InlineData("judge: me\nsketch-hash: {hash}\n\nverdict: at baseline\n")]
+    [InlineData("judge: fresh context\nsketch-hash: {hash}\n")]
+    [InlineData("judge: fresh context\nsketch-hash: " + Zeros + "\n\n## Round 1\n\nverdict: not at baseline\n\n## Round 2\n\nverdict: at baseline\n")]
+    [InlineData("sketch-hash: {hash}\n\nverdict: pass\n")]
+    public void A_persons_pass_with_a_stale_or_odd_judge_file_at_baseline_or_without_a_verdict_is_satisfied(string judge)
+    {
+        var r = Problems(Html(), Pass, options: [], judge: judge);
+
+        Assert.Empty(r.Line);
+        Assert.Empty(r.File);
+        Assert.Equal(0, SignOff().ExitCode);
+    }
+
+    [Theory]
+    [InlineData("judge: fresh context\nsketch-hash: " + Zeros + "\n\nverdict: not at baseline\n")]
+    [InlineData("judge: me\nsketch-hash: {hash}\n\nverdict: not at baseline\n")]
+    [InlineData("judge: fresh context\nsketch-hash: " + Zeros + "\n\n## Round 1\n\nverdict: at baseline\n\n## Round 2\n\nverdict: not at baseline\n")]
+    public void A_persons_pass_after_a_stale_or_odd_not_at_baseline_verdict_still_needs_the_below_baseline_reason(string judge)
+    {
+        // The person ran the judge, so its verdict stands until a new round says at baseline; an edit after it does not drop the reason.
+        var r = Problems(Html(), Pass, options: [], judge: judge);
+        Assert.Equal("mockups/prototype.judge.md: the verdict is not at baseline: only a person passes it, logged with (below baseline: <why>) and (answered by: person) on the prototype line", Assert.Single(r.File));
+        Assert.Equal(1, SignOff().ExitCode);
+
+        const string Below = "- prototype: approved mockups/prototype.html (main screen: fewest steps) (below baseline: the chart is crowded) (answered by: person)";
+        Assert.Empty(Problems(Html(), Below, options: [], judge: judge).File);
+        Assert.Equal(0, SignOff().ExitCode);
+    }
+
+    [Fact]
+    public void A_persons_pass_after_a_current_not_at_baseline_verdict_still_needs_the_below_baseline_reason()
+    {
+        const string NotAt = "judge: fresh context\nsketch-hash: {hash}\n\nverdict: not at baseline\n";
+
+        Assert.Contains(NotAtBaseline, Assert.Single(Problems(Html(), Pass, options: [], judge: NotAt).File), StringComparison.Ordinal);
+        Assert.Equal(1, SignOff().ExitCode);
+    }
+
+    [Fact]
+    public void A_persons_pass_of_a_self_judged_sketch_still_warns()
+    {
+        const string Self = "judge: self-judged\nsketch-hash: {hash}\n\nverdict: at baseline\n";
+
+        var r = Problems(Html(), Pass, options: [], judge: Self);
+        Assert.Empty(r.File);
+        Assert.Equal(PlanChecker.SelfJudgedWarning, Assert.Single(r.Warnings));
+        var signed = SignOff();
+        Assert.Equal(0, signed.ExitCode);
+        Assert.Contains($"warning: {PlanChecker.SelfJudgedWarning}", signed.Err);
+    }
+
+    [Theory]
+    [InlineData("- prototype: approved mockups/prototype.html (option b: the best one) (answered by: person)")]
+    [InlineData("- prototype: approved mockups/prototype.html (option c: the best one) (answered by: person)")]
+    public void A_persons_pass_that_names_an_option_needs_that_option_to_exist_and_pass(string log)
+    {
+        // Option b is missing and option c fails its checks: the line is the record of a pick, so the pick must hold.
+        var r = Problems(Html(), log, options: [Option('a'), null, "<p>nothing</p>"], judge: null);
+
+        Assert.Contains(r.File, p => p.StartsWith("decisions.md:5: the approved line names no option that passes the checks", StringComparison.Ordinal));
+        Assert.DoesNotContain(r.File, p => p.Contains("option files", StringComparison.Ordinal));
+        Assert.Equal(1, SignOff().ExitCode);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void A_persons_pass_that_names_no_option_needs_no_three_options(int count)
+    {
+        var r = Problems(Html(), Pass, options: [.. "abc"[..count].Select(Option)], judge: null);
+
+        Assert.Empty(r.File);
+        Assert.Equal(0, SignOff().ExitCode);
+    }
+
+    [Fact]
+    public void A_persons_pass_that_names_a_passing_option_is_fine_with_fewer_than_three()
+    {
+        var r = Problems(Html(), Approved, options: [Option('a')], judge: null);
+
+        Assert.Empty(r.File);
+        Assert.Equal(0, SignOff().ExitCode);
+    }
+
+    [Fact]
+    public void An_unmarked_approval_keeps_three_passing_options_a_named_passing_option_and_a_current_verdict()
+    {
+        // Checker level: each rule fires alone.
+        Assert.Contains("2 option files", Assert.Single(Problems(Html(), Unmarked, options: [Option('a'), Option('b')]).File), StringComparison.Ordinal);
+        Assert.Contains("names no option that passes", Assert.Single(Problems(Html(), "- prototype: approved mockups/prototype.html (main screen: fewest steps)").File), StringComparison.Ordinal);
+        Assert.Contains(NoVerdict, Assert.Single(Problems(Html(), Unmarked, judge: null).File), StringComparison.Ordinal);
+        var ok = Problems(Html(), Unmarked);
+        Assert.Empty(ok.File);
+        Assert.Contains(ok.Warnings, w => w.Contains("prototype approval is not marked (answered by: person)", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Sign_off_of_an_unmarked_approval_is_refused_with_fewer_than_three_options_no_named_option_or_no_verdict_and_passes_with_them()
+    {
+        Setup(Html(), Unmarked, options: [Option('a'), Option('b')]);
+        var two = SignOff();
+        Assert.Equal(1, two.ExitCode);
+        Assert.Contains("error: mockups/: 2 option files (option-*.html) pass the checks and differ; an approved sketch is picked from at least 3", two.Err);
+
+        Setup(Html(), "- prototype: approved mockups/prototype.html (main screen: fewest steps)");
+        Assert.Contains(SignOff().Err, e => e.Contains("names no option that passes", StringComparison.Ordinal));
+
+        Setup(Html(), Unmarked, judge: null);
+        var none = SignOff();
+        Assert.Equal(1, none.ExitCode);
+        Assert.Contains(none.Err, e => e.Contains(NoVerdict, StringComparison.Ordinal));
+
+        Setup(Html(), Unmarked);
+        Assert.Equal(0, SignOff().ExitCode);
+    }
+
+    [Fact]
+    public void A_persons_skip_with_a_reason_and_a_sketch_without_a_judge_file_has_no_judge_problem_and_signs_off()
+    {
+        const string Skip = "- prototype: skipped (mock-data slice) (answered by: person)";
+
+        var r = Problems(Html(), Skip, options: [], judge: null);
+        Assert.Empty(r.Line);
+        Assert.Empty(r.File);
+        Assert.DoesNotContain(Setup(Html(), Skip, options: [], judge: null).Warnings, w => w.Contains(NoVerdict, StringComparison.Ordinal));
+        Assert.Equal(0, SignOff().ExitCode);
+    }
+
+    [Theory]
+    [InlineData("- prototype: skipped () (answered by: person)")]
+    [InlineData("- prototype: skipped (answered by: person)")]
+    [InlineData("- prototype: skipped (no time)")]
+    [InlineData("- prototype: skipped (no time) (answered by: agent)")]
+    public void Sign_off_refuses_a_skip_with_no_reason_or_no_persons_mark(string log)
+    {
+        Setup(Html(), log, options: [], judge: null);
+        var r = SignOff();
+
+        Assert.Equal(1, r.ExitCode);
+        Assert.Contains("no valid prototype line", Assert.Single(r.Err), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Before_any_line_a_sketch_without_a_judge_file_does_not_warn_and_a_stale_judge_file_still_does()
+    {
+        // So the main mode's plan status is clean before the person answers.
+        var draft = Plan("## Screens\n\n- Home\n- Booking form\n", "draft");
+        var none = Setup(Html(), log: null, plan: draft, options: [], judge: null);
+        Assert.DoesNotContain(none.Warnings, w => w.Contains(NoVerdict, StringComparison.Ordinal));
+        Assert.Empty(Recheck().File);
+
+        var stale = Setup(Html(), log: null, plan: draft, options: [], judge: "judge: fresh context\nsketch-hash: " + Zeros + "\n\nverdict: at baseline\n");
+        Assert.Contains(stale.Warnings, w => w.Contains(NoVerdict, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_line_problem_names_the_pass_form()
+    {
+        var r = Problems(null, log: null);
+
+        Assert.Contains("`prototype: approved mockups/prototype.html (<why>) (answered by: person)`", Assert.Single(r.Line), StringComparison.Ordinal);
+        Assert.Contains("`prototype: approved mockups/prototype.html (option <letter>: <why>)`", r.Line[0], StringComparison.Ordinal);
+        Assert.Contains("`prototype: skipped (<reason>) (answered by: person)`", r.Line[0], StringComparison.Ordinal);
     }
 }

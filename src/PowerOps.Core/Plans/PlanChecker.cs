@@ -771,7 +771,7 @@ public static partial class PlanChecker
             }
         }
 
-        string[] lineProblems = valid ? [] : [$"decisions.md{at}: no valid prototype line under ## Log although Screens names something: log `prototype: approved {PrototypePath} (option <letter>: <why>)`, or `prototype: skipped (<reason>) (answered by: person)`"];
+        string[] lineProblems = valid ? [] : [$"decisions.md{at}: no valid prototype line under ## Log although Screens names something: log `prototype: approved {PrototypePath} (<why>) (answered by: person)`, `prototype: approved {PrototypePath} (option <letter>: <why>)`, or `prototype: skipped (<reason>) (answered by: person)`"];
         var file = PrototypeFileProblems(folder, screens, approved, marked && below, marked, $"decisions.md{at}", picked, warnings);
         return new PrototypeCheck(lineProblems, file, warnings, approved);
     }
@@ -831,6 +831,7 @@ public static partial class PlanChecker
         }
 
         // The options the sketch was picked from (BUILD-PLAN decision 52): each is checked like the sketch, and an approval needs three that pass and differ.
+        // M124 row 3: a person's pass needs no options; one it names must pass, as the record of the pick.
         var passing = new HashSet<string>(StringComparer.Ordinal);
         var pickedPasses = false;
         foreach (var option in Directory.EnumerateFiles(mockups, "option-*.html").Select(System.IO.Path.GetFileName).Order(StringComparer.Ordinal))
@@ -843,11 +844,11 @@ public static partial class PlanChecker
             }
         }
 
-        if (approved && passing.Count < MinOptions)
+        if (approved && !marked && passing.Count < MinOptions)
         {
             problems.Add($"mockups/: {passing.Count} option files (option-*.html) pass the checks and differ; an approved sketch is picked from at least {MinOptions}");
         }
-        else if (approved && !pickedPasses)
+        else if (approved && (!marked || picked.Length > 0) && !pickedPasses)
         {
             // The record of the pick: which option, so the ones not chosen can be told apart later.
             problems.Add($"{logLine}: the approved line names no option that passes the checks: write `prototype: approved {PrototypePath} (option <letter>: <why>)`");
@@ -860,18 +861,32 @@ public static partial class PlanChecker
     private static void JudgeProblems(string folder, string sketch, bool approved, bool passedBelow, bool marked, List<string> problems, List<string> warnings)
     {
         var file = System.IO.Path.Combine(folder, "mockups", "prototype.judge.md");
-        var lines = File.Exists(file) && ReadScannable(file, folder, new List<string>()) is { } judge ? Lines(judge).Select(l => l.Trim()).ToList() : [];
+        var exists = File.Exists(file);
+        var lines = exists && ReadScannable(file, folder, new List<string>()) is { } judge ? Lines(judge).Select(l => l.Trim()).ToList() : [];
         string? Last(string key) => lines.LastOrDefault(l => l.StartsWith(key, StringComparison.Ordinal))?[key.Length..].Trim();
         var (who, hash, verdict) = (Last("judge:"), Last("sketch-hash:"), Last("verdict:"));
+        const string NotAtBaseline = $"{JudgePath}: the verdict is not at baseline: only a person passes it, logged with (below baseline: <why>) and (answered by: person) on the prototype line";
         if (who is not ("fresh context" or "self-judged") || verdict is not ("at baseline" or "not at baseline") || !string.Equals(hash, SketchHash(sketch), StringComparison.OrdinalIgnoreCase))
         {
-            problems.Add($"{JudgePath}: no current judge verdict: have powerops-review-sketch judge {PrototypePath} again (its verdict counts for the sketch-hash it names)");
+            // M124 row 3: a person's pass needs no verdict, but a not-at-baseline one stands, stale or not, until a new round says at baseline; with no line yet or a skip, only a judge file that exists asks for one.
+            if (approved && marked)
+            {
+                if (verdict == "not at baseline" && !passedBelow)
+                {
+                    problems.Add(NotAtBaseline);
+                }
+            }
+            else if (approved || exists)
+            {
+                problems.Add($"{JudgePath}: no current judge verdict: have powerops-review-sketch judge {PrototypePath} again (its verdict counts for the sketch-hash it names)");
+            }
+
             return;
         }
 
         if (verdict == "not at baseline" && !(approved && passedBelow))
         {
-            problems.Add($"{JudgePath}: the verdict is not at baseline: only a person passes it, logged with (below baseline: <why>) and (answered by: person) on the prototype line");
+            problems.Add(NotAtBaseline);
         }
 
         if (who == "self-judged")
