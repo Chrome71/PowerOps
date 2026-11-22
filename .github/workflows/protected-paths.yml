@@ -3,14 +3,16 @@ name: Protected paths
 # A pull request that changes a protected path needs the tier-L label, which the owner applies (AGENTS.md, "Change tiers").
 # pull_request_target runs this file and its script as they are on main, never a pull request's own copy, so a pull request
 # cannot weaken its own check. The checkout takes no ref, so it is main, and no step runs the pull request's code.
-# The labeled and unlabeled events run it again when the label changes; the script reads the labels live.
+# The labeled and unlabeled events run it again when the label changes, and edited when the base branch changes; the script reads
+# the labels and the base live, and the label's issue events to check that the owner applied it.
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
     branches: [main]
 
 permissions:
   contents: read
+  issues: read
   pull-requests: read
 
 jobs:
@@ -27,4 +29,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_OWNER: ${{ github.repository_owner }}
         run: bash .github/scripts/protected-paths.sh

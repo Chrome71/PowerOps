@@ -1110,9 +1110,11 @@ public sealed class WorkflowTests
 
         Assert.Equal("Protected paths", Text(workflow, "name"));
         Assert.Equal(["pull_request_target"], Map(workflow["on"]).Keys.Cast<string>());
-        Assert.Equal(["labeled", "opened", "reopened", "synchronize", "unlabeled"], ((List<object>)target["types"]).Cast<string>().Order(StringComparer.Ordinal));
+        // edited runs it again when the base branch changes.
+        Assert.Equal(["edited", "labeled", "opened", "reopened", "synchronize", "unlabeled"], ((List<object>)target["types"]).Cast<string>().Order(StringComparer.Ordinal));
         Assert.Equal(["main"], ((List<object>)target["branches"]).Cast<string>());
-        Assert.Equal(new Dictionary<string, string> { ["contents"] = "read", ["pull-requests"] = "read" }, Permissions(workflow));
+        // issues: read lets it read the label's issue events, to check who applied tier-L.
+        Assert.Equal(new Dictionary<string, string> { ["contents"] = "read", ["issues"] = "read", ["pull-requests"] = "read" }, Permissions(workflow));
         // The check context is the job id, and the job neither widens the permissions nor skips itself.
         Assert.Equal(["protected-paths"], jobs.Keys.Cast<string>());
         Assert.False(job.ContainsKey("permissions") || job.ContainsKey("name") || job.ContainsKey("if") || job.ContainsKey("continue-on-error"));
@@ -1130,6 +1132,9 @@ public sealed class WorkflowTests
                 ["GITHUB_REPOSITORY"] = "${{ github.repository }}",
                 ["PR_NUMBER"] = "${{ github.event.pull_request.number }}",
                 ["PR_HEAD_SHA"] = "${{ github.event.pull_request.head.sha }}",
+                ["PR_BASE_REF"] = "${{ github.event.pull_request.base.ref }}",
+                ["PR_BASE_SHA"] = "${{ github.event.pull_request.base.sha }}",
+                ["PR_OWNER"] = "${{ github.repository_owner }}",
             },
             Map(steps[1]["env"]));
         Assert.False(steps[1].ContainsKey("continue-on-error") || steps[1].ContainsKey("if"));
@@ -1173,7 +1178,11 @@ public sealed class WorkflowTests
         return file;
     }
 
-    private static string PrJson(bool tierL, int changed, string head = PrHead)
+    private const string PrBase = "1111111111111111111111111111111111111111";
+    private const string OtherBase = "2222222222222222222222222222222222222222";
+    private const string Owner = "repo-owner";
+
+    private static string PrJson(bool tierL, int changed, string head = PrHead, string baseRef = "main", string baseSha = PrBase)
     {
         List<object> labels = [new { name = "documentation" }];
         if (tierL)
@@ -1181,8 +1190,31 @@ public sealed class WorkflowTests
             labels.Add(new { name = "tier-L" });
         }
 
-        return JsonSerializer.Serialize(new Dictionary<string, object> { ["number"] = 7, ["head"] = new { sha = head }, ["labels"] = labels, ["changed_files"] = changed });
+        return JsonSerializer.Serialize(new Dictionary<string, object>
+        {
+            ["number"] = 7,
+            ["head"] = new { sha = head },
+            ["base"] = new { @ref = baseRef, sha = baseSha },
+            ["labels"] = labels,
+            ["changed_files"] = changed,
+        });
     }
+
+    // Issue events, oldest first, as the events API lists them: (event, label name or null for an event with no label, actor login or null).
+    private static string Events(params (string Event, string? Label, string? Login)[] events) =>
+        JsonSerializer.Serialize(events.Select(e =>
+        {
+            var item = new Dictionary<string, object?> { ["event"] = e.Event, ["actor"] = e.Login is null ? null : new { login = e.Login } };
+            if (e.Label is not null)
+            {
+                item["label"] = new { name = e.Label, color = "ededed" };
+            }
+
+            return item;
+        }));
+
+    // Someone else labeled documentation, then the owner labeled tier-L.
+    private const string OwnerTierL = """[{"event":"labeled","label":{"name":"documentation"},"actor":{"login":"someone-else"}},{"event":"labeled","label":{"name":"tier-L"},"actor":{"login":"repo-owner"}}]""";
 
     private sealed record GuardRun(int Exit, string Stdout, string[] GhCalls);
 
@@ -1209,14 +1241,23 @@ public sealed class WorkflowTests
         }
     }
 
-    // The offline mode on saved answers. Its gh stub fails, and no call may reach it.
-    private static GuardRun Offline(string pr, string files, string expected = PrHead)
+    // The offline mode on saved answers. Its gh stub fails, and no call may reach it. A null events or owner leaves its argument out.
+    private static GuardRun Offline(string pr, string files, string expected = PrHead, string baseRef = "main", string baseSha = PrBase, string? events = OwnerTierL, string? owner = Owner)
     {
-        var run = ProtectedPaths(
-            ["--pr-json", "pr.json", "--files-json", "files.json", "--expected-head-sha", expected],
-            new Dictionary<string, string> { ["pr.json"] = pr, ["files.json"] = files },
-            new Dictionary<string, string>(),
-            "#!/usr/bin/env bash\necho \"$*\" >> \"$STUB_DIR/gh.log\"\nexit 1");
+        List<string> args = ["--pr-json", "pr.json", "--files-json", "files.json", "--expected-head-sha", expected, "--expected-base-ref", baseRef, "--expected-base-sha", baseSha];
+        var inputs = new Dictionary<string, string> { ["pr.json"] = pr, ["files.json"] = files };
+        if (events is not null)
+        {
+            args.AddRange(["--events-json", "events.json"]);
+            inputs["events.json"] = events;
+        }
+
+        if (owner is not null)
+        {
+            args.AddRange(["--owner", owner]);
+        }
+
+        var run = ProtectedPaths(args, inputs, new Dictionary<string, string>(), "#!/usr/bin/env bash\necho \"$*\" >> \"$STUB_DIR/gh.log\"\nexit 1");
         Assert.Empty(run.GhCalls);
         return run;
     }
@@ -1241,7 +1282,7 @@ public sealed class WorkflowTests
         }
     }
 
-    public static TheoryData<string> GuardedChanges => ["edit", "rename-out", "rename-in", "delete", "self-workflow", "self-script", "both-names", "no-patch-doc"];
+    public static TheoryData<string> GuardedChanges => ["edit", "rename-out", "rename-in", "delete", "self-workflow", "self-script", "both-names", "plugin-copy"];
 
     private static (Dictionary<string, object>[] Files, string Named) Guarded(string change) => change switch
     {
@@ -1252,8 +1293,7 @@ public sealed class WorkflowTests
         "self-workflow" => ([PrFile(".github/workflows/protected-paths.yml")], ".github/workflows/protected-paths.yml"),
         "self-script" => ([PrFile(".github/scripts/protected-paths.sh")], ".github/scripts/protected-paths.sh"),
         "both-names" => ([PrFile("docs/schemas/b.schema.json", "renamed", previous: "docs/schemas/a.schema.json", patch: null, additions: 0)], "docs/schemas/a.schema.json"),
-        // A file to scan with added lines and no patch (binary, or too large for the API) cannot be read for leaks, so it is a person's call.
-        _ => ([PrFile("docs/images/flow.png", "added", patch: null, additions: 1)], "docs/images/flow.png"),
+        _ => ([PrFile("plugins/codex/skills/powerops-verify/SKILL.md")], "plugins/codex/skills/powerops-verify/SKILL.md"),
     };
 
     [Theory]
@@ -1274,6 +1314,43 @@ public sealed class WorkflowTests
         Passes(Offline(false));
     }
 
+    // A file to scan with added lines and no patch (too large for the API, or binary with counted lines) cannot be read for leaks.
+    [Theory]
+    [InlineData("docs/BIG.md", "added", 5000)]
+    [InlineData("docs/BIG.md", "modified", 1)]
+    [InlineData("skills/powerops-plan/SKILL.md", "modified", null)] // no additions field: counted as added lines
+    [InlineData("README.md", "renamed", 3)]
+    [InlineData("docs/images/flow.png", "added", 1)]
+    public void The_protected_paths_script_fails_a_scanned_file_with_added_lines_and_no_patch_in_every_tier(string path, string status, int? additions)
+    {
+        var file = PrFile(path, status, previous: status == "renamed" ? "docs/README.md" : null, patch: null, additions: additions);
+        var withTierL = Offline(true, file);
+
+        Fails(Offline(false, file), path);
+        Fails(withTierL, path);
+        Assert.Contains("tier-L label: yes, result: fail", withTierL.Stdout);
+    }
+
+    [Fact]
+    public void The_protected_paths_script_passes_a_binary_doc_with_no_added_lines_and_no_patch_without_tier_L()
+    {
+        Passes(Offline(false, PrFile("docs/images/flow.png", "added", patch: null, additions: 0), PrFile("skills/powerops-plan/icon.png", "modified", patch: null, additions: 0)));
+    }
+
+    // The files API stops at 3000 files: a cut list fails in every tier, with the owner's tier-L too, protected path or not.
+    [Theory]
+    [InlineData(false, "AGENTS.md")]
+    [InlineData(true, "AGENTS.md")]
+    [InlineData(false, "src/PowerOps.Cli/Program.cs")]
+    [InlineData(true, "src/PowerOps.Cli/Program.cs")]
+    public void The_protected_paths_script_fails_a_cut_file_list_in_every_tier(bool tierL, string path)
+    {
+        var run = Offline(PrJson(tierL, 3001), JsonSerializer.Serialize(new[] { PrFile(path) }));
+
+        Fails(run);
+        Assert.Contains("the API listed 1 changed file(s), not the pull request's count", run.Stdout);
+    }
+
     [Theory]
     [InlineData("bench", true)]
     [InlineData("bench/run.sh", true)]
@@ -1288,6 +1365,11 @@ public sealed class WorkflowTests
     [InlineData("skills/powerops-verify/SKILL.md", true)]
     [InlineData("skills/powerops-review-security/SKILL.md", true)]
     [InlineData("tests/PowerOps.Cli.Tests/RoleEvalTests.cs", true)]
+    [InlineData("plugins/claude/skills/powerops-verify/SKILL.md", true)]
+    [InlineData("plugins/claude/skills/powerops-review-security/SKILL.md", true)]
+    [InlineData("plugins/codex/skills/powerops-verify/SKILL.md", true)]
+    [InlineData("plugins/codex/skills/powerops-review-security/SKILL.md", true)]
+    [InlineData("tests/PowerOps.Cli.Tests/PluginManifestTests.cs", true)]
     [InlineData("docs/examples/ephemeral-pr.yml", true)]
     [InlineData("docs/examples/powerops/ephemeral-env.sh", true)]
     [InlineData("benchmarks/run.sh", false)]
@@ -1299,6 +1381,10 @@ public sealed class WorkflowTests
     [InlineData("src/PowerOps.Core/Output/SafeWriteExtra.cs", false)]
     [InlineData("skills/powerops-verify-extra/SKILL.md", false)]
     [InlineData("tests/PowerOps.Cli.Tests/RoleEvalTestsExtra.cs", false)]
+    [InlineData("plugins/claude/skills/powerops-plan/SKILL.md", false)]
+    [InlineData("plugins/codex/skills/powerops-verify-extra/SKILL.md", false)]
+    [InlineData("plugins/claude/.claude-plugin/plugin.json", false)]
+    [InlineData("tests/PowerOps.Cli.Tests/PluginManifestTestsExtra.cs", false)]
     [InlineData("docs/examples/powerops/other.sh", false)]
     [InlineData("docs/examples/playwright/ephemeral-x.yml", false)]
     public void The_protected_paths_script_matches_exactly_the_protected_paths(string path, bool guarded)
@@ -1327,10 +1413,113 @@ public sealed class WorkflowTests
     }
 
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void The_protected_paths_script_fails_a_base_that_is_not_main_or_moved_even_with_tier_L(bool guarded)
+    {
+        var file = JsonSerializer.Serialize(new[] { PrFile(guarded ? "AGENTS.md" : "src/PowerOps.Cli/Program.cs") });
+
+        Passes(Offline(PrJson(true, 1), file));
+        Fails(Offline(PrJson(true, 1, baseRef: "release"), file)); // retargeted after the event
+        Fails(Offline(PrJson(true, 1, baseRef: "release"), file, baseRef: "release")); // the event's base is not main
+        Fails(Offline(PrJson(true, 1), file, baseRef: "release"));
+        Fails(Offline(PrJson(true, 1, baseSha: OtherBase), file)); // the base moved after the event
+        Fails(Offline(PrJson(true, 1), file, baseSha: OtherBase));
+        Fails(Offline(PrJson(true, 1), file, baseSha: "main"));
+    }
+
+    // The label counts only when the latest labeled or unlabeled event of tier-L is the owner's labeled event.
+    public static TheoryData<string, string, bool> LabelHistories => new()
+    {
+        { "owner", Events(("labeled", "tier-L", Owner)), true },
+        { "owner, other case", Events(("labeled", "tier-L", "Repo-Owner")), true },
+        { "owner, then others", Events(("labeled", "tier-L", Owner), ("labeled", "documentation", "triager"), ("assigned", null, "triager"), ("unlabeled", "documentation", "triager")), true },
+        { "owner again", Events(("labeled", "tier-L", "triager"), ("unlabeled", "tier-L", Owner), ("labeled", "tier-L", Owner)), true },
+        { "triager", Events(("labeled", "tier-L", "triager")), false },
+        { "owner, unlabeled, triager", Events(("labeled", "tier-L", Owner), ("unlabeled", "tier-L", "triager"), ("labeled", "tier-L", "triager")), false },
+        { "owner, then triager", Events(("labeled", "tier-L", Owner), ("labeled", "tier-L", "triager")), false },
+        { "a name that holds the owner's", Events(("labeled", "tier-L", "repo-owner2")), false },
+        { "a deleted actor", Events(("labeled", "tier-L", null)), false },
+        { "last unlabeled", Events(("labeled", "tier-L", Owner), ("unlabeled", "tier-L", Owner)), false },
+        { "no tier-L event", Events(("labeled", "documentation", Owner)), false },
+        { "no events", "[]", false },
+    };
+
+    [Theory]
+    [MemberData(nameof(LabelHistories))]
+    public void The_protected_paths_script_takes_tier_L_only_when_the_owner_applied_it_last(string history, string events, bool owned)
+    {
+        Assert.NotEmpty(history);
+        var guardedRun = Offline(PrJson(true, 1), JsonSerializer.Serialize(new[] { PrFile("AGENTS.md") }), events: events);
+        var plainRun = Offline(PrJson(true, 1), JsonSerializer.Serialize(new[] { PrFile("src/PowerOps.Cli/Program.cs") }), events: events);
+
+        if (owned)
+        {
+            Passes(guardedRun);
+            Passes(plainRun);
+        }
+        else
+        {
+            // A tier-L the owner did not apply last fails, whatever the files.
+            Fails(guardedRun);
+            Fails(plainRun);
+            Assert.Contains("the tier-L label was not applied by the owner", guardedRun.Stdout);
+            Assert.DoesNotContain("triager", guardedRun.Stdout);
+        }
+    }
+
+    [Fact]
+    public void The_protected_paths_script_reads_tier_L_events_over_pages()
+    {
+        var file = JsonSerializer.Serialize(new[] { PrFile("AGENTS.md") });
+
+        Passes(Offline(PrJson(true, 1), file, events: Events(("labeled", "tier-L", "triager")) + Events(("unlabeled", "tier-L", Owner), ("labeled", "tier-L", Owner))));
+        Fails(Offline(PrJson(true, 1), file, events: Events(("labeled", "tier-L", Owner)) + Events(("labeled", "tier-L", "triager"))));
+    }
+
+    public static TheoryData<string> MissingLabelChecks => ["no-events", "no-owner", "owner-not-login", "events-not-json", "events-empty", "events-object",
+        "event-no-name", "labeled-no-label", "label-string", "label-name-number", "actor-string", "login-number", "event-number"];
+
+    [Theory]
+    [MemberData(nameof(MissingLabelChecks))]
+    public void The_protected_paths_script_fails_closed_when_it_cannot_check_who_applied_tier_L(string input)
+    {
+        var file = JsonSerializer.Serialize(new[] { PrFile("AGENTS.md") });
+        var pr = PrJson(true, 1);
+        var run = input switch
+        {
+            "no-events" => Offline(pr, file, events: null),
+            "no-owner" => Offline(pr, file, owner: null),
+            "owner-not-login" => Offline(pr, file, owner: "repo owner"),
+            "events-not-json" => Offline(pr, file, events: "not json"),
+            "events-empty" => Offline(pr, file, events: ""),
+            "events-object" => Offline(pr, file, events: """{"event":"labeled","label":{"name":"tier-L"},"actor":{"login":"repo-owner"}}"""),
+            "event-no-name" => Offline(pr, file, events: """[{"label":{"name":"tier-L"},"actor":{"login":"repo-owner"}}]"""),
+            "labeled-no-label" => Offline(pr, file, events: """[{"event":"labeled","actor":{"login":"repo-owner"}}]"""),
+            "label-string" => Offline(pr, file, events: """[{"event":"labeled","label":"tier-L","actor":{"login":"repo-owner"}}]"""),
+            "label-name-number" => Offline(pr, file, events: """[{"event":"labeled","label":{"name":1},"actor":{"login":"repo-owner"}}]"""),
+            "actor-string" => Offline(pr, file, events: """[{"event":"labeled","label":{"name":"tier-L"},"actor":"repo-owner"}]"""),
+            "login-number" => Offline(pr, file, events: """[{"event":"labeled","label":{"name":"tier-L"},"actor":{"login":1}}]"""),
+            _ => Offline(pr, file, events: """[{"event":"labeled","label":{"name":"tier-L"},"actor":{"login":"repo-owner"}},1]"""),
+        };
+
+        Fails(run);
+    }
+
+    [Fact]
+    public void The_protected_paths_script_needs_no_events_or_owner_without_tier_L()
+    {
+        Passes(Offline(PrJson(false, 1), JsonSerializer.Serialize(new[] { PrFile("src/PowerOps.Cli/Program.cs") }), events: null, owner: null));
+        Fails(Offline(PrJson(false, 1), JsonSerializer.Serialize(new[] { PrFile("AGENTS.md") }), events: null, owner: null), "AGENTS.md");
+    }
+
+    [Theory]
     [InlineData("docs/USE.md", "+see /home/someone/powerops", 1)]
     [InlineData("./docs/USE.md", "+see /home/someone/powerops", 1)]
     [InlineData("skills/powerops-plan/SKILL.md", "+open file:///C:/plans/x.md", 1)]
     [InlineData("README.md", "+[plan](file:///tmp/plan.md)", 1)]
+    [InlineData("docs/USE.md", "+open file://host/share/file", 1)] // a file URL with an authority
+    [InlineData("docs/USE.md", "+see file:relative", 0)]
     [InlineData("docs/USE.md", "+++/home/someone", 1)] // an added line that begins with ++, inside a hunk
     [InlineData("src/PowerOps.Core/Output/Sarif.cs", "+    var uri = \"file:///\";", 0)]
     [InlineData("tests/PowerOps.Core.Tests/SarifTests.cs", "+Assert.StartsWith(\"file:///home/\", uri);", 0)]
@@ -1353,7 +1542,7 @@ public sealed class WorkflowTests
     }
 
     public static TheoryData<string> MalformedInputs => ["files-not-json", "files-empty", "files-object", "file-no-name", "file-no-status", "file-patch-number",
-        "pr-not-json", "pr-no-head", "pr-head-number", "pr-labels-object", "count-short", "expected-not-sha", "missing-file"];
+        "pr-not-json", "pr-no-head", "pr-head-number", "pr-no-base", "pr-base-ref-number", "pr-labels-object", "count-short", "expected-not-sha", "missing-file"];
 
     [Theory]
     [MemberData(nameof(MalformedInputs))]
@@ -1372,10 +1561,16 @@ public sealed class WorkflowTests
             "pr-not-json" => Offline("{", ok),
             "pr-no-head" => Offline("""{"labels":[{"name":"tier-L"}]}""", ok),
             "pr-head-number" => Offline("""{"head":{"sha":1},"labels":[]}""", ok),
-            "pr-labels-object" => Offline(JsonSerializer.Serialize(new { head = new { sha = PrHead }, labels = new { name = "tier-L" } }), ok),
+            "pr-no-base" => Offline(JsonSerializer.Serialize(new { head = new { sha = PrHead }, labels = Array.Empty<object>() }), ok),
+            "pr-base-ref-number" => Offline(JsonSerializer.Serialize(new { head = new { sha = PrHead }, @base = new { @ref = 1, sha = PrBase }, labels = Array.Empty<object>() }), ok),
+            "pr-labels-object" => Offline(JsonSerializer.Serialize(new { head = new { sha = PrHead }, @base = new { @ref = "main", sha = PrBase }, labels = new { name = "tier-L" } }), ok),
             "count-short" => Offline(PrJson(true, 3), ok),
             "expected-not-sha" => Offline(pr, ok, expected: "main"),
-            _ => ProtectedPaths(["--pr-json", "pr.json", "--files-json", "missing.json", "--expected-head-sha", PrHead], new Dictionary<string, string> { ["pr.json"] = pr }, new Dictionary<string, string>(), "#!/usr/bin/env bash\nexit 1"),
+            _ => ProtectedPaths(
+                ["--pr-json", "pr.json", "--files-json", "missing.json", "--expected-head-sha", PrHead, "--expected-base-ref", "main", "--expected-base-sha", PrBase],
+                new Dictionary<string, string> { ["pr.json"] = pr },
+                new Dictionary<string, string>(),
+                "#!/usr/bin/env bash\nexit 1"),
         };
 
         Fails(run);
@@ -1394,31 +1589,48 @@ public sealed class WorkflowTests
     }
 
     [Fact]
-    public void The_protected_paths_script_needs_all_three_offline_arguments_or_a_pull_request_number()
+    public void The_protected_paths_script_needs_all_five_offline_arguments_or_a_pull_request_number()
     {
         var gh = "#!/usr/bin/env bash\necho \"$*\" >> \"$STUB_DIR/gh.log\"\nexit 1";
         var noPr = new Dictionary<string, string> { ["PR_NUMBER"] = "" };
+        var live = new Dictionary<string, string> { ["GH_TOKEN"] = "fake-token", ["GITHUB_REPOSITORY"] = "example/repo", ["PR_NUMBER"] = "7" };
+        var inputs = new Dictionary<string, string> { ["pr.json"] = PrJson(false, 1), ["files.json"] = JsonSerializer.Serialize(new[] { PrFile("src/a.cs") }) };
+        string[] all = ["--pr-json", "pr.json", "--files-json", "files.json", "--expected-head-sha", PrHead, "--expected-base-ref", "main", "--expected-base-sha", PrBase];
+
+        Assert.Equal(0, ProtectedPaths(all, inputs, noPr, gh).Exit);
+        for (var i = 0; i < all.Length; i += 2)
+        {
+            Assert.Equal(2, ProtectedPaths(all.Take(i).Concat(all.Skip(i + 2)), inputs, noPr, gh).Exit);
+        }
 
         Assert.Equal(2, ProtectedPaths([], new Dictionary<string, string>(), noPr, gh).Exit);
-        Assert.Equal(2, ProtectedPaths(["--files-json", "files.json"], new Dictionary<string, string> { ["files.json"] = "[]" }, noPr, gh).Exit);
         Assert.Equal(2, ProtectedPaths(["--expected-head-sha", PrHead], new Dictionary<string, string>(), noPr, gh).Exit);
+        // The live mode takes its head, base and owner from the event alone.
+        Assert.Equal(2, ProtectedPaths(["--owner", Owner], new Dictionary<string, string>(), live, gh).Exit);
+        Assert.Equal(2, ProtectedPaths(["--expected-base-ref", "main"], new Dictionary<string, string>(), live, gh).Exit);
+        Assert.Empty(ProtectedPaths(["--owner", Owner], new Dictionary<string, string>(), live, gh).GhCalls);
     }
 
-    // Answers the files call with every page-*.json in order, and the n-th pull request read with pr-n.json.
+    // Answers the files call with every page-*.json in order, the events call with every events-*.json in order, and the n-th pull
+    // request read with pr-n.json.
     private const string LiveGh = """
         #!/usr/bin/env bash
         { printf '[%s]' "$@"; echo; } >> "$STUB_DIR/gh.log"
         case "$*" in
           *"/files?per_page=100") cat "$STUB_DIR"/page-*.json ;;
+          *"/events?per_page=100") cat "$STUB_DIR"/events-*.json ;;
           *) n=$(( $(cat "$STUB_DIR/reads" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$STUB_DIR/reads"; cat "$STUB_DIR/pr-$n.json" ;;
         esac
         """;
 
     private const string PrCall = "[api][repos/example/repo/pulls/7]";
     private const string FilesCall = "[api][--paginate][repos/example/repo/pulls/7/files?per_page=100]";
+    private const string EventsCall = "[api][--paginate][repos/example/repo/issues/7/events?per_page=100]";
 
-    // 150 changed files over two pages; the last one, on the second page, is AGENTS.md.
-    private static GuardRun Live(bool tierL, int changed = 150, string secondHead = PrHead, string eventHead = PrHead)
+    // 150 changed files over two pages; the last one, on the second page, is AGENTS.md. The issue events are two pages: someone
+    // else's documentation label, then `lastLabeler`'s tier-L.
+    private static GuardRun Live(bool tierL, int changed = 150, string secondHead = PrHead, string eventHead = PrHead,
+        string secondBase = PrBase, string eventBase = PrBase, string eventBaseRef = "main", string lastLabeler = Owner, string owner = Owner)
     {
         var files = Enumerable.Range(0, 149).Select(i => PrFile($"src/PowerOps.Cli/F{i}.cs")).Append(PrFile("AGENTS.md")).ToList();
         return ProtectedPaths(
@@ -1427,10 +1639,21 @@ public sealed class WorkflowTests
             {
                 ["page-1.json"] = JsonSerializer.Serialize(files.Take(100)),
                 ["page-2.json"] = JsonSerializer.Serialize(files.Skip(100)),
+                ["events-1.json"] = Events(("labeled", "documentation", "someone-else")),
+                ["events-2.json"] = Events(("labeled", "tier-L", lastLabeler)),
                 ["pr-1.json"] = PrJson(tierL, changed),
-                ["pr-2.json"] = PrJson(tierL, changed, head: secondHead),
+                ["pr-2.json"] = PrJson(tierL, changed, head: secondHead, baseSha: secondBase),
             },
-            new Dictionary<string, string> { ["GH_TOKEN"] = "fake-token", ["GITHUB_REPOSITORY"] = "example/repo", ["PR_NUMBER"] = "7", ["PR_HEAD_SHA"] = eventHead },
+            new Dictionary<string, string>
+            {
+                ["GH_TOKEN"] = "fake-token",
+                ["GITHUB_REPOSITORY"] = "example/repo",
+                ["PR_NUMBER"] = "7",
+                ["PR_HEAD_SHA"] = eventHead,
+                ["PR_BASE_REF"] = eventBaseRef,
+                ["PR_BASE_SHA"] = eventBase,
+                ["PR_OWNER"] = owner,
+            },
             LiveGh);
     }
 
@@ -1444,14 +1667,29 @@ public sealed class WorkflowTests
         Assert.Equal([PrCall, FilesCall, PrCall], without.GhCalls);
         Passes(with);
         Assert.Contains("150 changed file(s), 1 protected path(s), tier-L label: yes", with.Stdout);
-        Assert.Equal([PrCall, FilesCall, PrCall], with.GhCalls);
+        // The events are read only for a pull request with the label, after the second read of it.
+        Assert.Equal([PrCall, FilesCall, PrCall, EventsCall], with.GhCalls);
     }
 
     [Fact]
-    public void The_protected_paths_script_fails_live_on_a_cut_file_list_or_a_head_that_moved()
+    public void The_protected_paths_script_fails_live_on_a_cut_file_list_or_a_head_or_base_that_moved()
     {
         Fails(Live(tierL: true, changed: 151));
         Fails(Live(tierL: true, secondHead: OtherHead));
         Fails(Live(tierL: true, eventHead: OtherHead));
+        Fails(Live(tierL: true, secondBase: OtherBase));
+        Fails(Live(tierL: true, eventBase: OtherBase));
+        Fails(Live(tierL: true, eventBaseRef: "release"));
+    }
+
+    [Fact]
+    public void The_protected_paths_script_fails_live_on_a_tier_L_the_owner_did_not_apply()
+    {
+        var triager = Live(tierL: true, lastLabeler: "triager");
+
+        Fails(triager);
+        Assert.Equal([PrCall, FilesCall, PrCall, EventsCall], triager.GhCalls);
+        Fails(Live(tierL: true, owner: ""));
+        Passes(Live(tierL: true, owner: "Repo-Owner"));
     }
 }
