@@ -276,7 +276,7 @@ draft="Goal: when a supplier invoice arrives in the finance mailbox, a cloud flo
 Users: the finance team, about ten people, who get the notice.
 Licences: standard licences only.
 Environments: Dev, then Test, then Prod, managed after Dev."
-goal="Answer the first round of questions. To the agent's next message after your answers, reply with just: stop"
+goal="Answer the first round of questions. Reply with just: stop when the agent asks \"Approve the draft?\" or opens a message with Round 2 or a later round; answer nothing else in that message."
 converse "Use the powerops-plan skill. Here is my own draft of the plan:
 $draft" "$said_stop" || true
 no_menu
@@ -330,7 +330,7 @@ fi
 if want stop; then
 new_repo
 allow_sketch
-goal="Answer the first round of questions. To the agent's next message after your answers, reply with just: stop"
+goal="Answer the first round of questions. Reply with just: stop when the agent asks \"Approve the draft?\" or opens a message with Round 2 or a later round; answer nothing else in that message."
 converse "Use the powerops-plan skill. My idea: $idea." "$said_stop" || true
 allowed_tools="Bash(powerops *)"
 no_menu
@@ -791,7 +791,7 @@ section() { sed -n "/^## $1[[:space:]]*\$/,/^## /p" "$(plan_dir)/plan.md" 2>/dev
 if want option-depth; then
 new_repo
 allow_sketch
-goal="Answer each round of questions with one option number per question, digits only, separated by spaces (like: 1 1 1), and nothing else. To the agent's next message after your answers, reply with just: stop"
+goal="Answer each round of questions with one option number per question, digits only, separated by spaces (like: 1 1 1), and nothing else. Reply with just: stop when the agent asks \"Approve the draft?\" or opens a message with Round 2 or a later round; answer nothing else in that message."
 converse "Use the powerops-plan skill at depth standard. My idea: $idea." "$said_stop" || true
 allowed_tools="Bash(powerops *)"
 no_menu
