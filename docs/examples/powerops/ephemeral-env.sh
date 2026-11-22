@@ -5,17 +5,20 @@
 # Inputs come only from the environment: EPHEMERAL_PREFIX, REPO_ID, PR_NUMBER, RUN_ID, RUN_ATTEMPT, RUNNER_TEMP and
 #   find:   GITHUB_OUTPUT, and optionally EPHEMERAL_FIND_TRIES (default 5) and EPHEMERAL_FIND_WAIT (seconds, default 20)
 #   delete: optionally ENV_ID, the id that `find` wrote
-# and, optionally, RUNNER_DEBUG. pac must be signed in already, with no environment selected.
+# pac must be signed in already, with no environment selected.
 #
 # The environment is the one whose display name is exactly <prefix>-<repository id>-pr<number>-<run id>-<attempt>.
 # find:   reads `pac admin list --json` until exactly one environment has that name (two or more: an error at once; none, a failed
-#         call or output that is not JSON: tried again, then an error after the retries), checks its id and URL, registers the masks,
-#         and only then writes `id` and `url` to GITHUB_OUTPUT.
+#         call or output that is not one JSON array of objects: tried again, then an error after the retries), checks that its id is
+#         unique across the list and is a GUID, its exact Type is Sandbox or Trial, and its URL is on a documented Dataverse host,
+#         registers the masks, and only then writes `id` and `url` to GITHUB_OUTPUT.
 # delete: takes ENV_ID, or looks the name up (none found: nothing to do; a failed lookup or two: an error and nothing is deleted;
 #         the URL is not needed, because an environment still provisioning has none), reads the list again, and deletes only when it
-#         holds exactly one environment with that id and exactly that name, and its Type is Sandbox or Trial (a hand-made Production
-#         environment with this name is kept and the job fails).
-# Every pac call's output stays in a file that is printed only with debug logging on, because it can name other environments.
+#         holds exactly one environment with that id across the list, exactly one with that name, both on the same row, and its exact
+#         Type is Sandbox or Trial (Production, Default, or Developer environments, including pre-provisioned Managed Developer
+#         Environments, are kept and the job fails; widening the deletable types is a human-only decision).
+# Raw pac output is kept in temporary files and never printed to workflow logs (even when RUNNER_DEBUG=1), so unrelated tenant
+# environment names or ids are never disclosed.
 set -euo pipefail
 
 fail() {
@@ -52,22 +55,21 @@ work="$(mktemp -d "${RUNNER_TEMP:?RUNNER_TEMP is not set}/ephemeral.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 list="$work/list.json"
 
-# Prints the saved output of the failed call only with debug logging on.
+# Never print raw pac output to workflow logs (even under RUNNER_DEBUG=1), because it can name unrelated tenant environments.
 pac_failed() {
-  echo "::error::$1; its output is printed only with debug logging on"
-  if [ "${RUNNER_DEBUG:-}" = 1 ]; then cat "$work"/*.out "$work"/*.err 2> /dev/null || true; fi
+  echo "::error::$1; raw pac output is suppressed to avoid disclosing unrelated tenant environments"
   exit 1
 }
 
-# Reads the list into $list; returns 1 with the reason in $list_error when pac fails or prints no JSON array of environments.
+# Reads the list into $list; requires exactly one top-level JSON array of objects (rejects concatenated multi-document streams).
 try_list() {
   if ! pac admin list --json > "$work/list.out" 2> "$work/list.err"; then
     list_error="pac admin list failed"
     return 1
   fi
   mv "$work/list.out" "$list"
-  if ! jq -e 'type == "array" and all(.[]; type == "object")' "$list" > /dev/null 2>&1; then
-    list_error="pac admin list --json did not print a JSON array of environments"
+  if ! jq -e -s 'length == 1 and (.[0] | type == "array") and all(.[0][]; type == "object")' "$list" > /dev/null 2>&1; then
+    list_error="pac admin list --json did not print a single JSON array of environments"
     return 1
   fi
 }
@@ -77,21 +79,47 @@ list_environments() {
 }
 
 count_with_name() {
-  jq --arg name "$name" '[.[] | select(.DisplayName == $name)] | length' "$list"
+  jq -s --arg name "$name" '[.[0][] | select(.DisplayName == $name)] | length' "$list"
 }
 
-# Reads the id of the one environment with the name, and stops unless it is a GUID. find also reads its URL and stops unless that has
-# the shape of a Dataverse environment; delete does not need it, so it keeps the URL only when it is valid, to mask it.
+# Verifies that $list holds exactly one row matching $name, exactly one row matching $id_lower across the entire list, both on the
+# same row, and that its exact Type (compared inside jq so trailing newlines cannot be stripped by command substitution) is Sandbox
+# or Trial. Uses generic refusal messages so protected environment names are never disclosed.
+verify_target() {
+  local id_lower="$1"
+  local same same_id
+  same="$(jq -s --arg name "$name" --arg id "$id_lower" '[.[0][] | select(.DisplayName == $name and (.EnvironmentId | type == "string") and ((.EnvironmentId | ascii_downcase) == $id))] | length' "$list")" \
+    || fail "cannot verify the target environment in the list; nothing was changed"
+  same_id="$(jq -s --arg id "$id_lower" '[.[0][] | select((.EnvironmentId | type == "string") and ((.EnvironmentId | ascii_downcase) == $id))] | length' "$list")" \
+    || fail "cannot verify the target environment in the list; nothing was changed"
+  if [ "$same" != 1 ] || [ "$same_id" != 1 ] || [ "$(count_with_name)" != 1 ]; then
+    fail "the environment list does not hold a single unique matching environment for the expected id and name; nothing was changed"
+  fi
+  # Never widen allowed types without explicit human authorization; Developer (including Managed Developer) is never allowed here.
+  if ! jq -e -s --arg name "$name" --arg id "$id_lower" \
+    '[.[0][] | select(.DisplayName == $name and (.EnvironmentId | type == "string") and ((.EnvironmentId | ascii_downcase) == $id))]
+     | length == 1 and (.[0].Type == "Sandbox" or .[0].Type == "Trial")' "$list" > /dev/null 2>&1; then
+    fail "the matching environment is not a Sandbox or a Trial; nothing was changed"
+  fi
+}
+
+# Reads the id of the one environment with the name, and stops unless it is a GUID. find also checks unique id, exact allowed Type
+# (Sandbox or Trial), and a documented Dataverse URL before registering masks or writing GITHUB_OUTPUT; delete checks unique id and
+# exact allowed Type on its fresh pre-delete list read, and keeps the URL only when valid to mask it.
 read_match() {
-  match_id="$(jq -er --arg name "$name" '[.[] | select(.DisplayName == $name)][0].EnvironmentId | select(type == "string" and length > 0)' "$list")" || fail "the environment named $name has no EnvironmentId in the list"
-  [[ $match_id =~ $guid_re ]] || fail "the id of the environment named $name is not a GUID"
-  match_url="$(jq -r --arg name "$name" '[.[] | select(.DisplayName == $name)][0].EnvironmentUrl | if type == "string" then . else "" end' "$list")"
+  match_id="$(jq -er -s --arg name "$name" '[.[0][] | select(.DisplayName == $name)][0].EnvironmentId | select(type == "string" and length > 0)' "$list")" \
+    || fail "the matching environment has no EnvironmentId in the list"
+  [[ $match_id =~ $guid_re ]] || fail "the id of the matching environment is not a GUID"
+  if [ "$mode" = find ]; then
+    verify_target "$(lower "$match_id")"
+  fi
+  match_url="$(jq -r -s --arg name "$name" '[.[0][] | select(.DisplayName == $name)][0].EnvironmentUrl | if type == "string" then . else "" end' "$list")"
   lower_url="$(lower "$match_url")"
   if [[ $lower_url =~ $url_re ]]; then
     return 0
   fi
 
-  if [ "$mode" = find ]; then fail "the environment named $name has no EnvironmentUrl, or it is not an https URL on a documented Dataverse host"; fi
+  if [ "$mode" = find ]; then fail "the matching environment has no EnvironmentUrl, or it is not an https URL on a documented Dataverse host"; fi
   match_url=""
 }
 
@@ -117,7 +145,7 @@ if [ "$mode" = find ]; then
   for ((attempt = 1; attempt <= tries; attempt++)); do
     if try_list; then
       count="$(count_with_name)"
-      if [ "$count" -ge 2 ]; then fail "more than one environment is named $name; nothing was written"; fi
+      if [ "$count" -ge 2 ]; then fail "more than one environment matches the expected name; nothing was written"; fi
       if [ "$count" -eq 1 ]; then break; fi
     else
       count=0
@@ -125,7 +153,7 @@ if [ "$mode" = find ]; then
     fi
     if [ "$attempt" -lt "$tries" ]; then sleep "$wait_seconds"; fi
   done
-  if [ "$count" -ne 1 ]; then fail "no environment is named $name after $tries reads of pac admin list"; fi
+  if [ "$count" -ne 1 ]; then fail "no environment matched after $tries reads of pac admin list"; fi
   read_match
   mask_id "$match_id"
   mask_url "$match_url"
@@ -148,23 +176,17 @@ else
     echo "No environment is named $name; nothing to delete."
     exit 0
   fi
-  if [ "$count" -ge 2 ]; then fail "more than one environment is named $name; nothing was deleted"; fi
+  if [ "$count" -ge 2 ]; then fail "more than one environment matches the expected name; nothing was deleted"; fi
   read_match
   id="$match_id"
   mask_id "$id"
   if [ -n "$match_url" ]; then mask_url "$match_url"; fi
 fi
 
-# The delete goes by id, so the list is read again just before it: exactly one environment with this id and exactly this name.
+# The delete goes by id, so the list is read again just before it: exactly one environment with this id across the list,
+# exactly one with this name, both on the same row, and exact Type Sandbox or Trial.
 list_environments
-same="$(jq --arg name "$name" --arg id "$(lower "$id")" '[.[] | select(.DisplayName == $name and ((.EnvironmentId // "" | tostring | ascii_downcase) == $id))] | length' "$list")"
-if [ "$same" -ne 1 ] || [ "$(count_with_name)" -ne 1 ]; then
-  fail "the environment list no longer holds exactly one environment with the expected id and the name $name; nothing was deleted"
-fi
-type="$(jq -r --arg id "$(lower "$id")" '[.[] | select((.EnvironmentId // "" | tostring | ascii_downcase) == $id)][0].Type | if type == "string" then . else "" end' "$list")"
-if [ "$type" != Sandbox ] && [ "$type" != Trial ]; then
-  fail "the environment to delete is not a Sandbox or a Trial; nothing was deleted"
-fi
+verify_target "$(lower "$id")"
 
 if ! pac admin delete --environment "$id" --async > "$work/delete.out" 2> "$work/delete.err"; then pac_failed "pac admin delete failed for $name"; fi
 echo "Deletion of $name requested."

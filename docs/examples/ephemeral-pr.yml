@@ -54,12 +54,11 @@ jobs:
           dotnet tool install --global Microsoft.PowerApps.CLI.Tool --version "$PAC_VERSION"
           echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
 
-      # No environment: the pac admin commands act on the tenant. pac's output stays out of the public log unless debug logging is on.
+      # No environment: the pac admin commands act on the tenant. Raw pac output stays out of workflow logs to avoid disclosing unrelated environments.
       - name: Sign in pac to the tenant
         run: |
           if ! pac auth create --githubFederated --tenant "$TENANT_ID" --applicationId "$CLIENT_ID" > "$RUNNER_TEMP/pac-auth.log" 2>&1; then
-            echo "::error::pac auth create failed; its output is printed only with debug logging on"
-            if [ "${RUNNER_DEBUG:-}" = 1 ]; then cat "$RUNNER_TEMP/pac-auth.log"; fi
+            echo "::error::pac auth create failed; raw pac output is suppressed to avoid disclosing unrelated tenant environments"
             exit 1
           fi
 
@@ -83,7 +82,9 @@ jobs:
           ENV_CURRENCY: ${{ vars.EPHEMERAL_CURRENCY || 'USD' }}
           ENV_LANGUAGE: ${{ vars.EPHEMERAL_LANGUAGE || '1033' }}
         run: |
-          # The recipe never creates a production environment.
+          # The recipe creates only Sandbox or Trial environments, never Production, Default, or Developer.
+          # Unmanaged developer environments stopped creation on 2026-11-15 (suspension starts 2026-12-15, deletion starts 2027-01-15);
+          # target pre-provisioned Managed Developer Environments non-destructively instead (see docs/examples/README.md).
           case "$ENV_TYPE" in
             Sandbox | Trial) ;;
             *) echo "::error::EPHEMERAL_TYPE must be Sandbox or Trial"; exit 1 ;;
@@ -93,8 +94,7 @@ jobs:
           # The same name as in ephemeral-env.sh, which looks the environment up by it.
           env_name="$EPHEMERAL_PREFIX-$REPO_ID-pr$PR_NUMBER-$RUN_ID-$RUN_ATTEMPT"
           if ! pac admin create --type "$ENV_TYPE" --name "$env_name" --region "$ENV_REGION" --currency "$ENV_CURRENCY" --language "$ENV_LANGUAGE" > "$RUNNER_TEMP/pac-create.log" 2>&1; then
-            echo "::error::pac admin create failed; its output is printed only with debug logging on"
-            if [ "${RUNNER_DEBUG:-}" = 1 ]; then cat "$RUNNER_TEMP/pac-create.log"; fi
+            echo "::error::pac admin create failed; raw pac output is suppressed to avoid disclosing unrelated tenant environments"
             exit 1
           fi
 
@@ -108,8 +108,7 @@ jobs:
           ENV_ID: ${{ steps.find.outputs.id }}
         run: |
           if ! pac admin set-governance-config --environment "$ENV_ID" --protection-level Standard > "$RUNNER_TEMP/pac-governance.log" 2>&1; then
-            echo "::error::pac admin set-governance-config failed; its output is printed only with debug logging on"
-            if [ "${RUNNER_DEBUG:-}" = 1 ]; then cat "$RUNNER_TEMP/pac-governance.log"; fi
+            echo "::error::pac admin set-governance-config failed; raw pac output is suppressed to avoid disclosing unrelated tenant environments"
             exit 1
           fi
 
@@ -119,8 +118,7 @@ jobs:
           ENV_ID: ${{ steps.find.outputs.id }}
         run: |
           if ! pac admin assign-user --environment "$ENV_ID" --user "$CLIENT_ID" --role "System Administrator" --application-user > "$RUNNER_TEMP/pac-assign.log" 2>&1; then
-            echo "::error::pac admin assign-user failed; its output is printed only with debug logging on"
-            if [ "${RUNNER_DEBUG:-}" = 1 ]; then cat "$RUNNER_TEMP/pac-assign.log"; fi
+            echo "::error::pac admin assign-user failed; raw pac output is suppressed to avoid disclosing unrelated tenant environments"
             exit 1
           fi
 
@@ -136,8 +134,7 @@ jobs:
           ENVIRONMENT_URL: ${{ steps.find.outputs.url }}
         run: |
           if ! pac auth create --githubFederated --tenant "$TENANT_ID" --applicationId "$CLIENT_ID" --environment "$ENVIRONMENT_URL" > "$RUNNER_TEMP/pac-auth-env.log" 2>&1; then
-            echo "::error::pac auth create failed; its output is printed only with debug logging on"
-            if [ "${RUNNER_DEBUG:-}" = 1 ]; then cat "$RUNNER_TEMP/pac-auth-env.log"; fi
+            echo "::error::pac auth create failed; raw pac output is suppressed to avoid disclosing unrelated tenant environments"
             exit 1
           fi
 
@@ -175,8 +172,7 @@ jobs:
           ENV_ID: ${{ steps.find.outputs.id }}
         run: |
           if ! pac auth create --githubFederated --tenant "$TENANT_ID" --applicationId "$CLIENT_ID" > "$RUNNER_TEMP/pac-auth-delete.log" 2>&1; then
-            echo "::error::pac auth create failed; its output is printed only with debug logging on"
-            if [ "${RUNNER_DEBUG:-}" = 1 ]; then cat "$RUNNER_TEMP/pac-auth-delete.log"; fi
+            echo "::error::pac auth create failed; raw pac output is suppressed to avoid disclosing unrelated tenant environments"
             exit 1
           fi
           bash docs/examples/powerops/ephemeral-env.sh delete

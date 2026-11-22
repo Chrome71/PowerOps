@@ -2,6 +2,8 @@
 # Deletes the leftovers of ephemeral-pr.yml: environments of this repository whose creating run has finished. It is a dry run
 # (it lists what it would delete) unless the schedule runs with the repository variable POWEROPS_SWEEP_DELETE set to `true`, or a manual
 # run sets `delete`; a manual run follows only its input, the schedule only the variable.
+# Only Sandbox and Trial environments are ever deleted; Production, Default, and Developer environments (including pre-provisioned
+# Managed Developer Environments) are never deleted, and widening deletable types is a human-only decision.
 # Read docs/examples/README.md before using it: the credential it needs can create and delete any environment in the tenant.
 #
 # It signs in with a second federated credential, for the default branch, and runs on the default branch only. GitHub disables a
@@ -40,8 +42,8 @@ jobs:
       REPO_ID: ${{ github.repository_id }}
       GH_REPO: ${{ github.repository }}
       GH_TOKEN: ${{ github.token }}
-      # A manual run follows its input only; the schedule follows the repository variable only.
-      POWEROPS_SWEEP_DELETE: ${{ (github.event_name == 'workflow_dispatch' && inputs.delete == true) || (github.event_name == 'schedule' && vars.POWEROPS_SWEEP_DELETE == 'true') }}
+      # A manual run follows its boolean input only; the schedule passes vars.POWEROPS_SWEEP_DELETE unchanged so the shell enforces exact lowercase 'true' (GitHub's == operator is case-insensitive).
+      POWEROPS_SWEEP_DELETE: ${{ github.event_name == 'workflow_dispatch' && inputs.delete == true || (github.event_name == 'schedule' && vars.POWEROPS_SWEEP_DELETE) || '' }}
       TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
     steps:
@@ -58,8 +60,7 @@ jobs:
       - name: Sign in pac to the tenant
         run: |
           if ! pac auth create --githubFederated --tenant "$TENANT_ID" --applicationId "$CLIENT_ID" > "$RUNNER_TEMP/pac-auth.log" 2>&1; then
-            echo "::error::pac auth create failed; its output is printed only with debug logging on"
-            if [ "${RUNNER_DEBUG:-}" = 1 ]; then cat "$RUNNER_TEMP/pac-auth.log"; fi
+            echo "::error::pac auth create failed; raw pac output is suppressed to avoid disclosing unrelated tenant environments"
             exit 1
           fi
 

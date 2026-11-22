@@ -147,13 +147,14 @@ public sealed class EphemeralScriptTests : IDisposable
     }
 
     [Fact]
-    public void Find_stops_when_a_field_is_missing_or_the_list_is_not_json()
+    public void Find_stops_when_a_field_is_missing_or_the_list_is_not_one_json_array()
     {
-        var noUrl = RunEnv("find", [$$"""[{"DisplayName":"{{Name()}}","EnvironmentId":"{{Id('a')}}"}]"""]);
+        var noUrl = RunEnv("find", [$$"""[{"DisplayName":"{{Name()}}","EnvironmentId":"{{Id('a')}}","Type":"Sandbox"}]"""]);
         var banner = RunEnv("find", ["Welcome to pac\n[]"]);
         var notArray = RunEnv("find", ["""{"DisplayName":"x"}"""]);
+        var multiDoc = RunEnv("find", [List(Item(Name(), Id('a'), Url("orgpr7x"))) + "\n" + List(Item("other", Id('b'), Url("orgother")))]);
 
-        Assert.All(new[] { noUrl, banner, notArray }, r =>
+        Assert.All(new[] { noUrl, banner, notArray, multiDoc }, r =>
         {
             Assert.Equal(1, r.Code);
             Assert.Contains("::error::", r.Out);
@@ -161,17 +162,57 @@ public sealed class EphemeralScriptTests : IDisposable
         });
     }
 
+    [Theory]
+    [InlineData("Developer")]
+    [InlineData("ManagedDeveloper")]
+    [InlineData("Production")]
+    [InlineData("Default")]
+    [InlineData("sandbox")]
+    [InlineData("Sandbox\n")]
+    [InlineData("Trial\n")]
+    public void Find_refuses_protected_or_newline_types_without_masks_outputs_or_name_disclosure(string type)
+    {
+        var escaped = type.Replace("\n", "\\n", StringComparison.Ordinal);
+        var run = RunEnv("find", [List(Item(Name(), Id('a'), Url("orgpr7x"), escaped))]);
+
+        Assert.Equal(1, run.Code);
+        Assert.Contains("::error::", run.Out);
+        Assert.Equal("", run.Output);
+        Assert.DoesNotContain("add-mask", run.Out);
+        AssertNoLeak(run, Name(), Id('a'), "orgpr7x");
+    }
+
     [Fact]
-    public void A_failing_pac_prints_an_error_line_only_and_its_text_with_debug_logging()
+    public void Find_refuses_duplicate_environment_id_and_non_string_type_without_writing_outputs()
+    {
+        var duplicateId = List(Item(Name(), Id('a'), Url("orgpr7x"), "Sandbox"), Item("contoso-dev-secret", Id('a'), Url("orgdevsecret"), "Developer"));
+        var falseType = $$"""[{"DisplayName":"{{Name()}}","EnvironmentId":"{{Id('a')}}","EnvironmentUrl":"https://orgpr7x.crm.dynamics.com","Type":false}]""";
+
+        foreach (var list in new[] { duplicateId, falseType })
+        {
+            var run = RunEnv("find", [list]);
+
+            Assert.Equal(1, run.Code);
+            Assert.Contains("::error::", run.Out);
+            Assert.Equal("", run.Output);
+            Assert.DoesNotContain("add-mask", run.Out);
+            AssertNoLeak(run, Name(), Id('a'), "orgpr7x", "contoso-dev-secret", "orgdevsecret");
+        }
+    }
+
+    [Fact]
+    public void A_failing_pac_prints_an_error_line_only_and_never_prints_raw_pac_output_even_with_debug_logging()
     {
         var quiet = RunEnv("find", [List()], extra: new() { ["PAC_LIST_EXIT"] = "1" });
         var debug = RunEnv("find", [List()], extra: new() { ["PAC_LIST_EXIT"] = "1", ["RUNNER_DEBUG"] = "1" });
 
-        Assert.Equal(1, quiet.Code);
-        Assert.Contains("::error::", quiet.Out);
-        Assert.DoesNotContain("secret", quiet.Out + quiet.Err);
-        Assert.Equal(1, debug.Code);
-        Assert.Contains("contoso-secret-env", debug.Out + debug.Err);
+        Assert.All(new[] { quiet, debug }, r =>
+        {
+            Assert.Equal(1, r.Code);
+            Assert.Contains("::error::", r.Out);
+            Assert.DoesNotContain("secret", r.Out + r.Err);
+            Assert.DoesNotContain("contoso-secret-env", r.Out + r.Err);
+        });
     }
 
     [Theory]
@@ -307,6 +348,7 @@ public sealed class EphemeralScriptTests : IDisposable
     [Theory]
     [InlineData("Production", false)]
     [InlineData("Developer", false)]
+    [InlineData("ManagedDeveloper", false)]
     [InlineData("Default", false)]
     [InlineData("sandbox", false)]
     [InlineData("Sandbox", true)]
@@ -327,6 +369,64 @@ public sealed class EphemeralScriptTests : IDisposable
                 Assert.DoesNotContain(Name(), r.Out + r.Err);
             }
         });
+    }
+
+    [Fact]
+    public void Delete_deletes_nothing_when_the_same_id_appears_twice_even_if_one_row_is_a_sandbox()
+    {
+        var duplicateId = List(Item(Name(), Id('a'), Url("orgpr7x"), "Sandbox"), Item("contoso-dev-secret", Id('a'), Url("orgdevsecret"), "Developer"));
+        var byId = RunEnv("delete", [duplicateId], extra: new() { ["ENV_ID"] = Id('a') });
+        var byName = RunEnv("delete", [duplicateId]);
+
+        Assert.All(new[] { byId, byName }, r =>
+        {
+            Assert.Equal(1, r.Code);
+            Assert.Contains("::error::", r.Out);
+            Assert.DoesNotContain(r.PacCalls, c => c.StartsWith("admin delete", StringComparison.Ordinal));
+            AssertNoLeak(r, Name(), "contoso-dev-secret", "orgdevsecret");
+        });
+    }
+
+    [Theory]
+    [InlineData("Sandbox\\n")]
+    [InlineData("Trial\\n")]
+    public void Delete_refuses_trailing_newline_types_and_concatenated_json_arrays(string rawType)
+    {
+        var trailingNewline = List(Item(Name(), Id('a'), Url("orgpr7x"), rawType));
+        var multiDoc = List(Item(Name(), Id('a'), Url("orgpr7x"), "Sandbox")) + "\n" + List(Item("contoso-dev-secret", Id('a'), Url("orgdevsecret"), "Developer"));
+
+        foreach (var list in new[] { trailingNewline, multiDoc })
+        {
+            var byId = RunEnv("delete", [list], extra: new() { ["ENV_ID"] = Id('a') });
+            var byName = RunEnv("delete", [list]);
+            Assert.All(new[] { byId, byName }, r =>
+            {
+                Assert.Equal(1, r.Code);
+                Assert.Contains("::error::", r.Out);
+                Assert.DoesNotContain(r.PacCalls, c => c.StartsWith("admin delete", StringComparison.Ordinal));
+                AssertNoLeak(r, Name(), "contoso-dev-secret", "orgdevsecret");
+            });
+        }
+    }
+
+    [Theory]
+    [InlineData("false")]
+    [InlineData("null")]
+    [InlineData("123")]
+    public void Delete_refuses_non_string_type_or_provisioning_developer_environment_after_cancel(string rawType)
+    {
+        var nonStringType = $$"""[{"DisplayName":"{{Name()}}","EnvironmentId":"{{Id('a')}}","EnvironmentUrl":null,"Type":{{rawType}}}]""";
+        var cancelledDev = List(Item(Name(), Id('a'), null, "Developer"));
+
+        foreach (var list in new[] { nonStringType, cancelledDev })
+        {
+            var run = RunEnv("delete", [list]);
+
+            Assert.Equal(1, run.Code);
+            Assert.Contains("::error::", run.Out);
+            Assert.DoesNotContain(run.PacCalls, c => c.StartsWith("admin delete", StringComparison.Ordinal));
+            Assert.DoesNotContain(Name(), run.Out + run.Err);
+        }
     }
 
     [Fact]
@@ -368,6 +468,7 @@ public sealed class EphemeralScriptTests : IDisposable
         [2000] = """{"status":"in_progress","conclusion":""}""",
         [2001] = """{"status":"queued","conclusion":""}""",
         [2002] = """{"status":"waiting","conclusion":""}""",
+        [2003] = """{"status":"completed\n","conclusion":"success"}""",
         [4000] = "",
         [4001] = "not json {",
     };
@@ -378,7 +479,7 @@ public sealed class EphemeralScriptTests : IDisposable
         var run = RunSweep([List(Item(Name(run: 1000), Id('a'), Url("org1")), Item(Name(pr: 8, run: 2000), Id('b'), Url("org2")), Others())], delete: true);
 
         Assert.Equal(0, run.Code);
-        Assert.Equal(["admin list --json", $"admin delete --environment {Id('a')} --async"], run.PacCalls);
+        Assert.Equal(["admin list --json", "admin list --json", $"admin delete --environment {Id('a')} --async"], run.PacCalls);
         Assert.Equal(["run view 1000 --repo contoso/widgets --json status,conclusion", "run view 2000 --repo contoso/widgets --json status,conclusion"], run.GhCalls);
         Assert.Contains($"deleted {Name(run: 1000)}\n", run.Out);
         Assert.Contains($"kept {Name(pr: 8, run: 2000)}", run.Out);
@@ -393,7 +494,7 @@ public sealed class EphemeralScriptTests : IDisposable
         var run = RunSweep([List(Item(other, Id('c'), Url("orgelse")), Item(Name(), Id('a'), Url("org1")))], delete: true);
 
         Assert.Equal(0, run.Code);
-        Assert.Equal(["admin list --json", $"admin delete --environment {Id('a')} --async"], run.PacCalls);
+        Assert.Equal(["admin list --json", "admin list --json", $"admin delete --environment {Id('a')} --async"], run.PacCalls);
         Assert.Single(run.GhCalls);
         AssertNoLeak(run, other, "orgelse", Id('c'));
     }
@@ -443,6 +544,7 @@ public sealed class EphemeralScriptTests : IDisposable
     [InlineData(2000)]
     [InlineData(2001)]
     [InlineData(2002)]
+    [InlineData(2003)]
     public void Sweep_keeps_the_environment_of_a_run_that_has_not_finished(long runId)
     {
         var run = RunSweep([List(Item(Name(run: runId), Id('a'), Url("org1")))], delete: true);
@@ -481,6 +583,7 @@ public sealed class EphemeralScriptTests : IDisposable
     [Theory]
     [InlineData("Production")]
     [InlineData("Developer")]
+    [InlineData("ManagedDeveloper")]
     [InlineData("Default")]
     public void Sweep_keeps_an_environment_that_is_not_a_sandbox_or_a_trial_and_turns_red_without_naming_it(string type)
     {
@@ -497,6 +600,71 @@ public sealed class EphemeralScriptTests : IDisposable
             Assert.Contains("failed 1", r.Out);
             AssertNoLeak(r, Name(run: 1000), Id('a'), "org1");
         });
+    }
+
+    [Fact]
+    public void Sweep_refuses_duplicate_environment_ids_trailing_newlines_and_non_string_or_missing_id_protected_rows_without_naming_them()
+    {
+        var duplicateId = List(Item(Name(run: 1000), Id('a'), Url("org1"), "Sandbox"), Item("contoso-dev-secret", Id('a'), Url("orgdevsecret"), "Developer"));
+        var falseType = $$"""[{"DisplayName":"{{Name(run: 1000)}}","EnvironmentId":"{{Id('a')}}","EnvironmentUrl":"https://org1.crm.dynamics.com","Type":false}]""";
+        var trailingNewline = List(Item(Name(run: 1000), Id('a'), Url("org1"), "Sandbox\\n"));
+        var devWithoutId = $$"""[{"DisplayName":"{{Name(run: 1000)}}","EnvironmentId":"","EnvironmentUrl":"https://org1.crm.dynamics.com","Type":"Developer"}]""";
+
+        foreach (var list in new[] { duplicateId, falseType, trailingNewline, devWithoutId })
+        {
+            var run = RunSweep([list], delete: true);
+
+            Assert.Equal(1, run.Code);
+            Assert.Equal(["admin list --json"], run.PacCalls);
+            Assert.Empty(run.GhCalls);
+            Assert.Contains("failed 1", run.Out);
+            AssertNoLeak(run, Name(run: 1000), Id('a'), "org1", "contoso-dev-secret", "orgdevsecret");
+        }
+    }
+
+    [Fact]
+    public void Sweep_refuses_duplicate_display_name_with_distinct_ids_in_both_dry_run_and_delete_without_naming_it()
+    {
+        var sharedName = List(Item(Name(run: 1000), Id('a'), Url("org1"), "Sandbox"), Item(Name(run: 1000), Id('b'), Url("org2"), "Developer"));
+        var dry = RunSweep([sharedName]);
+        var deleting = RunSweep([sharedName], delete: true);
+
+        Assert.All(new[] { dry, deleting }, r =>
+        {
+            Assert.Equal(1, r.Code);
+            Assert.Equal(["admin list --json"], r.PacCalls);
+            Assert.Empty(r.GhCalls);
+            Assert.DoesNotContain("would delete", r.Out);
+            Assert.DoesNotContain("deleted ", r.Out);
+            Assert.Contains("failed 2", r.Out);
+            AssertNoLeak(r, Name(run: 1000), Id('a'), Id('b'), "org1", "org2");
+        });
+    }
+
+    [Fact]
+    public void Sweep_deletes_nothing_when_the_pre_delete_recheck_disagrees_or_gets_concatenated_json()
+    {
+        var initial = List(Item(Name(run: 1000), Id('a'), Url("org1"), "Sandbox"));
+        var renamed = List(Item("renamed-by-admin", Id('a'), Url("org1"), "Sandbox"));
+        var changedType = List(Item(Name(run: 1000), Id('a'), Url("org1"), "Developer"));
+        var duplicateOnRecheck = List(Item(Name(run: 1000), Id('a'), Url("org1"), "Sandbox"), Item("contoso-dev-secret", Id('a'), Url("orgdevsecret"), "Developer"));
+        var multiDocOnRecheck = initial + "\n" + changedType;
+
+        foreach (var second in new[] { renamed, changedType, duplicateOnRecheck, multiDocOnRecheck })
+        {
+            var run = RunSweep([initial, second], delete: true);
+
+            Assert.Equal(1, run.Code);
+            Assert.Equal(["admin list --json", "admin list --json"], run.PacCalls);
+            Assert.DoesNotContain(run.PacCalls, c => c.StartsWith("admin delete", StringComparison.Ordinal));
+            Assert.Contains("failed 1", run.Out);
+            AssertNoLeak(run, "renamed-by-admin", "contoso-dev-secret", "orgdevsecret");
+        }
+
+        var multiDocInitial = RunSweep([initial + "\n" + changedType], delete: true);
+        Assert.Equal(1, multiDocInitial.Code);
+        Assert.Equal(["admin list --json"], multiDocInitial.PacCalls);
+        Assert.Empty(multiDocInitial.GhCalls);
     }
 
     [Fact]
@@ -544,7 +712,7 @@ public sealed class EphemeralScriptTests : IDisposable
         var run = RunSweep([List(Item(Name(pr: 7, run: 1000), Id('a'), Url("org1")), Item(Name(pr: 70, run: 1001), Id('b'), Url("org2")), Item(Name(pr: 8, run: 1000), Id('c'), Url("org3")))], delete: true, extra: new() { ["POWEROPS_SWEEP_PR"] = "7" });
 
         Assert.Equal(0, run.Code);
-        Assert.Equal(["admin list --json", $"admin delete --environment {Id('a')} --async"], run.PacCalls);
+        Assert.Equal(["admin list --json", "admin list --json", $"admin delete --environment {Id('a')} --async"], run.PacCalls);
         Assert.Contains("matched 1, leftovers 1, kept 0, failed 0", run.Out);
         Assert.DoesNotContain(Name(pr: 8, run: 1000), run.Out);
         Assert.DoesNotContain(Name(pr: 70, run: 1001), run.Out);

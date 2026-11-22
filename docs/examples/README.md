@@ -131,6 +131,21 @@ Run both jobs on the same operating system, as the example does (`ubuntu-latest`
 
 After the `apply` job has imported the solution into Test, and before you promote it any further, run the [Playwright starter](playwright/README.md) against Test to check the apps in a browser. A person signs in for it, so it is not a job in this workflow.
 
+## Pre-provisioned Managed Developer Environments (2026-12-15 transition)
+
+Microsoft's deprecation schedule for unmanaged developer environments ([Important changes (deprecations) coming](https://learn.microsoft.com/power-platform/important-changes-coming), [Power Apps Developer Plan](https://learn.microsoft.com/power-platform/developer/plan), [Licensing requirements for Managed Environments](https://learn.microsoft.com/power-platform/admin/managed-environment-licensing), checked 2026-11-22; see `ECO-0006` and `ECO-0022` in [docs/ecosystem/changes.md](../ecosystem/changes.md)):
+
+- **2026-11-15**: new unmanaged developer environments can no longer be created.
+- **2026-12-15**: suspension of existing unmanaged developer environments starts.
+- **2027-01-15**: deletion of unmanaged developer environments starts.
+
+To keep a personal or team Dev environment running past **2026-12-15**:
+
+1. **Enable Managed Environments before 2026-12-15**: turn Managed Environments on for the developer environment in the Power Platform admin center or with `pac admin set-governance-config --environment <environment id> --protection-level Standard` (neither path was run by PowerOps against a Developer environment).
+2. **Confirm licensing**: running apps and flows in a Managed Developer Environment requires a **premium licence** on top of the Power Apps Developer Plan (`ECO-0022`).
+3. **Target it non-destructively in CI**: treat a pre-provisioned Managed Developer Environment as a long-lived target using the [promote-dev-to-test.yml](promote-dev-to-test.yml) pattern (`powerops deploy plan` followed by human-approved `powerops deploy apply`), with zero `pac admin create` or `pac admin delete` calls (not run by PowerOps against a Managed Developer Environment).
+4. **Never widen the ephemeral delete guards for `Developer`**: [ephemeral-pr.yml](ephemeral-pr.yml), [ephemeral-env.sh](powerops/ephemeral-env.sh) and [ephemeral-sweep.sh](powerops/ephemeral-sweep.sh) allow **only `Sandbox` and `Trial`** (for create, `find`, `delete` and sweep) and refuse `Developer`, `Production` and `Default` environments even when a display name matches. Widening deletable environment types is a human-only decision and is never performed automatically.
+
 # Example: an ephemeral environment per pull request
 
 [ephemeral-pr.yml](ephemeral-pr.yml) gives each pull request its own short-lived Power Platform environment. [ephemeral-sweep.yml](ephemeral-sweep.yml) deletes what a run leaves behind. The scripts they call are [ephemeral-env.sh](powerops/ephemeral-env.sh) and [ephemeral-sweep.sh](powerops/ephemeral-sweep.sh). **This recipe was not run end to end.** Its scripts are tested offline with stub `pac` and `gh` programs and its workflows are checked as text, but no environment was ever created or deleted with it. See "Not verified" below. It is opt-in: PowerOps' own CI never creates environments.
@@ -164,7 +179,7 @@ On a pull request that touches `deploy/` (GitHub checks the workflow's `paths` a
 8. runs the PowerOps action twice: `deploy plan`, then `deploy apply` with `apply: 'true'` (M9 and M10);
 9. in a last step that always runs, signs in again and deletes the environment with `ephemeral-env.sh delete`.
 
-The name of an environment is `<prefix>-<repository id>-pr<number>-<run id>-<attempt>`, with the numeric repository id from GitHub and the prefix from `EPHEMERAL_PREFIX` (`[a-z][a-z0-9-]{1,19}`). The scripts select only a display name that matches that whole pattern. Any other environment, even one an admin named with the prefix, is never touched. `delete` goes by id, and reads the list again just before it: it deletes only when exactly one environment has that id and exactly that name and its `Type` is `Sandbox` or `Trial`, and otherwise fails the job and deletes nothing. It does not need the environment's URL, because an environment still provisioning after a timed-out or cancelled create has none. The sweep applies the same `Type` check: a hand-made Production environment with a matching name is kept, counted as failed and not named.
+The name of an environment is `<prefix>-<repository id>-pr<number>-<run id>-<attempt>`, with the numeric repository id from GitHub and the prefix from `EPHEMERAL_PREFIX` (`[a-z][a-z0-9-]{1,19}`). The scripts select only a display name that matches that whole pattern. Any other environment, even one an admin named with the prefix, is never touched. Both `find` and `delete` require `pac admin list --json` to return a single JSON array of objects containing exactly one environment with that id across the list, exactly one with that name, both on the same row, and an exact `Type` of `Sandbox` or `Trial`; otherwise the script fails generically without naming the environment, writes no outputs and deletes nothing. `delete` reads the list again just before calling `pac admin delete`, and does not need the environment's URL because an environment still provisioning after a timed-out or cancelled create has none. The sweep applies the same `Type` and unique-id checks on the initial read and re-reads the list immediately before each destructive delete: a `Production`, `Default`, or `Developer` environment (including a pre-provisioned Managed Developer Environment) with a matching name is kept, counted as failed and not named. Widening deletable types beyond `Sandbox` and `Trial` is a human-only decision.
 
 Pin the PowerOps action to one commit SHA, and use the same one in both calls.
 
@@ -220,7 +235,7 @@ The sweep needs `id-token: write`, `actions: read` and `contents: read` and noth
 
 A cancel (a new push, or a person) during `pac admin create` ends `pac` while the service goes on creating the environment. The delete step may find nothing yet, so the environment is deleted by the next sweep, or by the PR's next run (step 2), not by the cancelled run. No cancelled run was tried.
 
-The sweep reads one `pac admin list --json`, keeps the names that match this repository's pattern, and asks `gh run view` about each run id. It deletes an environment only when `gh` reports that run as completed (a finished run should already have deleted it), whatever the state of the PR. A run in progress keeps its environment; a `gh` failure keeps it and turns the sweep red, so GitHub notifies you. It prints counts and the names of the recipe's own environments, never the list. The scheduled sweep is a dry run until `POWEROPS_SWEEP_DELETE` is `true`; a manual run deletes only with `delete` on.
+The sweep reads `pac admin list --json`, keeps the names that match this repository's pattern, and asks `gh run view` about each run id. It deletes an environment only when `gh` reports that run as completed (a finished run should already have deleted it), whatever the state of the PR, and only after re-reading `pac admin list --json` immediately before each destructive `pac admin delete` to confirm the id, exact name and exact `Type` (`Sandbox` or `Trial`) still match (a residual race remains between that final list read and the service accepting the delete). A run in progress keeps its environment; a `gh` failure keeps it and turns the sweep red, so GitHub notifies you. It prints counts and the names of verified matching environments, never the raw list. The scheduled sweep passes `vars.POWEROPS_SWEEP_DELETE` unchanged to the script so only exact lowercase `true` enables deletion (a dry run otherwise); a manual run deletes only when its `delete` boolean input is on.
 
 Runs are kept for 90 days (the default retention), and a schedule that GitHub disabled after 60 days without activity lets leftovers age past that. A leftover whose run no longer exists makes `gh run view` fail, so the sweep keeps it and fails every time. Delete it by hand: find its id with `pac admin list`, check the name and that it is yours, then run `pac admin delete --environment <environment id>`.
 
@@ -240,7 +255,7 @@ A new environment falls under the tenant's DLP policies. A policy can suspend a 
 
 ## What the recipe checks, and what it does not
 
-It checks that the managed zips import into an empty managed environment and that the cloud flows reach the state the plan expected (`deploy apply`). It does not run tests, does not check data, and does not deploy a solution with a connection reference. Every `pac` and `gh` call's output goes to a file and is printed only on failure with debug logging on, because it can name other environments: do not turn on debug logging in a public repository.
+It checks that the managed zips import into an empty managed environment and that the cloud flows reach the state the plan expected (`deploy apply`). It does not run tests, does not check data, and does not deploy a solution with a connection reference. The ephemeral scripts (`ephemeral-env.sh`, `ephemeral-sweep.sh`) and the inline `pac` steps in `ephemeral-pr.yml` and `ephemeral-sweep.yml` keep raw `pac` and `gh` output in temporary files and never print it to workflow logs, even when `RUNNER_DEBUG=1`. The pinned `Chrome71/PowerOps` action steps (`action/plan.sh` and `action/apply.sh`, outside this recipe's scripts) still print captured stderr when `RUNNER_DEBUG=1` (which can include forwarded `pac` or `az` diagnostics), so do not turn on Actions debug logging in a public repository.
 
 ## Not verified
 
@@ -263,8 +278,9 @@ No environment was created or deleted for this recipe (decision of the master se
 | Provisioning | `pac admin list` lists environments that are still provisioning or being deleted | Learn is silent | not run |
 | Capacity | A soft-deleted environment does not hold database capacity | Learn is silent | not verified |
 | The sweep | The schedule, the second federated credential, `gh run view` with the job's token and the deletes | the script's tests with stubs | not run |
+| Managed Developer enablement | Running `pac admin set-governance-config --protection-level Standard` on an existing unmanaged Developer environment | Learn: "Important changes coming" and `pac admin` reference | not run |
 
-The offline tests (`tests/PowerOps.Cli.Tests/EphemeralScriptTests.cs` and `ExampleWorkflowTests.cs`) run the scripts against stub `pac` and `gh` programs and check the workflows' text. They show what the scripts select, mask and delete given the list the stubs print; they do not show that real `pac` prints that list.
+The offline tests (`tests/PowerOps.Cli.Tests/EphemeralScriptTests.cs` and `ExampleWorkflowTests.cs`) are **offline stub-only tests**: they run the scripts against stub `pac` and `gh` programs and check the workflows' text. They show what the scripts select, mask and refuse or delete given the JSON lists the stubs print; they do not show that real `pac` prints that list or that a live tenant call succeeds.
 
 ## A safe first use
 

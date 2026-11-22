@@ -331,10 +331,13 @@ public sealed partial class ExampleWorkflowTests
         Assert.Equal("read", Text(permissions, "contents"));
         Assert.Equal("${{ github.repository }}", Text(env, "GH_REPO"));
         Assert.Equal("${{ github.token }}", Text(env, "GH_TOKEN"));
-        // A manual run follows its input only; the schedule follows the variable only.
+        // A manual run follows its boolean input only; the schedule passes the variable unchanged so bash enforces exact lowercase 'true'.
         Assert.Equal(
-            "${{ (github.event_name == 'workflow_dispatch' && inputs.delete == true) || (github.event_name == 'schedule' && vars.POWEROPS_SWEEP_DELETE == 'true') }}",
+            "${{ github.event_name == 'workflow_dispatch' && inputs.delete == true || (github.event_name == 'schedule' && vars.POWEROPS_SWEEP_DELETE) || '' }}",
             Text(env, "POWEROPS_SWEEP_DELETE"));
+        Assert.DoesNotContain("vars.POWEROPS_SWEEP_DELETE ==", Text(env, "POWEROPS_SWEEP_DELETE"));
+        Assert.All(StepsOf(SweepWorkflow), s => Assert.DoesNotContain("RUNNER_DEBUG", s.Run, StringComparison.Ordinal));
+        Assert.All(PrSteps, s => Assert.DoesNotContain("RUNNER_DEBUG", s.Run, StringComparison.Ordinal));
         Assert.Contains(StepsOf(SweepWorkflow), s => s.Run.Contains("bash docs/examples/powerops/ephemeral-sweep.sh", StringComparison.Ordinal));
     }
 
