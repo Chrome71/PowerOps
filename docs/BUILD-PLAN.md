@@ -662,6 +662,18 @@ M117 left the owner five questions, answered "Take all recommended" (2026-11-16)
 
 93. `fix:` M118: the plan, then the gate 1 and gate 7 sentences with their pins and plugin copies, 15 judge runs, the key and the records (built 2026-11-16, [plan](plans/m118-judge-key/plan.md))
 
+## M122: the implement skill's run accounts, and word ceilings that only fall
+
+Step 3 of the three-way debate build plan (2026-11-22). The [plan](plans/m122-skill-ceilings/plan.md) moves the five dated "in one run" accounts of `powerops-implement` to `references/known-issues.md`, keeps the instruction of each in `SKILL.md`, and holds the word counts of `powerops-plan` and `powerops-implement` under ceilings that may only fall.
+
+| Milestone | Release | Scope | Done when |
+|---|---|---|---|
+| **M122. The implement skill's run accounts, and word ceilings that only fall** | the next patch release, which release-please makes from the `fix:` commit | <ul><li>Planned 2026-11-22 ([plan](plans/m122-skill-ceilings/plan.md))</li><li>The five "in one run" accounts of `powerops-implement` move word for word to `references/known-issues.md`; their instructions stay in `SKILL.md`, the gallery crash written out as a recovery, with one pointer to the new file</li><li>`SKILL.md` of `powerops-implement` goes from 5,407 to 5,392 words, and a new test holds it there; the `powerops-plan` ceiling stays 3,865; both may only fall</li></ul> | the pins and both ceilings pass; `skills/powerops-plan/SKILL.md` is unchanged; the `plugins` diff is the implement skill's `SKILL.md` and `known-issues.md` only; `dotnet test` passes |
+
+### Build order, M122 (continues the list below)
+
+94. `fix:` M122: the plan, then the pins and the two ceilings, the moved accounts in `known-issues.md`, the `SKILL.md` text, the plugin copies and the records (built 2026-11-22, [plan](plans/m122-skill-ceilings/plan.md))
+
 ## Testing
 
 | Layer | What | Runs |
