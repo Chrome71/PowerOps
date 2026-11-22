@@ -346,19 +346,49 @@ public partial class SkillsCommandTests : IDisposable
     public void Implement_skill_warns_about_studio_saves_the_gallery_crash_table_membership_and_the_old_version_banner()
     {
         var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        var issues = SkillsCommand.Shipped()["powerops-implement/references/known-issues.md"];
+        const string galleryRule = "A compile can report success while Studio has crashed, so look at Studio after each compile. If Studio crashes on a compile that brings in a whole screen with its gallery, compile the screen first and the gallery alone after it. If modern controls show as empty blocks after a compile, reload once the compile is saved, and look again.";
+        const string galleryAccount = "In one run, two compiles of a whole screen with its gallery crashed Studio while the tool reported success; the screen first with the gallery alone after it didn't. The cause isn't known. In that run, modern controls also showed as empty blocks after a compile until a reload.";
         string[] wording =
         [
             "A Canvas Authoring compile isn't a save",
             "look at the saved time. If it didn't move, change a property and undo it to turn Save on, save, or ask the user to, and confirm that the time moved. Reload only after that, never to check a compile that isn't saved yet",
-            "In one run, two compiles of a whole screen with its gallery crashed Studio while the tool reported success; the screen first with the gallery alone after it didn't. The cause isn't known",
-            "modern controls also showed as empty blocks after a compile until a reload",
-            "In one run, the Python client's table create put the table in the preferred solution although `solution=` was passed. Check each table's membership, and ask before moving one",
+            galleryRule,
+            "A table the Python client creates can land outside the solution passed in `solution=`. Check each table's membership, and ask before moving one",
             "Run the check and the commit as separate commands, so a failed check can't be committed",
             "If the published app shows an old-version banner, select Refresh on it",
+            "`references/known-issues.md` beside this file records what was seen in the run behind these warnings and behind the two in step 4 and in section 4, step 3; read it when what you see doesn't match what a tool reported.",
+        ];
+        // M122: the "in one run" accounts moved here word for word.
+        string[] accounts =
+        [
+            "In one run, after a compile Save stayed greyed out and the status read \"All changes are saved\" with an older time, and a reload then lost the compile.",
+            galleryAccount,
+            "In one run, the Python client's table create put the table in the preferred solution although `solution=` was passed.",
+            "In one run a single command did both, and the step was committed after its check failed.",
+            "In one run the first load after a republish was still the old version.",
         ];
 
         Assert.All(wording, s => Assert.Contains(s, text));
-        Assert.DoesNotContain("because", text[text.IndexOf("two compiles of a whole screen", StringComparison.Ordinal)..][..300]);
+        Assert.All(accounts, s => Assert.Contains(s, issues));
+        Assert.DoesNotContain("In one run", text);
+        Assert.DoesNotContain("in one run", text);
+        // No cause is given: the gallery bullet up to the end of its line, and the gallery rule up to the end of its paragraph.
+        Assert.DoesNotContain("because", SpanTo(issues, galleryAccount, "\n"));
+        Assert.DoesNotContain("because", SpanTo(text, galleryRule, "\n\n"));
+    }
+
+    // From the start of `start` to the next `end` after it, or to the end of the text; empty when `start` is missing.
+    private static string SpanTo(string text, string start, string end)
+    {
+        var i = text.IndexOf(start, StringComparison.Ordinal);
+        if (i < 0)
+        {
+            return "";
+        }
+
+        var j = text.IndexOf(end, i, StringComparison.Ordinal);
+        return j < 0 ? text[i..] : text[i..j];
     }
 
     [Fact]
@@ -559,12 +589,23 @@ public partial class SkillsCommandTests : IDisposable
     [Fact]
     public void Plan_skill_stays_under_its_word_ceiling()
     {
-        // M41: the 2,483 words the skill had before the ledger, plus 300. M81: plus 50 for the engagement rule and the callable-tool rule. Decision 52: plus 40 for the three options and the pick. M91: plus 494 for the option format, the defaults batch, the budget and the licence read. M93: plus 144 for the early sketch, the redone pick and the unproven line. M94: plus 108 for the sign-off lines, their log line and the start of the build. M97: plus 119 for the side-by-side pick, the pass question and the four end states. M109: plus 131 for the draft of the person's own and its two fast-path exceptions. On ASCII text a split on whitespace counts as wc -w does.
+        // M41: the 2,483 words the skill had before the ledger, plus 300. M81: plus 50 for the engagement rule and the callable-tool rule. Decision 52: plus 40 for the three options and the pick. M91: plus 494 for the option format, the defaults batch, the budget and the licence read. M93: plus 144 for the early sketch, the redone pick and the unproven line. M94: plus 108 for the sign-off lines, their log line and the start of the build. M97: plus 119 for the side-by-side pick, the pass question and the four end states. M109: plus 131 for the draft of the person's own and its two fast-path exceptions. On ASCII text a split on whitespace counts as wc -w does. M122: from here this ceiling may only fall: lower it when the skill shrinks, never raise it.
         var text = SkillsCommand.Shipped()["powerops-plan/SKILL.md"];
         var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
 
         Assert.All(text, c => Assert.True(c < 128, $"non-ASCII character U+{(int)c:X4}"));
         Assert.InRange(words, 1, 3865);
+    }
+
+    [Fact]
+    public void Implement_skill_stays_under_its_word_ceiling()
+    {
+        // M122: 5,392 words after the five "in one run" accounts moved to references/known-issues.md; this ceiling may only fall: lower it when the skill shrinks, never raise it. On ASCII text a split on whitespace counts as wc -w does.
+        var text = SkillsCommand.Shipped()["powerops-implement/SKILL.md"];
+        var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+
+        Assert.All(text, c => Assert.True(c < 128, $"non-ASCII character U+{(int)c:X4}"));
+        Assert.InRange(words, 1, 5392);
     }
 
     private static string PlanSkill() => SkillsCommand.Shipped()["powerops-plan/SKILL.md"];
