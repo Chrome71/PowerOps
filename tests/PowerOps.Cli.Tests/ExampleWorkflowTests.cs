@@ -336,6 +336,8 @@ public sealed partial class ExampleWorkflowTests
             "${{ github.event_name == 'workflow_dispatch' && inputs.delete == true || (github.event_name == 'schedule' && vars.POWEROPS_SWEEP_DELETE) || '' }}",
             Text(env, "POWEROPS_SWEEP_DELETE"));
         Assert.DoesNotContain("vars.POWEROPS_SWEEP_DELETE ==", Text(env, "POWEROPS_SWEEP_DELETE"));
+        Assert.All(StepsOf(SweepWorkflow), s => Assert.DoesNotContain("RUNNER_DEBUG", s.Run, StringComparison.Ordinal));
+        Assert.All(PrSteps, s => Assert.DoesNotContain("RUNNER_DEBUG", s.Run, StringComparison.Ordinal));
         Assert.Contains(StepsOf(SweepWorkflow), s => s.Run.Contains("bash docs/examples/powerops/ephemeral-sweep.sh", StringComparison.Ordinal));
     }
 

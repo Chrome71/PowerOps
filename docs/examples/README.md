@@ -137,7 +137,7 @@ Microsoft's deprecation schedule for unmanaged developer environments ([Importan
 
 - **2026-11-15**: new unmanaged developer environments can no longer be created.
 - **2026-12-15**: suspension of existing unmanaged developer environments starts.
-- **2027-01-15**: permanent deletion of suspended unmanaged developer environments starts.
+- **2027-01-15**: deletion of unmanaged developer environments starts.
 
 To keep a personal or team Dev environment running past **2026-12-15**:
 
@@ -255,7 +255,7 @@ A new environment falls under the tenant's DLP policies. A policy can suspend a 
 
 ## What the recipe checks, and what it does not
 
-It checks that the managed zips import into an empty managed environment and that the cloud flows reach the state the plan expected (`deploy apply`). It does not run tests, does not check data, and does not deploy a solution with a connection reference. Every `pac` and `gh` call's raw output stays in temporary files and is never printed to workflow logs (even with `RUNNER_DEBUG=1`), so unrelated tenant environment names or ids are never disclosed.
+It checks that the managed zips import into an empty managed environment and that the cloud flows reach the state the plan expected (`deploy apply`). It does not run tests, does not check data, and does not deploy a solution with a connection reference. The ephemeral scripts (`ephemeral-env.sh`, `ephemeral-sweep.sh`) and the inline `pac` steps in `ephemeral-pr.yml` and `ephemeral-sweep.yml` keep raw `pac` and `gh` output in temporary files and never print it to workflow logs, even when `RUNNER_DEBUG=1`. The pinned `Chrome71/PowerOps` action steps (`action/plan.sh` and `action/apply.sh`, outside this recipe's scripts) still print captured stderr when `RUNNER_DEBUG=1` (which can include forwarded `pac` or `az` diagnostics), so do not turn on Actions debug logging in a public repository.
 
 ## Not verified
 

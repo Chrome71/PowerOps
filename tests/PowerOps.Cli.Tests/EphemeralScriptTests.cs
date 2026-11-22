@@ -468,6 +468,7 @@ public sealed class EphemeralScriptTests : IDisposable
         [2000] = """{"status":"in_progress","conclusion":""}""",
         [2001] = """{"status":"queued","conclusion":""}""",
         [2002] = """{"status":"waiting","conclusion":""}""",
+        [2003] = """{"status":"completed\n","conclusion":"success"}""",
         [4000] = "",
         [4001] = "not json {",
     };
@@ -543,6 +544,7 @@ public sealed class EphemeralScriptTests : IDisposable
     [InlineData(2000)]
     [InlineData(2001)]
     [InlineData(2002)]
+    [InlineData(2003)]
     public void Sweep_keeps_the_environment_of_a_run_that_has_not_finished(long runId)
     {
         var run = RunSweep([List(Item(Name(run: runId), Id('a'), Url("org1")))], delete: true);
@@ -618,6 +620,25 @@ public sealed class EphemeralScriptTests : IDisposable
             Assert.Contains("failed 1", run.Out);
             AssertNoLeak(run, Name(run: 1000), Id('a'), "org1", "contoso-dev-secret", "orgdevsecret");
         }
+    }
+
+    [Fact]
+    public void Sweep_refuses_duplicate_display_name_with_distinct_ids_in_both_dry_run_and_delete_without_naming_it()
+    {
+        var sharedName = List(Item(Name(run: 1000), Id('a'), Url("org1"), "Sandbox"), Item(Name(run: 1000), Id('b'), Url("org2"), "Developer"));
+        var dry = RunSweep([sharedName]);
+        var deleting = RunSweep([sharedName], delete: true);
+
+        Assert.All(new[] { dry, deleting }, r =>
+        {
+            Assert.Equal(1, r.Code);
+            Assert.Equal(["admin list --json"], r.PacCalls);
+            Assert.Empty(r.GhCalls);
+            Assert.DoesNotContain("would delete", r.Out);
+            Assert.DoesNotContain("deleted ", r.Out);
+            Assert.Contains("failed 2", r.Out);
+            AssertNoLeak(r, Name(run: 1000), Id('a'), Id('b'), "org1", "org2");
+        });
     }
 
     [Fact]

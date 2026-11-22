@@ -68,7 +68,7 @@ elif [ "$rc" -ne 0 ]; then
 fi
 
 name_re="^$EPHEMERAL_PREFIX-$REPO_ID-pr([0-9]+)-([0-9]+)-([0-9]+)$"
-# jq selects with \A and \z, checks exact Type inside jq (so trailing newlines cannot be stripped), and validates unique id count.
+# jq selects with \A and \z, checks exact Type inside jq (so trailing newlines cannot be stripped), and validates unique name and id counts.
 rows=()
 while IFS= read -r row; do rows+=("$row"); done < <(jq -r -s \
   --arg re "\\A$EPHEMERAL_PREFIX-$REPO_ID-pr([0-9]+)-([0-9]+)-([0-9]+)\\z" \
@@ -76,27 +76,36 @@ while IFS= read -r row; do rows+=("$row"); done < <(jq -r -s \
   '.[0] as $all
    | $all[]
    | select((.DisplayName | type) == "string" and (.DisplayName | test($re)))
+   | .DisplayName as $name
+   | ([$all[] | select(.DisplayName == $name)] | length) as $name_count
    | (.Type == "Sandbox" or .Type == "Trial") as $type_ok
    | ((.EnvironmentId | type) == "string" and (.EnvironmentId | test($guid))) as $id_ok
    | (if $id_ok then (.EnvironmentId | ascii_downcase) else "" end) as $id_low
    | (if $id_ok then ([$all[] | select((.EnvironmentId | type) == "string" and ((.EnvironmentId | ascii_downcase) == $id_low))] | length) else 0 end) as $id_count
    | (if $id_ok then .EnvironmentId else "" end) as $id_val
-   | [.DisplayName, (if $type_ok then "yes" else "no" end), (if $id_ok then "yes" else "no" end), ($id_count | tostring), $id_val]
+   | [$name, ($name_count | tostring), (if $type_ok then "yes" else "no" end), (if $id_ok then "yes" else "no" end), ($id_count | tostring), $id_val]
    | @tsv' "$list")
 
 if [ "$delete" = true ]; then echo "sweep: deleting the leftovers"; else echo "sweep: dry run, nothing is removed (POWEROPS_SWEEP_DELETE is not true)"; fi
 
 matched=0 leftovers=0 kept=0 failed=0
 for row in ${rows[@]+"${rows[@]}"}; do
-  IFS=$'\t' read -r environment_name type_ok id_ok id_count environment_id <<< "$row"
+  IFS=$'\t' read -r environment_name name_count type_ok id_ok id_count environment_id <<< "$row"
   [[ $environment_name =~ $name_re ]] || continue
   pr="${BASH_REMATCH[1]}"
   run_id="${BASH_REMATCH[2]}"
   if [ -n "$only_pr" ] && [ "$pr" != "$only_pr" ]; then continue; fi
   matched=$((matched + 1))
 
-  # Check exact Type FIRST (before printing any name or checking id): never widen deletable types without explicit human authorization;
-  # Developer (including Managed Developer), Production, Default, and non-string or trailing-newline types are never deleted or named.
+  # Check unique name and exact Type FIRST (before printing any name or checking id): never widen deletable types without explicit
+  # human authorization; Developer (including Managed Developer), Production, Default, duplicate names, and non-string or
+  # trailing-newline types are never deleted or named.
+  if [ "$name_count" != 1 ]; then
+    echo "failed: a matching environment name appears more than once in the list, so it is kept"
+    failed=$((failed + 1))
+    continue
+  fi
+
   if [ "$type_ok" != yes ]; then
     echo "failed: a matching environment is not a Sandbox or a Trial, so it is kept"
     failed=$((failed + 1))
