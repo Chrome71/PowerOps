@@ -589,12 +589,12 @@ public partial class SkillsCommandTests : IDisposable
     [Fact]
     public void Plan_skill_stays_under_its_word_ceiling()
     {
-        // M41: the 2,483 words the skill had before the ledger, plus 300. M81: plus 50 for the engagement rule and the callable-tool rule. Decision 52: plus 40 for the three options and the pick. M91: plus 494 for the option format, the defaults batch, the budget and the licence read. M93: plus 144 for the early sketch, the redone pick and the unproven line. M94: plus 108 for the sign-off lines, their log line and the start of the build. M97: plus 119 for the side-by-side pick, the pass question and the four end states. M109: plus 131 for the draft of the person's own and its two fast-path exceptions. On ASCII text a split on whitespace counts as wc -w does. M122: from here this ceiling may only fall: lower it when the skill shrinks, never raise it.
+        // M41: the 2,483 words the skill had before the ledger, plus 300. M81: plus 50 for the engagement rule and the callable-tool rule. Decision 52: plus 40 for the three options and the pick. M91: plus 494 for the option format, the defaults batch, the budget and the licence read. M93: plus 144 for the early sketch, the redone pick and the unproven line. M94: plus 108 for the sign-off lines, their log line and the start of the build. M97: plus 119 for the side-by-side pick, the pass question and the four end states. M109: plus 131 for the draft of the person's own and its two fast-path exceptions. On ASCII text a split on whitespace counts as wc -w does. M122: from here this ceiling may only fall: lower it when the skill shrinks, never raise it. M124: 3,863 after the main-mode sketch, the approval question and the generated draft, with its details in references/drafts.md.
         var text = SkillsCommand.Shipped()["powerops-plan/SKILL.md"];
         var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
 
         Assert.All(text, c => Assert.True(c < 128, $"non-ASCII character U+{(int)c:X4}"));
-        Assert.InRange(words, 1, 3865);
+        Assert.InRange(words, 1, 3863);
     }
 
     [Fact]
@@ -1148,7 +1148,7 @@ public partial class SkillsCommandTests : IDisposable
         Assert.Equal(0, code);
         foreach (var root in new[] { ".claude", ".agents" })
         {
-            foreach (var name in ProductReferences.Concat(["data.md", "route.md", "design.md", "logic.md", "look.md", "baseline.md", "licensing.md"]))
+            foreach (var name in ProductReferences.Concat(["data.md", "route.md", "design.md", "logic.md", "look.md", "baseline.md", "licensing.md", "drafts.md"]))
             {
                 var file = P(root, "skills", "powerops-plan", "references", name);
                 Assert.Equal(SkillsCommand.Shipped()[$"powerops-plan/references/{name}"], File.ReadAllText(file));
@@ -1168,9 +1168,9 @@ public partial class SkillsCommandTests : IDisposable
         const string Pointer = "When it names an app, page, site, report or agent, read `references/route.md`";
         const string Sketch = "**D** sketch the screens first";
 
-        // The pointer is in section 5, which both paths write, and D is on the what-next menu and the fast-path menu.
+        // The pointer is in section 5, which both paths write, and D is on the fast-path menu (M124: the what-next menu is gone).
         Assert.InRange(plan.IndexOf(Pointer, StringComparison.Ordinal), 0, plan.IndexOf("## 6. Question rounds", StringComparison.Ordinal));
-        Assert.Equal(2, Regex.Count(plan, Regex.Escape(Sketch)));
+        Assert.Equal(1, Regex.Count(plan, Regex.Escape(Sketch)));
         Assert.True(plan.LastIndexOf(Sketch, StringComparison.Ordinal) > plan.IndexOf("## 8. Fast path", StringComparison.Ordinal));
         string[] log = ["start `powerops-prototype <name>`", "`prototype: approved mockups/prototype.html (option <letter>: <why>)`", "three options in different design directions", "start it with `pick <letter>`", "Show the side-by-side picture, then the three names with their bets, and ask \"Which direction?\"", "ask per product \"Does it pass?\": **Pass** or **Fail**", "`prototype: skipped (<reason>)`", "`prototype: not needed (<reason>)`", "Ask nothing else, except the sketch question (section 7 step 6)", "Keep visual detail out of `Screens` and `Steps`"];
         string[] data = ["## 6. The data round", "1. Where does the data live today?", "6. What is out of this version?", "`logic.md`"];
@@ -1224,7 +1224,7 @@ public partial class SkillsCommandTests : IDisposable
     public void Plan_skill_sketches_in_the_rounds_and_asks_only_an_open_pick_at_approval()
     {
         var text = PlanSkill();
-        var rounds = Between(text, "## 6. Question rounds", "## 7. Approve (B)");
+        var rounds = Between(text, "## 6. Question rounds", "## 7. Approve");
         var step6 = Between(text, "6. If `Screens` names anything:", "7. Recommend a review");
 
         Assert.All(new[] { "write the first `Screens` lines from the idea or round 1", "Once `Users`, the route and a `Screens` line exist", "no later than the first data question" }, s => Assert.Contains(s, rounds));
@@ -1241,7 +1241,7 @@ public partial class SkillsCommandTests : IDisposable
         [
             "under `quick` and in the fast path, start it at approval",
             "log the `prototype:` line under `## Log` at once",
-            "before any \"What next?\" menu",
+            "before the next round's questions",
             "in the reply that reports the change, never in a later round or at approval",
             "run `options` again",
             "or you can't tell whether they did",
@@ -1359,6 +1359,73 @@ public partial class SkillsCommandTests : IDisposable
         Assert.Contains("Otherwise create the folder, do step 5 if the person gave a draft, and go to section 3.", start);
         Assert.All(new[] { "5. **A draft of their own.**", "map it onto the sections of section 5", "`- from the draft: <choice>: \"<their words>\" (answered by: person)`", "redacted per section 4", "ask only what it leaves open", "count as asked when the draft settles them", "never `yes (read)`" }, s => Assert.Contains(s, start));
         Assert.Equal(2, Regex.Matches(fast, Regex.Escape("unless the draft settled it (section 2 step 5)")).Count);
+    }
+
+    [Fact]
+    public void Plan_skill_starts_at_quick_asks_approve_with_no_menu_and_sketches_the_main_screen()
+    {
+        // M124 Data row 1: no inherited depth, no what-next menu, the quick licence rule, the three draft sources and the main-mode sketch.
+        var shipped = SkillsCommand.Shipped();
+        var text = shipped["powerops-plan/SKILL.md"];
+        var rounds = Between(text, "## 6. Question rounds", "## 7. Approve");
+        var step6 = Between(text, "6. If `Screens` names anything:", "7. Recommend a review");
+        var start = Between(text, "## 2. Start or resume", "## 3. Environment facts");
+        var licences = text.Split('\n').Single(l => l.StartsWith("8. **Licences.**", StringComparison.Ordinal));
+        var route = Between(shipped["powerops-plan/references/route.md"], "## 2. The sketch", "| Product | Offer |");
+
+        Assert.Contains("A new plan starts at the `depth` of the plan it supersedes, else at the depth the person asks for, else `quick`.", rounds);
+        Assert.Contains("environment: null\ndepth: quick\nsupersedes: null", text);
+        Assert.DoesNotContain("newest-modified", text);
+        Assert.Contains("In round 1, ask the cost tier, \"Which licences should the plan assume?\": **Not sure: standard first** (recommended), **Standard licences only**, **Premium where needed**.", rounds);
+        Assert.All(new[] { "ending with the line \"Or say approve, stop, or sketch the screens first.\"", "ask \"Approve the draft?\": **Approve** (recommended) or **Another round**", "`approval asked: <answer>`", "how to resume (\"ask me to continue the `<name>` plan\"); the status stays `draft`" }, s => Assert.Contains(s, rounds));
+        Assert.DoesNotContain("Ask what next", text);
+        Assert.DoesNotMatch(@"[Rr]ecommend B\b", text);
+        Assert.Contains("- `draft`: go on with the rounds (section 6).", start);
+        Assert.All(new[] { "Under `quick` it runs in `main` mode: one sketch of the main screen, three options and the judge only on request", "`prototype: approved mockups/prototype.html (main screen: <why>) (answered by: person)`" }, s => Assert.Contains(s, step6));
+        Assert.Contains("On **D** in the fast path, or a request for a screen, wireframe or mockup, do section 7 step 6, then go on where you were.", Between(text, "## 11. Mockups", "## Per agent"));
+        Assert.All(new[] { "a Plans document from Power Apps (its PDF export or pasted text)", "what they gave Cowork's App skill", "a description given to Apps in Copilot Studio (preview)", "Generated choices settle nothing until the person endorses them", "read `references/drafts.md`" }, s => Assert.Contains(s, start));
+        Assert.All(new[] { "the plan assumes standard licences only unless the read shows `yes (read)`", "a row with no standard alternative and no `yes (read)` is also an Open question" }, s => Assert.Contains(s, licences));
+        Assert.Contains("Under `quick`, where `Held` is never asked, the plan assumes the person holds standard licences only", shipped["powerops-plan/references/licensing.md"]);
+        Assert.All(new[] { "start it at approval in `main` mode: one sketch of the main screen, three options and the judge only on request", "Sign-off needs `prototype.html` and its map with a person's pass, logged `(answered by: person)`", "Offer a sketch whenever `Screens` names anything." }, s => Assert.Contains(s, route));
+        Assert.DoesNotContain("Offer **D**", route);
+    }
+
+    [Fact]
+    public void Drafts_reference_keeps_generated_choices_unsettled_until_the_person_endorses_them()
+    {
+        // M124 Data row 1d: the log form, the batch question, the never-settled classes, the fast-path rule and the licence-fact rule.
+        var drafts = SkillsCommand.Shipped()["powerops-plan/references/drafts.md"];
+        string[] wording =
+        [
+            "Read this only when the person's draft (`SKILL.md` section 2 step 5) came from one of three tools",
+            "`- from the draft (generated): <choice>`, with no person mark",
+            "`generated: <choice>`",
+            "\"Keep these N generated choices?\": **Keep all** (recommended) or **Change some**",
+            "`generated kept: <N>` or `generated changed: <labels>`",
+            "A generated choice never settles the classes that are never defaults (section 6: the cost tier, `Held`, environments, security roles, the data-round questions), nor the route",
+            "In the fast path (section 8) generated choices stay `generated:` Assumptions and settle nothing, so it still asks nothing beyond the route, the prefix and the sketch question.",
+            "A licence or tenant fact in a generated draft is `unknown`, never the person's answer",
+        ];
+
+        Assert.All(wording, s => Assert.Contains(s, drafts));
+        Assert.All(drafts, c => Assert.True(c < 128, $"non-ASCII character U+{(int)c:X4}"));
+    }
+
+    [Fact]
+    public void Prototype_skill_has_a_main_mode_that_is_judged_only_on_request()
+    {
+        // M124 Data row 2.
+        var text = SkillsCommand.Shipped()["powerops-prototype/SKILL.md"];
+        var modes = Between(text, "## 2. Modes", "## 3. File rules");
+        var rules = Between(text, "## 3. File rules", "## 4. Design");
+        var claude = text.Split('\n').Single(l => l.StartsWith("- **Claude Code:**", StringComparison.Ordinal));
+
+        Assert.All(new[] { "- **`main`**: write only `prototype.html`, with the one screen of `Screens` that carries the most Goal lines", "No options and no side-by-side picture.", "steps 2 and 3, the judge loop, run only when the request asks for the judge", "A `change` of a `main` sketch", "the judge only on request" }, s => Assert.Contains(s, modes));
+        Assert.Contains("\"Sketch: main screen\" in a `prototype.html` drawn in `main` mode", Between(rules, "- **Label.**", "\n"));
+        Assert.Contains("A person's pass, an approval line ending `(answered by: person)`, needs no verdict and no options", Between(rules, "- **Judge file.**", "\n"));
+        Assert.Contains("in `main` mode and a `change` of a `main` sketch only when the request asks for it", claude);
+        Assert.Contains("in main mode it writes only prototype.html", text.Split('\n').Single(l => l.StartsWith("description:", StringComparison.Ordinal)));
+        Assert.Contains("after `main` with no judge asked, say \"not judged\"", Between(text, "## 7. Report", "## Per agent"));
     }
 
     [Fact]

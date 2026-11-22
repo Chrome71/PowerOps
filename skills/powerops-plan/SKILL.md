@@ -25,27 +25,27 @@ An agent that answers for the person under the person's brief is not autopilot: 
 
 ## 2. Start or resume
 
-1. Check that `powerops` runs (for example `powerops --version`). If it is not found, tell the user to install PowerOps as the Install section of its README says (https://github.com/Chrome71/PowerOps#install), and stop.
-2. Pick a plan name in kebab-case from the idea (`site-visits`). The folder is `docs/plans/<name>/`.
-3. If the folder exists, read `plan.md` and `decisions.md`, then run `powerops plan status docs/plans/<name> --json`. If it exits 2, show the reason and fix the header with the user first. Keep the `depth` from the header (section 6). Then continue where the plan stopped:
-   - `draft`: go to the what-next menu (section 6).
-   - `approved`: go to the review and sign-off steps (sections 7 and 9).
-   - `signed-off`, `implementing`, `done`: tell the user any change to the plan body voids the sign-off. Continue only if they want changes (section 10).
-4. If it does not exist, first check `docs/plans/` for a plan on the same idea. A `draft` or `approved` one: resume it. A `signed-off`, `implementing` or `done` one: if the user wants a new version, follow "New version" in section 10. Otherwise create the folder, do step 5 if the person gave a draft, and go to section 3.
-5. **A draft of their own.** When the person hands you a plan they drafted (a document, notes or pasted text), map it onto the sections of section 5. Log each choice it settles under `## Log` as `- from the draft: <choice>: "<their words>" (answered by: person)`, redacted per section 4, and ask only what it leaves open. The cost tier and environments questions (section 6), the fast path's route (section 8) and an area at approval (section 7 step 1) count as asked when the draft settles them. A licence or tenant fact in it is the person's answer, never `yes (read)`.
+1. Check that `powerops --version` runs. If not, tell the user to install PowerOps as its README's Install section says (https://github.com/Chrome71/PowerOps#install), and stop.
+2. Name the plan in kebab-case from the idea (`site-visits`); its folder is `docs/plans/<name>/`.
+3. If the folder exists, read `plan.md` and `decisions.md`, then run `powerops plan status docs/plans/<name> --json`. If it exits 2, show the reason and fix the header with the user first. Keep the header's `depth` (section 6), then continue where the plan stopped:
+   - `draft`: go on with the rounds (section 6).
+   - `approved`: go to review and sign-off (sections 7 and 9).
+   - `signed-off`, `implementing`, `done`: tell the user any change to the plan body voids the sign-off, and continue only if they want changes (section 10).
+4. If it does not exist, check `docs/plans/` for a plan on the same idea: resume a `draft` or `approved` one. A `signed-off`, `implementing` or `done` one: if the user wants a new version, follow "New version" in section 10. Otherwise create the folder, do step 5 if the person gave a draft, and go to section 3.
+5. **A draft of their own.** When the person hands you a plan they drafted (a document, notes or pasted text), or a Plans document from Power Apps (its PDF export or pasted text), what they gave Cowork's App skill, or a description given to Apps in Copilot Studio (preview), map it onto the sections of section 5. Log each choice it settles under `## Log` as `- from the draft: <choice>: "<their words>" (answered by: person)`, redacted per section 4, and ask only what it leaves open. The cost tier and environments questions (section 6), the fast path's route (section 8) and an area at approval (section 7 step 1) count as asked when the draft settles them. A licence or tenant fact in it is the person's answer, never `yes (read)`. Generated choices settle nothing until the person endorses them: for these three, read `references/drafts.md`.
 
 ## 3. Environment facts
 
-Never run `pac` yourself. Read environment facts only for an environment the user names.
+Never run `pac` yourself.
 
-1. Ask, as a question of round 1, which environment the plan targets, whether `pac` is signed in to it, and `az` to its tenant. End your turn and wait.
+1. In round 1, ask which environment the plan targets, whether `pac` is signed in to it, and `az` to its tenant.
 2. Run `powerops plan facts` once, and only after the user has named the environment and said `pac` is signed in to it.
-3. Output with `"available": true` lists the environment `pac` is signed in to and the existing solutions (names, versions, managed flag). If that environment is not the one the user named, say only that they differ. Use none of the facts, and write that environment's name nowhere, not even in chat. Otherwise use the facts to answer questions instead of asking them.
-4. If `available` is false, tell the user the `reason` and the `fix` in your next message, in one line. Do not run the fix. Add a line to Assumptions in `plan.md` that environment facts were not available. Carry on.
-5. If the user names no environment, or `pac` is not signed in to it, do not run `powerops plan facts`. Plan from the repo and add a line to Assumptions in `plan.md` that environment facts were not read. Carry on.
-6. The facts do not contain the publisher prefix. Take it from the repo if a solution there shows it. Otherwise ask.
+3. With `"available": true` the output lists the environment `pac` is signed in to and its solutions. If it is not the environment the user named, say only that they differ, use none of the facts, and write its name nowhere, not even in chat; otherwise use the facts.
+4. If `available` is false, tell the user the `reason` and the `fix` in one line, without running the fix, note under Assumptions that environment facts were not available, and carry on.
+5. If the user names no environment, or `pac` is not signed in to it, do not run `powerops plan facts`: plan from the repo, note under Assumptions that environment facts were not read, and carry on.
+6. The facts hold no publisher prefix: take it from a solution in the repo, else ask.
 7. Once the user confirms the environment (in the fast path, a request naming it), write its role, `environment: Dev`, never its name, which can hold a person's name; in `decisions.md`, write "the environment found by plan facts". Refer to every environment by role (Dev, Test, Prod), and offer none as a target unless the user names it.
-8. **Licences.** Only after the user has named the environment and said `az` is signed in, run once, read-only, after round 1's answers (under `quick` too): `az rest --method get --url https://graph.microsoft.com/v1.0/me/licenseDetails --query "value[].skuPartNumber" -o tsv`. Fill `Held` through `references/licensing.md` section 1: an unlisted part number never counts as held. Write product names only. An error, refusal or empty list is a failed read: say only that it failed, never its text. After a failed read, or without the condition, ask neutrally which table products the account holds, option 1 "Not sure" (recommended). Under `quick` ask nothing: `Held` stays `unknown`. Other people's licences, test users' included, are always the person's answer.
+8. **Licences.** Only after the user has named the environment and said `az` is signed in, run once, read-only, after round 1's answers (under `quick` too): `az rest --method get --url https://graph.microsoft.com/v1.0/me/licenseDetails --query "value[].skuPartNumber" -o tsv`. Fill `Held` through `references/licensing.md` section 1: an unlisted part number never counts as held. Write product names only. An error, refusal or empty list is a failed read: say only that it failed, never its text. After a failed read, or without the condition, ask neutrally which table products the account holds, option 1 "Not sure" (recommended). Under `quick` ask nothing: an unread `Held` stays `unknown`, the plan assumes standard licences only unless the read shows `yes (read)`, the cost-tier answer stands, and a row with no standard alternative and no `yes (read)` is also an Open question. Other people's licences, test users' included, are always the person's answer.
 
 ## 4. Tenant data
 
@@ -62,7 +62,7 @@ review: pending
 signed-off: null
 signed-off-hash: null
 environment: null
-depth: standard
+depth: quick
 supersedes: null
 ---
 
@@ -85,14 +85,14 @@ supersedes: null
 - `Goal` writes its outcomes as numbered Goal lines, then ends with a `### Won't build` list: one `- ` item per thing left out of this version, and why, or the line "Nothing was cut.".
 - `Data` has one row per table and list: `| Artefact | Kind | Store | Goal line | Reuse, Extend or Create | Why not a column or choice | Rows now, 3 years |`. Its Goal line is the number of the line that would fail without it.
 - `Automation` and `Screens` give each flow and screen its Goal line too.
-- When the plan names new data or a flow, read `references/data.md` beside this file: the store, the gates, table design, each flow's card and the data round. When it names an app, page, site, report or agent, read `references/route.md` and the product files it names.
+- When the plan names new data or a flow, read `references/data.md` beside this file. When it names an app, page, site, report or agent, read `references/route.md` and the product files it names.
 - `Constraints` holds DLP, deadlines and, when the plan names a connector, table, app, flow, site, report or agent, a `### Licences` table, one row per need beyond Microsoft 365's standard rights: `| Need | Product or feature | Who needs it | Standard alternative | Held |`. With none, the heading stays with only the line "No need beyond Microsoft 365's standard rights.". Rows and values: `references/licensing.md`. A row with `Held` `unknown` gets a step checking it before first use.
-- `Steps` is a numbered list of implementation steps: small, in order, each one checkable.
+- `Steps` lists implementation steps, numbered: small, in order, each one checkable.
 - A step that rests on a platform capability no source shows for this use and no run proved (a privilege, a control property, a CLI command on this content, a theme file, a licence, two settings together): write `unproven: <capability>; probed by step <n>` under Assumptions, and put that probe (a read in Dev, a one-control compile, a command on a scratch copy) before every step that depends on it.
 - A skill, CLI or MCP tool the plan says a step uses: check that it is callable (in your skill or tool list, or found by `command -v` or `Get-Command`). If it isn't, or you can't check, say so in Assumptions.
-- `Open questions` and `Questions for your admin` hold one top-level `- ` item per question. When there are none, leave the section empty. Do not write "None": the tool counts list items. Move an item out when it is answered.
-- Questions only someone else can answer (licensing, DLP) go under `Questions for your admin`, so the user can forward them.
-- Edit the header line by line, and only `status`, `review`, `environment`, `depth` and `supersedes`. Never write `signed-off` or `signed-off-hash` by hand. Only `powerops plan sign-off` does.
+- `Open questions` and `Questions for your admin` hold one top-level `- ` item per question. With none, leave the section empty, not "None": the tool counts list items. Move an item out once it is answered.
+- Questions only someone else can answer (licensing, DLP) go under `Questions for your admin`, for the user to forward.
+- Edit the header line by line, and only `status`, `review`, `environment`, `depth` and `supersedes`. Never write `signed-off` or `signed-off-hash` by hand: only `powerops plan sign-off` does.
 
 Create `decisions.md` in exactly this format:
 
@@ -112,7 +112,7 @@ Answer: <the user's answer> (answered by: person)
 ```
 
 - At most three `### Q` per round. Numbering continues across rounds (Q4 starts round 2).
-- The recommended option is always option 1. "In your own words" is always the last option.
+- The recommended option is always option 1, and "In your own words" always the last.
 - For `Answer:`, write the text of the option chosen, or the user's own words (redacted, see section 4).
 - End each `Answer:` line, and each Log line of an approval, acceptance or sign-off, with `(answered by: person)` or `(answered by: agent <session>)`.
 - Everything that is not a question goes as a `- ` line under a `## Log` heading at the end: approvals, "approved without: environments, constraints", fast-path choices, sign-off. Add new rounds above `## Log`, and new log lines at the end of it (oldest first).
@@ -121,61 +121,58 @@ Answer: <the user's answer> (answered by: person)
 
 Each round:
 
-1. Ask at most three questions. Each has two or three options, the recommended one first, plus "in your own words". An option is a label of at most six words and one sentence of at most 20 words on what changes. Sources and detail go into the plan. A recommended option never states a fact about the person's tenant, licences or data: read it (section 3), or make option 1 "Not sure" (recommended).
-2. Use the agent's choice tool if it has one. Otherwise print the numbered options as plain text and tell the user how to answer: "Answer like `1 2 1`, or in your own words." Then end your turn.
+1. Ask at most three questions, each with two or three options, the recommended one first, plus "in your own words". An option is a label of at most six words and one sentence of at most 20 words on what changes; sources and detail go into the plan. A recommended option never states a fact about the person's tenant, licences or data: read it (section 3), or make option 1 "Not sure" (recommended).
+2. Use the agent's choice tool if it has one; otherwise print the numbered options as plain text with "Answer like `1 2 1`, or in your own words." Then end your turn.
 3. Right after the answers, append each question and answer to `decisions.md`.
-4. Update `plan.md`. Put assumptions and open items in the plan, not in chat.
-5. Show exactly three lines, one per change to the plan. Nothing else.
-6. Ask what next, with lettered options: **A** another round, **B** approve the draft, **C** stop for now, **D** sketch the screens first. End your turn.
+4. Update `plan.md`, with assumptions and open items in the plan, not in chat.
+5. Show exactly three lines, one per change to the plan, then the next round's questions, ending with the line "Or say approve, stop, or sketch the screens first." (its last clause only when `Screens` names anything). Approve: section 7. Stop: say where the files are (`docs/plans/<name>/`) and how to resume ("ask me to continue the `<name>` plan"); the status stays `draft`. Sketch: section 7 step 6.
 
-Question order: outcome and users, then data, then automation, then environments and ALM, then constraints. Three rules:
+Question order: outcome and users, data, automation, environments and ALM, constraints. Three rules:
 
 - In round 1, ask the cost tier, "Which licences should the plan assume?": **Not sure: standard first** (recommended), **Standard licences only**, **Premium where needed**. `references/licensing.md` section 1 defines each.
 - Ask the environments question (target, route Dev to Test to Prod) by round 3.
 - Under `standard` and `deep`, write the first `Screens` lines from the idea or round 1. Once `Users`, the route and a `Screens` line exist, start `powerops-prototype <name>` in `options` mode and ask the pick in the next round, no later than the first data question, as section 7 step 6 asks it (`references/route.md` section 2).
 
-**Data round.** When the plan names new data (a table, list or store), ask the six questions in section 6 of `references/data.md`. Under `standard` and `deep` they fill successive rounds of at most three. A data question waits a round when the licensing or environments question is due. Under `quick` only question 1 joins the one round: write the ledger's other cells from the request or as Assumptions, and put unknowns under Open questions. The fast path asks none and does the same.
+**Data round.** When the plan names new data (a table, list or store), ask the six questions of `references/data.md` section 6. Under `standard` and `deep` they fill successive rounds of at most three. A data question waits a round when the licensing or environments question is due. Under `quick` only question 1 joins the one round: write the ledger's other cells from the request or as Assumptions, and put unknowns under Open questions. The fast path asks none and does the same.
 
-Do not ask what the facts already answer. When nothing is left to ask, recommend B.
+Don't ask what the facts answer. When nothing is left to ask, ask "Approve the draft?": **Approve** (recommended) or **Another round**, logged as `approval asked: <answer>` with its mark under `## Log`, not as a `### Q`.
 
-**Defaults.** A safe default is reversible, changes no cost, security or data, and is no tenant fact. Don't ask: write `default: <choice>` under Assumptions. The cost tier, `Held`, environments, security roles and data-round questions are never defaults.
+**Defaults.** A safe default is reversible, changes no cost, security or data, and is no tenant fact: write it, unasked, as `default: <choice>` under Assumptions. The cost tier, `Held`, environments, security roles and data-round questions are never defaults.
 
 **Budget.** Under `standard`, aim for five rounds or fewer before approval. After round five, each question names the plan line it unblocks. Open each round's message with "Round <k> of about <n>", in chat only: `decisions.md` keeps `## Round <k>` headings.
 
 **Depth.** `depth` in the header sets how far the rounds go:
 
-- `quick`: one round of at most three questions: the cost tier, environments, and data question 1 when the plan names new data. Keep sections short. Recommend B as soon as nothing blocks.
-- `standard`: the rounds as written above.
-- `deep`: more rounds are fine. Also ask about edge cases, data volume and delegation, security roles and testability. Write fuller Steps.
+- `quick`: one round of at most three questions: the cost tier, environments, and data question 1 for new data. Keep sections short. Ask "Approve the draft?" as soon as nothing blocks.
+- `standard`: the rounds above.
+- `deep`: more rounds, also on edge cases, data volume and delegation, security roles and testability, and fuller Steps.
 
-A new plan starts at the `depth` of the plan it supersedes, else of the newest-modified `docs/plans/*/plan.md` that has one, else `standard`. The fast path (section 8) sets `quick`.
+A new plan starts at the `depth` of the plan it supersedes, else at the depth the person asks for, else `quick`. The fast path (section 8) sets `quick`.
 
-After each round, judge engagement from the answers. "Just pick", "whatever you think", or a request to speed up: go one level down. Answers picked from the options, by number or with the choice tool, don't lower it. Long answers in their own words, follow-up questions, or a request for more detail: one level up. Change it at most once per round. Write the new value in the header, log `depth: <old> -> <new> (<reason in a few words>)` under `## Log` in `decisions.md`, and mention it in one of the three change lines.
+After each round, judge engagement from the answers. "Just pick", "whatever you think", or a request to speed up: go one level down. Answers picked from the options, by number or with the choice tool, don't lower it. Long answers in their own words, follow-up questions, or a request for more detail: one level up. Change it at most once per round: write the new value in the header, log `depth: <old> -> <new> (<reason in a few words>)` under `## Log`, and mention it in a change line.
 
-**A:** run another round. **B:** section 7. **C:** say where the files are (`docs/plans/<name>/`) and how to resume ("ask me to continue the `<name>` plan"). The status stays `draft`.
-
-## 7. Approve (B)
+## 7. Approve
 
 1. Run `powerops plan status docs/plans/<name> --json`. Show the open and admin question counts and which of the five areas (users, data, automation, environments and ALM, constraints) were never asked.
-2. If any area was never asked, ask one confirmation: approve anyway, or ask about it first. Wait. Then, if Assumptions holds `default:` lines, ask once, "Keep these N defaults?", by label: **Keep all** (recommended) or **Change some**, then ask about those. Under `quick`, ask nothing: the approval keeps them. Log `defaults kept: <N>` or `defaults changed: <labels>`, marked `(answered by: ...)`, under `## Log`, not a `### Q`.
+2. If any area was never asked, ask once: approve anyway, or ask about it first, and wait. Then, if Assumptions holds `default:` lines, ask once, "Keep these N defaults?", by label: **Keep all** (recommended) or **Change some**, then ask about those. Under `quick`, ask nothing: the approval keeps them. Log `defaults kept: <N>` or `defaults changed: <labels>` with its mark under `## Log`, not as a `### Q`.
 3. If `Steps` is empty, draft it from the plan and tell the user.
-4. Log the approval under `## Log`. If areas were skipped, log `approved without: <areas>`.
+4. Log the approval under `## Log`, and `approved without: <areas>` if areas were skipped.
 5. Set `status: approved` in the header.
-6. If `Screens` names anything: when the rounds wrote options, ask only a pick still open, and redo `pick <letter>` if the Theme block or `Screens` changed since. Otherwise, unless a sketch passes `powerops plan status`, start `powerops-prototype <name>` (Claude Code: invoke it, which runs forked; Codex: a subagent; otherwise follow it here). It writes three options in different design directions. Show the side-by-side picture, then the three names with their bets, and ask "Which direction?", recommended first, or three new ones, or a skip with a reason. Wait. On a pick, start it with `pick <letter>` and the notes. Show the judged sketch's main frames at 1:1 and ask per product "Does it pass?": **Pass** or **Fail**. On Fail, one follow-up: up to four reasons to tick, or their own words, logged as given, then `change prototype.html` with them. An agent the brief lets choose may pick, never pass a `not at baseline` sketch. End states: "not rendered": offer a skip with the person's reason, or a run where a browser renders; "not at the baseline": show the open findings and pictures, and offer changes, a skip, or a pass logged `prototype: approved mockups/prototype.html (option <letter>: <why>) (below baseline: <why>) (answered by: person)`; "judge needed: <file>": start `powerops-review-sketch <name> prototype.html`, then `change prototype.html` with its file; "self-judged": only the person may pass it. Log `prototype: approved mockups/prototype.html (option <letter>: <why>)` or `prototype: skipped (<reason>)`. If `Screens` names nothing, log `prototype: not needed (<reason>)`. Each ends with an `(answered by: ...)` mark.
-7. Recommend a review in a fresh context with the `powerops-review-plan` skill, and start it as follows:
-   - Claude Code: invoke the `powerops-review-plan` skill. Its installed copy runs forked on the top model.
-   - Codex and other agents that can start a subagent with no chat history: start one that runs `powerops-review-plan`.
-   - Otherwise tell the user to run `powerops-review-plan <name>` in a new session. Then wait.
-   - In the first two cases, add to the request that the user confirmed in this session that `pac` is signed in to the plan's `environment:`, only if they did. Otherwise the reviewer reads no environment facts.
-8. If the user prefers to continue in this session, run the review here. The review then records `fresh-context: no`.
+6. If `Screens` names anything: when the rounds wrote options, ask only a pick still open, and redo `pick <letter>` if the Theme block or `Screens` changed since. Otherwise, unless a sketch passes `powerops plan status`, start `powerops-prototype <name>` (Claude Code: invoke it; Codex: a subagent; otherwise follow it here). Under `quick` it runs in `main` mode: one sketch of the main screen, three options and the judge only on request, a Fail's `change` included. Under `standard` and `deep` it writes three options in different design directions. Show the side-by-side picture, then the three names with their bets, and ask "Which direction?", recommended first, or three new ones, or a skip with a reason, and wait. On a pick, start it with `pick <letter>` and the notes. Show the sketch's main frames at 1:1 and ask per product "Does it pass?": **Pass** or **Fail**, under `quick` also a skip with a reason; log a `main` Pass as `prototype: approved mockups/prototype.html (main screen: <why>) (answered by: person)`. On Fail, one follow-up: up to four reasons to tick, or their own words, logged as given, then `change prototype.html` with them. An agent the brief lets choose may pick, never pass a `not at baseline` sketch. End states: "not rendered": offer a skip with the person's reason, or a run where a browser renders; "not at the baseline": show the open findings and pictures, and offer changes, a skip, or a pass logged `prototype: approved mockups/prototype.html (option <letter>: <why>) (below baseline: <why>) (answered by: person)`; "judge needed: <file>": start `powerops-review-sketch <name> prototype.html`, then `change prototype.html` with its file; "self-judged": only the person may pass it. Log `prototype: approved mockups/prototype.html (option <letter>: <why>)` or `prototype: skipped (<reason>)`. If `Screens` names nothing, log `prototype: not needed (<reason>)`. Each ends with an `(answered by: ...)` mark.
+7. Recommend a review in a fresh context with the `powerops-review-plan` skill, and start it:
+   - Claude Code: invoke it.
+   - Codex and other agents that can start a subagent with no chat history: start one that runs it.
+   - Otherwise tell the user to run `powerops-review-plan <name>` in a new session, then wait.
+   - In the first two cases, add to the request that the user confirmed in this session that `pac` is signed in to the plan's `environment:`, only if they did; otherwise the reviewer reads no environment facts.
+8. If the user prefers to continue in this session, run the review here; it records `fresh-context: no`.
 
 ## 8. Fast path
 
 Use this when the user asks to build without a signed-off plan, or `powerops-implement` hands over.
 
-1. Draft `plan.md` from the request and the repo. Read no environment facts here, even when the request names an environment: the fast path is offline. Put every guess under Assumptions. The status stays `draft`. Set `depth: quick`. Write the `### Licences` table with every `Held` `unknown` and, if it has a row, a first step checking held licences. Put `cost tier: Not sure: standard first (not asked)` under Assumptions, unless the draft settled it (section 2 step 5).
-2. Ask one question: the route, unless the draft settled it (section 2 step 5). Use the numbered format of a round question (section 6): two or three options, each a short label with one sentence on what changes, recommended first, then "In your own words".
-3. Ask the publisher prefix too, only if the repo does not supply it. Ask nothing else, except the sketch question (section 7 step 6). Leave `environment: null` unless the request names an environment; then record its role (`Dev` unless the request says another), and write "the environment named in the request" in `decisions.md`. Either way, note the assumed target in Assumptions.
+1. Draft `plan.md` from the request and the repo. Read no environment facts here, even when the request names an environment: the fast path is offline. Put every guess under Assumptions, keep the status `draft` and set `depth: quick`. Write the `### Licences` table with every `Held` `unknown` and, if it has a row, a first step checking held licences. Put `cost tier: Not sure: standard first (not asked)` under Assumptions, unless the draft settled it (section 2 step 5).
+2. Ask one question: the route, unless the draft settled it (section 2 step 5), in the numbered format of a round question (section 6 step 1).
+3. Ask the publisher prefix too if the repo does not supply it. Ask nothing else, except the sketch question (section 7 step 6). Leave `environment: null` unless the request names an environment; then record its role (`Dev` unless the request says another), and write "the environment named in the request" in `decisions.md`. Either way, note the assumed target in Assumptions.
 4. Log the route in `decisions.md` as a normal question.
 5. Show one lettered menu. A or B keeps the `default:` lines: log `defaults kept: <N>`.
    - **A** approve the draft, then review and sign-off as usual (section 7, from step 3).
@@ -191,29 +188,29 @@ Run this after the review, or when the user says "sign off".
 
 1. Run `powerops plan status docs/plans/<name> --json`.
 2. Show: the open and admin question counts; the unresolved findings in `review.md` (those with `Resolution: open`, by R-number); its first three lines and its `stale` value.
-3. Before the menu, say what A or C lets the build do, in two lines: "Signing off lets the build make every Dev write the Steps name, without asking, and change these Dev settings: <each environment-wide Dev setting a Step names, or none>. It still stops for sign-ins, writes outside the plan, deletes, licences, tenant-level writes, and one yes per deployment." Ask once, lettered: **A** sign off now, **B** go back (resolve findings, or more rounds). When there is no `review.md`, add **C** skip the review and sign off: set `review: skipped` and log it. Before the menu, findings that only need a design assumption confirmed, none High, none a tenant, licence or data fact, go in one question, "Confirm these N assumptions?": **Confirm all** (recommended) or **Change some**. Give each confirmed one `Resolution: accepted` and log `assumptions confirmed: R<n>, ...` with its mark. The plan body doesn't change.
+3. Before the menu, say in two lines what A or C lets the build do: "Signing off lets the build make every Dev write the Steps name, without asking, and change these Dev settings: <each environment-wide Dev setting a Step names, or none>. It still stops for sign-ins, writes outside the plan, deletes, licences, tenant-level writes, and one yes per deployment." Ask once, lettered: **A** sign off now, **B** go back (resolve findings, or more rounds), and, with no `review.md`, **C** skip the review and sign off: set `review: skipped` and log it. Before the menu, findings that only need a design assumption confirmed, none High, none a tenant, licence or data fact, go in one question, "Confirm these N assumptions?": **Confirm all** (recommended) or **Change some**. Give each confirmed one `Resolution: accepted` and log `assumptions confirmed: R<n>, ...` with its mark; the plan body doesn't change.
 4. On A or C, run `powerops plan sign-off docs/plans/<name>`, then `powerops plan status docs/plans/<name>`, and show the result. After the sign-off, log `sign-off covers: Dev writes the Steps name; Dev settings: <list or none>` with the answer's mark, then start `powerops-implement` in this session unless the person said to stop at the plan.
 5. If sign-off refuses, show why and fix the cause with the user.
 
-To resolve a finding, change the plan if needed and set its line in `review.md` to `Resolution: fixed` or `Resolution: accepted`. Add a short reason after it. Log each acceptance.
+To resolve a finding, change the plan if needed and set its line in `review.md` to `Resolution: fixed` or `Resolution: accepted`, with a short reason after it. Log each acceptance.
 
 ## 10. After sign-off
 
-Any change to the plan body voids the sign-off. If the user wants changes, set `status` back to `draft` (more rounds) or `approved` (small edit), make the change, and sign off again with the tool. Offer a new review.
+Any change to the plan body voids the sign-off. If the user wants changes, set `status` back to `draft` (more rounds) or `approved` (small edit), make the change, sign off again with the tool, and offer a new review.
 
 **Amendment.** A line `powerops-implement` hands back (its section 3 step 6): edit it in place, even mid-build, set `status: approved`, review as that step says, sign off (section 9), then log `amendment: <line> (answered by: person)`.
 
-**New version.** When the plan is `signed-off`, `implementing` or `done` and the user wants a new version, not an amendment (new scope, a v2, changes after implementation), do not edit it and do not start from scratch:
+**New version.** When the plan is `signed-off`, `implementing` or `done` and the user wants a new version, not an amendment (new scope, a v2, changes after implementation), neither edit it nor start from scratch:
 
 1. Create `docs/plans/<name>-v2/` (or the next free `-vN`) and copy the previous `plan.md` body into it.
 2. Set the header (resetting `signed-off` and `signed-off-hash` to `null` is the one hand edit of them allowed): `status: draft`, `review: pending`, `signed-off: null`, `signed-off-hash: null`, the same `environment` and `depth`, and `supersedes: <previous folder name>`.
 3. Start `decisions.md` with a `## Log` line `supersedes <previous>`.
-4. Ask questions only about what changes. Keep everything else.
+4. Ask only about what changes; keep everything else.
 5. Leave the old plan as it is.
 
 ## 11. Mockups
 
-Offer **D** whenever `Screens` names anything. On D, or a request for a screen, wireframe or mockup, do section 7 step 6 and show the menu again.
+On **D** in the fast path, or a request for a screen, wireframe or mockup, do section 7 step 6, then go on where you were.
 
 - Never publish or upload a sketch. Apply section 4 to it.
 - Keep visual detail out of `Screens` and `Steps`.
