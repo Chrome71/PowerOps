@@ -1,42 +1,62 @@
-plan-hash: 9cb5a67ee45c2ea355787903fd5567630fadb630b57909df3eeaaab0cebc8492
+plan-hash: 3a8e01cca6889c6131d2c7a8c1e06ba0bc19f7bb740084fede799c268172c6d5
 model: claude-opus-5-5
 fresh-context: yes
 
-Run 2. This review ran in a subagent whose context holds neither the planning conversation nor run 1: it read run 1's `review.md` from the folder only to see which findings were answered. It read `plan.md`, `decisions.md` (no `mockups/`) and the repo at `cc8569c`.
+Run 3. This review ran in a subagent whose context holds neither the planning conversation nor runs 1 and 2: it read run 2's `review.md` from the folder only to see which findings were answered. It read `plan.md`, `decisions.md` (no `mockups/`) and the repo at `d72765d`.
 Environment facts were not read: no `pac` sign-in was confirmed, and the plan's `environment:` is null (tenant: offline; no `pac`, `az` or other tenant call was made).
 This is a maintainer milestone for PowerOps itself (a read-only CLI command and README changes), not a Power Platform solution. Checklist items 1 (solution and publisher), 2 (connection references and environment variables), 3 (licences), 4 (DLP), 6 (managed or unmanaged), 7 (data volume and delegation) and the per-product parts of 11 are not applicable. Item 5 is read as the pull request, CI and the owner's merge authority in `decisions.md`; item 8 as what `doctor --live` may read and print.
-Tools checked with `command -v` on this machine: `powerops`, `dotnet`, `git`, `gh`, `jq`, `pac`, `az` and `claude` all found; `reports/leakscan.sh` is in the main checkout. Not checkable here beyond their presence in the agent list: the `fable-reviewer` and `powerops-researcher` agents.
-Repo facts the plan rests on were found: `PacRunner.Resolve(name, path, windows, pathExt)`, `DriftLiveReader.AzExecutable`, `PlanFacts.SignInFix`, `TextReport.Clean`, `BoundedRead.ReadAllText` (it counts the bytes it reads), `SkillsCommand.Shipped()` over the embedded `skills/**`, section 3 of `licensing.md`, `OutputSchemaTests.Map` (no prefix clashes with `doctor`), `DocsDriftTests.KnownFlags` and its 1,500-character check, `McpCommandTests.ToolNames`, and an `installed_plugins.json` of the shape Data row 2 describes. The leaf commands of `Program.Root` are the 19 Row 5 groups, so with `doctor` the table has 20 rows. With the installed CLI (an older build), `powerops analyze tests/fixtures/powerops-seed/v2` and `powerops test tests/fixtures/powerops-seed/v2 --tests tests/fixtures/flowtests/seed` exited 0 and printed the sample README's two result lines.
-Run 1's findings are answered in the plan: R1 by Data row 6, R2 by A5, R3 by the README test in Done 6, R4 by the `doctor-live.json` golden, R5 by `BoundedRead`, R6 by Done 4 and C7, R7 by Done 8's path, and R8 is kept with the allow marker (R4 below). Step 2's Fable plan review has no approval logged yet; that step is still running, so it is not a finding. Open questions: 0; questions for your admin: 0.
+Tools checked with `command -v` on this machine: `powerops`, `pac`, `dotnet`, `git`, `gh` and `claude` (2.1.326) found; `reports/leakscan.sh` is in the main checkout. The `fable-reviewer` and `powerops-researcher` agents are in this session's agent list. Not checked: what Claude Code's docs say `CLAUDE_CODE_PLUGIN_CACHE_DIR` points at (A2 cites the docs; no web page was read here).
+Repo facts the plan rests on were found: `PacRunner.Resolve(name, path, windows, pathExt)` (no process started), `DriftLiveReader.AzExecutable`, `PlanFacts.SignInFix`, `SettingsCommand.Field` (the `Friendly Name:` parse), `TextReport.Clean`, `BoundedRead.ReadAllText`, `SkillsCommand.Shipped()`, section 3 of `licensing.md` (`POWERAPPS_PER_USER` is Power Apps Premium; neither of Done 2's two bundle part numbers is listed), `OutputSchemaTests.Map` (a `doctor` prefix clashes with none and matches both `doctor.json` and `doctor-live.json`), `DocsDriftTests.KnownFlags`, `QuickStartProblems` (the first fence holding `git clone`), `McpCommandTests.ToolNames`, the 19 leaf commands of `Program.Root` (with `doctor`, the 20 of Row 5), and an `installed_plugins.json` of version 2 with the fields Data row 2 names. With the installed CLI, `powerops analyze tests/fixtures/powerops-seed/v2` and `powerops test tests/fixtures/powerops-seed/v2 --tests tests/fixtures/flowtests/seed` exited 0 and printed the sample README's two result lines.
+Run 2's findings are answered in the plan: R1 by A4 and C5 now saying `not-read` (C7), R2 by Row 5's clone-root commands and the fence order, R3 by Rows 1 and 2 and Done 4, and R4 is kept with the allow marker (R7 below). Step 2's Fable plan review has no approval logged yet; that step is still running, so it is not a finding. Open questions: 0; questions for your admin: 0.
 
 ## Findings
 
 ### High
 
-#### R1. A refused licence read is `failed` in A4 and C5, but `not-read` everywhere else
-- Area: 13 Buildability (two plan lines that can't both hold)
-- Finding: A4 says a user without a directory role may be refused, "then the line is `failed`", and C5 says `failed` "(a sign-in or the licence read)" sets exit 1. Data row 1 gives the `licences` check only the status `not-read`, Data row 4 and C7 say a refused licence read never changes the exit code, and Done 2 prints only the failure sentence. Both can't hold: the tests of Done 2 and the exit code of Data row 4 depend on which is meant. This is a wording slip left from run 1's answer, but it decides an exit code.
-- Suggested fix: In A4 replace "then the line is `failed`, as the skill already treats it" with "then the line is `not-read` (C7), and the skill's failed-read rule applies"; record in the Log that C5's "or the licence read" is replaced by C7.
-- Resolution: open
+No findings.
 
 ### Medium
 
-#### R2. The README's clone route can't run the sample README's commands as written
-- Area: 9 Testability
-- Finding: Data row 5 has "Check this solution" quote "the sample README's two commands", which run inside the unzipped sample (`powerops analyze solution`, `powerops test solution --tests tests`). Until the first release the clone is the only route, and there the paths are `tests/fixtures/powerops-seed/v2` and `tests/fixtures/flowtests/seed`, so the quoted commands fail in a clone; Done 6's test checks only the result lines, not the commands. Also, `DocsDriftTests.QuickStartProblems` checks the first fenced block in the README that contains `git clone`: a clone snippet in the new first run, above "Run it in CI", becomes the block it checks and fails it. Neither is in Row 5's list of what stays.
-- Suggested fix: In Row 5, say the clone route shows the commands with the clone paths (`powerops analyze tests/fixtures/powerops-seed/v2`, `powerops test tests/fixtures/powerops-seed/v2 --tests tests/fixtures/flowtests/seed`, which give the same two result lines) after the install from a clone, and that the first run holds no `git clone` fence above "Run it in CI" (or that `QuickStartProblems` is pointed at the CI snippet in the same step).
+#### R1. On Windows every licence line ends in a carriage return, which Data row 3 makes a failed read
+- Area: 13 Buildability, 9 Testability
+- Finding: Data row 3 says a line is a part number only when it "holds no control character", and any other line makes the read fail. `az` on Windows (the primary platform) is Python writing text-mode stdout, which ends lines with CRLF; split on `\n` alone, as `SettingsCommand.Field` and most of the repo split `pac`'s output, each line keeps a `\r`, so a Windows account holding Power Apps Premium would read as `not-read`. The fake-runner tests of Done 2 use LF output only, so they pass on the Windows CI leg and miss it.
+- Suggested fix: In Data row 3, say the output is split into lines on CRLF or LF (`ReadLines` or `ReplaceLineEndings`) before the control-character check, and add to Done 2's test list the same part numbers with CRLF line ends, read as a success.
 - Resolution: open
 
 ### Low
 
-#### R3. The plugin line reads "installed", not "available here"
-- Area: 9 Testability, 10 Unanswered areas
-- Finding: Data row 2 collapses all entries to version and scope. On this machine a plugin's 13 entries are all `local` scope with a `projectPath` of other folders, so `doctor` run in a new folder would print `ok` for a plugin that is not active there. A plugin turned off in Claude Code's settings also reads `ok`. The `not-installed` hint "claude plugin install powerops@powerops" fails unless the marketplace was added first (the README's step is `claude plugin marketplace add Chrome71/PowerOps`, then the install), and the `environment-type` sentence ("no documented read") says neither what it blocks nor what to do, against Data row 1's rule for every non-ok line.
-- Suggested fix: Say in Data row 2 that `local` and `project` entries count only when `projectPath` is the current folder (or say in COMMANDS that the line doesn't check the folder or the enabled state); add the marketplace step to the hint; give the environment-type line a "what it blocks" clause, such as "plan facts asks the person instead".
+#### R2. The three argument lists are written two ways
+- Area: 9 Testability
+- Finding: Done 2 asks tests to "assert the exact three argument lists", but gives the Graph read as `--query "value[].skuPartNumber"` with shell quotes and no `-o tsv`, while Data row 3 has `--query value[].skuPartNumber -o tsv`. Without `-o tsv` `az` prints JSON, which the line rule of Row 3 can't read; with the quotes taken literally, the JMESPath query is a string.
+- Suggested fix: Write the three lists once, in Data row 3, as list elements (for example `["rest", "--method", "get", "--url", "<url>", "--query", "value[].skuPartNumber", "-o", "tsv"]`), and have Done 2 point to Row 3.
 - Resolution: open
 
-#### R4. A URL in the plan
+#### R3. "`--live` prints no ... id" while it prints plugin ids
+- Area: 10 Unanswered areas (wording)
+- Finding: Constraints says `--live` prints no account, tenant, URL, id or part number; `--live` runs the plain checks, which print plugin ids such as `<plugin>@<marketplace>` (Data row 1, Done 2). The intent is environment and tenant ids, but a reviewer of the build could read the line literally.
+- Suggested fix: Say "no account, tenant or environment id, URL or part number".
+- Resolution: open
+
+#### R4. The found-on-PATH test can pass without the shipped lookup
+- Area: 9 Testability
+- Finding: Data row 6 puts "a PATH lookup" in `DoctorHost` and tests pass their own host. Done 1's second test then gives a temp folder "as the PATH", but if the test's host supplies its own lookup function, the default host's lookup (PATH, PATHEXT, `az.cmd` on Windows, the execute bit on Linux) is never run by a test.
+- Suggested fix: In Data row 6, make the host hold the PATH and PATHEXT strings (or build its lookup from them through the same factory the default host uses), so the second test of Done 1 runs the shipped lookup over the temp folder, with an executable file on Linux and `az.cmd` and a PATHEXT name on Windows, as `PacRunnerResolveTests` does.
+- Resolution: open
+
+#### R5. The ecosystem record misses ECO-0013 and the Claude Code version the plugin record was observed on
+- Area: 10 Unanswered areas (AGENTS.md "Ecosystem changes")
+- Finding: The plan adds a third reader of `pac org who`'s text and edits the AGENTS.md lines that open entry ECO-0013 (`pac` documents `--json` while PowerOps parses text, "plan for later") names as affected, but neither the plan nor `decisions.md` names ECO-0013. Data row 2 and A2 say the record's shape was observed on "Claude Code on this machine" without its version, which the new compatibility row (Done 5) needs for its Evidence cell.
+- Suggested fix: Add to A2 the Claude Code version the shape was observed with, and a line (A2 or Done 5) that `doctor --live` reuses `SettingsCommand.Field`, so ECO-0013's switch, when it comes, covers it; name `doctor` in ECO-0013's Affects only if the entry's procedure asks for it.
+- Resolution: open
+
+#### R6. The newcomer's install prompt still asks for a manual PATH check
+- Area: 10 Unanswered areas
+- Finding: The Goal is "one command that says whether their machine is ready", and the README's "With your AI agent" prompt, the newcomer's first path, ends its step 5 with "Tell me whether `pac` and `az` are on PATH". Row 5 doesn't say whether that step becomes `powerops doctor`, and Won't build doesn't exclude it.
+- Suggested fix: In Row 5, either have step 5 run `powerops doctor` and report its lines, or list the install prompt under Won't build with the reason.
+- Resolution: open
+
+#### R7. A URL and an owner handle in the plan
 - Area: URLs, GUIDs, emails and names
-- Finding: Data row 3 holds a `<url>` (the Microsoft Graph endpoint of the licence read), kept on purpose with the `plan-status: allow` marker; it is the same constant the planning skill uses, as run 1's R8 was answered.
-- Suggested fix: None needed if kept on purpose.
+- Finding: Data row 3 holds a `<url>` (the Microsoft Graph endpoint of the licence read), kept on purpose with the `plan-status: allow` marker as in runs 1 and 2; Data row 1's `not-installed` hint holds the repository owner's handle in `claude plugin marketplace add <owner>/PowerOps`, the command the README already prints.
+- Suggested fix: None needed if both are kept on purpose.
 - Resolution: open
