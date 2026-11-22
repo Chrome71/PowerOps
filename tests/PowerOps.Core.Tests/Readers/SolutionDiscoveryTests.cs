@@ -25,6 +25,7 @@ public class SolutionDiscoveryTests
                 "coe-auditlogs",
                 "core-portal",
                 "equipment-checkout",
+                "flow-credits",
                 "flow-limits",
                 "flow-navigation",
                 "flow-secrets",

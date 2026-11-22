@@ -1,0 +1,60 @@
+{
+  "properties": {
+    "connectionReferences": {},
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": { "defaultValue": {}, "type": "Object" },
+        "$authentication": { "defaultValue": {}, "type": "SecureObject" }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "Skills",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "title": "Order number",
+                  "type": "string",
+                  "x-ms-dynamically-added": true,
+                  "description": "The order the agent asks about",
+                  "x-ms-content-hint": "TEXT"
+                }
+              },
+              "required": [ "text" ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Get_order": {
+          "type": "Http",
+          "inputs": {
+            "method": "GET",
+            "uri": "https://api.contoso.com/orders"
+          },
+          "runAfter": {}
+        },
+        "Respond_to_the_agent": {
+          "type": "Response",
+          "kind": "Skills",
+          "inputs": {
+            "statusCode": 200,
+            "body": { "status": "@{body('Get_order')}" },
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": { "title": "Status", "type": "string", "x-ms-dynamically-added": true }
+              }
+            }
+          },
+          "runAfter": { "Get_order": [ "Succeeded" ] }
+        }
+      }
+    }
+  },
+  "schemaVersion": "1.0.0.0"
+}

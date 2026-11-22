@@ -461,6 +461,52 @@ None.
 
 None.
 
+## tests/fixtures/flow-credits (PowerOpsFlowCredits)
+
+### licenceDrivers
+
+| Driver | Needs | Where | Sources |
+|---|---|---|---|
+| agent-flow | An agent flow is billed in Copilot Credits for each action and its trigger, needs no Power Automate licence, and starts no new run when the environment has no credits available. | flow 'Answer order question' | https://learn.microsoft.com/microsoft-copilot-studio/flows-overview https://learn.microsoft.com/microsoft-copilot-studio/requirements-messages-management https://learn.microsoft.com/microsoft-copilot-studio/flows-faqs |
+| ai-builder-action | An AI Builder action uses the environment's AI Builder credits, then Copilot Credits, and is blocked when neither is available (in an agent flow, Copilot Credits only); no new seeded or add-on AI Builder credits come from 2026-11-01, existing ones last to the end of their contract, and Learn's pages disagree on whether the flow also needs Power Automate Premium. | flow 'Read invoice' action 'Run\_a\_prompt' | https://learn.microsoft.com/ai-builder/endofaibcredits https://learn.microsoft.com/ai-builder/credit-management https://learn.microsoft.com/ai-builder/administer-licensing |
+
+### notClassified
+
+| Connector | Note |
+|---|---|
+| shared\_commondataserviceforapps | tier not classified: check the connector's reference page |
+
+### connectors
+
+| Connector | References | Users |
+|---|---|---|
+| shared\_commondataserviceforapps | demo\_Dataverse | flow 'Read invoice' |
+
+### customConnectors
+
+None.
+
+### httpActions
+
+| Flow | Action | Type | Endpoint | Host |
+|---|---|---|---|---|
+| Answer order question | Get\_order | Http | literal | not shown |
+
+### requestTriggers
+
+| Flow | Trigger | Kind |
+|---|---|---|
+| Answer order question | manual | Skills |
+| Read invoice | manual | Button |
+
+### childFlows
+
+None.
+
+### notRead
+
+None.
+
 ## tests/fixtures/flow-limits (PowerOpsFlowLimits)
 
 ### licenceDrivers

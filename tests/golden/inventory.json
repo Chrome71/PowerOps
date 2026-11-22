@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "solutions": [
     {
       "path": "tests/fixtures/agents/dataverse-tools",
@@ -1026,6 +1026,82 @@
       "customConnectors": [],
       "httpActions": [],
       "requestTriggers": [],
+      "childFlows": [],
+      "notRead": []
+    },
+    {
+      "path": "tests/fixtures/flow-credits",
+      "uniqueName": "PowerOpsFlowCredits",
+      "licenceDrivers": [
+        {
+          "id": "agent-flow",
+          "need": "An agent flow is billed in Copilot Credits for each action and its trigger, needs no Power Automate licence, and starts no new run when the environment has no credits available.",
+          "sources": [
+            "https://learn.microsoft.com/microsoft-copilot-studio/flows-overview",
+            "https://learn.microsoft.com/microsoft-copilot-studio/requirements-messages-management",
+            "https://learn.microsoft.com/microsoft-copilot-studio/flows-faqs"
+          ],
+          "verified": "2026-11-22",
+          "where": [
+            "flow 'Answer order question'"
+          ]
+        },
+        {
+          "id": "ai-builder-action",
+          "need": "An AI Builder action uses the environment's AI Builder credits, then Copilot Credits, and is blocked when neither is available (in an agent flow, Copilot Credits only); no new seeded or add-on AI Builder credits come from 2026-11-01, existing ones last to the end of their contract, and Learn's pages disagree on whether the flow also needs Power Automate Premium.",
+          "sources": [
+            "https://learn.microsoft.com/ai-builder/endofaibcredits",
+            "https://learn.microsoft.com/ai-builder/credit-management",
+            "https://learn.microsoft.com/ai-builder/administer-licensing"
+          ],
+          "verified": "2026-11-22",
+          "where": [
+            "flow 'Read invoice' action 'Run_a_prompt'"
+          ]
+        }
+      ],
+      "notClassified": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "note": "tier not classified: check the connector's reference page"
+        }
+      ],
+      "connectors": [
+        {
+          "id": "shared_commondataserviceforapps",
+          "references": [
+            "demo_Dataverse"
+          ],
+          "users": [
+            {
+              "kind": "flow",
+              "name": "Read invoice"
+            }
+          ]
+        }
+      ],
+      "customConnectors": [],
+      "httpActions": [
+        {
+          "flow": "Answer order question",
+          "action": "Get_order",
+          "type": "Http",
+          "endpoint": "literal",
+          "host": null
+        }
+      ],
+      "requestTriggers": [
+        {
+          "flow": "Answer order question",
+          "trigger": "manual",
+          "kind": "Skills"
+        },
+        {
+          "flow": "Read invoice",
+          "trigger": "manual",
+          "kind": "Button"
+        }
+      ],
       "childFlows": [],
       "notRead": []
     },

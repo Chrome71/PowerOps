@@ -25,14 +25,13 @@ public class InventoryReportTests
         Dictionary<string, object>? actions = null,
         Dictionary<string, object>? triggers = null,
         (string Key, string? Logical, string Api)[]? refs = null,
-        string? id = null,
-        int? modern = null)
+        string? id = null)
     {
         var connectionReferences = (refs ?? []).ToDictionary(
             r => r.Key,
             r => (object)new { connection = new { connectionReferenceLogicalName = r.Logical }, api = new { name = r.Api } });
         var json = JsonSerializer.Serialize(new { properties = new { connectionReferences, definition = new { triggers = triggers ?? [], actions = actions ?? [] } } });
-        return new Workflow(id ?? $"a1b2c3d4-1111-4222-8333-{Interlocked.Increment(ref _flowId):x12}", name, 5, 1, $"Workflows/flow{_flowId}.json", json, ModernFlowType: modern);
+        return new Workflow(id ?? $"a1b2c3d4-1111-4222-8333-{Interlocked.Increment(ref _flowId):x12}", name, 5, 1, $"Workflows/flow{_flowId}.json", json);
     }
 
     private static object Http(string uri, object? headers = null) => new { type = "Http", inputs = new { method = "GET", uri, headers } };
@@ -392,7 +391,7 @@ public class InventoryReportTests
     [Fact]
     public void An_agent_flow_fires_agent_flow_with_the_flow_as_where()
     {
-        var r = One(B.Empty() with { Workflows = [Flow("Answer", triggers: new() { ["manual"] = new { type = "Request", kind = "Skills" } }, modern: 1)] });
+        var r = One(B.Empty() with { Workflows = [Flow("Answer", triggers: new() { ["manual"] = new { type = "Request", kind = "Skills" } }) with { ModernFlowType = 1 }] });
 
         var driver = Assert.Single(r.LicenceDrivers);
         Assert.Equal("agent-flow", driver.Id);
@@ -405,7 +404,7 @@ public class InventoryReportTests
     [Fact]
     public void A_modern_flow_type_of_0_2_or_null_gives_no_agent_flow()
     {
-        var r = One(B.Empty() with { Workflows = [Flow("Zero", modern: 0), Flow("Two", modern: 2), Flow("Null")] });
+        var r = One(B.Empty() with { Workflows = [Flow("Zero") with { ModernFlowType = 0 }, Flow("Two") with { ModernFlowType = 2 }, Flow("Null")] });
 
         Assert.DoesNotContain("agent-flow", Ids(r));
     }
@@ -422,9 +421,9 @@ public class InventoryReportTests
                     ["Run"] = Op("aibuilderpredict_customprompt"),
                     ["Keys"] = Op("AIBuilderPredict_keyphraseextraction"),
                     ["Group"] = Op("aibuilderpredict_customprompt", "providers/Microsoft.ProcessSimple/operationGroups/aibuilder"),
-                }, modern: 0),
+                }) with { ModernFlowType = 0 },
                 Flow("Plain", new() { ["Run"] = Op("aibuilderpredict_customprompt") }),
-                Flow("Agent", new() { ["Prompt"] = Op("aibuilderpredict_customprompt", "providers/Microsoft.ProcessSimple/operationGroups/aibuilder") }, modern: 1),
+                Flow("Agent", new() { ["Prompt"] = Op("aibuilderpredict_customprompt", "providers/Microsoft.ProcessSimple/operationGroups/aibuilder") }) with { ModernFlowType = 1 },
             ],
         };
 
@@ -458,8 +457,8 @@ public class InventoryReportTests
             ["Run"] = Op("RunUIFlow_V2", Apis + "shared_uiflow"),
         };
 
-        var agent = One(B.Empty() with { Workflows = [Flow("Agent", Actions(), modern: 1)] });
-        var cloud = One(B.Empty() with { Workflows = [Flow("Cloud", Actions(), modern: 0)] });
+        var agent = One(B.Empty() with { Workflows = [Flow("Agent", Actions()) with { ModernFlowType = 1 }] });
+        var cloud = One(B.Empty() with { Workflows = [Flow("Cloud", Actions()) with { ModernFlowType = 0 }] });
 
         Assert.Equal(["agent-flow"], Ids(agent));
         Assert.Equal([new InventoryHttpAction("Agent", "Get", "Http", "literal", null)], agent.HttpActions);
@@ -477,7 +476,7 @@ public class InventoryReportTests
         {
             Workflows =
             [
-                Flow("Copilot", new() { ["Get"] = Http("https://api.contoso.com/v1/x"), ["Prompt"] = Op("aibuilderpredict_customprompt") }, new() { ["manual"] = new { type = "Request", kind = "Skills" } }, modern: type),
+                Flow("Copilot", new() { ["Get"] = Http("https://api.contoso.com/v1/x"), ["Prompt"] = Op("aibuilderpredict_customprompt") }, new() { ["manual"] = new { type = "Request", kind = "Skills" } }) with { ModernFlowType = type },
             ],
         });
         var r = Assert.Single(i.Solutions);
@@ -557,7 +556,7 @@ public class InventoryReportTests
                 },
                 new() { ["manual"] = new { type = "Request", kind = "Http" } },
                 [("k", "demo_ref", "shared_demo")]),
-            Flow("Agent", triggers: new() { ["manual"] = new { type = "Request", kind = "Skills" } }, modern: 1),
+            Flow("Agent", triggers: new() { ["manual"] = new { type = "Request", kind = "Skills" } }) with { ModernFlowType = 1 },
         ],
         CanvasApps = [Canvas("Orders", tables: ["demo_item"]), new CanvasAppMeta("Broken", null, null, "CanvasApps/Broken.meta.xml", null, null, null)],
         AppModules = [B.App("demo_orders")],
@@ -748,6 +747,17 @@ public class InventoryReportTests
         Golden.Verify(Text(i), "inventory.txt");
         Golden.Verify(Json(i), "inventory.json");
         Golden.Verify(Markdown(i), "inventory.md");
+    }
+
+    [Fact]
+    public void The_flow_credits_fixture_fires_agent_flow_and_ai_builder_action_only()
+    {
+        var r = Assert.Single(FixturesInventory().Solutions, s => s.Path == "tests/fixtures/flow-credits");
+
+        Assert.Equal(["agent-flow", "ai-builder-action"], Ids(r));
+        Assert.Equal(["flow 'Answer order question'"], r.LicenceDrivers[0].Where);
+        Assert.Equal(["flow 'Read invoice' action 'Run_a_prompt'"], r.LicenceDrivers[1].Where);
+        Assert.Empty(r.NotRead);
     }
 
     [Fact]
