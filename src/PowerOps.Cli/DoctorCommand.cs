@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -12,7 +11,7 @@ namespace PowerOps.Cli;
 public sealed record DoctorHost(string Version, string? Path, string? PathExt, string PluginRecord, Func<IReadOnlyList<string>, TimeSpan, PacResult> Az)
 {
     public static DoctorHost Default() => new(
-        Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0",
+        AnalyzeCommand.ToolVersion(),
         Environment.GetEnvironmentVariable("PATH"),
         Environment.GetEnvironmentVariable("PATHEXT"),
         PluginRecordPath(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)),
@@ -194,8 +193,9 @@ public static class DoctorCommand
 
             return installs;
         }
-        catch (Exception ex) when (ex is InvalidDataException or JsonException or IOException or UnauthorizedAccessException or InvalidOperationException)
+        catch (Exception ex) when (ex is InvalidDataException or JsonException or IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
         {
+            // ArgumentException: JsonNode refuses a duplicate member name when the object is first read.
             return null;
         }
     }

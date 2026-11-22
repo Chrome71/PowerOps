@@ -255,6 +255,8 @@ public sealed class DoctorCommandTests : IDisposable
     [InlineData("""{"version": 2, "plugins": {"powerops@powerops": {"version": "1"}}}""")]
     [InlineData("""{"version": 2, "plugins": {"powerops@powerops": [{"version": 1, "scope": "user"}]}}""")]
     [InlineData("""{"version": 2, "plugins": {"powerops": [{"version": "1", "scope": "user"}]}}""")]
+    [InlineData("""{"version": 2, "plugins": {"x@y": [{"scope": "user", "version": "1", "a": 1, "a": 2}]}}""")]
+    [InlineData("""{"version": 2, "version": 2, "plugins": {}}""")]
     public void An_unknown_plugin_record_is_not_read_and_keeps_exit_0(string text)
     {
         var (code, output, _) = Run(Host(Plugins(text), FakeTools()));
