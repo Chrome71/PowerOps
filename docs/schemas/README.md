@@ -18,14 +18,15 @@ JSON Schemas (draft 2020-12) for the JSON that `powerops` prints. Every output h
 | [settings-apply.schema.json](settings-apply.schema.json) | `powerops settings apply --format json` |
 | [settings-validate.schema.json](settings-validate.schema.json) | `powerops settings validate --format json` |
 | [test.schema.json](test.schema.json) | `powerops test --format json` |
-| [flow-test.schema.json](flow-test.schema.json) | the file format of the `*.flowtest.json` files `powerops test` reads (not an output, so no `schemaVersion`). It is the one closed schema (`additionalProperties: false`): the code rejects a property that is not listed, a wrong type and a missing required property, so a test file cannot silently ignore a typo |
+| [flow-test.schema.json](flow-test.schema.json) | the file format of the `*.flowtest.json` files `powerops test` reads (not an output, so no `schemaVersion`). It uses a closed schema (`additionalProperties: false`): the code rejects a property that is not listed, a wrong type and a missing required property, so a test file cannot silently ignore a typo |
 | [snapshot.schema.json](snapshot.schema.json) | the snapshot files `powerops drift --save` writes (a file format with its own `schemaVersion`, which moves only when the file format changes, not with the outputs above) |
+| [powerops-run.schema.json](powerops-run.schema.json) | Local benchmark and evaluation telemetry records (`powerops-run/1`) have their own `schemaVersion: 1`. The schema is closed (`additionalProperties: false`). Unavailable metrics use `null`, never `0`. |
 
 The baseline file (`powerops-baseline.json`) is a file format with its own `version`, not an output. The settings file `powerops settings generate` writes is pac's deployment settings format, not an output, so it has no `schemaVersion`.
 
 ## Versioning
 
-- Adding a field keeps `schemaVersion`. The schemas do not set `additionalProperties: false`, so a consumer built on the current schema still accepts output with new fields. Consumers should ignore fields they do not know.
+- Adding a field keeps `schemaVersion`. The CLI output schemas do not set `additionalProperties: false`, so a consumer built on the current schema still accepts output with new fields. Consumers should ignore fields they do not know.
 - Removing or renaming a field, or changing its type or meaning, bumps `schemaVersion`.
 - Adding a value to a closed list (an `enum` or `const`, such as `diff`'s `component` and `risks`) bumps `schemaVersion` too: a consumer that validates against the published schema rejects a value the schema doesn't list. This rule holds from `diff` 2 on; before it, the lists of `deploy plan`, `deploy apply` and `drift` gained values at version 1.
 - Each output's version moves on its own. `diff` is at 3, `deploy plan` is at 3, and `drift` and `inventory` are at 2, and so is the snapshot file; every other output is at 1.

@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/docs/schemas/powerops-run.schema.json",
+  "title": "PowerOps benchmark and evaluation run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "format", "record_id", "granularity", "run_count", "recorded_at", "source_ref", "commit_sha", "milestone", "task_id", "lineage_id", "split", "arm", "client", "cost", "quality", "time", "reliability", "notes"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "$schema": { "type": "string", "minLength": 1 },
+    "format": { "const": "powerops-run/1" },
+    "record_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+    "granularity": { "enum": ["attempt", "historical_aggregate"] },
+    "run_count": { "type": "integer", "minimum": 1 },
+    "recorded_at": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "format": "date", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$" },
+        { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)Z$" }
+      ]
+    },
+    "source_ref": { "type": ["string", "null"], "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*(?:^|/)[.]{1,2}(?:/|$))[^/\\\\\\r\\n]+(?:/[^/\\\\\\r\\n]+)*$" },
+    "commit_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
+    "milestone": { "$ref": "#/$defs/text" },
+    "task_id": { "$ref": "#/$defs/text" },
+    "lineage_id": { "$ref": "#/$defs/text" },
+    "split": { "enum": ["dev", "val", "sealed", "historical", "trial", "smoke", null] },
+    "arm": { "enum": ["A0", "A1", "A2", "A3", "historical", "trial", null] },
+    "client": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "client_name", "client_version", "model_requested", "model_reported", "effort", "pass"],
+      "properties": {
+        "family": { "enum": ["claude", "codex", "gemini", "other"] },
+        "client_name": { "type": "string", "minLength": 1 },
+        "client_version": { "$ref": "#/$defs/text" },
+        "model_requested": { "$ref": "#/$defs/text" },
+        "model_reported": { "$ref": "#/$defs/text" },
+        "effort": { "$ref": "#/$defs/text" },
+        "pass": { "$ref": "#/$defs/text" }
+      }
+    },
+    "cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tokens_in", "cached_read", "cached_write", "uncached_in_combined", "tokens_out", "usd", "usd_basis", "judge_usd", "runner_s", "copilot_credits"],
+      "properties": {
+        "tokens_in": { "$ref": "#/$defs/count", "description": "Uncached input tokens excluding cache writes." },
+        "cached_read": { "$ref": "#/$defs/count" },
+        "cached_write": { "$ref": "#/$defs/count" },
+        "uncached_in_combined": { "$ref": "#/$defs/count", "description": "Uncached input plus cache writes when only their sum was reported." },
+        "tokens_out": { "$ref": "#/$defs/count" },
+        "usd": { "$ref": "#/$defs/amount", "description": "US dollars for the evaluated client runs." },
+        "usd_basis": { "enum": ["billed", "ratecard", "unknown"] },
+        "judge_usd": { "$ref": "#/$defs/amount", "description": "US dollars for external scoring or judging." },
+        "judge_tokens": { "$ref": "#/$defs/count" },
+        "runner_s": { "$ref": "#/$defs/amount", "description": "CI runner seconds." },
+        "copilot_credits": { "$ref": "#/$defs/amount", "description": "Copilot Studio credits consumed." }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "uncached_in_combined": { "type": "integer" } } },
+          "then": { "properties": { "tokens_in": { "type": "null" }, "cached_write": { "type": "null" } } }
+        },
+        {
+          "if": { "properties": { "usd_basis": { "const": "unknown" } } },
+          "then": { "properties": { "usd": { "type": "null" } } }
+        },
+        {
+          "if": { "properties": { "usd_basis": { "enum": ["billed", "ratecard"] } } },
+          "then": { "properties": { "usd": { "type": "number" } } }
+        }
+      ]
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checks", "score_0_1", "mutant_kill_rate", "highs_true", "highs_false_clean", "critical_fail"],
+      "properties": {
+        "checks": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "observed", "expected", "locator", "pass"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "observed": {},
+              "expected": {},
+              "locator": { "$ref": "#/$defs/text" },
+              "pass": { "type": "boolean" }
+            }
+          }
+        },
+        "score_0_1": { "$ref": "#/$defs/rate" },
+        "mutant_kill_rate": { "$ref": "#/$defs/rate" },
+        "highs_true": { "$ref": "#/$defs/count" },
+        "highs_false_clean": { "$ref": "#/$defs/count" },
+        "critical_fail": { "type": ["boolean", "null"] },
+        "not_shown_found": { "$ref": "#/$defs/count" },
+        "not_shown_total": { "$ref": "#/$defs/count" },
+        "shown_found": { "$ref": "#/$defs/count" },
+        "shown_total": { "$ref": "#/$defs/count" },
+        "flaws_found": { "$ref": "#/$defs/count" },
+        "flaws_total": { "$ref": "#/$defs/count" },
+        "clean_runs": { "$ref": "#/$defs/count" },
+        "clean_highs_total": { "$ref": "#/$defs/count" },
+        "clean_highs_disputed": { "$ref": "#/$defs/count" }
+      }
+    },
+    "time": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["wall_s", "first_artifact_s", "tool_wait_s", "approval_wait_s", "human_active_min", "turns", "tool_calls", "person_questions"],
+      "properties": {
+        "wall_s": { "$ref": "#/$defs/amount", "description": "Elapsed wall time in seconds." },
+        "first_artifact_s": { "$ref": "#/$defs/amount", "description": "Seconds until the first artifact." },
+        "tool_wait_s": { "$ref": "#/$defs/amount", "description": "Seconds waiting for tools." },
+        "approval_wait_s": { "$ref": "#/$defs/amount", "description": "Seconds waiting for approval." },
+        "human_active_min": { "$ref": "#/$defs/amount", "description": "Minutes of active human work." },
+        "turns": { "$ref": "#/$defs/count" },
+        "tool_calls": { "$ref": "#/$defs/count" },
+        "person_questions": { "$ref": "#/$defs/count" }
+      }
+    },
+    "reliability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["end", "safety_violations", "retries", "pass@1", "pass^3"],
+      "properties": {
+        "end": { "enum": ["completed", "timeout", "crash", "refused", "budget_exceeded", "infra_incomplete"] },
+        "safety_violations": { "$ref": "#/$defs/count" },
+        "retries": { "$ref": "#/$defs/count" },
+        "pass@1": { "$ref": "#/$defs/rate" },
+        "pass^3": { "$ref": "#/$defs/rate" },
+        "replaced_runs": { "$ref": "#/$defs/count" },
+        "excluded_runs": { "$ref": "#/$defs/count" }
+      }
+    },
+    "notes": { "$ref": "#/$defs/text" }
+  },
+  "if": { "properties": { "granularity": { "const": "attempt" } } },
+  "then": { "properties": { "run_count": { "const": 1 } } },
+  "$defs": {
+    "text": { "type": ["string", "null"] },
+    "count": { "type": ["integer", "null"], "minimum": 0 },
+    "amount": { "type": ["number", "null"], "minimum": 0 },
+    "rate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+  }
+}
