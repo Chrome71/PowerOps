@@ -23,10 +23,9 @@ jobs:
           - agent: codex
             package: '@openai/codex@0.163.0'
     runs-on: ubuntu-latest
-    # M93: the early sketch adds an options run to scenarios 2 and 9 (1 and 6 already had one, now earlier), and scenario 6 now runs through approval and its review; the Claude run took 82 minutes locally (2026-11-12), plus 15.
-    # M97: scenario 6's prototype runs the judge loop (up to three judge rounds); four local Claude runs took 113 to 159 minutes (2026-11-15); the slowest plus a fifth is 190.8, rounded up to 191.
-    # M124: five of the twelve scenarios were timed locally (Claude Code 2.1.326, 2026-11-22): draft 1.9, rounds 16.8, stop 2.6, quick 11.9 and option-depth 1.5 minutes; standard was stopped by the run's cost cap. 191 is kept, not measured: the changed scenarios only lose turns.
-    timeout-minutes: 191
+    # Dropping standard's three-round sketch judge cuts the timeout from 191 to 60 minutes.
+    # Quick covers a person's sketch pass and standard covers a person's skip. Live Claude and Codex receipts within 60 minutes are pending.
+    timeout-minutes: 60
     env:
       AGENT: ${{ matrix.agent }}
       PACKAGE: ${{ matrix.package }}
