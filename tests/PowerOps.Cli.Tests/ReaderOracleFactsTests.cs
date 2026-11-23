@@ -170,6 +170,27 @@ public class ReaderOracleFactsTests
             Assert.Contains("invalid relative path", escapeCheck.Output, StringComparison.Ordinal);
             File.WriteAllText(eqPath, eqOriginal);
 
+            // Symlinked fact file must be refused before reading (Linux/macOS).
+            if (!OperatingSystem.IsWindows())
+            {
+                var outside = Path.Combine(Path.GetTempPath(), $"powerops-c0-outside-{Guid.NewGuid():N}.json");
+                File.WriteAllText(outside, eqOriginal);
+                try
+                {
+                    File.Delete(eqPath);
+                    File.CreateSymbolicLink(eqPath, outside);
+                    var linkCheck = await RunVerifier("--root", copy.FullName, "--check");
+                    Assert.NotEqual(0, linkCheck.Code);
+                    Assert.Contains("symlink refused", linkCheck.Output, StringComparison.Ordinal);
+                }
+                finally
+                {
+                    File.Delete(eqPath);
+                    File.WriteAllText(eqPath, eqOriginal);
+                    File.Delete(outside);
+                }
+            }
+
             // Tampering with one canary file must fail input_sha256 verification.
             var canaryRole = Path.Combine(copy.FullName, "bench", "canaries", "readers", "cases", "canary-d", "Roles", "cnry_Operator.xml");
             File.WriteAllText(canaryRole, File.ReadAllText(canaryRole).Replace("Global", "Basic", StringComparison.Ordinal));
@@ -196,6 +217,9 @@ public class ReaderOracleFactsTests
                 Assert.DoesNotContain(hint, rel, StringComparison.OrdinalIgnoreCase);
             }
 
+            Assert.DoesNotContain("/" + "home/", rel, StringComparison.Ordinal);
+            Assert.DoesNotContain("file:" + "//", rel, StringComparison.OrdinalIgnoreCase);
+
             if (file.EndsWith(".msapp", StringComparison.OrdinalIgnoreCase))
             {
                 using var zip = ZipFile.OpenRead(file);
@@ -205,6 +229,9 @@ public class ReaderOracleFactsTests
                     {
                         Assert.DoesNotContain(hint, entry.FullName, StringComparison.OrdinalIgnoreCase);
                     }
+
+                    Assert.DoesNotContain("/" + "home/", entry.FullName, StringComparison.Ordinal);
+                    Assert.DoesNotContain("file:" + "//", entry.FullName, StringComparison.OrdinalIgnoreCase);
 
                     using var reader = new StreamReader(entry.Open(), Encoding.UTF8);
                     var content = reader.ReadToEnd();

@@ -84,35 +84,45 @@ def commitment_digest(salt: str, payload) -> str:
 def check_integrity(root: Path) -> list[str]:
     errors = []
     root_real = root.resolve(strict=True)
-    oracle_dir = root_real / "bench/oracle-facts"
-    canary_dir = root_real / "bench/canaries/readers"
-    facts_dir = oracle_dir / "facts"
-    manifest_path = oracle_dir / "manifest.sha256"
-    commitments_path = canary_dir / "commitments.json"
+    facts_dir = resolve_confined(root_real, "bench/oracle-facts/facts", "facts directory")
+    manifest_path = resolve_confined(root_real, "bench/oracle-facts/manifest.sha256", "manifest.sha256")
+    commitments_path = resolve_confined(root_real, "bench/canaries/readers/commitments.json", "commitments.json")
+    cases_dir = resolve_confined(root_real, "bench/canaries/readers/cases", "canary cases directory")
 
     fact_files = sorted(facts_dir.glob("*.json"))
     if not fact_files:
         errors.append("no oracle fact files found under bench/oracle-facts/facts/")
+    confined_facts = []
     for f in fact_files:
-        data = json.loads(f.read_text(encoding="utf-8"))
+        rel_f = f"bench/oracle-facts/facts/{f.name}"
+        try:
+            safe_f = resolve_confined(root_real, rel_f, rel_f)
+        except (ValueError, OSError) as exc:
+            errors.append(str(exc))
+            continue
+        confined_facts.append(safe_f)
+        data = json.loads(safe_f.read_text(encoding="utf-8"))
         sol_rel = data["solution_path"]
         try:
-            target = resolve_confined(root_real, sol_rel, f"{f.name} solution_path")
+            target = resolve_confined(root_real, sol_rel, f"{safe_f.name} solution_path")
             # For YAML solution.yml (solutions/<name>/solution.yml), hash the solution binding root.
             if data["layout"] == "yaml" and target.name.lower() == "solution.yml":
                 if len(Path(sol_rel).parts) < 3:
-                    raise ValueError(f"{f.name}: yaml solution_path too shallow: {sol_rel}")
+                    raise ValueError(f"{safe_f.name}: yaml solution_path too shallow: {sol_rel}")
                 yaml_root_rel = Path(sol_rel).parents[2].as_posix()
-                target = resolve_confined(root_real, yaml_root_rel, f"{f.name} yaml root")
+                target = resolve_confined(root_real, yaml_root_rel, f"{safe_f.name} yaml root")
             actual = sha256_target(target, root_real)
         except (ValueError, OSError) as exc:
             errors.append(str(exc))
             continue
         if actual != data["source_sha256"]:
-            errors.append(f"{f.name}: source_sha256 mismatch (expected {data['source_sha256']}, actual {actual})")
+            errors.append(f"{safe_f.name}: source_sha256 mismatch (expected {data['source_sha256']}, actual {actual})")
 
     commitments = json.loads(commitments_path.read_text(encoding="utf-8"))
-    case_dirs = {p.name for p in (canary_dir / "cases").iterdir() if p.is_dir()}
+    case_dirs = {p.name for p in cases_dir.iterdir() if p.is_dir() and not p.is_symlink()}
+    for p in cases_dir.iterdir():
+        if p.is_symlink():
+            errors.append(f"symlink refused in canary cases directory: {p.name}")
     committed_ids = []
     for entry in commitments["canaries"]:
         cid = entry["canary_id"]
@@ -177,7 +187,9 @@ def check_integrity(root: Path) -> list[str]:
 
 def check_reveal(root: Path, reveal_path: Path) -> list[str]:
     errors = check_integrity(root)
-    commitments = json.loads((root / "bench/canaries/readers/commitments.json").read_text(encoding="utf-8"))
+    root_real = root.resolve(strict=True)
+    commitments_path = resolve_confined(root_real, "bench/canaries/readers/commitments.json", "commitments.json")
+    commitments = json.loads(commitments_path.read_text(encoding="utf-8"))
     reveal = json.loads(reveal_path.read_text(encoding="utf-8"))
     by_id = {c["canary_id"]: c for c in commitments["canaries"]}
     rev_by_id = {c["canary_id"]: c for c in reveal["canaries"]}
@@ -202,7 +214,10 @@ def main():
     if not args.check and args.reveal is None:
         parser.error("specify --check or --reveal <path>")
 
-    errors = check_reveal(args.root, args.reveal) if args.reveal is not None else check_integrity(args.root)
+    try:
+        errors = check_reveal(args.root, args.reveal) if args.reveal is not None else check_integrity(args.root)
+    except (ValueError, OSError) as exc:
+        sys.exit(str(exc))
     if errors:
         sys.exit("\n".join(errors))
     if args.reveal is not None:
