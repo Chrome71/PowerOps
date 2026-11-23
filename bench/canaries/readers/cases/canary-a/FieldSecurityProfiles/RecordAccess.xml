@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FieldSecurityProfile fieldsecurityprofileid="{00000000-0000-0000-0000-000000c000a1}" name="Record Access">
+  <IntroducedVersion>1.0.0.0</IntroducedVersion>
+  <Permissions>
+    <Permission entityname="cnry_record" attributelogicalname="cnry_alpha" canread="4" cancreate="0" canupdate="4" />
+    <Permission entityname="cnry_record" attributelogicalname="cnry_gamma" canread="4" cancreate="4" canupdate="0" />
+  </Permissions>
+</FieldSecurityProfile>

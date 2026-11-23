@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name LocalizedName="Record" OriginalName="Record">cnry_Record</Name>
+  <EntityInfo>
+    <entity Name="cnry_Record">
+      <attributes>
+        <attribute PhysicalName="cnry_Alpha">
+          <Type>nvarchar</Type>
+          <Name>cnry_alpha</Name>
+          <LogicalName>cnry_alpha</LogicalName>
+          <IsSecured>0</IsSecured>
+        </attribute>
+        <attribute PhysicalName="cnry_Beta">
+          <Type>nvarchar</Type>
+          <Name>cnry_beta</Name>
+          <LogicalName>cnry_beta</LogicalName>
+          <IsAuditEnabled>1</IsAuditEnabled>
+        </attribute>
+        <attribute PhysicalName="cnry_Gamma">
+          <Type>nvarchar</Type>
+          <Name>cnry_gamma</Name>
+          <LogicalName>cnry_gamma</LogicalName>
+          <IsSecured>1</IsSecured>
+          <IsAuditEnabled>0</IsAuditEnabled>
+        </attribute>
+      </attributes>
+      <EntitySetName>cnry_records</EntitySetName>
+    </entity>
+  </EntityInfo>
+</Entity>

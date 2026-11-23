@@ -1,0 +1,277 @@
+{
+  "schemaVersion": 1,
+  "format": "powerops-reader-oracle-facts/1",
+  "fact_id": "column-level-security-unmanaged",
+  "solution_path": "tests/fixtures/zips/ColumnLevelSecuritySampleSolution.zip",
+  "layout": "zip",
+  "lineage_id": "column-level-security",
+  "source_sha256": "ef9b7e757a0d3bd7fe4f56fc4b11b8bee912c8cca59d92f68cd24d930a25d6e9",
+  "solution": {
+    "unique_name": "ColumnLevelSecuritySampleSolution",
+    "version": "1.0.0.0",
+    "managed": false
+  },
+  "roles": [
+    {
+      "id": "346c8295-a669-f011-bec2-00224823101f",
+      "name": "Column-level security sample role",
+      "file": "customizations.xml",
+      "privileges": [
+        {
+          "name": "prvAppendsample_Example",
+          "level": "Global"
+        },
+        {
+          "name": "prvAppendTosample_Example",
+          "level": "Global"
+        },
+        {
+          "name": "prvAssignsample_Example",
+          "level": "Global"
+        },
+        {
+          "name": "prvCreatesample_Example",
+          "level": "Global"
+        },
+        {
+          "name": "prvCreateSharePointData",
+          "level": "Global"
+        },
+        {
+          "name": "prvDeletesample_Example",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadPluginAssembly",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadPluginType",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadsample_Example",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadSdkMessage",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadSdkMessageProcessingStep",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadSdkMessageProcessingStepImage",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadSharePointData",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadSharePointDocument",
+          "level": "Global"
+        },
+        {
+          "name": "prvSharesample_Example",
+          "level": "Global"
+        },
+        {
+          "name": "prvWritesample_Example",
+          "level": "Global"
+        },
+        {
+          "name": "prvWriteSharePointData",
+          "level": "Global"
+        }
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "name": "sample_Example",
+      "entity_set_name": "sample_examples",
+      "is_audit_enabled": false,
+      "file": "customizations.xml",
+      "columns": [
+        {
+          "logical_name": "createdby",
+          "physical_name": "CreatedBy",
+          "is_secured": false,
+          "is_audit_enabled": false
+        },
+        {
+          "logical_name": "createdon",
+          "physical_name": "CreatedOn",
+          "is_secured": false,
+          "is_audit_enabled": false
+        },
+        {
+          "logical_name": "createdonbehalfby",
+          "physical_name": "CreatedOnBehalfBy",
+          "is_secured": false,
+          "is_audit_enabled": false
+        },
+        {
+          "logical_name": "importsequencenumber",
+          "physical_name": "ImportSequenceNumber",
+          "is_secured": false,
+          "is_audit_enabled": true
+        },
+        {
+          "logical_name": "modifiedby",
+          "physical_name": "ModifiedBy",
+          "is_secured": false,
+          "is_audit_enabled": false
+        },
+        {
+          "logical_name": "modifiedon",
+          "physical_name": "ModifiedOn",
+          "is_secured": false,
+          "is_audit_enabled": false
+        },
+        {
+          "logical_name": "modifiedonbehalfby",
+          "physical_name": "ModifiedOnBehalfBy",
+          "is_secured": false,
+          "is_audit_enabled": false
+        },
+        {
+          "logical_name": "overriddencreatedon",
+          "physical_name": "OverriddenCreatedOn",
+          "is_secured": false,
+          "is_audit_enabled": true
+        },
+        {
+          "logical_name": "ownerid",
+          "physical_name": "OwnerId",
+          "is_secured": false,
+          "is_audit_enabled": true
+        },
+        {
+          "logical_name": "owningbusinessunit",
+          "physical_name": "OwningBusinessUnit",
+          "is_secured": false,
+          "is_audit_enabled": true
+        },
+        {
+          "logical_name": "owningteam",
+          "physical_name": "OwningTeam",
+          "is_secured": false,
+          "is_audit_enabled": false
+        },
+        {
+          "logical_name": "owninguser",
+          "physical_name": "OwningUser",
+          "is_secured": false,
+          "is_audit_enabled": false
+        },
+        {
+          "logical_name": "sample_dateofbirth",
+          "physical_name": "sample_DateOfBirth",
+          "is_secured": true,
+          "is_audit_enabled": true
+        },
+        {
+          "logical_name": "sample_email",
+          "physical_name": "sample_Email",
+          "is_secured": true,
+          "is_audit_enabled": true
+        },
+        {
+          "logical_name": "sample_exampleid",
+          "physical_name": "sample_ExampleId",
+          "is_secured": false,
+          "is_audit_enabled": false
+        },
+        {
+          "logical_name": "sample_governmentid",
+          "physical_name": "sample_GovernmentId",
+          "is_secured": true,
+          "is_audit_enabled": true
+        },
+        {
+          "logical_name": "sample_name",
+          "physical_name": "sample_Name",
+          "is_secured": false,
+          "is_audit_enabled": true
+        },
+        {
+          "logical_name": "sample_telephonenumber",
+          "physical_name": "sample_TelephoneNumber",
+          "is_secured": true,
+          "is_audit_enabled": true
+        },
+        {
+          "logical_name": "statecode",
+          "physical_name": "statecode",
+          "is_secured": false,
+          "is_audit_enabled": true
+        },
+        {
+          "logical_name": "statuscode",
+          "physical_name": "statuscode",
+          "is_secured": false,
+          "is_audit_enabled": true
+        },
+        {
+          "logical_name": "timezoneruleversionnumber",
+          "physical_name": "TimeZoneRuleVersionNumber",
+          "is_secured": false,
+          "is_audit_enabled": false
+        },
+        {
+          "logical_name": "utcconversiontimezonecode",
+          "physical_name": "UTCConversionTimeZoneCode",
+          "is_secured": false,
+          "is_audit_enabled": false
+        }
+      ]
+    }
+  ],
+  "field_security_profiles": [
+    {
+      "id": "9fd67f9b-a669-f011-bec2-00224823101f",
+      "name": "Example Field Security Profile",
+      "file": "customizations.xml",
+      "permissions": [
+        {
+          "entity_name": "sample_example",
+          "attribute_name": "sample_dateofbirth",
+          "can_read": 4,
+          "can_create": 4,
+          "can_update": 0,
+          "can_read_unmasked": null
+        },
+        {
+          "entity_name": "sample_example",
+          "attribute_name": "sample_email",
+          "can_read": 4,
+          "can_create": 4,
+          "can_update": 4,
+          "can_read_unmasked": null
+        },
+        {
+          "entity_name": "sample_example",
+          "attribute_name": "sample_governmentid",
+          "can_read": 4,
+          "can_create": 4,
+          "can_update": 0,
+          "can_read_unmasked": null
+        },
+        {
+          "entity_name": "sample_example",
+          "attribute_name": "sample_telephonenumber",
+          "can_read": 4,
+          "can_create": 4,
+          "can_update": 4,
+          "can_read_unmasked": null
+        }
+      ]
+    }
+  ],
+  "flows": [],
+  "msapp_hosts": [],
+  "notes": "Microsoft ZIP export with 4 secured columns and FieldPermissions child-element layout (CanReadUnmasked absent -> null)."
+}

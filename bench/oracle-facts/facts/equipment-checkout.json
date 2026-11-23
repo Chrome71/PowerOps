@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "format": "powerops-reader-oracle-facts/1",
+  "fact_id": "equipment-checkout",
+  "solution_path": "tests/fixtures/equipment-checkout",
+  "layout": "xml",
+  "lineage_id": "equipment-checkout",
+  "source_sha256": "b9eba5ebf2b4826ebf3ca6117878689e0cfa233873545e3e30b5cf1da58b73c9",
+  "solution": {
+    "unique_name": "EquipmentCheckout",
+    "version": "1.0.0.0",
+    "managed": false
+  },
+  "roles": [
+    {
+      "id": "00000000-0000-0000-0000-0000000060a2",
+      "name": "Front desk",
+      "file": "Roles/Front desk.xml",
+      "privileges": [
+        {
+          "name": "prvCreateSharePointData",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadContact",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadPluginAssembly",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadPluginType",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadpops_Loan",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadSdkMessage",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadSdkMessageProcessingStep",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadSdkMessageProcessingStepImage",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadSharePointData",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadSharePointDocument",
+          "level": "Global"
+        },
+        {
+          "name": "prvWritepops_Loan",
+          "level": "Global"
+        },
+        {
+          "name": "prvWriteSharePointData",
+          "level": "Global"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-0000000060a1",
+      "name": "IT staff",
+      "file": "Roles/IT staff.xml",
+      "privileges": [
+        {
+          "name": "prvAppendpops_Loan",
+          "level": "Global"
+        },
+        {
+          "name": "prvAppendToContact",
+          "level": "Global"
+        },
+        {
+          "name": "prvCreatepops_Loan",
+          "level": "Global"
+        },
+        {
+          "name": "prvCreateSharePointData",
+          "level": "Global"
+        },
+        {
+          "name": "prvDeletepops_Loan",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadContact",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadPluginAssembly",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadPluginType",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadpops_Loan",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadSdkMessage",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadSdkMessageProcessingStep",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadSdkMessageProcessingStepImage",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadSharePointData",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadSharePointDocument",
+          "level": "Global"
+        },
+        {
+          "name": "prvWritepops_Loan",
+          "level": "Global"
+        },
+        {
+          "name": "prvWriteSharePointData",
+          "level": "Global"
+        }
+      ]
+    }
+  ],
+  "tables": [],
+  "field_security_profiles": [],
+  "flows": [],
+  "msapp_hosts": [],
+  "notes": "Real exported model-driven roles with Global privilege depth."
+}

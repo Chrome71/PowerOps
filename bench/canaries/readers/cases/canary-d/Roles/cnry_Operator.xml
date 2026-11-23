@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Role id="{00000000-0000-0000-0000-000000c000d1}" name="Operations Clerk" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <IsCustomizable>1</IsCustomizable>
+  <IsAutoAssigned>0</IsAutoAssigned>
+  <RolePrivileges>
+    <RolePrivilege name="prvReadcnry_record" level="Basic" />
+    <RolePrivilege name="prvWritecnry_record" level="Local" />
+    <RolePrivilege name="prvAppendcnry_record" level="Deep" />
+    <RolePrivilege name="prvDeletecnry_record" level="Global" />
+    <RolePrivilege name="prvSharecnry_record" />
+  </RolePrivileges>
+</Role>
