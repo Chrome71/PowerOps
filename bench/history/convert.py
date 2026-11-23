@@ -210,8 +210,9 @@ def convert(report, source):
         model = match(r"`([^`]+)` in all \d+", reported)[1] if is_claude else None
         if not is_claude:
             notes.append("Family-wide model reports: " + reported.rstrip(".") + ".")
-        date = (match(r"to (\d{4}-\d\d-\d\d) [\d:]+ UTC", setup)[1] if m38
-                else match(r"^(\d{4}-\d\d-\d\d) ", clients["Runs"][i])[1])
+        window = match(r"\bfrom ([0-9][^.\n]+) UTC", setup)[1] if m38 else clients["Runs"][i]
+        end_day = re.search(r"\bto (\d{4}-\d\d-\d\d)\b", window)
+        date = end_day[1] if end_day else match(r"^(\d{4}-\d\d-\d\d)\b", window)[1]
         usd = None
         if is_claude:
             usd = float(match(r"^\$(\d+\.\d{2})$", price)[1])
@@ -253,9 +254,8 @@ def convert(report, source):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--out", type=Path, default=RECORDS, help="output directory")
-    mode.add_argument("--check", action="store_true", help="compare committed records without writing")
+    parser.add_argument("--out", type=Path, default=RECORDS, help="record directory to write or check")
+    parser.add_argument("--check", action="store_true", help="compare records without writing")
     args = parser.parse_args()
     expected = {}
     for folder in REPORTS:
@@ -270,7 +270,7 @@ def main():
             sys.exit(f"{source}: {error}")
 
     if args.check:
-        actual = {p.name for p in RECORDS.glob("*.json")}
+        actual = {p.name for p in args.out.glob("*.json")}
         errors = []
         for name in sorted(actual | expected.keys()):
             if name not in expected:
@@ -278,7 +278,8 @@ def main():
             elif name not in actual:
                 errors.append(f"missing record: {name}")
             else:
-                data = (RECORDS / name).read_bytes()
+                # Expected bytes are BOM-free UTF-8. Only checkout line endings may differ.
+                data = (args.out / name).read_bytes().replace(b"\r\n", b"\n")
                 if data != expected[name]:
                     diff = difflib.unified_diff(data.decode("utf-8", "replace").splitlines(True),
                                                 expected[name].decode().splitlines(True), name, "generated")

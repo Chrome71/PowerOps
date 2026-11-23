@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 using PowerOps.Tests.Shared;
 
@@ -11,7 +12,42 @@ public class BenchHistoryTests
     private static readonly string History = Path.Combine(Golden.RepoRoot, "bench", "history");
 
     [Fact]
-    public async Task Converter_reproduces_the_committed_records_byte_for_byte()
+    public async Task Converter_reproduces_the_committed_records()
+    {
+        var check = await CheckRecords();
+        Assert.True(check.Code == 0, check.Output);
+    }
+
+    [Fact]
+    public async Task Converter_accepts_crlf_and_rejects_a_single_changed_byte()
+    {
+        var copy = Directory.CreateTempSubdirectory("powerops-history-");
+        try
+        {
+            foreach (var path in Directory.GetFiles(Path.Combine(History, "records"), "*.json"))
+            {
+                File.WriteAllText(Path.Combine(copy.FullName, Path.GetFileName(path)),
+                    File.ReadAllText(path).ReplaceLineEndings("\r\n"));
+            }
+
+            var check = await CheckRecords("--out", copy.FullName);
+            Assert.True(check.Code == 0, check.Output);
+
+            var changed = Path.Combine(copy.FullName, "m38-codex-review-plan.json");
+            var bytes = File.ReadAllBytes(changed);
+            bytes[Array.IndexOf(bytes, (byte)' ')] = (byte)'\t';
+            File.WriteAllBytes(changed, bytes);
+            check = await CheckRecords("--out", copy.FullName);
+            Assert.NotEqual(0, check.Code);
+            Assert.Contains("byte mismatch: " + Path.GetFileName(changed), check.Output);
+        }
+        finally
+        {
+            copy.Delete(recursive: true);
+        }
+    }
+
+    private static async Task<(int Code, string Output)> CheckRecords(params string[] args)
     {
         foreach (var (file, prefix) in new[] { ("python3", Array.Empty<string>()), ("py", ["-3"]), ("python", []) })
         {
@@ -28,14 +64,12 @@ public class BenchHistoryTests
                 continue;
             }
 
-            var check = await Run(file, [.. prefix, Path.Combine(History, "convert.py"), "--check"]);
-            Assert.True(check.Code == 0, check.Output);
-            return;
+            return await Run(file, [.. prefix, Path.Combine(History, "convert.py"), "--check", .. args]);
         }
 
         const string reason = "Python 3 is missing (tried python3, py -3 and python).";
         Assert.False(Environment.GetEnvironmentVariable("POWEROPS_REQUIRE_TOOLS") == "1", reason);
-        Assert.Skip(reason);
+        throw Xunit.Sdk.SkipException.ForSkip(reason);
     }
 
     private static async Task<(int Code, string Output)> Run(string file, string[] args)
@@ -79,7 +113,8 @@ public class BenchHistoryTests
         {
             using var json = JsonDocument.Parse(File.ReadAllBytes(file));
             var record = json.RootElement;
-            Assert.Equal(Path.GetFileNameWithoutExtension(file), record.GetProperty("record_id").GetString());
+            var id = Path.GetFileNameWithoutExtension(file);
+            Assert.Equal(id, record.GetProperty("record_id").GetString());
             Assert.Equal("historical_aggregate", record.GetProperty("granularity").GetString());
             var family = record.GetProperty("client").GetProperty("family").GetString();
             Assert.Contains($"-{family}-", Path.GetFileName(file), StringComparison.Ordinal);
@@ -89,8 +124,17 @@ public class BenchHistoryTests
             Assert.Equal(claude ? JsonValueKind.Number : JsonValueKind.Null, cost.GetProperty("usd").ValueKind);
             Assert.Equal(claude ? JsonValueKind.Null : JsonValueKind.Number, cost.GetProperty("tokens_in").ValueKind);
             Assert.Equal(claude ? JsonValueKind.Number : JsonValueKind.Null, cost.GetProperty("uncached_in_combined").ValueKind);
-            NullFields(cost, "cached_write", "judge_usd", "runner_s", "copilot_credits");
-            NullFields(record.GetProperty("reliability"), "pass^3", "pass@1", "safety_violations");
+            NullFields(cost, "cached_write", "judge_usd", "judge_tokens", "runner_s", "copilot_credits");
+            var reliability = record.GetProperty("reliability");
+            var retries = id switch
+            {
+                "m38-codex-review-plan" => 4,
+                "m38-codex-security-plan" or "m38-codex-security-solution" => 2,
+                _ => 0
+            };
+            Assert.Equal(retries, reliability.GetProperty("retries").GetInt32());
+            Assert.Equal(0, reliability.GetProperty("excluded_runs").GetInt32());
+            NullFields(reliability, "pass^3", "pass@1", "safety_violations");
             NullFields(record.GetProperty("quality"), "checks", "highs_true", "mutant_kill_rate", "critical_fail");
             NullFields(record.GetProperty("time"), "first_artifact_s", "tool_wait_s", "approval_wait_s",
                 "human_active_min", "turns", "tool_calls", "person_questions");
@@ -108,7 +152,7 @@ public class BenchHistoryTests
         {
             foreach (var path in Directory.GetDirectories(Path.Combine([Golden.RepoRoot, .. folder.Split('/')])))
             {
-                Assert.Contains(folder + "/" + Path.GetFileName(path), inventory, StringComparison.Ordinal);
+                Assert.Matches("`" + Regex.Escape(folder + "/" + Path.GetFileName(path)) + "[/`]", inventory);
             }
         }
 
