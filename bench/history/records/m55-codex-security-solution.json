@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "format": "powerops-run/1",
+  "record_id": "m55-codex-security-solution",
+  "granularity": "historical_aggregate",
+  "run_count": 8,
+  "recorded_at": "2026-11-05",
+  "source_ref": "docs/plans/m55-role-freeze/report.md",
+  "commit_sha": "850db2812901370e1fdea442c915eb73d057e918",
+  "milestone": "M55",
+  "task_id": null,
+  "lineage_id": "powerops-seed",
+  "split": "historical",
+  "arm": "historical",
+  "client": {
+    "family": "codex",
+    "client_name": "Codex",
+    "client_version": "codex-cli 0.166.0",
+    "model_requested": "gpt-6-astra",
+    "model_reported": null,
+    "effort": "high",
+    "pass": "security-solution"
+  },
+  "cost": {
+    "tokens_in": 320594,
+    "cached_read": 1887616,
+    "cached_write": null,
+    "uncached_in_combined": null,
+    "tokens_out": 27435,
+    "usd": null,
+    "usd_basis": "unknown",
+    "judge_usd": null,
+    "judge_tokens": null,
+    "runner_s": null,
+    "copilot_credits": null
+  },
+  "quality": {
+    "checks": null,
+    "score_0_1": 1.0,
+    "mutant_kill_rate": null,
+    "highs_true": null,
+    "critical_fail": null,
+    "not_shown_found": 7,
+    "not_shown_total": 7,
+    "shown_found": 1,
+    "shown_total": 1,
+    "highs_false_clean": 0,
+    "clean_runs": 2,
+    "clean_highs_total": 0,
+    "clean_highs_disputed": 0
+  },
+  "time": {
+    "wall_s": 849,
+    "first_artifact_s": null,
+    "tool_wait_s": null,
+    "approval_wait_s": null,
+    "human_active_min": null,
+    "turns": null,
+    "tool_calls": null,
+    "person_questions": null
+  },
+  "reliability": {
+    "end": "completed",
+    "safety_violations": null,
+    "retries": 0,
+    "pass@1": null,
+    "pass^3": null,
+    "replaced_runs": 0,
+    "excluded_runs": 0
+  },
+  "notes": "Family-wide model reports: `GPT-6` in 14, `unknown` in 2."
+}

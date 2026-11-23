@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "format": "powerops-run/1",
+  "record_id": "m83-claude-security-solution",
+  "granularity": "historical_aggregate",
+  "run_count": 8,
+  "recorded_at": "2026-11-10",
+  "source_ref": "docs/plans/m83-zip-linked-reviews/report.md",
+  "commit_sha": "6b67efb60fbb2ece1106011d2bc9fcc923a57d4c",
+  "milestone": "M83",
+  "task_id": null,
+  "lineage_id": "powerops-seed",
+  "split": "historical",
+  "arm": "historical",
+  "client": {
+    "family": "claude",
+    "client_name": "Claude Code",
+    "client_version": "2.1.319",
+    "model_requested": "opus",
+    "model_reported": "claude-opus-5-5",
+    "effort": "high",
+    "pass": "security-solution"
+  },
+  "cost": {
+    "tokens_in": null,
+    "cached_read": 2095185,
+    "cached_write": null,
+    "uncached_in_combined": 320035,
+    "tokens_out": 79348,
+    "usd": 4.57,
+    "usd_basis": "ratecard",
+    "judge_usd": null,
+    "judge_tokens": null,
+    "runner_s": null,
+    "copilot_credits": null
+  },
+  "quality": {
+    "checks": null,
+    "score_0_1": 1.0,
+    "mutant_kill_rate": null,
+    "highs_true": null,
+    "critical_fail": null,
+    "not_shown_found": 7,
+    "not_shown_total": 7,
+    "shown_found": 1,
+    "shown_total": 1,
+    "highs_false_clean": 0,
+    "clean_runs": 2,
+    "clean_highs_total": 0,
+    "clean_highs_disputed": 0
+  },
+  "time": {
+    "wall_s": 922,
+    "first_artifact_s": null,
+    "tool_wait_s": null,
+    "approval_wait_s": null,
+    "human_active_min": null,
+    "turns": null,
+    "tool_calls": null,
+    "person_questions": null
+  },
+  "reliability": {
+    "end": "completed",
+    "safety_violations": null,
+    "retries": 0,
+    "pass@1": null,
+    "pass^3": null,
+    "replaced_runs": 0,
+    "excluded_runs": 0
+  },
+  "notes": "5 scorer-split clean-case Highs were settled as unkeyed. The Sonnet scorer read 4 Verifier and 1 Security Highs as unsupported."
+}

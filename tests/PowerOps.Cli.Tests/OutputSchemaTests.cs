@@ -32,10 +32,11 @@ public class OutputSchemaTests
         ("test-", "test.schema.json"),
     ];
 
-    // Input file formats, not outputs: the schema and the files under tests/fixtures it must accept.
-    private static readonly (string Schema, string Pattern)[] Inputs =
+    // Local file formats have examples outside the CLI goldens.
+    private static readonly (string Schema, string Folder, string Pattern)[] Inputs =
     [
-        ("flow-test.schema.json", "*.flowtest.json"),
+        ("flow-test.schema.json", Path.Combine("tests", "fixtures"), "*.flowtest.json"),
+        ("powerops-run.schema.json", Path.Combine("bench", "history", "records"), "*.json"),
     ];
 
     private static readonly string[] Goldens = Directory
@@ -87,8 +88,8 @@ public class OutputSchemaTests
         Assert.NotEqual("", Errors(Load(SchemaFor(golden)), node));
     }
 
-    private static string[] FixtureFiles(string pattern) => Directory
-        .GetFiles(Path.Combine(Golden.RepoRoot, "tests", "fixtures"), pattern, SearchOption.AllDirectories)
+    private static string[] FixtureFiles(string folder, string pattern) => Directory
+        .GetFiles(Path.Combine(Golden.RepoRoot, folder), pattern, SearchOption.AllDirectories)
         .Select(f => Path.GetRelativePath(Golden.RepoRoot, f).Replace('\\', '/'))
         .OrderBy(f => f, StringComparer.Ordinal)
         .ToArray();
@@ -97,14 +98,14 @@ public class OutputSchemaTests
     public void Every_schema_is_used_by_a_golden_file_or_matches_a_fixture_file()
     {
         var schemas = Directory.GetFiles(Path.Combine(Golden.RepoRoot, "docs", "schemas"), "*.schema.json").Select(f => Path.GetFileName(f));
-        var used = Goldens.Select(SchemaFor).Concat(Inputs.Where(i => FixtureFiles(i.Pattern).Length > 0).Select(i => i.Schema)).ToHashSet();
+        var used = Goldens.Select(SchemaFor).Concat(Inputs.Where(i => FixtureFiles(i.Folder, i.Pattern).Length > 0).Select(i => i.Schema)).ToHashSet();
 
         var unused = schemas.Where(s => !used.Contains(s)).ToList();
 
         Assert.True(unused.Count == 0, "No golden file or fixture file uses: " + string.Join(", ", unused));
     }
 
-    public static TheoryData<string, string> InputFiles() => new(Inputs.SelectMany(i => FixtureFiles(i.Pattern).Select(f => (i.Schema, f))));
+    public static TheoryData<string, string> InputFiles() => new(Inputs.SelectMany(i => FixtureFiles(i.Folder, i.Pattern).Select(f => (i.Schema, f))));
 
     [Theory]
     [MemberData(nameof(InputFiles))]
@@ -113,6 +114,81 @@ public class OutputSchemaTests
         var errors = Errors(Load(schema), JsonNode.Parse(File.ReadAllText(Path.Combine(Golden.RepoRoot, file)))!);
 
         Assert.True(errors.Length == 0, $"{file} does not match {schema}:\n{errors}");
+    }
+
+    private static JsonNode Attempt() => JsonNode.Parse("""
+        {
+          "schemaVersion": 1, "format": "powerops-run/1", "record_id": "sample.attempt-1",
+          "granularity": "attempt", "run_count": 1, "recorded_at": "2026-11-22T12:00:00Z",
+          "source_ref": "bench/sample.json", "commit_sha": null, "milestone": null,
+          "task_id": null, "lineage_id": null, "split": "dev", "arm": "A0",
+          "client": {"family":"other","client_name":"Example","client_version":null,
+                     "model_requested":null,"model_reported":null,"effort":null,"pass":null},
+          "cost": {"tokens_in":1000,"cached_read":null,"cached_write":200,"uncached_in_combined":null,
+                   "tokens_out":null,"usd":0.42,"usd_basis":"billed","judge_usd":null,"runner_s":null,"copilot_credits":null},
+          "quality": {"checks":[{"id":"result","observed":{"value":1},"expected":[1],"locator":null,"pass":true}],
+                      "score_0_1":1,"mutant_kill_rate":null,"highs_true":null,"highs_false_clean":null,"critical_fail":false},
+          "time": {"wall_s":1,"first_artifact_s":null,"tool_wait_s":null,"approval_wait_s":null,
+                   "human_active_min":null,"turns":null,"tool_calls":null,"person_questions":null},
+          "reliability": {"end":"completed","safety_violations":null,"retries":null,"pass@1":null,"pass^3":null},
+          "notes":null
+        }
+        """)!;
+
+    [Fact]
+    public void A_billed_attempt_with_a_check_validates()
+    {
+        Assert.Equal("", Errors(Load("powerops-run.schema.json"), Attempt()));
+    }
+
+    [Theory]
+    [InlineData("schemaVersion", null)]
+    [InlineData("cost", """{"usd_basis":"unknown","usd":0}""")]
+    [InlineData("cost", """{"usd_basis":"ratecard","usd":null}""")]
+    [InlineData("cost", """{"usd_basis":"billed","usd":null}""")]
+    [InlineData("cost", """{"tokens_in":100,"cached_write":null,"uncached_in_combined":100}""")]
+    [InlineData("cost", """{"tokens_in":null,"cached_write":0,"uncached_in_combined":100}""")]
+    [InlineData("run_count", "2")]
+    [InlineData("reliability", """{"end":"ok"}""")]
+    [InlineData("reliability", """{"pass@1":1.5}""")]
+    [InlineData("time", """{"wall_s":-1}""")]
+    [InlineData("cost", """{"usd":-1}""")]
+    [InlineData("cost", """{"tokens_in":-1}""")]
+    [InlineData("cost", """{"tokens_in":1.5}""")]
+    [InlineData("extra", "true")]
+    [InlineData("quality", """{"extra":true}""")]
+    [InlineData("quality", """{"score_0_1":1.1}""")]
+    [InlineData("quality", """{"checks":[{"id":"check","observed":1,"expected":1,"locator":null}]}""")]
+    [InlineData("quality", """{"checks":[{"id":"check","observed":1,"expected":1,"locator":null,"pass":true,"extra":true}]}""")]
+    [InlineData("source_ref", "\"../outside.json\"")]
+    [InlineData("source_ref", "\"https://example.invalid/path\"")]
+    [InlineData("source_ref", "\"bench/sample.json\\n\"")]
+    [InlineData("record_id", "\"sample.attempt-1\\n\"")]
+    [InlineData("commit_sha", "\"123abcd\"")]
+    [InlineData("commit_sha", "\"0123456789abcdef0123456789abcdef01234567\\n\"")]
+    [InlineData("recorded_at", "\"2026-13-01\"")]
+    [InlineData("recorded_at", "\"2026-11-22\\n\"")]
+    [InlineData("recorded_at", "\"2026-11-22T12:00:00Z\\n\"")]
+    public void Invalid_run_records_are_rejected(string field, string? patch)
+    {
+        var attempt = Attempt().AsObject();
+        if (patch is null)
+        {
+            attempt.Remove(field);
+        }
+        else if (JsonNode.Parse(patch) is JsonObject changes)
+        {
+            foreach (var (name, value) in changes)
+            {
+                attempt[field]![name] = value?.DeepClone();
+            }
+        }
+        else
+        {
+            attempt[field] = JsonNode.Parse(patch);
+        }
+
+        Assert.False(Load("powerops-run.schema.json").Evaluate(JsonSerializer.SerializeToElement(attempt)).IsValid);
     }
 
     [Fact]

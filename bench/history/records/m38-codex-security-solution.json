@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "format": "powerops-run/1",
+  "record_id": "m38-codex-security-solution",
+  "granularity": "historical_aggregate",
+  "run_count": 6,
+  "recorded_at": "2026-11-02",
+  "source_ref": "docs/plans/m38-agent-team/report.md",
+  "commit_sha": "b254179bcfaa22122e1a4042f7fb74b311ada983",
+  "milestone": "M38",
+  "task_id": null,
+  "lineage_id": "powerops-seed",
+  "split": "historical",
+  "arm": "historical",
+  "client": {
+    "family": "codex",
+    "client_name": "Codex",
+    "client_version": "codex-cli 0.166.0",
+    "model_requested": "gpt-6-astra",
+    "model_reported": null,
+    "effort": "high",
+    "pass": "security-solution"
+  },
+  "cost": {
+    "tokens_in": 204083,
+    "cached_read": 1410176,
+    "cached_write": null,
+    "uncached_in_combined": null,
+    "tokens_out": 20354,
+    "usd": null,
+    "usd_basis": "unknown",
+    "judge_usd": null,
+    "judge_tokens": null,
+    "runner_s": null,
+    "copilot_credits": null
+  },
+  "quality": {
+    "checks": null,
+    "score_0_1": 1.0,
+    "mutant_kill_rate": null,
+    "highs_true": null,
+    "critical_fail": null,
+    "not_shown_found": 5,
+    "not_shown_total": 5,
+    "shown_found": 1,
+    "shown_total": 1,
+    "highs_false_clean": 1,
+    "clean_runs": 2,
+    "clean_highs_total": null,
+    "clean_highs_disputed": 1
+  },
+  "time": {
+    "wall_s": 603,
+    "first_artifact_s": null,
+    "tool_wait_s": null,
+    "approval_wait_s": null,
+    "human_active_min": null,
+    "turns": null,
+    "tool_calls": null,
+    "person_questions": null
+  },
+  "reliability": {
+    "end": "completed",
+    "safety_violations": null,
+    "retries": 2,
+    "pass@1": null,
+    "pass^3": null,
+    "replaced_runs": 2,
+    "excluded_runs": 0
+  },
+  "notes": "Codex reports replacement usage only across all passes. Tokens: 6.36M, or 7.57M with the 8 replaced runs. Time: 0.91 h, or 1.14 h with the 8 replaced runs. Family-wide model reports: The stream names no model. The reports said `GPT-6` in 28 runs and `unknown` in 8."
+}
