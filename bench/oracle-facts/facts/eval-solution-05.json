@@ -147,7 +147,8 @@
           "attribute_name": "pops_notes",
           "can_read": 4,
           "can_create": 0,
-          "can_update": 4
+          "can_update": 4,
+          "can_read_unmasked": 0
         }
       ]
     }
@@ -181,5 +182,5 @@
     }
   ],
   "msapp_hosts": [],
-  "notes": "Explicit pops_notes IsSecured=false and IsAuditEnabled=false with unpacked Permissions/Permission FieldSecurityProfile."
+  "notes": "Explicit pops_notes IsSecured=false, IsAuditEnabled=false, and canreadunmasked=0 in unpacked Permissions/Permission FieldSecurityProfile."
 }

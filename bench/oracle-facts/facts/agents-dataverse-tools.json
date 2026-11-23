@@ -74,7 +74,7 @@
       "entity_set_name": "demo_queues",
       "is_audit_enabled": null,
       "file": "Entities/demo_Queue/Entity.xml",
-      "columns": []
+      "columns": null
     },
     {
       "name": "demo_Ticket",
@@ -100,5 +100,5 @@
   "field_security_profiles": [],
   "flows": [],
   "msapp_hosts": [],
-  "notes": "Tests absent table IsAuditEnabled (null, never false) on demo_Ticket and demo_Queue plus Service desk role depth."
+  "notes": "Tests absent table IsAuditEnabled (null) and omitted <attributes> on demo_Queue (columns: null, never []) plus Service desk role depth."
 }

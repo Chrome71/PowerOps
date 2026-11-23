@@ -1,5 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO.Compression;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -42,13 +44,19 @@ public class ReaderOracleFactsTests
         Assert.Equal(13, all.Count);
         Assert.Equal(["xml", "yaml", "zip"], all.Values.Select(v => (string)v["layout"]!).Distinct().Order(StringComparer.Ordinal));
 
-        // Absent table IsAuditEnabled must stay null (never coerced to false).
+        // Absent table IsAuditEnabled AND absent <attributes> element must stay null (never coerced to false or []).
         var dataverseTools = all["agents-dataverse-tools"];
         var demoTicket = dataverseTools["tables"]!.AsArray().Single(t => (string?)t!["name"] == "demo_Ticket")!;
         var demoQueue = dataverseTools["tables"]!.AsArray().Single(t => (string?)t!["name"] == "demo_Queue")!;
         Assert.Null(demoTicket["is_audit_enabled"]);
         Assert.Null(demoQueue["is_audit_enabled"]);
-        Assert.Empty(demoQueue["columns"]!.AsArray());
+        Assert.Null(demoQueue["columns"]);
+
+        // Schema also accepts an explicit empty columns array (representing explicit <attributes/>) and null solution.managed.
+        var explicitEmpty = dataverseTools.DeepClone().AsObject();
+        explicitEmpty["tables"]!.AsArray().Single(t => (string?)t!["name"] == "demo_Queue")!["columns"] = new JsonArray();
+        explicitEmpty["solution"]!["managed"] = null;
+        Assert.Equal("", OutputSchemaTests.Errors(Schema.Value, explicitEmpty));
 
         // Explicit 0/false must stay false (never dropped to null).
         var seedXml = all["powerops-seed-v1-xml"];
@@ -61,14 +69,17 @@ public class ReaderOracleFactsTests
         Assert.Equal(seedXml["flows"]!.AsArray()[0]!["triggers"]!.ToJsonString(), seedYaml["flows"]!.AsArray()[0]!["triggers"]!.ToJsonString());
         Assert.Equal(seedXml["flows"]!.AsArray()[0]!["connection_bindings"]!.ToJsonString(), seedYaml["flows"]!.AsArray()[0]!["connection_bindings"]!.ToJsonString());
 
-        // Both FieldSecurityProfile XML layouts are covered.
-        var clsZip = all["column-level-security-unmanaged"];
-        Assert.Equal(4, clsZip["field_security_profiles"]!.AsArray().Single()!["permissions"]!.AsArray().Count);
+        // Both FieldSecurityProfile XML layouts are covered, distinguishing explicit canreadunmasked=0 from absent null.
+        var clsPerms = all["column-level-security-unmanaged"]["field_security_profiles"]!.AsArray().Single()!["permissions"]!.AsArray();
+        Assert.Equal(4, clsPerms.Count);
+        Assert.All(clsPerms, p => Assert.Null(p!["can_read_unmasked"]));
+
         var sol5 = all["eval-solution-05"];
         var popsNotes = sol5["tables"]!.AsArray().Single()!["columns"]!.AsArray().Single(c => (string?)c!["logical_name"] == "pops_notes")!;
         Assert.False((bool?)popsNotes["is_secured"]);
         Assert.False((bool?)popsNotes["is_audit_enabled"]);
-        Assert.Single(sol5["field_security_profiles"]!.AsArray().Single()!["permissions"]!.AsArray());
+        var sol5Perm = Assert.Single(sol5["field_security_profiles"]!.AsArray().Single()!["permissions"]!.AsArray())!;
+        Assert.Equal(0, (int?)sol5Perm["can_read_unmasked"]);
 
         // Direct connection binding (eval-solution-04) and .msapp hosts (eval-solution-09).
         var sol4Bindings = all["eval-solution-04"]["flows"]!.AsArray()
@@ -91,6 +102,7 @@ public class ReaderOracleFactsTests
     [InlineData("source_sha256", "\"not-a-hash\"")]
     [InlineData("source_sha256", "\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\\n\"")]
     [InlineData("solution_path", "\"../outside\"")]
+    [InlineData("solution_path", "\"tests/fixtures/bad\\u0000name\"")]
     [InlineData("extra", "true")]
     public void Invalid_oracle_fact_records_are_rejected(string field, string? patch)
     {
@@ -108,16 +120,19 @@ public class ReaderOracleFactsTests
     }
 
     [Fact]
-    public void String_zero_for_boolean_column_flags_is_rejected_by_schema()
+    public void Invalid_nested_column_flag_and_malformed_host_are_rejected_by_schema()
     {
-        var fact = JsonNode.Parse(File.ReadAllText(Path.Combine(OracleDir, "facts", "eval-solution-05.json")))!.AsObject();
-        fact["tables"]!.AsArray()[0]!["columns"]!.AsArray()[0]!["is_secured"] = "0";
+        var sol5 = JsonNode.Parse(File.ReadAllText(Path.Combine(OracleDir, "facts", "eval-solution-05.json")))!.AsObject();
+        sol5["tables"]!.AsArray()[0]!["columns"]!.AsArray()[0]!["is_secured"] = "0";
+        Assert.False(Schema.Value.Evaluate(JsonSerializer.SerializeToElement(sol5)).IsValid);
 
-        Assert.False(Schema.Value.Evaluate(JsonSerializer.SerializeToElement(fact)).IsValid);
+        var sol9 = JsonNode.Parse(File.ReadAllText(Path.Combine(OracleDir, "facts", "eval-solution-09.json")))!.AsObject();
+        sol9["msapp_hosts"]!.AsArray()[0]!["host"] = "a..b";
+        Assert.False(Schema.Value.Evaluate(JsonSerializer.SerializeToElement(sol9)).IsValid);
     }
 
     [Fact]
-    public async Task Commitment_verifier_passes_and_detects_manifest_tampering()
+    public async Task Commitment_verifier_passes_and_rejects_tampering_duplicates_and_escapes()
     {
         var check = await RunVerifier("--check");
         Assert.True(check.Code == 0, check.Output);
@@ -132,9 +147,28 @@ public class ReaderOracleFactsTests
 
             // Windows CRLF checkout of text files must still pass.
             var manifest = Path.Combine(copy.FullName, "bench", "oracle-facts", "manifest.sha256");
-            File.WriteAllText(manifest, File.ReadAllText(manifest).ReplaceLineEndings("\r\n"));
+            var originalManifest = File.ReadAllText(manifest);
+            File.WriteAllText(manifest, originalManifest.ReplaceLineEndings("\r\n"));
             var crlfCheck = await RunVerifier("--root", copy.FullName, "--check");
             Assert.True(crlfCheck.Code == 0, crlfCheck.Output);
+
+            // Prepending a conflicting duplicate manifest row must fail.
+            File.WriteAllText(manifest, new string('0', 64) + "  bench/oracle-facts/schema.json\n" + originalManifest);
+            var dupCheck = await RunVerifier("--root", copy.FullName, "--check");
+            Assert.NotEqual(0, dupCheck.Code);
+            Assert.Contains("duplicate manifest.sha256 entry: bench/oracle-facts/schema.json", dupCheck.Output, StringComparison.Ordinal);
+            File.WriteAllText(manifest, originalManifest);
+
+            // Escaping solution_path must be refused before reading outside root.
+            var eqPath = Path.Combine(copy.FullName, "bench", "oracle-facts", "facts", "equipment-checkout.json");
+            var eqOriginal = File.ReadAllText(eqPath);
+            var eqJson = JsonNode.Parse(eqOriginal)!.AsObject();
+            eqJson["solution_path"] = "../outside";
+            File.WriteAllText(eqPath, eqJson.ToJsonString());
+            var escapeCheck = await RunVerifier("--root", copy.FullName, "--check");
+            Assert.NotEqual(0, escapeCheck.Code);
+            Assert.Contains("invalid relative path", escapeCheck.Output, StringComparison.Ordinal);
+            File.WriteAllText(eqPath, eqOriginal);
 
             // Tampering with one canary file must fail input_sha256 verification.
             var canaryRole = Path.Combine(copy.FullName, "bench", "canaries", "readers", "cases", "canary-d", "Roles", "cnry_Operator.xml");
@@ -156,8 +190,33 @@ public class ReaderOracleFactsTests
         var casesDir = Path.Combine(CanaryDir, "cases");
         foreach (var file in Directory.GetFiles(casesDir, "*", SearchOption.AllDirectories))
         {
+            var rel = Path.GetRelativePath(casesDir, file).Replace('\\', '/');
+            foreach (var hint in forbiddenHints)
+            {
+                Assert.DoesNotContain(hint, rel, StringComparison.OrdinalIgnoreCase);
+            }
+
             if (file.EndsWith(".msapp", StringComparison.OrdinalIgnoreCase))
             {
+                using var zip = ZipFile.OpenRead(file);
+                foreach (var entry in zip.Entries)
+                {
+                    foreach (var hint in forbiddenHints)
+                    {
+                        Assert.DoesNotContain(hint, entry.FullName, StringComparison.OrdinalIgnoreCase);
+                    }
+
+                    using var reader = new StreamReader(entry.Open(), Encoding.UTF8);
+                    var content = reader.ReadToEnd();
+                    foreach (var hint in forbiddenHints)
+                    {
+                        Assert.DoesNotContain(hint, content, StringComparison.OrdinalIgnoreCase);
+                    }
+
+                    Assert.DoesNotContain("/" + "home/", content, StringComparison.Ordinal);
+                    Assert.DoesNotContain("file:" + "//", content, StringComparison.OrdinalIgnoreCase);
+                }
+
                 continue;
             }
 

@@ -4,13 +4,30 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import sys
 
 
 ROOT = Path(__file__).resolve().parents[3]
-ORACLE_DIR = ROOT / "bench/oracle-facts"
-CANARY_DIR = ROOT / "bench/canaries/readers"
 BINARY_SUFFIXES = {".zip", ".msapp", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".dll"}
+SAFE_RELPATH = re.compile(r"^(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*(?:^|/)[.]{1,2}(?:/|$))[^/\\\r\n\x00]+(?:/[^/\\\r\n\x00]+)*(?!\n)$")
+
+
+def resolve_confined(root: Path, rel: str, label: str) -> Path:
+    if not isinstance(rel, str) or not SAFE_RELPATH.match(rel):
+        raise ValueError(f"{label}: invalid relative path: {rel!r}")
+    root_real = root.resolve(strict=True)
+    candidate = root_real / rel
+    # Walk each segment before following anything, refusing symlinks and escapes.
+    cur = root_real
+    for part in Path(rel).parts:
+        cur = cur / part
+        if cur.is_symlink():
+            raise ValueError(f"{label}: symlink refused: {rel}")
+    resolved = candidate.resolve(strict=True)
+    if not resolved.is_relative_to(root_real):
+        raise ValueError(f"{label}: path escapes root: {rel}")
+    return resolved
 
 
 def normalized_bytes(path: Path) -> bytes:
@@ -24,18 +41,32 @@ def sha256_file(path: Path) -> str:
     return hashlib.sha256(normalized_bytes(path)).hexdigest()
 
 
-def sha256_target(target: Path) -> str:
+def sha256_target(target: Path, root: Path | None = None) -> str:
     """Deterministic SHA-256 over a single file or a sorted directory tree (LF-normalized for text)."""
-    if target.is_file():
-        return sha256_file(target)
-    if not target.is_dir():
+    root_real = root.resolve(strict=True) if root is not None else None
+    if target.is_symlink():
+        raise ValueError(f"symlink refused: {target}")
+    resolved = target.resolve(strict=True)
+    if root_real is not None and not resolved.is_relative_to(root_real):
+        raise ValueError(f"path escapes root: {target}")
+    if resolved.is_file():
+        return sha256_file(resolved)
+    if not resolved.is_dir():
         raise FileNotFoundError(f"missing target: {target}")
     h = hashlib.sha256()
-    files = sorted((p for p in target.rglob("*") if p.is_file()), key=lambda p: p.relative_to(target).as_posix())
+    files = []
+    for p in resolved.rglob("*"):
+        if p.is_symlink():
+            raise ValueError(f"symlink refused inside directory: {p}")
+        if p.is_file():
+            if root_real is not None and not p.resolve(strict=True).is_relative_to(root_real):
+                raise ValueError(f"file escapes root: {p}")
+            files.append(p)
+    files.sort(key=lambda p: p.relative_to(resolved).as_posix())
     if not files:
         raise ValueError(f"empty directory: {target}")
     for p in files:
-        rel = p.relative_to(target).as_posix().encode("utf-8")
+        rel = p.relative_to(resolved).as_posix().encode("utf-8")
         data = normalized_bytes(p)
         h.update(rel + b"\0" + str(len(data)).encode("ascii") + b"\0" + data + b"\0")
     return h.hexdigest()
@@ -52,8 +83,9 @@ def commitment_digest(salt: str, payload) -> str:
 
 def check_integrity(root: Path) -> list[str]:
     errors = []
-    oracle_dir = root / "bench/oracle-facts"
-    canary_dir = root / "bench/canaries/readers"
+    root_real = root.resolve(strict=True)
+    oracle_dir = root_real / "bench/oracle-facts"
+    canary_dir = root_real / "bench/canaries/readers"
     facts_dir = oracle_dir / "facts"
     manifest_path = oracle_dir / "manifest.sha256"
     commitments_path = canary_dir / "commitments.json"
@@ -64,22 +96,43 @@ def check_integrity(root: Path) -> list[str]:
     for f in fact_files:
         data = json.loads(f.read_text(encoding="utf-8"))
         sol_rel = data["solution_path"]
-        target = root / sol_rel
-        # For YAML solution.yml, hash the whole solution binding root (two levels above solutions/<name>/solution.yml)
-        if data["layout"] == "yaml" and target.name.lower() == "solution.yml":
-            target = target.parents[2]
-        actual = sha256_target(target)
+        try:
+            target = resolve_confined(root_real, sol_rel, f"{f.name} solution_path")
+            # For YAML solution.yml (solutions/<name>/solution.yml), hash the solution binding root.
+            if data["layout"] == "yaml" and target.name.lower() == "solution.yml":
+                if len(Path(sol_rel).parts) < 3:
+                    raise ValueError(f"{f.name}: yaml solution_path too shallow: {sol_rel}")
+                yaml_root_rel = Path(sol_rel).parents[2].as_posix()
+                target = resolve_confined(root_real, yaml_root_rel, f"{f.name} yaml root")
+            actual = sha256_target(target, root_real)
+        except (ValueError, OSError) as exc:
+            errors.append(str(exc))
+            continue
         if actual != data["source_sha256"]:
             errors.append(f"{f.name}: source_sha256 mismatch (expected {data['source_sha256']}, actual {actual})")
 
     commitments = json.loads(commitments_path.read_text(encoding="utf-8"))
     case_dirs = {p.name for p in (canary_dir / "cases").iterdir() if p.is_dir()}
-    committed_ids = {c["canary_id"] for c in commitments["canaries"]}
-    if case_dirs != committed_ids:
-        errors.append(f"canary directories {sorted(case_dirs)} != committed ids {sorted(committed_ids)}")
+    committed_ids = []
     for entry in commitments["canaries"]:
         cid = entry["canary_id"]
-        actual = sha256_target(canary_dir / "cases" / cid)
+        if cid in committed_ids:
+            errors.append(f"duplicate canary_id in commitments.json: {cid}")
+        committed_ids.append(cid)
+    if case_dirs != set(committed_ids):
+        errors.append(f"canary directories {sorted(case_dirs)} != committed ids {sorted(set(committed_ids))}")
+    for entry in commitments["canaries"]:
+        cid = entry["canary_id"]
+        expected_rel = f"bench/canaries/readers/cases/{cid}"
+        if entry.get("case_path") != expected_rel:
+            errors.append(f"canary {cid}: unexpected case_path {entry.get('case_path')!r}")
+            continue
+        try:
+            target = resolve_confined(root_real, expected_rel, f"canary {cid}")
+            actual = sha256_target(target, root_real)
+        except (ValueError, OSError) as exc:
+            errors.append(str(exc))
+            continue
         if actual != entry["input_sha256"]:
             errors.append(f"canary {cid}: input_sha256 mismatch (expected {entry['input_sha256']}, actual {actual})")
 
@@ -87,23 +140,34 @@ def check_integrity(root: Path) -> list[str]:
     expected_manifest = {}
     for line in manifest_lines:
         parts = line.split("  ", 1)
-        if len(parts) != 2:
+        if len(parts) != 2 or not re.fullmatch(r"[0-9a-f]{64}", parts[0]):
             errors.append(f"malformed manifest.sha256 line: {line}")
             continue
-        expected_manifest[parts[1]] = parts[0]
+        digest, rel = parts
+        if rel in expected_manifest:
+            errors.append(f"duplicate manifest.sha256 entry: {rel}")
+            continue
+        expected_manifest[rel] = digest
 
-    required_paths = (
+    required_paths = set(
         ["bench/oracle-facts/schema.json", "bench/canaries/readers/commitments.json"]
         + [f"bench/oracle-facts/facts/{f.name}" for f in fact_files]
     )
-    if set(expected_manifest.keys()) != set(required_paths):
-        missing = sorted(set(required_paths) - set(expected_manifest.keys()))
-        extra = sorted(set(expected_manifest.keys()) - set(required_paths))
+    if set(expected_manifest.keys()) != required_paths:
+        missing = sorted(required_paths - set(expected_manifest.keys()))
+        extra = sorted(set(expected_manifest.keys()) - required_paths)
         errors.append(f"manifest.sha256 file set mismatch (missing={missing}, extra={extra})")
-    for rel, digest in sorted(expected_manifest.items()):
-        p = root / rel
+
+    # Only read paths that belong to the required allowlist and are confined inside root.
+    for rel in sorted(required_paths & set(expected_manifest.keys())):
+        digest = expected_manifest[rel]
+        try:
+            p = resolve_confined(root_real, rel, f"manifest {rel}")
+        except (ValueError, OSError) as exc:
+            errors.append(str(exc))
+            continue
         if not p.is_file():
-            errors.append(f"manifest entry missing on disk: {rel}")
+            errors.append(f"manifest entry is not a file: {rel}")
             continue
         actual = sha256_file(p)
         if actual != digest:

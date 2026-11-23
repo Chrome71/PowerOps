@@ -241,33 +241,37 @@
           "attribute_name": "sample_dateofbirth",
           "can_read": 4,
           "can_create": 4,
-          "can_update": 0
+          "can_update": 0,
+          "can_read_unmasked": null
         },
         {
           "entity_name": "sample_example",
           "attribute_name": "sample_email",
           "can_read": 4,
           "can_create": 4,
-          "can_update": 4
+          "can_update": 4,
+          "can_read_unmasked": null
         },
         {
           "entity_name": "sample_example",
           "attribute_name": "sample_governmentid",
           "can_read": 4,
           "can_create": 4,
-          "can_update": 0
+          "can_update": 0,
+          "can_read_unmasked": null
         },
         {
           "entity_name": "sample_example",
           "attribute_name": "sample_telephonenumber",
           "can_read": 4,
           "can_create": 4,
-          "can_update": 4
+          "can_update": 4,
+          "can_read_unmasked": null
         }
       ]
     }
   ],
   "flows": [],
   "msapp_hosts": [],
-  "notes": "Microsoft ZIP export with 4 secured columns and FieldPermissions child-element layout."
+  "notes": "Microsoft ZIP export with 4 secured columns and FieldPermissions child-element layout (CanReadUnmasked absent -> null)."
 }
