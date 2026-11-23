@@ -155,7 +155,7 @@ agent_turn() {
 user_turn() {
   local prompt out
   prompt="You are role-playing a user talking to a coding agent that is $user_role.
-Your instructions for this conversation: $goal
+Your instructions for this conversation (you are answering agent turn $2): $goal
 Always pick the option marked (recommended) when you are asked questions, unless your instructions say otherwise.
 Reply with only the words you would type back, nothing else.
 
@@ -203,7 +203,7 @@ header() { sed -n '2,/^---/p' "$(plan_dir)/plan.md" | sed -n "s/^$1:[[:space:]]*
 # condition evaluated after each agent reply; it can use $turn, $reply and $message (the last thing the user said).
 # $menus counts the agent's replies that show a lettered what-next menu (has_menu).
 converse() {
-  local message="$1" done_when="$2" turn
+  local message="$1" done_when="$2" turn expected
   menus=0
   for ((turn = 1; turn <= max_turns; turn++)); do
     cost_guard
@@ -213,9 +213,14 @@ converse() {
     if has_menu "$reply"; then menus=$((menus + 1)); fi
     if eval "$done_when"; then return 0; fi
     cost_guard
-    message="$(user_turn "$reply")" || { cost_check; fail "the simulated user call failed on turn $turn"; return 1; }
+    message="$(user_turn "$reply" "$turn")" || { cost_check; fail "the simulated user call failed on turn $turn"; return 1; }
     cost_check
     printf -- '--- user ---\n%s\n' "$message"
+    if [ "$scenario" = option-depth ]; then
+      expected=stop
+      [ "$turn" != 1 ] || expected="1 1 1"
+      [ "$message" = "$expected" ] || { fail "expected just $expected on user turn $turn"; return 1; }
+    fi
   done
   fail "did not finish within $max_turns turns"
   return 1
@@ -783,8 +788,15 @@ section() { sed -n "/^## $1[[:space:]]*\$/,/^## /p" "$(plan_dir)/plan.md" 2>/dev
 if want option-depth; then
 new_repo
 allow_sketch
-goal="Answer each round of questions with one option number per question, digits only, separated by spaces (like: 1 1 1), and nothing else. Reply with just: stop when the agent asks \"Approve the draft?\" or opens a message with Round 2 or a later round; answer nothing else in that message."
-converse "Use the powerops-plan skill at depth standard. My idea: $idea." "$said_stop" || true
+goal="On agent turn 1 only, answer the first round with bare option numbers: 1 1 1. On the very next agent reply (turn 2), reply with just: stop. This applies to every reply, including 'Which direction?', 'Approve the draft?', any later round and any follow-up questions. Type nothing else."
+option_depth_done() {
+  if [ -n "$(plan_dir)" ]; then
+    [ ! -e "$(plan_dir)/mockups/prototype.html" ] || { fail "mockups/prototype.html exists during option-depth"; return 0; }
+    [ ! -e "$(plan_dir)/mockups/prototype.judge.md" ] || { fail "mockups/prototype.judge.md exists during option-depth"; return 0; }
+  fi
+  eval "$said_stop"
+}
+converse "Use the powerops-plan skill at depth standard. My idea: $idea." option_depth_done || true
 allowed_tools="Bash(powerops *)"
 no_menu
 if [ -n "$(plan_dir)" ]; then

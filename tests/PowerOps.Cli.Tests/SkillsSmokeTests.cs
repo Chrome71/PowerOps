@@ -51,6 +51,37 @@ public sealed class SkillsSmokeTests
     }
 
     [Fact]
+    public async Task Option_depth_answers_once_then_stops_at_the_sketch_choice()
+    {
+        var (code, output) = await Run("claude", "option-depth");
+        Assert.True(code == 0, output);
+        Assert.Contains("--- user ---\n1 1 1\n\n--- agent (turn 2) ---\nWhich direction?\n--- user ---\nstop\n\n--- agent (turn 3) ---\nStopped.", output);
+        Assert.Contains("all checks passed", output);
+    }
+
+    [Theory]
+    [InlineData("prototype.html")]
+    [InlineData("prototype.judge.md")]
+    public async Task Option_depth_fails_as_soon_as_a_prototype_or_judge_file_appears(string file)
+    {
+        var (code, output) = await Run("claude", "option-depth", mutant: file);
+        Assert.Equal(1, code);
+        Assert.Contains($"FAIL [option-depth]: mockups/{file}", output);
+        Assert.DoesNotContain("--- agent (turn 3) ---", output);
+    }
+
+    [Theory]
+    [InlineData("early-stop", "1 1 1", 2)]
+    [InlineData("repeat-answer", "stop", 3)]
+    public async Task Option_depth_rejects_an_incorrect_user_answer_before_resuming(string mutant, string expected, int nextTurn)
+    {
+        var (code, output) = await Run("claude", "option-depth", mutant: mutant);
+        Assert.Equal(1, code);
+        Assert.Contains($"FAIL [option-depth]: expected just {expected}", output);
+        Assert.DoesNotContain($"--- agent (turn {nextTurn}) ---", output);
+    }
+
+    [Fact]
     public async Task Capped_run_fails_closed_when_the_agent_omits_cost()
     {
         var (code, output) = await Run("claude", cap: "1", mutant: "missing-cost");
@@ -131,7 +162,18 @@ public sealed class SkillsSmokeTests
         case "$message" in
           "You are role-playing"*)
             case "${message##*The agent said:}" in
-              *"Which direction?") [[ "$message" == *skip* ]]; reply="Skip because the options settled the layout." ;;
+              *"Round 1 questions?")
+                [[ "$message" == *"answering agent turn 1"*'1 1 1'* ]]
+                reply="1 1 1"
+                if [ "$STUB_MUTANT" = early-stop ]; then reply=stop; fi ;;
+              *"Which direction?")
+                if [[ "$message" == *skip* ]]; then
+                  reply="Skip because the options settled the layout."
+                else
+                  [[ "$message" == *"answering agent turn 2"*"next agent reply"*"reply with just: stop"* ]]
+                  reply=stop
+                  if [ "$STUB_MUTANT" = repeat-answer ]; then reply="1 1 1"; fi
+                fi ;;
               *"Does it pass?") [[ "$message" == *Pass* ]]; reply=Pass ;;
               *"How many rows?") reply="One hundred." ;;
               *"Approve the draft?") reply=Approve ;;
@@ -139,7 +181,9 @@ public sealed class SkillsSmokeTests
             esac
             mode=user ;;
           *)
-            depth="${PWD##*/}"
+            scenario="${PWD##*/}"
+            depth="$scenario"
+            if [ "$scenario" = option-depth ]; then depth=standard; fi
             plan=docs/plans/loans
             mockups="$plan/mockups"
             log="$plan/decisions.md"
@@ -180,7 +224,9 @@ public sealed class SkillsSmokeTests
                   echo "<p>Sketch $1</p>"
                   echo '<section class="frame desktop" data-screen="Home"><h1 data-lead>Loans</h1></section>'
                 }
-                if [ "$depth" = standard ]; then
+                if [ "$scenario" = option-depth ]; then
+                  reply="Round 1 questions?"
+                elif [ "$depth" = standard ]; then
                   for letter in a b c; do sketch "$letter" > "$mockups/option-$letter.html"; done
                   reply="Which direction?"
                 else
@@ -192,6 +238,11 @@ public sealed class SkillsSmokeTests
                   echo '- Home: loan list' > "$mockups/prototype.map.md"
                   reply="Does it pass?"
                 fi ;;
+              "1 1 1")
+                for letter in a b c; do echo "Sketch $letter" > "$mockups/option-$letter.html"; done
+                case "$STUB_MUTANT" in prototype.html|prototype.judge.md) touch "$mockups/$STUB_MUTANT" ;; esac
+                reply="Which direction?" ;;
+              stop) reply="Stopped." ;;
               "Skip because the options settled the layout.")
                 cat >> "$log" <<'SKIP'
         ## Round 2

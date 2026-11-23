@@ -64,6 +64,52 @@ public sealed class WorkflowTests
         Assert.Equal("60", Text(Map(jobs["smoke"]), "timeout-minutes"));
     }
 
+    [Fact]
+    public void Each_agent_runs_every_smoke_scenario_in_exactly_one_shard()
+    {
+        var job = Map(Map(Load(".github", "workflows", "skills-smoke.yml")["jobs"])["smoke"]);
+        var matrix = Map(Map(job["strategy"])["matrix"]);
+        Assert.Equal(["agent", "shard"], matrix.Keys.Cast<string>().Order(StringComparer.Ordinal));
+        var agents = ((List<object>)matrix["agent"]).Select(Map);
+        Assert.Equal(["claude", "codex"], agents.Select(a => Text(a, "name")).Order(StringComparer.Ordinal));
+        var shards = ((List<object>)matrix["shard"]).Select(Map).ToList();
+        Assert.Equal(["part-1", "part-2"], shards.Select(s => Text(s, "name")).Order(StringComparer.Ordinal));
+
+        var script = File.ReadLines(Path.Combine(Golden.RepoRoot, "tests", "smoke", "skills-smoke.sh"));
+        var declaration = Assert.Single(script, line => line.StartsWith("scenarios=", StringComparison.Ordinal));
+        var scenarios = Regex.Match(declaration, "^scenarios=\"([^\"]+)\"$");
+        Assert.True(scenarios.Success, declaration);
+        var expected = scenarios.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        Assert.All(shards, s => Assert.False(string.IsNullOrWhiteSpace(Text(s, "scenarios"))));
+        var actual = shards.SelectMany(s => Text(s, "scenarios")!.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        Assert.Equal(expected.Distinct().Order(StringComparer.Ordinal), actual.Order(StringComparer.Ordinal));
+
+        var run = Steps("skills-smoke.yml", "smoke").Single(s => Text(s, "name") == "Run the smoke test");
+        Assert.Equal("${{ matrix.shard.scenarios }}", Text(Map(run["env"]), "SMOKE_ONLY"));
+    }
+
+    [Fact]
+    public void Skills_smoke_exposes_each_agents_key_only_to_the_credential_check_and_smoke_run()
+    {
+        var workflow = Load(".github", "workflows", "skills-smoke.yml");
+        var job = Map(Map(workflow["jobs"])["smoke"]);
+        var steps = Steps("skills-smoke.yml", "smoke");
+        Assert.Equal(new Dictionary<string, string> { ["contents"] = "read" }, Permissions(workflow));
+        Assert.False(workflow.ContainsKey("env"));
+        Assert.Equal(new Dictionary<object, object> { ["AGENT"] = "${{ matrix.agent.name }}", ["PACKAGE"] = "${{ matrix.agent.package }}" }, Map(job["env"]));
+        var scoped = steps.Where(s => s.ContainsKey("env")).ToList();
+        Assert.Equal(["Check credentials", "Run the smoke test"], scoped.Select(s => Text(s, "name")));
+        foreach (var step in scoped)
+        {
+            var env = Map(step["env"]);
+            Assert.Equal("${{ matrix.agent.name == 'claude' && secrets.ANTHROPIC_API_KEY || '' }}", Text(env, "ANTHROPIC_API_KEY"));
+            Assert.Equal("${{ matrix.agent.name == 'codex' && secrets.OPENAI_API_KEY || '' }}", Text(env, "OPENAI_API_KEY"));
+        }
+        Assert.Collection(steps.Where(s => s.ContainsKey("uses")),
+            s => Assert.Matches("^actions/checkout@[0-9a-f]{40}$", Text(s, "uses")),
+            s => Assert.Matches("^actions/setup-dotnet@[0-9a-f]{40}$", Text(s, "uses")));
+    }
+
     [Theory]
     [MemberData(nameof(Workflows))]
     public void Every_job_has_a_timeout_and_every_checkout_keeps_the_token_out_of_git_config(string workflow)
