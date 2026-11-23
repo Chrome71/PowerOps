@@ -17,27 +17,33 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - agent: claude
+        agent:
+          - name: claude
             package: '@anthropic-ai/claude-code@2.1.303'
-          - agent: codex
+          - name: codex
             package: '@openai/codex@0.163.0'
+        shard:
+          - name: part-1
+            scenarios: 'standard draft stop unavailable-tool'
+          - name: part-2
+            scenarios: 'option-depth quick fast-path no-delete'
+          - name: part-3
+            scenarios: 'router amendment rounds autonomy'
     runs-on: ubuntu-latest
-    # M93: the early sketch adds an options run to scenarios 2 and 9 (1 and 6 already had one, now earlier), and scenario 6 now runs through approval and its review; the Claude run took 82 minutes locally (2026-11-12), plus 15.
-    # M97: scenario 6's prototype runs the judge loop (up to three judge rounds); four local Claude runs took 113 to 159 minutes (2026-11-15); the slowest plus a fifth is 190.8, rounded up to 191.
-    # M124: five of the twelve scenarios were timed locally (Claude Code 2.1.326, 2026-11-22): draft 1.9, rounds 16.8, stop 2.6, quick 11.9 and option-depth 1.5 minutes; standard was stopped by the run's cost cap. 191 is kept, not measured: the changed scenarios only lose turns.
-    timeout-minutes: 191
+    name: Smoke (${{ matrix.agent.name }}, ${{ matrix.shard.name }})
+    # Each agent runs three scenario shards in parallel to stay within the 60-minute limit.
+    timeout-minutes: 60
     env:
-      AGENT: ${{ matrix.agent }}
-      PACKAGE: ${{ matrix.package }}
+      AGENT: ${{ matrix.agent.name }}
+      PACKAGE: ${{ matrix.agent.package }}
     steps:
       # The keys are given only to the steps that need them, never to checkout or npm install.
       - name: Check credentials
         id: creds
         shell: bash
         env:
-          ANTHROPIC_API_KEY: ${{ matrix.agent == 'claude' && secrets.ANTHROPIC_API_KEY || '' }}
-          OPENAI_API_KEY: ${{ matrix.agent == 'codex' && secrets.OPENAI_API_KEY || '' }}
+          ANTHROPIC_API_KEY: ${{ matrix.agent.name == 'claude' && secrets.ANTHROPIC_API_KEY || '' }}
+          OPENAI_API_KEY: ${{ matrix.agent.name == 'codex' && secrets.OPENAI_API_KEY || '' }}
         run: |
           if [ "$AGENT" = claude ]; then key="$ANTHROPIC_API_KEY"; name=ANTHROPIC_API_KEY; else key="$OPENAI_API_KEY"; name=OPENAI_API_KEY; fi
           if [ -z "$key" ]; then
@@ -60,8 +66,9 @@ jobs:
         if: steps.creds.outputs.skip != 'true'
         shell: bash
         env:
-          ANTHROPIC_API_KEY: ${{ matrix.agent == 'claude' && secrets.ANTHROPIC_API_KEY || '' }}
-          OPENAI_API_KEY: ${{ matrix.agent == 'codex' && secrets.OPENAI_API_KEY || '' }}
+          SMOKE_ONLY: ${{ matrix.shard.scenarios }}
+          ANTHROPIC_API_KEY: ${{ matrix.agent.name == 'claude' && secrets.ANTHROPIC_API_KEY || '' }}
+          OPENAI_API_KEY: ${{ matrix.agent.name == 'codex' && secrets.OPENAI_API_KEY || '' }}
         run: |
           if [ "$AGENT" = codex ]; then printenv OPENAI_API_KEY | codex login --with-api-key; fi
           tests/smoke/skills-smoke.sh "$AGENT"

@@ -2,7 +2,7 @@
 # Smoke test of the planning skills, driven by a simulated user (a second model call).
 # It checks the protocol's shape, not question quality: round size, option order,
 # decisions.md logging, the stop behaviour, the fast path (also with a routing skill installed), the data
-# round and the sketch at depth quick (one sketch the person passes) and standard (three options, a pick and the judge),
+# round and the sketch at depth quick (one sketch the person passes, no judge) and standard (three options while draft, then a person skips, no judge),
 # a build that must not delete its own stray object, a build that stops for a plan amendment, option-number answers that
 # keep the depth asked for, a tool that can't be called named in Assumptions, and a build that goes ahead in Dev without
 # asking and stops at each stop class. The planning scenarios (draft, rounds, stop, quick, standard, option-depth) also
@@ -155,7 +155,7 @@ agent_turn() {
 user_turn() {
   local prompt out
   prompt="You are role-playing a user talking to a coding agent that is $user_role.
-Your instructions for this conversation: $goal
+Your instructions for this conversation (you are answering agent turn $2): $goal
 Always pick the option marked (recommended) when you are asked questions, unless your instructions say otherwise.
 Reply with only the words you would type back, nothing else.
 
@@ -203,7 +203,7 @@ header() { sed -n '2,/^---/p' "$(plan_dir)/plan.md" | sed -n "s/^$1:[[:space:]]*
 # condition evaluated after each agent reply; it can use $turn, $reply and $message (the last thing the user said).
 # $menus counts the agent's replies that show a lettered what-next menu (has_menu).
 converse() {
-  local message="$1" done_when="$2" turn
+  local message="$1" done_when="$2" turn expected
   menus=0
   for ((turn = 1; turn <= max_turns; turn++)); do
     cost_guard
@@ -213,9 +213,14 @@ converse() {
     if has_menu "$reply"; then menus=$((menus + 1)); fi
     if eval "$done_when"; then return 0; fi
     cost_guard
-    message="$(user_turn "$reply")" || { cost_check; fail "the simulated user call failed on turn $turn"; return 1; }
+    message="$(user_turn "$reply" "$turn")" || { cost_check; fail "the simulated user call failed on turn $turn"; return 1; }
     cost_check
     printf -- '--- user ---\n%s\n' "$message"
+    if [ "$scenario" = option-depth ]; then
+      expected=stop
+      [ "$turn" != 1 ] || expected="1 1 1"
+      [ "$message" = "$expected" ] || { fail "expected just $expected on user turn $turn"; return 1; }
+    fi
   done
   fail "did not finish within $max_turns turns"
   return 1
@@ -257,6 +262,7 @@ check_decisions() {
 summary() {
   echo
   [ "$agent" != claude ] || echo "total cost: USD $(cost_sum)"
+  echo "total time: $(awk -v s="$SECONDS" 'BEGIN { printf "%.1f", s / 60 }') minutes"
   if [ "$failures" -gt 0 ]; then
     echo "$failures check(s) failed"
     exit 1
@@ -463,37 +469,31 @@ fi
 scenario_done
 fi
 
-# 6. Depth standard, asked for in the first message, run through approval: the data round within three questions a
-# round, and the sketch in the rounds (M93): the options come after the round that names users and screens, the pick is
-# a question of the next round, no later than the first data question, and its log line is written while the plan is a
-# draft; approval leaves the options as they are. After the pick the prototype is rendered and judged, and the person
-# answers "Does it pass?" (M97). prototype.html passes the 163,840-byte check and each option the 61,440-byte one, the
-# map and the judge's file exist, `plan status` has no prototype warning but the self-judged one, and no reply shows a
-# what-next menu.
+# 6. At depth standard the person sees three sketch options while the plan is a draft and skips the full prototype
+# with a reason. The direction question comes no later than the first data question. Approval preserves the options.
 if want standard; then
 new_repo
 allow_sketch
-early=0
 logged=0
 early_sum=
-# While the plan is a draft: whether option-a.html exists (its cksum saved the first time) and the pick is logged under ## Log.
+# Snapshot all three options together while the plan is a draft, and observe the skip under its Log.
+option_sums() { (cd "$1/mockups" && cksum option-a.html option-b.html option-c.html); }
 note_early() {
   local plan
   plan="$(plan_dir)"
   [ -n "$plan" ] && [ -f "$plan/plan.md" ] || return 0
   [ "$(header status 2>/dev/null)" = draft ] || return 0
-  if [ -f "$plan/mockups/option-a.html" ]; then
-    early=1
-    [ -n "$early_sum" ] || early_sum="$(cksum <"$plan/mockups/option-a.html")"
+  if [ -z "$early_sum" ] && [ -f "$plan/mockups/option-a.html" ] && [ -f "$plan/mockups/option-b.html" ] && [ -f "$plan/mockups/option-c.html" ]; then
+    early_sum="$(option_sums "$plan")"
   fi
-  if awk '/^## Log/ { inlog = 1; next } /^## / { inlog = 0 } inlog && /^- .*prototype: approved/ { found = 1 } END { exit !found }' "$plan/decisions.md" 2>/dev/null; then logged=1; fi
+  if awk '/^## Log$/ { inlog = 1; next } /^## / { inlog = 0 } inlog && /^- .*prototype: skipped/ { found = 1 } END { exit !found }' "$plan/decisions.md" 2>/dev/null; then logged=1; fi
   return 0
 }
 # Answers in a sentence or two of the user's own words keep the depth at standard; scenario 9 checks bare option numbers.
-goal="Answer each question in a sentence or two of your own words that takes the recommended option. When asked to pick a sketch option or direction (\"Which direction?\"), pick the recommended one with no changes. When asked \"Does it pass?\", answer Pass. When asked to approve a picked or redrawn sketch, approve it. When asked \"Approve the draft?\", answer Approve; if a fourth round of questions comes first, reply with just: approve. Confirm if asked to approve anyway. When a review or a sign-off is offered, say you will do it later."
-max_turns=$((max_turns + 9)) # three rounds with the options and the pick inside them, the pick's approval, the judge round's report, "Does it pass?", the approval and the defaults question
+goal="Answer each question in a sentence or two of your own words that takes the recommended option. When asked to pick a sketch option or direction (\"Which direction?\"), skip the full prototype because the three direction options already settled the layout. When asked \"Approve the draft?\", answer Approve; if a fourth round of questions comes first, reply with just: approve. Confirm if asked to approve anyway. When a review or a sign-off is offered, say you will do it later."
+max_turns=$((max_turns + 2)) # the direction question and draft approval
 converse "Use the powerops-plan skill at depth standard. My idea: $loans." 'note_early; [ -n "$(plan_dir)" ] && [ "$(header status)" = approved ] && grep -q "^- .*prototype:" "$(plan_dir)/decisions.md" 2>/dev/null' || true
-max_turns=$((max_turns - 9))
+max_turns=$((max_turns - 2))
 allowed_tools="Bash(powerops *)"
 no_menu
 if [ -n "$(plan_dir)" ]; then
@@ -503,32 +503,30 @@ if [ -n "$(plan_dir)" ]; then
   # No az read can succeed here, so a Held cell saying (read) was invented.
   if grep -q '^|.*(read)' "$(plan_dir)/plan.md"; then fail "a Held cell says (read), but no read can run here"; fi
   questions | grep -qiE 'rows|records|how many' || fail "no data round question about rows (depth $(header depth))"
-  grep -q '^- .*prototype: approved mockups/prototype.html (option [abcABC]' "$(plan_dir)/decisions.md" || fail "no 'prototype: approved mockups/prototype.html (option <letter>' log line"
-  for name in option-a option-b option-c prototype; do
+  last="$(grep '^- .*prototype:' "$(plan_dir)/decisions.md" | tail -n 1 || true)"
+  grep -Eq 'prototype: skipped \([^)[:space:]].*\).*\(answered by: person\)[[:space:]]*$' <<<"$last" ||
+    fail "the last prototype: line is not a person's skip with a reason: ${last:-none}"
+  [ ! -e "$(plan_dir)/mockups/prototype.html" ] || fail "mockups/prototype.html exists after the person skipped"
+  [ ! -e "$(plan_dir)/mockups/prototype.judge.md" ] || fail "mockups/prototype.judge.md exists after the person skipped"
+  for name in option-a option-b option-c; do
     sketch="$(plan_dir)/mockups/$name.html"
     if [ -f "$sketch" ]; then
       sketch_size
       grep -q 'Sketch' "$sketch" || fail "$name.html has no Sketch label"
       if grep -qi '<script' "$sketch"; then fail "$name.html has a script"; fi
       if grep -qiE 'https?://' "$sketch"; then fail "$name.html has an external link"; fi
-      if [ "$name" = prototype ]; then cap=163840; else cap=61440; fi
-      [ "$(wc -c <"$sketch")" -le "$cap" ] || fail "$name.html is over $cap bytes"
+      [ "$(wc -c <"$sketch")" -le 61440 ] || fail "$name.html is over 61440 bytes"
     else
       fail "no mockups/$name.html"
     fi
   done
-  for name in prototype.map.md prototype.judge.md; do
-    [ -s "$(plan_dir)/mockups/$name" ] || fail "no mockups/$name"
-  done
   if cmp -s "$(plan_dir)/mockups/option-a.html" "$(plan_dir)/mockups/option-b.html"; then fail "options a and b are the same file"; fi
-  [ "$early" = 1 ] || fail "the sketch options were not written while the plan was a draft"
-  [ "$logged" = 1 ] || fail "the pick was not logged while the plan was a draft"
-  if [ -n "$early_sum" ] && [ "$(cksum <"$(plan_dir)/mockups/option-a.html" 2>/dev/null)" != "$early_sum" ]; then fail "approval rewrote the options"; fi
-  # The round of the first pick question (its whole ### Q block: heading or options) and of the first data-round
-  # question. The data matcher is narrower than the rows check above, which a users question about recording loans
-  # can match; it can miss a reworded data question, and then the order is not checked.
+  [ -n "$early_sum" ] || fail "the three sketch options were not written while the plan was a draft"
+  [ "$logged" = 1 ] || fail "the skip was not logged while the plan was a draft"
+  if [ -n "$early_sum" ] && [ "$(option_sums "$(plan_dir)" 2>/dev/null)" != "$early_sum" ]; then fail "approval rewrote the options"; fi
+  # Compare the first direction and data questions, including their options. Match record counts, not "who records loans".
   rounds="$(awk '
-    function done() { if (block != "") { b = tolower(block); if (!pick && b ~ /sketch|option [abc]|direction/) pick = round; if (!data && b ~ /where does the data live|how many rows|rows .*three years|live today|in three years/) data = round }; block = "" }
+    function done() { if (block != "") { b = tolower(block); if (!pick && b ~ /sketch|option [abc]|direction/) pick = round; if (!data && b ~ /where does the data live|(^|[^[:alpha:]])rows([^[:alpha:]]|$)|how many .*records|number of records|record count|live today|in three years/) data = round }; block = "" }
     /^## / { done(); if ($0 ~ /^## Round /) round++; next }
     /^### Q/ { done(); block = $0; next }
     block != "" { block = block " " $0 }
@@ -540,10 +538,9 @@ if [ -n "$(plan_dir)" ]; then
   elif [ "$data_round" != 0 ] && [ "$data_round" -lt "$pick_round" ]; then
     fail "a data-round question came before the sketch pick"
   fi
-  # An option file's warning names mockups/, not the word prototype. The one warning allowed is the self-judged one: an agent with
-  # no fresh context judged the sketch and the person passed it. A person's pass below the baseline gives no warning.
-  warnings="$(powerops plan status "$(plan_dir)" 2>&1 | grep -iE 'warning: .*(prototype|mockups/)' | grep -viE 'self-judged' || true)"
-  [ -z "$warnings" ] || fail "plan status warns about the prototype: $warnings"
+  status="$(powerops plan status "$(plan_dir)" 2>&1)" || [ "$?" = 1 ] || fail "plan status failed: $status"
+  diagnostics="$(grep -iE '(warning|error): .*(prototype|mockups/)' <<<"$status" || true)"
+  [ -z "$diagnostics" ] || fail "plan status reports a prototype or mockup issue: $diagnostics"
 else
   fail "no plan folder under docs/plans"
 fi
@@ -791,8 +788,15 @@ section() { sed -n "/^## $1[[:space:]]*\$/,/^## /p" "$(plan_dir)/plan.md" 2>/dev
 if want option-depth; then
 new_repo
 allow_sketch
-goal="Answer each round of questions with one option number per question, digits only, separated by spaces (like: 1 1 1), and nothing else. Reply with just: stop when the agent asks \"Approve the draft?\" or opens a message with Round 2 or a later round; answer nothing else in that message."
-converse "Use the powerops-plan skill at depth standard. My idea: $idea." "$said_stop" || true
+goal="On agent turn 1 only, answer the first round with bare option numbers: 1 1 1. On the very next agent reply (turn 2), reply with just: stop. This applies to every reply, including 'Which direction?', 'Approve the draft?', any later round and any follow-up questions. Type nothing else."
+option_depth_done() {
+  if [ -n "$(plan_dir)" ]; then
+    [ ! -e "$(plan_dir)/mockups/prototype.html" ] || { fail "mockups/prototype.html exists during option-depth"; return 0; }
+    [ ! -e "$(plan_dir)/mockups/prototype.judge.md" ] || { fail "mockups/prototype.judge.md exists during option-depth"; return 0; }
+  fi
+  eval "$said_stop"
+}
+converse "Use the powerops-plan skill at depth standard. My idea: $idea." option_depth_done || true
 allowed_tools="Bash(powerops *)"
 no_menu
 if [ -n "$(plan_dir)" ]; then
