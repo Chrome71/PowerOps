@@ -73,16 +73,19 @@ public sealed class WorkflowTests
         var agents = ((List<object>)matrix["agent"]).Select(Map);
         Assert.Equal(["claude", "codex"], agents.Select(a => Text(a, "name")).Order(StringComparer.Ordinal));
         var shards = ((List<object>)matrix["shard"]).Select(Map).ToList();
-        Assert.Equal(["part-1", "part-2"], shards.Select(s => Text(s, "name")).Order(StringComparer.Ordinal));
+        Assert.Equal(["part-1", "part-2", "part-3"], shards.Select(s => Text(s, "name")).Order(StringComparer.Ordinal));
 
-        var script = File.ReadLines(Path.Combine(Golden.RepoRoot, "tests", "smoke", "skills-smoke.sh"));
+        var script = File.ReadAllLines(Path.Combine(Golden.RepoRoot, "tests", "smoke", "skills-smoke.sh"));
         var declaration = Assert.Single(script, line => line.StartsWith("scenarios=", StringComparison.Ordinal));
         var scenarios = Regex.Match(declaration, "^scenarios=\"([^\"]+)\"$");
         Assert.True(scenarios.Success, declaration);
-        var expected = scenarios.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var expected = scenarios.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Distinct().Order(StringComparer.Ordinal);
+        var blocks = script.Select(line => Regex.Match(line, "^if want ([a-z-]+)"))
+            .Where(match => match.Success).Select(match => match.Groups[1].Value);
+        Assert.Equal(expected, blocks.Distinct().Order(StringComparer.Ordinal));
         Assert.All(shards, s => Assert.False(string.IsNullOrWhiteSpace(Text(s, "scenarios"))));
         var actual = shards.SelectMany(s => Text(s, "scenarios")!.Split(' ', StringSplitOptions.RemoveEmptyEntries));
-        Assert.Equal(expected.Distinct().Order(StringComparer.Ordinal), actual.Order(StringComparer.Ordinal));
+        Assert.Equal(expected, actual.Order(StringComparer.Ordinal));
 
         var run = Steps("skills-smoke.yml", "smoke").Single(s => Text(s, "name") == "Run the smoke test");
         Assert.Equal("${{ matrix.shard.scenarios }}", Text(Map(run["env"]), "SMOKE_ONLY"));

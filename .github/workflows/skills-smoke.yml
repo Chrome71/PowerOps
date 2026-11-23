@@ -24,12 +24,14 @@ jobs:
             package: '@openai/codex@0.163.0'
         shard:
           - name: part-1
-            scenarios: 'draft rounds stop fast-path router quick'
+            scenarios: 'standard draft stop unavailable-tool'
           - name: part-2
-            scenarios: 'standard no-delete amendment option-depth unavailable-tool autonomy'
+            scenarios: 'option-depth quick fast-path no-delete'
+          - name: part-3
+            scenarios: 'router amendment rounds autonomy'
     runs-on: ubuntu-latest
     name: Smoke (${{ matrix.agent.name }}, ${{ matrix.shard.name }})
-    # Each agent runs two scenario shards in parallel to stay within the 60-minute limit.
+    # Each agent runs three scenario shards in parallel to stay within the 60-minute limit.
     timeout-minutes: 60
     env:
       AGENT: ${{ matrix.agent.name }}
