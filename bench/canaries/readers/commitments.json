@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "format": "powerops-reader-canary-commitments/1",
+  "base_sha": "b75744acd5e9bbc27387ec2acda2bf65bd675fd2",
+  "canaries": [
+    {
+      "canary_id": "canary-a",
+      "case_path": "bench/canaries/readers/cases/canary-a",
+      "input_sha256": "b9df854e5bb9cc99ca13f24740a112a9238a9082e4063d79e1c20134d2c90efe",
+      "commitment_algorithm": "sha256(salt + '\\n' + canonical_json(payload))",
+      "label_commitment_sha256": "d3c6ca109777e8113b5a13bc6ec20e48a97bc62bcab9e8516a52cb81b4ed55af"
+    },
+    {
+      "canary_id": "canary-b",
+      "case_path": "bench/canaries/readers/cases/canary-b",
+      "input_sha256": "4d117646c58484330f28bbda1f61c62e0ddc40db7b7f2b8b745441f6db33dd8d",
+      "commitment_algorithm": "sha256(salt + '\\n' + canonical_json(payload))",
+      "label_commitment_sha256": "091a3021fb03795515fb329c0949663e40d7a3cbb6c572d96f9754bf956dfb98"
+    },
+    {
+      "canary_id": "canary-c",
+      "case_path": "bench/canaries/readers/cases/canary-c",
+      "input_sha256": "a70783dee05c0b558a9021cb5a7d63eb8a6c0d71308f95e05b0a19bb82abc863",
+      "commitment_algorithm": "sha256(salt + '\\n' + canonical_json(payload))",
+      "label_commitment_sha256": "8fdb7ea8df7fe0ab7d7f71a28eba295f2c530496e4dd67019d64180e67a44ede"
+    },
+    {
+      "canary_id": "canary-d",
+      "case_path": "bench/canaries/readers/cases/canary-d",
+      "input_sha256": "89c6bc8a03071fbf8813cf89f73075c7f271586bd152c8395fbcdd99d5536898",
+      "commitment_algorithm": "sha256(salt + '\\n' + canonical_json(payload))",
+      "label_commitment_sha256": "0982a2a2add3e109fced51e4eb8e6847eb4755bc7d3a35130ae8961fbc481645"
+    }
+  ]
+}

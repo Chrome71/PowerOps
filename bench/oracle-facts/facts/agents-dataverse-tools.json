@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "format": "powerops-reader-oracle-facts/1",
+  "fact_id": "agents-dataverse-tools",
+  "solution_path": "tests/fixtures/agents/dataverse-tools",
+  "layout": "xml",
+  "lineage_id": "synthetic-dataverse-flows",
+  "source_sha256": "d4838d77aa3b273e9aa5eca5e4fcb3bb58a14f137b3d7f182ea2ee46404a77d0",
+  "solution": {
+    "unique_name": "PowerOpsAgentTools",
+    "version": "1.0.0.0",
+    "managed": false
+  },
+  "roles": [
+    {
+      "id": "00000000-0000-0000-0000-0000000000a1",
+      "name": "Service desk",
+      "file": "Roles/Service desk.xml",
+      "privileges": [
+        {
+          "name": "prvCreateaccount",
+          "level": "Global"
+        },
+        {
+          "name": "prvCreatedemo_Queue",
+          "level": "Global"
+        },
+        {
+          "name": "prvCreatedemo_Ticket",
+          "level": "Global"
+        },
+        {
+          "name": "prvCreateSharePointData",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadaccount",
+          "level": "Global"
+        },
+        {
+          "name": "prvReaddemo_Queue",
+          "level": "Global"
+        },
+        {
+          "name": "prvReaddemo_Ticket",
+          "level": "Global"
+        },
+        {
+          "name": "prvReadSharePointData",
+          "level": "Global"
+        },
+        {
+          "name": "prvWriteaccount",
+          "level": "Global"
+        },
+        {
+          "name": "prvWritedemo_Queue",
+          "level": "Global"
+        },
+        {
+          "name": "prvWritedemo_Ticket",
+          "level": "Global"
+        },
+        {
+          "name": "prvWriteSharePointData",
+          "level": "Global"
+        }
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "name": "demo_Queue",
+      "entity_set_name": "demo_queues",
+      "is_audit_enabled": null,
+      "file": "Entities/demo_Queue/Entity.xml",
+      "columns": []
+    },
+    {
+      "name": "demo_Ticket",
+      "entity_set_name": "demo_tickets",
+      "is_audit_enabled": null,
+      "file": "Entities/demo_Ticket/Entity.xml",
+      "columns": [
+        {
+          "logical_name": "demo_name",
+          "physical_name": "demo_Name",
+          "is_secured": false,
+          "is_audit_enabled": true
+        },
+        {
+          "logical_name": "demo_ticketid",
+          "physical_name": "demo_TicketId",
+          "is_secured": false,
+          "is_audit_enabled": false
+        }
+      ]
+    }
+  ],
+  "field_security_profiles": [],
+  "flows": [],
+  "msapp_hosts": [],
+  "notes": "Tests absent table IsAuditEnabled (null, never false) on demo_Ticket and demo_Queue plus Service desk role depth."
+}

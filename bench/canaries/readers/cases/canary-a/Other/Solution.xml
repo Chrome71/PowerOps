@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml version="9.2.0.0" SolutionPackageVersion="9.2" languagecode="1033" generatedBy="CrmLive" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <SolutionManifest>
+    <UniqueName>CanarySolutionA</UniqueName>
+    <LocalizedNames>
+      <LocalizedName description="CanarySolutionA" languagecode="1033" />
+    </LocalizedNames>
+    <Descriptions />
+    <Version>1.0.0.0</Version>
+    <Managed>0</Managed>
+    <Publisher>
+      <UniqueName>canarypub</UniqueName>
+      <LocalizedNames>
+        <LocalizedName description="Contoso Canary" languagecode="1033" />
+      </LocalizedNames>
+      <Descriptions />
+      <CustomizationPrefix>cnry</CustomizationPrefix>
+      <CustomizationOptionValuePrefix>10000</CustomizationOptionValuePrefix>
+      <Addresses />
+    </Publisher>
+    <RootComponents>
+      <RootComponent type="1" schemaName="cnry_record" behavior="0" />
+      <RootComponent type="70" id="{00000000-0000-0000-0000-000000c000a1}" behavior="0" />
+    </RootComponents>
+    <MissingDependencies />
+  </SolutionManifest>
+</ImportExportXml>

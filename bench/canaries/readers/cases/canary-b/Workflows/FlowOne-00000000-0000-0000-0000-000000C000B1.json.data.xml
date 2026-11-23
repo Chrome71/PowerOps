@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Workflow WorkflowId="{00000000-0000-0000-0000-000000c000b1}" Name="Process record" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <JsonFileName>/Workflows/FlowOne-00000000-0000-0000-0000-000000C000B1.json</JsonFileName>
+  <Type>1</Type>
+  <Subprocess>0</Subprocess>
+  <Category>5</Category>
+  <Mode>0</Mode>
+  <Scope>4</Scope>
+  <StateCode>1</StateCode>
+  <StatusCode>2</StatusCode>
+  <IntroducedVersion>1.0.0.0</IntroducedVersion>
+  <ModernFlowType>0</ModernFlowType>
+  <PrimaryEntity>none</PrimaryEntity>
+</Workflow>

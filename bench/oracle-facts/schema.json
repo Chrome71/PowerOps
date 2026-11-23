@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Chrome71/PowerOps/main/bench/oracle-facts/schema.json",
+  "title": "PowerOps external hand-keyed reader oracle facts",
+  "description": "Independent ground-truth structural facts extracted directly from raw Power Platform XML, ZIP, and YAML solution files without using PowerOps readers. Unavailable or absent XML/YAML/JSON fields are explicitly null, never coerced to false or 0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "format",
+    "fact_id",
+    "solution_path",
+    "layout",
+    "lineage_id",
+    "source_sha256",
+    "solution",
+    "roles",
+    "tables",
+    "field_security_profiles",
+    "flows",
+    "msapp_hosts",
+    "notes"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "format": { "const": "powerops-reader-oracle-facts/1" },
+    "fact_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*(?!\\n)$" },
+    "solution_path": {
+      "type": "string",
+      "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*(?:^|/)[.]{1,2}(?:/|$))[^/\\\\\\r\\n]+(?:/[^/\\\\\\r\\n]+)*(?!\\n)$"
+    },
+    "layout": { "enum": ["xml", "zip", "yaml"] },
+    "lineage_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*(?!\\n)$" },
+    "source_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}(?!\\n)$" },
+    "solution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unique_name", "version", "managed"],
+      "properties": {
+        "unique_name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "managed": { "type": "boolean" }
+      }
+    },
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "file", "privileges"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?!\\n)$" },
+          "name": { "type": "string", "minLength": 1 },
+          "file": { "$ref": "#/$defs/relpath" },
+          "privileges": {
+            "type": ["array", "null"],
+            "description": "Null when the role XML omits the RolePrivileges element; array (possibly empty) when present.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "level"],
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "level": { "enum": ["Basic", "Local", "Deep", "Global", null] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "tables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "entity_set_name", "is_audit_enabled", "file", "columns"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "entity_set_name": { "$ref": "#/$defs/opt_text" },
+          "is_audit_enabled": { "type": ["boolean", "null"], "description": "Null when IsAuditEnabled is absent on the table element; false only when explicitly 0/false." },
+          "file": { "$ref": "#/$defs/relpath" },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["logical_name", "physical_name", "is_secured", "is_audit_enabled"],
+              "properties": {
+                "logical_name": { "type": "string", "minLength": 1 },
+                "physical_name": { "$ref": "#/$defs/opt_text" },
+                "is_secured": { "type": ["boolean", "null"], "description": "Null when IsSecured is absent; false only when explicitly 0/false." },
+                "is_audit_enabled": { "type": ["boolean", "null"], "description": "Null when IsAuditEnabled is absent; false only when explicitly 0/false." }
+              }
+            }
+          }
+        }
+      }
+    },
+    "field_security_profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "file", "permissions"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?!\\n)$" },
+          "name": { "type": "string", "minLength": 1 },
+          "file": { "$ref": "#/$defs/relpath" },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["entity_name", "attribute_name", "can_read", "can_create", "can_update"],
+              "properties": {
+                "entity_name": { "type": "string", "minLength": 1 },
+                "attribute_name": { "type": "string", "minLength": 1 },
+                "can_read": { "type": ["integer", "null"], "minimum": 0 },
+                "can_create": { "type": ["integer", "null"], "minimum": 0 },
+                "can_update": { "type": ["integer", "null"], "minimum": 0 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "flows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "file", "state_code", "triggers", "connection_bindings"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?!\\n)$" },
+          "name": { "type": "string", "minLength": 1 },
+          "file": { "$ref": "#/$defs/relpath" },
+          "state_code": { "type": ["integer", "null"], "minimum": 0 },
+          "triggers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "type", "kind", "operation_id", "entity_name", "message", "scope"],
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "type": { "$ref": "#/$defs/opt_text" },
+                "kind": { "$ref": "#/$defs/opt_text" },
+                "operation_id": { "$ref": "#/$defs/opt_text" },
+                "entity_name": { "$ref": "#/$defs/opt_text" },
+                "message": { "type": ["integer", "null"], "minimum": 0 },
+                "scope": { "type": ["integer", "null"], "enum": [1, 2, 3, 4, null] }
+              }
+            }
+          },
+          "connection_bindings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["key", "api_name", "connection_reference_logical_name", "direct_connection_name", "runtime_source"],
+              "properties": {
+                "key": { "type": "string", "minLength": 1 },
+                "api_name": { "$ref": "#/$defs/opt_text" },
+                "connection_reference_logical_name": { "$ref": "#/$defs/opt_text" },
+                "direct_connection_name": { "$ref": "#/$defs/opt_text" },
+                "runtime_source": { "$ref": "#/$defs/opt_text" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "msapp_hosts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["app", "package_file", "entry", "host", "property"],
+        "properties": {
+          "app": { "type": "string", "minLength": 1 },
+          "package_file": { "$ref": "#/$defs/relpath" },
+          "entry": { "$ref": "#/$defs/relpath" },
+          "host": { "type": "string", "pattern": "^[a-z0-9.-]+(?!\\n)$" },
+          "property": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "notes": { "$ref": "#/$defs/opt_text" }
+  },
+  "$defs": {
+    "opt_text": { "type": ["string", "null"] },
+    "relpath": {
+      "type": "string",
+      "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*(?:^|/)[.]{1,2}(?:/|$))[^/\\\\\\r\\n]+(?:/[^/\\\\\\r\\n]+)*(?!\\n)$"
+    }
+  }
+}
