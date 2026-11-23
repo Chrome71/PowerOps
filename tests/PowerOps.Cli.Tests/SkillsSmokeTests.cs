@@ -198,8 +198,6 @@ public sealed class SkillsSmokeTests
         ### Q2. Which direction?
         1. Option A (recommended)
         Answer: Skip the full prototype (answered by: person)
-        ## Log
-        - prototype: skipped (the options settled the layout) (answered by: person)
         SKIP
                 if [ "$STUB_MUTANT" = judge ]; then touch "$mockups/prototype.judge.md"; fi
                 reply="How many rows?" ;;
@@ -209,14 +207,18 @@ public sealed class SkillsSmokeTests
         ### Q3. How many rows?
         1. One hundred (recommended)
         Answer: One hundred (answered by: person)
+        ## Log
+        - prototype: skipped (the options settled the layout (including the loan list)) (answered by: person)
         DATA
                 reply="Approve the draft?" ;;
               Pass)
                 printf '%s\n' '## Log' '- prototype: approved mockups/prototype.html (main screen: loan list) (answered by: person)' >> "$log"
                 sed -i.bak 's/^status: draft$/status: approved/' "$plan/plan.md"
+                rm -f "$plan/plan.md.bak"
                 reply="Pass recorded." ;;
               Approve)
                 sed -i.bak 's/^status: draft$/status: approved/' "$plan/plan.md"
+                rm -f "$plan/plan.md.bak"
                 reply="Approved." ;;
               *) exit 2 ;;
             esac ;;

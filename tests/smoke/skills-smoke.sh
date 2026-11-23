@@ -499,8 +499,9 @@ if [ -n "$(plan_dir)" ]; then
   if grep -q '^|.*(read)' "$(plan_dir)/plan.md"; then fail "a Held cell says (read), but no read can run here"; fi
   questions | grep -qiE 'rows|records|how many' || fail "no data round question about rows (depth $(header depth))"
   last="$(grep '^- .*prototype:' "$(plan_dir)/decisions.md" | tail -n 1 || true)"
-  grep -Eq 'prototype: skipped \([[:space:]]*[^)[:space:]][^)]*\).*\(answered by: person\)$' <<<"$last" ||
+  grep -Eq 'prototype: skipped \([^)[:space:]].*\).*\(answered by: person\)[[:space:]]*$' <<<"$last" ||
     fail "the last prototype: line is not a person's skip with a reason: ${last:-none}"
+  [ ! -e "$(plan_dir)/mockups/prototype.html" ] || fail "mockups/prototype.html exists after the person skipped"
   [ ! -e "$(plan_dir)/mockups/prototype.judge.md" ] || fail "mockups/prototype.judge.md exists after the person skipped"
   for name in option-a option-b option-c; do
     sketch="$(plan_dir)/mockups/$name.html"
@@ -529,14 +530,12 @@ if [ -n "$(plan_dir)" ]; then
   data_round="${rounds#* }"
   if [ "$pick_round" = 0 ]; then
     fail "no pick question in the rounds"
-  elif [ "$data_round" = 0 ]; then
-    fail "no data-round question to check against the sketch pick"
-  elif [ "$data_round" -lt "$pick_round" ]; then
+  elif [ "$data_round" != 0 ] && [ "$data_round" -lt "$pick_round" ]; then
     fail "a data-round question came before the sketch pick"
   fi
   status="$(powerops plan status "$(plan_dir)" 2>&1)" || [ "$?" = 1 ] || fail "plan status failed: $status"
-  warnings="$(grep -iE 'warning: .*(prototype|mockups/)' <<<"$status" || true)"
-  [ -z "$warnings" ] || fail "plan status warns about the prototype: $warnings"
+  diagnostics="$(grep -iE '(warning|error): .*(prototype|mockups/)' <<<"$status" || true)"
+  [ -z "$diagnostics" ] || fail "plan status reports a prototype or mockup issue: $diagnostics"
 else
   fail "no plan folder under docs/plans"
 fi

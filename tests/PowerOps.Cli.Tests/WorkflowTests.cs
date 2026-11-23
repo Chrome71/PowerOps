@@ -1497,7 +1497,7 @@ public sealed class WorkflowTests
         using var repo = new GuardRepo();
         repo.Commit("main", r => r.Write("AGENTS.md", "a\n"));
         var fork = repo.Run("rev-parse", "HEAD");
-        var later = repo.Commit("main moves on", r => { r.Write("AGENTS.md", "b\n"); r.Write("docs/USE.md", $"see {HomePrefix}someone\n"); });
+        var later = repo.Commit("main moves on", r => { r.Write("AGENTS.md", "b\n"); r.Write("docs/USE.md", "see /home/someone\n"); });
         repo.Run("checkout", "-q", "-b", "pr", fork);
         var head = repo.Commit("pull request", r => r.Write("src/a.cs", "a\n"));
         var guarded = repo.Commit("pull request edits a protected path", r => r.Write(".github/x.yml", "a\n"));
@@ -1538,14 +1538,10 @@ public sealed class WorkflowTests
         Assert.Contains("have 2 merge bases", two.Stdout);
     }
 
-    // Assemble the forbidden prefixes used as inputs to the path-leak tests.
-    private const string HomePrefix = "/home" + "/";
-    private const string FileScheme = "file:" + "//";
-
     [Fact]
     public void The_protected_paths_script_passes_a_rename_inside_docs_and_reads_a_file_renamed_into_docs_whole()
     {
-        const string old = $"notes\nsee {HomePrefix}someone/x\nopen {FileScheme}/tmp/a\nmore\n";
+        const string old = "notes\nsee /home/someone/x\nopen file:///tmp/a\nmore\n";
         var inside = Check(false, r => r.Move("docs/a.md", "docs/moved/a.md"), r => r.Write("docs/a.md", old));
 
         Passes(inside);
@@ -1554,7 +1550,7 @@ public sealed class WorkflowTests
         // main's own lines are not the pull request's: an added clean line, or removed lines, pass.
         Passes(Check(false, r => r.Write("docs/a.md", old + "a new line\n"), r => r.Write("docs/a.md", old)));
         Passes(Check(false, r => r.Write("docs/a.md", "notes\nmore\n"), r => r.Write("docs/a.md", old)));
-        foreach (var leak in new[] { $"see {HomePrefix}someone/x\n", $"open {FileScheme}host/share/x\n", $"open {FileScheme}/tmp/a\n" })
+        foreach (var leak in new[] { "see /home/someone/x\n", "open file://host/share/x\n", "open file:///tmp/a\n" })
         {
             var run = Check(true, r => r.Move("src/notes.txt", "docs/notes.md"), r => r.Write("src/notes.txt", "notes\n" + leak + "more\nlines\n"));
 
@@ -1570,7 +1566,7 @@ public sealed class WorkflowTests
     {
         Passes(Check(false, r => r.WriteBytes("docs/images/flow.png", Png)));
         Passes(Check(false, r => r.WriteBytes("docs/images/flow.png", [.. Png, 0, 1]), r => r.WriteBytes("docs/images/flow.png", Png)));
-        foreach (var leak in new[] { $"{HomePrefix}someone/x", $"{FileScheme}/tmp/a", $"{FileScheme}host/share/x" })
+        foreach (var leak in new[] { "/home/someone/x", "file:///tmp/a", "file://host/share/x" })
         {
             FailsInEveryTier(Check(true, r => r.Write("docs/notes.md", "# notes\0\nsee " + leak + "\n")), "docs/notes.md");
             FailsInEveryTier(Check(true, r => r.Write("skills/a/SKILL.md", "# a\0\nclean\nsee " + leak + "\n"), r => r.Write("skills/a/SKILL.md", "# a\0\nclean\n")),
@@ -1621,7 +1617,7 @@ public sealed class WorkflowTests
     [Fact]
     public void The_protected_paths_script_reads_a_committed_blob_and_not_a_local_replacement_of_it()
     {
-        var (repo, @base, head) = Change(r => r.Write("docs/notes.md", $"see {HomePrefix}someone/x\n"));
+        var (repo, @base, head) = Change(r => r.Write("docs/notes.md", "see /home/someone/x\n"));
         using (repo)
         {
             var leaky = repo.Run("rev-parse", head + ":docs/notes.md");
@@ -1661,20 +1657,20 @@ public sealed class WorkflowTests
     }
 
     [Theory]
-    [InlineData("docs/USE.md", $"see {HomePrefix}someone/powerops", 1)]
-    [InlineData("skills/powerops-plan/SKILL.md", $"open {FileScheme}/C:/plans/x.md", 1)]
-    [InlineData("README.md", $"[plan]({FileScheme}/tmp/plan.md)", 1)]
-    [InlineData("docs/USE.md", $"open {FileScheme}host/share/x", 1)] // a file URL with an authority
-    [InlineData("skills/powerops-plan/SKILL.md", $"{FileScheme}/tmp/a", 1)]
+    [InlineData("docs/USE.md", "see /home/someone/powerops", 1)]
+    [InlineData("skills/powerops-plan/SKILL.md", "open file:///C:/plans/x.md", 1)]
+    [InlineData("README.md", "[plan](file:///tmp/plan.md)", 1)]
+    [InlineData("docs/USE.md", "open file://host/share/x", 1)] // a file URL with an authority
+    [InlineData("skills/powerops-plan/SKILL.md", "file:///tmp/a", 1)]
     [InlineData("docs/USE.md", "see file:relative", 0)]
-    [InlineData("docs/USE.md", $"++ {HomePrefix}someone", 1)] // the added line starts with +++ in the diff
-    [InlineData("skills/powerops-plan/SKILL.md", $"++ {FileScheme}host/share/x", 1)]
-    [InlineData("README.md", $"++ {HomePrefix}someone", 1)]
-    [InlineData("docs", $"see {HomePrefix}someone", 1)] // a file named docs
-    [InlineData("skills", $"{FileScheme}/tmp/a", 1)]
-    [InlineData("src/PowerOps.Core/Output/Sarif.cs", $"var uri = \"{FileScheme}/\";", 0)]
-    [InlineData("tests/PowerOps.Core.Tests/SarifTests.cs", $"Assert.StartsWith(\"{FileScheme}{HomePrefix}\", uri);", 0)]
-    [InlineData("docs.md", $"see {HomePrefix}someone", 0)]
+    [InlineData("docs/USE.md", "++ /home/someone", 1)] // the diff's line is +++ /home/someone, an added line inside a hunk
+    [InlineData("skills/powerops-plan/SKILL.md", "++ file://host/share/x", 1)]
+    [InlineData("README.md", "++ /home/someone", 1)]
+    [InlineData("docs", "see /home/someone", 1)] // a file named docs
+    [InlineData("skills", "file:///tmp/a", 1)]
+    [InlineData("src/PowerOps.Core/Output/Sarif.cs", "var uri = \"file:///\";", 0)]
+    [InlineData("tests/PowerOps.Core.Tests/SarifTests.cs", "Assert.StartsWith(\"file:///home/\", uri);", 0)]
+    [InlineData("docs.md", "see /home/someone", 0)]
     public void The_protected_paths_script_fails_an_added_path_leak_in_docs_skills_or_the_readme_even_with_tier_L(string path, string line, int exit)
     {
         // The file is on main; the pull request adds the line to it.
@@ -1693,12 +1689,12 @@ public sealed class WorkflowTests
     [Fact]
     public void The_protected_paths_script_reads_a_new_file_or_link_in_docs_whole()
     {
-        FailsInEveryTier(Check(true, r => r.Write("docs/new.md", $"a\nsee {HomePrefix}someone/x\n")), "docs/new.md");
-        FailsInEveryTier(Check(true, r => r.Write("README.md", $"[a]({FileScheme}host/share/x)\n")), "README.md");
+        FailsInEveryTier(Check(true, r => r.Write("docs/new.md", "a\nsee /home/someone/x\n")), "docs/new.md");
+        FailsInEveryTier(Check(true, r => r.Write("README.md", "[a](file://host/share/x)\n")), "README.md");
         FailsInEveryTier(Check(true, r =>
         {
             Directory.CreateDirectory(Path.Combine(r.Dir, "docs"));
-            File.CreateSymbolicLink(Path.Combine(r.Dir, "docs", "link"), $"{HomePrefix}someone/x");
+            File.CreateSymbolicLink(Path.Combine(r.Dir, "docs", "link"), "/home/someone/x");
         }), "docs/link");
         Passes(Check(false, r => r.Write("docs/new.md", "clean\n")));
     }
@@ -1709,7 +1705,7 @@ public sealed class WorkflowTests
         var run = Check(false, r =>
         {
             r.Write(".github/x\n::error::INJECTED", "x\n");
-            r.Write("docs/a%0A::warning::FORGED name.md", $"::error::PATCH {HomePrefix}x\n");
+            r.Write("docs/a%0A::warning::FORGED name.md", "::error::PATCH /home/x\n");
         });
 
         Fails(run, ".github/x???error??INJECTED", "docs/a?0A??warning??FORGED?name.md");
