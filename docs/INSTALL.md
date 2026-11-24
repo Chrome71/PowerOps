@@ -4,7 +4,7 @@ The quick paths are in the [README](../README.md#install). This page has the det
 
 ## From a release
 
-PowerOps is not on NuGet: it ships as [GitHub Releases](https://github.com/Chrome71/PowerOps/releases). No release is published yet: until the first release, install from a clone (next section). From the first release on, each release carries five files:
+PowerOps is not on NuGet: it ships as [GitHub Releases](https://github.com/Chrome71/PowerOps/releases). Each release carries five files:
 
 - `powerops-linux-x64` and `powerops-win-x64.exe`: the whole CLI in one file each, with the .NET runtime inside, so they need no .NET SDK. They are for x64 Linux (glibc) and x64 Windows.
 - `PowerOps.<version>.nupkg`: the same CLI as a .NET tool package, for `dotnet tool install` (needs the .NET 10 SDK).
@@ -35,7 +35,7 @@ dotnet tool install --global --source . PowerOps --version <version>
 
 ## From a clone
 
-Until the first release, install from a clone. It needs the .NET 10 SDK:
+To contribute or run an unreleased commit, install from a clone (needs the .NET 10 SDK):
 
 ```sh
 dotnet pack src/PowerOps.Cli -c Release -o artifacts &&
@@ -49,7 +49,7 @@ PowerShell 7 runs that block as written. Windows PowerShell 5.1 has no `&&`, so 
 
 ## Update
 
-Update a release binary by replacing the file with the new release's, checked the same way. Update a build from a clone: uninstall, then pack and install again. Its package keeps the version of the last release (`0.0.0` until the first), whatever the commit, so installing or updating over the installed tool keeps the old build. Run this as its own command, not chained to the install: uninstalling fails when the tool is not installed.
+Update a release binary by replacing the file with the new release's, checked the same way. Update a build from a clone: uninstall, then pack and install again. Its package keeps the version of the last release, whatever the commit, so installing or updating over the installed tool keeps the old build. Run this as its own command, not chained to the install: uninstalling fails when the tool is not installed.
 
 ```sh
 dotnet tool uninstall --global PowerOps
