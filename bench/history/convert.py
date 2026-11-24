@@ -259,7 +259,7 @@ def main():
     args = parser.parse_args()
     expected = {}
     for folder in REPORTS:
-        source = f"docs/plans/{folder}/report.md"
+        source = f"maintainers/plans/{folder}/report.md"
         try:
             for record in convert((ROOT / source).read_text(encoding="utf-8"), source):
                 name = record["record_id"] + ".json"

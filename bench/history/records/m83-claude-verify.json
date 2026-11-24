@@ -5,7 +5,7 @@
   "granularity": "historical_aggregate",
   "run_count": 8,
   "recorded_at": "2026-11-10",
-  "source_ref": "docs/plans/m83-zip-linked-reviews/report.md",
+  "source_ref": "maintainers/plans/m83-zip-linked-reviews/report.md",
   "commit_sha": "6b67efb60fbb2ece1106011d2bc9fcc923a57d4c",
   "milestone": "M83",
   "task_id": null,

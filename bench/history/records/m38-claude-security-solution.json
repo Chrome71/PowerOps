@@ -5,7 +5,7 @@
   "granularity": "historical_aggregate",
   "run_count": 6,
   "recorded_at": "2026-11-02",
-  "source_ref": "docs/plans/m38-agent-team/report.md",
+  "source_ref": "maintainers/plans/m38-agent-team/report.md",
   "commit_sha": "b254179bcfaa22122e1a4042f7fb74b311ada983",
   "milestone": "M38",
   "task_id": null,
