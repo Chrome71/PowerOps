@@ -156,19 +156,10 @@ PowerOps ships seven agent skills: five turn an idea into a reviewed, signed-off
 
 ## Documentation
 
-- [Command reference](docs/COMMANDS.md)
-- [GitHub Action: merge gate and pull request comment](docs/GITHUB-ACTION.md)
-- [Flow tests](docs/FLOW-TESTS.md)
-- [Rules](docs/rules/README.md)
-- [JSON schemas](docs/schemas/README.md)
-- [Use from an agent: planning skills, plugin and MCP server](docs/USE-WITH-AGENTS.md)
-- [Install: releases, checksums, updating, Windows notes](docs/INSTALL.md)
-- [Hand-off to Microsoft's skills](docs/HANDOFF.md)
-- [Recovery after an import that stops](docs/RECOVERY.md)
-- [What an agent client must provide](docs/HARNESS.md)
-- [Example workflows: Dev to Test promotion, an environment per pull request](docs/examples/README.md)
-- [Planning skills design](docs/PLANNING-SKILLS.md)
-- [Foundation plan and roadmap](docs/FOUNDATION.md)
+- **Reference:** [Commands](docs/COMMANDS.md) · [Rules](docs/rules/README.md) · [Flow tests](docs/FLOW-TESTS.md) · [JSON schemas](docs/schemas/README.md)
+- **Setup & CI:** [Install](docs/INSTALL.md) · [GitHub Action](docs/GITHUB-ACTION.md) · [Example workflows](docs/examples/README.md) · [Recovery](docs/RECOVERY.md)
+- **Agents:** [Use from an agent](docs/USE-WITH-AGENTS.md) · [Hand-off to Microsoft's skills](docs/HANDOFF.md) · [Client harness matrix](docs/HARNESS.md)
+- **Project:** [Foundation plan](docs/FOUNDATION.md) · [Maintainer records](maintainers/README.md)
 
 ## Contributing
 
