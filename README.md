@@ -6,7 +6,7 @@ Check, compare, test and deploy Microsoft Power Platform solutions from the comm
 
 PowerOps is a free, open-source toolkit for Windows and Linux. It works alongside `pac`; it does not replace it. It brings software-engineering discipline (analysis, diffing, testing, repeatable deployment) to Power Platform.
 
-**Status:** early development, not yet released. The [commands](#commands) below are built.
+**Status:** preview release. The [commands](#commands) below are built.
 
 ## What it does
 
@@ -48,7 +48,7 @@ such as starting a new agent session so the plugin loads.
 
 ### Install it yourself
 
-From a release: download `powerops-linux-x64` or `powerops-win-x64.exe` from the [latest release](https://github.com/Chrome71/PowerOps/releases/latest), check it against `SHA256SUMS`, and put it on your PATH as `powerops`. It is the whole CLI in one file and needs no .NET SDK; the steps are in [Install PowerOps](docs/INSTALL.md#from-a-release). No release is published yet: until the first release, install from a clone of this repo (needs the .NET 10 SDK):
+From a release: download `powerops-linux-x64` or `powerops-win-x64.exe` from the [latest release](https://github.com/Chrome71/PowerOps/releases/latest), check it against `SHA256SUMS`, and put it on your PATH as `powerops`. It is the whole CLI in one file and needs no .NET SDK; the steps are in [Install PowerOps](docs/INSTALL.md#from-a-release). Or install from a clone of this repo (needs the .NET 10 SDK):
 
 ```sh
 dotnet pack src/PowerOps.Cli -c Release -o artifacts &&
@@ -83,7 +83,7 @@ powerops analyze solution
 powerops test solution --tests tests
 ```
 
-`analyze` exits 0 with two warnings, PO005 and PO006, and ends with `1 solution, 0 errors, 2 warnings`; `test` exits 0 and ends with `2 tests: 2 passed, 0 failed, 0 unmocked, 0 unsupported`. No release is published yet: until then the same files are in a clone of this repository, and from its root the two commands are `powerops analyze tests/fixtures/powerops-seed/v2` and `powerops test tests/fixtures/powerops-seed/v2 --tests tests/fixtures/flowtests/seed`, with the same result.
+`analyze` exits 0 with two warnings, PO005 and PO006, and ends with `1 solution, 0 errors, 2 warnings`; `test` exits 0 and ends with `2 tests: 2 passed, 0 failed, 0 unmocked, 0 unsupported`. In a clone of this repository, the same files live under `tests/fixtures/powerops-seed/v2` and `tests/fixtures/flowtests/seed`, and from its root the two commands are `powerops analyze tests/fixtures/powerops-seed/v2` and `powerops test tests/fixtures/powerops-seed/v2 --tests tests/fixtures/flowtests/seed`, with the same result.
 
 ### Plan an app
 
