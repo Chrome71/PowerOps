@@ -2,7 +2,7 @@
 
 **One line:** agent skills, shipped with PowerOps, that turn a vague Power Platform idea into a reviewed, signed-off plan before any code or solution change is made.
 
-Status: design, 2026-10-19, revised the same day after a prototype test, a survey of existing skills and an independent design review. Built as milestone M3 ([BUILD-PLAN.md](BUILD-PLAN.md)).
+Status: design, 2026-10-19, revised the same day after a prototype test, a survey of existing skills and an independent design review. Built as milestone M3 ([BUILD-PLAN.md](../maintainers/BUILD-PLAN.md)).
 
 ## Why
 
@@ -293,7 +293,7 @@ It also lists `writes.md` (its rows and open cleanups), warns about a row of a t
 | Pi with local Qwen | `--skill <path>` | numbered text | No sandbox and no subagent, so a role runs as a new session from the request Pi writes. Failed one M39 client check: a change of scope drafted a new plan and asked three questions |
 | Chat-only (web) | none | numbered text | User pastes the instructions and switches models by hand. Manual, with no gate |
 
-**Supported:** Claude Code and Codex. Copilot CLI passed the M39 client checks, and Antigravity CLI and Pi with local Qwen each failed one of them, once each, so all three are **provisional**. Gemini CLI is **provisional, untested**: the skills should work there, but no verification run has been done. The results are in the [verification record](BUILD-PLAN.md#verification-record).
+**Supported:** Claude Code and Codex. Copilot CLI passed the M39 client checks, and Antigravity CLI and Pi with local Qwen each failed one of them, once each, so all three are **provisional**. Gemini CLI is **provisional, untested**: the skills should work there, but no verification run has been done. The results are in the [verification record](../maintainers/BUILD-PLAN.md#verification-record).
 
 **Install.** `powerops skills install` writes `.agents/skills/powerops-*/` (Codex, Gemini, Copilot and most other agents) and `.claude/skills/powerops-*/` (Claude Code). Agents that read both folders may list a skill twice, so it writes only the folders for the agents it detects. It writes real copies, never links. Running it again is safe; it refuses to overwrite skill files that differ from the shipped ones unless `--force` is given. It never edits `AGENTS.md`.
 
@@ -331,7 +331,7 @@ Rule: copy nothing that is not clearly MIT or Apache-2.0 at file level. Adapting
 - Question **quality** cannot be proven in CI, but the protocol's **shape** can: a scripted smoke test with a simulated user (as in the prototype test) checks round size, option order, `decisions.md` logging and the stop behaviour. It costs model credits, so it runs as a weekly scheduled job, not in per-build CI (see Decisions).
 - HTML mockups are visual sketches, not canvas app source. Generating `.pa.yaml` from a plan is out of scope for the first version.
 
-The Verifier and the Security reviewer have these limits as well ([M38 report](plans/m38-agent-team/report.md), [M39 report](plans/m39-ship-roles/report.md)):
+The Verifier and the Security reviewer have these limits as well ([M38 report](../maintainers/plans/m38-agent-team/report.md), [M39 report](../maintainers/plans/m39-ship-roles/report.md)):
 
 - **Reduced tools per role is instruction, not enforcement.** Each skill lists the commands it may run. PowerOps adds no tool narrowing on any client, so a role runs with the session's tools. In the client checks, Claude Code's reviewers ran `ls`, `which` or `find`, which their lists don't name.
 - **Named clients only.** The plan for these roles names five clients: Claude Code, Codex, Antigravity CLI, Copilot CLI and Pi with a local Qwen model. Any client outside those five is a stated limit, and "any client" stays an aim, not a claim.

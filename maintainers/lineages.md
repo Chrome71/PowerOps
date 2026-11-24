@@ -68,7 +68,7 @@ These project fixtures are Apache-2.0. Each synthetic flow in the final six rows
 
 ## Plan cases and pilot
 
-Each plan directory contains the project's hand-written plan and decisions with invented organisations, users and numbers. M38 cases and pilots were tracked on 2026-11-02. M41 added the two ledger cases on 2026-11-03. The two depot variants have the same goal. For split assignment they also stay with the earlier equipment-loans plan. [Role-case notice](../tests/eval/roles/NOTICE.md) · [M41 plan](../docs/plans/m41-size-brake/plan.md)
+Each plan directory contains the project's hand-written plan and decisions with invented organisations, users and numbers. M38 cases and pilots were tracked on 2026-11-02. M41 added the two ledger cases on 2026-11-03. The two depot variants have the same goal. For split assignment they also stay with the earlier equipment-loans plan. [Role-case notice](../tests/eval/roles/NOTICE.md) · [M41 plan](plans/m41-size-brake/plan.md)
 
 | lineage_id | Tracked case | Provenance | Scenario |
 |---|---|---|---|

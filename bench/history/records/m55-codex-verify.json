@@ -5,7 +5,7 @@
   "granularity": "historical_aggregate",
   "run_count": 8,
   "recorded_at": "2026-11-05",
-  "source_ref": "docs/plans/m55-role-freeze/report.md",
+  "source_ref": "maintainers/plans/m55-role-freeze/report.md",
   "commit_sha": "850db2812901370e1fdea442c915eb73d057e918",
   "milestone": "M55",
   "task_id": null,

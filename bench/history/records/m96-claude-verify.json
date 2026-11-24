@@ -5,7 +5,7 @@
   "granularity": "historical_aggregate",
   "run_count": 9,
   "recorded_at": "2026-11-14",
-  "source_ref": "docs/plans/m96-security-coverage/report.md",
+  "source_ref": "maintainers/plans/m96-security-coverage/report.md",
   "commit_sha": "b7f9f098676d13633475edbfb63a3262246893cd",
   "milestone": "M96",
   "task_id": null,

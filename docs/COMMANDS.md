@@ -853,11 +853,11 @@ It also reads the agents of every solution whose import went through (`ok`), onc
 Each agent is `found`, `missing` or `not-read`, and a found one has `publishedOn`, which says only that the row's `publishedon` is set (*Agent (bot) table/entity reference*, read 2026-11-09).
 
 `missing` means no row came back, which also happens when the reading account can't see that agent: Environment Maker sees only the agents it owns or that are shared with it (*Secure your Copilot Studio projects*, read 2026-11-09).
-This read has run against a tenant once ([trial 3](plans/m89-apply-report/decisions.md#evidence), an agent `found`), so `missing` is still a prompt to check in Copilot Studio, not proof.
+This read has run against a tenant once ([trial 3](../maintainers/plans/m89-apply-report/decisions.md#evidence), an agent `found`), so `missing` is still a prompt to check in Copilot Studio, not proof.
 Nothing is read before the import, so for an upgrade, or an agent the target already held, `publishedOn: true` doesn't show what the import did.
 
 `agentsReadAt` in the report is the UTC time at which this read returned, null when no agent came back `found` or `missing`; when it is set, the text report adds a `note:` line with it.
-An agent can still become published after this read: in one run ([trial 3](plans/m89-apply-report/decisions.md#evidence)) its row read published 40 seconds after the import ended, though Learn says to publish an imported agent before sharing it (*Export and import agents using solutions*, read 2026-11-11).
+An agent can still become published after this read: in one run ([trial 3](../maintainers/plans/m89-apply-report/decisions.md#evidence)) its row read published 40 seconds after the import ended, though Learn says to publish an imported agent before sharing it (*Export and import agents using solutions*, read 2026-11-11).
 Check in Copilot Studio, or run `drift` between the source environment and the target, which reports `agent-published` while the agent is published in only one.
 
 `not-read` means the read failed (a `warning: the agent read-back failed: ...` line is on stderr) or the name is not one powerops sends (letters, digits and underscores, at most 100 characters).
